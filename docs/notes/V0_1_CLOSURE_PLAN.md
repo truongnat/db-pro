@@ -12,21 +12,24 @@
 > returns `EVIDENCE_GAP` for V01-01, V01-02, V01-04 and V01-05 and `PARTIAL` for V01-03.
 > Every `PASS / VERIFIED` state and every `[x]` in §3 below records what was claimed on
 > 2026-09-14; those marks are **claims, not evidence**, and are superseded by the per-gate
-> corrections in §3. Nothing was deleted. V01-06 is `PARTIAL` and V01-07 is `BLOCKED` — see
-> §3.6/§3.7. Do not read this plan as a list of closed gates.
+> corrections in §3. Nothing was deleted. **V01-06 is `PASS`** (build/quality/artifact gates, with
+> the runtime and GUI limits stated in §3.6) and **V01-07 is `RC PREPARED`; public release is
+> `BLOCKED on R-LICENSE`** — see §3.6/§3.7. Do not read this plan as a list of closed gates.
 
-> **Pipeline status — 2026-09-14 (release-pipeline pass).** The release pipeline itself is now
-> verified end to end: run **`34859158012`** completed **fully green** for SHA `1a0c186`
-> (`Resolve` ✔, `Pre-flight checks` ✔ on the pinned 1.95.0 toolchain, `Build (macOS|Windows|Linux)`
-> ✔, `Package (macOS|Windows|Linux)` ✔, `Assemble SHA256SUMS` ✔), its three archives and
-> `SHA256SUMS.txt` were independently checksum-verified, and the provenance record named
-> `candidate_sha 1a0c186…`, `rustc 1.95.0 (59807616e 2026-04-14)`, `version 0.1.0`. The
-> pre-flight blocker chain (toolchain drift → Linux D-Bus → flaky ER worker test) is closed by
-> `fbf9fda`, `e22a498`, `1a0c186` (`risk-register.md` `R-CI-PREFLIGHT`). The **final** release run
-> `34860902181` is in flight for the current HEAD `85a7fa3` (which adds the packaged install-note
-> fix, `85a7fa3`, `R-INSTALL-NOTE`); every final artifact value below reads `PENDING_FINAL_CI_RUN_34860902181`.
-> **Green CI does not close V01-01…V01-05:** their gaps are runtime evidence, not build evidence
-> (§3.6 and `04-v01-01-05-evidence-audit.md`).
+> **Pipeline status — 2026-09-14 (release-pipeline pass, final).** The release pipeline is
+> verified end to end and **finalized**: the **final run `34860902181`** was dispatched with
+> `workflow_dispatch` on `main` for the candidate `85a7fa3cc0a84c56ac2a5049ce08130db06e0a20` and
+> every job is green (`Resolve release candidate` ✔, `Pre-flight checks` ✔ on the pinned 1.95.0
+> toolchain, `Build (macOS|Windows|Linux)` ✔, `Package (macOS|Windows|Linux)` ✔, `Assemble
+> SHA256SUMS` ✔). Its three archives and `SHA256SUMS.txt` were independently re-hashed on this
+> host, the archive member lists matched the contract, the archived `README-INSTALL.txt` carries
+> the corrected four-branch state-directory text, and the provenance record names
+> `candidate_sha 85a7fa3…`, `short_sha 85a7fa3`, `rustc 1.95.0 (59807616e 2026-04-14)`,
+> `version 0.1.0`, `source_kind commit`, `event workflow_dispatch`. The green history that led here:
+> run `34859158012` (`1a0c186`), after the pre-flight blocker chain (toolchain drift → Linux D-Bus
+> → flaky ER worker test) was closed by `fbf9fda`, `e22a498` and `1a0c186`
+> (`risk-register.md` `R-CI-PREFLIGHT`). **Green CI does not close V01-01…V01-05:** their gaps are
+> runtime evidence, not build evidence (§3.6 and `04-v01-01-05-evidence-audit.md`).
 
 ---
 
@@ -67,7 +70,7 @@ The remaining gap to ship `v0.1.0` is **not new feature code**, but **runtime ve
 | **Table Data Editor & Safety** | Staged mutations, 3-way conflict, PK reload, safety policy | `RUNTIME_VERIFY` (unchanged) | Live PostgreSQL & SQLite mutation safety walkthrough, rollback verification |
 | **Connection & Workspace** | Registry, credentials, SSH tunnel, startup recovery | `RUNTIME_VERIFY` (unchanged) | Live connect/disconnect, bad credential nudge; **workspace tab restore does not exist in the shipping build** (eframe persistence is off — see `risk-register.md` R-015) |
 | **Agent Workflow** | 9 canonical tools, preview/confirmation, IME safety | `RUNTIME_VERIFY` (Preview) | Desktop panel smoke with live DB execution; live provider key run |
-| **Packaging & Release Build** | Native `db-pro-native` target + portable archives | `PARTIAL` | **Builds and packages verified in CI**: run `34859158012` green end to end for `1a0c186`, with all three archives + `SHA256SUMS.txt` independently checksum-verified. Windows/Linux remain `BUILD_VERIFIED` / `RUNTIME_UNVERIFIED` (no host). Host install smoke = extraction + launch + state persistence verified; GUI interaction **NOT VERIFIED** (`14-install-smoke.txt` §7.7). Final artifact values for HEAD `85a7fa3`: `PENDING_FINAL_CI_RUN_34860902181`. Contract is portable archives + `SHA256SUMS.txt` — **no `.dmg`/`.msi`/`.deb`/`.rpm`/AppImage** (deferred) |
+| **Packaging & Release Build** | Native `db-pro-native` target + portable archives | `PASS` (V01-06) | **Builds and packages verified in CI, final**: run `34860902181` green end to end for the candidate `85a7fa3` — all three archives + `SHA256SUMS.txt` independently re-hashed and member lists contract-checked (final values in `0.1.0-readiness.md` / `0.1.0-handoff.md` §3). Windows/Linux remain `BUILD_VERIFIED` / `RUNTIME_UNVERIFIED` (no host). Host install smoke = extraction + launch + file-level state persistence verified, including on the CI-produced artifact; GUI interaction **NOT VERIFIED** (`14-install-smoke.txt` §7.7, runbook §8). Contract is portable archives + `SHA256SUMS.txt` — **no `.dmg`/`.msi`/`.deb`/`.rpm`/AppImage** (deferred) |
 
 ### Explicitly Deferred Scope (NON-BLOCKERS for v0.1)
 
@@ -230,44 +233,72 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 ### V01-06 — Cross-Platform Release Build & Quality Gates
 
 - **Feature**: Multi-Platform Native Binary Packaging & Workspace Quality Gates.
-- **Current State**: `PARTIAL` (2026-09-14) — accurate composite. What is verified, in order:
-  - **PASS — local quality gates.** All six gates exit 0 on the pinned rustc 1.95.0: fmt, check,
-    clippy `-D warnings`, `cargo test --workspace` = **815 passed / 0 failed / 19 ignored**,
-    `cargo build --release --locked -p db-pro-native`, perf-scan `PASS 4/0/0`. Evidence:
+- **Current State**: **`PASS`** (2026-09-14, final) — V01-06 closes with the precise sub-results
+  below. Every `✔` is a measured CI result; every limitation is stated where it exists.
+  - **Quality gates: PASS.** All six gates exit 0 on the pinned rustc **1.95.0**: fmt, check,
+    clippy `-D warnings`, `cargo test --workspace` = **815 passed / 0 failed / 19 ignored** (the 19
+    are `#[ignore]`d and are **not** counted as passing), `cargo build --release --locked -p
+    db-pro-native`, perf-scan `PASS 4/0/0`. Locally, and in CI: `Pre-flight checks` ✔ on the pinned
+    toolchain in the final run `34860902181` (and in run `34859158012` before it). Evidence:
     `docs/release/evidence/v01-06/02-quality-gates.txt`, `08-post-fix-quality-gates.txt` §8,
     `12-state-dir-blocker-fix.txt` §4, `13-flaky-er-worker-test.txt` §8.
-  - **PASS — release pre-flight in CI.** `Pre-flight checks` ✔ (fmt/clippy/tests) on the pinned
-    1.95.0 toolchain in run `34859158012`. The blocker chain that delayed it — toolchain drift →
-    Linux D-Bus → flaky ER worker test — is `FIXED` by `fbf9fda`, `e22a498` and `1a0c186`
-    (`risk-register.md` `R-CI-PREFLIGHT`; `13-flaky-er-worker-test.txt`).
-  - **PASS — all three platform builds and packages in CI.** Run `34859158012` (SHA `1a0c186`):
-    `Build (macOS)` ✔, `Build (Windows)` ✔, `Build (Linux)` ✔, `Package (macOS|Windows|Linux)` ✔,
-    `Assemble SHA256SUMS` ✔ — the workflow is green end to end. Windows/Linux are therefore
-    `BUILD_VERIFIED` (and packaged); they remain **`RUNTIME_UNVERIFIED`** because no Windows/Linux
-    host exists in this project. The two states are deliberately not blurred.
-  - **PASS — artifact checksums independently verified (run `34859158012` only).** The three
-    archives were downloaded and their SHA-256 values reproduced byte-for-byte with
-    `shasum -a 256` against the run's `SHA256SUMS.txt`; archive member lists matched the contract;
-    provenance named `candidate_sha 1a0c186…`, `rustc 1.95.0 (59807616e 2026-04-14)`,
-    `version 0.1.0`. **These are not the final release values** — the labelled table lives in
-    `risk-register.md` §4.
-  - **PARTIAL — host install smoke.** Extraction, LaunchServices launch and **file-level** state
-    persistence are verified on the packaged archive built from `1a0c186` (`14-install-smoke.txt`
-    §1–§5); **every GUI step is `NOT VERIFIED`** (§7.7) because the GUI was unreachable in that
-    environment for four separately recorded reasons (§7.1–§7.6). Human runbook to close it: §8.
-    `docs/release/0.1.0-ui-visual-description.md` is a code-derived surface description and does
-    **not** close this gap.
-  - **PENDING — final artifact values for the current HEAD.** The final release run `34860902181`
-    is in flight for `85a7fa3` (which adds the packaged install-note fix, `R-INSTALL-NOTE`); its
-    sizes and hashes read `PENDING_FINAL_CI_RUN_34860902181` everywhere in these documents.
+  - **macOS ARM64 (`aarch64-apple-darwin`) — BUILD ✔ / RUNTIME ✔ / PACKAGE ✔ / SIGNING
+    `UNSIGNED`.** BUILD: `Build (macOS)` ✔ in run `34860902181`; binary 23,716,592 B in CI
+    (23,733,024 B locally), sha256 `cf40855baa980cdaba8d738f40d0bd88cde939225b8fb8e1834c7b80dfacb55c`,
+    Mach-O 64-bit arm64. RUNTIME: **limited to** "launches, stays alive, creates and reuses its
+    state directory" — verified on the packaged artifact (`14-install-smoke.txt` §1–§5) and again
+    on the CI-produced artifact of the final run (process runs from the extracted bundle;
+    `~/Library/Application Support/DB Pro/meta.db` reused with identical inode/size/mtime;
+    `/.db-pro-data` absent; clean SIGTERM exit). It does **not** include a rendered window, Settings
+    or query execution — see the GUI line below. PACKAGE: `Package (macOS)` ✔; archive
+    `db-pro-v0.1.0-macos-arm64.tar.gz` **10,045,965 B**, sha256
+    `8141d6b7b7ecd98399dd9c2ca23c345da96df496abe0cd0169f9ab967bf2a83a`, containing `DB Pro.app`
+    (`Contents/Info.plist`, `Contents/MacOS/db-pro-native`) + `README-INSTALL.txt`; the archived
+    note carries the corrected four-branch state-directory order. SIGNING: `UNSIGNED` —
+    `adhoc`/linker-signed, `spctl` rejects.
+  - **Windows x86_64 (`x86_64-pc-windows-msvc`) — BUILD ✔ / PACKAGE ✔ / RUNTIME
+    `RUNTIME_UNVERIFIED` / SIGNING `UNSIGNED`.** `Build (Windows)` ✔ and `Package (Windows)` ✔ in
+    run `34860902181` (intermediate `db-pro-native.exe` 24,227,840 B; PE machine `0x8664`
+    asserted); archive `db-pro-v0.1.0-windows-x86_64.zip` **10,076,835 B**, sha256
+    `3b0ba8ebe8b7aa86d51a53eb1ddc7dd6f5adccaad57e6adc5d26536de4580452`, members `db-pro-native.exe`
+    + `README-INSTALL.txt`. **No Windows host exists**, so no process has ever been launched:
+    `BUILD_VERIFIED` / `PACKAGE_VERIFIED`, never `RUNTIME_VERIFIED`. SIGNING: `UNSIGNED` (none
+    configured).
+  - **Linux x86_64 (`x86_64-unknown-linux-gnu`) — BUILD ✔ / PACKAGE ✔ / RUNTIME
+    `RUNTIME_UNVERIFIED` / SIGNING `UNSIGNED`.** `Build (Linux)` ✔ and `Package (Linux)` ✔ in run
+    `34860902181` (intermediate binary 41,549,112 B; ELF `x86-64` asserted); archive
+    `db-pro-v0.1.0-linux-x86_64.tar.gz` **15,168,133 B**, sha256
+    `3fecfc171dfae339c2c81d9f79be4616eb4168255116137d59e795ef09194970`, members `db-pro-native`
+    + `README-INSTALL.txt`. No Linux host: `RUNTIME_UNVERIFIED`. SIGNING: `UNSIGNED` (none
+    configured).
+  - **macOS x64: NOT BUILT** (not in the matrix; no universal binary). Recorded, not claimed.
+  - **Artifacts**: the three archives above, plus `SHA256SUMS.txt` (298 bytes) and the provenance
+    artifact `db-pro-provenance-v0.1.0-85a7fa3` (`candidate_sha
+    85a7fa3cc0a84c56ac2a5049ce08130db06e0a20`, `short_sha 85a7fa3`, `rustc 1.95.0 (59807616e
+    2026-04-14)`, `version 0.1.0`, `source_kind commit`, `event workflow_dispatch`).
+  - **Checksums: PASS.** `SHA256SUMS.txt` is assembled by the `checksums` job; all three values were
+    reproduced byte-for-byte locally with `shasum -a 256` against the final run's manifest, and the
+    archive member lists matched the contract exactly.
+  - **GUI install smoke — NOT VERIFIED.** The interactive install-smoke steps remain unexecuted:
+    window rendering, Settings navigation (incl. light/dark), creating a SQLite connection through
+    the UI, `SELECT 1;` / `SELECT * FROM items;`, a clean window-close/⌘Q exit, and relaunch
+    persistence of a saved connection (`14-install-smoke.txt` §7.7). **Blocker reason:** no GUI
+    automation is available in this environment — `orca computer get-app-state --app com.dbpro.app
+    --json` and `orca computer list-windows …` return `{"code":"runtime_unavailable","message":
+    "Could not read Orca runtime metadata at /Users/truongdev/Library/Application Support/orca/
+    orca-runtime.json. Start the Orca app first."}` for every app; `osascript … System Events`
+    returns `Not authorized to send Apple events to System Events. (-1743)`; `screencapture -x`
+    returns `could not create image from display`. A human runbook that closes it is
+    `14-install-smoke.txt` §8.
   - **Superseded wording, kept visible.** The earlier bullets read: *"**PASS (host only)**: local
     macOS ARM64 build + bundle/launch smoke — `DB Pro.app` archive produced; process runs and exits
     on SIGTERM. No window/GUI interaction was observed (harness limitation). Evidence:
-    `08-post-fix-quality-gates.txt` §3."* and *"**PENDING**: cross-platform artifacts … a
-    re-dispatch for the current HEAD is required (`PENDING_CI_RUN_RE_DISPATCH`). Windows/Linux
-    remain `BUILD_UNVERIFIED` …"*. Both are superseded by the bullets above: the re-dispatch
-    happened (run `34859158012`, green) and the `PENDING_CI_RUN_RE_DISPATCH` token is retired in
-    favour of `PENDING_FINAL_CI_RUN_34860902181`.
+    `08-post-fix-quality-gates.txt` §3."* and *"**not yet done**: cross-platform artifacts … a
+    re-dispatch for the current HEAD is required (recorded at the time with a placeholder token
+    meaning 're-dispatch needed'). Windows/Linux remain `BUILD_UNVERIFIED` …"*. Both are
+    superseded by the bullets above: the re-dispatch happened (run `34859158012`, green), the
+    final run `34860902181` closed the artifact question entirely, and both placeholder tokens
+    were retired with the real values recorded in their place.
     - **CORRECTION (2026-09-14, appended — the original "LaunchServices-accepted" wording is kept visible above, but it was misleading):** `open` returning 0 does **not** mean the packaged app started. A LaunchServices-launched `.app` inherits `cwd=/`, the app resolved its state directory to `/.db-pro-data`, and the process exited 1 with `CreateDataDir(Os { code: 30, kind: ReadOnlyFilesystem, message: "Read-only file system" })` before opening a window. Reproduced and fixed in code commit `543b526` (`R-STATE-DIR` → `FIXED`); artifact-level re-verification (`open`-launched bundle alive past 30 s, `~/Library/Application Support/DB Pro/meta.db` created, no `/.db-pro-data`) and the post-fix gate numbers (**815 passed / 0 failed / 19 ignored**) are in `docs/release/evidence/v01-06/12-state-dir-blocker-fix.txt`. The packaged-archive re-check is `14-install-smoke.txt` §1–§5; the GUI half of that smoke is `NOT VERIFIED` (§7.7).
   - **Correction**: the artifact contract listed below (`.dmg`, `.msi`, `.deb`) is **not** the v0.1 contract. v0.1 ships portable archives (`db-pro-v0.1.0-macos-arm64.tar.gz` with a minimal `DB Pro.app`, `db-pro-v0.1.0-windows-x86_64.zip`, `db-pro-v0.1.0-linux-x86_64.tar.gz`) plus `SHA256SUMS.txt`; installers are DEFERRED. See `docs/release/0.1.0-packaging.md`.
 
@@ -275,15 +306,23 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 
 | Platform | BUILD | RUNTIME | PACKAGE | SIGNING |
 |---|---|---|---|---|
-| macOS ARM64 (`aarch64-apple-darwin`) | PASS — local (`03-release-binary.txt`, `12-…txt` §4) and CI run `34859158012` | `PARTIAL` — process launch/idle PASS and file-level state reuse PASS on the packaged archive (`14-install-smoke.txt` §1–§5); **GUI interaction NOT VERIFIED** (§7.7); runtime QA not run | PASS in CI (run `34859158012`); final values for HEAD `85a7fa3`: `PENDING_FINAL_CI_RUN_34860902181` | `UNSIGNED` — `adhoc`/linker-signed, `spctl` rejects |
+| macOS ARM64 (`aarch64-apple-darwin`) | ✔ — local (`03-release-binary.txt`, `12-…txt` §4) and CI `Build (macOS)` ✔ in the final run `34860902181` | ✔ **limited** — launches, stays alive, creates and reuses its state directory (packaged archive `14-install-smoke.txt` §1–§5, re-verified on the CI-produced artifact of run `34860902181`); **no window rendered or interacted with**, so interactive runtime is `NOT VERIFIED` (§7.7), runtime QA not run | ✔ `Package (macOS)` in CI; `db-pro-v0.1.0-macos-arm64.tar.gz` 10,045,965 B, sha256 `8141d6b7…2a83a`, `.app` + note, contract-checked | `UNSIGNED` — `adhoc`/linker-signed, `spctl` rejects |
 | macOS x64 | **NOT BUILT** (not in matrix) | — | — | — |
-| Windows x86_64 (`x86_64-pc-windows-msvc`) | **`BUILD_VERIFIED`** — CI run `34859158012` | `RUNTIME_UNVERIFIED` (no host) | PASS in CI (run `34859158012`); final values `PENDING_FINAL_CI_RUN_34860902181` | `UNSIGNED` (none configured) |
-| Linux x86_64 (`x86_64-unknown-linux-gnu`) | **`BUILD_VERIFIED`** — CI run `34859158012` | `RUNTIME_UNVERIFIED` (no host) | PASS in CI (run `34859158012`); final values `PENDING_FINAL_CI_RUN_34860902181` | `UNSIGNED` (none configured) |
+| Windows x86_64 (`x86_64-pc-windows-msvc`) | ✔ **`BUILD_VERIFIED`** — CI `Build (Windows)` ✔ in the final run `34860902181` | `RUNTIME_UNVERIFIED` (no host; nothing has ever been launched from the archive) | ✔ `Package (Windows)` in CI; `db-pro-v0.1.0-windows-x86_64.zip` 10,076,835 B, sha256 `3b0ba8eb…4580452`, `.exe` + note | `UNSIGNED` (none configured) |
+| Linux x86_64 (`x86_64-unknown-linux-gnu`) | ✔ **`BUILD_VERIFIED`** — CI `Build (Linux)` ✔ in the final run `34860902181` | `RUNTIME_UNVERIFIED` (no host) | ✔ `Package (Linux)` in CI; `db-pro-v0.1.0-linux-x86_64.tar.gz` 15,168,133 B, sha256 `3fecfc17…194970`, binary + note | `UNSIGNED` (none configured) |
 
-- **Quality gates**: **PASS** — local 6/6 on rustc 1.95.0 (`815 passed / 0 failed / 19 ignored` after the `543b526` state-directory fix; the pre-fix candidate figure was 811/0/19), and `Pre-flight checks` green in CI run `34859158012`.
-- **Artifacts**: exact names above; run `34859158012` (SHA `1a0c186`) produced all three and their sizes/hashes were independently verified (labelled table: `risk-register.md` §4). Final values for HEAD `85a7fa3`: `PENDING_FINAL_CI_RUN_34860902181`.
-- **Checksums**: `SHA256SUMS.txt` is assembled by the `checksums` job and its run-`34859158012` values were reproduced byte-for-byte locally; final values `PENDING_FINAL_CI_RUN_34860902181`.
-- **Remaining blockers**: interactive GUI install smoke (`R-GUI-SMOKE`, `14-install-smoke.txt` §7.7); Windows/Linux runtime verification (no host); `R-LICENSE` for public distribution; unsigned artifacts (accepted); V01-01…V01-05 runtime evidence gaps (not closed here).
+- **Quality gates**: **PASS** — local 6/6 on rustc 1.95.0 (`815 passed / 0 failed / 19 ignored` at
+  the candidate; the pre-fix figure was 811/0/19), and `Pre-flight checks` green in CI in the final
+  run `34860902181`.
+- **Artifacts**: exact names and sizes above; `SHA256SUMS.txt` (298 bytes) +
+  `db-pro-provenance-v0.1.0-85a7fa3`. Full values: `0.1.0-readiness.md`, `0.1.0-handoff.md` §3,
+  `risk-register.md` §4, `0.1.0-final-report.md`.
+- **Checksums**: **PASS** — all three values reproduced byte-for-byte locally against the final
+  run's `SHA256SUMS.txt`.
+- **Remaining blockers**: interactive GUI install smoke (`R-GUI-SMOKE`,
+  `14-install-smoke.txt` §7.7); Windows/Linux runtime verification (no host); `R-LICENSE` for
+  public distribution; unsigned artifacts (accepted); V01-01…V01-05 runtime evidence gaps (not
+  closed here). **None of these is a build or packaging failure.**
 - **Exact Verification Needed** *(status per item as of 2026-09-14)*:
   - [x] Workspace Quality Gates (all exit 0):
     ```bash
@@ -296,54 +335,88 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
     ```bash
     cargo build --release --locked -p db-pro-native
     ```
-  - [x] Multi-Platform Artifact Generation — **run `34859158012` (SHA `1a0c186`) green**: `Build` ×3 ✔, `Package` ×3 ✔, `Assemble SHA256SUMS` ✔; archives verified against the contract (member lists + independent checksums). Final values for the current HEAD (`85a7fa3`, run `34860902181`) are `PENDING_FINAL_CI_RUN_34860902181`:
-    - [x] macOS: ARM64 (`aarch64-apple-darwin`) portable `.tar.gz` containing `DB Pro.app` — run `34859158012` (10,045,739 B, sha256 `911335d0…`); final values `PENDING_FINAL_CI_RUN_34860902181`.
-    - [x] Windows: x86_64 (`x86_64-pc-windows-msvc`) `.zip` — run `34859158012` (10,076,654 B, sha256 `62870d9a…`); `BUILD_VERIFIED`, `RUNTIME_UNVERIFIED`; final values `PENDING_FINAL_CI_RUN_34860902181`.
-    - [x] Linux: x86_64 (`x86_64-unknown-linux-gnu`) `.tar.gz` — run `34859158012` (15,167,954 B, sha256 `d28bbf3a…`); `BUILD_VERIFIED`, `RUNTIME_UNVERIFIED`; final values `PENDING_FINAL_CI_RUN_34860902181`.
-  - [ ] Artifact execution verification on host operating system — macOS process-level launch and file-level state persistence PASS on the packaged archive; **GUI smoke NOT VERIFIED** (`14-install-smoke.txt` §7.7, runbook §8); Windows/Linux not attempted (no host).
+  - [x] Multi-Platform Artifact Generation — **final run `34860902181` (candidate `85a7fa3`) green**:
+    `Build` ×3 ✔, `Package` ×3 ✔, `Assemble SHA256SUMS` ✔; archives verified against the contract
+    (member lists + independent checksums):
+    - [x] macOS: ARM64 (`aarch64-apple-darwin`) portable `.tar.gz` containing `DB Pro.app` —
+      10,045,965 B, sha256 `8141d6b7…2a83a`.
+    - [x] Windows: x86_64 (`x86_64-pc-windows-msvc`) `.zip` — 10,076,835 B, sha256 `3b0ba8eb…4580452`;
+      `BUILD_VERIFIED`, `RUNTIME_UNVERIFIED`.
+    - [x] Linux: x86_64 (`x86_64-unknown-linux-gnu`) `.tar.gz` — 15,168,133 B, sha256
+      `3fecfc17…194970`; `BUILD_VERIFIED`, `RUNTIME_UNVERIFIED`.
+  - [ ] Artifact execution verification on host operating system — macOS process-level launch,
+    file-level state persistence and clean SIGTERM exit PASS on the packaged archive **and on the
+    CI-produced artifact of the final run**; **GUI smoke NOT VERIFIED** (`14-install-smoke.txt`
+    §7.7, runbook §8); Windows/Linux not attempted (no host).
 - **Provider Scope**: Cross-platform runtime hosts.
-- **Evidence Location**: `docs/release/evidence/v01-06/*` (incl. `14-install-smoke.txt`), `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md`, CI release run `34859158012` (completed, green) and run `34860902181` (in flight, final values pending).
+- **Evidence Location**: `docs/release/evidence/v01-06/*` (incl. `14-install-smoke.txt`),
+  `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md`,
+  `docs/release/0.1.0-final-report.md`, CI release run `34860902181` (final, green) and run
+  `34859158012` (superseded, green).
 - **Blocker Severity**: `P0` (deliverable gate).
-- **Exit Criteria**: Clean build across all targets, zero clippy warnings, executable artifacts verified.
-- **Remaining blockers**: interactive GUI install smoke; `R-LICENSE` (public release only); unsigned artifacts (accepted); Windows/Linux runtime verification (no host).
+- **Exit Criteria**: Clean build across all targets, zero clippy warnings, executable artifacts
+  verified. **Met**, with the runtime/visual limits stated in the sub-results above.
+- **Remaining blockers**: interactive GUI install smoke; `R-LICENSE` (public release only);
+  unsigned artifacts (accepted); Windows/Linux runtime verification (no host).
 
 ---
 
 ### V01-07 — Final Release Sign-off, Governance & Tagging
 
 - **Feature**: 0.1.0 Release Governance, Documentation Alignment & Tagging.
-- **Current State**: `BLOCKED` (2026-09-14) — **not blocked on build**.
-  - **The build/package prerequisite is satisfied:** run `34859158012` was green end to end for
-    `1a0c186` (all three platform builds and packages + `SHA256SUMS.txt`), so the exit criterion's
-    "all release gates green, zero open P0/P1 items" is no longer blocked by CI. The final run
-    `34860902181` for the current HEAD `85a7fa3` is in flight; once it completes, its values must be
-    recorded in place of `PENDING_FINAL_CI_RUN_34860902181` before any tag decision.
-  - **Blocked by**: (1) `R-LICENSE` — no LICENSE file and no license metadata anywhere; public
-    distribution must not be represented as licensed until the user decides (goal-3 §11);
-    (2) the **interactive GUI install smoke** — window render, Settings, SQLite connection
-    creation, `SELECT 1;` and clean close are `NOT VERIFIED` (`R-GUI-SMOKE`;
-    `docs/release/evidence/v01-06/14-install-smoke.txt` §7.7 records the four environment blockers;
-    its §8 is the runbook); (3) the V01-01…V01-05 runtime evidence gaps from §3 above (these are
-    not closed by a green build run).
-  - **Done in this run** (does not unblock): documentation alignment, governance/risk register
-    rewrite, packaging contract rewrite, release notes, README, CHANGELOG, handoff document, release
-    checklist, readiness assessment, provider capability matrix corrections.
-  - **Not done / not authorised**: no tag, no public release, no signing, no license selection.
+- **Current State**: **`RC PREPARED`; PUBLIC RELEASE BLOCKED on `R-LICENSE`** (2026-09-14, final).
+  **This is a governance decision, not a build failure.** The release pipeline ran green end to end
+  for the candidate, every release artifact is produced and checksum-verified, and the release
+  candidate is qualified for internal/private use. What blocks *public* distribution is the absence
+  of a license decision — a decision only the project owner can make — plus the disclosed runtime
+  gaps.
+  - **The build/package prerequisite is satisfied and closed:** the **final run `34860902181`**
+    (dispatched for `85a7fa3cc0a84c56ac2a5049ce08130db06e0a20` with `workflow_dispatch` on `main`)
+    is green end to end — `Resolve release candidate` ✔, `Pre-flight checks` ✔,
+    `Build (macOS|Windows|Linux)` ✔, `Package (macOS|Windows|Linux)` ✔, `Assemble SHA256SUMS` ✔ —
+    and its artifact names/sizes/hashes are recorded in `0.1.0-readiness.md`,
+    `0.1.0-handoff.md` §3 and `risk-register.md` §4.
+  - **Blocked by** (all non-build): (1) **`R-LICENSE`** — no LICENSE file and no license metadata
+    anywhere; public distribution must not be represented as licensed until the owner decides
+    (goal-3 §11). This is the binding reason; (2) the **interactive GUI install smoke** — window
+    render, Settings, SQLite connection creation, `SELECT 1;` and clean close are `NOT VERIFIED`
+    (`R-GUI-SMOKE`; `docs/release/evidence/v01-06/14-install-smoke.txt` §7.7 records the blocker
+    reasons verbatim — no GUI automation is available in this environment; its §8 is the human
+    runbook); (3) the **V01-01…V01-05 runtime evidence gaps** from §3 above (not closed by a green
+    build run); (4) **unsigned artifacts** and **unverified Windows/Linux runtime** (disclosed,
+    accepted for the internal RC, blocking for the corresponding public claims).
+  - **Done in this run** (documentation/governance, does not unblock): documentation alignment,
+    governance/risk register rewrite, packaging contract rewrite, release notes, README, CHANGELOG,
+    handoff document, release checklist, readiness assessment, provider capability matrix
+    corrections, final report and the goal-3 traceability map.
+  - **Not done / not authorised**: no tag was created or pushed, no public release, no signing, no
+    license selection. **Recommended tag sequence (goal-3 §29):** `v0.1.0-rc.1` first, then the
+    host-install smoke, then `v0.1.0` — recorded in `0.1.0-readiness.md`; the decision is the
+    owner's.
 - **Exact Verification Needed**:
-  - [x] Green release pipeline (build/package gate) — run `34859158012` green end to end for
-    `1a0c186`; run `34860902181` in flight for HEAD `85a7fa3` (final values
-    `PENDING_FINAL_CI_RUN_34860902181`).
+  - [x] Green release pipeline (build/package gate) — **final run `34860902181` green end to end for
+    the candidate `85a7fa3`** (`Resolve release candidate` ✔, `Pre-flight checks` ✔, `Build` ×3 ✔,
+    `Package` ×3 ✔, `Assemble SHA256SUMS` ✔); artifacts re-hashed locally. Superseded: run
+    `34859158012` (`1a0c186`).
   - [x] Update `docs/plans/STATUS.md` — done; **no** v0.1 plan was legitimately eligible for `COMPLETED`, so none was mass-completed.
   - [x] Archive verified plan folders — **none archived**: no feature reached `COMPLETED` (see §3 and `STATUS.md`). Re-evaluate after the runtime evidence gaps close.
   - [x] Record governance risks in `docs/release/risk-register.md` (Brand `R-001`, License `R-LICENSE`, Signing `R-003`, SSH `R-009`) — done, and extended with `R-GUI-SMOKE`, `R-INSTALL-NOTE`, `R-KEYRING-STALL` and `R-CI-PREFLIGHT`.
   - [ ] Update `docs/release/0.1.0-readiness.md` to `READY_FOR_RELEASE: YES` — **not done and deliberately not claimable**: `READY_FOR_RELEASE` is recorded as *internal/private RC qualification* only; public distribution is **NO** pending `R-LICENSE`.
   - [ ] Close the interactive GUI install smoke — `14-install-smoke.txt` §8 runbook; currently `NOT VERIFIED` (§7.7).
   - [ ] Resolve `R-LICENSE` — user decision required.
-  - [ ] Tag git commit `v0.1.0` and publish release notes — not authorised in this run; also requires the final run `34860902181` to complete and its values to be recorded first.
+  - [ ] Tag git commit `v0.1.0` and publish release notes — not authorised in this run, and no tag
+    was created or pushed. The recommended sequence is `v0.1.0-rc.1` first, then the host-install
+    smoke, then `v0.1.0` (goal-3 §29); the artifact values for the candidate are already recorded,
+    so the remaining precondition for a tag is the owner's decision (`R-LICENSE` for public
+    distribution, plus the rc/smoke sequence above).
 - **Provider Scope**: Project Repository & Governance.
-- **Evidence Location**: `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md`, Git release tag (not created).
+- **Evidence Location**: `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md`,
+  `docs/release/0.1.0-final-report.md`, Git release tag (not created).
 - **Blocker Severity**: `P0` (release closure).
 - **Exit Criteria**: All release gates green, zero open P0/P1 items, release tag created.
+  **Build/package gates: met.** Remaining open P1 items are `R-LICENSE`, `R-GUI-SMOKE` and
+  `R-WINLINUX` (runtime), so the tag criterion is deliberately not met and V01-07 stays
+  `RC PREPARED` rather than `PASS`.
 
 ---
 

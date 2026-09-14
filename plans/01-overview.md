@@ -102,8 +102,8 @@ CONNECT
 | M8 Query module | SQL editor + execution/result workflow | DONE |
 | M9 DataGrid release scope | Browse/filter/sort/update/delete | DONE in source |
 | M10 All historical advanced features | Original full feature list | NOT REQUIRED for 0.1.0; split into deferred roadmap |
-| M11 Testing complete | Full green suite + coverage target | BLOCKED / PENDING current HEAD evidence |
-| M12 CI/CD + packaging | Installers build successfully | BLOCKED / PENDING release matrix |
+| M11 Testing complete | Full green suite + coverage target | Full suite green on the pinned toolchain (815 passed / 0 failed / 19 ignored at the candidate `85a7fa3`); the coverage target is not measured, and the runtime/UI evidence gaps remain (`docs/release/risk-register.md`) |
+| M12 CI/CD + packaging | Installers build successfully | Portable archives (not installers) built and packaged green in the final release run `34860902181`; installer formats are DEFERRED by contract (`docs/release/0.1.0-packaging.md`) |
 
 ---
 

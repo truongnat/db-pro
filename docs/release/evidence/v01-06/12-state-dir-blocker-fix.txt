@@ -452,7 +452,7 @@ No credential was read, written, printed or deleted by this run.
     window-server visibility; the only GUI-side signals available are the process table
     (alive, ~30% CPU in the render loop), the held `meta.db` file descriptor and the stack samples.
   * The full interactive install smoke — create a SQLite connection, run `SELECT 1;`, quit and
-    relaunch to check persistence — is still `PENDING`, owned by the coordinator. Nothing in this
+    relaunch to check persistence — is still `NOT VERIFIED`, owned by the coordinator. Nothing in this
     file claims it.
   * The `open`-launched run in 5.2 (without the keyring bypass) never reached data-directory
     resolution, so the correctness of the *Finder* path is proven by 5.3/5.4 (same bundle, same

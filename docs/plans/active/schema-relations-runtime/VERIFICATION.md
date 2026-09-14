@@ -58,8 +58,8 @@ PR #7 was rebased onto main after PR #6 + PR #8 were already merged. One conflic
 
 | Provider | Automated | Live/runtime | Notes |
 |---|---|---|---|
-| PostgreSQL | SOURCE VERIFIED | PENDING | source query preserves real name and ordinality; live PG execution proof still required |
-| SQLite | CI PASS | PENDING | runtime integration test executed by CI and passed |
+| PostgreSQL | SOURCE VERIFIED | NOT VERIFIED | source query preserves real name and ordinality; live PG execution proof still required |
+| SQLite | CI PASS | NOT VERIFIED | runtime integration test executed by CI and passed |
 
 ## UI lifecycle
 
@@ -72,7 +72,7 @@ DB foreign key
 → target-table navigation
 ```
 
-Status: CI PASS for automated gates. Live UI runtime evidence still PENDING.
+Status: CI PASS for automated gates. Live UI runtime evidence still NOT VERIFIED.
 
 ## Completion decision
 

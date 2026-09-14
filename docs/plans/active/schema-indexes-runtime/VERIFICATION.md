@@ -29,7 +29,7 @@ The test uses SQLite and proves:
 
 | Provider | Automated | Live/runtime | Notes |
 |---|---|---|---|
-| PostgreSQL | PENDING | PENDING | source implementation exists; no provider runtime result recorded |
+| PostgreSQL | NOT VERIFIED | NOT VERIFIED | source implementation exists; no provider runtime result recorded |
 | SQLite | PASS | PARTIAL | backend integration proven; UI round-trip still pending |
 
 ## UI lifecycle
@@ -43,7 +43,7 @@ UI create/drop
 → refreshed index list
 ```
 
-Status: PENDING runtime evidence.
+Status: no runtime evidence recorded.
 
 ## Completion decision
 

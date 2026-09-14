@@ -50,8 +50,8 @@ These are source/implementation claims, not live runtime evidence.
 
 | Provider | Declared support | Automated evidence | Live/runtime evidence |
 |---|---|---|---|
-| PostgreSQL | partial/provider-dependent ALTER support | source coverage | PENDING |
-| SQLite | limited ALTER support; capability-gating required | source coverage | PENDING |
+| PostgreSQL | partial/provider-dependent ALTER support | source coverage | NOT VERIFIED |
+| SQLite | limited ALTER support; capability-gating required | source coverage | NOT VERIFIED |
 
 ## Completion criteria
 

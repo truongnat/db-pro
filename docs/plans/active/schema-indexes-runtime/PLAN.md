@@ -49,8 +49,8 @@ This is SQLite automated evidence only. It does not prove PostgreSQL runtime beh
 
 | Provider | Declared support | Automated evidence | Live/UI runtime evidence |
 |---|---|---|---|
-| PostgreSQL | yes | source only | PENDING |
-| SQLite | yes | PASS: integration test | PENDING UI round-trip |
+| PostgreSQL | yes | source only | NOT VERIFIED |
+| SQLite | yes | PASS: integration test | NOT VERIFIED (UI round-trip outstanding) |
 
 ## Completion criteria
 

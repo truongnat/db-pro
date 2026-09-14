@@ -15,8 +15,8 @@ Record the exact command and observed result. Do not copy expected output as evi
 
 | Provider | Automated | Live/runtime | Notes |
 |---|---|---|---|
-| PostgreSQL | PENDING | PENDING | |
-| SQLite | PENDING | PENDING | |
+| PostgreSQL | NOT VERIFIED | NOT VERIFIED | |
+| SQLite | NOT VERIFIED | NOT VERIFIED | |
 
 ## UI lifecycle
 
@@ -29,7 +29,7 @@ UI
 → refreshed UI
 ```
 
-Status: PENDING
+Status: NOT VERIFIED
 
 ## Remaining evidence gaps
 

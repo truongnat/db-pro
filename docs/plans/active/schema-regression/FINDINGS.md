@@ -4,7 +4,7 @@
 
 - **PASS** — automated test or CI evidence proves this cell
 - **SOURCE** — verified at source level (code review, type system) but no dedicated runtime test
-- **PENDING** — not yet proven
+- **NOT VERIFIED** — not yet proven
 - **N/A** — operation does not apply to this feature/provider
 
 ---
@@ -26,7 +26,7 @@
 | READ-ONLY safety | SOURCE | SOURCE | `safety_policy_for` enforces readonly; `validate_against_policy` rejects DDL |
 | Special identifiers | PASS | SOURCE | `query_unicode_table`, `query_weird_name_table`; `quote_identifier` used in DDL builder |
 | Cache consistency | SOURCE | SOURCE | `execute_ddl` calls `cache.invalidate()` after every mutation |
-| UI consistency | PENDING | PENDING | Requires manual UI verification |
+| UI consistency | NOT VERIFIED | NOT VERIFIED | Requires manual UI verification |
 
 ---
 
@@ -45,7 +45,7 @@
 | READ-ONLY safety | SOURCE | SOURCE | DDL on readonly connection rejected by policy |
 | Special identifiers | SOURCE | SOURCE | `buildCreateIndex` uses `quote_identifier`; no dedicated test with quoted names |
 | Cache consistency | SOURCE | SOURCE | `create_index` / `drop_index` commands invalidate cache |
-| UI consistency | PENDING | PENDING | Requires manual UI verification |
+| UI consistency | NOT VERIFIED | NOT VERIFIED | Requires manual UI verification |
 
 ---
 
@@ -63,7 +63,7 @@
 | ER compatibility | PASS | PASS | `edge-builder.test.ts` — 9 tests covering composite grouping, cross-schema, self-ref |
 | REFRESH | SOURCE | SOURCE | Cache invalidation after schema mutation |
 | Special identifiers | SOURCE | SOURCE | Quoted FK table/column names handled by `quote_identifier` |
-| UI consistency | PENDING | PENDING | Requires manual UI verification |
+| UI consistency | NOT VERIFIED | NOT VERIFIED | Requires manual UI verification |
 
 ---
 
@@ -90,7 +90,7 @@
 | BEGIN parsing safety | PASS | N/A | `find_trigger_header` — quote-aware, 5 unit tests (CR2 fix) |
 | REFRESH | SOURCE | SOURCE | Cache invalidation after trigger mutation |
 | READ-ONLY safety | SOURCE | SOURCE | DDL on readonly connection rejected by policy |
-| UI consistency | PENDING | PENDING | Requires manual UI verification |
+| UI consistency | NOT VERIFIED | NOT VERIFIED | Requires manual UI verification |
 
 ---
 
@@ -112,7 +112,7 @@
 | DDL editor preview | PASS | PASS | `ddl-builder-comprehensive.test.ts` — preview rendering for all operation types |
 | Capability flags | PASS | PASS | `ddl-capabilities-comprehensive.test.ts` — 5 trigger-toggle tests |
 | Cache invalidation | SOURCE | SOURCE | `execute_ddl` invalidates cache after every mutation |
-| UI consistency | PENDING | PENDING | Requires manual UI verification |
+| UI consistency | NOT VERIFIED | NOT VERIFIED | Requires manual UI verification |
 
 ---
 
@@ -132,7 +132,7 @@
 | Column click navigation | SOURCE | SOURCE | `table-node.tsx` dispatches custom event; `er-diagram.tsx` handles navigation |
 | Position persistence | SOURCE | SOURCE | localStorage-based manual position persistence |
 | Provider consistency | PASS | PASS | Edge builder is provider-agnostic; uses introspection data uniformly |
-| UI consistency | PENDING | PENDING | Requires manual UI verification |
+| UI consistency | NOT VERIFIED | NOT VERIFIED | Requires manual UI verification |
 
 ---
 
@@ -173,7 +173,7 @@
 
 ### Blocking gaps (require human/manual verification)
 
-1. **UI runtime** — No automated UI tests exist. All "UI consistency" cells are PENDING.
+1. **UI runtime** — No automated UI tests exist. All "UI consistency" cells are NOT VERIFIED.
 2. **PG lifecycle** — Column ALTER, index CREATE/DROP, trigger CREATE/DROP not tested against live PG (only source-level).
 3. **Rollback (PG)** — PG batch atomicity verified at source level only; no live PG rollback test.
 4. **Read-only enforcement** — Safety policy verified at source level; no live test attempting DDL on readonly connection.

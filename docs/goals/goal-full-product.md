@@ -124,7 +124,7 @@ disagreement is listed in §2.5.
 | ER Diagram | **RUNTIME_VERIFY** | `ui/src/diagram/*` (98 tests), `ui/src/diagram_view.rs` | Large-schema architecture done; position persistence missing |
 | Agent Workflow | **RUNTIME_VERIFY** | `runtime/src/agent.rs:565-634` (9 tools), `agent_executor.rs:52-251`, `agent_orchestrator.rs:338-547` | Typed tools reuse canonical services; confirmation + anti-TOCTOU verified in source |
 | Core Safety (policy/classification) | **RUNTIME_VERIFY** | `core/src/domain/safety.rs:8-580` | 4-class classifier; read-only enforcement; **capability flags not enforced server-side** |
-| Native UI foundation | **DONE** | `docs/plans/STATUS.md:41-43`, `crates/ui/src/theme.rs`, `tokens.rs`, `components/` (43 modules) | Native Visual Redesign itself is still `IMPLEMENTING` |
+| Native UI foundation | **DONE** | `docs/plans/STATUS.md:41-43`, `crates/ui/src/theme.rs`, `tokens.rs`, `components/` (43 modules) | **[status correction 2026-09-14]** the Native Visual Redesign is implemented (Waves 1–14); what is not established is its runtime/visual verification — audited `EVIDENCE_GAP` (`docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md`). The earlier wording ("still in progress / not finished") contradicted `docs/notes/V0_1_CLOSURE_PLAN.md` §3 |
 | Object mutation framework (typed) | **MISSING** | `ddl_builder.rs` exists but is dead code (`grep` shows only `application/mod.rs:4`); no `ObjectAction`/`MutationRequest` anywhere | Builders exist; no service, no preview, no UI |
 | Object CRUD (views/indexes/FKs/triggers/sequences/types) | **MISSING / PARTIAL** | `ui` grep for `build_create_view`/`build_create_index`/`create_trigger` call sites → 0; `ddl_builder.rs:114-183` unused | Introspection strong, mutation absent |
 | Routines (functions/procedures) | **PARTIAL** | `postgres/introspect.rs:762-779` (`pg_proc` f+p), `core/domain/schema.rs:119` (`Function`), `ui/src/explorer_folders.rs:169`, `ui/src/schema_object_view.rs` | Browse + read-only Definition; no Procedure type, no execute form, no CRUD |
@@ -136,7 +136,7 @@ disagreement is listed in §2.5.
 | Schema/data compare | **BACKEND_ONLY (narrow)** | `core/application/schema_diff.rs:11-156` (tables/columns/indexes only), `data_diff.rs:20-77` (count only) | No DDL diff, no migration generation |
 | Productivity / search | **MISSING** | `Activity` enum has no Search variant (`app.rs:114-123`); palette covers tables ≤100 (`palette_view.rs`) | Favorites/recent/pinned/snippets/scratch/keys absent |
 | Settings | **PARTIAL** | `ui/src/navigation_view.rs:940-1062` (Appearance + Backup/Restore only); `SettingsRepository` has **no consumer** | Editor/Keybindings/Providers/Advanced pages absent |
-| Release / packaging / runtime qualification | **PARTIAL** | `docs/release/0.1.0-readiness.md`, `docs/notes/V0_1_CLOSURE_PLAN.md` §2 | Packaging PENDING; manual smoke PENDING |
+| Release / packaging / runtime qualification | **PARTIAL** | `docs/release/0.1.0-readiness.md`, `docs/notes/V0_1_CLOSURE_PLAN.md` §2 | Packaging build+package verified in CI (final run 34860902181); manual smoke NOT RUN (0/165) |
 | Legacy `crates/tauri-app` host | **DEFERRED (removal)** | `docs/architecture/system-overview.md:50`; `crates/tauri-app/tauri.conf.json` points at a non-existent `_archive/frontend/dist` | Not reachable from the shipped binary |
 
 ### 2.3 What is genuinely strong (do not rebuild)
@@ -972,10 +972,11 @@ Exit criteria.
 - **User value.** Trust: signed builds, clear crash/diagnostic information, and privacy
   defaults.
 - **Current implementation.** `docs/release/*` readiness/verification/checklist docs exist;
-  packaging is `PENDING`; diagnostics domain exists with redaction
+  packaging builds and packages in CI (final run `34860902181`); diagnostics domain exists with redaction
   (`domain/diagnostics.rs:14-154`, `redact_sensitive:139`); `tracing` initialization exists
   (`native-app/src/main.rs:119-125`); **no telemetry, no crash reporting, no diagnostic
-  bundle export**; governance risks R001 (name), R004 (license), R003/R009 (signing) remain
+  bundle export**; governance risks `R001` (name), `R-LICENSE` (license), `R003` (signing) and
+  `R009` (SSH) remain
   open in `docs/release/risk-register.md`.
 - **Missing functionality.** Reproducible release builds per platform, signing/notarization,
   versioning/update policy, a user-triggered diagnostics bundle (redacted logs + versions +
@@ -1552,8 +1553,8 @@ PostgreSQL evidence never proves SQLite and vice versa. Every milestone records:
 
 | Provider | Supported | Automated | Live/runtime | Capability gate |
 |---|---|---|---|---|
-| PostgreSQL | yes/no/partial | PASS/PENDING/N/A | PASS/PENDING/N/A | reason if unsupported |
-| SQLite | yes/no/partial | PASS/PENDING/N/A | PASS/PENDING/N/A | reason if unsupported |
+| PostgreSQL | yes/no/partial | PASS/NOT VERIFIED/N/A | PASS/NOT VERIFIED/N/A | reason if unsupported |
+| SQLite | yes/no/partial | PASS/NOT VERIFIED/N/A | PASS/NOT VERIFIED/N/A | reason if unsupported |
 
 An unsupported provider operation must have: deterministic capability detection, no
 unsupported SQL emitted, a surfaced reason, and a test covering the boundary.

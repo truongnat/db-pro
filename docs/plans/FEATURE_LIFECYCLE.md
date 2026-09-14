@@ -65,8 +65,8 @@ Every database-facing feature must explicitly record:
 
 | Provider | Supported operation | Automated evidence | Live/runtime evidence | Capability gate |
 |---|---|---|---|---|
-| PostgreSQL | yes/no/partial | PASS/PENDING/N/A | PASS/PENDING/N/A | reason if unsupported |
-| SQLite | yes/no/partial | PASS/PENDING/N/A | PASS/PENDING/N/A | reason if unsupported |
+| PostgreSQL | yes/no/partial | PASS/NOT VERIFIED/N/A | PASS/NOT VERIFIED/N/A | reason if unsupported |
+| SQLite | yes/no/partial | PASS/NOT VERIFIED/N/A | PASS/NOT VERIFIED/N/A | reason if unsupported |
 
 One provider's test never proves another provider.
 

@@ -4,12 +4,14 @@
 > Baseline SHA: `65bbca3` (historical); **corrected 2026-09-14 for candidate `fbf9fdab9100f08f12e29434983f32c18f14ac2f`**
 > Corrections in this revision: LIM-001/LIM-007/LIM-009 evidence updated to the native build, LIM-003 wording aligned with the staged insert that ships, **LIM-014 inversion fixed** (SQLite cancellation is supported; PostgreSQL is not), LIM-016/LIM-017 added. No entry was deleted.
 > Further correction (2026-09-14, after the `543b526` state-directory fix): **LIM-018 added** — application state location and the first-launch credential prompt. No entry was deleted or rewritten.
-> Further note (2026-09-14, release-pipeline pass): the release pipeline is **green end to end** — run
-> `34859158012` (SHA `1a0c186`) built and packaged all three platforms and produced `SHA256SUMS.txt`,
-> independently checksum-verified. That verifies **builds/packages only**: Windows and Linux stay
+> Further note (2026-09-14, release-pipeline finalization): the release pipeline is **green end to
+> end** — the final run `34860902181` (candidate `85a7fa3`) built and packaged all three platforms
+> and produced `SHA256SUMS.txt`, all independently re-hashed (macOS ARM64 / Linux x86_64 / Windows
+> x86_64). That verifies **builds/packages only**: Windows and Linux stay
 > `RUNTIME_UNVERIFIED` (no host), and the interactive GUI smoke is `NOT VERIFIED`
-> (`docs/release/evidence/v01-06/14-install-smoke.txt` §7.7). Final artifact values for the current
-> HEAD `85a7fa3` read `PENDING_FINAL_CI_RUN_34860902181`. No limitation below is retracted by this note.
+> (`docs/release/evidence/v01-06/14-install-smoke.txt` §7.7). Final artifact values are recorded in
+> `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md` §3 and `risk-register.md` §4.
+> No limitation below is retracted by this note.
 > Risk IDs referenced below (`R003`, `R-LICENSE`, `R001`) are defined in `docs/release/risk-register.md`.
 > Issue: #135
 > Supports: #27, #30, #105, #110, #111
@@ -266,7 +268,7 @@ Each entry includes:
 | Target issue | N/A |
 | Safe release-note wording | "Apple Silicon macOS, Windows x86_64 and Linux x86_64 portable archives; unsigned; no installers" |
 | Must not contradict | `0.1.0-packaging.md`, release notes, readiness |
-| Evidence | `.github/workflows/release.yml` (matrix pins `macos-14`), `docs/release/0.1.0-packaging.md`, `docs/release/risk-register.md` `R-PKG-DEFER` / `R003`. **Release-pipeline verification (2026-09-14):** run `34859158012` built and packaged all three targets green (`BUILD_VERIFIED`), with the archives' member lists and checksums independently reproduced; Windows/Linux remain `RUNTIME_UNVERIFIED` (no host) and the interactive GUI smoke is `NOT VERIFIED` (`14-install-smoke.txt` §7.7). Final values for HEAD `85a7fa3`: `PENDING_FINAL_CI_RUN_34860902181` |
+| Evidence | `.github/workflows/release.yml` (matrix pins `macos-14`), `docs/release/0.1.0-packaging.md`, `docs/release/risk-register.md` `R-PKG-DEFER` / `R003`. **Release-pipeline verification (2026-09-14, final):** the final run `34860902181` built and packaged all three targets green for the candidate `85a7fa3` (`BUILD_VERIFIED`), with the archives' member lists and checksums independently reproduced; Windows/Linux remain `RUNTIME_UNVERIFIED` (no host) and the interactive GUI smoke is `NOT VERIFIED` (`14-install-smoke.txt` §7.7). Final artifact values: `docs/release/0.1.0-readiness.md` / `0.1.0-handoff.md` §3 |
 
 ## LIM-018: Application state location and first-launch credential prompt
 

@@ -5,11 +5,12 @@ All notable user-facing changes to DB Pro. The shipped application is the native
 
 ## [0.1.0] - 2026-09-14
 
-DB Pro 0.1.0 is the first release candidate of the native desktop application. Current HEAD is
-`85a7fa3cc0a84c56ac2a5049ce08130db06e0a20`; the release pipeline is green end to end for
-`1a0c186` (run `34859158012`, all three platforms built and packaged with independently verified
-checksums) and the final run `34860902181` for this HEAD is in flight. The `v0.1.0` tag has not
-been created; see `docs/release/0.1.0-readiness.md` for the release decisions and
+DB Pro 0.1.0 is the first release candidate of the native desktop application. The candidate SHA is
+`85a7fa3cc0a84c56ac2a5049ce08130db06e0a20`; the **final release run `34860902181` is green end to
+end** for that SHA (all three platforms built and packaged, with independently re-hashed
+checksums; the superseded run `34859158012` covered `1a0c186`). The `v0.1.0` tag has not
+been created — the recommended sequence is `v0.1.0-rc.1` first, then the host-install smoke, then
+`v0.1.0`; see `docs/release/0.1.0-readiness.md` for the release decisions and
 `docs/release/0.1.0-handoff.md` for the tag/release/rollback procedure.
 
 ### Added

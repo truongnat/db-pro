@@ -40,7 +40,7 @@ operation × provider cell, states one of:
 
 - PASS — automated test or CI evidence proves this cell
 - SOURCE — verified at source level but no runtime test
-- PENDING — not yet proven
+- NOT VERIFIED — not yet proven
 - NOT_APPLICABLE — operation does not apply to this feature/provider
 
 Plus a release-style schema readiness report.
@@ -57,11 +57,11 @@ Plus a release-style schema readiness report.
 
 - New UI features
 - Rewriting S1–S6 implementations
-- Manual runtime testing (documented as PENDING)
+- Manual runtime testing (documented as NOT VERIFIED)
 
 ## Invariants
 
-1. Every cell in the matrix must have evidence or be explicitly PENDING
+1. Every cell in the matrix must have evidence or be explicitly NOT VERIFIED
 2. PostgreSQL and SQLite are verified independently
 3. Tests must prove invariants, not merely exercise code paths
 4. Any P0/P1 found during S7 reopens the affected feature
@@ -71,7 +71,7 @@ Plus a release-style schema readiness report.
 - Rust: targeted integration tests for uncovered cells
 - Frontend: verify existing unit test coverage for DDL/ER cells
 - CI: PG service container + SQLite in-memory for automated evidence
-- UI: manual — documented as PENDING
+- UI: manual — documented as NOT VERIFIED
 
 ## Completion criteria
 

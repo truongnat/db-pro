@@ -8,10 +8,14 @@
 > **Correction (2026-09-14 — V01-06).** The V01-01…V01-05 `PASS` claims are
 > `EVIDENCE_GAP` / `PARTIAL`, not verified (see
 > `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md`). The current measured
-> workspace result on `main` is **811 passed / 0 failed / 19 ignored** — the 19 are
+> workspace result on `main` is **815 passed / 0 failed / 19 ignored** (811 before the
+> `543b526` state-directory fix) — the 19 are
 > `#[ignore]`d (18 PostgreSQL integration + 1 SSH backup) and are never "passing". The
-> release build and the six quality gates are green on the host (macOS ARM64); Windows and
-> Linux artifacts are `BUILD_UNVERIFIED` pending CI release run 34847235273. Row-level
+> release build and the six quality gates are green on the host (macOS ARM64); the
+> **final release run `34860902181` (candidate `85a7fa3`) is green end to end** — all three
+> platforms build and package, and the archives + `SHA256SUMS.txt` were independently
+> re-hashed (runs `34845148946` / `34847235273` / `34849517304` / `34851704292` /
+> `34859158012` are superseded history). Row-level
 > corrections are marked `[CORRECTED 2026-09-14]` below.
 
 > **Amendment (2026-09-11) — native UI direction.** The React/TypeScript/Vite frontend and
@@ -49,8 +53,8 @@
 | MCP | DEFERRED | not shipped in 0.1.0 |
 | UI quality gates | NATIVE | React/TS typecheck/lint/format gates retired with the archived frontend; native UI now gated by `cargo fmt/check/clippy/test` + `cargo build --release -p db-pro-native` |
 | P2 Hardening Program | DONE | P2.0–P2.11 all complete; see docs/quality/p2-hardening-code-audit.md *(frontend-era program; the RC1 P2 findings against the native UI are tracked separately and are not closed — see `06-rc1-p2-dispositions.md`)* |
-| Packaging workflow | DONE definition | **[CORRECTED 2026-09-14]** portable-archive contract implemented (macOS `.app` tar.gz, Windows zip, Linux tar.gz + `SHA256SUMS.txt`); cross-platform run 34847235273 in flight; installers and signing are DEFERRED, not "in progress" |
-| Release verification | PARTIAL | **[CORRECTED 2026-09-14]** six gates + release build green on host at `7794196` (811 passed / 0 failed / 19 ignored); cross-platform artifacts pending; runtime smoke has no retrievable artifact (V01-01…05 audited `EVIDENCE_GAP`/`PARTIAL`) |
+| Packaging workflow | DONE + VERIFIED IN CI | **[CORRECTED 2026-09-14]** portable-archive contract implemented (macOS `.app` tar.gz, Windows zip, Linux tar.gz + `SHA256SUMS.txt`); **final run `34860902181` green end to end** for the candidate `85a7fa3`, with all three archives independently re-hashed; installers and signing are DEFERRED, not "in progress" |
+| Release verification | **[CORRECTED 2026-09-14]** six gates + release build green on host (815 passed / 0 failed / 19 ignored, `12-state-dir-blocker-fix.txt` §4); final run `34860902181` green end to end with independently re-hashed artifacts; runtime smoke remains `NOT VERIFIED` for the GUI half and V01-01…05 are audited `EVIDENCE_GAP`/`PARTIAL` |
 
 ---
 
@@ -92,7 +96,7 @@ Includes split Run interaction, shortcut semantics, Data-first table navigation,
 
 ### Wave B — Core usability / data safety
 
-**SOURCE CLOSED FOR THE 0.1.0 SCOPE; RELEASE VERIFICATION PENDING.**
+**SOURCE CLOSED FOR THE 0.1.0 SCOPE; RELEASE VERIFICATION NOT VERIFIED (manual smoke not run).**
 
 Implemented:
 - grid column resize/layout persistence
@@ -151,25 +155,28 @@ Frontend test counts are historical — that suite was retired with the frontend
 
 The six gates were re-run on `main` and all exit 0: `cargo fmt --all -- --check`,
 `cargo check --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`,
-`cargo test --workspace` (**811 passed / 0 failed / 19 ignored**),
+`cargo test --workspace` (**815 passed / 0 failed / 19 ignored**; 811 before the `543b526` fix),
 `cargo build --release --locked -p db-pro-native`, and the perf scan (`PASS 4 / 0 / 0`).
 Evidence: `docs/release/evidence/v01-06/02-quality-gates.txt` and
 `08-post-fix-quality-gates.txt` §8. The 19 ignored tests are 18 `#[ignore]`d PostgreSQL
 integration cases and 1 `#[ignore]`d SSH backup case; they are not passing.
 
-### P1-2 — Cross-platform release artifacts not proven
+### P1-2 — Cross-platform release artifacts — **CLOSED [CORRECTED 2026-09-14]**
 
 The release workflow builds `db-pro-native` on macOS (`macos-14`), Windows
 (`windows-latest`) and Linux (`ubuntu-latest`) and packages portable archives with
-`SHA256SUMS.txt`. **No completed run proves the matrix is green**: release run
-**34847235273** for `fbf9fda` was in flight when this file was updated, so Windows and
-Linux stay `BUILD_UNVERIFIED`, and they will stay `RUNTIME_UNVERIFIED` (no Windows/Linux
-host exists in this project). Installer formats (DMG, MSI/NSIS, DEB/RPM/AppImage) and code
+`SHA256SUMS.txt`. **The matrix is green**: the final release run **`34860902181`**
+(candidate `85a7fa3`) completed end to end — `Build` ×3 ✔, `Package` ×3 ✔, `Assemble
+SHA256SUMS` ✔ — and the three archives plus `SHA256SUMS.txt` were downloaded and
+independently re-hashed. Windows and Linux are therefore `BUILD_VERIFIED` and remain
+`RUNTIME_UNVERIFIED` (no Windows/Linux host exists in this project). Installer formats
+(DMG, MSI/NSIS, DEB/RPM/AppImage) and code
 signing are **not** implemented for the native app and are DEFERRED out of the v0.1
 contract (`docs/release/0.1.0-packaging.md`).
 
-**Exit:** green release matrix and retained archives + `SHA256SUMS.txt` for all three
-platforms.
+**Exit (met):** green release matrix and retained archives + `SHA256SUMS.txt` for all three
+platforms. Final values: `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md`
+§3, `docs/release/risk-register.md` §4.
 
 ### P1-3 — Manual desktop runtime smoke pending (no retrievable evidence)
 
@@ -216,33 +223,43 @@ packaged-artifact install smoke (`docs/release/0.1.0-handoff.md` §install smoke
 
 ## Final Release Sequence
 
-1. Re-run the exact-SHA full Rust automated verification and record exact counts — **DONE
-   at `fbf9fda`/`7794196`** (811 passed / 0 failed / 19 ignored; six gates exit 0).
-2. Trigger the native Release Build matrix (`db-pro-native`) — **DONE**; run 34847235273
-   in flight for `fbf9fda`.
-3. Retain/download macOS, Windows, and Linux artifacts — **PENDING** (artifacts
-   `PENDING_CI_RUN_34847235273`).
-4. Install/run at least the host artifact — macOS process-level launch PASS; GUI smoke not
-   observable; packaged `DB Pro.app` install smoke **PENDING**.
+1. Re-run the exact-SHA full Rust automated verification and record exact counts — **DONE**
+   (815 passed / 0 failed / 19 ignored at the candidate; six gates exit 0).
+2. Trigger the native Release Build matrix (`db-pro-native`) — **DONE**; the final run
+   `34860902181` is green end to end for the candidate `85a7fa3` (`34859158012` and the
+   earlier attempts are superseded history).
+3. Retain/download macOS, Windows, and Linux artifacts — **DONE**; independently re-hashed
+   (macOS ARM64 10,045,965 B; Windows x86_64 10,076,835 B; Linux x86_64 15,168,133 B).
+4. Install/run at least the host artifact — macOS process launch, state-directory reuse and
+   clean SIGTERM exit PASS on the packaged archive, including the CI-produced artifact of
+   the final run; the GUI steps remain `NOT VERIFIED` (no GUI automation on this host).
 5. Complete manual smoke + screenshots with durable capture paths (in-repo, not temp) —
-   **PENDING**.
-6. Update verification/readiness to the final tag candidate SHA — **PENDING**.
-7. Only then tag `v0.1.0` — not authorised in this run.
+   **NOT DONE** (0 of 165 items in `docs/release/0.1.0-manual-smoke.md`); runbook in
+   `docs/release/evidence/v01-06/14-install-smoke.txt` §8.
+6. Update verification/readiness to the final tag candidate SHA — **DONE**; the candidate
+   is `85a7fa3` and the record is in `docs/release/0.1.0-readiness.md`,
+   `docs/release/0.1.0-handoff.md` and `docs/release/0.1.0-final-report.md`.
+7. Only then tag `v0.1.0` — **NOT DONE / not authorised**; recommended sequence is
+   `v0.1.0-rc.1` first, then the install smoke, then `v0.1.0` (owner decision).
 
 ---
 
 ## Release Decision
 
 **READY_FOR_RELEASE (internal / private release candidate qualification): YES** —
-the exact-HEAD six gates and release build are green, the release contract is documented,
-and the open items are governance/platform-coverage items rather than code blockers.
+the exact-HEAD six gates and release build are green, **the final release run `34860902181`
+is green end to end for the candidate `85a7fa3` with independently re-hashed artifacts**,
+the release contract is documented, and the open items are governance/platform-coverage
+items rather than code blockers.
 
 **READY_FOR_RELEASE (public distribution): NO** — `R-LICENSE` is undecided (no LICENSE
-file, no license metadata), all artifacts are UNSIGNED, and cross-platform artifacts plus
-runtime smoke are not yet evidenced.
+file, no license metadata) and is the binding reason; all artifacts are UNSIGNED, the
+interactive GUI install smoke is `NOT VERIFIED`, Windows/Linux runtime is `RUNTIME_UNVERIFIED`
+(no host), and the V01-01…V01-05 runtime evidence gaps remain open.
 
-**Open blockers to public distribution:** `R-LICENSE` (user decision), cross-platform
-artifacts (CI run 34847235273), runtime evidence gaps for V01-01…V01-05, and the real
-packaged-app install smoke. The intended 0.1.0 feature scope is sufficiently implemented
-and Wave A/B source work is closed for release scope; remaining work is verification,
-packaging proof and governance sign-off — not another feature wave.
+**Open blockers to public distribution:** `R-LICENSE` (user decision); the interactive GUI
+install smoke (`R-GUI-SMOKE`); runtime evidence gaps for V01-01…V01-05; Windows/Linux
+runtime (`R-WINLINUX`); and the tag decision (`v0.1.0-rc.1` recommended first). The intended
+0.1.0 feature scope is sufficiently implemented
+and Wave A/B source work is closed for release scope; remaining work is runtime evidence,
+governance sign-off and the tag — not another feature wave, and not a build failure.

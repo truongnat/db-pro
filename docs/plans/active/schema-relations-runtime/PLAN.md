@@ -68,8 +68,8 @@ Normalize scalar mapping rows with `groupForeignKeys()` and render joined ordere
 
 | Provider | Introspection source | Automated evidence | Live/runtime evidence |
 |---|---|---|---|
-| PostgreSQL | real constraint name + `src.ord` ordering | source/unit coverage | PENDING |
-| SQLite | PRAGMA `id` + `seq` | test added, execution pending | PENDING until command executes |
+| PostgreSQL | real constraint name + `src.ord` ordering | source/unit coverage | NOT VERIFIED |
+| SQLite | PRAGMA `id` + `seq` | test added, execution pending | NOT VERIFIED until the command executes |
 
 ## Acceptance criteria
 

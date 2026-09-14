@@ -43,9 +43,9 @@ The current S3 scope fixes relation truth in introspection, DDL reconstruction a
 
 ## Runtime gaps
 
-- PostgreSQL composite FK provider verification: PENDING (requires live PG credentials)
+- PostgreSQL composite FK provider verification: NOT VERIFIED (requires live PG credentials)
 - SQLite runtime test: CI PASS
-- UI relation-list/navigation runtime verification: PENDING (requires running app)
+- UI relation-list/navigation runtime verification: NOT VERIFIED (requires running app)
 
 ## Gate
 

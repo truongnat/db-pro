@@ -15,7 +15,7 @@ The implementation now invalidates introspection, table info, table DDL, depende
 ## Open evidence gaps
 
 ### P2-001 — Atomic rollback regression execution is pending
-Status: TEST RESTORED; EXECUTION PENDING.
+Status: TEST RESTORED; EXECUTION NOT YET VERIFIED.
 
 `crates/infrastructure/tests/schema_columns_atomicity_regression.rs` now explicitly verifies that a valid first DDL statement does not persist when the second statement fails, and that later statements never execute. This becomes automated evidence only after the test command actually passes.
 

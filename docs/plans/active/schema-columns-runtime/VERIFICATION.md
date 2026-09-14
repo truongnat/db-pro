@@ -25,8 +25,8 @@ These historical results are retained as historical evidence only; they are not 
 
 | Provider | Automated | Live/runtime | Notes |
 |---|---|---|---|
-| PostgreSQL | PARTIAL/source | PENDING | combined mutation + failure rollback still required |
-| SQLite | PARTIAL/source | PENDING | supported vs capability-gated ALTER paths still required |
+| PostgreSQL | PARTIAL/source | NOT VERIFIED | combined mutation + failure rollback still required |
+| SQLite | PARTIAL/source | NOT VERIFIED | supported vs capability-gated ALTER paths still required |
 
 ## Required live/runtime evidence
 

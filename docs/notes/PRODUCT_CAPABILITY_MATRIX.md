@@ -34,7 +34,7 @@ is not:
 |---|---|---|
 | `SUPPORTED` | DONE, RUNTIME_VERIFY, PARTIAL (documented caveats) | implemented and reachable in the shipped native UI |
 | `SUPPORTED + QUALIFIED` | DONE **and** provider/runtime evidence recorded for that provider | implemented and verified at runtime |
-| `SUPPORTED + NOT YET QUALIFIED` | RUNTIME_VERIFY / PARTIAL with runtime evidence PENDING | implemented, but no provider/UI runtime evidence exists |
+| `SUPPORTED + NOT YET QUALIFIED` | RUNTIME_VERIFY / PARTIAL with runtime evidence not recorded | implemented, but no provider/UI runtime evidence exists |
 | `UNSUPPORTED` | MISSING, INSPECT_ONLY, BACKEND_ONLY, UI_ONLY | not reachable in the shipped product (backend-only counts as unsupported for a user-facing claim) |
 | `DEFERRED` | DEFERRED | intentionally excluded; needs an explicit decision to schedule |
 
@@ -56,16 +56,16 @@ Current rail (`crates/ui/src/navigation_view.rs:412-460`): Explorer, Queries, Hi
 
 | Feature | PostgreSQL | SQLite | Backend | Native UI | Safety | Tests | Runtime Evidence | Status | Priority | Target Phase | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Explorer activity | yes | yes | DONE | WIRED (`explorer_view.rs`, `explorer_tree.rs`) | n/a | UI + integration | PENDING native traversal | RUNTIME_VERIFY | P0 | v0.1 | Tree: connection → database → schema → Tables/Views/Functions/Triggers → Columns/FKs/Indexes |
+| Explorer activity | yes | yes | DONE | WIRED (`explorer_view.rs`, `explorer_tree.rs`) | n/a | UI + integration | NOT VERIFIED (native traversal) | RUNTIME_VERIFY | P0 | v0.1 | Tree: connection → database → schema → Tables/Views/Functions/Triggers → Columns/FKs/Indexes |
 | Search activity (dedicated) | — | — | MISSING | MISSING | n/a | — | — | MISSING | P2 | G | Only palette Quick Open (tables ≤100 + static items, `palette_view.rs:150-163`) + local Explorer/Diagram/editor find |
-| Queries activity | yes | yes | DONE | WIRED (`navigation_view.rs:691-748`, open docs + new/duplicate/close) | staged-change guards | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| History activity | yes | yes | PARTIAL | WIRED (saved queries + folders + dual local history) | n/a | UI | PENDING | RUNTIME_VERIFY | P1 | v0.1/G | Server `QueryApi::history` exists but unwired; native history is local (`app.rs:286-288`, caps 20/500) |
+| Queries activity | yes | yes | DONE | WIRED (`navigation_view.rs:691-748`, open docs + new/duplicate/close) | staged-change guards | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| History activity | yes | yes | PARTIAL | WIRED (saved queries + folders + dual local history) | n/a | UI | NOT VERIFIED | RUNTIME_VERIFY | P1 | v0.1/G | Server `QueryApi::history` exists but unwired; native history is local (`app.rs:286-288`, caps 20/500) |
 | Data activity (dedicated) | — | — | PARTIAL | MISSING | n/a | — | — | MISSING | P2 | C | Table/Query workspaces exist as tabs; no top-level Data icon yet |
-| ER activity | yes | yes | DONE | WIRED (`diagram_view.rs` + `diagram/`) | n/a | **99** diagram + workspace | PENDING native large-schema | RUNTIME_VERIFY | P0 | v0.1 | Diagram count corrected 2026-09-14 (`98` was stale) |
+| ER activity | yes | yes | DONE | WIRED (`diagram_view.rs` + `diagram/`) | n/a | **99** diagram + workspace | NOT VERIFIED (native large-schema) | RUNTIME_VERIFY | P0 | v0.1 | Diagram count corrected 2026-09-14 (`98` was stale) |
 | Agent activity | yes | yes | DONE | WIRED (right panel, Ask/Edit/Agent) | confirmation-gated | agent-era + UI tests (counts stale) | panel/IME isolate (older, automated only — **no live-provider artifact**) | RUNTIME_VERIFY | P0 | v0.1 | Preview label per LIM-007; `0.1.0-release-notes.md` states no live provider run is recorded |
 | Monitoring activity | no | no | MISSING | PLACEHOLDER (`draw_activity_placeholder` + COMING SOON, `navigation_view.rs:616-621`) | n/a | — | — | MISSING | P2 | D | No `UiCommand`; no backend service |
 | Transfer activity | no | no | PARTIAL (export+backup only) | PLACEHOLDER (`navigation_view.rs:610-615`) | n/a | — | — | MISSING | P1 | C | Export engine backend-only; import missing entirely |
-| Settings activity | yes | yes | PARTIAL | PARTIAL (Appearance + Backup/Restore paths only) | readonly-gated backup | UI | PENDING | PARTIAL | P1 | v0.1/G | Editor/keybindings/providers/advanced settings have no page |
+| Settings activity | yes | yes | PARTIAL | PARTIAL (Appearance + Backup/Restore paths only) | readonly-gated backup | UI | NOT VERIFIED | PARTIAL | P1 | v0.1/G | Editor/keybindings/providers/advanced settings have no page |
 
 ---
 
@@ -75,25 +75,25 @@ Introspection sources: `crates/infrastructure/src/postgres/introspect.rs`, `crat
 
 | Object | PostgreSQL | SQLite | Backend | Native UI | Safety | Tests | Runtime Evidence | Status | Priority | Target Phase | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Connections | DONE | DONE | DONE (`connection_service.rs`, `registry.rs`) | WIRED (dialog, test, dup, SSH/SSL) | secret redaction, validation | integration | PENDING native | RUNTIME_VERIFY | P0 | v0.1 | Folders/tags/favorites: domain supports, UI drops (`translate.rs:41-42`) |
+| Connections | DONE | DONE | DONE (`connection_service.rs`, `registry.rs`) | WIRED (dialog, test, dup, SSH/SSL) | secret redaction, validation | integration | NOT VERIFIED (native) | RUNTIME_VERIFY | P0 | v0.1 | Folders/tags/favorites: domain supports, UI drops (`translate.rs:41-42`) |
 | Databases (create/drop/list) | MISSING | n/a | MISSING (only active `database` string) | MISSING | — | — | — | MISSING | P2 | A | Explorer shows connection database node only |
-| Schemas | INSPECT | n/a (single `main`) | PARTIAL (inspect; no create/drop service) | WIRED (tree + combos) | n/a | integration | PENDING | RUNTIME_VERIFY | P0 | v0.1 | PG rename exists only as inherent method (`connector.rs:648-666`), not core service |
-| Tables | INSPECT+DDL-gen | INSPECT+DDL-gen | PARTIAL (generic `execute_ddl` only, no typed service) | WIRED (7 sub-tabs: Data/Structure/Indexes/FKs/Constraints/Dependencies/DDL) | policy-checked `execute_ddl` | integration + UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | No typed create/alter/drop service |
-| Columns | INSPECT | INSPECT (no generated/identity/collation) | PARTIAL (add/drop builders; no alter-type/rename builders) | WIRED (Structure tab) | — | integration | PENDING | RUNTIME_VERIFY | P1 | A | Capability flags `alter_column_type/rename_column` exist but unchecked in `schema_service.rs` |
-| Views | INSPECT+create/drop builders | INSPECT+create/drop builders | PARTIAL (no ALTER VIEW; no view columns) | WIRED read-only (Definition + Data) | policy-checked | integration | PENDING | PARTIAL | P1 | A | `build_create_view/drop_view` (`ddl_builder.rs:114-128`) |
+| Schemas | INSPECT | n/a (single `main`) | PARTIAL (inspect; no create/drop service) | WIRED (tree + combos) | n/a | integration | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | PG rename exists only as inherent method (`connector.rs:648-666`), not core service |
+| Tables | INSPECT+DDL-gen | INSPECT+DDL-gen | PARTIAL (generic `execute_ddl` only, no typed service) | WIRED (7 sub-tabs: Data/Structure/Indexes/FKs/Constraints/Dependencies/DDL) | policy-checked `execute_ddl` | integration + UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | No typed create/alter/drop service |
+| Columns | INSPECT | INSPECT (no generated/identity/collation) | PARTIAL (add/drop builders; no alter-type/rename builders) | WIRED (Structure tab) | — | integration | NOT VERIFIED | RUNTIME_VERIFY | P1 | A | Capability flags `alter_column_type/rename_column` exist but unchecked in `schema_service.rs` |
+| Views | INSPECT+create/drop builders | INSPECT+create/drop builders | PARTIAL (no ALTER VIEW; no view columns) | WIRED read-only (Definition + Data) | policy-checked | integration | NOT VERIFIED | PARTIAL | P1 | A | `build_create_view/drop_view` (`ddl_builder.rs:114-128`) |
 | Materialized Views | MISSING (no `pg_matviews` query) | n/a | MISSING (no domain struct) | MISSING | — | — | — | MISSING | P2 | A | |
-| Primary Keys (incl. composite) | INSPECT | INSPECT | PARTIAL (inspect + DDL re-emit) | WIRED (Structure/Constraints) | n/a | composite tests | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Foreign Keys (incl. composite) | INSPECT | INSPECT | PARTIAL (inspect + DDL re-emit; no add/drop service) | WIRED (Relations tab) | n/a | composite tests | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Unique | PARTIAL (single-col derived; multi-col as Index) | PARTIAL (same) | PARTIAL | WIRED (Constraints/Indexes) | n/a | integration | PENDING | PARTIAL | P2 | A | No `contype='u'` catalog query on PG |
-| Check constraints | INSPECT (`pg_constraint`) | PARTIAL (parsed from table SQL) | PARTIAL (inspect + re-emit) | WIRED (Constraints) | n/a | parser tests | PENDING | RUNTIME_VERIFY | P1 | v0.1 | LIM-011 disposition still pending (#68) |
-| Indexes | INSPECT (incl. functional/GIN/GiST w/ method+definition) | PARTIAL (btree hardcoded; expr/partial lose structure) | PARTIAL (builders + generic exec; no typed CRUD) | WIRED (Indexes tab) | policy-checked | parser tests | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Triggers | INSPECT (incl. enabled flag + funcdef) | PARTIAL (header parser; always enabled) | PARTIAL (create/drop builders; no enable/disable) | WIRED read-only (Definition) | policy-checked | integration | PENDING (PG live enable/disable) | PARTIAL | P1 | A | |
-| Functions | INSPECT (`pg_proc f+p`) | n/a (always `[]`) | PARTIAL (inspect only; no create/alter/drop/call) | WIRED read-only (Definition) | n/a | integration | PENDING | PARTIAL | P1 | B | Capability-gated in Explorer (`explorer_view.rs:639-642`) |
+| Primary Keys (incl. composite) | INSPECT | INSPECT | PARTIAL (inspect + DDL re-emit) | WIRED (Structure/Constraints) | n/a | composite tests | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Foreign Keys (incl. composite) | INSPECT | INSPECT | PARTIAL (inspect + DDL re-emit; no add/drop service) | WIRED (Relations tab) | n/a | composite tests | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Unique | PARTIAL (single-col derived; multi-col as Index) | PARTIAL (same) | PARTIAL | WIRED (Constraints/Indexes) | n/a | integration | NOT VERIFIED | PARTIAL | P2 | A | No `contype='u'` catalog query on PG |
+| Check constraints | INSPECT (`pg_constraint`) | PARTIAL (parsed from table SQL) | PARTIAL (inspect + re-emit) | WIRED (Constraints) | n/a | parser tests | NOT VERIFIED | RUNTIME_VERIFY | P1 | v0.1 | LIM-011 disposition still pending (#68) |
+| Indexes | INSPECT (incl. functional/GIN/GiST w/ method+definition) | PARTIAL (btree hardcoded; expr/partial lose structure) | PARTIAL (builders + generic exec; no typed CRUD) | WIRED (Indexes tab) | policy-checked | parser tests | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Triggers | INSPECT (incl. enabled flag + funcdef) | PARTIAL (header parser; always enabled) | PARTIAL (create/drop builders; no enable/disable) | WIRED read-only (Definition) | policy-checked | integration | NOT VERIFIED (PG live enable/disable) | PARTIAL | P1 | A | |
+| Functions | INSPECT (`pg_proc f+p`) | n/a (always `[]`) | PARTIAL (inspect only; no create/alter/drop/call) | WIRED read-only (Definition) | n/a | integration | NOT VERIFIED | PARTIAL | P1 | B | Capability-gated in Explorer (`explorer_view.rs:639-642`) |
 | Procedures | PARTIAL (bundled as `routine_type`) | n/a | PARTIAL (no CALL helper; classifier treats CALL as Destructive) | MISSING (bundled row only) | fail-closed classify | — | — | PARTIAL | P2 | B | No `Procedure` struct |
 | Sequences | MISSING (no catalog query; `nextval` heuristic only) | n/a | MISSING (flag `sequences:true` with zero implementation) | MISSING | — | — | — | MISSING | P2 | A | Flag-without-code case (see §16) |
 | Types / Enums / Domains | MISSING (only `format_type()` strings) | n/a | MISSING (flag `enum_types:true`, zero implementation) | MISSING | — | — | — | MISSING | P2 | A | Arrays arrive as `Text`, no element parsing |
-| Users | BACKEND_ONLY (PG `pg_roles`) | n/a (gated `Unsupported`) | DONE PG (`user_service.rs` + `PostgresUserManager`) | MISSING (hidden per LIM-005) | writable-gate + allowlist quoting | service tests | PENDING | BACKEND_ONLY | P2 | E | No native `UiCommand` |
-| Roles / Memberships / Grants | BACKEND_ONLY PG (role + table grants) | n/a | PARTIAL (no column/db grants, no password rotation, no RLS) | MISSING | privilege allowlist (`user_manager.rs:24-31`) | service tests | PENDING | BACKEND_ONLY | P2 | E | |
+| Users | BACKEND_ONLY (PG `pg_roles`) | n/a (gated `Unsupported`) | DONE PG (`user_service.rs` + `PostgresUserManager`) | MISSING (hidden per LIM-005) | writable-gate + allowlist quoting | service tests | NOT VERIFIED | BACKEND_ONLY | P2 | E | No native `UiCommand` |
+| Roles / Memberships / Grants | BACKEND_ONLY PG (role + table grants) | n/a | PARTIAL (no column/db grants, no password rotation, no RLS) | MISSING | privilege allowlist (`user_manager.rs:24-31`) | service tests | NOT VERIFIED | BACKEND_ONLY | P2 | E | |
 
 ---
 
@@ -144,21 +144,21 @@ Sources: `crates/ui/src/query_view.rs`, `crates/ui/src/editor/*`, `crates/ui/src
 
 | Feature | PostgreSQL | SQLite | Backend | Native UI | Safety | Tests | Runtime Evidence | Status | Priority | Target Phase | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Native editor + syntax highlight | yes | yes | n/a (UI) | WIRED (dialect-aware tokenizer) | n/a | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Multi query tabs + persistence + dirty guard | yes | yes | n/a | WIRED (`query-documents` key) | close-guard | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | Tab-close does NOT cancel running query (gap) |
-| Execution (selection → statement → all) | DONE | DONE | DONE (`execute`/`execute_multi`, atomic routing) | WIRED (Run/Run selection/Run all) | policy per statement | integration | PENDING native | RUNTIME_VERIFY | P0 | v0.1 | |
-| Cancellation | PORT-ONLY (`Unsupported`) | DONE (VM interrupt) | PARTIAL | WIRED (Stop/Esc, capability-gated) | idempotent cancel | cancel tests | PENDING | PARTIAL | P1 | v0.1/D | **Inverted vs release matrix** (see §16) |
-| History | DONE | DONE | DONE (repo + service) | WIRED local dual (20 + 500 persisted) | n/a | UI | PENDING | RUNTIME_VERIFY | P1 | v0.1 | Server `QueryApi::history` unwired |
-| Saved queries + folders | DONE | DONE | DONE (7 repo methods) | WIRED (grouped, open/copy/rename/delete) | connection-required save | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | Rename UX awkward (reuses folder input) |
-| Drafts (dirty/snapshot) | n/a | n/a | n/a | WIRED | n/a | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
+| Native editor + syntax highlight | yes | yes | n/a (UI) | WIRED (dialect-aware tokenizer) | n/a | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Multi query tabs + persistence + dirty guard | yes | yes | n/a | WIRED (`query-documents` key) | close-guard | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | Tab-close does NOT cancel running query (gap) |
+| Execution (selection → statement → all) | DONE | DONE | DONE (`execute`/`execute_multi`, atomic routing) | WIRED (Run/Run selection/Run all) | policy per statement | integration | NOT VERIFIED (native) | RUNTIME_VERIFY | P0 | v0.1 | |
+| Cancellation | PORT-ONLY (`Unsupported`) | DONE (VM interrupt) | PARTIAL | WIRED (Stop/Esc, capability-gated) | idempotent cancel | cancel tests | NOT VERIFIED | PARTIAL | P1 | v0.1/D | **Inverted vs release matrix** (see §16) |
+| History | DONE | DONE | DONE (repo + service) | WIRED local dual (20 + 500 persisted) | n/a | UI | NOT VERIFIED | RUNTIME_VERIFY | P1 | v0.1 | Server `QueryApi::history` unwired |
+| Saved queries + folders | DONE | DONE | DONE (7 repo methods) | WIRED (grouped, open/copy/rename/delete) | connection-required save | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | Rename UX awkward (reuses folder input) |
+| Drafts (dirty/snapshot) | n/a | n/a | n/a | WIRED | n/a | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
 | Snippets | n/a | n/a | MISSING (no domain) | MINIMAL (2 hardcoded inserts) | n/a | — | — | MISSING | P2 | G | No library, no persistence |
 | Scratch SQL | n/a | n/a | MISSING | MISSING (unsaved doc is closest) | n/a | — | — | MISSING | P2 | G | |
-| Formatting | n/a | n/a | n/a | WIRED minimal (clause-break, literal-safe) | never rewrites literals | UI | PENDING | PARTIAL | P2 | G | Not `pg_format`-class |
-| Completion (keyword/table/column/CTE) | yes | yes | n/a | WIRED (manual + auto popup) | n/a | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Diagnostics (parser + delimiter + DB errors) | yes | yes | PARTIAL (server error mapping in UI) | WIRED | n/a | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Multi-result rendering | yes | yes | DONE (`MultiQueryResult`) | WIRED (Result 1..N + Messages) | n/a | integration + UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Explain / query plan | DONE (`FORMAT JSON`) | DONE (text) | DONE | PARTIAL (raw monospace; visual `ExplainPlanTree` demo-only) | single-statement | integration | PENDING | PARTIAL | P1 | v0.1/G | `components/explain.rs` never fed real plan |
-| Export result | DONE x3 (service) | DONE x3 | DONE (CSV/JSON/XLSX + BIGINT guards) | PARTIAL (local CSV/TSV writer, no quoting) | readonly policy | service tests | PENDING | BACKEND_ONLY | P1 | C | No native trigger for backend exporters |
+| Formatting | n/a | n/a | n/a | WIRED minimal (clause-break, literal-safe) | never rewrites literals | UI | NOT VERIFIED | PARTIAL | P2 | G | Not `pg_format`-class |
+| Completion (keyword/table/column/CTE) | yes | yes | n/a | WIRED (manual + auto popup) | n/a | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Diagnostics (parser + delimiter + DB errors) | yes | yes | PARTIAL (server error mapping in UI) | WIRED | n/a | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Multi-result rendering | yes | yes | DONE (`MultiQueryResult`) | WIRED (Result 1..N + Messages) | n/a | integration + UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Explain / query plan | DONE (`FORMAT JSON`) | DONE (text) | DONE | PARTIAL (raw monospace; visual `ExplainPlanTree` demo-only) | single-statement | integration | NOT VERIFIED | PARTIAL | P1 | v0.1/G | `components/explain.rs` never fed real plan |
+| Export result | DONE x3 (service) | DONE x3 | DONE (CSV/JSON/XLSX + BIGINT guards) | PARTIAL (local CSV/TSV writer, no quoting) | readonly policy | service tests | NOT VERIFIED | BACKEND_ONLY | P1 | C | No native trigger for backend exporters |
 | Query parameters | PLUMBING | PLUMBING | PARTIAL (builders parameterized; runtime passes `&[]`) | MISSING (no dialog) | n/a | builder tests | — | MISSING | P2 | G | Binary-cell hint references params that don't exist in UI |
 | Keyboard workflow | n/a | n/a | n/a | PARTIAL (run/save/palette/find wired; `Ctrl+N` advertised but unwired) | n/a | — | — | PARTIAL | P2 | G | No keybinding editor; shortcuts hardcoded |
 
@@ -172,21 +172,21 @@ Sources: `crates/ui/src/table_editor_view.rs`, `crates/ui/src/result_grid*.rs`, 
 
 | Feature | PostgreSQL | SQLite | Backend | Native UI | Safety | Tests | Runtime Evidence | Status | Priority | Target Phase | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Pagination | DONE | DONE | DONE | WIRED table (100/page); query results unbounded | n/a | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | Query results have no server pagination |
+| Pagination | DONE | DONE | DONE | WIRED table (100/page); query results unbounded | n/a | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | Query results have no server pagination |
 | Virtualization | n/a | n/a | n/a | PARTIAL (index projection + culling; no row recycling) | n/a | benches | bench-only | PARTIAL | P2 | Later | 1M-row projection ~3.15ms (bench) |
-| Typed filters (server) | DONE | DONE | DONE (11 operators) | WIRED table; contains-only in query grid | parameterized | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Multi-sort (server) | DONE | DONE | DONE | WIRED table; single-col query grid | blocked while staged | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Selection + keyboard nav | n/a | n/a | n/a | WIRED (cell/row, arrows/Home/End) | n/a | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Copy | n/a | n/a | n/a | PARTIAL (raw cell/row/CSV/JSON/SQL; staged values NOT copied) | n/a | UI | PENDING | PARTIAL | P2 | G | Staged-copy gap |
-| Inline edit (staged, Enter-to-stage) | DONE | DONE | DONE (parameterized, 1-row guard) | WIRED | NOT NULL/binary guards | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | No auto-commit (by design) |
-| Insert / Update / Delete | DONE | DONE | DONE (atomic `apply_mutations_detailed`) | WIRED staged + dialogs | 0-row→Conflict; >1→violation | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | Complex-type widgets incomplete (LIM-003) |
-| Composite PK | DONE | DONE | DONE | WIRED (identity cache + reload) | targeted reload | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Conflict handling (3-way Original/Local/DB) | DONE | DONE | DONE | WIRED (dialog + per-cell tint + retry) | rollback preserved | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Pending-changes review + navigation guards | n/a | n/a | n/a | WIRED | guards block nav | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
-| Commit / rollback | DONE | DONE | DONE (commit) | PARTIAL (commit wired; rollback = local discard) | `RolledBack` never misreported | integration | PENDING | RUNTIME_VERIFY | P0 | v0.1 | No explicit BEGIN/COMMIT UI, no partial commit |
+| Typed filters (server) | DONE | DONE | DONE (11 operators) | WIRED table; contains-only in query grid | parameterized | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Multi-sort (server) | DONE | DONE | DONE | WIRED table; single-col query grid | blocked while staged | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Selection + keyboard nav | n/a | n/a | n/a | WIRED (cell/row, arrows/Home/End) | n/a | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Copy | n/a | n/a | n/a | PARTIAL (raw cell/row/CSV/JSON/SQL; staged values NOT copied) | n/a | UI | NOT VERIFIED | PARTIAL | P2 | G | Staged-copy gap |
+| Inline edit (staged, Enter-to-stage) | DONE | DONE | DONE (parameterized, 1-row guard) | WIRED | NOT NULL/binary guards | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | No auto-commit (by design) |
+| Insert / Update / Delete | DONE | DONE | DONE (atomic `apply_mutations_detailed`) | WIRED staged + dialogs | 0-row→Conflict; >1→violation | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | Complex-type widgets incomplete (LIM-003) |
+| Composite PK | DONE | DONE | DONE | WIRED (identity cache + reload) | targeted reload | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Conflict handling (3-way Original/Local/DB) | DONE | DONE | DONE | WIRED (dialog + per-cell tint + retry) | rollback preserved | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Pending-changes review + navigation guards | n/a | n/a | n/a | WIRED | guards block nav | UI | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | |
+| Commit / rollback | DONE | DONE | DONE (commit) | PARTIAL (commit wired; rollback = local discard) | `RolledBack` never misreported | integration | NOT VERIFIED | RUNTIME_VERIFY | P0 | v0.1 | No explicit BEGIN/COMMIT UI, no partial commit |
 | JSON viewer | n/a | n/a | n/a | PARTIAL (expanded editor + pretty copy; no tree) | n/a | — | — | PARTIAL | P2 | G | |
 | Binary/BLOB handling | DONE (decode) | DONE (decode) | PARTIAL | PLACEHOLDER ("binary editor unavailable", read-only) | fail-closed edit | — | — | PARTIAL | P2 | C/G | |
-| Null / Default | DONE | DONE | DONE (null) | WIRED null; default = placeholder text only | NOT NULL guard | UI | PENDING | PARTIAL | P2 | G | No DEFAULT apply UI |
+| Null / Default | DONE | DONE | DONE (null) | WIRED null; default = placeholder text only | NOT NULL guard | UI | NOT VERIFIED | PARTIAL | P2 | G | No DEFAULT apply UI |
 | Large-result behavior | bounded | bounded | bounded (`max_rows`) | PARTIAL (table paged; query grid full in-memory) | n/a | benches | — | PARTIAL | P2 | Later | No cap warning / progressive fetch |
 
 ---
@@ -244,7 +244,7 @@ No `AdminService`, no `pg_stat*` queries anywhere in `crates/`. Only adjacent PG
 | Running queries | MISSING | n/a | MISSING | MISSING | — | — | — | MISSING | P1 | D | |
 | Locks | MISSING | n/a | MISSING | MISSING | — | — | — | MISSING | P2 | D | |
 | Transactions view | MISSING | n/a | MISSING (user txns exist, no listing) | MISSING | — | — | — | MISSING | P2 | D | |
-| Cancel query (admin) | PORT-ONLY | ADAPTER, no admin UI | PARTIAL | Stop-button only | idempotent | cancel tests | PENDING | PARTIAL | P1 | D | See §16 inversion |
+| Cancel query (admin) | PORT-ONLY | ADAPTER, no admin UI | PARTIAL | Stop-button only | idempotent | cancel tests | NOT VERIFIED | PARTIAL | P1 | D | See §16 inversion |
 | Terminate session | MISSING | n/a | MISSING | MISSING | — | — | — | MISSING | P2 | D | |
 | DB size | MISSING | MISSING (backup reports bytes only) | MISSING | MISSING | — | — | — | MISSING | P2 | D | PG has `reltuples` estimate only |
 | Table size | MISSING (`reltuples` only) | MISSING (`None`) | MISSING | MISSING | — | — | — | MISSING | P2 | D | |
@@ -261,9 +261,9 @@ No `AdminService`, no `pg_stat*` queries anywhere in `crates/`. Only adjacent PG
 | Import CSV | MISSING | MISSING | MISSING (no reader deps; LIM-012) | MISSING | — | — | — | MISSING | P1 | C | |
 | Import Excel | MISSING | MISSING | MISSING | MISSING | — | — | — | MISSING | P2 | C | |
 | Import JSON | MISSING | MISSING | MISSING | MISSING | — | — | — | MISSING | P2 | C | |
-| Export CSV | DONE | DONE | DONE (`csv` crate) | UNWIRED (native has separate local writer) | readonly policy | service tests | PENDING | BACKEND_ONLY | P1 | C | Native CSV/TSV writer lacks quoting |
-| Export Excel | DONE | DONE | DONE (`rust_xlsxwriter` + BIGINT/Decimal guards) | MISSING | readonly policy | service tests | PENDING | BACKEND_ONLY | P1 | C | Lossless `2^53` handling is a strength |
-| Export JSON | DONE | DONE | DONE (dup-col + non-finite guards) | MISSING | readonly policy | service tests | PENDING | BACKEND_ONLY | P2 | C | |
+| Export CSV | DONE | DONE | DONE (`csv` crate) | UNWIRED (native has separate local writer) | readonly policy | service tests | NOT VERIFIED | BACKEND_ONLY | P1 | C | Native CSV/TSV writer lacks quoting |
+| Export Excel | DONE | DONE | DONE (`rust_xlsxwriter` + BIGINT/Decimal guards) | MISSING | readonly policy | service tests | NOT VERIFIED | BACKEND_ONLY | P1 | C | Lossless `2^53` handling is a strength |
+| Export JSON | DONE | DONE | DONE (dup-col + non-finite guards) | MISSING | readonly policy | service tests | NOT VERIFIED | BACKEND_ONLY | P2 | C | |
 | Export SQL INSERT / COPY | MISSING | MISSING | MISSING (`export_sql` absent) | MISSING | — | — | — | MISSING | P2 | C | |
 | Database-to-database transfer | MISSING | MISSING | MISSING (diff is count-only) | MISSING | — | — | — | MISSING | P3 | Later | |
 | Preview / column+type mapping / conflict strategy / progress / cancellation / streaming | — | — | MISSING (export materializes bounded `QueryResult`) | — | — | — | — | MISSING | P1 | C | Architecture must be designed in Phase C |
@@ -274,8 +274,8 @@ No `AdminService`, no `pg_stat*` queries anywhere in `crates/`. Only adjacent PG
 
 | Feature | PostgreSQL | SQLite | Backend | Native UI | Safety | Tests | Runtime Evidence | Status | Priority | Target Phase | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Backup | DONE (PATH `pg_dump`, SSH-aware) | DONE (`VACUUM INTO`, atomic publish) | DONE (`backup_service.rs` + engines) | WIRED minimal (Settings path-pick + run) | readonly-restore block; no-overwrite publish | engine tests | PENDING live | RUNTIME_VERIFY | P1 | v0.1 | `pg_dump` NOT bundled (LIM-015); SQLite is VACUUM INTO, not file-copy |
-| Restore | DONE (`psql`/`pg_restore`) | DONE (staged + `quick_check`) | DONE | WIRED minimal (confirm-overwrite dialog) | overwrite confirmation; active-DB block (SQLite) | engine tests | PENDING live | RUNTIME_VERIFY | P1 | v0.1 | No progress bar, no schedule, no format choice (hardcoded) |
+| Backup | DONE (PATH `pg_dump`, SSH-aware) | DONE (`VACUUM INTO`, atomic publish) | DONE (`backup_service.rs` + engines) | WIRED minimal (Settings path-pick + run) | readonly-restore block; no-overwrite publish | engine tests | NOT VERIFIED (live) | RUNTIME_VERIFY | P1 | v0.1 | `pg_dump` NOT bundled (LIM-015); SQLite is VACUUM INTO, not file-copy |
+| Restore | DONE (`psql`/`pg_restore`) | DONE (staged + `quick_check`) | DONE | WIRED minimal (confirm-overwrite dialog) | overwrite confirmation; active-DB block (SQLite) | engine tests | NOT VERIFIED (live) | RUNTIME_VERIFY | P1 | v0.1 | No progress bar, no schedule, no format choice (hardcoded) |
 
 ---
 
@@ -285,10 +285,10 @@ Backend PG-only (`user_service.rs`, `PostgresUserManager`); SQLite capability-ga
 
 | Feature | PostgreSQL | SQLite | Backend | Native UI | Safety | Tests | Runtime Evidence | Status | Priority | Target Phase | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Users list | DONE | gated | DONE | MISSING | — | service tests | PENDING | BACKEND_ONLY | P2 | E | |
-| Roles create/drop | DONE | gated | DONE | MISSING | writable-gate | service tests | PENDING | BACKEND_ONLY | P2 | E | |
+| Users list | DONE | gated | DONE | MISSING | — | service tests | NOT VERIFIED | BACKEND_ONLY | P2 | E | |
+| Roles create/drop | DONE | gated | DONE | MISSING | writable-gate | service tests | NOT VERIFIED | BACKEND_ONLY | P2 | E | |
 | Memberships | MISSING | gated | MISSING | MISSING | — | — | — | MISSING | P2 | E | |
-| Table grants | DONE (8-priv allowlist) | gated | DONE | MISSING | identifier quoting | service tests | PENDING | BACKEND_ONLY | P2 | E | |
+| Table grants | DONE (8-priv allowlist) | gated | DONE | MISSING | identifier quoting | service tests | NOT VERIFIED | BACKEND_ONLY | P2 | E | |
 | Schema privileges | MISSING | gated | MISSING | MISSING | — | — | — | MISSING | P3 | E | |
 | Column/DB grants, password rotation, RLS | MISSING | gated | MISSING | MISSING | — | — | — | MISSING | P3 | Later | |
 | Role DDL view | MISSING | gated | MISSING | MISSING | — | — | — | MISSING | P3 | E | |
@@ -299,12 +299,12 @@ Backend PG-only (`user_service.rs`, `PostgresUserManager`); SQLite capability-ga
 
 | Feature | PostgreSQL | SQLite | Backend | Native UI | Safety | Tests | Runtime Evidence | Status | Priority | Target Phase | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Schema Compare | PARTIAL (tables+columns+types+indexes only) | PARTIAL | PARTIAL (`schema_diff.rs`, driver-agnostic) | MISSING | read-only | diff tests | PENDING | BACKEND_ONLY | P2 | F | No views/triggers/functions/constraints |
+| Schema Compare | PARTIAL (tables+columns+types+indexes only) | PARTIAL | PARTIAL (`schema_diff.rs`, driver-agnostic) | MISSING | read-only | diff tests | NOT VERIFIED | BACKEND_ONLY | P2 | F | No views/triggers/functions/constraints |
 | DDL Diff (generate ALTERs) | MISSING | MISSING | MISSING | MISSING | — | — | — | MISSING | P2 | F | |
 | Migration Preview | MISSING | MISSING | MISSING (`meta/migration.rs` is app-store only) | MISSING | — | — | — | MISSING | P2 | F | Do not confuse with app meta migrations |
 | Migration SQL generation | MISSING | MISSING | MISSING | MISSING | — | — | — | MISSING | P2 | F | |
 | Migration Apply (safe) | MISSING | MISSING | MISSING | MISSING | — | — | — | MISSING | P3 | F | Must reuse `execute_ddl_batch` + confirmation |
-| Data Compare | COUNT-ONLY | COUNT-ONLY | PARTIAL (`data_diff.rs`) | MISSING | read-only | diff tests | PENDING | BACKEND_ONLY | P3 | F | Capability flag overstates coverage |
+| Data Compare | COUNT-ONLY | COUNT-ONLY | PARTIAL (`data_diff.rs`) | MISSING | read-only | diff tests | NOT VERIFIED | BACKEND_ONLY | P3 | F | Capability flag overstates coverage |
 
 ---
 
