@@ -88,4 +88,7 @@ Release rule for this QA program:
 - An `#[ignore]`d test is never evidence of passing. A count that includes ignored tests must
   say so.
 - **Archival check (2026-09-14):** no feature in this file reached `COMPLETED` in this run, so
-  nothing was moved to `docs/plans/completed/`.
+  nothing was moved to `docs/plans/completed/`. The per-feature transition and archival reasoning
+  (evidence, provider, runtime state, missing evidence, REVIEW requirement) is recorded in
+  `docs/release/evidence/v01-06/10-lifecycle-and-archival-record.md`; the RC1 P2 dispositions are
+  in `06-rc1-p2-dispositions.md` and are folded into `docs/release/risk-register.md` (`R-RC1-P2`).
