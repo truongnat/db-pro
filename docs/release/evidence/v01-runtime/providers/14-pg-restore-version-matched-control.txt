@@ -1,0 +1,21 @@
+### PostgreSQL backup/restore — version-matched control (corrected: -U dbpro)
+
+$ dump AND restore both with the version-matched 16.15 tools inside the container
+pg_dump (PostgreSQL) 16.15 (Debian 16.15-1.pgdg13+2)
+  pg_dump 16.15 exit=0
+    ;     Dump Version: 1.15-0
+    ;     Format: CUSTOM
+    ;     Dumped by pg_dump version: 16.15 (Debian 16.15-1.pgdg13+2)
+  pg_restore 16.15 exit=0
+
+  restored row counts (version-matched control):
+    orders=4 order_items=6
+  fingerprint (version-matched control) — compare with source 3146f5fe4be0c45ed998cff6f386364d:
+    orders_fp=3146f5fe4be0c45ed998cff6f386364d
+  object counts:
+    S=8
+    i=17
+    r=10
+    v=2
+  003_verify.sql against the version-matched restore:
+    PASS (exit 0)

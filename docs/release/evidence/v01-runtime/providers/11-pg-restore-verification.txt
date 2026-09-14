@@ -1,0 +1,103 @@
+### PostgreSQL backup/restore — verification of the restored database
+  (despite pg_restore exit=1 from the version-skew warning above)
+
+$ \dt style listing in the restore target
+             List of tables
+ Schema |     Name      | Type  | Owner 
+--------+---------------+-------+-------
+ public | audit_logs    | table | dbpro
+ public | categories    | table | dbpro
+ public | documents     | table | dbpro
+ public | employees     | table | dbpro
+ public | empty_table   | table | dbpro
+ public | order_items   | table | dbpro
+ public | orders        | table | dbpro
+ public | products      | table | dbpro
+ public | weird"name    | table | dbpro
+ public | Ünïcödé Üsers | table | dbpro
+(10 rows)
+
+$ views
+             List of views
+ Schema |     Name      | Type | Owner 
+--------+---------------+------+-------
+ public | active_users  | view | dbpro
+ public | order_summary | view | dbpro
+(2 rows)
+
+$ sequences
+                List of sequences
+ Schema |         Name         |   Type   | Owner 
+--------+----------------------+----------+-------
+ public | audit_seq            | sequence | dbpro
+ public | categories_id_seq    | sequence | dbpro
+ public | documents_id_seq     | sequence | dbpro
+ public | employees_id_seq     | sequence | dbpro
+ public | empty_table_id_seq   | sequence | dbpro
+ public | orders_id_seq        | sequence | dbpro
+ public | weird"name_id_seq    | sequence | dbpro
+ public | Ünïcödé Üsers_id_seq | sequence | dbpro
+(8 rows)
+
+$ object counts — restore target vs source
+  [dbpro_fixture]
+ERROR:  operator is not unique: "char" || unknown
+LINE 1: SELECT relkind || '=' || COUNT(*) FROM pg_class c JOIN pg_na...
+                       ^
+HINT:  Could not choose a best candidate operator. You might need to add explicit type casts.
+  [dbpro_v01_restore_target]
+ERROR:  operator is not unique: "char" || unknown
+LINE 1: SELECT relkind || '=' || COUNT(*) FROM pg_class c JOIN pg_na...
+                       ^
+HINT:  Could not choose a best candidate operator. You might need to add explicit type casts.
+
+$ row counts for two tables — source vs restore target
+  [dbpro_fixture]
+    orders=4 order_items=6 categories=4 products=4
+  [dbpro_v01_restore_target]
+    orders=4 order_items=6 categories=4 products=4
+
+$ content equality check (aggregate fingerprint over the two tables)
+  [dbpro_fixture]
+    orders_fp=3146f5fe4be0c45ed998cff6f386364d
+ERROR:  column "id" does not exist
+LINE 1: ...ing_agg(t::text, '|' ORDER BY t.id)) FROM (SELECT id, order_...
+                                                             ^
+  [dbpro_v01_restore_target]
+    orders_fp=3146f5fe4be0c45ed998cff6f386364d
+ERROR:  column "id" does not exist
+LINE 1: ...ing_agg(t::text, '|' ORDER BY t.id)) FROM (SELECT id, order_...
+                                                             ^
+
+$ restored objects are usable: run the fixture's own verify script against the restore target
+  003_verify.sql against the RESTORED database: PASS (exit 0)
+
+$ restored enum type, view, function and trigger survived the round trip
+ enumlabel  
+------------
+ pending
+ processing
+ shipped
+ delivered
+ cancelled
+(5 rows)
+
+ restored_triggers 
+-------------------
+                 1
+(1 row)
+
+     proname      
+------------------
+ calculate_total
+ update_timestamp
+(2 rows)
+
+$ the restored view returns rows:
+ id |       émâil       |    name     
+----+-------------------+-------------
+  1 | alice@example.com | Alice Ün
+  2 | bob@example.com   | Bob Smith
+  4 | dave@example.com  | Dàve Müller
+(3 rows)
+

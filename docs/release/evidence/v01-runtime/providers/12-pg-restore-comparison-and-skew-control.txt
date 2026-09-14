@@ -1,0 +1,50 @@
+### PostgreSQL backup/restore — corrected object/data comparison and the version-skew control
+
+$ object counts — source vs restore target (relkind cast to text)
+  [dbpro_fixture]
+    S=8
+    i=17
+    r=10
+    v=2
+    (r=tables v=views i=indexes S=sequences)
+  [dbpro_v01_restore_target]
+    S=8
+    i=17
+    r=10
+    v=2
+    (r=tables v=views i=indexes S=sequences)
+
+$ content fingerprint — source vs restore target
+  order_items has a composite PK (order_id, product_id); no surrogate id column.
+  [dbpro_fixture]
+    orders_fp=3146f5fe4be0c45ed998cff6f386364d
+    order_items_fp=6fc3e4d12cfac9228344e3d4ff903ff9
+    users_fp=71268aab2762d62e42e71eeee9368b0a
+  [dbpro_v01_restore_target]
+    orders_fp=3146f5fe4be0c45ed998cff6f386364d
+    order_items_fp=6fc3e4d12cfac9228344e3d4ff903ff9
+    users_fp=71268aab2762d62e42e71eeee9368b0a
+
+$ CONTROL — is the pg_restore exit=1 caused by the client/server version skew alone?
+  Re-running the SAME dump with the version-MATCHED pg_restore 16.15 from inside the container.
+NOTICE:  database "dbpro_v01_restore_pg16client" does not exist, skipping
+pg_restore (PostgreSQL) 16.15 (Debian 16.15-1.pgdg13+2)
+pg_restore: error: unsupported version (1.16) in file header
+  version-matched pg_restore (16.15) EXIT=1
+
+  row counts in the version-matched restore:
+ERROR:  relation "orders" does not exist
+LINE 1: SELECT 'orders=' || (SELECT COUNT(*) FROM orders) || ' order...
+                                                  ^
+
+  fingerprint comparison, version-matched client vs source:
+ERROR:  relation "orders" does not exist
+LINE 1: ...r_id, status::text, total, notes, created_at FROM orders) t;
+                                                             ^
+ERROR:  relation "order_items" does not exist
+LINE 1: ...T order_id, product_id, quantity, unit_price FROM order_item...
+                                                             ^
+
+$ the exact failing statement the 18.4 client emits:
+13:SET transaction_timeout = 0;
+  transaction_timeout was introduced in PostgreSQL 17; this server is 16.15.

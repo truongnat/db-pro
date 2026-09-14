@@ -1,0 +1,61 @@
+### PostgreSQL backup/restore — CLI-level (pg_dump / pg_restore)
+
+  SCOPE CAVEAT: this is a CLI-level verification that the documented
+  pg_dump/pg_restore dependency is satisfiable on this host, using the
+  same PATH tools the application shells out to. It is NOT a GUI backup test:
+  no window was rendered and the app's Backup action was never clicked.
+
+$ pg_dump --version / pg_restore --version / psql --version  (client tools on PATH)
+pg_dump (PostgreSQL) 18.4
+pg_restore (PostgreSQL) 18.4
+psql (PostgreSQL) 18.4
+$ SERVER version (container)
+PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+  NOTE: client 18.4 vs server 16.15 — a forward-compatible skew for pg_dump/pg_restore.
+
+$ pg_dump -h 127.0.0.1 -p 55432 -U dbpro -d dbpro_fixture -Fc -f /tmp/dbpro-v01-runtime/dbpro_fixture.dump
+  exit=0
+-rw-r--r--@ 1 truongdev  wheel  25485 Sep 14 23:00 /tmp/dbpro-v01-runtime/dbpro_fixture.dump
+
+$ pg_dump -h 127.0.0.1 -p 55432 -U dbpro -d dbpro_fixture -Fp -f /tmp/dbpro-v01-runtime/dbpro_fixture.sql  (plain, for object listing)
+  exit=0
+  plain-dump size:      799 lines
+
+$ pg_restore --list (archive table-of-contents head)
+;
+; Archive created at 2026-09-14 23:00:36 +07
+;     dbname: dbpro_fixture
+;     TOC Entries: 80
+;     Compression: gzip
+;     Dump Version: 1.16-0
+;     Format: CUSTOM
+;     Integer: 4 bytes
+;     Offset: 8 bytes
+;     Dumped from database version: 16.15 (Debian 16.15-1.pgdg13+2)
+;     Dumped by pg_dump version: 18.4
+;
+;
+; Selected TOC Entries:
+;
+861; 1247 16386 TYPE public order_status dbpro
+236; 1255 16521 FUNCTION public calculate_total(bigint) dbpro
+235; 1255 16519 FUNCTION public update_timestamp() dbpro
+220; 1259 16428 TABLE public Ünïcödé Üsers dbpro
+233; 1259 16505 VIEW public active_users dbpro
+215; 1259 16397 SEQUENCE public audit_seq dbpro
+224; 1259 16466 TABLE public audit_logs dbpro
+217; 1259 16399 TABLE public categories dbpro
+216; 1259 16398 SEQUENCE public categories_id_seq dbpro
+3547; 0 0 SEQUENCE OWNED BY public categories_id_seq dbpro
+  total TOC entries: 91
+
+$ create the disposable restore target database
+NOTICE:  database "dbpro_v01_restore_target" does not exist, skipping
+DROP DATABASE
+CREATE DATABASE
+
+$ pg_restore -h 127.0.0.1 -p 55432 -U dbpro -d dbpro_v01_restore_target --no-owner --no-privileges /tmp/dbpro-v01-runtime/dbpro_fixture.dump
+pg_restore: error: could not execute query: ERROR:  unrecognized configuration parameter "transaction_timeout"
+Command was: SET transaction_timeout = 0;
+pg_restore: warning: errors ignored on restore: 1
+  exit=1
