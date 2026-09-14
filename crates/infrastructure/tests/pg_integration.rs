@@ -1093,3 +1093,98 @@ async fn pg_decoder_matrix_covers_every_value_class() {
 
     connector.disconnect(&handle).await.unwrap();
 }
+
+/// A catalog function in the introspection query (`pg_get_indexdef`,
+/// `pg_get_constraintdef`) is evaluated with a *fresh* catalog snapshot, so an index
+/// or constraint created or dropped by another session after this query's snapshot
+/// makes the function return NULL for a row the snapshot still shows. That is the
+/// failure CI hit — `pg_introspect_tables … ColumnDecode { index: "definition",
+/// UnexpectedNullError }` at `crates/infrastructure/src/postgres/introspect.rs:337`
+/// — and it must degrade the one row, never fail the whole refresh.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL
+async fn pg_introspection_survives_concurrent_index_churn() {
+    let (connector, handle) = setup().await;
+
+    // The mechanism, on one concrete index: once it is gone the function this query
+    // calls returns NULL, which is exactly what the decoder has to tolerate.
+    connector
+        .query(&handle, "CREATE TABLE IF NOT EXISTS churn_probe(id integer)", &[])
+        .await
+        .unwrap();
+    connector
+        .query(
+            &handle,
+            "CREATE INDEX IF NOT EXISTS churn_probe_i ON churn_probe(id)",
+            &[],
+        )
+        .await
+        .unwrap();
+    let oid = connector
+        .query(
+            &handle,
+            "SELECT c.oid FROM pg_class c WHERE c.relname = 'churn_probe_i'",
+            &[],
+        )
+        .await
+        .unwrap();
+    let oid = match &oid.rows[0].0[0] {
+        CellValue::Int64(oid) => *oid,
+        other => panic!("an oid column must decode as Int64, got {other:?}"),
+    };
+    connector.query(&handle, "DROP INDEX churn_probe_i", &[]).await.unwrap();
+    let probe = connector
+        .query(
+            &handle,
+            &format!("SELECT pg_get_indexdef({oid}) IS NULL AS definition_is_null"),
+            &[],
+        )
+        .await
+        .unwrap();
+    assert!(
+        matches!(&probe.rows[0].0[0], CellValue::Bool(true)),
+        "a dropped index must have no definition — that is the NULL the decoder sees"
+    );
+
+    // The race itself: drop indexes from a second session while the first one
+    // introspects repeatedly. Before the fix this failed within a fraction of a
+    // second (`UnexpectedNullError`); it must now report the schema either way.
+    for i in 0..40 {
+        connector
+            .query(
+                &handle,
+                &format!("CREATE INDEX IF NOT EXISTS churn_probe_i{i} ON churn_probe(id)"),
+                &[],
+            )
+            .await
+            .unwrap();
+    }
+    let (dropper, dropper_handle) = setup().await;
+    let dropper = tokio::spawn(async move {
+        for i in 0..40 {
+            let _ = dropper
+                .query(&dropper_handle, &format!("DROP INDEX IF EXISTS churn_probe_i{i}"), &[])
+                .await;
+        }
+        dropper.disconnect(&dropper_handle).await.unwrap();
+    });
+
+    let mut refreshes = 0;
+    while !dropper.is_finished() || refreshes < 20 {
+        connector
+            .introspect(&handle)
+            .await
+            .expect("introspection must survive concurrent index churn");
+        refreshes += 1;
+        if refreshes > 500 {
+            break;
+        }
+    }
+    dropper.await.unwrap();
+
+    connector
+        .query(&handle, "DROP TABLE IF EXISTS churn_probe", &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}

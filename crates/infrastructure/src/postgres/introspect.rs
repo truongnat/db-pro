@@ -4,7 +4,51 @@ use sqlx::postgres::PgRow;
 use sqlx::Row as _;
 use std::collections::HashSet;
 
+/// Introspect a live catalog that other sessions can change under us.
+///
+/// The queries below call catalog functions (`pg_get_indexdef`, `pg_get_expr`,
+/// `pg_get_constraintdef`, …) that are evaluated with a *fresh* catalog snapshot, so
+/// an object created or dropped after this query's snapshot either decodes as a NULL
+/// column (handled at the decode site) or makes the server raise a transient
+/// catalog-cache error. A refresh is a read of whatever consistent-enough state the
+/// catalog is in, so only that transient form is retried, a bounded number of times,
+/// with a short backoff; every other error is returned unchanged. The failure this
+/// replaces was `cache lookup failed for attribute 1 of relation …` and
+/// `ColumnDecode { index: "definition", UnexpectedNullError }` — see
+/// `docs/release/evidence/v01-runtime/providers/42-introspection-under-concurrent-ddl.md`.
 pub async fn run_introspection(pool: &sqlx::PgPool) -> Result<IntrospectResult, DbError> {
+    const ATTEMPTS: usize = 3;
+    let mut attempt = 1;
+    loop {
+        match run_introspection_once(pool).await {
+            Ok(result) => return Ok(result),
+            Err(error) if attempt < ATTEMPTS && is_transient_catalog_error(&error) => {
+                tokio::time::sleep(std::time::Duration::from_millis(10 * attempt as u64)).await;
+                attempt += 1;
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+/// The catalog races PostgreSQL reports while a concurrent session is running DDL.
+/// Matching is deliberately narrow: a message this list does not name is a real
+/// failure and must not be retried behind the user's back.
+fn is_transient_catalog_error(error: &DbError) -> bool {
+    let DbError::QueryFailed(message) = error else {
+        return false;
+    };
+    [
+        "cache lookup failed",
+        "could not open relation with OID",
+        "tuple concurrently updated",
+        "cached plan must not change result type",
+    ]
+    .iter()
+    .any(|marker| message.contains(marker))
+}
+
+async fn run_introspection_once(pool: &sqlx::PgPool) -> Result<IntrospectResult, DbError> {
     // Run independent introspection queries in parallel
     let (schemas, tables, raw_cols, primary_keys, indexes, foreign_keys, check_constraints, views, triggers, functions) = tokio::join!(
         introspect_schemas(pool),
@@ -325,16 +369,19 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
     .await
     .map_err(crate::error::from_sqlx)?;
 
-    Ok(rows
-        .into_iter()
-        .map(|row| {
+    rows.into_iter()
+        .map(|row| -> Result<Index, DbError> {
             let schema: String = row.get("schema_name");
             let table: String = row.get("table_name");
             let name: String = row.get("index_name");
             let method: String = row.get("method");
             let primary: bool = row.get("is_primary");
             let unique: bool = row.get("is_unique");
-            let definition: String = row.get("definition");
+            // `pg_get_indexdef` is evaluated with a *fresh* catalog snapshot, so an
+            // index created or dropped by another session after this query's
+            // snapshot makes the function return NULL for a row the snapshot still
+            // shows. A meanwhile-dropped index must not fail the whole refresh.
+            let definition = optional_string(&row, "definition")?.unwrap_or_default();
             let predicate: Option<String> = row.get("predicate");
             let mut columns: Vec<String> = row.get("columns");
             if columns.is_empty() && !definition.is_empty() {
@@ -342,7 +389,7 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
             }
             let include_columns: Vec<String> = row.get("include_columns");
 
-            Index {
+            Ok(Index {
                 name,
                 columns,
                 unique,
@@ -354,9 +401,9 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
                 origin: IndexOrigin::User,
                 table_name: table,
                 schema,
-            }
+            })
         })
-        .collect())
+        .collect::<Result<Vec<_>, _>>()
 }
 
 /// Extract column names from a PostgreSQL index definition string.
@@ -652,21 +699,22 @@ async fn introspect_check_constraints(pool: &sqlx::PgPool) -> Result<Vec<CheckCo
     .await
     .map_err(crate::error::from_sqlx)?;
 
-    Ok(rows
-        .into_iter()
-        .map(|row| {
+    rows.into_iter()
+        .map(|row| -> Result<CheckConstraint, DbError> {
             let name: String = row.get("constraint_name");
             let schema: String = row.get("schema_name");
             let table_name: String = row.get("table_name");
-            let definition: String = row.get("definition");
-            CheckConstraint {
+            // Same fresh-snapshot rule as `pg_get_indexdef`: a constraint dropped
+            // after this query's snapshot makes `pg_get_constraintdef` return NULL.
+            let definition = optional_string(&row, "definition")?.unwrap_or_default();
+            Ok(CheckConstraint {
                 name,
                 table_name,
                 schema,
                 definition,
-            }
+            })
         })
-        .collect())
+        .collect::<Result<Vec<_>, _>>()
 }
 
 fn required_string(row: &PgRow, column: &str) -> Result<String, DbError> {
