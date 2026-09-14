@@ -1,7 +1,9 @@
 # Known Limitations & Non-Goals — v0.1
 
 > Canonical registry of what DB Pro v0.1 intentionally does not support or has not yet qualified.
-> Baseline SHA: `65bbca3`
+> Baseline SHA: `65bbca3` (historical); **corrected 2026-09-14 for candidate `fbf9fdab9100f08f12e29434983f32c18f14ac2f`**
+> Corrections in this revision: LIM-001/LIM-007/LIM-009 evidence updated to the native build, LIM-003 wording aligned with the staged insert that ships, **LIM-014 inversion fixed** (SQLite cancellation is supported; PostgreSQL is not), LIM-016/LIM-017 added. No entry was deleted.
+> Risk IDs referenced below (`R003`, `R-LICENSE`, `R001`) are defined in `docs/release/risk-register.md`.
 > Issue: #135
 > Supports: #27, #30, #105, #110, #111
 
@@ -33,7 +35,7 @@ Each entry includes:
 | Target issue | #101, #104 |
 | Safe release-note wording | "DB Pro (working title)" or omit product name |
 | Must not contradict | README, app title bar, installer metadata, website |
-| Evidence | #137 dbpro.app teardown; `tauri.conf.json` `productName: "DB Pro"` |
+| Evidence | #137 dbpro.app teardown; native literals `with_title("DB Pro")` in `crates/native-app/src/main.rs` (three occurrences, no icon resource and no `Info.plist` in-repo — the packaging script generates a minimal plist). Register: `R001` (disposition `DEFERRED`) |
 
 ## LIM-002: PostgreSQL + SQLite only
 
@@ -54,14 +56,14 @@ Each entry includes:
 | Field | Value |
 |---|---|
 | Category | data-grid |
-| Actual behavior | Row insert is implemented at the backend level but UI may not expose all column types correctly |
-| User-visible impact | Some column types (JSONB, arrays, UUID) may not have proper input widgets |
+| Actual behavior | Staged row insert **ships** in the native Table Data Editor (insert dialog + staged commit, PK-targeted). It is narrower than a full insert workflow because complex column types do not have complete input widgets. |
+| User-visible impact | Basic inserts work for common types; JSONB/array/UUID columns may lack a proper input widget |
 | Reason | Provider-aware editing is complex; deferred for advanced types |
 | Status | Accepted v0.1 |
 | Target issue | N/A |
 | Safe release-note wording | "Basic row insertion for common types" |
 | Must not contradict | Data grid documentation, feature claims |
-| Evidence | `DataCapabilities.insert = true` but frontend type handling varies |
+| Evidence | `DataCapabilities.insert = true`; `crates/ui/src/table_editor_view.rs` insert path; native `ChangeSet` staged insert. Corrected 2026-09-14: the earlier "implemented at the backend level but UI may not expose" wording was the pre-native framing |
 
 ## LIM-004: Advanced schema mutation deferred
 
@@ -117,7 +119,7 @@ Each entry includes:
 | Target issue | N/A |
 | Safe release-note wording | "Agent workspace (Preview)" |
 | Must not contradict | Agent documentation, marketing claims |
-| Evidence | Agent module in frontend |
+| Evidence | `crates/ui/src/agent_view.rs` (Ask/Edit/Agent; renders a `Preview` badge); confirmation gate in the agent executor. No live-provider run is recorded — `R-AGENT` (`ACCEPTED`) |
 
 ## LIM-008: MCP not in v0.1
 
@@ -145,7 +147,7 @@ Each entry includes:
 | Target issue | #118 |
 | Safe release-note wording | Do not claim signed or notarized |
 | Must not contradict | Download page, installation docs |
-| Evidence | `tauri.conf.json` has no signing configuration |
+| Evidence | Measured on the release binary: `Signature=adhoc`, `flags=0x20002(adhoc,linker-signed)`, `TeamIdentifier=not set`, `Info.plist=not bound`; `spctl -a -vvv -t execute` → **rejected** (exit 3). No `notarytool`/`stapler`/`signtool` step exists; no signing secrets exist and none were added. Register: `R003` (`ACCEPTED`) |
 
 ## LIM-010: License policy unresolved
 
@@ -203,19 +205,19 @@ Each entry includes:
 | Must not contradict | Provider capability matrix, type documentation |
 | Evidence | `DataCapabilities.sqlite()` — `uuid_type: false`, `array_types: false`, `generated_columns: false` |
 
-## LIM-014: No query cancellation for SQLite
+## LIM-014: Provider-asymmetric query cancellation
 
 | Field | Value |
 |---|---|
 | Category | query |
-| Actual behavior | SQLite queries cannot be cancelled once started |
-| User-visible impact | Long-running SQLite queries block the UI until completion |
-| Reason | SQLite has no built-in cancel mechanism |
+| Actual behavior | **SQLite cancellation works** (the actor interrupts the running VM and waits for acknowledgement). **PostgreSQL cancellation is not implemented**: the connector exposes no wire-level cancel, and the capability is declared `Unsupported` and gates the Stop control off. |
+| User-visible impact | Stop/Escape cancels a SQLite query; a long PostgreSQL query cannot be cancelled from the app |
+| Reason | PostgreSQL's cancel primitive is not wired through the connector; advertising best-effort task cancellation as provider cancellation would be misleading |
 | Status | Accepted v0.1 |
 | Target issue | #132 |
-| Safe release-note wording | "Query cancellation for PostgreSQL" (not SQLite) |
-| Must not contradict | Query editor docs |
-| Evidence | `QueryCapabilities.sqlite().cancel = false` |
+| Safe release-note wording | "Query cancellation is supported for SQLite; PostgreSQL cancellation is not available in 0.1.0" |
+| Must not contradict | Query editor docs, release notes, provider capability matrix |
+| Evidence | `crates/core/src/domain/capabilities.rs`: `postgres.cancel = false`, `sqlite.cancel = true`; `crates/infrastructure/src/postgres/connector.rs:199-203`; `crates/infrastructure/src/sqlite/actor.rs:106-124`. **Corrected 2026-09-14 — the previous entry asserted the exact opposite ("SQLite queries cannot be cancelled", `sqlite.cancel = false`) and contradicted the code.** Register: `R-PROV` |
 
 ## LIM-015: pg_dump/pg_restore not bundled
 
@@ -231,13 +233,41 @@ Each entry includes:
 | Must not contradict | Backup docs, platform prerequisites |
 | Evidence | `crates/infrastructure/src/backup/pg_dump.rs` |
 
+## LIM-016: Workspace/session persistence not implemented
+
+| Field | Value |
+|---|---|
+| Category | platform |
+| Actual behavior | The native build does not persist workspace tabs or settings across restarts (eframe persistence is off); previously active *connections* reconnect on startup, but tabs/drafts are not restored |
+| User-visible impact | After quitting, the tab layout and open resources are gone; only the startup connection reconnect is restored |
+| Reason | Persistence is deferred; implementing it is feature work outside the v0.1 closure scope |
+| Status | Accepted v0.1 |
+| Target issue | N/A |
+| Safe release-note wording | Do not claim workspace/tab restore after restart |
+| Must not contradict | `0.1.0-manual-smoke.md` "Workspace tabs restore" item, README, release notes |
+| Evidence | eframe persistence feature not enabled; `docs/release/risk-register.md` `R-015` (`ACCEPTED`) |
+
+## LIM-017: macOS ARM64 only; no installers or auto-update
+
+| Field | Value |
+|---|---|
+| Category | platform |
+| Actual behavior | The v0.1 matrix produces a macOS **arm64** archive (Apple Silicon only), a Windows x86_64 `.zip` and a Linux x86_64 `.tar.gz`. No macOS x86_64 artifact, no universal binary, no `.dmg`/MSI/NSIS/`.deb`/`.rpm`/AppImage, no auto-update. All artifacts are unsigned. |
+| User-visible impact | Intel Macs have no artifact; there is no installer or update mechanism; macOS/Windows show OS security warnings on first run |
+| Reason | Recorded deferral decision (Option A packaging contract); signing identity and installer toolchains do not exist |
+| Status | Accepted v0.1 |
+| Target issue | N/A |
+| Safe release-note wording | "Apple Silicon macOS, Windows x86_64 and Linux x86_64 portable archives; unsigned; no installers" |
+| Must not contradict | `0.1.0-packaging.md`, release notes, readiness |
+| Evidence | `.github/workflows/release.yml` (matrix pins `macos-14`), `docs/release/0.1.0-packaging.md`, `docs/release/risk-register.md` `R-PKG-DEFER` / `R003` |
+
 ---
 
 ## Summary by status
 
 | Status | Count | IDs |
 |---|---|---|
-| Accepted v0.1 | 8 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-013, LIM-014, LIM-015 |
+| Accepted v0.1 | 10 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-013, LIM-014, LIM-015, LIM-016, LIM-017 |
 | Blocked decision | 4 | LIM-001, LIM-009, LIM-010, LIM-011 |
 | Deferred v0.2+ | 3 | LIM-004, LIM-008, LIM-012 |
 | Fix before v0.1 | 0 | — |

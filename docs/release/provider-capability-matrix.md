@@ -6,18 +6,28 @@
 > backend/domain layer, never in the UI.
 
 > Source: `crates/core/src/domain/capabilities.rs` (canonical), infrastructure implementations.
-> Baseline SHA: `65bbca3`
+> Baseline SHA: `65bbca3`; **corrected 2026-09-14 for candidate `fbf9fdab9100f08f12e29434983f32c18f14ac2f`**
 > Issue: #132
+>
+> **Corrections in this revision (2026-09-14):** the `Cancel query` row and the key-difference
+> summary were **inverted** relative to the code and are fixed here; `Sequences` and `Enum types`
+> were shown as supported although no catalog implementation exists and are now `UNSUPPORTED`;
+> the SQLite file-picker row no longer cites the retired Tauri dialog plugin; the backup source
+> reference now names `VACUUM INTO`; a note records that provider *runtime* evidence for the
+> candidate is not retrievable, so `QUALIFIED` throughout this table means automated test
+> coverage, not a recorded live-provider run (`docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md`).
+> PostgreSQL support is never inferred from a SQLite result, or vice versa. Original rows not named
+> above are unchanged.
 
 ## Matrix legend
 
 | Value | Meaning |
 |---|---|
-| **SUPPORTED + QUALIFIED** | Implemented and verified by integration/smoke tests |
-| **SUPPORTED + NOT YET QUALIFIED** | Implemented in source but no automated test coverage yet |
+| **SUPPORTED + QUALIFIED** | Implemented and verified by automated integration tests. **Runtime/provider QA is not implied** — the candidate's live-provider runs have no retrievable artifacts (2026-09-14 audit) |
+| **SUPPORTED + NOT YET QUALIFIED** | Implemented in source but no test coverage yet |
 | **PARTIAL** | Works with caveats documented in Notes |
 | **READ-ONLY** | Can read/introspect but not mutate |
-| **NOT SUPPORTED** | Not implemented, no path to support in v0.1 |
+| **NOT SUPPORTED** | Not implemented, no path to support in v0.1 (= release vocabulary `UNSUPPORTED`) |
 | **DEFERRED** | Intentionally excluded from v0.1 |
 
 ## Connection
@@ -31,7 +41,7 @@
 | Password storage | SUPPORTED + NOT YET QUALIFIED | N/A | OS keyring (Keychain/Credential Manager/keyutils); encrypted fallback is dev-only (#142). SQLite has no auth |
 | TLS/SSL | SUPPORTED + NOT YET QUALIFIED | N/A | PG via `runtime-tokio-rustls`; SQLite is local file |
 | SSH tunnel | SUPPORTED + NOT YET QUALIFIED | NOT SUPPORTED | Shells out to `ssh` binary; not E2E qualified (#issue) |
-| File picker (SQLite) | N/A | SUPPORTED + NOT YET QUALIFIED | `tauri-plugin-dialog` `dialog:allow-open` |
+| File picker (SQLite) | N/A | SUPPORTED + NOT YET QUALIFIED | Native `rfd` file dialog (`crates/ui`); the earlier `tauri-plugin-dialog` wiring belonged to the retired Tauri host |
 
 ## Schema / Introspection
 
@@ -55,8 +65,8 @@
 | CHECK constraints | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | Disposition pending (#68) |
 | Triggers | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | Functions/Procedures | SUPPORTED + QUALIFIED | NOT SUPPORTED | SQLite has no stored procedures |
-| Sequences | SUPPORTED + QUALIFIED | NOT SUPPORTED | SQLite uses AUTOINCREMENT |
-| Enum types | SUPPORTED + QUALIFIED | NOT SUPPORTED | SQLite uses CHECK constraints |
+| Sequences | **NOT SUPPORTED** | NOT SUPPORTED | **Corrected 2026-09-14:** `DatabaseCapabilities::postgres()` declares `sequences: true`, but no catalog query or UI exists (`postgres/introspect.rs` has none; only a `nextval` textual heuristic). The flag is wrong; the matrix follows the code's real capability. Deferred to a code pass (`R-PROV`) |
+| Enum types | **NOT SUPPORTED** | NOT SUPPORTED | **Corrected 2026-09-14:** `enum_types: true` is declared with zero implementation — no `pg_enum`/`pg_type` catalog query and no UI. Types arrive as `format_type()` strings. Deferred to a code pass (`R-PROV`) |
 | Array types | SUPPORTED + QUALIFIED | NOT SUPPORTED | PG `TEXT[]` etc. |
 | DDL source extraction | SUPPORTED + NOT YET QUALIFIED | SUPPORTED + NOT YET QUALIFIED | |
 | Rename objects | SUPPORTED + QUALIFIED | PARTIAL | SQLite limited to RENAME TABLE/COLUMN |
@@ -72,7 +82,7 @@
 | Single statement | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | Multi-statement | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | EXPLAIN | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | PG returns JSON plan; SQLite returns text |
-| Cancel query | SUPPORTED + QUALIFIED | NOT SUPPORTED | SQLite has no cancel mechanism |
+| Cancel query | **NOT SUPPORTED** | **SUPPORTED + QUALIFIED** | **Corrected 2026-09-14 (was inverted).** Code: `capabilities.rs` `postgres.cancel = false` / `sqlite.cancel = true`; SQLite interrupts the running VM (`sqlite/actor.rs`), PostgreSQL exposes no wire-level cancel (`postgres/connector.rs`). The Stop control is gated on this flag |
 | Parameterized queries | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | Numbered params ($1) | SUPPORTED + QUALIFIED | NOT SUPPORTED | PG-specific |
 | Positional params (?) | NOT SUPPORTED | SUPPORTED + QUALIFIED | SQLite-specific |
@@ -134,7 +144,7 @@
 
 ## Key provider differences summary
 
-1. **Cancel**: PG supports query cancellation; SQLite does not.
+1. **Cancel (corrected 2026-09-14)**: **SQLite supports query cancellation** (VM interrupt + actor acknowledgement); **PostgreSQL does not** (capability-gated `Unsupported`, no wire-level cancel exposed). The previous wording stated the exact opposite.
 2. **Schemas**: PG has named schemas; SQLite has none.
 3. **Types**: PG has native UUID, JSONB, arrays, enums, generated columns; SQLite stores all as TEXT/REAL/INTEGER/BLOB.
 4. **Functions**: PG has stored functions/procedures; SQLite does not.
@@ -152,4 +162,4 @@
 - `crates/infrastructure/src/sqlite/introspect.rs` — SQLite introspection (423 lines)
 - `crates/infrastructure/src/ssh/tunnel.rs` — SSH tunnel (external process)
 - `crates/infrastructure/src/backup/pg_dump.rs` — PG backup via pg_dump
-- `crates/infrastructure/src/backup/sqlite_backup.rs` — SQLite backup via file copy
+- `crates/infrastructure/src/backup/sqlite_backup.rs` — SQLite backup via `VACUUM INTO` + atomic no-overwrite publish (not a file copy)

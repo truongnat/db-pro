@@ -24,6 +24,28 @@ Status values (only these are used):
 Priority: `P0` = release blocker, `P1` = core product capability, `P2` = important productivity/polish, `P3` = advanced/later.
 Target Phase: `v0.1` (RC closure only) / `A`..`H` (see `PRODUCT_ROADMAP.md`) / `Later`.
 
+### Release vocabulary (goal-3 §26)
+
+The release-facing summary of this matrix uses only these five values. The mapping from the
+audit status above is fixed, so that a cell can never be read as "shipped and verified" when it
+is not:
+
+| Release value | Audit statuses that map here | Meaning |
+|---|---|---|
+| `SUPPORTED` | DONE, RUNTIME_VERIFY, PARTIAL (documented caveats) | implemented and reachable in the shipped native UI |
+| `SUPPORTED + QUALIFIED` | DONE **and** provider/runtime evidence recorded for that provider | implemented and verified at runtime |
+| `SUPPORTED + NOT YET QUALIFIED` | RUNTIME_VERIFY / PARTIAL with runtime evidence PENDING | implemented, but no provider/UI runtime evidence exists |
+| `UNSUPPORTED` | MISSING, INSPECT_ONLY, BACKEND_ONLY, UI_ONLY | not reachable in the shipped product (backend-only counts as unsupported for a user-facing claim) |
+| `DEFERRED` | DEFERRED | intentionally excluded; needs an explicit decision to schedule |
+
+Rules enforced here:
+
+- `QUALIFIED` is per provider. A PostgreSQL cell is never qualified by a SQLite result, or vice
+  versa.
+- The former audit statuses `INSPECT_ONLY` / `BACKEND_ONLY` / `UI_ONLY` are all
+  `UNSUPPORTED` for release-claim purposes, even though the rows keep the finer audit label.
+- `DEFERRED` and `MISSING` are different: `DEFERRED` has a decision behind it, `MISSING` does not.
+
 Columns `PostgreSQL` / `SQLite` describe provider behavior. `Backend` = domain+application+adapter state. `Native UI` = egui wiring state.
 
 ---
@@ -39,8 +61,8 @@ Current rail (`crates/ui/src/navigation_view.rs:412-460`): Explorer, Queries, Hi
 | Queries activity | yes | yes | DONE | WIRED (`navigation_view.rs:691-748`, open docs + new/duplicate/close) | staged-change guards | UI | PENDING | RUNTIME_VERIFY | P0 | v0.1 | |
 | History activity | yes | yes | PARTIAL | WIRED (saved queries + folders + dual local history) | n/a | UI | PENDING | RUNTIME_VERIFY | P1 | v0.1/G | Server `QueryApi::history` exists but unwired; native history is local (`app.rs:286-288`, caps 20/500) |
 | Data activity (dedicated) | — | — | PARTIAL | MISSING | n/a | — | — | MISSING | P2 | C | Table/Query workspaces exist as tabs; no top-level Data icon yet |
-| ER activity | yes | yes | DONE | WIRED (`diagram_view.rs` + `diagram/`) | n/a | 98 diagram + workspace | PENDING native large-schema | RUNTIME_VERIFY | P0 | v0.1 | |
-| Agent activity | yes | yes | DONE | WIRED (right panel, Ask/Edit/Agent) | confirmation-gated | 567-agent-era + UI | PASS panel/IME isolate (older) | RUNTIME_VERIFY | P0 | v0.1 | Preview label per LIM-007 |
+| ER activity | yes | yes | DONE | WIRED (`diagram_view.rs` + `diagram/`) | n/a | **99** diagram + workspace | PENDING native large-schema | RUNTIME_VERIFY | P0 | v0.1 | Diagram count corrected 2026-09-14 (`98` was stale) |
+| Agent activity | yes | yes | DONE | WIRED (right panel, Ask/Edit/Agent) | confirmation-gated | agent-era + UI tests (counts stale) | panel/IME isolate (older, automated only — **no live-provider artifact**) | RUNTIME_VERIFY | P0 | v0.1 | Preview label per LIM-007; `0.1.0-release-notes.md` states no live provider run is recorded |
 | Monitoring activity | no | no | MISSING | PLACEHOLDER (`draw_activity_placeholder` + COMING SOON, `navigation_view.rs:616-621`) | n/a | — | — | MISSING | P2 | D | No `UiCommand`; no backend service |
 | Transfer activity | no | no | PARTIAL (export+backup only) | PLACEHOLDER (`navigation_view.rs:610-615`) | n/a | — | — | MISSING | P1 | C | Export engine backend-only; import missing entirely |
 | Settings activity | yes | yes | PARTIAL | PARTIAL (Appearance + Backup/Restore paths only) | readonly-gated backup | UI | PENDING | PARTIAL | P1 | v0.1/G | Editor/keybindings/providers/advanced settings have no page |
@@ -175,13 +197,13 @@ Sources: `crates/ui/src/diagram/*`, `crates/ui/src/diagram_view.rs`.
 
 | Feature | PostgreSQL | SQLite | Backend | Native UI | Safety | Tests | Runtime Evidence | Status | Priority | Target Phase | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Graph model (`ErGraph`) | yes | yes | n/a | INVENTORY | n/a | 98 diagram | PASS (source/auto) | RUNTIME_VERIFY | P0 | v0.1 | Precomputed edge bbox |
+| Graph model (`ErGraph`) | yes | yes | n/a | INVENTORY | n/a | 99 diagram | PASS (automated) | RUNTIME_VERIFY | P0 | v0.1 | Precomputed edge bbox |
 | Async layout worker (coalescing, degraded mode) | n/a | n/a | n/a | INVENTORY | degraded-mode | worker tests | PASS (source/auto) | RUNTIME_VERIFY | P0 | v0.1 | `MAX_COALESCE_DRAIN 64` |
 | Spatial index (bounded span 32) | n/a | n/a | n/a | INVENTORY | n/a | spatial tests | PASS (source/auto) | RUNTIME_VERIFY | P0 | v0.1 | |
 | LOD (3-tier) | n/a | n/a | n/a | INVENTORY | n/a | LOD tests | PASS (source/auto) | RUNTIME_VERIFY | P0 | v0.1 | Compact<0.75 / Standard<1.15 / Detailed |
-| Search + large-schema gate (>200) | yes | yes | n/a | INVENTORY | n/a | transition tests | PASS SQLite 202-table | RUNTIME_VERIFY | P0 | v0.1 | PG live pending |
+| Search + large-schema gate (>200) | yes | yes | n/a | INVENTORY | n/a | transition tests | automated only (the recorded SQLite 202-table run has no retrievable artifact) | RUNTIME_VERIFY | P0 | v0.1 | PG live pending |
 | Neighborhood BFS (depth 1-2, cap 100) | yes | yes | n/a | INVENTORY | n/a | BFS tests | PASS (source/auto) | RUNTIME_VERIFY | P0 | v0.1 | |
-| Fit / zoom / pan | n/a | n/a | n/a | INVENTORY | n/a | — | PASS screenshots | RUNTIME_VERIFY | P0 | v0.1 | 0.5–2.0 zoom |
+| Fit / zoom / pan | n/a | n/a | n/a | INVENTORY | n/a | viewport/LOD tests (automated) | **`EVIDENCE_GAP`** — the cited captures no longer exist (0 of 50 cited Orca screenshots survive; macOS temp dir purged). "Smooth" pan/zoom and idle CPU/memory were never measured. | RUNTIME_VERIFY | P0 | v0.1 | 0.5–2.0 zoom; corrected 2026-09-14 per `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md` §4 |
 | Composite FK edges | yes | yes | n/a | INVENTORY (`[a,b]→[c,d]` labels; anchors use first col) | n/a | edge tests | PASS (source/auto) | RUNTIME_VERIFY | P0 | v0.1 | |
 | Position persistence | — | — | — | MISSING (rebuilt grid each load) | n/a | — | — | MISSING | P3 | Later | No `dbpro.native.diagram*` keys |
 | Design / edit mode | — | — | — | DOES NOT EXIST | — | — | — | DEFERRED | P3 | Later | Confirmed absent; keep deferred |
@@ -338,14 +360,33 @@ Settings currently live in: sidebar Settings page (appearance + backup paths), p
 
 ## 16. Evidence conflicts found (code vs docs — decisions required)
 
-1. **Query-cancel inversion.** Code truth: `capabilities.rs:128-132,183-186` + `postgres/connector.rs:199-203` (`Unsupported`) + `sqlite/connector.rs:117`/`actor.rs:106` (interrupt) ⇒ cancel works on **SQLite, not PG**. Release docs say the opposite (`provider-capability-matrix.md:75` PG SUPPORTED/SQLite NOT SUPPORTED; `LIM-014`). One side must be corrected before v0.1 notes ship. UI gates Stop on the (code) flag, so behavior follows code.
-2. **Flags without implementation.** `sequences:true`, `enum_types:true` (PG), `server_sessions:true`, `partitions/tablespaces/object_dependencies:true`, `schema_diff/data_diff:true` advertise more than exists (no catalog/service/UI or narrow coverage). Either implement (roadmap) or downgrade flags + matrix wording.
+> **Status update 2026-09-14 (V01-06 documentation pass).** Items 1 and 2 are now **resolved on the
+> documentation side**: the release documents were corrected to match the code. Items 3, 5–8 remain
+> open as recorded; item 4 is a separate cleanup task. No production code was changed.
+
+1. **Query-cancel inversion — RESOLVED (docs corrected to code).** Code truth:
+   `capabilities.rs:128-132,183-186` (`postgres.cancel = false`, `sqlite.cancel = true`) +
+   `postgres/connector.rs:199-203` (no wire-level cancel exposed → `Unsupported`) +
+   `sqlite/actor.rs:106-124` (VM interrupt with actor acknowledgement). Cancellation therefore works
+   on **SQLite, not PostgreSQL**. The release docs said the opposite; they now match the code:
+   `docs/release/provider-capability-matrix.md`, `docs/release/known-limitations.md` (LIM-014),
+   `docs/release/0.1.0-release-notes.md` and `docs/release/risk-register.md` (`R-PROV`). The UI gates
+   the Stop control on the code flag, so runtime behaviour follows the code.
+2. **Flags without implementation — RESOLVED as a documented limitation; flag fix deferred.** Code
+   declares `sequences:true`, `enum_types:true` (PG), `server_sessions:true`,
+   `partitions/tablespaces/object_dependencies:true`, `schema_diff/data_diff:true`. Rows above record
+   the real state: Sequences and Types/Enums/Domains are **`MISSING`** (no catalog query exists —
+   `postgres/introspect.rs` has no sequence/enum query; `nextval` is a heuristic), and
+   `server_sessions` has no implementation. **These flags must not be read as support**: per the
+   release vocabulary these cells are `UNSUPPORTED`. The misleading flags are recorded in
+   `docs/release/risk-register.md` (`R-PROV`) as a deferred code change; the release notes list
+   Sequences/Types UI under "not included in 0.1.0".
 3. **Backup mechanics wording.** Release matrix says SQLite "file copy/VACUUM"; code is `VACUUM INTO` + atomic hard-link publish (`sqlite_backup.rs:84-103`) — not a file copy. Minor doc fix.
 4. **`frontend/` dir still present at repo root** alongside `_archive/frontend/` — audit confirms product UI is `crates/ui`; root `frontend/` + demo HTML files are legacy artifacts that confuse inventory. Recommend removal or explicit marker (separate cleanup task, not this audit).
 5. **`Ctrl+N` advertised, unwired** (`navigation_view.rs:584`, `workspace_view.rs:533-536` vs `events.rs:1102-1160`). Either wire or drop the hint.
 6. **Tab-close doesn't cancel** a running query (`app.rs:1018-1034` cancels prediction/agent only). Decide: cancel-on-close or explicit behavior.
 7. **Copy ignores staged values** (`result_grid_view.rs` copy helpers read `result.rows`, not `ChangeSet`). Decide before claiming copy-correctness.
-8. **Legacy `tauri-app` blocks `cargo check --workspace`** (dirty `commands/query.rs:50,114` per core-safety VERIFICATION). Any "gates green" claim must scope the legacy host out or fix it; removal is already declared, execution pending.
+8. **Legacy `tauri-app` blocks `cargo check --workspace`** (dirty `commands/query.rs:50,114` per core-safety VERIFICATION). Any "gates green" claim must scope the legacy host out or fix it; removal is already declared, execution pending. *(Note: the six v0.1 gates run `cargo check --workspace` green on rustc 1.95.0 — `docs/release/evidence/v01-06/02-quality-gates.txt` — so this conflict does not currently reproduce; it is kept as a warning.)*
 
 ---
 
