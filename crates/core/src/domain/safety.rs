@@ -61,6 +61,22 @@ pub enum StatementSafety {
     Destructive,
 }
 
+impl StatementSafety {
+    /// Severity of this classification relative to the others, ordered by how
+    /// hard the effect is to undo: read < write < DDL < destructive.
+    ///
+    /// A script is reduced to its most dangerous statement with this ranking,
+    /// so no statement can hide behind a harmless one.
+    pub fn severity_rank(self) -> u8 {
+        match self {
+            Self::Read => 0,
+            Self::Write => 1,
+            Self::Ddl => 2,
+            Self::Destructive => 3,
+        }
+    }
+}
+
 /// Classify a SQL statement for safety enforcement.
 /// This is a best-effort heuristic, not a full SQL parser.
 pub fn classify_statement_safety(sql: &str) -> Option<StatementSafety> {
@@ -94,6 +110,70 @@ pub fn classify_statement_safety(sql: &str) -> Option<StatementSafety> {
         "DO" | "CALL" | "EXECUTE" => Some(StatementSafety::Destructive),
         "MERGE" => classify_merge_safety(trimmed),
         _ => Some(StatementSafety::Write),
+    }
+}
+
+/// Classify a SQL script that may hold several statements by its **most
+/// dangerous** statement.
+///
+/// A script must never be classified as read-only merely because it starts with
+/// `SELECT`: the decision that can auto-execute a script has to see every
+/// statement in it (#147, #129). Returns `None` only when the script holds no
+/// statement at all.
+pub fn classify_script_safety(sql: &str) -> Option<StatementSafety> {
+    split_statements(sql)
+        .into_iter()
+        .filter_map(|statement| classify_statement_safety(&statement))
+        .max_by_key(|safety| safety.severity_rank())
+}
+
+/// Split a SQL script into its statements on statement-terminating semicolons.
+///
+/// Semicolons inside quoted strings, quoted identifiers, comments and
+/// dollar-quoted bodies do not terminate a statement, and comment-only
+/// fragments are dropped rather than returned as empty statements.
+pub fn split_statements(sql: &str) -> Vec<String> {
+    let mut statements = Vec::new();
+    let mut current = String::new();
+    let bytes = sql.as_bytes();
+    let mut index = 0;
+
+    while index < bytes.len() {
+        if let Some(end) = special_token_end(bytes, index) {
+            current.push_str(&sql[index..end]);
+            index = end;
+        } else if bytes[index] == b';' {
+            push_statement(&mut statements, &current);
+            current.clear();
+            index += 1;
+        } else {
+            let Some(character) = sql[index..].chars().next() else {
+                break;
+            };
+            current.push(character);
+            index += character.len_utf8();
+        }
+    }
+
+    push_statement(&mut statements, &current);
+    statements
+}
+
+fn push_statement(statements: &mut Vec<String>, current: &str) {
+    let statement = current.trim();
+    if !strip_leading_comments(statement).trim().is_empty() {
+        statements.push(statement.to_owned());
+    }
+}
+
+fn special_token_end(bytes: &[u8], start: usize) -> Option<usize> {
+    match bytes[start] {
+        b'\'' => Some(skip_quoted(bytes, start, b'\'')),
+        b'"' => Some(skip_quoted(bytes, start, b'"')),
+        b'-' if bytes.get(start + 1) == Some(&b'-') => Some(skip_line_comment(bytes, start)),
+        b'/' if bytes.get(start + 1) == Some(&b'*') => Some(skip_block_comment(bytes, start)),
+        b'$' => skip_dollar_quote(bytes, start),
+        _ => None,
     }
 }
 
@@ -948,5 +1028,96 @@ mod tests {
             &policy
         )
         .is_err());
+    }
+
+    #[test]
+    fn split_statements_basic() {
+        let stmts = split_statements("SELECT 1; SELECT 2");
+        assert_eq!(stmts, vec!["SELECT 1", "SELECT 2"]);
+    }
+
+    #[test]
+    fn split_statements_trailing_semicolon() {
+        let stmts = split_statements("SELECT 1; SELECT 2;");
+        assert_eq!(stmts, vec!["SELECT 1", "SELECT 2"]);
+    }
+
+    #[test]
+    fn split_statements_respects_quotes() {
+        let stmts = split_statements("SELECT ';'; SELECT 2");
+        assert_eq!(stmts, vec!["SELECT ';'", "SELECT 2"]);
+    }
+
+    #[test]
+    fn split_statements_respects_comments_and_dollar_quotes() {
+        let stmts =
+            split_statements("DO $body$ BEGIN PERFORM 1; /* nested ; comment */ PERFORM 2; END $body$; SELECT 2");
+        assert_eq!(stmts.len(), 2);
+        assert!(stmts[0].contains("PERFORM 1;"));
+        assert_eq!(stmts[1], "SELECT 2");
+    }
+
+    #[test]
+    fn split_statements_drops_comment_only_tail() {
+        assert_eq!(split_statements("SELECT 1; -- trailing comment\n"), vec!["SELECT 1"]);
+    }
+
+    #[test]
+    fn split_statements_does_not_treat_identifier_dollar_signs_as_quotes() {
+        let stmts = split_statements("SELECT foo$bar$; SELECT 2");
+        assert_eq!(stmts, vec!["SELECT foo$bar$", "SELECT 2"]);
+    }
+
+    #[test]
+    fn split_statements_empty() {
+        let stmts = split_statements("  ");
+        assert!(stmts.is_empty());
+    }
+
+    #[test]
+    fn script_safety_takes_the_most_dangerous_statement() {
+        assert_eq!(
+            classify_script_safety("SELECT 1; DROP TABLE t;"),
+            Some(StatementSafety::Destructive)
+        );
+        assert_eq!(
+            classify_script_safety("SELECT 1; UPDATE t SET a = 1"),
+            Some(StatementSafety::Write)
+        );
+        assert_eq!(
+            classify_script_safety("DROP TABLE t; SELECT 1"),
+            Some(StatementSafety::Destructive)
+        );
+        assert_eq!(
+            classify_script_safety("SELECT 1; CREATE TABLE t (id int); SELECT 2"),
+            Some(StatementSafety::Ddl)
+        );
+        assert_eq!(
+            classify_script_safety("SELECT 1; SELECT 2;"),
+            Some(StatementSafety::Read)
+        );
+        assert_eq!(
+            classify_script_safety("DROP TABLE t"),
+            Some(StatementSafety::Destructive)
+        );
+        assert_eq!(classify_script_safety(""), None);
+        assert_eq!(classify_script_safety(";"), None);
+        assert_eq!(classify_script_safety("-- only a comment"), None);
+    }
+
+    #[test]
+    fn script_safety_ignores_semicolons_inside_literals_and_comments() {
+        assert_eq!(
+            classify_script_safety("SELECT ';'; SELECT 2"),
+            Some(StatementSafety::Read)
+        );
+        assert_eq!(
+            classify_script_safety("SELECT 1 -- ; not a statement\n"),
+            Some(StatementSafety::Read)
+        );
+        assert_eq!(
+            classify_script_safety("DO $body$ BEGIN PERFORM 1; END $body$"),
+            Some(StatementSafety::Destructive)
+        );
     }
 }

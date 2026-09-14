@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-use super::safety::{classify_statement_safety, StatementSafety};
+use super::safety::{classify_script_safety, StatementSafety};
 
 pub const MAX_AGENT_TABLES: usize = 12;
 pub const MAX_AGENT_COLUMNS_PER_TABLE: usize = 24;
@@ -363,8 +363,13 @@ pub enum AgentSqlSafety {
 }
 
 impl AgentSqlSafety {
+    /// Classify a SQL script by its most dangerous statement.
+    ///
+    /// A multi-statement batch is never read-only because it starts with
+    /// `SELECT`: `SELECT 1; DROP TABLE t;` is `Destructive` and therefore never
+    /// auto-runs on the read-only path (#147, #129).
     pub fn classify(sql: &str) -> Self {
-        match classify_statement_safety(sql) {
+        match classify_script_safety(sql) {
             Some(StatementSafety::Read) => Self::ReadOnly,
             Some(StatementSafety::Write | StatementSafety::Ddl) => Self::Mutating,
             Some(StatementSafety::Destructive) => Self::Destructive,
@@ -456,6 +461,44 @@ mod tests {
         assert_eq!(
             execution_decision(AgentMode::Agent, AgentSqlSafety::Unknown, true),
             AgentExecutionDecision::RequiresConfirmation
+        );
+    }
+
+    #[test]
+    fn batch_is_classified_by_its_most_dangerous_statement() {
+        assert_eq!(
+            AgentSqlSafety::classify("SELECT 1; DROP TABLE t;"),
+            AgentSqlSafety::Destructive
+        );
+        assert_eq!(
+            AgentSqlSafety::classify("SELECT 1; DELETE FROM t WHERE id = 1"),
+            AgentSqlSafety::Mutating
+        );
+        assert_eq!(
+            AgentSqlSafety::classify("SELECT 1; UPDATE t SET a = 1"),
+            AgentSqlSafety::Mutating
+        );
+        assert_eq!(
+            AgentSqlSafety::classify("SELECT 1; CREATE TABLE t (id int)"),
+            AgentSqlSafety::Mutating
+        );
+        assert_eq!(AgentSqlSafety::classify("SELECT 1; SELECT 2"), AgentSqlSafety::ReadOnly);
+        assert_eq!(AgentSqlSafety::classify("DROP TABLE t"), AgentSqlSafety::Destructive);
+    }
+
+    #[test]
+    fn destructive_batch_is_never_auto_runnable() {
+        assert_eq!(
+            execution_decision(
+                AgentMode::Agent,
+                AgentSqlSafety::classify("SELECT 1; DROP TABLE t;"),
+                true
+            ),
+            AgentExecutionDecision::RequiresConfirmation
+        );
+        assert_eq!(
+            execution_decision(AgentMode::Agent, AgentSqlSafety::classify("SELECT 1; SELECT 2"), true),
+            AgentExecutionDecision::Allowed
         );
     }
 }

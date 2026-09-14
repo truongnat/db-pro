@@ -745,4 +745,55 @@ mod tests {
         assert_eq!(workflow.session().state, AgentSessionState::Cancelled);
         assert!(workflow.pending_confirmation().is_none());
     }
+
+    #[test]
+    fn mixed_batch_never_auto_runs_on_the_read_only_path() {
+        let mut workflow = workflow(AgentMode::Agent, true);
+        workflow.start_run(1).expect("run starts");
+        let disposition = workflow
+            .request_tool(
+                request(
+                    &workflow,
+                    AgentTool::RunQuery,
+                    AgentToolInput::Query {
+                        sql: "SELECT 1; DROP TABLE t;".to_owned(),
+                    },
+                ),
+                1,
+                None,
+            )
+            .expect("disposition");
+        assert!(
+            matches!(
+                &disposition,
+                AgentToolDisposition::ConfirmationRequired(confirmation)
+                    if confirmation.safety == Some(AgentSqlSafety::Destructive)
+            ),
+            "a batch that ends in DROP must not auto-run: {disposition:?}"
+        );
+        assert_eq!(workflow.session().state, AgentSessionState::AwaitingConfirmation);
+    }
+
+    #[test]
+    fn read_only_batch_still_auto_runs_when_enabled() {
+        let mut workflow = workflow(AgentMode::Agent, true);
+        workflow.start_run(1).expect("run starts");
+        let disposition = workflow
+            .request_tool(
+                request(
+                    &workflow,
+                    AgentTool::RunQuery,
+                    AgentToolInput::Query {
+                        sql: "SELECT 1; SELECT 2;".to_owned(),
+                    },
+                ),
+                1,
+                None,
+            )
+            .expect("disposition");
+        assert!(
+            matches!(disposition, AgentToolDisposition::Execute(_)),
+            "a read-only batch stays auto-runnable: {disposition:?}"
+        );
+    }
 }

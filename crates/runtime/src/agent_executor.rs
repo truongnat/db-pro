@@ -680,4 +680,25 @@ mod tests {
         context.allow_read_only_auto_run = true;
         assert_eq!(ensure_execution_confirmation(&context, "SELECT 1"), Ok(()));
     }
+
+    #[test]
+    fn mixed_batch_is_never_auto_run_before_execute_multi() {
+        let (_, mut context) = context();
+        context.mode = AgentMode::Agent;
+        context.allow_read_only_auto_run = true;
+        assert_eq!(
+            ensure_execution_confirmation(&context, "SELECT 1; DROP TABLE t;"),
+            Err(AgentToolError::ConfirmationRequired {
+                kind: AgentConfirmationKind::RunDestructive
+            })
+        );
+        assert_eq!(ensure_execution_confirmation(&context, "SELECT 1; SELECT 2"), Ok(()));
+        // An explicit confirmation still executes the batch; the guard decides
+        // whether consent is needed, not whether the batch is legal.
+        context.confirmed = true;
+        assert_eq!(
+            ensure_execution_confirmation(&context, "SELECT 1; DROP TABLE t;"),
+            Ok(())
+        );
+    }
 }
