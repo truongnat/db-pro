@@ -47,4 +47,4 @@ recovery regressions listed in the plan.
   issuing SQL DELETE mutations.
 - Batch mutation failures roll back the entire transaction atomically, retain
   all staged changes intact in `ChangeSet`, and focus the failed cell.
-- All 571 workspace unit tests, clippy, check, fmt, and release builds PASS.
+- All 571 workspace unit tests, clippy, check, fmt, and release builds PASS. **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Measured today: `cargo test --workspace` = **811 passed / 0 failed / 19 ignored**; `571` was a stale workspace total. The original claim is retained, unretracted.

@@ -1,5 +1,13 @@
 # Verification
 
+> **[CORRECTED 2026-09-14 — V01-06 evidence audit]** The `PASS` lines below are prose records of
+> commands that were run; no command output, log, or capture for the live-PostgreSQL/SSH runs is
+> retrievable from the repository, and on HEAD the `pg_integration` suite runs as **0 passed /
+> 18 ignored** and the SSH backup test as **0 passed / 1 ignored** without their fixtures. The
+> live-fixture claims below are therefore **not re-asserted** and are not part of the v0.1
+> evidence set (`docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md` §5, cross-cutting
+> cause 2). The original record is retained, unretracted. State stays `RUNTIME_VERIFY`.
+
 ## Automated evidence
 
 - `cargo fmt --all -- --check` — PASS at the prior clean-worktree gate; the

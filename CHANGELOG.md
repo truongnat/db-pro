@@ -99,10 +99,10 @@ DB Pro 0.1.0 is currently in release-candidate verification. The intended releas
 
 ### Explicitly deferred from 0.1.0
 
-- complete row insertion workflow
+- a complete row-insert workflow for complex column types (staged insert ships; JSON/array/UUID inputs are incomplete — LIM-003)
 - advanced schema mutation / DDL execution workbench
 - users / roles workbench
-- production Agent execution
+- production/autonomous Agent execution (the Agent panel ships as Preview)
 - MCP server
 - additional database drivers
 
@@ -111,7 +111,7 @@ DB Pro 0.1.0 is currently in release-candidate verification. The intended releas
 - SSH tunnel plumbing is not yet end-to-end qualified on all release targets.
 - Release artifacts are unsigned unless signing/notarization is added before distribution.
 - Tables without primary keys are read-only in the Data Grid.
-- Agent panel is Preview only.
+- Agent panel is Preview only (it ships; autonomy does not).
 - Project license is not yet defined.
 
 ### Remaining release gates

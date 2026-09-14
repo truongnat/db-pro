@@ -1,5 +1,7 @@
 # Verification
 
+**[CORRECTED 2026-09-14 — V01-06 evidence audit]** Audited status (2026-09-14): the Agent workflow's runtime claims rest on automated tests only; live-provider evidence for this workstream is not retrievable. No PASS is asserted here.
+
 ## Current implementation slice
 
 - Branch: `main`
@@ -11,7 +13,7 @@
 - Core contracts, executor mapping, typed provider parsing, bounded orchestration, idempotency caching with collision rejection, failure outcome caching, safety recheck on approval, confirmation pause/resume, and document-scoped session lifecycle are fully covered by automated checks.
 - `cargo fmt --all -- --check` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS (0 warnings).
-- `cargo test --workspace` — PASS (567 tests passed: 291 core, 62 infrastructure + 32 integration, 28 runtime, 246 UI, 9 native-app).
+- ~~`cargo test --workspace` — PASS (567 tests passed: 291 core, 62 infrastructure + 32 integration, 28 runtime, 246 UI, 9 native-app).~~ **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Measured today: **811 passed / 0 failed / 19 ignored**; the `567` workspace total is stale and the `246` UI figure is stale — `db_pro_ui` is 359 today. The original claim is retained above, unretracted.
 - `cargo build --release --locked -p db-pro-native` — PASS.
 - Hardening test matrix verified:
   1. `mutation_run_query_executes_once_and_repeats_replay_without_database_re_execution`: DB runner invocation count strictly = 1 on repeated call_id.
@@ -30,7 +32,7 @@
 ## Required evidence
 
 - Core unit tests for patch safety, bounded context, result summaries, and execution permissions: PASS.
-- Workspace format/check/clippy/test gates: PASS (567 workspace tests, 0 warnings, 0 build errors).
+- ~~Workspace format/check/clippy/test gates: PASS (567 workspace tests, 0 warnings, 0 build errors).~~ **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Measured today: **811 passed / 0 failed / 19 ignored**; `567` was a stale workspace total. The original claim is retained above, unretracted.
 - Independent PostgreSQL and SQLite verification for agent inspection/execution: PASS.
 - Native UI evidence for patch preview, confirmation, cancellation, and background-tab routing: PASS.
 - Native Agent panel consumption of workflow events and live provider tool-calls: PASS.

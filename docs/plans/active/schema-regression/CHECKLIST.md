@@ -2,7 +2,7 @@
 
 ## Audit
 - [x] Existing Rust test inventory catalogued (integration, pg_integration, schema_indexes, schema_triggers)
-- [x] Existing frontend test inventory catalogued (105 files, 1319 tests)
+- [x] Existing frontend test inventory catalogued (105 files, 1319 tests) **[CORRECTED 2026-09-14 — V01-06 evidence audit]** The frontend was archived on 2026-09-11; this count is historical only and no longer describes any current gate. The original claim is retained, unretracted.
 - [x] CI evidence reviewed (PG service container + SQLite in-memory)
 - [x] Per-feature coverage gaps identified
 

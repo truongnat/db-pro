@@ -209,11 +209,11 @@ be run for parity comparison. It is not built by CI and is not shipped. See
 
 ## Known limitations for 0.1.0
 
-- Complete row insertion workflow is not shipped.
+- Row insertion ships in the native Table Data Editor (staged insert) but is narrower than a full insert workflow: complex column types (JSON/array/UUID) lack complete input widgets (LIM-003). *(Corrected 2026-09-14 — the earlier wording "complete row insertion workflow is not shipped" was inaccurate for the native UI.)*
 - Grid update/delete requires a primary key; no-PK tables are read-only.
 - Advanced schema mutation/DDL execution is limited to a confirmation-gated single-statement editor; richer migration workflows remain deferred.
 - Users/roles workbench is deferred.
-- Agent workspace is Preview only.
+- The Agent panel **ships as Preview**; production/autonomous Agent execution is excluded from 0.1.0. *(Corrected 2026-09-14 — both statements are true and are stated separately.)*
 - MCP server is not included.
 - SSH tunnel plumbing is not yet end-to-end qualified across all target platforms.
 - Release artifacts are unsigned unless signing/notarization is added before distribution.

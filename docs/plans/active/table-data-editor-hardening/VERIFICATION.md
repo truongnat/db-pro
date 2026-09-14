@@ -106,6 +106,6 @@
   - `cargo fmt --all -- --check`: PASS.
   - `cargo check --workspace`: PASS.
   - `cargo clippy --workspace --all-targets -- -D warnings`: PASS (0 warnings).
-  - `cargo test --workspace`: PASS (571 unit and integration tests passing).
+  - `cargo test --workspace`: PASS (571 unit and integration tests passing). **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Measured today: `cargo test --workspace` = **811 passed / 0 failed / 19 ignored**; `571` was a stale workspace total. The original claim is retained, unretracted.
   - `cargo build --release --locked -p db-pro-native`: PASS (39.6MB release binary).
   - `bash .skills/perf-audit/scripts/perf-scan.sh`: PASS (4 checks passed, 0 warnings).

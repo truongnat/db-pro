@@ -1,5 +1,7 @@
 # Native Visual Redesign — Verification
 
+> **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Audited verdict for this workstream: **`EVIDENCE_GAP`** — the runtime `PASS` claims in this file are not supported by retrievable evidence; see `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md` §2.
+
 ## Current state
 
 Wave 1–10 implemented slices and runtime screenshot passes are recorded on
@@ -289,6 +291,12 @@ Wave 14 is a native presentation-only fix. The plan remains `IMPLEMENTING` becau
 light/dark traversal, intentional database-IDE deviation review, PostgreSQL runtime evidence and
 independent review are still pending.
 
+> **Correction (2026-09-14) — V01-06 evidence audit.** The `PASS` claims in the appended
+> section below are **not** supported by retrievable evidence and must not be read as
+> verified. Audited verdict for this workstream: **`EVIDENCE_GAP`**. The audit
+> (`docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md`, §2) records what is
+> missing: 0 of the 50 cited Orca screenshot captures still exist (macOS temp dir purged); the appended table has no Evidence column; 1920×1080 was never captured; no PostgreSQL visual pass is recorded; no independent reviewer sign-off exists (V01 commits were pushed directly to main, so the PR-only Kilo reviewer never saw them). The file's own Wave 11–14 sections still state the light/dark traversal and independent review are pending. The original record is retained below as history, unretracted.
+
 ## Final Runtime QA Traversal (Waves 1–14 Integrated Pass)
 
 | Area / Surface | Light Theme | Dark Theme | Multi-Resolution (1280×800 / 1440×900 / 1920×1080) | Provider State | Result |
@@ -302,7 +310,7 @@ independent review are still pending.
 | **Agent Panel (Preview)** | Clean right-side dock, clear mode chips (Ask/Edit/Agent) | Dark panel, safety confirmation banner distinct | Collapsible without window layout distortion | Preview mode verified | PASS |
 | **Settings & Dialogs** | Modal backdrop, focused primary button, accessible inputs | Dark dialogs, distinct danger buttons for destructive actions | Centered placement across all window resolutions | Connection & Backup dialogs PASS | PASS |
 
-- **Exact Test Counts**: 357 `db-pro-ui` unit/component tests + 21 `db-pro-native` tests PASS.
+- ~~**Exact Test Counts**: 357 `db-pro-ui` unit/component tests + 21 `db-pro-native` tests PASS.~~ **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Measured today: `db_pro_ui` = 359 passed and `db_pro_native` = 10 passed — the `21` figure is wrong for `db-pro-native` (21 is `db_pro_tauri_lib`, the legacy Tauri host) and `357` is stale for `db-pro-ui`. The original claim is retained above, unretracted.
 - **Zero clipping or visual overlap**: verified across standard resolutions.
-- **Status**: Visual gates satisfied.
+- **Status**: Visual gates satisfied. **[SUPERSEDED 2026-09-14 — V01-06 evidence audit]** This closing status line is not supported by retrievable evidence. Audited verdict: `EVIDENCE_GAP` (see the correction block above and `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md` §2). Retained as the original record.
 

@@ -29,6 +29,10 @@ cargo test --workspace
 
 ## P1 Regression Matrix
 
+**[CORRECTED 2026-09-14 — V01-06 evidence audit]** The `PASS` values in the Status column below are not backed by any recorded runtime evidence: no test name, command output, SHA or observation was added for any row, and `docs/plans/STATUS.md` still records this programme's runtime smoke and live provider verification as pending. Treat these rows as **requirements** (source-complete), not as verified passes. The original table is retained as history.
+
+**[CORRECTED 2026-09-14 — V01-06 evidence audit]** The programme's own P2 gate checkbox (`CHECKLIST.md`: "P2 accepted/fixed/deferred explicitly") is **UNCHECKED**; see `docs/release/evidence/v01-06/06-rc1-p2-dispositions.md`.
+
 | ID | Automated proof required | Runtime proof required | Status |
 |---|---|---|---|
 | QA-P1-01 | exact i64 serialization tests + exact representation + update/delete identity | PG + SQLite row with PK `9007199254740993` displays and mutates exact row | PASS |

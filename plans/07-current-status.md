@@ -1,9 +1,18 @@
 # DB Pro — Current Project Status
 
-**Updated:** 2026-08-11 (amended 2026-09-11)  
-**Code baseline reviewed:** `a2ce14c`  
+**Updated:** 2026-08-11 (amended 2026-09-11; V01-06 status correction 2026-09-14)  
+**Code baseline reviewed:** `a2ce14c` (historical frontend-era pass) / `main@7794196` for the 2026-09-14 correction  
 **Release target:** `0.1.0` Release Candidate  
-**Status authority:** this file + `docs/release/0.1.0-readiness.md`
+**Status authority:** this file + `docs/plans/STATUS.md` + `docs/release/0.1.0-readiness.md`
+
+> **Correction (2026-09-14 — V01-06).** The V01-01…V01-05 `PASS` claims are
+> `EVIDENCE_GAP` / `PARTIAL`, not verified (see
+> `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md`). The current measured
+> workspace result on `main` is **811 passed / 0 failed / 19 ignored** — the 19 are
+> `#[ignore]`d (18 PostgreSQL integration + 1 SSH backup) and are never "passing". The
+> release build and the six quality gates are green on the host (macOS ARM64); Windows and
+> Linux artifacts are `BUILD_UNVERIFIED` pending CI release run 34847235273. Row-level
+> corrections are marked `[CORRECTED 2026-09-14]` below.
 
 > **Amendment (2026-09-11) — native UI direction.** The React/TypeScript/Vite frontend and
 > its Tauri WebView host were retired. The UI is now native `eframe`/`egui`
@@ -32,16 +41,16 @@
 | ER Diagram | DONE source | Schema-level workspace tab (PR #9); composite FK; position persistence |
 | Data Grid read/productivity | DONE source | virtualized rows, filter/sort/page, resize, selection/copy |
 | Data Grid update/delete | DONE source | PK staged patch mutations + revision-safe apply model |
-| Data Grid insert | DEFERRED | not a complete 0.1.0 workflow |
-| Export | DONE release subset | manual smoke required |
-| SSH tunnel | PARTIAL | plumbing exists; cross-platform E2E not complete |
+| Data Grid insert | SHIPPED (narrow) | **[CORRECTED 2026-09-14]** row insert **is** wired in the native Table Data Editor (staged insert + dialogs, `crates/ui/src/table_editor_view.rs`); it is narrower than a full insert workflow because complex column types (JSON/array/UUID) have incomplete input widgets — LIM-003. The earlier "DEFERRED / not a complete 0.1.0 workflow" wording was inaccurate for the native UI |
+| Export | DONE release subset | **[CORRECTED 2026-09-14]** the native UI uses its own local CSV/TSV writer from the result grid; the richer backend exporters (CSV/JSON/XLSX) have no native trigger — see `docs/notes/PRODUCT_CAPABILITY_MATRIX.md` §4 |
+| SSH tunnel | PARTIAL | plumbing exists; cross-platform E2E not complete; no host to verify on |
 | Schema mutation / users/roles | PARTIAL | Column editing workbench shipped (P2.7); full schema mutation/users/roles post-0.1 |
-| Agent | PREVIEW | production Agent execution excluded |
+| Agent | PREVIEW (ships) | **[CORRECTED 2026-09-14]** the Agent panel **ships in 0.1.0 as Preview** (Ask/Edit/Agent, confirmation-gated). What is excluded is production/autonomous Agent execution, not the panel. Both statements are true and are stated separately here |
 | MCP | DEFERRED | not shipped in 0.1.0 |
 | UI quality gates | NATIVE | React/TS typecheck/lint/format gates retired with the archived frontend; native UI now gated by `cargo fmt/check/clippy/test` + `cargo build --release -p db-pro-native` |
-| P2 Hardening Program | DONE | P2.0–P2.11 all complete; see docs/quality/p2-hardening-code-audit.md |
-| Packaging workflow | DONE definition | cross-platform build IN PROGRESS |
-| Release verification | IN PROGRESS | exact-SHA automated verification DONE; artifacts + manual smoke pending |
+| P2 Hardening Program | DONE | P2.0–P2.11 all complete; see docs/quality/p2-hardening-code-audit.md *(frontend-era program; the RC1 P2 findings against the native UI are tracked separately and are not closed — see `06-rc1-p2-dispositions.md`)* |
+| Packaging workflow | DONE definition | **[CORRECTED 2026-09-14]** portable-archive contract implemented (macOS `.app` tar.gz, Windows zip, Linux tar.gz + `SHA256SUMS.txt`); cross-platform run 34847235273 in flight; installers and signing are DEFERRED, not "in progress" |
+| Release verification | PARTIAL | **[CORRECTED 2026-09-14]** six gates + release build green on host at `7794196` (811 passed / 0 failed / 19 ignored); cross-platform artifacts pending; runtime smoke has no retrievable artifact (V01-01…05 audited `EVIDENCE_GAP`/`PARTIAL`) |
 
 ---
 
@@ -138,40 +147,42 @@ Frontend test counts are historical — that suite was retired with the frontend
 
 ## Current Release Blockers (P1)
 
-### P1-1 — Exact-SHA automated verification is incomplete
+### P1-1 — Exact-SHA automated verification — **CLOSED at `fbf9fda` / `7794196`** [CORRECTED 2026-09-14]
 
-The known `tab-factories` test failure has been fixed in `120b250`. The former frontend
-gates (`frontend/pnpm-lock.yaml`, pnpm typecheck/lint/format/test/build) were retired when
-the React frontend was archived, so they no longer gate the release. Rust gates still need
-an exact-SHA rerun on the current HEAD.
-
-**Exit:** run and record exact results with 0 failures:
-
-```bash
-cargo fmt --all --check
-cargo check --workspace
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-cargo build --release --locked -p db-pro-native
-```
-
-Record exact test counts. Do not carry forward old counts.
+The six gates were re-run on `main` and all exit 0: `cargo fmt --all -- --check`,
+`cargo check --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`,
+`cargo test --workspace` (**811 passed / 0 failed / 19 ignored**),
+`cargo build --release --locked -p db-pro-native`, and the perf scan (`PASS 4 / 0 / 0`).
+Evidence: `docs/release/evidence/v01-06/02-quality-gates.txt` and
+`08-post-fix-quality-gates.txt` §8. The 19 ignored tests are 18 `#[ignore]`d PostgreSQL
+integration cases and 1 `#[ignore]`d SSH backup case; they are not passing.
 
 ### P1-2 — Cross-platform release artifacts not proven
 
-The release workflow now builds the native `db-pro-native` binary on macOS, Windows, and
-Linux, but no current run proves the matrix is green. Installer/packaging formats
-(DMG, MSI/NSIS, DEB/RPM/AppImage) and code signing are not implemented yet for the native
-app.
+The release workflow builds `db-pro-native` on macOS (`macos-14`), Windows
+(`windows-latest`) and Linux (`ubuntu-latest`) and packages portable archives with
+`SHA256SUMS.txt`. **No completed run proves the matrix is green**: release run
+**34847235273** for `fbf9fda` was in flight when this file was updated, so Windows and
+Linux stay `BUILD_UNVERIFIED`, and they will stay `RUNTIME_UNVERIFIED` (no Windows/Linux
+host exists in this project). Installer formats (DMG, MSI/NSIS, DEB/RPM/AppImage) and code
+signing are **not** implemented for the native app and are DEFERRED out of the v0.1
+contract (`docs/release/0.1.0-packaging.md`).
 
-**Exit:** green release matrix and retained `db-pro-native` artifacts for all three
-platforms, plus a documented packaging decision.
+**Exit:** green release matrix and retained archives + `SHA256SUMS.txt` for all three
+platforms.
 
-### P1-3 — Manual desktop runtime smoke pending
+### P1-3 — Manual desktop runtime smoke pending (no retrievable evidence)
 
-Verify startup/reconnect, PostgreSQL error paths, SQLite Browse, Explorer refresh, Data-first navigation, Run/cancel, destructive confirmation/read-only, staged multi-cell updates/deletes, copy isolation, workspace restore and packaged-app stability.
+`docs/release/0.1.0-manual-smoke.md` is the canonical instrument and has **0 of 165
+checklist items ticked** while its sign-off block claims "Passed: 65 / 65 checked
+sections". The V01-05 PASS is therefore `EVIDENCE_GAP` (audit §6), and V01-01…V01-04 are
+`EVIDENCE_GAP`/`PARTIAL`. Required: perform and record the walkthrough (startup/restart,
+PostgreSQL error paths, SQLite Browse, Explorer refresh, Data-first navigation, Run/cancel,
+destructive confirmation/read-only, staged multi-cell updates/deletes, copy isolation) and
+record results in the exact format the checklist expects, at an exact SHA.
 
-**Exit:** complete `docs/release/0.1.0-manual-smoke.md` and record failures/sign-off.
+**Exit:** completed `docs/release/0.1.0-manual-smoke.md` with a truthful sign-off, plus
+packaged-artifact install smoke (`docs/release/0.1.0-handoff.md` §install smoke).
 
 ---
 
@@ -185,15 +196,19 @@ Verify startup/reconnect, PostgreSQL error paths, SQLite Browse, Explorer refres
 
 ## Known P2 / Post-0.1 Debt
 
-- Unsigned release artifacts unless signing is added.
-- SSH tunnel not yet E2E-qualified across release targets.
-- Complete row insertion deferred.
+- Unsigned release artifacts unless signing is added (`R-003`, accepted for v0.1).
+- SSH tunnel not yet E2E-qualified across release targets (`R-009`).
+- **[CORRECTED 2026-09-14]** Row insert ships in the native Table Data Editor; complex-type
+  input widgets (JSON/array/UUID) are incomplete (LIM-003). It is no longer accurate to say
+  "complete row insertion deferred" without that qualification.
 - Advanced schema mutation/users/roles deferred (column editing workbench shipped in P2.7).
-- Agent remains Preview; MCP deferred.
+- Agent ships as Preview; production/autonomous Agent execution and MCP are deferred.
+- Workspace tab/settings persistence is **not implemented** in the native build (eframe
+  persistence feature is off) — restart recovery of tabs cannot be claimed (`R-015`).
 - JSON cell inspection/context-menu accessibility can improve.
 - Clipboard failure feedback can improve.
 - Historical coverage percentage targets need re-measurement.
-- Public project license is not defined.
+- Public project license is not defined (`R-LICENSE`; blocks public distribution).
 - Grid context menu uses a custom fixed overlay rather than a shared menu widget (future improvement).
 - Query key stale time could be tuned for introspection data (low-risk).
 
@@ -201,20 +216,33 @@ Verify startup/reconnect, PostgreSQL error paths, SQLite Browse, Explorer refres
 
 ## Final Release Sequence
 
-1. Run exact-SHA full Rust automated verification and record exact counts.
-2. Trigger the native Release Build matrix (`db-pro-native`).
-3. Retain/download macOS, Windows, and Linux artifacts.
-4. Install/run at least the host artifact.
-5. Complete manual smoke + screenshots.
-6. Update verification/readiness to the final tag candidate SHA.
-7. Only then tag `v0.1.0`.
+1. Re-run the exact-SHA full Rust automated verification and record exact counts — **DONE
+   at `fbf9fda`/`7794196`** (811 passed / 0 failed / 19 ignored; six gates exit 0).
+2. Trigger the native Release Build matrix (`db-pro-native`) — **DONE**; run 34847235273
+   in flight for `fbf9fda`.
+3. Retain/download macOS, Windows, and Linux artifacts — **PENDING** (artifacts
+   `PENDING_CI_RUN_34847235273`).
+4. Install/run at least the host artifact — macOS process-level launch PASS; GUI smoke not
+   observable; packaged `DB Pro.app` install smoke **PENDING**.
+5. Complete manual smoke + screenshots with durable capture paths (in-repo, not temp) —
+   **PENDING**.
+6. Update verification/readiness to the final tag candidate SHA — **PENDING**.
+7. Only then tag `v0.1.0` — not authorised in this run.
 
 ---
 
 ## Release Decision
 
-**READY_FOR_RELEASE: NO**
+**READY_FOR_RELEASE (internal / private release candidate qualification): YES** —
+the exact-HEAD six gates and release build are green, the release contract is documented,
+and the open items are governance/platform-coverage items rather than code blockers.
 
-**Current P1 blockers: 3.**
+**READY_FOR_RELEASE (public distribution): NO** — `R-LICENSE` is undecided (no LICENSE
+file, no license metadata), all artifacts are UNSIGNED, and cross-platform artifacts plus
+runtime smoke are not yet evidenced.
 
-The intended 0.1.0 feature scope is sufficiently implemented and Wave A/B source work is closed for release scope. Remaining work is exact-SHA automated verification, cross-platform artifact proof, and runtime/manual sign-off — not another feature wave.
+**Open blockers to public distribution:** `R-LICENSE` (user decision), cross-platform
+artifacts (CI run 34847235273), runtime evidence gaps for V01-01…V01-05, and the real
+packaged-app install smoke. The intended 0.1.0 feature scope is sufficiently implemented
+and Wave A/B source work is closed for release scope; remaining work is verification,
+packaging proof and governance sign-off — not another feature wave.

@@ -6,6 +6,15 @@
 - Companion docs: `docs/notes/PRODUCT_CAPABILITY_MATRIX.md`, `docs/notes/PRODUCT_ROADMAP.md`
 - Scope rule: **Strict zero-feature-expansion policy.** No Phase A–H feature work (Monitoring, Import, Object CRUD, Users UI, Compare, etc.) is admitted into the v0.1.0 release queue.
 
+> **Status correction — 2026-09-14 (V01-06 evidence audit).** The baseline "V01-01…V01-05:
+> PASS" claims at the top of this plan were audited against the repository's own evidence and
+> are **not** supported by it. `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md`
+> returns `EVIDENCE_GAP` for V01-01, V01-02, V01-04 and V01-05 and `PARTIAL` for V01-03.
+> Every `PASS / VERIFIED` state and every `[x]` in §3 below records what was claimed on
+> 2026-09-14; those marks are **claims, not evidence**, and are superseded by the per-gate
+> corrections in §3. Nothing was deleted. V01-06 is `PARTIAL` and V01-07 is `BLOCKED` — see
+> §3.6/§3.7. Do not read this plan as a list of closed gates.
+
 ---
 
 ## 1. Executive Summary & Release Reconciliation
@@ -38,14 +47,14 @@ The remaining gap to ship `v0.1.0` is **not new feature code**, but **runtime ve
 
 | Area | Implementation State | v0.1 Status | Missing Evidence to Close v0.1 |
 |---|---|---|---|
-| **Native Visual Redesign** | Waves 1–14 implemented | `IMPLEMENTING` / `REVIEW` | All-surface light/dark traversal, provider review, independent review |
-| **Query Editor Intelligence** | Lexer, completion, multi-result, diagnostics done | `RUNTIME_VERIFY` | Native viewport evidence (PostgreSQL + SQLite execution, completion popup, diagnostics, drafts/history) |
-| **Large-Schema ER Canvas** | `ErGraph`, spatial index, 3-tier LOD, BFS done | `RUNTIME_VERIFY` | Native 1000-table synthetic & 200+ live table viewport, zoom/pan/LOD, rapid schema switch, memory/CPU stability |
-| **Schema Introspection** | S1–S7 columns, indexes, FKs, triggers, DDL done | `RUNTIME_VERIFY` | Live PostgreSQL + SQLite UI introspection traversal |
-| **Table Data Editor & Safety** | Staged mutations, 3-way conflict, PK reload, safety policy | `RUNTIME_VERIFY` | Live PostgreSQL & SQLite mutation safety walkthrough, rollback verification |
-| **Connection & Workspace** | Registry, credentials, SSH tunnel, startup recovery | `RUNTIME_VERIFY` | Live connect/disconnect, bad credential nudge, workspace state restoration |
-| **Agent Workflow** | 9 canonical tools, preview/confirmation, IME safety | `RUNTIME_VERIFY` (Preview) | Desktop panel smoke with live DB execution |
-| **Packaging & Release Build** | Native `db-pro-native` target | `PENDING` | macOS (`.dmg`/binary), Windows (`.exe`/`.msi`), Linux (`.deb`/tarball) release artifacts |
+| **Native Visual Redesign** | Waves 1–14 implemented | `EVIDENCE_GAP` (was recorded `IMPLEMENTING` / `REVIEW`) | All-surface light/dark traversal, 1920×1080 acceptance, provider review, independent review |
+| **Query Editor Intelligence** | Lexer, completion, multi-result, diagnostics done | `EVIDENCE_GAP` (was `RUNTIME_VERIFY`) | Native viewport evidence (PostgreSQL + SQLite execution, completion popup, diagnostics, drafts/history); live provider run for the 18 `#[ignore]`d PG tests |
+| **Large-Schema ER Canvas** | `ErGraph`, spatial index, 3-tier LOD, BFS done | `PARTIAL` (was `RUNTIME_VERIFY`) | Native 1000-table synthetic & 200+ live table viewport, zoom/pan/LOD, rapid schema switch, memory/CPU stability |
+| **Schema Introspection** | S1–S7 columns, indexes, FKs, triggers, DDL done | `EVIDENCE_GAP` (was `RUNTIME_VERIFY`) | Live PostgreSQL + SQLite UI introspection traversal; CHECK/Unique constraint coverage |
+| **Table Data Editor & Safety** | Staged mutations, 3-way conflict, PK reload, safety policy | `RUNTIME_VERIFY` (unchanged) | Live PostgreSQL & SQLite mutation safety walkthrough, rollback verification |
+| **Connection & Workspace** | Registry, credentials, SSH tunnel, startup recovery | `RUNTIME_VERIFY` (unchanged) | Live connect/disconnect, bad credential nudge; **workspace tab restore does not exist in the shipping build** (eframe persistence is off — see `risk-register.md` R-015) |
+| **Agent Workflow** | 9 canonical tools, preview/confirmation, IME safety | `RUNTIME_VERIFY` (Preview) | Desktop panel smoke with live DB execution; live provider key run |
+| **Packaging & Release Build** | Native `db-pro-native` target + portable archives | `PARTIAL` | macOS ARM64 built/runtime-smoked locally; Windows/Linux `BUILD_UNVERIFIED`; CI run 34847235273 in flight. Contract is portable archives + `SHA256SUMS.txt` — **no `.dmg`/`.msi`/`.deb`/`.rpm`/AppImage** (deferred) |
 
 ### Explicitly Deferred Scope (NON-BLOCKERS for v0.1)
 
@@ -97,8 +106,11 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 ### V01-01 — Native Visual Redesign Finalization & Review
 
 - **Feature**: Complete Native Visual Redesign (Goal-2 / Waves 1–14).
-- **Current State**: `PASS / VERIFIED` (2026-09-14).
-- **Exact Verification Needed**:
+- **Current State**: `EVIDENCE_GAP` — recorded `PASS / VERIFIED` (2026-09-14) is **downgraded**.
+  - **Missing evidence**: 0 of the 50 cited Orca screenshot captures still exist (macOS temp dir purged); the appended PASS table has no Evidence column; 1920×1080 was never captured; no PostgreSQL visual pass is recorded; no independent reviewer sign-off exists (the V01 commits were pushed directly to `main`, so the PR-only Kilo reviewer could not have covered them). The plan's own Wave 11–14 text still says the traversal and review are pending.
+  - **Audit**: `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md` §2.
+- **Correction scope**: the `[x]` marks below record what was claimed on 2026-09-14; they are not evidence.
+- **Exact Verification Needed** *(as claimed; see correction above)*:
   - [x] All-surface light and dark theme traversal (Shell, Explorer, Query Editor, Table Grid, Schema Details, ER Diagram, Agent panel, Settings, Dialogs).
   - [x] Resolution acceptance checks at 1280×800, 1440×900, and 1920×1080 (zero clipping, bounded layout).
   - [x] Provider / runtime review for PostgreSQL and SQLite UI consistency.
@@ -113,8 +125,11 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 ### V01-02 — Query Editor & Intelligence Runtime Verification
 
 - **Feature**: Query Editor Execution, Autocompletion, Diagnostics, Multi-Result & History.
-- **Current State**: `PASS / VERIFIED` (2026-09-14).
-- **Exact Verification Needed**:
+- **Current State**: `EVIDENCE_GAP` — recorded `PASS / VERIFIED` (2026-09-14) is **downgraded**.
+  - **Missing evidence**: no live-provider execution record exists; the PostgreSQL half rests on the 18 `#[ignore]`d `pg_integration` tests (ignored, not passing); cancellation is SQLite-interrupt-only with PostgreSQL capability-gated `Unsupported`, so the claimed PASS overstates it; the source doc's own §"live provider evidence remains pending" paragraphs were never retracted.
+  - **Audit**: `04-v01-01-05-evidence-audit.md` §3.
+- **Correction scope**: the `[x]` marks below record what was claimed on 2026-09-14; they are not evidence.
+- **Exact Verification Needed** *(as claimed; see correction above)*:
   - [x] Native viewport SQL editing with dialect syntax highlighting.
   - [x] Execution routing: Run Current statement, Run Selection, Run All.
   - [x] Multi-statement execution returning distinct result tabs (`Result 1`, `Result 2`, `Messages`).
@@ -132,8 +147,12 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 ### V01-03 — Large-Schema ER Diagram Runtime Verification
 
 - **Feature**: Large-Schema ER Diagram Performance & Interaction Engine.
-- **Current State**: `PASS / VERIFIED` (2026-09-14).
-- **Exact Verification Needed**:
+- **Current State**: `PARTIAL` — recorded `PASS / VERIFIED` (2026-09-14) is **downgraded**.
+  - **What is real**: the 99 automated diagram tests pass on HEAD and cover layout timing for 20/100/500/1000 tables, 3-tier LOD, deterministic BFS and worker lifecycle (automated evidence, not runtime evidence).
+  - **Missing evidence**: "smooth" pan/zoom and "idle CPU < 2%, memory stable" were never measured or captured; the µs/ms figures presented as "live measured" have no committed source artifact.
+  - **Audit**: `04-v01-01-05-evidence-audit.md` §4.
+- **Correction scope**: the `[x]` marks below record what was claimed on 2026-09-14; they are not evidence.
+- **Exact Verification Needed** *(as claimed; see correction above)*:
   - [x] Synthetic 1000-table schema rendering on native egui canvas (38.02ms graph/index build, 0.40ms scene prep).
   - [x] Smooth pan (drag) and continuous zoom (0.5× to 2.0×).
   - [x] 3-tier Level of Detail (LOD) transitions: Compact (<0.75×), Standard (<1.15×), Detailed (≥1.15×).
@@ -150,8 +169,12 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 ### V01-04 — Schema Introspection & DDL Runtime Verification
 
 - **Feature**: Schema Introspection Sub-tabs (S1–S7: Columns, Indexes, Relations, Triggers, DDL, Constraints).
-- **Current State**: `PASS / VERIFIED` (2026-09-14).
-- **Exact Verification Needed**:
+- **Current State**: `EVIDENCE_GAP` — recorded `PASS / VERIFIED` (2026-09-14) is **downgraded**.
+  - **What is real**: SQLite introspection has passing automated coverage (columns/indexes/relations/triggers test binaries, plus 32 SQLite integration tests).
+  - **Missing evidence**: the live PostgreSQL half rests on `#[ignore]`d tests (0 passed / 18 ignored without `DATABASE_URL`); no native-UI schema traversal artifact exists; CHECK/Unique constraint inspection has no dedicated test and its disposition is still recorded as unresolved in the risk register (`R005`).
+  - **Audit**: `04-v01-01-05-evidence-audit.md` §5.
+- **Correction scope**: the `[x]` marks below record what was claimed on 2026-09-14; they are not evidence.
+- **Exact Verification Needed** *(as claimed; see correction above)*:
   - [x] Columns introspection: data types, nullability, default expressions.
   - [x] Indexes introspection: primary key, unique, btree, expressions, composite indexes.
   - [x] Relations / Foreign Keys: single and composite FK navigation and target mapping.
@@ -168,8 +191,12 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 ### V01-05 — Integrated RC1 Desktop Smoke & Provider Lifecycle
 
 - **Feature**: Full Product RC1 Desktop Runtime Smoke & Safety Hardening.
-- **Current State**: `PASS / VERIFIED` (2026-09-14).
-- **Exact Verification Needed**:
+- **Current State**: `EVIDENCE_GAP` — recorded `PASS / VERIFIED` (2026-09-14) is **downgraded**.
+  - **What is real**: the source flows exist and the automated suite is green (811 passed / 0 failed / 19 ignored on HEAD).
+  - **Missing evidence**: the only document that could record these walkthroughs, `docs/release/0.1.0-manual-smoke.md`, has **0 of 165 checklist items ticked** while its sign-off block reads "Passed: 65 / 65 checked sections"; it cites three different SHAs (`56c3a94` in the header, `b2cc33e` in the sign-off, actual HEAD is different); the `12/12 passed` figure validates the SQLite *fixture* via `fixtures/smoke/verify-smoke.sh`, not the application; no provider run artifacts (container log, connection trace, version query output) exist for the asserted PostgreSQL 18.2 session.
+  - **Audit**: `04-v01-01-05-evidence-audit.md` §6.
+- **Correction scope**: the `[x]` marks below record what was claimed on 2026-09-14; they are not evidence.
+- **Exact Verification Needed** *(as claimed; see correction above)*:
   - [x] Connection Lifecycle: create, edit, test connection with password/SSL/SSH, connect, disconnect, delete.
   - [x] Stale/invalid credentials error handling and nudge.
   - [x] Table Data Editing: inline edit, Enter-to-stage, pending-changes badge, commit batch.
@@ -190,43 +217,52 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
 ### V01-06 — Cross-Platform Release Build & Quality Gates
 
 - **Feature**: Multi-Platform Native Binary Packaging & Workspace Quality Gates.
-- **Current State**: `PENDING`.
-- **Exact Verification Needed**:
-  - [ ] Workspace Quality Gates:
+- **Current State**: `PARTIAL` (2026-09-14).
+  - **PASS**: quality gates. All six gates exit 0 on `main` after the component-gallery label fix (fmt, check, clippy `-D warnings`, `cargo test --workspace` = 811 passed / 0 failed / 19 ignored, `cargo build --release --locked -p db-pro-native`, perf-scan `PASS 4/0/0`); release-profile test run also green. Evidence: `docs/release/evidence/v01-06/02-quality-gates.txt` + `08-post-fix-quality-gates.txt` §8.
+  - **PASS (host only)**: local macOS ARM64 build + bundle/launch smoke — `DB Pro.app` archive produced and LaunchServices-accepted; process runs and exits on SIGTERM. No window/GUI interaction was observed (harness limitation). Evidence: `08-post-fix-quality-gates.txt` §3.
+  - **PENDING**: cross-platform artifacts (Windows x86_64, Linux x86_64, macOS ARM64 CI artifacts + `SHA256SUMS.txt`) from release CI run **34847235273** for SHA `fbf9fdab9100f08f12e29434983f32c18f14ac2f`. Windows/Linux remain `BUILD_UNVERIFIED` until that run completes; they will remain `RUNTIME_UNVERIFIED` (no Windows/Linux host exists in this project).
+  - **Correction**: the artifact contract listed below (`.dmg`, `.msi`, `.deb`) is **not** the v0.1 contract. v0.1 ships portable archives (`db-pro-v0.1.0-macos-arm64.tar.gz` with a minimal `DB Pro.app`, `db-pro-v0.1.0-windows-x86_64.zip`, `db-pro-v0.1.0-linux-x86_64.tar.gz`) plus `SHA256SUMS.txt`; installers are DEFERRED. See `docs/release/0.1.0-packaging.md`.
+- **Exact Verification Needed** *(status per item as of 2026-09-14)*:
+  - [x] Workspace Quality Gates (all exit 0):
     ```bash
     cargo fmt --all -- --check
     cargo check --workspace
     cargo clippy --workspace --all-targets -- -D warnings
     cargo test --workspace
     ```
-  - [ ] Native Release Compilation:
+  - [x] Native Release Compilation:
     ```bash
     cargo build --release --locked -p db-pro-native
     ```
-  - [ ] Multi-Platform Artifact Generation:
-    - [ ] macOS: ARM64 (`aarch64-apple-darwin`) & x86_64 binaries / `.dmg`.
-    - [ ] Windows: x86_64 (`x86_64-pc-windows-msvc`) `.exe` / `.msi`.
-    - [ ] Linux: x86_64 (`x86_64-unknown-linux-gnu`) `.deb` / tarball.
-  - [ ] Artifact execution verification on host operating system.
+  - [ ] Multi-Platform Artifact Generation *(CI run 34847235273 in flight)*:
+    - [ ] macOS: ARM64 (`aarch64-apple-darwin`) portable `.tar.gz` containing `DB Pro.app` — local equivalent produced; CI artifact `PENDING_CI_RUN_34847235273`.
+    - [ ] Windows: x86_64 (`x86_64-pc-windows-msvc`) `.zip` — `BUILD_UNVERIFIED`.
+    - [ ] Linux: x86_64 (`x86_64-unknown-linux-gnu`) `.tar.gz` — `BUILD_UNVERIFIED`.
+  - [ ] Artifact execution verification on host operating system — macOS process-level launch PASS; GUI smoke NOT OBSERVABLE; Windows/Linux not attempted.
 - **Provider Scope**: Cross-platform runtime hosts.
-- **Evidence Location**: `docs/release/0.1.0-readiness.md` + CI release build artifacts.
+- **Evidence Location**: `docs/release/evidence/v01-06/*`, `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md`, CI release run 34847235273.
 - **Blocker Severity**: `P0` (deliverable gate).
 - **Exit Criteria**: Clean build across all targets, zero clippy warnings, executable artifacts verified.
+- **Remaining blockers**: cross-platform artifacts (CI run in flight); `R-LICENSE` (public release only); unsigned artifacts (accepted); Windows/Linux runtime verification (no host).
 
 ---
 
 ### V01-07 — Final Release Sign-off, Governance & Tagging
 
 - **Feature**: 0.1.0 Release Governance, Documentation Alignment & Tagging.
-- **Current State**: `PENDING`.
+- **Current State**: `BLOCKED` (2026-09-14).
+  - **Blocked by**: (1) `R-LICENSE` — no LICENSE file and no license metadata anywhere; public distribution must not be represented as licensed until the user decides (goal-3 §11); (2) the in-flight cross-platform artifact run for `fbf9fdab9100f08f12e29434983f32c18f14ac2f` (run 34847235273) — artifact names and SHA256 values are `PENDING_CI_RUN_34847235273` in `docs/release/0.1.0-handoff.md`; (3) the V01-01…V01-05 runtime evidence gaps from §3 above (these are not closed by this run).
+  - **Done in this run** (does not unblock): documentation alignment, governance/risk register rewrite, packaging contract rewrite, release notes, README, CHANGELOG, handoff document, release checklist, readiness assessment, provider capability matrix corrections.
+  - **Not done / not authorised**: no tag, no public release, no signing, no license selection.
 - **Exact Verification Needed**:
-  - [ ] Update `docs/plans/STATUS.md` (all completed v0.1 plans transitioned to `COMPLETED`).
-  - [ ] Move verified plan folders from `docs/plans/active/` to `docs/plans/completed/`.
-  - [ ] Update `docs/release/0.1.0-readiness.md` to `READY_FOR_RELEASE: YES`.
-  - [ ] Resolve or record governance risks in `docs/release/risk-register.md` (Brand R001, License R004, Signing R003/R009).
-  - [ ] Tag git commit `v0.1.0` and publish release notes.
+  - [x] Update `docs/plans/STATUS.md` — done; **no** v0.1 plan was legitimately eligible for `COMPLETED`, so none was mass-completed.
+  - [x] Archive verified plan folders — **none archived**: no feature reached `COMPLETED` (see §3 and `STATUS.md`). Re-evaluate after the runtime evidence gaps close.
+  - [x] Record governance risks in `docs/release/risk-register.md` (Brand `R-001`, License `R-LICENSE`, Signing `R-003`, SSH `R-009`) — done.
+  - [ ] Update `docs/release/0.1.0-readiness.md` to `READY_FOR_RELEASE: YES` — **not done and deliberately not claimable**: `READY_FOR_RELEASE` is recorded as *internal/private RC qualification* only; public distribution is **NO** pending `R-LICENSE`.
+  - [ ] Resolve `R-LICENSE` — user decision required.
+  - [ ] Tag git commit `v0.1.0` and publish release notes — not authorised in this run.
 - **Provider Scope**: Project Repository & Governance.
-- **Evidence Location**: `docs/release/0.1.0-readiness.md`, Git release tag.
+- **Evidence Location**: `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md`, Git release tag (not created).
 - **Blocker Severity**: `P0` (release closure).
 - **Exit Criteria**: All release gates green, zero open P0/P1 items, release tag created.
 

@@ -1,5 +1,7 @@
 # Verification
 
+> **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Audited verdict for this workstream: **`EVIDENCE_GAP`** — see `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md` §3.
+
 Source evidence recorded on 2026-09-13:
 
 - Baseline: `df4e3e5 feat(query): preserve structured database error positions`, with the
@@ -63,6 +65,9 @@ Automated evidence recorded on 2026-09-13:
 - `cargo test --workspace` — PASS: 276 core, 62 infrastructure, 231 UI, 9 native, 7 runtime,
   21 Tauri library tests, plus workspace integration suites (18 PostgreSQL tests ignored because
   the isolated PostgreSQL fixture is not enabled).
+  **[CORRECTED 2026-09-14 — V01-06 evidence audit]** The figures measured today are 291 core,
+  359 UI and 28 runtime (workspace: 811 passed / 0 failed / 19 ignored); the `276 core`, `231 UI`
+  and `7 runtime` figures here are stale. The original claim is retained as history, unretracted.
 - `cargo fmt --all -- --check` — PASS.
 - `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
@@ -79,6 +84,9 @@ Final verification pass after `e39f10d`:
   7 runtime, 21 Tauri library tests, 32 infrastructure integration tests, and the schema
   regression suites; 18 PostgreSQL tests and 1 SSH test were ignored because their isolated
   fixtures were not enabled.
+  **[CORRECTED 2026-09-14 — V01-06 evidence audit]** The figures measured today are 291 core,
+  359 UI and 28 runtime (workspace: 811 passed / 0 failed / 19 ignored); the `276 core`, `231 UI`
+  and `7 runtime` figures here are stale. The original claim is retained as history, unretracted.
 - `cargo build --release --locked -p db-pro-native` — PASS.
 - `bash .skills/perf-audit/scripts/perf-scan.sh` — PASS; 4 checks, 0 warnings, 0 failures.
 - `cargo bench --package db-pro-ui --bench result_grid_benchmarks -- --quick` — PASS. Measured
@@ -134,6 +142,12 @@ Live provider evidence remains pending. The shell had no `GROQ_API_KEY` or `OPEN
 credential was read from Keychain. Required 1280×800, 1440×900, and 1920×1080 state-matrix evidence
 is also pending.
 
+> **Correction (2026-09-14) — V01-06 evidence audit.** The `PASS` claims in the appended
+> section below are **not** supported by retrievable evidence and must not be read as
+> verified. Audited verdict for this workstream: **`EVIDENCE_GAP`**. The audit
+> (`docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md`, §3) records what is
+> missing: the PostgreSQL half rests on the 18 `#[ignore]`d pg_integration tests (ignored, not passing); no live provider execution record exists; the cancellation row overstates a capability that is SQLite-interrupt-only with PostgreSQL capability-gated `Unsupported`; the file's own lines ~92-96 and ~133-135 still say live provider evidence and the 1280×800/1440×900/1920×1080 state matrix remain pending. The original record is retained below as history, unretracted.
+
 ## Live Provider & Native QA Runtime Evidence (2026-09-14)
 
 Live runtime verification executed against local PostgreSQL 18 container (`dbpro_fixture`) and native SQLite fixture:
@@ -142,12 +156,12 @@ Live runtime verification executed against local PostgreSQL 18 container (`dbpro
 |---|---|---|---|---|
 | **Run Current / Selection / All** | Verified statement routing | Verified statement routing | PASS | 18 pg_integration tests + query mapper tests PASS |
 | **Multi-Statement / Multi-Result** | Ordered Result 1..N + Messages | Ordered Result 1..N + Messages | PASS | `execute_multi` tests PASS |
-| **Autocompletion Engine** | Keywords, tables, columns, CTEs, aliases | Keywords, schemas, tables, columns, aliases | PASS | 21 `schema_completion` tests PASS |
+| **Autocompletion Engine** | Keywords, tables, columns, CTEs, aliases | Keywords, schemas, tables, columns, aliases | PASS | ~~21 `schema_completion` tests PASS~~ **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Measured today: 18 `schema_completion` tests passed — the `21` figure was stale. |
 | **Structured Diagnostics** | Syntax errors, delimiter mismatches | Server error position + byte offset mapping | PASS | `test_statement_analysis_*`, `editor::brackets` tests PASS |
 | **Cancellation Lifecycle** | VM interrupt cancellation supported | Capability-gated `Unsupported` (graceful) | PASS | Cancel tests PASS across both providers |
 | **Draft & History Persistence** | Restored from eframe storage | Restored from eframe storage | PASS | `test_query_document_serde_roundtrip` PASS |
 | **Saved Query Lifecycle** | Create, open, rename, delete | Create, open, rename, delete | PASS | `QueryService` repository tests PASS |
 
-- **Workspace Test Gate**: 808 regular tests + 19 live PG/SSH integration tests = **827 tests PASS, 0 failures**.
-- **Status**: RUNTIME_VERIFY requirements closed for Query Editor.
+- ~~**Workspace Test Gate**: 808 regular tests + 19 live PG/SSH integration tests = **827 tests PASS, 0 failures**.~~ **[CORRECTED 2026-09-14 — V01-06 evidence audit]** The 19 are `#[ignore]`d (ignored, not passing) and are already part of the workspace total, so `808 + 19 = 827 PASS` is wrong; the workspace result measured today is **811 passed / 0 failed / 19 ignored**. The original claim is retained above, unretracted.
+- **Status**: RUNTIME_VERIFY requirements closed for Query Editor. **[SUPERSEDED 2026-09-14 — V01-06 evidence audit]** This closing status line is not supported by retrievable evidence. Audited verdict: `EVIDENCE_GAP` (see the correction block above and `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md` §3). Retained as the original record.
 

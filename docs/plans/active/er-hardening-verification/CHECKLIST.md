@@ -161,4 +161,4 @@
 - [x] cargo fmt --all -- --check
 - [x] cargo check --workspace
 - [x] cargo clippy --workspace --all-targets -- -D warnings
-- [x] cargo test --workspace (809 tests, 0 failed)
+- [x] ~~cargo test --workspace (809 tests, 0 failed)~~ **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Measured today: `cargo test --workspace` = **811 passed / 0 failed / 19 ignored**; `809` was a stale workspace total and the 19 ignored tests were not mentioned. The original claim is retained above, unretracted.

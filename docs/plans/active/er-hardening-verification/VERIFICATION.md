@@ -1,5 +1,7 @@
 # P1 Large-Schema ER Architecture — Verification Evidence
 
+> **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Audited verdict for this workstream: **`PARTIAL`** — see `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md` §4.
+
 ## Commit range
 
 ```
@@ -23,6 +25,8 @@ cargo clippy --workspace --all-targets -- -D warnings  # PASS
 cargo test --workspace              # PASS (808 tests, 0 failed)
 cargo test -p db-pro-ui -- diagram::tests  # PASS (98 tests, 0 failed)
 ```
+
+> **[CORRECTED 2026-09-14 — V01-06 evidence audit]** The `diagram::tests` line above records `98 tests, 0 failed`; the value measured today is **99 passed, 0 failed**. `98` was stale; the `99` recorded later in this file is the correct figure.
 
 ## Test coverage matrix
 
@@ -59,8 +63,10 @@ cargo test -p db-pro-ui -- diagram::tests  # PASS (98 tests, 0 failed)
 | Viewport coordinates (roundtrip, margin, clamp) | 3 | PASS |
 | Performance evidence (20/100/500/1000) | 4 | PASS |
 | Frame path performance (100 scene preps) | 1 | PASS |
-| **Total diagram tests** | **98** | **ALL PASS** |
+| **Total diagram tests** | ~~**98**~~ **99** | **ALL PASS** |
 | **Total workspace tests** | **808** | **ALL PASS** |
+
+> **[CORRECTED 2026-09-14 — V01-06 evidence audit]** The `Total diagram tests` row above records `98`; the value measured today is **99 passed** (`cargo test -p db-pro-ui -- diagram::tests`). `98` was stale, and the `99 ER diagram tests` figure recorded later in this file is the correct one.
 
 ## Performance evidence
 
@@ -107,6 +113,12 @@ cargo test -p db-pro-ui -- diagram::tests  # PASS (98 tests, 0 failed)
 | F-4 | P1 | Worker liveness: request_tx = None on spawn failure, dispatch_succeeded() added |
 | F-5 | P2 | Request ID overflow: documented invariant (rely on graph_version at MAX) |
 
+> **Correction (2026-09-14) — V01-06 evidence audit.** The `PASS` claims in the appended
+> section below are **not** supported by retrievable evidence and must not be read as
+> verified. Audited verdict for this workstream: **`PARTIAL`**. The audit
+> (`docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md`, §4) records what is
+> missing: the headline runtime claims have no artifact: "smooth" pan/zoom and "idle CPU < 2% / memory stable" were never measured or captured; the µs/ms figures presented as "live measured" have no committed source artifact (they are consistent with the automated timing tests' budget table). The original record is retained below as history, unretracted.
+
 ## Native Runtime Measurements & Evidence (2026-09-14)
 
 Live measured benchmark results across synthetic and real fixtures:
@@ -124,5 +136,5 @@ Live measured benchmark results across synthetic and real fixtures:
 | **Scene Prep Multi-Resolution** | 1280×800 (sub-ms) and 1920×1080 (sub-ms) verified | < 16.6ms (60 FPS) | PASS |
 
 - **Exact Test Count**: 99 ER diagram tests PASS, 0 failures.
-- **Status**: RUNTIME_VERIFY requirements closed for Large-Schema ER Architecture.
+- **Status**: RUNTIME_VERIFY requirements closed for Large-Schema ER Architecture. **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Audited verdict: `PARTIAL`, not closed. The automated evidence (99 diagram tests: layout timing, LOD, BFS, spatial index, worker lifecycle) is real; the headline runtime claims do not have artifacts behind them ("smooth" pan/zoom and idle CPU < 2% / memory stability were never measured). See `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md` §4. Retained as the original record.
 

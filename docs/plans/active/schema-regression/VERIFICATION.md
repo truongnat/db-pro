@@ -2,6 +2,12 @@
 
 State: REVIEW (regression matrix complete; gap-filling tests added; CI green; all Cubic reviews classified)
 
+> **Correction (2026-09-14) — V01-06 evidence audit.** The `PASS` claims recorded below in this
+> document are **not** supported by retrievable evidence and must not be read as
+> verified. Audited verdict for this workstream: **`EVIDENCE_GAP`**. The audit
+> (`docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md`, §5) records what is
+> missing: the live PostgreSQL half rests on ignored tests; no native-UI schema traversal artifact exists; CHECK/Unique constraint inspection has no dedicated test or evidence and its disposition is still recorded as unresolved in the risk register. The original record is retained below as history, unretracted.
+
 ## CI Evidence
 
 | Check | Run | Result |
@@ -10,8 +16,8 @@ State: REVIEW (regression matrix complete; gap-filling tests added; CI green; al
 | Frontend checks (tsc + eslint + prettier + build + test) | [31444927188](https://github.com/truongnat/db-pro/actions/runs/31444927188) | PASS |
 | Rust checks (prior) | [31436500294](https://github.com/truongnat/db-pro/actions/runs/31436500294) | PASS |
 | Frontend checks (prior) | [31436500294](https://github.com/truongnat/db-pro/actions/runs/31436500294) | PASS |
-| Frontend tests (local) | npm test -- --run | 105 files, 1319 tests PASS |
-| Rust unit tests (local) | cargo test --workspace | 232 passed, 9 ignored (PG), 0 failed |
+| Frontend tests (local) | npm test -- --run | 105 files, 1319 tests PASS **[CORRECTED 2026-09-14 — V01-06 evidence audit]** The React frontend suite was retired/archived on 2026-09-11 and no longer gates release; this count is historical only and no longer describes any current gate. |
+| Rust unit tests (local) | cargo test --workspace | 232 passed, 9 ignored (PG), 0 failed **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Measured today at workspace level: **811 passed / 0 failed / 19 ignored**; the `232`/`9` figures were stale. |
 | PR #8 mergeable | MERGEABLE | — |
 
 ## Test inventory
@@ -28,8 +34,8 @@ State: REVIEW (regression matrix complete; gap-filling tests added; CI green; al
 
 | File | Tests | Coverage | Status |
 |---|---|---|---|
-| `pg_integration.rs` | 18 | Tables, triggers (incl. function_def), views, indexes, FKs, query, composite FK detail, index lifecycle, special identifiers, temporal/network types, transaction rollback, timeout rollback | PASS (18/18) |
-| `ssh_backup_runtime_verification.rs` | 1 | PG backup and restore through live SSH tunnel | PASS (1/1) |
+| `pg_integration.rs` | 18 | Tables, triggers (incl. function_def), views, indexes, FKs, query, composite FK detail, index lifecycle, special identifiers, temporal/network types, transaction rollback, timeout rollback | ~~PASS (18/18)~~ **[CORRECTED 2026-09-14 — V01-06 evidence audit]** `EVIDENCE_GAP`: all 18 tests are `#[ignore]`d and run as **0 passed / 18 ignored** unless `DATABASE_URL` points at an isolated PostgreSQL fixture. |
+| `ssh_backup_runtime_verification.rs` | 1 | PG backup and restore through live SSH tunnel | ~~PASS (1/1)~~ **[CORRECTED 2026-09-14 — V01-06 evidence audit]** `EVIDENCE_GAP`: this test is `#[ignore]`d and runs as **0 passed / 1 ignored** unless the `DB_PRO_SSH_*` fixtures are provided. |
 
 
 ### Frontend tests
