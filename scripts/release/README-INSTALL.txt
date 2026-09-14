@@ -25,9 +25,18 @@ Linux   : make the file executable if needed (chmod +x db-pro-native) and run
 First run
 ---------
 DB Pro keeps its workspace state (connections, saved queries, query history,
-open tabs, settings) in a ".db-pro-data" directory next to the directory the
-app is started from. Set the DB_PRO_DATA_DIR environment variable to choose a
-different location.
+open tabs, settings) in a data directory chosen at startup, in this order:
+
+  1. DB_PRO_DATA_DIR, when set to a non-empty value; it is used as-is.
+  2. An existing ".db-pro-data" directory next to the directory the app is
+     started from, so existing installs and developer checkouts keep their
+     data where it already is.
+  3. The per-user application data directory:
+       macOS   : ~/Library/Application Support/DB Pro
+       Windows : %APPDATA%\DB Pro
+       Linux   : $XDG_DATA_HOME/db-pro (or ~/.local/share/db-pro)
+  4. Otherwise, a ".db-pro-data" directory next to the directory the app is
+     started from.
 
 Optional external tools
 -----------------------
