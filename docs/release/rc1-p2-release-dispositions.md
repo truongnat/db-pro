@@ -95,3 +95,25 @@ explicitly (SSH controls visible although full SSH qualification is post-v0.1).
 disposition, and the SSH scope item is dispositioned rather than left to the documents. The single
 `Fix RC1` row has a focused child issue (**#239**) with its own acceptance list. No code was changed
 by this audit.
+
+---
+
+## D. Query / ER residual findings (#78)
+
+Scope rows: `QA-P2-22`, `23`, `24`, `25`. The remaining scope bullets (statement selection/run-all,
+cancellation and stale execution context, Explain/result metadata, saved-query rename atomicity,
+query history persistence, error/loading/empty states; ER small/medium regressions, labels/minimap,
+persisted manual positions, perf HUD) carry **no live P2 row** of their own after Gate 4 and Gate 5 —
+recorded here rather than left implicit. Cancellation semantics were separately re-verified by #129's
+audit (`providers/15-cancellation-capability-gating.md`).
+
+| Row | Native mechanism (opened for this audit) | Disposition | Rationale |
+|---|---|---|---|
+| `QA-P2-22` export enablement tied to SQL text, not result state | the Export affordance is rendered **inside** `if let Some(value) = result` together with the `rows · ms` summary (`query_view.rs:412-421`), and the export dialog is only reachable from there (`:1290-1300`) | **`Accept RC1`** — positively verified | export availability is a function of the result payload, not of editor text: with no result there is no button to press. This is the exact acceptance line the manual-smoke checklist carries (`0.1.0-manual-smoke.md:205`) |
+| `QA-P2-23` dirty replacement uses native `window.confirm` | see §A — `NOT_APPLICABLE_IN_NATIVE` | **`Accept RC1`** (dispositioned in §A, not re-counted here) | the mechanism needs a browser API; egui has none. Listed for traceability only |
+| `QA-P2-24` ER search auto-picks first substring match | search decides a **view mode**, not a selection: `diagram_search_mode(large_schema, show_all) = large_schema && !show_all` (`diagram_view.rs:168`) opens the focused neighbourhood of *all* matches (the empty-state copy at `:296` says "open a focused neighborhood map"), and editing the query clears an explicit show-all (`diagram_show_all_after_search_edit`, `:172`) | **`Accept RC1`** | there is no "first substring match" to auto-pick: matching filters the graph instead of choosing one node, and the explicit show-all escape hatch is pinned by its own test. The #74 note that disambiguation is untested remains true for *ordering* of matches — recorded, not promoted |
+| `QA-P2-25` ER derived state does unnecessary work + LOD runtime gaps | the derived structures are built once per graph build (`crates/ui/src/diagram/model.rs:85-86` builds `node_lookup` and `adjacency` with capacity up front) and a search subset reuses the existing graph rather than rebuilding it (`diagram/tests.rs:1629` `search_subset_reuses_existing_graph`) | **`Accept RC1`** | the memoization intent is addressed and pinned by that test; the other two sub-items (handle IDs stripped per LOD level, Fit View via the React Flow API) are `NOT_APPLICABLE_IN_NATIVE` — React Flow belongs to the archived stack, and the native renderer is `crates/ui/src/diagram/` with its own layout (`layout.rs:9` documents its bounded working set) |
+
+**Acceptance check for this section:** all four Query/ER rows have exactly one disposition and none is
+duplicated with Gate 4/5 closure work (Gate 4 handled the large-schema diagram invariants; Gate 5
+handled value classes). No `Fix RC1`, so no child issue was spawned; no code was changed.
