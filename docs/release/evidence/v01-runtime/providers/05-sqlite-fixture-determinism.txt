@@ -1,0 +1,21 @@
+### SQLite fixture proof — determinism and the delete-side trigger
+
+$ rebuild into a second scratch file and compare .dump output
+  identical: two independent builds produce the same logical database
+
+$ sha256 of the two .dump files
+d83f41b4e83dda747dde7df28f638eaf719b10cf37502a603d6797d1f20a3b43  /tmp/dbpro-v01-runtime/dump-a.sql
+d83f41b4e83dda747dde7df28f638eaf719b10cf37502a603d6797d1f20a3b43  /tmp/dbpro-v01-runtime/dump-b.sql
+
+$ sha256 of the two .db files
+c26fe941a97d0dd758673ee20d7a7a0873628b1d3b871ba977bd25f9c8a87b91  /tmp/dbpro-v01-runtime/sqlite-runtime.db
+c26fe941a97d0dd758673ee20d7a7a0873628b1d3b871ba977bd25f9c8a87b91  /tmp/dbpro-v01-runtime/sqlite-runtime-rebuild.db
+
+$ delete-side trigger, exercised on a throwaway copy only
+  before: total_cents(order 1) = 11028
+  after deleting line 1: total_cents(order 1) = 9954
+  remaining line: 121|2|2|4977
+  expected total = remaining quantity * unit_price = 9954
+
+$ canonical fixture untouched by the delete test:
+240

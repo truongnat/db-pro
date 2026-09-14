@@ -1,0 +1,76 @@
+### SQLite fixture proof — trigger, view, CHECK, pagination/filter/sort, plan
+
+$ trigger: orders.total_cents equals the accumulated item total for every order
+orders_with_wrong_total
+-----------------------
+0                      
+  (0 = trigger maintained every running total)
+
+$ trigger: sample of derived totals
+id   reference  total_cents
+---  ---------  -----------
+1    ORD-00001  11028      
+2    ORD-00002  16764      
+120  ORD-00120  14320      
+
+$ view: v_order_summary line_count/unit_count agree with a direct aggregate
+rows_with_wrong_rollup
+----------------------
+0                     
+
+$ view: three sample rows
+order_id  reference  order_status  total_cents  user_id  user_email                 user_status  line_count  unit_count
+--------  ---------  ------------  -----------  -------  -------------------------  -----------  ----------  ----------
+1         ORD-00001  pending       11028        1        user01@fixture.dbpro.test  active       2           4         
+60        ORD-00060  cancelled     9880         60       user60@fixture.dbpro.test  suspended    2           2         
+120       ORD-00120  cancelled     14320        60       user60@fixture.dbpro.test  suspended    2           2         
+
+$ CHECK constraint is enforced (users.status):
+Error: stepping, CHECK constraint failed: status IN ('active', 'invited', 'suspended') (19)
+$ CHECK constraint is enforced (order_items.quantity):
+Error: stepping, CHECK constraint failed: quantity > 0 (19)
+$ FK is enforced (orders.user_id -> users.id, PRAGMA foreign_keys=ON):
+Error: stepping, FOREIGN KEY constraint failed (19)
+
+$ pagination: page 3 of users sorted by email, 25 per page
+id  email                      status   
+--  -------------------------  ---------
+51  user51@fixture.dbpro.test  suspended
+52  user52@fixture.dbpro.test  active   
+53  user53@fixture.dbpro.test  invited  
+54  user54@fixture.dbpro.test  suspended
+55  user55@fixture.dbpro.test  active   
+56  user56@fixture.dbpro.test  invited  
+57  user57@fixture.dbpro.test  suspended
+58  user58@fixture.dbpro.test  active   
+59  user59@fixture.dbpro.test  invited  
+60  user60@fixture.dbpro.test  suspended
+
+$ total page count for 60 users at page size 25:
+3
+
+$ filter + sort: 'paid' orders, highest total first, top 5
+id   reference  status  total_cents  placed_at          
+---  ---------  ------  -----------  -------------------
+114  ORD-00114  paid    69380        2026-01-05 18:00:00
+94   ORD-00094  paid    61980        2026-01-04 22:00:00
+118  ORD-00118  paid    56688        2026-01-05 22:00:00
+74   ORD-00074  paid    54580        2026-01-04 02:00:00
+98   ORD-00098  paid    50768        2026-01-05 02:00:00
+  'paid' order count: 30
+
+$ filter on FK: order_items of user 7's orders
+id   order_id  sku       quantity
+---  --------  --------  --------
+7    7         SKU-0007  3       
+67   67        SKU-0067  3       
+127  7         SKU-0127  3       
+187  67        SKU-0187  3       
+
+$ EXPLAIN QUERY PLAN — sort/filter path uses the declared indexes
+QUERY PLAN
+`--SEARCH orders USING COVERING INDEX idx_orders_status_total_cents (status=?)
+QUERY PLAN
+`--SEARCH users USING COVERING INDEX idx_users_email (email=?)
+QUERY PLAN
+`--SEARCH order_items USING COVERING INDEX idx_order_items_order_sku (order_id=?)

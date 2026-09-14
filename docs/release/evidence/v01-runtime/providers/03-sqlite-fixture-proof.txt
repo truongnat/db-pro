@@ -1,0 +1,49 @@
+### SQLite fixture proof — schema list and row counts
+$ sqlite3 /tmp/dbpro-v01-runtime/sqlite-runtime.db < fixtures/smoke/sqlite/runtime_fixture.sql   (exit 0)
+
+$ SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name;
+type|name
+index|idx_order_items_order_sku
+index|idx_orders_reference
+index|idx_orders_status_total_cents
+index|idx_orders_user_placed_at
+index|idx_users_email
+index|idx_users_status_created_at
+table|order_items
+table|orders
+table|user_roles
+table|users
+trigger|trg_order_items_after_delete
+trigger|trg_order_items_after_insert
+view|v_order_summary
+
+$ row counts
+entity           rows
+---------------  ----
+users            60  
+orders           120 
+order_items      240 
+user_roles       120 
+v_order_summary  120 
+
+$ PRAGMA foreign_key_check;   (no rows = no FK violations)
+foreign_key_check rows: 0
+
+$ PRAGMA index_list('order_items');
+seq|name|unique|origin|partial
+0|idx_order_items_order_sku|1|c|0
+
+$ composite PK — PRAGMA table_info('user_roles');
+cid|name|type|notnull|dflt_value|pk
+0|user_id|INTEGER|1||1
+1|role|TEXT|1||2
+2|granted_at|TEXT|1||0
+
+$ composite PK actually holds two roles for user 1:
+user_id  role    granted_at         
+-------  ------  -------------------
+1        editor  2026-01-02 00:00:00
+1        viewer  2026-01-02 00:00:00
+
+$ composite PK rejects a duplicate (user_id, role) pair:
+Error: stepping, UNIQUE constraint failed: user_roles.user_id, user_roles.role (19)

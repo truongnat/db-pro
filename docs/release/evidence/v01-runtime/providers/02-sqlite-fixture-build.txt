@@ -1,0 +1,9 @@
+### SQLite fixture build — raw output
+$ sqlite3 --version
+3.51.0 2025-06-12 13:14:41 f0ca7bba1c5e232e5d279fad6338121ab55af0c8c68c84cdfb18ba5114dcaapl (64-bit)
+
+$ sqlite3 /tmp/dbpro-v01-runtime/sqlite-runtime.db < fixtures/smoke/sqlite/runtime_fixture.sql
+exit=0
+
+$ ls -l /tmp/dbpro-v01-runtime/sqlite-runtime.db
+-rw-r--r--@ 1 truongdev  wheel  81920 Sep 14 22:58 /tmp/dbpro-v01-runtime/sqlite-runtime.db

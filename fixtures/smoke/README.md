@@ -11,7 +11,8 @@ fixtures/smoke/
 │   ├── 002_smoke_seed.sql      # Seed: 44 rows across all tables
 │   └── 003_smoke_teardown.sql  # DROP all smoke objects
 ├── sqlite/
-│   └── smoke_fixture.sql       # Single-file schema + seed (10 tables, 2 views, 6 indexes, 1 trigger)
+│   ├── smoke_fixture.sql       # Single-file schema + seed (10 tables, 2 views, 6 indexes, 1 trigger)
+│   └── runtime_fixture.sql     # Pagination/filter/sort scale: 60 users, 120 orders, 240 order_items
 ├── large-er/
 │   ├── generate-large-er.js    # Deterministic generator for >200 tables
 │   └── large_er_fixture.sql    # Pre-generated 250-table fixture
@@ -46,6 +47,29 @@ sqlite3 fixtures/smoke/sqlite/smoke.db < fixtures/smoke/sqlite/smoke_fixture.sql
 # Teardown
 rm fixtures/smoke/sqlite/smoke.db
 ```
+
+### SQLite — pagination / filter / sort scale (`runtime_fixture.sql`)
+
+Same schema language as `smoke_fixture.sql`, but seeded at the volume needed to exercise a row
+grid: **60 users, 120 orders, 240 order_items, 120 user_roles**. Tables `users`, `orders`,
+`order_items`, a composite-PK table `user_roles`, FKs, five explicit indexes (two unique), CHECK
+constraints, two triggers maintaining `orders.total_cents`, and the `v_order_summary` view.
+Every value is derived arithmetically from a row number, so **two independent builds produce
+byte-identical databases**.
+
+Build it into a **scratch** database only — never a user's real database:
+
+```bash
+# Setup (disposable scratch path)
+sqlite3 /tmp/dbpro-v01-runtime/sqlite-runtime.db < fixtures/smoke/sqlite/runtime_fixture.sql
+
+# Teardown
+rm /tmp/dbpro-v01-runtime/sqlite-runtime.db
+```
+
+Runtime evidence for this fixture (schema list, row counts, FK/trigger/view/CHECK checks,
+pagination, query plans, determinism) is recorded in
+`docs/release/evidence/v01-runtime/providers/02`–`05`.
 
 ### Large ER (250 tables)
 
