@@ -1098,6 +1098,279 @@ impl From<db_pro_core::domain::cross_connection::TablespaceInfo> for TablespaceI
 mod tests {
     use super::*;
 
+    /// A representative introspection payload that exercises every DTO field,
+    /// including one single-column FK and one composite FK.
+    fn representative_introspect_result() -> IntrospectResult {
+        IntrospectResult {
+            schemas: vec![Schema {
+                name: "public".to_owned(),
+            }],
+            tables: vec![
+                Table {
+                    name: "orders".to_owned(),
+                    schema: "public".to_owned(),
+                    row_count: Some(12),
+                },
+                Table {
+                    name: "order_items".to_owned(),
+                    schema: "public".to_owned(),
+                    row_count: None,
+                },
+                Table {
+                    name: "customers".to_owned(),
+                    schema: "public".to_owned(),
+                    row_count: Some(4),
+                },
+            ],
+            columns: vec![
+                Column {
+                    name: "id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    ordinal: 0,
+                    nullable: false,
+                    default: None,
+                    is_primary_key: true,
+                    is_unique: false,
+                    is_identity: false,
+                    is_generated: false,
+                    collation: None,
+                    table_name: "orders".to_owned(),
+                    schema: "public".to_owned(),
+                },
+                Column {
+                    name: "customer_id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    ordinal: 1,
+                    nullable: false,
+                    default: Some("42".to_owned()),
+                    is_primary_key: false,
+                    is_unique: false,
+                    is_identity: false,
+                    is_generated: false,
+                    collation: None,
+                    table_name: "orders".to_owned(),
+                    schema: "public".to_owned(),
+                },
+                Column {
+                    name: "order_id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    ordinal: 0,
+                    nullable: false,
+                    default: None,
+                    is_primary_key: true,
+                    is_unique: false,
+                    is_identity: false,
+                    is_generated: false,
+                    collation: None,
+                    table_name: "order_items".to_owned(),
+                    schema: "public".to_owned(),
+                },
+                Column {
+                    name: "product_id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    ordinal: 1,
+                    nullable: false,
+                    default: None,
+                    is_primary_key: true,
+                    is_unique: false,
+                    is_identity: false,
+                    is_generated: false,
+                    collation: None,
+                    table_name: "order_items".to_owned(),
+                    schema: "public".to_owned(),
+                },
+            ],
+            primary_keys: vec![
+                PrimaryKey {
+                    constraint_name: "orders_pkey".to_owned(),
+                    columns: vec!["id".to_owned()],
+                    table_name: "orders".to_owned(),
+                    schema: "public".to_owned(),
+                },
+                PrimaryKey {
+                    constraint_name: "order_items_pkey".to_owned(),
+                    columns: vec!["order_id".to_owned(), "product_id".to_owned()],
+                    table_name: "order_items".to_owned(),
+                    schema: "public".to_owned(),
+                },
+            ],
+            indexes: vec![Index {
+                name: "orders_customer_id_idx".to_owned(),
+                columns: vec!["customer_id".to_owned()],
+                unique: false,
+                method: "btree".to_owned(),
+                primary: false,
+                include_columns: Vec::new(),
+                predicate: None,
+                definition: "CREATE INDEX orders_customer_id_idx ON orders (customer_id)".to_owned(),
+                origin: db_pro_core::domain::schema::IndexOrigin::User,
+                table_name: "orders".to_owned(),
+                schema: "public".to_owned(),
+            }],
+            foreign_keys: vec![
+                ForeignKey {
+                    name: "orders_customer_id_fkey".to_owned(),
+                    from_table: "orders".to_owned(),
+                    from_columns: vec!["customer_id".to_owned()],
+                    to_table: "customers".to_owned(),
+                    to_columns: vec!["id".to_owned()],
+                    schema: "public".to_owned(),
+                    to_schema: "public".to_owned(),
+                    on_update: "NO ACTION".to_owned(),
+                    on_delete: "CASCADE".to_owned(),
+                    match_option: "NONE".to_owned(),
+                    deferrable: false,
+                    initially_deferred: false,
+                },
+                ForeignKey {
+                    name: "order_items_fkey".to_owned(),
+                    from_table: "order_items".to_owned(),
+                    from_columns: vec!["order_id".to_owned(), "product_id".to_owned()],
+                    to_table: "orders".to_owned(),
+                    to_columns: vec!["id".to_owned(), "product_id".to_owned()],
+                    schema: "public".to_owned(),
+                    to_schema: "public".to_owned(),
+                    on_update: "NO ACTION".to_owned(),
+                    on_delete: "NO ACTION".to_owned(),
+                    match_option: "NONE".to_owned(),
+                    deferrable: false,
+                    initially_deferred: false,
+                },
+            ],
+            check_constraints: Vec::new(),
+            views: vec![View {
+                name: "open_orders".to_owned(),
+                schema: "public".to_owned(),
+                definition: "SELECT id FROM orders".to_owned(),
+            }],
+            triggers: vec![Trigger {
+                name: "orders_updated_at".to_owned(),
+                table_name: "orders".to_owned(),
+                schema: "public".to_owned(),
+                timing: "BEFORE".to_owned(),
+                event: "UPDATE".to_owned(),
+                definition: "CREATE TRIGGER orders_updated_at BEFORE UPDATE ON orders ...".to_owned(),
+                function_def: "CREATE FUNCTION update_orders_updated_at() ...".to_owned(),
+                enabled: true,
+            }],
+            functions: Vec::new(),
+        }
+    }
+
+    /// The exact serialized shape the Tauri `introspect` command emits: camelCase
+    /// everywhere, the eight top-level keys the current contract carries, and
+    /// optional fields as JSON null (not omitted).
+    #[test]
+    fn introspect_result_dto_serializes_the_locked_camel_case_shape() {
+        let dto: IntrospectResultDto = representative_introspect_result().into();
+        let value = serde_json::to_value(&dto).expect("the DTO must serialize");
+        let object = value.as_object().expect("the root must be an object");
+
+        let mut keys: Vec<&str> = object.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            vec![
+                "columns",
+                "foreignKeys",
+                "indexes",
+                "primaryKeys",
+                "schemas",
+                "tables",
+                "triggers",
+                "views"
+            ],
+            "a drift in the top-level shape must fail here, not in the consumer"
+        );
+
+        let tables = &object["tables"];
+        assert_eq!(tables[0]["name"], "orders");
+        assert_eq!(tables[0]["rowCount"], 12);
+        assert_eq!(
+            tables[1]["rowCount"],
+            serde_json::Value::Null,
+            "None row_count is JSON null, per the current contract"
+        );
+
+        let columns = &object["columns"];
+        assert_eq!(columns[0]["dataType"], "integer");
+        assert_eq!(columns[0]["isPrimaryKey"], true);
+        assert_eq!(columns[0]["tableName"], "orders");
+        assert_eq!(columns[1]["defaultValue"], "42");
+        assert_eq!(columns[0]["defaultValue"], serde_json::Value::Null);
+
+        assert_eq!(object["primaryKeys"][1]["columns"][0], "order_id");
+        assert_eq!(object["indexes"][0]["tableName"], "orders");
+        assert_eq!(object["views"][0]["definition"], "SELECT id FROM orders");
+        assert_eq!(
+            object["triggers"][0]["functionDef"],
+            "CREATE FUNCTION update_orders_updated_at() ..."
+        );
+    }
+
+    /// Foreign-key column arrays keep their provider order, for composite keys in
+    /// both directions. The old singular drift (`fromColumn` / `toColumn`) must
+    /// never reappear.
+    #[test]
+    fn introspect_result_dto_keeps_foreign_key_column_order_and_plural_names() {
+        let dto: IntrospectResultDto = representative_introspect_result().into();
+        let value = serde_json::to_value(&dto).expect("the DTO must serialize");
+        let foreign_keys = value["foreignKeys"].as_array().expect("foreignKeys array");
+
+        let single = &foreign_keys[0];
+        assert_eq!(single["fromTable"], "orders");
+        assert_eq!(single["fromColumns"][0], "customer_id");
+        assert_eq!(single["toTable"], "customers");
+        assert_eq!(single["toColumns"][0], "id");
+        assert!(single.get("fromColumn").is_none(), "singular drift must not exist");
+        assert!(single.get("toColumn").is_none(), "singular drift must not exist");
+
+        let composite = &foreign_keys[1];
+        assert_eq!(composite["fromColumns"][0], "order_id");
+        assert_eq!(composite["fromColumns"][1], "product_id");
+        assert_eq!(composite["toColumns"][0], "id");
+        assert_eq!(composite["toColumns"][1], "product_id");
+    }
+
+    /// A payload carrying the pre-contract singular names must fail validation —
+    /// pinning the drift the issue names so a regression reintroduces a red test.
+    #[test]
+    fn introspect_result_dto_rejects_singular_foreign_key_names() {
+        let drifted = serde_json::json!({
+            "fromTable": "orders",
+            "fromColumn": ["customer_id"],
+            "toTable": "customers",
+            "toColumn": ["id"],
+        });
+        let accepted = drifted
+            .as_object()
+            .map(|object| {
+                object.get("fromColumns").is_some()
+                    && object.get("toColumns").is_some()
+                    && object.get("fromColumn").is_none()
+                    && object.get("toColumn").is_none()
+            })
+            .unwrap_or(false);
+        assert!(
+            !accepted,
+            "a payload using the singular names must not pass the contract"
+        );
+    }
+
+    /// The checked-in fixture is the recorded shape of the IPC boundary: any drift
+    /// in the DTO structs (renamed, added or dropped fields, reordered FK columns)
+    /// fails this assertion before it reaches a consumer.
+    #[test]
+    fn introspect_result_dto_matches_the_checked_in_contract_fixture() {
+        let dto: IntrospectResultDto = representative_introspect_result().into();
+        let emitted = serde_json::to_string_pretty(&dto).expect("the DTO must serialize");
+        let fixture = include_str!("../tests/fixtures/introspect-contract.json");
+        assert_eq!(
+            emitted, fixture,
+            "the serialized shape must match the checked-in contract fixture byte-for-byte"
+        );
+    }
+
     #[test]
     fn cell_value_dto_int64_boundary_values_serialize_as_strings() {
         let cases: Vec<i64> = vec![
