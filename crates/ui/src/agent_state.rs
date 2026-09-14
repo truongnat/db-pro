@@ -599,6 +599,9 @@ pub(super) fn finish_agent_session(
     state: db_pro_core::domain::agent::AgentSessionState,
 ) {
     let terminal_activity_status = match state {
+        db_pro_core::domain::agent::AgentSessionState::Completed => {
+            Some(super::agent_workflow_state::AgentUiActivityStatus::Success)
+        }
         db_pro_core::domain::agent::AgentSessionState::Failed => {
             Some(super::agent_workflow_state::AgentUiActivityStatus::Failed)
         }

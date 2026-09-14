@@ -2959,3 +2959,111 @@ fn stale_prediction_event_does_not_mutate_a_newer_document_version() {
     assert!(doc.pending_prediction_request.is_none());
     assert!(doc.prediction.is_none());
 }
+
+#[test]
+fn test_agent_multitab_isolation_and_close_tab_cancellation() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.new_query_document(); // creates tab 1 (index 1)
+    let doc_a_id = app.query_documents[0].id.clone();
+    let doc_b_id = app.query_documents[1].id.clone();
+
+    // Start agent workflow on Tab A
+    app.active_query_document = 0;
+    let mut session_a = super::agent_workflow_state::AgentUiSession::for_document(&doc_a_id, None, None);
+    let session_a_id = session_a.session.as_ref().unwrap().id;
+    let run_a_id = db_pro_core::domain::agent::AgentRunId::new();
+    session_a.state = db_pro_core::domain::agent::AgentSessionState::Running;
+    session_a.active_run_id = Some(run_a_id);
+    app.agent_sessions.insert(doc_a_id.clone(), session_a);
+
+    // Send ToolRequested for Tab A
+    app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::ToolRequested {
+        session_id: session_a_id,
+        run_id: run_a_id,
+        document_id: doc_a_id.clone(),
+        call: db_pro_core::domain::agent::AgentToolCall {
+            call_id: "call-a-1".to_owned(),
+            tool: db_pro_core::domain::agent::AgentTool::InspectSchema,
+            input: db_pro_core::domain::agent::AgentToolInput::None,
+        },
+    });
+
+    // Tab A has 1 activity
+    assert_eq!(app.agent_sessions.get(&doc_a_id).unwrap().activities.len(), 1);
+
+    // Switch to Tab B
+    app.active_query_document = 1;
+    let session_b = super::agent_workflow_state::AgentUiSession::for_document(&doc_b_id, None, None);
+    app.agent_sessions.insert(doc_b_id.clone(), session_b);
+
+    // Tab B session is isolated from Tab A
+    assert_eq!(app.agent_sessions.get(&doc_b_id).unwrap().activities.len(), 0);
+    assert_eq!(app.agent_sessions.get(&doc_b_id).unwrap().messages.len(), 0);
+
+    // Close Tab A
+    app.close_query_document(0);
+
+    // Tab A session was cleaned up
+    assert!(!app.agent_sessions.contains_key(&doc_a_id));
+
+    // Cancel command was dispatched for Tab A's active run
+    assert!(matches!(
+        command_rx.try_recv(),
+        Ok(UiCommand::CancelAgentRun { run_id, .. }) if run_id == run_a_id
+    ));
+
+    // Late event for Tab A is dropped silently and does not recreate session
+    app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
+        session_id: session_a_id,
+        run_id: run_a_id,
+        document_id: doc_a_id.clone(),
+        delta: "Late message".to_owned(),
+    });
+    assert!(!app.agent_sessions.contains_key(&doc_a_id));
+}
+
+#[test]
+fn test_agent_vietnamese_ime_input_and_patch_version_safety() {
+    let mut app = DbProApp::default();
+    let doc_id = app.query_documents[0].id.clone();
+    let initial_version = app.query_documents[0].buffer.version();
+
+    // User types Vietnamese query with IME into editor
+    app.query_documents[0].set_text("SELECT * FROM người_dùng WHERE tên = 'Nguyễn Văn A'");
+    let typed_version = app.query_documents[0].buffer.version();
+    assert!(typed_version > initial_version);
+
+    // Setup Agent session with pending patch targeted at initial_version
+    let mut session = super::agent_workflow_state::AgentUiSession::for_document(&doc_id, None, None);
+    let run_id = db_pro_core::domain::agent::AgentRunId::new();
+    session.pending_confirmation = Some(super::agent_workflow_state::AgentUiConfirmation {
+        run_id,
+        call_id: "patch-1".to_owned(),
+        kind: db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch,
+        preview: Some(db_pro_core::domain::agent::AgentToolOutput::PatchPreview {
+            patch: db_pro_core::domain::agent::AgentSqlPatch {
+                document_id: doc_id.clone(),
+                expected_version: initial_version,
+                range: (0, 6),
+                replacement: "SELECT 1".to_owned(),
+            },
+            original: "SELECT".to_owned(),
+            proposed: "SELECT 1".to_owned(),
+        }),
+        document_id: doc_id.clone(),
+    });
+    app.agent_sessions.insert(doc_id.clone(), session);
+
+    // User attempts to apply patch - rejected due to stale version from typing
+    app.agent_confirmation_action(true);
+    assert_eq!(
+        app.runtime_message,
+        "This query changed since the suggestion was created."
+    );
+    // Text buffer unchanged and preserved
+    assert_eq!(
+        app.query_documents[0].text(),
+        "SELECT * FROM người_dùng WHERE tên = 'Nguyễn Văn A'"
+    );
+}
