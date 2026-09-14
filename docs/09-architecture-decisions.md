@@ -88,18 +88,33 @@ The metadata store uses the same actor pattern. There is no `Arc<Mutex<rusqlite:
 
 ## 5. Multi-statement policy
 
-MVP accepts exactly one statement per execute request. The backend rejects multiple statements with `MULTI_STATEMENT_DISABLED`; a UI editor may still contain multiple statements, but the user must select one statement to run.
+**Implemented (updated 2026-09-15, #147/#129).** The single-statement path still rejects a multi-statement
+string (`reject_multi_statement`, `crates/core/src/application/sql_policy.rs`); the script path
+(`execute_multi`) accepts a batch and reduces it to its most dangerous statement
+(`classify_script_safety`, `crates/core/src/domain/safety.rs:123`). A batch containing **any** mutation is
+executed as **one transaction** through `Connector::execute_transaction`, so a failing statement rolls the
+whole batch back; a read-only batch runs statement by statement and reports each result. The UI sends the
+script through `RunQueryMulti`, and the query editor **holds a batch whose worst statement is
+`Destructive`** for explicit confirmation before anything is dispatched
+(`crates/ui/src/events.rs` `hold_destructive_run` + the destructive-run dialog).
 
-Future support requires:
+What the original "future support requires" list asked for, and where it now lives:
 
-- parser-backed statement boundaries, never `split(';')`;
-- statement classification into read, write, DDL, transaction, and administrative categories;
-- an explicit transaction mode and rollback behavior;
-- per-statement result envelopes;
-- confirmation for write/DDL batches;
-- integration tests for strings, comments, dollar quoting, and procedural SQL.
+- parser-backed statement boundaries — `split_statements` is quote-, comment- and dollar-quote-aware
+  (`safety.rs:135-160`), with tests for strings, comments, dollar quoting and procedural SQL;
+- statement classification (read / write / DDL / destructive) — `StatementSafety` + `severity_rank`;
+- an explicit transaction mode and rollback behaviour — `Connector::execute_transaction` with
+  `TransactionFailure { phase, statement_index, outcome, results }`;
+- per-statement result envelopes — `MultiQueryResult { results, result_kinds, error: Some((index, …)) }`
+  mapped to `UiEvent::QueryMultiCompleted`;
+- confirmation for destructive batches — the hold-and-confirm gate above (writes and plain DDL are not
+  confirmation-gated on the raw-SQL path; the Data Grid gates them by staging instead).
 
-`EXPLAIN (FORMAT JSON)` is the default. `EXPLAIN ANALYZE` is treated as execution and requires explicit confirmation.
+`EXPLAIN (FORMAT JSON)` is the default. `EXPLAIN ANALYZE` is classified as a mutation by
+`classify_explain_safety`, so it follows the mutation/transaction path and, when destructive, the
+confirmation gate.
+
+Matrix and per-class evidence: `docs/release/audit-execution-safety.md`.
 
 ## 6. Secret storage
 

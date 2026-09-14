@@ -374,6 +374,8 @@ pub struct DbProApp {
     table_info_error: Option<String>,
     table_ddl_error: Option<String>,
     ddl_execute_confirmation: bool,
+    /// A destructive statement the user must confirm before it reaches the database.
+    pending_destructive_run: Option<events::PendingDestructiveRun>,
     ddl_execution_request: Option<crate::RequestId>,
     refresh_table_info_after_schema: bool,
     table_data_result: Option<UiQueryResult>,

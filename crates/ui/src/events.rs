@@ -1,6 +1,16 @@
 use super::*;
 use crate::RequestId;
 
+/// A statement (or script) the classifier rates `Destructive`, held until the user
+/// confirms the exact text the prompt displayed.
+#[derive(Debug, Clone)]
+pub(super) struct PendingDestructiveRun {
+    pub(super) sql: String,
+    pub(super) execution_range: (usize, usize),
+    pub(super) version: u64,
+    pub(super) all_statements: bool,
+}
+
 struct QueryHistoryRecord {
     sql: String,
     connection_id: Option<String>,
@@ -1190,30 +1200,11 @@ impl DbProApp {
             self.runtime_message = "Query is empty".to_owned();
             return;
         }
-        if !self.query_history.iter().any(|query| query == &sql) {
-            self.query_history.push(sql.clone());
-            if self.query_history.len() > 20 {
-                self.query_history.remove(0);
-            }
+        let version = self.active_query_buffer_version();
+        if self.hold_destructive_run(&sql, execution_range, version, false) {
+            return;
         }
-        let request_id = self.task_bridge.next_request_id();
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
-            doc.execution_state = QueryExecutionState::Running(request_id);
-            doc.execution_started_at = Some(Instant::now());
-            doc.execution_started_wall_time = Some(chrono::Utc::now().to_rfc3339());
-            doc.executing_range = Some(execution_range);
-            doc.executing_sql = Some(sql.clone());
-            doc.executing_version = Some(doc.buffer.version());
-            doc.last_executed_range = Some(execution_range);
-            doc.execution_diagnostic = None;
-            self.query_document_requests.insert(request_id, doc.id.clone());
-        }
-        self.runtime_message = "Sending query to runtime…".to_owned();
-        self.dispatch_command(UiCommand::RunQuery {
-            request_id,
-            connection_id,
-            sql,
-        });
+        self.send_query_run(connection_id, sql, execution_range, version, false);
     }
 
     pub(super) fn dispatch_query_all(&mut self) {
@@ -1246,6 +1237,91 @@ impl DbProApp {
             self.runtime_message = "Query is empty".to_owned();
             return;
         }
+        let version = self.active_query_buffer_version();
+        if self.hold_destructive_run(&sql, execution_range, version, true) {
+            return;
+        }
+        self.send_query_run(connection_id, sql, execution_range, version, true);
+    }
+
+    /// Buffer version of the active query document, so an execution stays bound to the
+    /// text it was started from.
+    fn active_query_buffer_version(&self) -> u64 {
+        self.query_documents
+            .get(self.active_query_document)
+            .map(|doc| doc.buffer.version())
+            .unwrap_or(0)
+    }
+
+    /// Hold a statement or script the classifier rates `Destructive` until the user
+    /// confirms the exact text, and report whether the run was held.
+    ///
+    /// The query editor is the documented path for arbitrary SQL (including DDL), so
+    /// nothing is refused here: the text is kept in `pending_destructive_run` and sent by
+    /// `confirm_pending_destructive_run`. Reads, writes and plain DDL dispatch exactly as
+    /// before, and the backend policy still runs on whatever is dispatched.
+    fn hold_destructive_run(
+        &mut self,
+        sql: &str,
+        execution_range: (usize, usize),
+        version: u64,
+        all_statements: bool,
+    ) -> bool {
+        if db_pro_core::domain::safety::classify_script_safety(sql)
+            != Some(db_pro_core::domain::safety::StatementSafety::Destructive)
+        {
+            return false;
+        }
+        self.pending_destructive_run = Some(PendingDestructiveRun {
+            sql: sql.to_owned(),
+            execution_range,
+            version,
+            all_statements,
+        });
+        self.runtime_message =
+            "Destructive statement held for confirmation — nothing was sent to the database".to_owned();
+        true
+    }
+
+    /// Send the statement the user confirmed. The text and the buffer version are the ones
+    /// the prompt displayed, so a confirmation can never execute something the user did
+    /// not see.
+    pub(super) fn confirm_pending_destructive_run(&mut self) {
+        let Some(pending) = self.pending_destructive_run.take() else {
+            return;
+        };
+        let Some(connection_id) = self
+            .active_query_connection_id()
+            .map(String::from)
+            .or_else(|| self.active_connection().map(|connection| connection.id.clone()))
+        else {
+            self.runtime_message = "Create or select a connection first".to_owned();
+            return;
+        };
+        self.send_query_run(
+            connection_id,
+            pending.sql,
+            pending.execution_range,
+            pending.version,
+            pending.all_statements,
+        );
+    }
+
+    /// Drop a held destructive statement without executing it.
+    pub(super) fn cancel_pending_destructive_run(&mut self) {
+        if self.pending_destructive_run.take().is_some() {
+            self.runtime_message = "Destructive statement cancelled — nothing was sent to the database".to_owned();
+        }
+    }
+
+    fn send_query_run(
+        &mut self,
+        connection_id: String,
+        sql: String,
+        execution_range: (usize, usize),
+        version: u64,
+        all_statements: bool,
+    ) {
         if !self.query_history.iter().any(|query| query == &sql) {
             self.query_history.push(sql.clone());
             if self.query_history.len() > 20 {
@@ -1259,16 +1335,28 @@ impl DbProApp {
             doc.execution_started_wall_time = Some(chrono::Utc::now().to_rfc3339());
             doc.executing_range = Some(execution_range);
             doc.executing_sql = Some(sql.clone());
-            doc.executing_version = Some(doc.buffer.version());
+            doc.executing_version = Some(version);
             doc.last_executed_range = Some(execution_range);
             doc.execution_diagnostic = None;
             self.query_document_requests.insert(request_id, doc.id.clone());
         }
-        self.runtime_message = "Sending full script to runtime…".to_owned();
-        self.dispatch_command(UiCommand::RunQueryMulti {
-            request_id,
-            connection_id,
-            sql,
+        self.runtime_message = if all_statements {
+            "Sending full script to runtime…".to_owned()
+        } else {
+            "Sending query to runtime…".to_owned()
+        };
+        self.dispatch_command(if all_statements {
+            UiCommand::RunQueryMulti {
+                request_id,
+                connection_id,
+                sql,
+            }
+        } else {
+            UiCommand::RunQuery {
+                request_id,
+                connection_id,
+                sql,
+            }
         });
     }
 }

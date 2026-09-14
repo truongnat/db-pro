@@ -665,6 +665,32 @@ pub fn validate_against_policy(sql: &str, policy: &ConnectionSafetyPolicy) -> Re
 mod tests {
     use super::*;
 
+    /// Transaction-control keywords fall to the classifier's fail-safe `Write` default,
+    /// so a script that manages its own transaction is never treated as read-only. This
+    /// pins the contract the multi-statement execution path depends on: `BEGIN`/`COMMIT`/
+    /// `ROLLBACK` are not mutations, but they must not hide one either.
+    #[test]
+    fn transaction_control_batches_classify_as_write_and_never_hide_a_mutation() {
+        assert_eq!(
+            classify_script_safety("BEGIN; UPDATE users SET name = 'x' WHERE id = 1; COMMIT;"),
+            Some(StatementSafety::Write)
+        );
+        assert_eq!(
+            classify_script_safety("BEGIN; SELECT 1; ROLLBACK;"),
+            Some(StatementSafety::Write)
+        );
+        assert_eq!(
+            classify_script_safety("SELECT 1; SELECT 2;"),
+            Some(StatementSafety::Read)
+        );
+        // A destructive statement inside its own transaction is still destructive, so the
+        // run-all confirmation gate sees it.
+        assert_eq!(
+            classify_script_safety("BEGIN; DROP TABLE users; COMMIT;"),
+            Some(StatementSafety::Destructive)
+        );
+    }
+
     #[test]
     fn classify_select_is_read() {
         assert_eq!(classify_statement_safety("SELECT 1"), Some(StatementSafety::Read));

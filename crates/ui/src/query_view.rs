@@ -435,6 +435,7 @@ impl DbProApp {
             }
         });
         self.draw_export_dialog(ui, result);
+        self.draw_destructive_run_dialog(ui);
     }
 
     /// Query notice log.
@@ -1284,6 +1285,62 @@ impl DbProApp {
         });
         if clicked_outside {
             doc.completion.close();
+        }
+    }
+
+    /// Confirmation gate for statements the safety classifier rates `Destructive`.
+    ///
+    /// The editor deliberately allows arbitrary SQL; what it must not do is send a
+    /// statement that can drop or truncate data without the user seeing the exact text
+    /// that is about to run. The statement is held (not refused) and dispatched by
+    /// `confirm_pending_destructive_run`.
+    fn draw_destructive_run_dialog(&mut self, ui: &mut egui::Ui) {
+        let Some(pending) = self.pending_destructive_run.clone() else {
+            return;
+        };
+        const PREVIEW_CHARS: usize = 600;
+        let mut open = true;
+        let mut confirmed = false;
+        let mut cancelled = false;
+        Dialog::new(&mut open, "Run Destructive Statement?", self.theme)
+            .id_salt("destructive_run_dialog")
+            .width(560.0)
+            .show(ui, |ui| {
+                ui.label(
+                    RichText::new(if pending.all_statements {
+                        "The script you are about to run contains a statement that can drop or truncate data. Nothing has been sent yet."
+                    } else {
+                        "This statement can drop or truncate data. Nothing has been sent yet."
+                    })
+                    .color(self.theme.text_primary),
+                );
+                ui.add_space(SPACE_SM);
+                let mut preview = pending.sql.clone();
+                if preview.chars().count() > PREVIEW_CHARS {
+                    preview = preview.chars().take(PREVIEW_CHARS).collect::<String>() + "…";
+                }
+                editor_frame(self.theme).show(ui, |ui| {
+                    ui.label(RichText::new(preview).font(font_mono_sm()).color(self.theme.text_secondary));
+                });
+                ui.add_space(SPACE_SM);
+                ui.colored_label(
+                    self.theme.warning,
+                    "It is sent to the server exactly as written; the app cannot undo it.",
+                );
+                ui.add_space(SPACE_MD);
+                ui.horizontal(|ui| {
+                    if danger_button(ui, "Run Destructive Statement", self.theme).clicked() {
+                        confirmed = true;
+                    }
+                    if compact_button(ui, "Cancel", self.theme).clicked() {
+                        cancelled = true;
+                    }
+                });
+            });
+        if confirmed {
+            self.confirm_pending_destructive_run();
+        } else if cancelled || !open {
+            self.cancel_pending_destructive_run();
         }
     }
 

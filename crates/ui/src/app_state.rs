@@ -229,6 +229,7 @@ impl Default for DbProApp {
             table_ddl_error: None,
             ddl_execute_confirmation: false,
             ddl_execution_request: None,
+            pending_destructive_run: None,
             refresh_table_info_after_schema: false,
             table_data_result: None,
             table_data_total_rows: None,

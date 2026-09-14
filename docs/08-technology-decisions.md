@@ -144,8 +144,8 @@ The task files were updated to follow this baseline. The ratified implementation
 2. PostgreSQL uses `sqlx::PgPool` only.
 3. Parameters use the typed `QueryParam` model.
 4. SQLite uses a dedicated actor boundary.
-5. MVP rejects multi-statement execution.
-6. Secrets use OS keyring with Argon2id/AES-GCM fallback.
+5. ~~MVP rejects multi-statement execution.~~ **Superseded (2026-09-15, #147/#129):** multi-statement scripts execute. A script is classified by its **most dangerous** statement (`crates/core/src/domain/safety.rs:123` `classify_script_safety`), and a batch containing any mutation runs as **one transaction** through `Connector::execute_transaction`; a script whose worst statement is `Destructive` is held for confirmation in the query editor (`crates/ui/src/events.rs` `hold_destructive_run`). Contract and matrix: `docs/release/audit-execution-safety.md`.
+6. ~~Secrets use OS keyring with Argon2id/AES-GCM fallback.~~ **Narrowed (2026-09-15, #142/#126):** the shipping build uses the OS keyring with an in-memory session fallback; the encrypted-file fallback exists only in debug builds or when `DB_PRO_ALLOW_FILE_SECRET_FALLBACK` is set, and its key is derived from the service name (`DEV-ONLY` by design). Lifecycle matrix: `docs/release/audit-keyring-secret-lifecycle.md`.
 7. Streaming uses a bounded, request-scoped typed `UiEvent` task-bridge channel. Tauri 2 `Channel<T>` is legacy-only and is not part of the shipped runtime.
 8. Results use typed cells, bounded pages, request IDs, and stable errors.
 9. The first delivery is a PostgreSQL read-only vertical slice.

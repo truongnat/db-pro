@@ -4675,3 +4675,168 @@ fn every_runtime_message_reaches_the_status_bar() {
     let (_, color) = app.runtime_status().expect("an error must be shown");
     assert_eq!(color, app.theme.danger, "errors keep the danger colour");
 }
+
+/// A destructive statement must not reach the database on the first Run: it is held
+/// until the user confirms the exact text that the prompt shows, and the confirm path
+/// dispatches that same text.
+#[test]
+fn destructive_statement_is_held_until_it_is_confirmed() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connections = vec![UiConnectionSummary {
+        id: "active".to_owned(),
+        name: "Active".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "active".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
+        readonly: false,
+    }];
+    app.active_connection_id = Some("active".to_owned());
+    app.connected = true;
+    app.set_active_query_text("DROP TABLE users");
+
+    app.dispatch_query();
+
+    assert!(
+        command_rx.try_recv().is_err(),
+        "a destructive statement must not be dispatched before it is confirmed"
+    );
+    let pending = app
+        .pending_destructive_run
+        .as_ref()
+        .expect("the statement must be held for confirmation");
+    assert_eq!(pending.sql, "DROP TABLE users");
+    assert!(!pending.all_statements);
+    assert!(app.runtime_message.contains("held for confirmation"));
+
+    app.confirm_pending_destructive_run();
+
+    let UiCommand::RunQuery { sql, .. } = command_rx.try_recv().expect("confirmed statement must be dispatched") else {
+        panic!("expected RunQuery command");
+    };
+    assert_eq!(sql, "DROP TABLE users");
+    assert!(app.pending_destructive_run.is_none());
+}
+
+#[test]
+fn cancelling_a_held_destructive_statement_sends_nothing() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connections = vec![UiConnectionSummary {
+        id: "active".to_owned(),
+        name: "Active".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "active".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
+        readonly: false,
+    }];
+    app.active_connection_id = Some("active".to_owned());
+    app.connected = true;
+    app.set_active_query_text("TRUNCATE users");
+
+    app.dispatch_query();
+    assert!(app.pending_destructive_run.is_some());
+    app.cancel_pending_destructive_run();
+
+    assert!(
+        command_rx.try_recv().is_err(),
+        "a cancelled statement must never be dispatched"
+    );
+    assert!(app.pending_destructive_run.is_none());
+    assert!(app.runtime_message.contains("cancelled"));
+}
+
+/// Reads, writes and plain DDL are not gated: the confirmation exists for the classes
+/// that can drop or truncate, not for everything that mutates.
+#[test]
+fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
+    for sql in [
+        "SELECT 1",
+        "WITH recent AS (SELECT 1) SELECT * FROM recent",
+        "INSERT INTO users (id) VALUES (1)",
+        "UPDATE users SET name = 'x' WHERE id = 1",
+        "DELETE FROM users WHERE id = 1",
+        "ALTER TABLE users ADD COLUMN note TEXT",
+    ] {
+        let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+        let mut app = DbProApp::with_task_bridge(bridge);
+        app.connections = vec![UiConnectionSummary {
+            id: "active".to_owned(),
+            name: "Active".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "active".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+        }];
+        app.active_connection_id = Some("active".to_owned());
+        app.connected = true;
+        app.set_active_query_text(sql);
+
+        app.dispatch_query();
+
+        assert!(app.pending_destructive_run.is_none(), "{sql} must not be gated");
+        let UiCommand::RunQuery { sql: dispatched, .. } = command_rx
+            .try_recv()
+            .unwrap_or_else(|_| panic!("{sql} must dispatch immediately"))
+        else {
+            panic!("expected RunQuery for {sql}");
+        };
+        assert_eq!(dispatched.trim(), sql);
+    }
+}
+
+/// A script is classified by its most dangerous statement, so a harmless-looking batch
+/// that ends in DROP is held too — and the prompt says it is a script.
+#[test]
+fn a_script_whose_worst_statement_is_destructive_is_held() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connections = vec![UiConnectionSummary {
+        id: "active".to_owned(),
+        name: "Active".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "active".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
+        readonly: false,
+    }];
+    app.active_connection_id = Some("active".to_owned());
+    app.connected = true;
+    app.set_active_query_text("SELECT 1;\nDROP TABLE users;");
+
+    app.dispatch_query_all();
+
+    assert!(command_rx.try_recv().is_err(), "the script must be held");
+    let pending = app.pending_destructive_run.as_ref().expect("script must be held");
+    assert!(
+        pending.all_statements,
+        "a run-all must be dispatched as a script on confirm"
+    );
+
+    app.confirm_pending_destructive_run();
+    let UiCommand::RunQueryMulti { sql, .. } = command_rx.try_recv().expect("script must dispatch on confirm") else {
+        panic!("expected RunQueryMulti");
+    };
+    assert_eq!(sql, "SELECT 1;\nDROP TABLE users;");
+
+    // Removing the destructive statement makes the same script dispatch immediately.
+    app.set_active_query_text("SELECT 1;\nSELECT 2;");
+    app.query_documents[0].execution_state = QueryExecutionState::Idle;
+    app.dispatch_query_all();
+    assert!(app.pending_destructive_run.is_none());
+    assert!(
+        command_rx.try_recv().is_ok(),
+        "a read-only script must dispatch immediately"
+    );
+}
