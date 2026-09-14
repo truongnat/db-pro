@@ -323,6 +323,13 @@ fn cell_to_param(cell: &CellValue) -> QueryParam {
         CellValue::Bytes(v) => QueryParam::Bytes(v.clone()),
         CellValue::Uuid(v) => QueryParam::Uuid(v.clone()),
         CellValue::DateTime(v) => QueryParam::DateTime(v.clone()),
+        // The dedicated temporal variants bind through the same shape-aware
+        // parsers as the legacy ones: a `TIMESTAMP` still carries no marker, so it
+        // still takes the naive branch, and a `TIMETZ` keeps its own offset through
+        // the time-with-offset branch. Nothing is ever bound as TEXT.
+        CellValue::Timestamp(v) => QueryParam::DateTime(v.clone()),
+        CellValue::TimestampTz(v) => QueryParam::DateTime(v.clone()),
+        CellValue::TimeTz(v) => QueryParam::Time(v.clone()),
         // PostgreSQL binds date-only values as NaiveDate through DateTime;
         // sending a date as TEXT can fail DATE comparisons and mutations.
         CellValue::Date(v) => QueryParam::DateTime(v.clone()),
@@ -482,6 +489,43 @@ mod tests {
         let (_, params) = build_count(&DollarNDialect, "public", "employees", &[filter]);
 
         assert!(matches!(params.as_slice(), [QueryParam::DateTime(value)] if value == "2026-08-17"));
+    }
+
+    /// A2 (#52): each temporal class keeps its own variant and still binds through a
+    /// typed parameter — never through TEXT, which would let the server reinterpret
+    /// the value.
+    #[test]
+    fn dedicated_temporal_cells_bind_as_typed_parameters() {
+        let filters = vec![
+            TableFilter {
+                column: "created_at".into(),
+                op: FilterOp::Eq,
+                value: CellValue::Timestamp("2024-03-15T10:20:30.123456".into()),
+            },
+            TableFilter {
+                column: "expires_at".into(),
+                op: FilterOp::Eq,
+                value: CellValue::TimestampTz("2024-03-15T10:20:30.123456Z".into()),
+            },
+            TableFilter {
+                column: "opens_at".into(),
+                op: FilterOp::Eq,
+                value: CellValue::TimeTz("10:20:30.123456+07:00".into()),
+            },
+        ];
+
+        let (_, params) = build_count(&DollarNDialect, "public", "events", &filters);
+
+        assert!(matches!(
+            params.as_slice(),
+            [
+                QueryParam::DateTime(timestamp),
+                QueryParam::DateTime(instant),
+                QueryParam::Time(with_offset)
+            ] if timestamp == "2024-03-15T10:20:30.123456"
+                && instant == "2024-03-15T10:20:30.123456Z"
+                && with_offset == "10:20:30.123456+07:00"
+        ));
     }
 
     #[test]

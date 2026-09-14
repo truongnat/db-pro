@@ -669,6 +669,9 @@ fn map_cell(cell: db_pro_core::domain::query::CellValue) -> UiCell {
         CellValue::Text(value)
         | CellValue::Uuid(value)
         | CellValue::DateTime(value)
+        | CellValue::Timestamp(value)
+        | CellValue::TimestampTz(value)
+        | CellValue::TimeTz(value)
         | CellValue::Date(value)
         | CellValue::Time(value)
         | CellValue::Interval(value)
@@ -1377,6 +1380,18 @@ mod tests {
             (
                 CellValue::DateTime("2024-03-15T10:20:30.123456".to_owned()),
                 UiCell::Text("2024-03-15T10:20:30.123456".to_owned()),
+            ),
+            (
+                CellValue::Timestamp("2024-03-15T10:20:30.123456".to_owned()),
+                UiCell::Text("2024-03-15T10:20:30.123456".to_owned()),
+            ),
+            (
+                CellValue::TimestampTz("2024-03-15T10:20:30.123456Z".to_owned()),
+                UiCell::Text("2024-03-15T10:20:30.123456Z".to_owned()),
+            ),
+            (
+                CellValue::TimeTz("10:20:30.123456+07:00".to_owned()),
+                UiCell::Text("10:20:30.123456+07:00".to_owned()),
             ),
             (
                 CellValue::Date("2024-03-15".to_owned()),

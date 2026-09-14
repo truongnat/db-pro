@@ -197,6 +197,9 @@ fn cell_to_csv_string(cell: &CellValue) -> String {
         CellValue::Bytes(_) => "[binary]".into(),
         CellValue::Uuid(s) => s.clone(),
         CellValue::DateTime(s) => s.clone(),
+        CellValue::Timestamp(s) => s.clone(),
+        CellValue::TimestampTz(s) => s.clone(),
+        CellValue::TimeTz(s) => s.clone(),
         CellValue::Date(s) => s.clone(),
         CellValue::Time(s) => s.clone(),
         CellValue::Interval(s) => s.clone(),
@@ -219,6 +222,9 @@ fn cell_to_json(cell: &CellValue) -> Result<serde_json::Value, DbError> {
         CellValue::Bytes(b) => Ok(serde_json::Value::String(format!("[{} bytes]", b.len()))),
         CellValue::Uuid(s) => Ok(serde_json::Value::String(s.clone())),
         CellValue::DateTime(s) => Ok(serde_json::Value::String(s.clone())),
+        CellValue::Timestamp(s) | CellValue::TimestampTz(s) | CellValue::TimeTz(s) => {
+            Ok(serde_json::Value::String(s.clone()))
+        }
         CellValue::Date(s) => Ok(serde_json::Value::String(s.clone())),
         CellValue::Time(s) => Ok(serde_json::Value::String(s.clone())),
         CellValue::Interval(s) => Ok(serde_json::Value::String(s.clone())),
@@ -255,7 +261,12 @@ fn write_excel_cell(
             .write_string(row, col, s)
             .map(|_| ())
             .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
-        CellValue::Text(s) | CellValue::Uuid(s) | CellValue::DateTime(s) => worksheet
+        CellValue::Text(s)
+        | CellValue::Uuid(s)
+        | CellValue::DateTime(s)
+        | CellValue::Timestamp(s)
+        | CellValue::TimestampTz(s)
+        | CellValue::TimeTz(s) => worksheet
             .write_string(row, col, s)
             .map(|_| ())
             .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),

@@ -19,7 +19,9 @@ Taken verbatim from the parent gate #21's non-negotiable list:
    `format_naive_timestamp` (`crates/infrastructure/src/postgres/query_mapper.rs:547`) emits
    `%Y-%m-%dT%H:%M:%S%.6f` with no marker; `format_utc_instant` (`:538`) emits the `Z` form for an
    instant. Proven with the session timezone forced to a non-UTC zone (#56,
-   `providers/30-pg-temporal-decoder-classes.md`).
+   `providers/30-pg-temporal-decoder-classes.md`). Since #52 the five temporal classes also keep
+   **distinct variants** (`Date`, `Time`, `TimeTz`, `Timestamp`, `TimestampTz`), so a consumer never
+   has to parse the string to learn which semantics arrived (`providers/46`).
 3. **A safe readable fallback preserves the result when one value or class is unsupported.**
    An unsupported class degrades to a byte-exact cell, never to mojibake, and never takes the other
    columns of the row down with it (#58, `providers/39-pg-unsupported-class-fallback.md`).
@@ -49,9 +51,9 @@ classes).
 | `UUID` | `Uuid` | canonical lowercase text | `Text` | writable (validated) | #57 (`providers/38`) |
 | `DATE` | `Date` | `YYYY-MM-DD` | `Text` | writable | #56 (`providers/30`, `providers/40`) |
 | `TIME` | `Time` | `HH:MM:SS.ffffff` | `Text` | writable | #56, `providers/40` |
-| `TIMETZ` | `Time` | `HH:MM:SS.ffffff±HH:MM` (offset kept) | `Text` | writable | #56, `providers/40` |
-| `TIMESTAMP` | `DateTime` | `YYYY-MM-DDTHH:MM:SS.ffffff` — **no marker** | `Text` | writable | #56, `providers/40` |
-| `TIMESTAMPTZ` | `DateTime` | `YYYY-MM-DDTHH:MM:SS.ffffffZ` | `Text` | writable | #56, `providers/40` |
+| `TIMETZ` | `TimeTz` | `HH:MM:SS.ffffff±HH:MM` (offset kept) | `Text` | writable | #52 (`providers/46`), `providers/40` |
+| `TIMESTAMP` | `Timestamp` | `YYYY-MM-DDTHH:MM:SS.ffffff` — **no marker** | `Text` | writable | #52 (`providers/46`), #56, `providers/40` |
+| `TIMESTAMPTZ` | `TimestampTz` | `YYYY-MM-DDTHH:MM:SS.ffffffZ` | `Text` | writable | #52 (`providers/46`), #56, `providers/40` |
 | `INTERVAL` | `Interval` | `N mons N days HH:MM:SS.ffffff` (microseconds) | `Text` | writable | `format_interval` (`:558`), `providers/40` |
 | `JSON`/`JSONB` | `Json` | structured `serde_json::Value` | `Json(<compact text>)` | writable | #57, `providers/40` |
 | `BYTEA`/BLOB | `Bytes` | byte-exact; display as `\x` hex | `Bytes("\\x…")` | **read-only** (`ColumnWriteBlock::Binary`) | #57, #62 |
@@ -80,8 +82,8 @@ Implementation: `decode_textual_value` (`:415`), `binary_payload_is_text` (`:441
 | Class / behaviour | v0.1 state | Where it is tracked |
 |---|---|---|
 | Array **elements** (`{a,b}` rendering, dimensions) | not parsed; the v0.1 representation is the byte-exact fallback above (display-only) | post-v0.1; the issue's own text allows "fallback text follows contract" (#58) |
-| Dedicated `timestamp` / `timetz` / `timestamptz` domain **variants** | TIMESTAMP and TIMESTAMPTZ share `CellValue::DateTime`; TIME and TIMETZ share `CellValue::Time` — the *canonical strings* distinguish them, the variants do not | #52 |
 | Ranges, composites, geometric types, `tsvector` as structured values | byte-exact fallback only | post-v0.1 |
+| Dedicated `timestamp` / `timetz` / `timestamptz` domain **variants** | **implemented in #52** — `CellValue::Timestamp`/`TimestampTz`/`TimeTz` now mirror the three PostgreSQL temporal classes, and `CellValue::DateTime` is retained only for call sites that do not distinguish them (SQLite, pre-Gate-5 paths); the canonical strings are unchanged | locked in §2 above (`providers/46`) |
 | Temporal **mutation parameters** | binders accept the canonical strings and fail explicitly on anything they cannot parse (`bind_params_fails_on_invalid_uuid` `crates/infrastructure/src/postgres/query_mapper.rs:703`, `bind_params_fails_on_invalid_datetime` `:710`) — no silent coercion | #52/#62 boundary |
 
 ## 3. The serialization contract (A4)

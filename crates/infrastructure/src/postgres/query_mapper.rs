@@ -362,13 +362,15 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> Result
             .try_get::<uuid::Uuid, _>(i)
             .map(|v| CellValue::Uuid(v.to_string()))
             .map_err(crate::error::from_sqlx),
+        // The temporal classes keep dedicated variants, so a consumer never has to
+        // parse the string to learn whether an instant or a wall clock arrived (#52).
         "TIMESTAMPTZ" => row
             .try_get::<chrono::DateTime<chrono::Utc>, _>(i)
-            .map(|v| CellValue::DateTime(format_utc_instant(v)))
+            .map(|v| CellValue::TimestampTz(format_utc_instant(v)))
             .map_err(crate::error::from_sqlx),
         "TIMESTAMP" => row
             .try_get::<chrono::NaiveDateTime, _>(i)
-            .map(|v| CellValue::DateTime(format_naive_timestamp(v)))
+            .map(|v| CellValue::Timestamp(format_naive_timestamp(v)))
             .map_err(crate::error::from_sqlx),
         "DATE" => row
             .try_get::<chrono::NaiveDate, _>(i)
@@ -380,7 +382,7 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> Result
             .map_err(crate::error::from_sqlx),
         "TIMETZ" => row
             .try_get::<sqlx::postgres::types::PgTimeTz<chrono::NaiveTime, chrono::FixedOffset>, _>(i)
-            .map(|v| CellValue::Time(format_time_with_offset(v.time, v.offset)))
+            .map(|v| CellValue::TimeTz(format_time_with_offset(v.time, v.offset)))
             .map_err(crate::error::from_sqlx),
         "INTERVAL" => row
             .try_get::<sqlx::postgres::types::PgInterval, _>(i)
@@ -697,6 +699,41 @@ mod tests {
         let mut args = PgArguments::default();
         let params = vec![QueryParam::DateTime("2026-08-17".into())];
         assert!(bind_params(&params, &mut args).is_ok());
+    }
+
+    /// A2 (#52): the canonical strings of the dedicated temporal variants bind
+    /// through the typed parsers — the naive, the instant and the offset-bearing
+    /// shapes each take their own branch — and a malformed value fails explicitly
+    /// instead of being coerced or sent as text.
+    #[test]
+    fn dedicated_temporal_variant_strings_bind_typed_or_fail_explicitly() {
+        let accepted = vec![
+            // Timestamp: no marker, so it must not be read as an instant.
+            QueryParam::DateTime("2024-03-15T10:20:30.123456".into()),
+            // TimestampTz: an instant.
+            QueryParam::DateTime("2024-03-15T10:20:30.123456Z".into()),
+            // Date.
+            QueryParam::DateTime("2024-03-15".into()),
+            // Time.
+            QueryParam::Time("10:20:30.123456".into()),
+            // TimeTz: the offset is part of the value, not the session's.
+            QueryParam::Time("10:20:30.123456+07:00".into()),
+        ];
+        let mut args = PgArguments::default();
+        assert!(bind_params(&accepted, &mut args).is_ok());
+
+        for rejected in [
+            QueryParam::DateTime("2024-03-15T10:20:30.123456+25:00".into()),
+            QueryParam::Time("not-a-time".into()),
+        ] {
+            let mut args = PgArguments::default();
+            let error = bind_params(&[rejected], &mut args).expect_err("a malformed temporal value must fail");
+            let message = error.to_string();
+            assert!(
+                message.contains("invalid"),
+                "the failure must name the class it could not parse: {message}"
+            );
+        }
     }
 
     #[test]

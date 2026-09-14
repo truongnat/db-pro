@@ -46,6 +46,11 @@
       "nullable": true
     },
     {
+      "name": "legacy_stamp",
+      "dataType": "timestamp without time zone",
+      "nullable": true
+    },
+    {
       "name": "birthday",
       "dataType": "date",
       "nullable": true
@@ -113,12 +118,16 @@
         "value": "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
       },
       {
-        "type": "datetime",
+        "type": "timestamptz",
         "value": "2024-03-15T10:20:30.123456Z"
       },
       {
-        "type": "datetime",
+        "type": "timestamp",
         "value": "2024-03-15T10:20:30.123456"
+      },
+      {
+        "type": "datetime",
+        "value": "2024-03-15T10:20:30.123456+00:00"
       },
       {
         "type": "date",
@@ -129,8 +138,8 @@
         "value": "10:20:30.123456"
       },
       {
-        "type": "time",
-        "value": "10:20:30+07:00"
+        "type": "timetz",
+        "value": "10:20:30.123456+07:00"
       },
       {
         "type": "interval",
@@ -150,6 +159,9 @@
       }
     ],
     [
+      {
+        "type": "null"
+      },
       {
         "type": "null"
       },

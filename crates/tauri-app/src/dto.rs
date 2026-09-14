@@ -329,6 +329,12 @@ pub enum CellValueDto {
     Bytes(Vec<u8>),
     Uuid(String),
     Datetime(String),
+    /// `TIMESTAMP`: local date-time with no timezone marker.
+    Timestamp(String),
+    /// `TIMESTAMPTZ`: absolute instant normalized to UTC (`...Z`).
+    Timestamptz(String),
+    /// `TIMETZ`: wall-clock time with its own explicit offset.
+    Timetz(String),
     Date(String),
     Time(String),
     Interval(String),
@@ -348,6 +354,9 @@ impl From<CellValue> for CellValueDto {
             CellValue::Bytes(v) => Self::Bytes(v),
             CellValue::Uuid(v) => Self::Uuid(v),
             CellValue::DateTime(v) => Self::Datetime(v),
+            CellValue::Timestamp(v) => Self::Timestamp(v),
+            CellValue::TimestampTz(v) => Self::Timestamptz(v),
+            CellValue::TimeTz(v) => Self::Timetz(v),
             CellValue::Date(v) => Self::Date(v),
             CellValue::Time(v) => Self::Time(v),
             CellValue::Interval(v) => Self::Interval(v),
@@ -823,6 +832,9 @@ impl From<CellValueDto> for CellValue {
             CellValueDto::Bytes(v) => CellValue::Bytes(v),
             CellValueDto::Uuid(v) => CellValue::Uuid(v),
             CellValueDto::Datetime(v) => CellValue::DateTime(v),
+            CellValueDto::Timestamp(v) => CellValue::Timestamp(v),
+            CellValueDto::Timestamptz(v) => CellValue::TimestampTz(v),
+            CellValueDto::Timetz(v) => CellValue::TimeTz(v),
             CellValueDto::Date(v) => CellValue::Date(v),
             CellValueDto::Time(v) => CellValue::Time(v),
             CellValueDto::Interval(v) => CellValue::Interval(v),
@@ -1475,6 +1487,11 @@ mod tests {
                 nullable: true,
             },
             ColumnMeta {
+                name: "legacy_stamp".to_owned(),
+                data_type: "timestamp without time zone".to_owned(),
+                nullable: true,
+            },
+            ColumnMeta {
                 name: "birthday".to_owned(),
                 data_type: "date".to_owned(),
                 nullable: true,
@@ -1515,13 +1532,17 @@ mod tests {
             CellValue::Text("hello".to_owned()),
             CellValue::Json(serde_json::json!({ "a": 1, "b": [true, null] })),
             CellValue::Uuid("3f2504e0-4f89-11d3-9a0c-0305e82c3301".to_owned()),
-            // A2: an instant keeps its explicit UTC marker.
-            CellValue::DateTime("2024-03-15T10:20:30.123456Z".to_owned()),
-            // A2: no invented offset on a timestamp without time zone.
-            CellValue::DateTime("2024-03-15T10:20:30.123456".to_owned()),
+            // A2: an instant keeps its own tag and its explicit UTC marker.
+            CellValue::TimestampTz("2024-03-15T10:20:30.123456Z".to_owned()),
+            // A2: a timestamp without time zone gains no offset and keeps its tag.
+            CellValue::Timestamp("2024-03-15T10:20:30.123456".to_owned()),
+            // The legacy variant stays available for pre-Gate-5 call sites and for
+            // providers that do not distinguish the temporal classes.
+            CellValue::DateTime("2024-03-15T10:20:30.123456+00:00".to_owned()),
             CellValue::Date("2024-03-15".to_owned()),
             CellValue::Time("10:20:30.123456".to_owned()),
-            CellValue::Time("10:20:30+07:00".to_owned()),
+            // A2: a time with time zone keeps its own offset.
+            CellValue::TimeTz("10:20:30.123456+07:00".to_owned()),
             CellValue::Interval("1 mons 2 days 03:04:05.000006".to_owned()),
             CellValue::Inet("192.168.0.1/24".to_owned()),
             CellValue::Bytes(vec![0x00, 0xff, 0x10]),
@@ -1593,8 +1614,22 @@ mod tests {
         assert_eq!(
             tags,
             vec![
-                "int64", "bool", "float64", "decimal", "text", "json", "uuid", "datetime", "datetime", "date", "time",
-                "time", "interval", "inet", "bytes"
+                "int64",
+                "bool",
+                "float64",
+                "decimal",
+                "text",
+                "json",
+                "uuid",
+                "timestamptz",
+                "timestamp",
+                "datetime",
+                "date",
+                "time",
+                "timetz",
+                "interval",
+                "inet",
+                "bytes"
             ],
             "the tagged shape must keep every value class distinguishable"
         );
@@ -1767,9 +1802,9 @@ mod tests {
             ("amount numeric(24,4)", "decimal"),
             ("calendar_date", "date"),
             ("wall_time", "time"),
-            ("zoned_time timetz", "time"),
-            ("local_stamp timestamp", "datetime"),
-            ("instant timestamptz", "datetime"),
+            ("zoned_time timetz", "timetz"),
+            ("local_stamp timestamp", "timestamp"),
+            ("instant timestamptz", "timestamptz"),
             ("span interval", "interval"),
             ("token uuid", "uuid"),
             ("doc json", "json"),
@@ -1827,19 +1862,19 @@ mod tests {
                 serde_json::json!({"type": "time", "value": "10:20:30.123456"}),
             ),
             (
-                "zoned_time keeps its offset",
+                "zoned_time keeps its own tag and offset",
                 9,
-                serde_json::json!({"type": "time", "value": "10:20:30.123456+07:00"}),
+                serde_json::json!({"type": "timetz", "value": "10:20:30.123456+07:00"}),
             ),
             (
-                "local_stamp gains no invented zone",
+                "local_stamp is a timestamp and gains no invented zone",
                 10,
-                serde_json::json!({"type": "datetime", "value": "2024-03-15T10:20:30.123456"}),
+                serde_json::json!({"type": "timestamp", "value": "2024-03-15T10:20:30.123456"}),
             ),
             (
-                "instant keeps its Z and stays distinct from local_stamp",
+                "instant keeps its Z, its own tag and stays distinct from local_stamp",
                 11,
-                serde_json::json!({"type": "datetime", "value": "2024-03-15T10:20:30.123456Z"}),
+                serde_json::json!({"type": "timestamptz", "value": "2024-03-15T10:20:30.123456Z"}),
             ),
             (
                 "span interval",

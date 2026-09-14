@@ -774,8 +774,9 @@ async fn pg_execute_batch_timeout_rolls_back_prior_mutation() {
 // Gate 5 B2 — temporal value classes decode without timezone invention (#56)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// A naive `timestamp` must keep its wall-clock reading: the decoder must not
-/// reinterpret it as an instant, and the session timezone must not reach the cell.
+/// A naive `timestamp` must keep its wall-clock reading and its own variant: the
+/// decoder must not reinterpret it as an instant, and the session timezone must not
+/// reach the cell. Since #52 the class also keeps a dedicated `Timestamp` variant.
 #[tokio::test]
 #[ignore] // Requires DATABASE_URL
 async fn pg_timestamp_without_time_zone_keeps_wall_clock_value() {
@@ -796,8 +797,8 @@ async fn pg_timestamp_without_time_zone_keeps_wall_clock_value() {
 
     assert_eq!(
         format!("{:?}", &result.rows[0].0[0]),
-        "DateTime(\"2024-03-15T10:20:30.123456\")",
-        "a naive timestamp must keep its wall-clock reading"
+        "Timestamp(\"2024-03-15T10:20:30.123456\")",
+        "a naive timestamp must keep its wall-clock reading and its own variant"
     );
     connector.disconnect(&handle).await.unwrap();
 }
@@ -834,10 +835,10 @@ async fn pg_temporal_classes_decode_to_canonical_strings() {
         vec![
             "Date(\"2024-03-15\")".to_string(),
             "Time(\"10:20:30.123456\")".to_string(),
-            "Time(\"10:20:30.123456+05:30\")".to_string(),
-            "DateTime(\"2024-03-15T10:20:30.123456\")".to_string(),
-            "DateTime(\"2024-03-15T10:20:30.123456Z\")".to_string(),
-            "DateTime(\"2024-03-15T10:20:30.000000\")".to_string(),
+            "TimeTz(\"10:20:30.123456+05:30\")".to_string(),
+            "Timestamp(\"2024-03-15T10:20:30.123456\")".to_string(),
+            "TimestampTz(\"2024-03-15T10:20:30.123456Z\")".to_string(),
+            "Timestamp(\"2024-03-15T10:20:30.000000\")".to_string(),
             "Null".to_string(),
         ]
     );
@@ -1009,15 +1010,15 @@ async fn pg_decoder_matrix_covers_every_value_class() {
         ),
         (
             "zoned_time timetz",
-            matches!(&row[9], CellValue::Time(value) if value == "10:20:30.123456+07:00"),
+            matches!(&row[9], CellValue::TimeTz(value) if value == "10:20:30.123456+07:00"),
         ),
         (
             "local_stamp timestamp",
-            matches!(&row[10], CellValue::DateTime(value) if value == "2024-03-15T10:20:30.123456"),
+            matches!(&row[10], CellValue::Timestamp(value) if value == "2024-03-15T10:20:30.123456"),
         ),
         (
             "instant timestamptz",
-            matches!(&row[11], CellValue::DateTime(value) if value == "2024-03-15T10:20:30.123456Z"),
+            matches!(&row[11], CellValue::TimestampTz(value) if value == "2024-03-15T10:20:30.123456Z"),
         ),
         (
             "span interval",
