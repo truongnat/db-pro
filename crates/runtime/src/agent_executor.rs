@@ -4,7 +4,7 @@ use db_pro_core::application::{MultiQueryResult, StatementResultKind};
 use db_pro_core::domain::agent::{
     allows_stale_document_version, execution_decision, AgentMode, AgentObjectRef, AgentSqlSafety, AgentTool,
     AgentToolInput, AgentToolOutput, AgentToolRequest, AgentToolResult, MAX_AGENT_COLUMNS_PER_TABLE,
-    MAX_AGENT_CONTEXT_CHARS, MAX_AGENT_RELATIONS, MAX_AGENT_SAMPLE_ROWS, MAX_AGENT_TABLES,
+    MAX_AGENT_EXPLAIN_CHARS, MAX_AGENT_RELATIONS, MAX_AGENT_SAMPLE_ROWS, MAX_AGENT_TABLES,
 };
 use db_pro_core::domain::agent_context::{
     AgentColumnContext, AgentForeignKeyContext, AgentResultSummary, AgentTableContext,
@@ -234,7 +234,7 @@ impl AgentToolExecutor {
             hint: None,
         })?;
         Ok(AgentToolOutput::Explain {
-            plan: truncate_chars(&plan, MAX_AGENT_CONTEXT_CHARS),
+            plan: truncate_chars(&plan, MAX_AGENT_EXPLAIN_CHARS),
         })
     }
 }

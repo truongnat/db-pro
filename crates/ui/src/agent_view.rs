@@ -40,8 +40,12 @@ impl DbProApp {
             .query_documents
             .get(self.active_query_document)
             .and_then(|document| self.agent_sessions.get(&document.id))
-            .is_some_and(|session| session.request_id.is_some() || session.pending_confirmation.is_some());
-        let can_clear_conversation = self.agent_request.is_none() && !typed_session_busy;
+            .is_some_and(|session| {
+                session.active_run_id.is_some()
+                    || session.request_id.is_some()
+                    || session.pending_confirmation.is_some()
+            });
+        let can_clear_conversation = !typed_session_busy;
         ui.horizontal(|ui| {
             ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
             if let Some(document_id) = self
@@ -50,8 +54,10 @@ impl DbProApp {
                 .map(|document| document.id.clone())
             {
                 let session = self.agent_sessions.entry(document_id).or_default();
-                let is_running = session.active_run_id.is_some() || session.request_id.is_some();
-                ui.add_enabled_ui(!is_running, |ui| {
+                let is_disabled = session.active_run_id.is_some()
+                    || session.request_id.is_some()
+                    || session.pending_confirmation.is_some();
+                ui.add_enabled_ui(!is_disabled, |ui| {
                     egui::ComboBox::from_id_salt("agent-workflow-mode")
                         .selected_text(match session.mode {
                             db_pro_core::domain::agent::AgentMode::Ask => "Ask",
@@ -433,10 +439,14 @@ impl DbProApp {
                             } = &tool_result.output
                             {
                                 ui.horizontal(|ui| {
-                                    let rows_str = summary
-                                        .row_count
-                                        .map(|rc| format!("{rc} rows"))
-                                        .unwrap_or_else(|| format!("{} rows", summary.sample_rows.len()));
+                                    let sample_len = summary.sample_rows.len();
+                                    let total_rows = summary.row_count.unwrap_or(sample_len as u64);
+                                    let is_sampled = total_rows > sample_len as u64;
+                                    let rows_str = if is_sampled {
+                                        format!("{sample_len} sampled of {total_rows} rows")
+                                    } else {
+                                        format!("{total_rows} rows")
+                                    };
                                     let cols_str = format!("{} cols", summary.columns.len());
                                     let count_str = if *result_count > 1 {
                                         format!(" ({result_count} results)")
@@ -448,9 +458,12 @@ impl DbProApp {
                                             .small()
                                             .color(self.theme.text_muted),
                                     );
-                                    if compact_button_with_icon(ui, Icon::Table2, "Open in Results", self.theme)
-                                        .clicked()
-                                    {
+                                    let btn_label = if is_sampled {
+                                        "Open sample in Results"
+                                    } else {
+                                        "Open in Results"
+                                    };
+                                    if compact_button_with_icon(ui, Icon::Table2, btn_label, self.theme).clicked() {
                                         open_result_call_id = Some(call_id.clone());
                                     }
                                 });
@@ -658,8 +671,7 @@ impl DbProApp {
             .query_documents
             .get(self.active_query_document)
             .and_then(|document| self.agent_sessions.get(&document.id))
-            .is_some_and(|session| session.request_id.is_some())
-            || self.agent_request.is_some();
+            .is_some_and(|session| session.active_run_id.is_some() || session.request_id.is_some());
         let action = AgentComposer::new(
             &mut self.agent_input,
             &self.agent_provider_label,

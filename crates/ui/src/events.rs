@@ -265,7 +265,6 @@ impl DbProApp {
                 requires_confirmation: false,
             });
             super::agent_state::finish_agent_session(session, db_pro_core::domain::agent::AgentSessionState::Failed);
-            self.agent_request = self.agent_sessions.values().find_map(|value| value.request_id);
             self.runtime_message = "Agent workflow failed".to_owned();
             return;
         }

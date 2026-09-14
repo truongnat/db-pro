@@ -1275,6 +1275,61 @@ fn typed_agent_cancellation_marks_session_and_activities_cancelled() {
 }
 
 #[test]
+fn late_agent_workflow_events_are_ignored_after_cancellation() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let document_id = app.query_documents[0].id.clone();
+    let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
+    let session_id = session.session.as_ref().expect("session should exist").id;
+    let run_id = db_pro_core::domain::agent::AgentRunId::new();
+    app.agent_sessions.insert(document_id.clone(), session);
+    let session = app.agent_sessions.get_mut(&document_id).expect("session should exist");
+    session.active_run_id = Some(run_id);
+    session.state = db_pro_core::domain::agent::AgentSessionState::Cancelled;
+
+    // Late event arrives for cancelled run
+    app.apply_runtime_event(UiEvent::AgentWorkflow {
+        request_id: crate::RequestId(2),
+        event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
+            run_id,
+            session_id,
+            document_id: document_id.clone(),
+            delta: "Late arriving text".to_owned(),
+        },
+    });
+
+    let session = &app.agent_sessions[&document_id];
+    assert_eq!(session.state, db_pro_core::domain::agent::AgentSessionState::Cancelled);
+    assert!(session.streaming_text.is_empty());
+}
+
+#[test]
+fn closing_query_tab_cleans_up_agent_session_and_cancels_active_run() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let document_id = app.query_documents[0].id.clone();
+    let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
+    let run_id = db_pro_core::domain::agent::AgentRunId::new();
+    app.agent_sessions.insert(document_id.clone(), session);
+    let session = app.agent_sessions.get_mut(&document_id).expect("session should exist");
+    session.active_run_id = Some(run_id);
+    session.state = db_pro_core::domain::agent::AgentSessionState::Running;
+
+    app.close_query_document(0);
+
+    assert!(!app.agent_sessions.contains_key(&document_id));
+    let mut saw_cancel = false;
+    while let Ok(cmd) = command_rx.try_recv() {
+        if let UiCommand::CancelAgentRun { run_id: cancelled, .. } = cmd {
+            if cancelled == run_id {
+                saw_cancel = true;
+            }
+        }
+    }
+    assert!(saw_cancel);
+}
+
+#[test]
 fn command_palette_shortcut_is_available_from_the_native_shell() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);

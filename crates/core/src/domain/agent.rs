@@ -11,6 +11,10 @@ pub const MAX_AGENT_SAMPLE_ROWS: usize = 20;
 pub const MAX_AGENT_RESULT_COLUMNS: usize = 50;
 pub const MAX_AGENT_CELL_CHARS: usize = 256;
 pub const MAX_AGENT_CONTEXT_CHARS: usize = 12_000;
+pub const MAX_AGENT_EXPLAIN_CHARS: usize = 4_000;
+pub const MAX_AGENT_TOOL_OUTPUT_CHARS: usize = 8_000;
+pub const MAX_AGENT_HISTORY_MESSAGES: usize = 10;
+pub const MAX_AGENT_HISTORY_CHARS: usize = 16_000;
 pub const MAX_AGENT_TOOL_STEPS: usize = 10;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -273,6 +277,27 @@ pub enum AgentToolInput {
         max_rows: usize,
         statement_index: Option<usize>,
     },
+}
+
+impl AgentToolInput {
+    pub fn fingerprint(&self) -> String {
+        match self {
+            AgentToolInput::None => "none".to_owned(),
+            AgentToolInput::Schema { schema } => format!("schema:{}", schema.as_deref().unwrap_or("")),
+            AgentToolInput::Table { table } => {
+                format!("table:{}.{}", table.schema.as_deref().unwrap_or(""), table.name)
+            }
+            AgentToolInput::Patch { patch } => format!(
+                "patch:{}:{}:{}-{}",
+                patch.document_id, patch.expected_version, patch.range.0, patch.range.1
+            ),
+            AgentToolInput::Query { sql } => format!("query:{}", sql.trim()),
+            AgentToolInput::ResultSample {
+                max_rows,
+                statement_index,
+            } => format!("sample:{}:{}", max_rows, statement_index.unwrap_or(0)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -13,6 +13,20 @@ pub use db_pro_core::domain::agent_workflow::AgentWorkflowEvent;
 use crate::agent::{AgentProvider, AgentProviderEvent, AgentProviderMessage, AgentProviderRequest};
 use crate::agent_executor::AgentToolRunner;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CachedToolOutcome {
+    Success(AgentToolOutput),
+    Failed(AgentToolError),
+    Rejected(AgentConfirmationKind),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CachedToolExecution {
+    pub tool: AgentTool,
+    pub input_fingerprint: String,
+    pub outcome: CachedToolOutcome,
+}
+
 struct PendingToolCall {
     call_id: String,
     confirmation: db_pro_core::domain::agent_workflow::PendingAgentConfirmation,
@@ -25,7 +39,7 @@ pub struct AgentRunOrchestrator {
     execution_context: AgentExecutionContext,
     provider_request: AgentProviderRequest,
     seen_call_ids: HashSet<String>,
-    completed_tool_calls: HashMap<String, AgentToolOutput>,
+    completed_tool_calls: HashMap<String, CachedToolExecution>,
     tool_steps: usize,
     pending_tool: Option<PendingToolCall>,
 }
@@ -112,6 +126,8 @@ impl AgentRunOrchestrator {
         let pending = self.pending_tool.take().ok_or(AgentToolError::RunNotActive)?;
         let pending_call_id = pending.call_id.clone();
         let pending_tool = pending.confirmation.tool;
+        let pending_kind = pending.confirmation.kind;
+        let fingerprint = pending.confirmation.input_fingerprint.clone();
         if let Some(document) = current_document {
             self.execution_context.document = Some(document);
         }
@@ -119,12 +135,18 @@ impl AgentRunOrchestrator {
         let current_version = self.current_document_version()?;
         if !approved {
             self.workflow.reject(run_id)?;
+            self.completed_tool_calls.insert(
+                pending_call_id.clone(),
+                CachedToolExecution {
+                    tool: pending_tool,
+                    input_fingerprint: fingerprint,
+                    outcome: CachedToolOutcome::Rejected(pending_kind),
+                },
+            );
             self.push_tool_error(
                 pending_call_id.clone(),
                 pending_tool,
-                AgentToolError::ConfirmationRejected {
-                    kind: pending.confirmation.kind,
-                },
+                AgentToolError::ConfirmationRejected { kind: pending_kind },
             );
             return Ok(self.drive().await);
         }
@@ -136,6 +158,41 @@ impl AgentRunOrchestrator {
                 unreachable!("approved confirmation")
             }
         };
+
+        // SAFETY RECHECK ON APPROVAL:
+        if pending_tool == AgentTool::RunQuery {
+            let AgentToolInput::Query { sql } = &request.input else {
+                return Err(AgentToolError::InvalidInput {
+                    tool: AgentTool::RunQuery,
+                });
+            };
+            let current_safety = db_pro_core::domain::agent::AgentSqlSafety::classify(sql);
+            if let Some(initial_safety) = pending.confirmation.safety {
+                let safety_increased = matches!(
+                    (initial_safety, current_safety),
+                    (
+                        db_pro_core::domain::agent::AgentSqlSafety::ReadOnly,
+                        db_pro_core::domain::agent::AgentSqlSafety::Mutating
+                            | db_pro_core::domain::agent::AgentSqlSafety::Destructive,
+                    ) | (
+                        db_pro_core::domain::agent::AgentSqlSafety::Mutating,
+                        db_pro_core::domain::agent::AgentSqlSafety::Destructive,
+                    )
+                );
+                if safety_increased {
+                    return Err(AgentToolError::ConfirmationRequired {
+                        kind: match current_safety {
+                            db_pro_core::domain::agent::AgentSqlSafety::Destructive => {
+                                AgentConfirmationKind::RunDestructive
+                            }
+                            db_pro_core::domain::agent::AgentSqlSafety::Mutating => AgentConfirmationKind::RunMutation,
+                            _ => AgentConfirmationKind::RunUnknown,
+                        },
+                    });
+                }
+            }
+        }
+
         let output = if pending.confirmation.kind == AgentConfirmationKind::ApplyPatch {
             let Some(AgentToolOutput::PatchApplied {
                 document_id,
@@ -190,6 +247,14 @@ impl AgentRunOrchestrator {
                 Ok(result) => result.output,
                 Err(error) => {
                     let tool = request.tool;
+                    self.completed_tool_calls.insert(
+                        pending_call_id.clone(),
+                        CachedToolExecution {
+                            tool,
+                            input_fingerprint: fingerprint,
+                            outcome: CachedToolOutcome::Failed(error.clone()),
+                        },
+                    );
                     self.push_tool_error(pending_call_id.clone(), tool, error.clone());
                     let mut emitted = vec![AgentWorkflowEvent::ToolFailed {
                         run_id,
@@ -204,8 +269,14 @@ impl AgentRunOrchestrator {
                 }
             }
         };
-        self.completed_tool_calls
-            .insert(pending_call_id.clone(), output.clone());
+        self.completed_tool_calls.insert(
+            pending_call_id.clone(),
+            CachedToolExecution {
+                tool: request.tool,
+                input_fingerprint: fingerprint,
+                outcome: CachedToolOutcome::Success(output.clone()),
+            },
+        );
         self.push_tool_result(pending_call_id, request.tool, output.clone());
         Ok(self.drive().await)
     }
@@ -265,8 +336,15 @@ impl AgentRunOrchestrator {
     }
 
     async fn handle_tool_call(&mut self, call: AgentToolCall) -> Result<Option<AgentWorkflowEvent>, AgentToolError> {
+        let fingerprint = call.input.fingerprint();
         if let Some(pending) = &self.pending_tool {
             if pending.call_id == call.call_id {
+                if pending.confirmation.tool != call.tool || pending.confirmation.input_fingerprint != fingerprint {
+                    return Err(AgentToolError::ProviderProtocolError(format!(
+                        "Pending confirmation collision for call_id '{}': mismatched tool ({:?} vs {:?}) or input",
+                        call.call_id, pending.confirmation.tool, call.tool
+                    )));
+                }
                 let preview = match &pending.confirmation.kind {
                     AgentConfirmationKind::ApplyPatch => match &pending.confirmation.request.input {
                         AgentToolInput::Patch { patch } => {
@@ -306,19 +384,49 @@ impl AgentRunOrchestrator {
             }
         }
 
-        if let Some(cached_output) = self.completed_tool_calls.get(&call.call_id) {
+        if let Some(cached) = self.completed_tool_calls.get(&call.call_id) {
+            if cached.tool != call.tool || cached.input_fingerprint != fingerprint {
+                return Err(AgentToolError::ProviderProtocolError(format!(
+                    "Tool call collision for ID '{}': mismatched tool ({:?} vs {:?}) or input",
+                    call.call_id, cached.tool, call.tool
+                )));
+            }
             let run_id = self.run_id()?;
-            let result = db_pro_core::domain::agent::AgentToolResult {
-                tool: call.tool,
-                output: cached_output.clone(),
-            };
-            return Ok(Some(AgentWorkflowEvent::ToolCompleted {
-                run_id,
-                session_id: self.workflow.session().id,
-                document_id: self.workflow.session().document_id.clone(),
-                call_id: call.call_id,
-                result,
-            }));
+            match &cached.outcome {
+                CachedToolOutcome::Success(output) => {
+                    let result = db_pro_core::domain::agent::AgentToolResult {
+                        tool: call.tool,
+                        output: output.clone(),
+                    };
+                    return Ok(Some(AgentWorkflowEvent::ToolCompleted {
+                        run_id,
+                        session_id: self.workflow.session().id,
+                        document_id: self.workflow.session().document_id.clone(),
+                        call_id: call.call_id,
+                        result,
+                    }));
+                }
+                CachedToolOutcome::Failed(error) => {
+                    return Ok(Some(AgentWorkflowEvent::ToolFailed {
+                        run_id,
+                        session_id: self.workflow.session().id,
+                        document_id: self.workflow.session().document_id.clone(),
+                        call_id: call.call_id,
+                        tool: call.tool,
+                        error: error.clone(),
+                    }));
+                }
+                CachedToolOutcome::Rejected(kind) => {
+                    return Ok(Some(AgentWorkflowEvent::ToolFailed {
+                        run_id,
+                        session_id: self.workflow.session().id,
+                        document_id: self.workflow.session().document_id.clone(),
+                        call_id: call.call_id,
+                        tool: call.tool,
+                        error: AgentToolError::ConfirmationRejected { kind: *kind },
+                    }));
+                }
+            }
         }
 
         if !self.seen_call_ids.insert(call.call_id.clone()) {
@@ -344,6 +452,14 @@ impl AgentRunOrchestrator {
         ) {
             Ok(disposition) => disposition,
             Err(error) => {
+                self.completed_tool_calls.insert(
+                    call.call_id.clone(),
+                    CachedToolExecution {
+                        tool: call.tool,
+                        input_fingerprint: fingerprint,
+                        outcome: CachedToolOutcome::Failed(error.clone()),
+                    },
+                );
                 self.push_tool_error(call.call_id.clone(), call.tool, error.clone());
                 return Ok(Some(AgentWorkflowEvent::ToolFailed {
                     run_id,
@@ -361,7 +477,14 @@ impl AgentRunOrchestrator {
                     Ok(result) => {
                         let output = result.output.clone();
                         self.refresh_context_from_output(&output, run_id)?;
-                        self.completed_tool_calls.insert(call.call_id.clone(), output.clone());
+                        self.completed_tool_calls.insert(
+                            call.call_id.clone(),
+                            CachedToolExecution {
+                                tool: call.tool,
+                                input_fingerprint: fingerprint,
+                                outcome: CachedToolOutcome::Success(output.clone()),
+                            },
+                        );
                         self.push_tool_result(call.call_id.clone(), call.tool, output);
                         Ok(Some(AgentWorkflowEvent::ToolCompleted {
                             run_id,
@@ -372,6 +495,14 @@ impl AgentRunOrchestrator {
                         }))
                     }
                     Err(error) => {
+                        self.completed_tool_calls.insert(
+                            call.call_id.clone(),
+                            CachedToolExecution {
+                                tool: call.tool,
+                                input_fingerprint: fingerprint,
+                                outcome: CachedToolOutcome::Failed(error.clone()),
+                            },
+                        );
                         self.push_tool_error(call.call_id.clone(), call.tool, error.clone());
                         Ok(Some(AgentWorkflowEvent::ToolFailed {
                             run_id,
@@ -452,6 +583,11 @@ impl AgentRunOrchestrator {
             tool,
             output: Ok(output),
         });
+        if self.provider_request.messages.len() > db_pro_core::domain::agent::MAX_AGENT_HISTORY_MESSAGES {
+            self.provider_request.messages.drain(
+                0..(self.provider_request.messages.len() - db_pro_core::domain::agent::MAX_AGENT_HISTORY_MESSAGES),
+            );
+        }
     }
 
     fn refresh_context_from_output(
@@ -499,6 +635,11 @@ impl AgentRunOrchestrator {
             tool,
             output: Err(error),
         });
+        if self.provider_request.messages.len() > db_pro_core::domain::agent::MAX_AGENT_HISTORY_MESSAGES {
+            self.provider_request.messages.drain(
+                0..(self.provider_request.messages.len() - db_pro_core::domain::agent::MAX_AGENT_HISTORY_MESSAGES),
+            );
+        }
     }
 
     fn complete_run(&mut self, run_id: db_pro_core::domain::agent::AgentRunId) -> AgentWorkflowEvent {
@@ -805,5 +946,131 @@ mod tests {
             .count();
         assert!(confirmations >= 1);
         assert!(orchestrator.has_pending_confirmation());
+    }
+
+    #[tokio::test]
+    async fn tool_call_collision_with_different_input_fails_with_protocol_error() {
+        let mut orchestrator = orchestrator(vec![
+            vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                call_id: "coll-1".to_owned(),
+                tool: AgentTool::GetCurrentQuery,
+                input: AgentToolInput::None,
+            })],
+            vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                call_id: "coll-1".to_owned(),
+                tool: AgentTool::InspectSchema,
+                input: AgentToolInput::Schema {
+                    schema: Some("public".to_owned()),
+                },
+            })],
+            vec![AgentProviderEvent::Completed],
+        ]);
+
+        let events = orchestrator.run().await;
+        assert!(events
+            .iter()
+            .any(|event| matches!(event, AgentWorkflowEvent::Failed { message, .. } if message.contains("collision"))));
+    }
+
+    struct CountingToolRunner {
+        count: std::sync::atomic::AtomicUsize,
+    }
+
+    #[async_trait::async_trait]
+    impl AgentToolRunner for CountingToolRunner {
+        async fn execute(
+            &self,
+            request: &AgentToolRequest,
+            _context: &AgentExecutionContext,
+        ) -> Result<AgentToolResult, AgentToolError> {
+            self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            match request.tool {
+                AgentTool::RunQuery => Ok(AgentToolResult {
+                    tool: request.tool,
+                    output: AgentToolOutput::QueryResult {
+                        statement_index: Some(0),
+                        result_count: 1,
+                        summary: db_pro_core::domain::agent_context::AgentResultSummary {
+                            columns: vec![],
+                            sample_rows: vec![],
+                            row_count: Some(1),
+                            affected_rows: Some(1),
+                            truncated: false,
+                        },
+                    },
+                }),
+                _ => Err(AgentToolError::InvalidInput { tool: request.tool }),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn mutation_run_query_executes_once_and_repeats_replay_without_database_re_execution() {
+        let runner = std::sync::Arc::new(CountingToolRunner {
+            count: std::sync::atomic::AtomicUsize::new(0),
+        });
+        struct ArcRunner(std::sync::Arc<CountingToolRunner>);
+        #[async_trait::async_trait]
+        impl AgentToolRunner for ArcRunner {
+            async fn execute(
+                &self,
+                request: &AgentToolRequest,
+                context: &AgentExecutionContext,
+            ) -> Result<AgentToolResult, AgentToolError> {
+                self.0.execute(request, context).await
+            }
+        }
+
+        let session = AgentSession::new("doc-a", Some("conn-1".to_owned()), Some("public".to_owned()));
+        let execution_context = AgentExecutionContext::new(session.clone(), document(1), AgentMode::Agent);
+        let mut orchestrator = AgentRunOrchestrator::new(
+            Box::new(FakeProvider {
+                responses: Mutex::new(
+                    vec![
+                        vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                            call_id: "mut-1".to_owned(),
+                            tool: AgentTool::RunQuery,
+                            input: AgentToolInput::Query {
+                                sql: "UPDATE users SET active = true".to_owned(),
+                            },
+                        })],
+                        vec![AgentProviderEvent::ToolCall(AgentToolCall {
+                            call_id: "mut-1".to_owned(),
+                            tool: AgentTool::RunQuery,
+                            input: AgentToolInput::Query {
+                                sql: "UPDATE users SET active = true".to_owned(),
+                            },
+                        })],
+                        vec![AgentProviderEvent::Completed],
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+            }),
+            Box::new(ArcRunner(runner.clone())),
+            AgentWorkflow::new(session, AgentMode::Agent, false),
+            execution_context,
+            "update".to_owned(),
+            context(1),
+        )
+        .expect("orchestrator should start");
+
+        let first = orchestrator.run().await;
+        assert!(first.iter().any(|e| matches!(
+            e,
+            AgentWorkflowEvent::ConfirmationRequired {
+                kind: AgentConfirmationKind::RunMutation,
+                ..
+            }
+        )));
+
+        let second = orchestrator
+            .resume_confirmation(true, Some(document(1)), None)
+            .await
+            .expect("confirmation approved");
+        assert!(second.iter().any(|e| matches!(e, AgentWorkflowEvent::Completed { .. })));
+
+        // Verification: Even though provider called tool "mut-1" twice, the database runner executed exactly ONCE!
+        assert_eq!(runner.count.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 }

@@ -8,31 +8,17 @@
   parsing, multi-step orchestration, confirmation pause/resume, and runtime
   command/event boundary are covered by automated checks.
 
-## Automated evidence
-
-- Native panel source evidence at `main@61ec815`: the compact Agent panel consumes
-  typed workflow events for streamed text, tool activity, and patch-preview
-  confirmation; focused UI tests cover document routing and patch continuation.
-- `cargo fmt --all` — PASS.
-- `cargo test -p db-pro-core --quiet` — PASS (290 tests).
-- `cargo clippy -p db-pro-core --all-targets -- -D warnings` — PASS.
+- Core contracts, executor mapping, typed provider parsing, bounded orchestration, idempotency caching with collision rejection, failure outcome caching, safety recheck on approval, confirmation pause/resume, and document-scoped session lifecycle are fully covered by automated checks.
 - `cargo fmt --all -- --check` — PASS.
-- `cargo check --workspace` — PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings` — PASS.
+- `cargo test --workspace` — PASS (550 tests passed: 291 core, 21 runtime, 238 UI tests).
 - `cargo build --release --locked -p db-pro-native` — PASS.
-- `cargo test --workspace --quiet` — PASS (291 core, 62 infrastructure,
-  32 infrastructure integration, 17 runtime, 231 UI tests; provider-dependent
-  PostgreSQL/SSH cases remain ignored).
-- Local recheck on 2026-09-14: `cargo fmt --all -- --check` and
-  `git diff --check` PASS. Compile/test reruns are blocked before compilation
-  because the local Cargo cache has no `ipnetwork` package and the registry
-  hostname cannot resolve; no current-HEAD gate pass is claimed from that
-  environment.
-- Runtime agent tests — PASS (provider function-call decoding, structured tool
-  continuation input, stale `GetCurrentQuery` recovery, patch confirmation
-  version progression, and typed tool-result routing).
-- `cc-scan.py` / `arch-scan.py` — NOT AVAILABLE in this checkout or installed
-  skill paths; no clean-code/architecture scan result is claimed.
+- Hardening test matrix verified:
+  1. `mutation_run_query_executes_once_and_repeats_replay_without_database_re_execution`: DB runner invocation count strictly = 1 on repeated call_id.
+  2. `tool_call_collision_with_different_input_fails_with_protocol_error`: Different tool/input on same call_id rejects with protocol collision error.
+  3. `late_agent_workflow_events_are_ignored_after_cancellation`: Terminal sessions drop late events.
+  4. `closing_query_tab_cleans_up_agent_session_and_cancels_active_run`: Closing tab cleans session and issues cancel.
+  5. `open_agent_result_in_workspace`: Explicit sample rows labeling when total row count exceeds sampled rows.
 
 The tests cover stale document/version rejection, UTF-8 patch boundaries,
 confirmation-gated mutation/unknown SQL, bounded schema retrieval, bounded

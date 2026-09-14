@@ -40,6 +40,7 @@ pub struct PendingAgentConfirmation {
     pub document_id: String,
     pub document_version: u64,
     pub tool: AgentTool,
+    pub input_fingerprint: String,
     pub sql: Option<String>,
     pub safety: Option<AgentSqlSafety>,
     pub kind: AgentConfirmationKind,
@@ -171,6 +172,8 @@ pub enum AgentToolError {
     MaxStepsExceeded,
     #[error("agent SQL patch is stale or invalid: {0}")]
     InvalidPatch(#[source] AgentPatchError),
+    #[error("provider protocol error: {0}")]
+    ProviderProtocolError(String),
 }
 
 impl AgentToolError {
@@ -190,18 +193,60 @@ impl AgentToolError {
             }
             AgentToolError::MaxStepsExceeded => "Agent stopped after too many tool steps (limit reached).".to_owned(),
             AgentToolError::ConfirmationRejected { kind } => {
-                format!("Action {kind:?} was rejected.")
+                let label = match kind {
+                    AgentConfirmationKind::ApplyPatch => "Patch application",
+                    AgentConfirmationKind::RunReadOnly => "Read-only query execution",
+                    AgentConfirmationKind::RunMutation => "Mutation execution",
+                    AgentConfirmationKind::RunDestructive => "Destructive query execution",
+                    AgentConfirmationKind::RunUnknown => "Query execution",
+                };
+                format!("{label} was cancelled by user.")
+            }
+            AgentToolError::ConfirmationRequired { kind } => {
+                let label = match kind {
+                    AgentConfirmationKind::ApplyPatch => "Applying patch",
+                    AgentConfirmationKind::RunReadOnly => "Running read-only query",
+                    AgentConfirmationKind::RunMutation => "Running mutation",
+                    AgentConfirmationKind::RunDestructive => "Running destructive query",
+                    AgentConfirmationKind::RunUnknown => "Running query",
+                };
+                format!("{label} requires user confirmation.")
             }
             AgentToolError::StaleDocument { expected, actual } => {
-                format!("The query document changed (expected version {expected}, found {actual}).")
+                format!(
+                    "The query editor changed (expected version {expected}, current version {actual}). Please retry."
+                )
             }
             AgentToolError::PermissionDenied { tool, mode } => {
-                format!("Tool {tool:?} is not permitted in {mode:?} mode.")
+                let tool_name = match tool {
+                    AgentTool::PatchQuery => "Modifying query text",
+                    AgentTool::RunQuery => "Executing queries",
+                    AgentTool::ExplainQuery => "Explaining queries",
+                    AgentTool::InspectQueryResult => "Inspecting previous results",
+                    _ => "This operation",
+                };
+                let mode_name = match mode {
+                    AgentMode::Ask => "Ask",
+                    AgentMode::Edit => "Edit",
+                    AgentMode::Agent => "Agent",
+                };
+                format!("{tool_name} is not permitted in {mode_name} mode.")
             }
             AgentToolError::SchemaObjectNotFound { name } => {
-                format!("Schema object '{name}' was not found.")
+                format!("Database object '{name}' was not found.")
             }
-            other => other.to_string(),
+            AgentToolError::SessionMismatch => "Agent session mismatch. Please try again.".to_owned(),
+            AgentToolError::DocumentMismatch => "Target query tab is no longer active.".to_owned(),
+            AgentToolError::DocumentNotFound => "Query document not found.".to_owned(),
+            AgentToolError::RunNotActive => "Agent run is not active.".to_owned(),
+            AgentToolError::RunAlreadyActive => "An agent run is already in progress.".to_owned(),
+            AgentToolError::RunMismatch => "Agent run mismatch.".to_owned(),
+            AgentToolError::InvalidInput { .. } => "Agent received invalid input parameters.".to_owned(),
+            AgentToolError::ConnectionUnavailable => "No active database connection.".to_owned(),
+            AgentToolError::ResultUnavailable => "No query result is available to inspect.".to_owned(),
+            AgentToolError::Cancelled => "Agent run was stopped.".to_owned(),
+            AgentToolError::InvalidPatch(err) => format!("Could not apply SQL patch: {err}"),
+            AgentToolError::ProviderProtocolError(msg) => format!("AI Provider error: {msg}"),
         }
     }
 }
@@ -444,6 +489,7 @@ impl AgentWorkflow {
         let Some(run) = self.session.active_run.as_ref() else {
             return Err(AgentToolError::RunNotActive);
         };
+        let input_fingerprint = request.input.fingerprint();
         let sql = match &request.input {
             AgentToolInput::Query { sql } => Some(sql.clone()),
             AgentToolInput::Patch { patch } => Some(patch.replacement.clone()),
@@ -455,6 +501,7 @@ impl AgentWorkflow {
             document_id: request.document_id.clone(),
             document_version: request.document_version,
             tool: request.tool,
+            input_fingerprint,
             sql,
             safety,
             kind,

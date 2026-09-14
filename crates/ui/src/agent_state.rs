@@ -148,7 +148,6 @@ impl DbProApp {
 
         let request_id = self.task_bridge.next_request_id();
         session.request_id = Some(request_id);
-        self.agent_request = Some(request_id);
         self.agent_input.clear();
         self.runtime_message = format!("Sending request to {}…", self.agent_provider_label);
         if self
@@ -166,7 +165,6 @@ impl DbProApp {
         {
             session.request_id = None;
             session.state = db_pro_core::domain::agent::AgentSessionState::Failed;
-            self.agent_request = None;
             self.runtime_message = "Agent runtime unavailable".to_owned();
         }
     }
@@ -294,6 +292,14 @@ impl DbProApp {
         {
             return;
         }
+        if matches!(
+            session.state,
+            db_pro_core::domain::agent::AgentSessionState::Completed
+                | db_pro_core::domain::agent::AgentSessionState::Failed
+                | db_pro_core::domain::agent::AgentSessionState::Cancelled
+        ) {
+            return;
+        }
         if session.active_run_id.is_none() {
             if session.state != db_pro_core::domain::agent::AgentSessionState::Running {
                 return;
@@ -302,7 +308,6 @@ impl DbProApp {
         }
 
         apply_agent_workflow_event(session, event, run_id);
-        self.agent_request = self.agent_sessions.values().find_map(|value| value.request_id);
     }
 
     pub(super) fn agent_confirmation_action(&mut self, approved: bool) {
@@ -430,17 +435,23 @@ impl DbProApp {
                         .collect()
                 })
                 .collect();
+            let sample_len = summary.sample_rows.len();
+            let total_rows = summary.row_count.unwrap_or(sample_len as u64);
             let ui_result = crate::runtime::UiQueryResult {
                 columns,
                 rows,
-                row_count: summary.row_count.unwrap_or(summary.sample_rows.len() as u64),
+                row_count: total_rows,
                 duration_ms: tool_result.duration_ms.unwrap_or(0),
             };
             document.query_result = Some(ui_result.clone());
             document.query_results = vec![ui_result];
             document.active_result_index = 0;
             self.output_tab = OutputTab::Results;
-            self.runtime_message = "Opened Agent query result in workspace".to_owned();
+            if total_rows > sample_len as u64 {
+                self.runtime_message = format!("Showing {sample_len} sampled rows of {total_rows} total rows.");
+            } else {
+                self.runtime_message = format!("Opened Agent query result ({total_rows} rows)");
+            }
         }
     }
 
