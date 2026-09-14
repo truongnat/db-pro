@@ -222,6 +222,20 @@ V01-07  Final Release Sign-off, Governance & v0.1.0 Tagging
   - **PASS (host only)**: local macOS ARM64 build + bundle/launch smoke — `DB Pro.app` archive produced and LaunchServices-accepted; process runs and exits on SIGTERM. No window/GUI interaction was observed (harness limitation). Evidence: `08-post-fix-quality-gates.txt` §3.
   - **PENDING**: cross-platform artifacts (Windows x86_64, Linux x86_64, macOS ARM64 CI artifacts + `SHA256SUMS.txt`) from release CI run **34847235273** for SHA `fbf9fdab9100f08f12e29434983f32c18f14ac2f`. Windows/Linux remain `BUILD_UNVERIFIED` until that run completes; they will remain `RUNTIME_UNVERIFIED` (no Windows/Linux host exists in this project).
   - **Correction**: the artifact contract listed below (`.dmg`, `.msi`, `.deb`) is **not** the v0.1 contract. v0.1 ships portable archives (`db-pro-v0.1.0-macos-arm64.tar.gz` with a minimal `DB Pro.app`, `db-pro-v0.1.0-windows-x86_64.zip`, `db-pro-v0.1.0-linux-x86_64.tar.gz`) plus `SHA256SUMS.txt`; installers are DEFERRED. See `docs/release/0.1.0-packaging.md`.
+
+#### §27 platform report (V01-06 result)
+
+| Platform | BUILD | RUNTIME | PACKAGE | SIGNING |
+|---|---|---|---|---|
+| macOS ARM64 (`aarch64-apple-darwin`) | PASS (local, measured) | `PARTIAL` — process launch/idle PASS; no GUI interaction observed; runtime QA not run | `PASS` locally (`.app` archive produced); CI `PENDING_CI_RUN_34847235273` | `UNSIGNED` — `adhoc`/linker-signed, `spctl` rejects |
+| macOS x64 | **NOT BUILT** (not in matrix) | — | — | — |
+| Windows x86_64 (`x86_64-pc-windows-msvc`) | `BUILD_UNVERIFIED` (CI in flight) | `RUNTIME_NOT_VERIFIED` (no host) | `PENDING_CI_RUN_34847235273` | `UNSIGNED` (none configured) |
+| Linux x86_64 (`x86_64-unknown-linux-gnu`) | `BUILD_UNVERIFIED` (CI in flight) | `RUNTIME_NOT_VERIFIED` (no host) | `PENDING_CI_RUN_34847235273` | `UNSIGNED` (none configured) |
+
+- **Quality gates**: **PASS** (6/6 on rustc 1.95.0; `811 passed / 0 failed / 19 ignored`).
+- **Artifacts**: exact names above; values `PENDING_CI_RUN_34847235273`.
+- **Checksums**: `PENDING_CI_RUN_34847235273` (the `checksums` job assembles `SHA256SUMS.txt`; nothing computes hashes locally in CI terms).
+- **Remaining blockers**: cross-platform artifacts (CI run in flight); Windows/Linux runtime verification (no host); `R-LICENSE` for public distribution; unsigned artifacts (accepted); V01-01…V01-05 runtime evidence gaps (not closed here).
 - **Exact Verification Needed** *(status per item as of 2026-09-14)*:
   - [x] Workspace Quality Gates (all exit 0):
     ```bash
