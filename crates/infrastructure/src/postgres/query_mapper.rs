@@ -364,11 +364,11 @@ fn decode_cell(row: &sqlx::postgres::PgRow, i: usize, data_type: &str) -> Result
             .map_err(crate::error::from_sqlx),
         "TIMESTAMPTZ" => row
             .try_get::<chrono::DateTime<chrono::Utc>, _>(i)
-            .map(|v| CellValue::DateTime(v.to_rfc3339()))
+            .map(|v| CellValue::DateTime(format_utc_instant(v)))
             .map_err(crate::error::from_sqlx),
         "TIMESTAMP" => row
             .try_get::<chrono::NaiveDateTime, _>(i)
-            .map(|v| CellValue::DateTime(v.and_utc().to_rfc3339()))
+            .map(|v| CellValue::DateTime(format_naive_timestamp(v)))
             .map_err(crate::error::from_sqlx),
         "DATE" => row
             .try_get::<chrono::NaiveDate, _>(i)
@@ -473,6 +473,23 @@ fn decode_binary_inet(bytes: &[u8]) -> Result<String, DbError> {
             "unsupported PostgreSQL INET address family".into(),
         )),
     }
+}
+
+/// Canonical string for a `timestamptz`: the instant in UTC, marked as UTC.
+///
+/// `Z` rather than `+00:00` so the marker is comparable with what the frontend and
+/// the copy/export paths expect from an absolute instant.
+fn format_utc_instant(value: chrono::DateTime<chrono::Utc>) -> String {
+    value.to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
+}
+
+/// Canonical string for a `timestamp`: a wall-clock reading with no timezone.
+///
+/// PostgreSQL's `timestamp` carries no offset, so attaching one here would invent an
+/// instant the database never stored (and would move the reading with the session or
+/// OS timezone). Microseconds are spelled out to match the canonical contract.
+fn format_naive_timestamp(value: chrono::NaiveDateTime) -> String {
+    value.format("%Y-%m-%dT%H:%M:%S%.6f").to_string()
 }
 
 fn format_time_with_offset(time: chrono::NaiveTime, offset: chrono::FixedOffset) -> String {
@@ -697,5 +714,45 @@ mod tests {
         }
 
         assert_eq!(decode_binary_numeric(&bytes).as_deref(), Some("1.50"));
+    }
+
+    #[test]
+    fn naive_timestamp_carries_no_timezone_marker() {
+        let value = chrono::NaiveDate::from_ymd_opt(2024, 3, 15)
+            .unwrap()
+            .and_hms_micro_opt(10, 20, 30, 123_456)
+            .unwrap();
+
+        assert_eq!(format_naive_timestamp(value), "2024-03-15T10:20:30.123456");
+        assert!(!format_naive_timestamp(value).contains('Z'));
+        assert!(!format_naive_timestamp(value).contains('+'));
+    }
+
+    #[test]
+    fn naive_timestamp_spells_out_whole_second_fraction() {
+        let value = chrono::NaiveDate::from_ymd_opt(2024, 3, 15)
+            .unwrap()
+            .and_hms_opt(10, 20, 30)
+            .unwrap();
+
+        assert_eq!(format_naive_timestamp(value), "2024-03-15T10:20:30.000000");
+    }
+
+    #[test]
+    fn utc_instant_keeps_explicit_utc_marker() {
+        let value = chrono::DateTime::parse_from_rfc3339("2024-03-15T08:20:30.123456Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+
+        assert_eq!(format_utc_instant(value), "2024-03-15T08:20:30.123456Z");
+    }
+
+    #[test]
+    fn utc_instant_is_normalized_to_utc() {
+        let value = chrono::DateTime::parse_from_rfc3339("2024-03-15T10:20:30.123456+02:00")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+
+        assert_eq!(format_utc_instant(value), "2024-03-15T08:20:30.123456Z");
     }
 }

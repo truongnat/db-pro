@@ -667,3 +667,77 @@ async fn pg_execute_batch_timeout_rolls_back_prior_mutation() {
         .unwrap();
     connector.disconnect(&handle).await.unwrap();
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Gate 5 B2 — temporal value classes decode without timezone invention (#56)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A naive `timestamp` must keep its wall-clock reading: the decoder must not
+/// reinterpret it as an instant, and the session timezone must not reach the cell.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL
+async fn pg_timestamp_without_time_zone_keeps_wall_clock_value() {
+    let (connector, handle) = setup().await;
+    connector
+        .execute(&handle, "SET TIME ZONE 'America/New_York'", &[])
+        .await
+        .unwrap();
+
+    let result = connector
+        .query(
+            &handle,
+            "SELECT TIMESTAMP '2024-03-15 10:20:30.123456' AS naive_stamp",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        format!("{:?}", &result.rows[0].0[0]),
+        "DateTime(\"2024-03-15T10:20:30.123456\")",
+        "a naive timestamp must keep its wall-clock reading"
+    );
+    connector.disconnect(&handle).await.unwrap();
+}
+
+/// The whole temporal class matrix must decode to the canonical strings, and the
+/// session timezone must not move any of them.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL
+async fn pg_temporal_classes_decode_to_canonical_strings() {
+    let (connector, handle) = setup().await;
+    connector
+        .execute(&handle, "SET TIME ZONE 'America/New_York'", &[])
+        .await
+        .unwrap();
+
+    let result = connector
+        .query(
+            &handle,
+            "SELECT DATE '2024-03-15', \
+                    TIME '10:20:30.123456', \
+                    TIMETZ '10:20:30.123456+05:30', \
+                    TIMESTAMP '2024-03-15 10:20:30.123456', \
+                    TIMESTAMPTZ '2024-03-15 10:20:30.123456+00', \
+                    TIMESTAMP '2024-03-15 10:20:30', \
+                    NULL::TIMESTAMP",
+            &[],
+        )
+        .await
+        .unwrap();
+
+    let cells: Vec<String> = result.rows[0].0.iter().map(|cell| format!("{cell:?}")).collect();
+    assert_eq!(
+        cells,
+        vec![
+            "Date(\"2024-03-15\")".to_string(),
+            "Time(\"10:20:30.123456\")".to_string(),
+            "Time(\"10:20:30.123456+05:30\")".to_string(),
+            "DateTime(\"2024-03-15T10:20:30.123456\")".to_string(),
+            "DateTime(\"2024-03-15T10:20:30.123456Z\")".to_string(),
+            "DateTime(\"2024-03-15T10:20:30.000000\")".to_string(),
+            "Null".to_string(),
+        ]
+    );
+    connector.disconnect(&handle).await.unwrap();
+}
