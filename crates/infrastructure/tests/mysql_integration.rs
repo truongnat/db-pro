@@ -204,3 +204,107 @@ async fn mysql_explain_returns_json() {
 
     connector.disconnect(&handle).await.unwrap();
 }
+
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL=mysql://...
+async fn mysql_positional_parameters_bind_and_round_trip() {
+    use db_pro_core::domain::query::{CellValue, QueryParam};
+    use db_pro_infrastructure::connector::CompositeConnector;
+
+    let Some((_connector, _handle, _database)) = setup().await else {
+        eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
+        return;
+    };
+    let config = mysql_config().expect("mysql config");
+    let password = std::env::var("DATABASE_URL")
+        .ok()
+        .and_then(|url| {
+            url.strip_prefix("mysql://")
+                .and_then(|s| s.split_once('@').map(|(auth, _)| auth))
+                .and_then(|auth| auth.split_once(':').map(|(_, p)| p.to_string()))
+        })
+        .unwrap_or_default();
+
+    let connector = CompositeConnector::new();
+    let handle = connector.connect(&config, &password).await.expect("connect");
+
+    // Dialect must resolve for an active MySQL connection (#235 criterion 5 path).
+    let dialect = connector.dialect(&handle).expect("mysql dialect");
+    assert_eq!(dialect.placeholder(1), "?");
+    assert_eq!(dialect.quote_identifier("order"), "`order`");
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_bind_probe", &[])
+        .await
+        .ok();
+    connector
+        .execute(
+            &handle,
+            "CREATE TABLE mysql_bind_probe (
+                id BIGINT NOT NULL,
+                label VARCHAR(64) NOT NULL,
+                amount DECIMAL(20,4) NOT NULL,
+                stamp DATETIME(6) NOT NULL,
+                flag BOOLEAN NOT NULL,
+                payload JSON NOT NULL
+            )",
+            &[],
+        )
+        .await
+        .expect("create");
+
+    let affected = connector
+        .execute(
+            &handle,
+            "INSERT INTO mysql_bind_probe (id, label, amount, stamp, flag, payload)
+             VALUES (?, ?, ?, ?, ?, ?)",
+            &[
+                QueryParam::Int64(7),
+                QueryParam::Text("bound".into()),
+                QueryParam::Decimal("123456789012345.6789".into()),
+                QueryParam::DateTime("2024-03-15T10:20:30.123456".into()),
+                QueryParam::Bool(true),
+                QueryParam::Json(serde_json::json!({"k": "v"})),
+            ],
+        )
+        .await
+        .expect("bound insert");
+    assert_eq!(affected, 1);
+
+    let result = connector
+        .query(
+            &handle,
+            "SELECT id, label, amount, stamp, flag, payload
+             FROM mysql_bind_probe WHERE id = ? AND label = ?",
+            &[QueryParam::Int64(7), QueryParam::Text("bound".into())],
+        )
+        .await
+        .expect("bound select");
+    assert_eq!(result.row_count, 1);
+    let row = &result.rows[0].0;
+    assert!(matches!(row[0], CellValue::Int64(7)), "id: {:?}", row[0]);
+    assert!(
+        matches!(&row[1], CellValue::Text(text) if text == "bound"),
+        "label: {:?}",
+        row[1]
+    );
+    match &row[2] {
+        CellValue::Decimal(digits) => assert_eq!(digits, "123456789012345.6789"),
+        other => panic!("expected Decimal, got {other:?}"),
+    }
+    match &row[3] {
+        CellValue::Timestamp(value) => assert!(value.starts_with("2024-03-15T10:20:30.123456")),
+        other => panic!("expected Timestamp, got {other:?}"),
+    }
+    assert!(matches!(row[4], CellValue::Bool(true)), "flag: {:?}", row[4]);
+    match &row[5] {
+        CellValue::Json(value) => assert_eq!(value, &serde_json::json!({"k": "v"})),
+        other => panic!("expected Json, got {other:?}"),
+    }
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_bind_probe", &[])
+        .await
+        .ok();
+    connector.disconnect(&handle).await.unwrap();
+}

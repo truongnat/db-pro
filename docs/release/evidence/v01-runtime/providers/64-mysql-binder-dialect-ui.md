@@ -28,8 +28,16 @@
 
 ## Still open on #235 / #234
 
-- Live MySQL write/read round-trip of bound parameters against the fixture (needs MySQL container)
 - Table-data / data-diff end-to-end qualification for MySQL
 - Capability-level *reason* channel (#234 criterion 3)
 - Schema/lifecycle cases in `provider_contract_conformance.rs` (#234 criterion 4)
 - MySQL SSL mode is stored but the connector URL does not yet map rustls modes
+
+## Live binder proof (follow-up)
+
+```text
+DATABASE_URL=mysql://root:dbpro_test@127.0.0.1:33306/dbpro_fixture \
+  cargo test -p db-pro-infrastructure --test mysql_integration \
+  mysql_positional_parameters_bind_and_round_trip -- --ignored
+# ok — dialect `?`/`order`, bound INSERT+SELECT round-trip for int/text/decimal/datetime/bool/json
+```
