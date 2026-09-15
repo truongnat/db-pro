@@ -2424,6 +2424,19 @@ impl DbProApp {
 mod tests {
     use super::*;
 
+    /// The criterion bench (`benches/result_grid_benchmarks.rs`) is a separate crate, so it reaches
+    /// this type through the crate-root re-export only. Resolving it the same way here — instead of
+    /// through `super::` — makes a dropped re-export fail `cargo test`, not just the bench build
+    /// under `cargo clippy --all-targets`.
+    #[test]
+    fn selection_lookup_is_reachable_from_the_crate_root() {
+        let lookup: crate::GridSelectionLookup = crate::GridSelectionLookup::new(&[4, 1], &[1, 0]);
+
+        assert_eq!(lookup.row_positions.get(&4), Some(&0));
+        assert_eq!(lookup.row_positions.get(&1), Some(&1));
+        assert_eq!(lookup.column_positions.get(&0), Some(&1));
+    }
+
     #[test]
     fn row_range_selection_follows_filtered_sort_order() {
         let mut app = DbProApp::default();

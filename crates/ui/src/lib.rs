@@ -15,6 +15,10 @@ pub use agent::{
     respond as respond_to_agent, AgentContext, AgentMessage, AgentProvider, AgentProviderError, AgentProviderInfo,
     AgentProviderKind, AgentProviderState, AgentRole, OfflineAgentProvider,
 };
+// Re-exported for `benches/result_grid_benchmarks.rs`: a bench is a separate crate, so it can only
+// reach the lookup through the crate root. `selection_lookup_is_reachable_from_the_crate_root`
+// pins that path.
+pub use app::result_grid_view::GridSelectionLookup;
 pub use app::{ComponentGalleryState, DbProApp};
 pub use chart_view::{ChartAggregation, ChartConfig, ChartEngine, ChartPoint, ChartRenderer, ChartType};
 pub use components::{

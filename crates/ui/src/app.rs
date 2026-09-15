@@ -92,7 +92,7 @@ mod palette_view;
 #[path = "query_view.rs"]
 mod query_view;
 #[path = "result_grid_view.rs"]
-mod result_grid_view;
+pub(crate) mod result_grid_view;
 pub(crate) use result_grid_view::GridSelectionCache;
 #[path = "schema_object_view.rs"]
 mod schema_object_view;
