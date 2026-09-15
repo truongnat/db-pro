@@ -5358,3 +5358,30 @@ fn dispatch_query_binds_named_parameters_for_postgres() {
     assert_eq!(sql, "SELECT $1, $2");
     assert_eq!(params, vec!["7".to_owned(), "Ada".to_owned()]);
 }
+
+#[test]
+fn workspace_folder_opens_sql_as_file_backed_document() {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("time")
+        .as_nanos();
+    let dir = std::env::temp_dir().join(format!("dbpro-ws-ui-{nanos}"));
+    std::fs::create_dir_all(dir.join("sql")).unwrap();
+    std::fs::write(dir.join("sql/demo.sql"), "SELECT 42;").unwrap();
+
+    let mut app = DbProApp::default();
+    app.open_workspace_folder(dir.clone());
+    assert!(app.ide_workspace.root.is_some());
+    assert!(app
+        .ide_workspace
+        .index
+        .iter()
+        .any(|entry| entry.relative_path == "sql/demo.sql"));
+    app.open_workspace_sql_file("sql/demo.sql".to_owned());
+    let doc = app.query_documents.last().expect("file doc");
+    assert_eq!(doc.text(), "SELECT 42;");
+    assert!(doc.file_path.as_ref().is_some_and(|path| path.ends_with("demo.sql")));
+    assert_eq!(app.active_tab, WorkspaceTab::Query);
+
+    let _ = std::fs::remove_dir_all(dir);
+}

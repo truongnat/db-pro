@@ -97,6 +97,8 @@ pub struct QueryDocument {
     pub saved_version: u64,
     pub saved_snapshot: String,
     pub saved_query_id: Option<String>,
+    /// Absolute path when this document is backed by a workspace `.sql` file (#262).
+    pub file_path: Option<String>,
     pub execution_state: QueryExecutionState,
     pub analysis: SqlDocumentAnalysis,
     pub diagnostics: Vec<Diagnostic>,
@@ -165,6 +167,7 @@ impl QueryDocument {
             saved_version: 0,
             saved_snapshot,
             saved_query_id: None,
+            file_path: None,
             execution_state: QueryExecutionState::Idle,
             analysis,
             diagnostics: Vec::new(),
@@ -376,6 +379,8 @@ impl Serialize for QueryDocument {
             scroll: f32,
             saved_query_id: Option<&'a str>,
             saved_snapshot: &'a str,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            file_path: Option<&'a str>,
         }
         let helper = SerializedQueryDocument {
             id: &self.id,
@@ -389,6 +394,7 @@ impl Serialize for QueryDocument {
             scroll: self.scroll,
             saved_query_id: self.saved_query_id.as_deref(),
             saved_snapshot: &self.saved_snapshot,
+            file_path: self.file_path.as_deref(),
         };
         helper.serialize(serializer)
     }
@@ -421,6 +427,8 @@ impl<'de> Deserialize<'de> for QueryDocument {
             saved_query_id: Option<String>,
             #[serde(default)]
             saved_snapshot: Option<String>,
+            #[serde(default)]
+            file_path: Option<String>,
         }
         let helper = DeserializedQueryDocument::deserialize(deserializer)?;
         let id = if helper.id.is_empty() {
@@ -432,6 +440,7 @@ impl<'de> Deserialize<'de> for QueryDocument {
         doc.connection_id = helper.connection_id;
         doc.schema = helper.schema;
         doc.saved_query_id = helper.saved_query_id;
+        doc.file_path = helper.file_path;
         doc.cursor.set_offset(&doc.buffer, helper.cursor_offset);
         doc.selection.anchor = helper.selection_anchor;
         doc.selection.active = helper.selection_active;

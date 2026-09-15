@@ -107,6 +107,22 @@ impl DbProApp {
                     app.recent_tables = tables;
                 }
             }
+            if let Some(recent_ws) = storage.get_string("dbpro.native.workspace-recent-v1") {
+                if let Ok(paths) = serde_json::from_str::<Vec<String>>(&recent_ws) {
+                    app.ide_workspace.recent_roots = paths.into_iter().map(std::path::PathBuf::from).collect();
+                }
+            }
+            if let Some(root) = storage.get_string("dbpro.native.workspace-root-v1") {
+                if !root.is_empty() {
+                    let path = std::path::PathBuf::from(root);
+                    if path.is_dir() {
+                        let _ = app.ide_workspace.open_root(path);
+                        if storage.get_string("dbpro.native.workspace-trusted-v1").as_deref() == Some("true") {
+                            app.ide_workspace.set_trusted(true);
+                        }
+                    }
+                }
+            }
         }
         app
     }
@@ -226,6 +242,9 @@ impl Default for DbProApp {
             selected_table: None,
             pinned_tables: Vec::new(),
             recent_tables: Vec::new(),
+            ide_workspace: ide_workspace::IdeWorkspaceState::default(),
+            workspace_search_query: String::new(),
+            workspace_search_hits: Vec::new(),
             selected_schema_object: None,
             schema_object_view: SchemaObjectView::Definition,
             diagram_zoom: 1.0,

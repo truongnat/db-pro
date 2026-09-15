@@ -85,6 +85,8 @@ mod explorer_folders;
 mod explorer_tree;
 #[path = "explorer_view.rs"]
 mod explorer_view;
+#[path = "ide_workspace.rs"]
+mod ide_workspace;
 #[path = "navigation_view.rs"]
 mod navigation_view;
 #[path = "palette_view.rs"]
@@ -115,6 +117,7 @@ pub use crate::query::{QueryDocument, QueryExecutionState};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Activity {
     Explorer,
+    Files,
     Queries,
     Data,
     History,
@@ -173,6 +176,7 @@ pub(crate) enum PaletteAction {
     Query,
     History,
     Data,
+    Files,
     Settings,
     Diagram,
     Agent,
@@ -185,6 +189,9 @@ pub(crate) enum PaletteAction {
     OpenTable(String),
     OpenSavedQuery(String),
     OpenHistoryEntry(usize),
+    OpenWorkspaceFile(String),
+    OpenWorkspaceFolder,
+    CloseWorkspaceFolder,
     InsertColumn(String),
     InsertSnippet(usize),
     ExplainQuery,
@@ -420,6 +427,11 @@ pub struct DbProApp {
     pinned_tables: Vec<String>,
     /// Most-recently-opened tables for Data Activity (#212). Persisted locally.
     recent_tables: Vec<String>,
+    /// Local IDE workspace folder / file tree (#261–#264).
+    ide_workspace: ide_workspace::IdeWorkspaceState,
+    /// Find-in-Files query draft for the Files activity (#267 foundation).
+    workspace_search_query: String,
+    workspace_search_hits: Vec<(String, usize, String)>,
     selected_schema_object: Option<SchemaObjectSelection>,
     schema_object_view: SchemaObjectView,
     diagram_zoom: f32,
@@ -533,6 +545,25 @@ impl eframe::App for DbProApp {
         if let Ok(recent) = serde_json::to_string(&self.recent_tables) {
             storage.set_string("dbpro.native.recent-tables-v1", recent);
         }
+        if let Ok(recent_ws) = serde_json::to_string(
+            &self
+                .ide_workspace
+                .recent_roots
+                .iter()
+                .map(|path| path.to_string_lossy().into_owned())
+                .collect::<Vec<_>>(),
+        ) {
+            storage.set_string("dbpro.native.workspace-recent-v1", recent_ws);
+        }
+        if let Some(root) = self.ide_workspace.root.as_ref() {
+            storage.set_string("dbpro.native.workspace-root-v1", root.to_string_lossy().into_owned());
+        } else {
+            storage.set_string("dbpro.native.workspace-root-v1", String::new());
+        }
+        storage.set_string(
+            "dbpro.native.workspace-trusted-v1",
+            matches!(self.ide_workspace.trust, ide_workspace::WorkspaceTrust::Trusted).to_string(),
+        );
         storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
         storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
         storage.set_string("dbpro.native.reduce-motion", self.reduce_motion.to_string());
@@ -1640,6 +1671,116 @@ impl DbProApp {
 
     pub(crate) fn remove_recent_table(&mut self, table: &str) {
         self.recent_tables.retain(|item| item != table);
+    }
+
+    pub(crate) fn request_open_workspace_folder(&mut self) {
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::PickWorkspaceFolder { request_id });
+        self.runtime_message = "Choose a workspace folder…".to_owned();
+    }
+
+    pub(crate) fn open_workspace_folder(&mut self, path: std::path::PathBuf) {
+        match self.ide_workspace.open_root(path) {
+            Ok(()) => {
+                self.activity = Activity::Files;
+                self.sidebar_open = true;
+                self.workspace_search_hits.clear();
+                self.runtime_message = format!(
+                    "Opened workspace {} · {} files indexed",
+                    self.ide_workspace.root_label(),
+                    self.ide_workspace.index.len()
+                );
+            }
+            Err(error) => {
+                self.runtime_message = format!("Failed to open workspace: {error}");
+            }
+        }
+    }
+
+    pub(crate) fn close_workspace_folder(&mut self) {
+        self.ide_workspace.close();
+        self.workspace_search_hits.clear();
+        self.runtime_message = "Workspace closed".to_owned();
+    }
+
+    pub(crate) fn refresh_workspace_folder(&mut self) {
+        match self.ide_workspace.refresh() {
+            Ok(()) => {
+                self.runtime_message =
+                    format!("Workspace refreshed · {} files indexed", self.ide_workspace.index.len());
+            }
+            Err(error) => {
+                self.runtime_message = format!("Workspace refresh failed: {error}");
+            }
+        }
+    }
+
+    pub(crate) fn open_workspace_sql_file(&mut self, relative_path: String) {
+        let Some(absolute) = self.ide_workspace.absolute_for_relative(&relative_path) else {
+            self.runtime_message = "Open a workspace folder first".to_owned();
+            return;
+        };
+        let absolute_str = absolute.to_string_lossy().into_owned();
+        if let Some(index) = self
+            .query_documents
+            .iter()
+            .position(|doc| doc.file_path.as_deref() == Some(absolute_str.as_str()))
+        {
+            self.switch_query_document(index);
+            self.active_tab = WorkspaceTab::Query;
+            return;
+        }
+        let content = match std::fs::read_to_string(&absolute) {
+            Ok(text) => text,
+            Err(error) => {
+                self.runtime_message = format!("Failed to read {}: {error}", absolute.display());
+                return;
+            }
+        };
+        let title = absolute
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| relative_path.clone());
+        let id = format!("file-{absolute_str}");
+        let mut doc = QueryDocument::new(id, title, content);
+        doc.file_path = Some(absolute_str);
+        doc.mark_saved();
+        self.query_documents.push(doc);
+        self.active_query_document = self.query_documents.len() - 1;
+        self.active_tab = WorkspaceTab::Query;
+        self.runtime_message = format!("Opened {relative_path}");
+    }
+
+    pub(crate) fn save_active_workspace_file(&mut self) -> bool {
+        let Some(doc) = self.query_documents.get_mut(self.active_query_document) else {
+            return false;
+        };
+        let Some(path) = doc.file_path.clone() else {
+            return false;
+        };
+        let contents = doc.text().as_bytes().to_vec();
+        match query_view::write_file_atomically(std::path::Path::new(&path), &contents) {
+            Ok(()) => {
+                doc.mark_saved();
+                self.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
+                true
+            }
+            Err(error) => {
+                self.runtime_message = format!("Save failed: {error}");
+                false
+            }
+        }
+    }
+
+    pub(crate) fn run_workspace_search(&mut self) {
+        let Some(root) = self.ide_workspace.root.clone() else {
+            self.workspace_search_hits.clear();
+            self.runtime_message = "Open a workspace folder before searching".to_owned();
+            return;
+        };
+        self.workspace_search_hits =
+            ide_workspace::search_workspace_files(&root, &self.ide_workspace.index, &self.workspace_search_query, 100);
+        self.runtime_message = format!("{} matches", self.workspace_search_hits.len());
     }
 
     fn open_palette(&mut self, mode: PaletteMode) {

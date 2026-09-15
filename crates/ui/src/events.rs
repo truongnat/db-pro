@@ -444,12 +444,16 @@ impl DbProApp {
                 self.backup_output_path = path;
             } else if kind == "restore" {
                 self.restore_input_path = path;
+            } else if kind == "workspace-folder" {
+                self.open_workspace_folder(std::path::PathBuf::from(path));
             }
             self.connection_error.clear();
             self.connection_test_valid = false;
         } else if kind == "sqlite" || kind == "ssh-key" {
             self.connection_error = "File selection was cancelled".to_owned();
             self.connection_test_valid = false;
+        } else if kind == "workspace-folder" {
+            self.runtime_message = "Workspace folder selection was cancelled".to_owned();
         }
     }
 

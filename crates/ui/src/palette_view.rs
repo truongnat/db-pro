@@ -11,6 +11,7 @@ impl DbProApp {
         };
         if mode == PaletteMode::QuickOpen {
             items.extend(self.recent_table_items());
+            items.extend(self.workspace_file_items());
             items.extend(self.schema_table_items());
             items.extend(self.pinned_table_items());
             items.extend(self.saved_query_items());
@@ -53,6 +54,13 @@ impl DbProApp {
                 subtitle: "Recent and pinned tables".to_owned(),
                 shortcut: None,
                 action: PaletteAction::Data,
+            },
+            PaletteItem {
+                icon: Icon::FolderOpen,
+                title: "Files".to_owned(),
+                subtitle: "Workspace folder and project SQL files".to_owned(),
+                shortcut: None,
+                action: PaletteAction::Files,
             },
             PaletteItem {
                 icon: Icon::ArrowRightLeft,
@@ -135,6 +143,20 @@ impl DbProApp {
                 subtitle: "Toggle the active table in pinned Quick Open entries".to_owned(),
                 shortcut: None,
                 action: PaletteAction::TogglePinTable(String::new()),
+            },
+            PaletteItem {
+                icon: Icon::FolderOpen,
+                title: "Open Folder…".to_owned(),
+                subtitle: "Open a local workspace folder (#261)".to_owned(),
+                shortcut: None,
+                action: PaletteAction::OpenWorkspaceFolder,
+            },
+            PaletteItem {
+                icon: Icon::Folder,
+                title: "Close Workspace".to_owned(),
+                subtitle: "Close the active workspace folder".to_owned(),
+                shortcut: None,
+                action: PaletteAction::CloseWorkspaceFolder,
             },
             PaletteItem {
                 icon: Icon::PanelLeft,
@@ -220,6 +242,22 @@ impl DbProApp {
                 subtitle: "Recent table · open".to_owned(),
                 shortcut: None,
                 action: PaletteAction::OpenTable(table),
+            })
+            .collect()
+    }
+
+    fn workspace_file_items(&self) -> Vec<PaletteItem> {
+        self.ide_workspace
+            .index
+            .iter()
+            .filter(|entry| entry.is_sql)
+            .take(80)
+            .map(|entry| PaletteItem {
+                icon: Icon::FileCode2,
+                title: entry.relative_path.clone(),
+                subtitle: "Workspace SQL · open".to_owned(),
+                shortcut: None,
+                action: PaletteAction::OpenWorkspaceFile(entry.relative_path.clone()),
             })
             .collect()
     }
@@ -345,6 +383,10 @@ impl DbProApp {
                 self.activity = Activity::Data;
                 self.sidebar_open = true;
             }
+            PaletteAction::Files => {
+                self.activity = Activity::Files;
+                self.sidebar_open = true;
+            }
             PaletteAction::Diagram => self.active_tab = WorkspaceTab::Diagram,
             PaletteAction::Settings => {
                 self.activity = Activity::Settings;
@@ -373,6 +415,9 @@ impl DbProApp {
             PaletteAction::RefreshSchema => self.refresh_schema_palette(),
             PaletteAction::ToggleExplorer => self.sidebar_open = !self.sidebar_open,
             PaletteAction::OpenTable(table) => self.open_table_from_palette(table),
+            PaletteAction::OpenWorkspaceFile(path) => self.open_workspace_sql_file(path),
+            PaletteAction::OpenWorkspaceFolder => self.request_open_workspace_folder(),
+            PaletteAction::CloseWorkspaceFolder => self.close_workspace_folder(),
             PaletteAction::OpenSavedQuery(query_id) => self.open_saved_query_from_palette(query_id),
             PaletteAction::OpenHistoryEntry(index) => {
                 if let Some(entry) = self.query_history_entries.get(index).cloned() {

@@ -73,6 +73,7 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::PickSshPrivateKey { .. }
         | UiCommand::PickBackupFile { .. }
         | UiCommand::PickRestoreFile { .. }
+        | UiCommand::PickWorkspaceFolder { .. }
         // Handled in the native command thread (keyring + ConfigureAgent):
         | UiCommand::SaveAgentApiKey { .. }
         => None,

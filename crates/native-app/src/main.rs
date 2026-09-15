@@ -78,6 +78,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                     send_picked(request_id, "restore", path);
                     continue;
                 }
+                UiCommand::PickWorkspaceFolder { request_id } => {
+                    let path = rfd::FileDialog::new()
+                        .set_title("Open workspace folder")
+                        .pick_folder()
+                        .map(|path| path.to_string_lossy().into_owned());
+                    send_picked(request_id, "workspace-folder", path);
+                    continue;
+                }
                 UiCommand::PickSshPrivateKey { request_id } => {
                     let path = rfd::FileDialog::new()
                         .pick_file()

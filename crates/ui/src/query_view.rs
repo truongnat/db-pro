@@ -987,6 +987,16 @@ impl DbProApp {
     }
 
     pub(crate) fn save_query_document_at(&mut self, document_index: usize) {
+        if self
+            .query_documents
+            .get(document_index)
+            .and_then(|document| document.file_path.as_ref())
+            .is_some()
+            && document_index == self.active_query_document
+            && self.save_active_workspace_file()
+        {
+            return;
+        }
         let Some(connection_id) = self
             .query_documents
             .get(document_index)

@@ -427,6 +427,7 @@ impl DbProApp {
                     ui.add_space(SPACE_SM);
                     for (activity, icon, hint) in [
                         (Some(Activity::Explorer), Icon::Database, "Explorer"),
+                        (Some(Activity::Files), Icon::FolderOpen, "Files"),
                         (Some(Activity::Queries), Icon::FileCode2, "Queries"),
                         (Some(Activity::Data), Icon::Table2, "Data"),
                         (Some(Activity::History), Icon::History, "History"),
@@ -615,6 +616,7 @@ impl DbProApp {
                                 ui.add_space(4.0);
                                 match self.activity {
                                     Activity::Queries => self.draw_queries(ui),
+                                    Activity::Files => self.draw_files_activity(ui),
                                     Activity::Data => self.draw_data_activity(ui),
                                     Activity::History => self.draw_history(ui),
                                     Activity::Problems => self.draw_problems(ui),
@@ -697,6 +699,166 @@ impl DbProApp {
                 self.sidebar_open = true;
             }
         });
+    }
+
+    fn draw_files_activity(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            section_label(ui, "WORKSPACE", self.theme);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if compact_icon_button(ui, Icon::FolderOpen, self.theme)
+                    .on_hover_text("Open folder")
+                    .clicked()
+                {
+                    self.request_open_workspace_folder();
+                }
+                if self.ide_workspace.root.is_some()
+                    && compact_icon_button(ui, Icon::RefreshCw, self.theme)
+                        .on_hover_text("Refresh tree")
+                        .clicked()
+                {
+                    self.refresh_workspace_folder();
+                }
+            });
+        });
+        ui.add_space(6.0);
+
+        if self.ide_workspace.root.is_none() {
+            ui.label(
+                RichText::new("Open a folder to browse SQL, migrations, and project files.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            ui.add_space(8.0);
+            if secondary_button_with_icon(ui, Icon::FolderOpen, "Open Folder", self.theme).clicked() {
+                self.request_open_workspace_folder();
+            }
+            if !self.ide_workspace.recent_roots.is_empty() {
+                ui.add_space(12.0);
+                section_label(ui, "RECENT", self.theme);
+                ui.add_space(6.0);
+                let recent = self.ide_workspace.recent_roots.clone();
+                for path in recent.into_iter().take(8) {
+                    let label = path
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| path.display().to_string());
+                    if sidebar_item(ui, Icon::Folder, &label, false, self.theme)
+                        .on_hover_text(path.display().to_string())
+                        .clicked()
+                    {
+                        self.open_workspace_folder(path);
+                    }
+                }
+            }
+            return;
+        }
+
+        ui.label(
+            RichText::new(self.ide_workspace.root.as_ref().unwrap().display().to_string())
+                .small()
+                .monospace()
+                .color(self.theme.text_secondary),
+        );
+        ui.add_space(4.0);
+        ui.horizontal(|ui| {
+            let trusted = matches!(self.ide_workspace.trust, ide_workspace::WorkspaceTrust::Trusted);
+            if ui.selectable_label(trusted, "Trusted").clicked() {
+                self.ide_workspace.set_trusted(true);
+            }
+            if ui.selectable_label(!trusted, "Untrusted").clicked() {
+                self.ide_workspace.set_trusted(false);
+            }
+            if ghost_button_with_icon(ui, Icon::X, "Close", self.theme).clicked() {
+                self.close_workspace_folder();
+            }
+        });
+        if let Some(error) = self.ide_workspace.last_error.clone() {
+            ui.add_space(4.0);
+            ui.label(RichText::new(error).small().color(self.theme.danger));
+        }
+
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            ui.add(
+                egui::TextEdit::singleline(&mut self.workspace_search_query)
+                    .hint_text("Find in files…")
+                    .desired_width(ui.available_width() - 52.0),
+            );
+            if compact_button(ui, "Find", self.theme).clicked() {
+                self.run_workspace_search();
+            }
+        });
+        if !self.workspace_search_hits.is_empty() {
+            ui.add_space(6.0);
+            section_label(ui, "SEARCH RESULTS", self.theme);
+            ui.add_space(4.0);
+            let hits = self.workspace_search_hits.clone();
+            for (path, line, preview) in hits.into_iter().take(40) {
+                let label = format!("{path}:{line}");
+                if sidebar_item(ui, Icon::Search, &label, false, self.theme)
+                    .on_hover_text(preview)
+                    .clicked()
+                    && path.ends_with(".sql")
+                {
+                    self.open_workspace_sql_file(path);
+                }
+            }
+            ui.add_space(8.0);
+        }
+
+        ui.add_space(4.0);
+        section_label(ui, &format!("FILES · {}", self.ide_workspace.index.len()), self.theme);
+        ui.add_space(6.0);
+        let tree = self.ide_workspace.tree.clone();
+        for node in &tree {
+            self.draw_workspace_tree_node(ui, node, 0);
+        }
+    }
+
+    fn draw_workspace_tree_node(&mut self, ui: &mut egui::Ui, node: &ide_workspace::WorkspaceFileNode, depth: usize) {
+        let indent = depth as f32 * 12.0;
+        ui.horizontal(|ui| {
+            ui.add_space(indent);
+            if node.is_dir {
+                let expanded = self.ide_workspace.expanded.contains(&node.relative_path);
+                let chevron = if expanded {
+                    Icon::ChevronDown
+                } else {
+                    Icon::ChevronRight
+                };
+                let response = sidebar_item(ui, chevron, &node.name, false, self.theme);
+                if response.clicked() {
+                    if expanded {
+                        self.ide_workspace.expanded.remove(&node.relative_path);
+                    } else {
+                        self.ide_workspace.expanded.insert(node.relative_path.clone());
+                    }
+                }
+            } else {
+                let icon = if node.name.ends_with(".sql") {
+                    Icon::FileCode2
+                } else {
+                    Icon::FileText
+                };
+                let selected = self
+                    .query_documents
+                    .get(self.active_query_document)
+                    .and_then(|doc| doc.file_path.as_ref())
+                    .is_some_and(|path| path == &node.absolute_path.to_string_lossy());
+                if sidebar_item(ui, icon, &node.name, selected, self.theme)
+                    .on_hover_text(&node.relative_path)
+                    .clicked()
+                    && node.name.ends_with(".sql")
+                {
+                    self.open_workspace_sql_file(node.relative_path.clone());
+                }
+            }
+        });
+        if node.is_dir && self.ide_workspace.expanded.contains(&node.relative_path) {
+            for child in &node.children {
+                self.draw_workspace_tree_node(ui, child, depth + 1);
+            }
+        }
     }
 
     fn draw_queries(&mut self, ui: &mut egui::Ui) {

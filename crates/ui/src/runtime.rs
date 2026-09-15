@@ -484,6 +484,9 @@ pub enum UiCommand {
     PickRestoreFile {
         request_id: RequestId,
     },
+    PickWorkspaceFolder {
+        request_id: RequestId,
+    },
     DeleteConnection {
         request_id: RequestId,
         connection_id: String,
