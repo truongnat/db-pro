@@ -300,6 +300,19 @@ enum TableView {
     Constraints,
     Dependencies,
     Ddl,
+    Profile,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ColumnProfile {
+    pub name: String,
+    pub data_type: String,
+    pub null_count: usize,
+    pub null_rate: f64,
+    pub distinct_count: usize,
+    pub distinct_rate: f64,
+    pub min: Option<String>,
+    pub max: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -988,6 +1001,7 @@ impl DbProApp {
             WorkspaceTab::Table => match self.table_view {
                 TableView::Structure => "Table Structure",
                 TableView::Data => "Data Editor",
+                TableView::Profile => "Column Profile",
                 TableView::Indexes => "Table Indexes",
                 TableView::Relations => "Table Relations",
                 TableView::Constraints => "Table Constraints",
