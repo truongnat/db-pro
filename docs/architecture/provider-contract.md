@@ -43,7 +43,7 @@ The composite is the only dispatch point for connections:
 | `connect(config, password)` | factory for `config.driver` builds the connector; the handle records the driver |
 | `test_connection` | the factory's own `test_connection` |
 | `query` / `execute` / `cancel` / `execute_batch` / `execute_transaction` / `execute_parameterized_transaction` / `introspect` / `explain` | cloned connector for that handle |
-| `dialect(handle)` | per-driver `SqlDialect` (PostgreSQL `$n`, SQLite `?`; MySQL has **no arm** today and returns a named validation error) |
+| `dialect(handle)` | per-driver `SqlDialect` (PostgreSQL `$n`, SQLite/MySQL `?`) |
 | `capabilities(config)` | the factory's capability set, falling back to `DatabaseCapabilities::for_driver` |
 
 `DriverType` is a closed enum, so provider registration is a compile-time act: adding an engine

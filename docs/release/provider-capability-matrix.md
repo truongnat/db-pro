@@ -185,7 +185,7 @@ work through the runtime/tests but have no enabled user surface.
 | ENUM / SET | SUPPORTED + QUALIFIED | Both decode as `Text` in the live 41-column matrix |
 | Sequences | NOT SUPPORTED | MySQL 8 has no standalone sequences |
 | Schema diff | SUPPORTED + NOT YET QUALIFIED | Compares two `IntrospectResult`s, so it needs no MySQL-specific path; no MySQL test |
-| Data diff | **NOT SUPPORTED** | Needs a dialect and there is no MySQL dialect arm; capability is `false` |
+| Data diff | SUPPORTED + NOT YET QUALIFIED | Shared `DataDiffService` + MySQL dialect |
 | Raw SELECT (query editor) | SUPPORTED + QUALIFIED | Live query path; values decode per the provider-value contract |
 | Data Grid read / filter / sort / pagination | SUPPORTED + QUALIFIED | Dialect + `sql_builder` select/count live (`mysql_table_data_change_set_round_trips`) |
 | Row write via the query editor | SUPPORTED + NOT YET QUALIFIED | Plain SQL through `execute`: `INSERT` is live-tested (`mysql_execute_returns_affected_rows`); `UPDATE`/`DELETE` are the same path with no MySQL-specific test |
