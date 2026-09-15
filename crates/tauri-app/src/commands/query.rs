@@ -220,26 +220,6 @@ pub async fn rename_saved_query(
     runtime.query_api().rename_saved_query(&uuid, &name).await?;
     Ok(())
 }
-
-#[tauri::command]
-pub async fn rename_saved_query(
-    service: State<'_, QueryService>,
-    id: String,
-    new_name: String,
-) -> Result<(), CommandError> {
-    let uuid = uuid::Uuid::parse_str(&id).map_err(|e| CommandError {
-        error: "VALIDATION".into(),
-        message: format!("invalid query id: {e}"),
-        message_id: "error.validation".into(),
-        details: None,
-        retryable: false,
-    })?;
-    service.rename_saved_query(&uuid, &new_name).await?;
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn create_folder(
     runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     name: String,
