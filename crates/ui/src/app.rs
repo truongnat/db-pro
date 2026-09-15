@@ -178,6 +178,7 @@ pub(crate) enum PaletteAction {
     RefreshSchema,
     ToggleExplorer,
     OpenTable(String),
+    OpenSavedQuery(String),
     ExplainQuery,
     ExportResults,
     RunQuery,

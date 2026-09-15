@@ -2102,6 +2102,29 @@ fn command_palette_opens_problems_and_diagnostics() {
 }
 
 #[test]
+fn command_palette_opens_saved_query_into_editor() {
+    let mut app = DbProApp::default();
+    let ctx = egui::Context::default();
+    app.saved_queries = vec![crate::UiSavedQuerySummary {
+        id: "sq-1".to_owned(),
+        name: "Active users".to_owned(),
+        sql: "SELECT 1".to_owned(),
+        folder: Some("Analytics".to_owned()),
+    }];
+    assert!(app
+        .filtered_palette_items(PaletteMode::QuickOpen)
+        .iter()
+        .any(|item| item.title == "Active users"));
+    app.execute_palette_action(PaletteAction::OpenSavedQuery("sq-1".to_owned()), &ctx);
+    assert_eq!(app.active_tab, WorkspaceTab::Query);
+    assert!(app.active_query_text().contains("SELECT 1"));
+    assert_eq!(
+        app.query_documents[app.active_query_document].saved_query_id.as_deref(),
+        Some("sq-1")
+    );
+}
+
+#[test]
 fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);

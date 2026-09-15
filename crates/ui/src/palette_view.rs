@@ -11,6 +11,7 @@ impl DbProApp {
         };
         if mode == PaletteMode::QuickOpen {
             items.extend(self.schema_table_items());
+            items.extend(self.saved_query_items());
         }
         if mode == PaletteMode::Commands {
             items.extend(self.connection_items());
@@ -190,6 +191,24 @@ impl DbProApp {
             .collect()
     }
 
+    fn saved_query_items(&self) -> Vec<PaletteItem> {
+        self.saved_queries
+            .iter()
+            .take(40)
+            .map(|query| PaletteItem {
+                icon: Icon::Bookmark,
+                title: query.name.clone(),
+                subtitle: query
+                    .folder
+                    .clone()
+                    .map(|folder| format!("Saved query · {folder}"))
+                    .unwrap_or_else(|| "Saved query".to_owned()),
+                shortcut: None,
+                action: PaletteAction::OpenSavedQuery(query.id.clone()),
+            })
+            .collect()
+    }
+
     pub(crate) fn filtered_palette_items(&self, mode: PaletteMode) -> Vec<PaletteItem> {
         let query = self.palette_query.trim().to_lowercase();
         self.palette_items(mode)
@@ -243,6 +262,7 @@ impl DbProApp {
             PaletteAction::RefreshSchema => self.refresh_schema_palette(),
             PaletteAction::ToggleExplorer => self.sidebar_open = !self.sidebar_open,
             PaletteAction::OpenTable(table) => self.open_table_from_palette(table),
+            PaletteAction::OpenSavedQuery(query_id) => self.open_saved_query_from_palette(query_id),
             PaletteAction::ExplainQuery => self.explain_query(),
             PaletteAction::ExportResults => self.export_results_from_palette(),
             PaletteAction::RunQuery => {
@@ -288,6 +308,22 @@ impl DbProApp {
         self.request_table_info();
         self.active_tab = WorkspaceTab::Table;
         self.runtime_message = format!("Opening table {table}");
+    }
+
+    fn open_saved_query_from_palette(&mut self, query_id: String) {
+        let Some(query) = self.saved_queries.iter().find(|item| item.id == query_id).cloned() else {
+            self.runtime_message = "Saved query is no longer available".to_owned();
+            return;
+        };
+        self.new_query_document();
+        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            doc.set_text(query.sql.clone());
+            doc.title = query.name.clone();
+            doc.saved_query_id = Some(query.id.clone());
+            doc.mark_saved();
+        }
+        self.active_tab = WorkspaceTab::Query;
+        self.runtime_message = format!("Opened saved query {}", query.name);
     }
 
     fn export_results_from_palette(&mut self) {
