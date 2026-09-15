@@ -44,7 +44,10 @@ async fn composite_handles_mysql_capabilities() {
         ..sqlite_config()
     });
     assert!(caps.schema.schemas, "MySQL should support schemas");
-    assert!(!caps.features.tablespaces, "MySQL connector reports no tablespaces support");
+    assert!(
+        !caps.features.tablespaces,
+        "MySQL connector reports no tablespaces support"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
