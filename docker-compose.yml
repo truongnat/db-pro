@@ -17,5 +17,30 @@ services:
       timeout: 3s
       retries: 5
 
+  # MySQL 8 fixture for the provider live tests (#235). Service block added whole: the
+  # postgres service above is unchanged. `--default-time-zone=+00:00` pins the server zone,
+  # and the client charset is pinned inside 001_schema.sql/002_seed.sql (`SET NAMES utf8mb4`)
+  # so the unicode row is stored as written. 003_verify.sql self-checks the load and raises
+  # SQLSTATE 45000 if it is wrong.
+  mysql:
+    image: mysql:8.4
+    command: --default-time-zone=+00:00
+    environment:
+      MYSQL_ROOT_PASSWORD: dbpro_test
+      MYSQL_DATABASE: dbpro_fixture
+    ports:
+      - "33306:3306"
+    volumes:
+      - ./fixtures/mysql/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql
+      - ./fixtures/mysql/002_seed.sql:/docker-entrypoint-initdb.d/002_seed.sql
+      - ./fixtures/mysql/003_verify.sql:/docker-entrypoint-initdb.d/003_verify.sql
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   pg_data:
+  mysql_data:

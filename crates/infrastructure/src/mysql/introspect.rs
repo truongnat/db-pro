@@ -1,7 +1,23 @@
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::schema::*;
-use sqlx::mysql::MySqlPool;
+use sqlx::mysql::{MySqlPool, MySqlRow};
 use sqlx::Row;
+
+/// Reads one `information_schema` column without the driver's compatibility gate.
+///
+/// Two MySQL 8 facts make the gate unusable here, both measured live against the fixture:
+/// the labels come back in upper case (`TABLE_NAME`), so every column is aliased to the
+/// lower-case label read here, and the text columns are reported with the binary flag set
+/// (their type name is `VARBINARY`), so the gate rejects `String` even though the payload is
+/// the column's own UTF-8 text. Skipping the gate skips no decoding: `T`'s decoder still
+/// reads the payload.
+fn info<'r, T>(row: &'r MySqlRow, name: &str) -> T
+where
+    T: sqlx::Decode<'r, sqlx::MySql>,
+{
+    row.try_get_unchecked::<T, _>(name)
+        .unwrap_or_else(|error| panic!("MySQL information_schema column {name} is unreadable: {error}"))
+}
 
 pub struct MySqlIntrospect;
 
@@ -15,8 +31,13 @@ impl MySqlIntrospect {
         let schema = Schema { name: database.clone() };
 
         // Tables
+        //
+        // `information_schema` reports its own column labels in upper case on MySQL 8, and
+        // `Row::get(&str)` matches a label exactly, so every selected column is aliased to
+        // the lower-case label this module reads. Without the aliases the first `get` fails
+        // with `ColumnNotFound("table_name")` and takes the whole introspection down.
         let table_rows =
-            sqlx::query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = ?")
+            sqlx::query("SELECT TABLE_NAME AS table_name, TABLE_TYPE AS table_type FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?")
                 .bind(&database)
                 .fetch_all(pool)
                 .await
@@ -25,7 +46,7 @@ impl MySqlIntrospect {
         let mut tables = Vec::new();
         let mut table_names = Vec::new();
         for row in &table_rows {
-            let name: String = row.get("table_name");
+            let name: String = info(row, "table_name");
             table_names.push(name.clone());
             tables.push(Table {
                 name,
@@ -36,10 +57,12 @@ impl MySqlIntrospect {
 
         // Columns
         let column_rows = sqlx::query(
-            "SELECT table_name, column_name, data_type, is_nullable, column_default, extra, column_key, ordinal_position 
-             FROM information_schema.columns 
-             WHERE table_schema = ? 
-             ORDER BY table_name, ordinal_position"
+            "SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, DATA_TYPE AS data_type, \
+             IS_NULLABLE AS is_nullable, COLUMN_DEFAULT AS column_default, EXTRA AS extra, \
+             COLUMN_KEY AS column_key, ORDINAL_POSITION AS ordinal_position 
+             FROM information_schema.COLUMNS 
+             WHERE TABLE_SCHEMA = ? 
+             ORDER BY TABLE_NAME, ORDINAL_POSITION",
         )
         .bind(&database)
         .fetch_all(pool)
@@ -49,17 +72,17 @@ impl MySqlIntrospect {
         let mut columns = Vec::new();
         for row in &column_rows {
             let col = Column {
-                name: row.get("column_name"),
-                data_type: row.get("data_type"),
-                ordinal: row.get::<u32, _>("ordinal_position") as usize,
-                nullable: row.get::<String, _>("is_nullable") == "YES",
-                default: row.get::<Option<String>, _>("column_default"),
-                is_primary_key: row.get::<String, _>("column_key") == "PRI",
-                is_unique: row.get::<String, _>("column_key") == "UNI",
-                is_identity: row.get::<String, _>("extra").contains("auto_increment"),
-                is_generated: row.get::<String, _>("extra").contains("GENERATED"),
+                name: info(row, "column_name"),
+                data_type: info(row, "data_type"),
+                ordinal: info::<u32>(row, "ordinal_position") as usize,
+                nullable: info::<String>(row, "is_nullable") == "YES",
+                default: info::<Option<String>>(row, "column_default"),
+                is_primary_key: info::<String>(row, "column_key") == "PRI",
+                is_unique: info::<String>(row, "column_key") == "UNI",
+                is_identity: info::<String>(row, "extra").contains("auto_increment"),
+                is_generated: info::<String>(row, "extra").contains("GENERATED"),
                 collation: None,
-                table_name: row.get("table_name"),
+                table_name: info(row, "table_name"),
                 schema: database.clone(),
             };
             columns.push(col);
@@ -67,10 +90,10 @@ impl MySqlIntrospect {
 
         // Primary keys
         let pk_rows = sqlx::query(
-            "SELECT table_name, column_name, constraint_name 
-             FROM information_schema.key_column_usage 
-             WHERE table_schema = ? AND constraint_name = 'PRIMARY'
-             ORDER BY table_name, ordinal_position",
+            "SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, CONSTRAINT_NAME AS constraint_name 
+             FROM information_schema.KEY_COLUMN_USAGE 
+             WHERE TABLE_SCHEMA = ? AND CONSTRAINT_NAME = 'PRIMARY' 
+             ORDER BY TABLE_NAME, ORDINAL_POSITION",
         )
         .bind(&database)
         .fetch_all(pool)
@@ -79,8 +102,8 @@ impl MySqlIntrospect {
 
         let mut pk_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
         for row in &pk_rows {
-            let table: String = row.get("table_name");
-            let col: String = row.get("column_name");
+            let table: String = info(row, "table_name");
+            let col: String = info(row, "column_name");
             pk_map.entry(table).or_default().push(col);
         }
         let primary_keys = pk_map
@@ -95,31 +118,36 @@ impl MySqlIntrospect {
 
         // Indexes
         let index_rows = sqlx::query(
-            "SELECT table_name, index_name, column_name, non_unique, index_type 
-             FROM information_schema.statistics 
-             WHERE table_schema = ? 
-             ORDER BY table_name, index_name, seq_in_index",
+            "SELECT TABLE_NAME AS table_name, INDEX_NAME AS index_name, COLUMN_NAME AS column_name, \
+             NON_UNIQUE AS non_unique, INDEX_TYPE AS index_type 
+             FROM information_schema.STATISTICS 
+             WHERE TABLE_SCHEMA = ? 
+             ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX",
         )
         .bind(&database)
         .fetch_all(pool)
         .await
         .map_err(|e| DbError::QueryFailed(format!("MySQL introspect indexes failed: {}", e)))?;
 
-        let mut index_groups: std::collections::HashMap<String, (Vec<String>, bool, String)> =
+        // Grouped by table *and* name: an index name is only unique within its table, and a
+        // grouped index without its table cannot be placed — `SchemaService` filters indexes
+        // by table name, so an empty one silently dropped every MySQL index.
+        let mut index_groups: std::collections::HashMap<(String, String), (Vec<String>, bool, String)> =
             std::collections::HashMap::new();
         for row in &index_rows {
-            let idx_name: String = row.get("index_name");
-            let col: String = row.get("column_name");
-            let non_unique: i32 = row.get("non_unique");
-            let idx_type: String = row.get("index_type");
+            let table: String = info(row, "table_name");
+            let idx_name: String = info(row, "index_name");
+            let col: String = info(row, "column_name");
+            let non_unique: i32 = info(row, "non_unique");
+            let idx_type: String = info(row, "index_type");
             let entry = index_groups
-                .entry(idx_name)
+                .entry((table, idx_name))
                 .or_insert_with(|| (Vec::new(), non_unique == 0, idx_type));
             entry.0.push(col);
         }
         let indexes = index_groups
             .into_iter()
-            .map(|(name, (columns, unique, method))| {
+            .map(|((table_name, name), (columns, unique, method))| {
                 let is_primary = name == "PRIMARY";
                 Index {
                     name,
@@ -131,7 +159,7 @@ impl MySqlIntrospect {
                     predicate: None,
                     definition: String::new(),
                     origin: IndexOrigin::User,
-                    table_name: String::new(),
+                    table_name,
                     schema: database.clone(),
                 }
             })
@@ -140,18 +168,18 @@ impl MySqlIntrospect {
         // Foreign keys
         let fk_rows = sqlx::query(
             "SELECT 
-                tc.table_name, 
-                kcu.column_name,
-                kcu.referenced_table_name,
-                kcu.referenced_column_name,
-                rc.constraint_name,
-                rc.update_rule,
-                rc.delete_rule
-             FROM information_schema.table_constraints tc
-             JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
-             JOIN information_schema.referential_constraints rc ON tc.constraint_name = rc.constraint_name
-             WHERE tc.table_schema = ? AND tc.constraint_type = 'FOREIGN KEY'
-             ORDER BY tc.constraint_name, kcu.ordinal_position",
+                tc.TABLE_NAME AS table_name, 
+                kcu.COLUMN_NAME AS column_name,
+                kcu.REFERENCED_TABLE_NAME AS referenced_table_name,
+                kcu.REFERENCED_COLUMN_NAME AS referenced_column_name,
+                rc.CONSTRAINT_NAME AS constraint_name,
+                rc.UPDATE_RULE AS update_rule,
+                rc.DELETE_RULE AS delete_rule
+             FROM information_schema.TABLE_CONSTRAINTS tc
+             JOIN information_schema.KEY_COLUMN_USAGE kcu ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+             JOIN information_schema.REFERENTIAL_CONSTRAINTS rc ON tc.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+             WHERE tc.TABLE_SCHEMA = ? AND tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
+             ORDER BY tc.CONSTRAINT_NAME, kcu.ORDINAL_POSITION",
         )
         .bind(&database)
         .fetch_all(pool)
@@ -164,19 +192,19 @@ impl MySqlIntrospect {
             (Vec<String>, Vec<String>, String, String, String, String),
         > = std::collections::HashMap::new();
         for row in &fk_rows {
-            let constraint: String = row.get("constraint_name");
+            let constraint: String = info(row, "constraint_name");
             let entry = fk_groups.entry(constraint).or_insert_with(|| {
                 (
                     Vec::new(),
                     Vec::new(),
-                    row.get("table_name"),
-                    row.get("referenced_table_name"),
-                    row.get("update_rule"),
-                    row.get("delete_rule"),
+                    info(row, "table_name"),
+                    info(row, "referenced_table_name"),
+                    info(row, "update_rule"),
+                    info(row, "delete_rule"),
                 )
             });
-            entry.0.push(row.get("column_name"));
-            entry.1.push(row.get("referenced_column_name"));
+            entry.0.push(info(row, "column_name"));
+            entry.1.push(info(row, "referenced_column_name"));
         }
         let foreign_keys = fk_groups
             .into_iter()
@@ -199,8 +227,9 @@ impl MySqlIntrospect {
             .collect();
 
         // Views
-        let view_rows =
-            sqlx::query("SELECT table_name, view_definition FROM information_schema.views WHERE table_schema = ?")
+        let view_rows = sqlx::query(
+            "SELECT TABLE_NAME AS table_name, VIEW_DEFINITION AS view_definition FROM information_schema.VIEWS WHERE TABLE_SCHEMA = ?",
+        )
                 .bind(&database)
                 .fetch_all(pool)
                 .await
@@ -209,17 +238,19 @@ impl MySqlIntrospect {
         let views = view_rows
             .iter()
             .map(|row| View {
-                name: row.get("table_name"),
+                name: info(row, "table_name"),
                 schema: database.clone(),
-                definition: row.get::<Option<String>, _>("view_definition").unwrap_or_default(),
+                definition: info::<Option<String>>(row, "view_definition").unwrap_or_default(),
             })
             .collect();
 
         // Triggers
         let trigger_rows = sqlx::query(
-            "SELECT trigger_name, event_manipulation, event_object_table, action_statement, action_timing 
-             FROM information_schema.triggers 
-             WHERE trigger_schema = ?",
+            "SELECT TRIGGER_NAME AS trigger_name, EVENT_MANIPULATION AS event_manipulation, \
+             EVENT_OBJECT_TABLE AS event_object_table, ACTION_STATEMENT AS action_statement, \
+             ACTION_TIMING AS action_timing 
+             FROM information_schema.TRIGGERS 
+             WHERE TRIGGER_SCHEMA = ?",
         )
         .bind(&database)
         .fetch_all(pool)
@@ -229,12 +260,12 @@ impl MySqlIntrospect {
         let triggers = trigger_rows
             .iter()
             .map(|row| Trigger {
-                name: row.get("trigger_name"),
-                table_name: row.get("event_object_table"),
+                name: info(row, "trigger_name"),
+                table_name: info(row, "event_object_table"),
                 schema: database.clone(),
-                timing: row.get("action_timing"),
-                event: row.get("event_manipulation"),
-                definition: row.get::<Option<String>, _>("action_statement").unwrap_or_default(),
+                timing: info(row, "action_timing"),
+                event: info(row, "event_manipulation"),
+                definition: info::<Option<String>>(row, "action_statement").unwrap_or_default(),
                 function_def: String::new(),
                 enabled: true,
             })
@@ -242,9 +273,10 @@ impl MySqlIntrospect {
 
         // Functions
         let routine_rows = sqlx::query(
-            "SELECT routine_name, routine_type, data_type, routine_definition 
-             FROM information_schema.routines 
-             WHERE routine_schema = ?",
+            "SELECT ROUTINE_NAME AS routine_name, ROUTINE_TYPE AS routine_type, DATA_TYPE AS data_type, \
+             ROUTINE_DEFINITION AS routine_definition 
+             FROM information_schema.ROUTINES 
+             WHERE ROUTINE_SCHEMA = ?",
         )
         .bind(&database)
         .fetch_all(pool)
@@ -254,11 +286,11 @@ impl MySqlIntrospect {
         let functions = routine_rows
             .iter()
             .map(|row| Function {
-                name: row.get("routine_name"),
+                name: info(row, "routine_name"),
                 schema: database.clone(),
-                routine_type: row.get("routine_type"),
-                data_type: row.get::<Option<String>, _>("data_type").unwrap_or_default(),
-                definition: row.get::<Option<String>, _>("routine_definition").unwrap_or_default(),
+                routine_type: info(row, "routine_type"),
+                data_type: info::<Option<String>>(row, "data_type").unwrap_or_default(),
+                definition: info::<Option<String>>(row, "routine_definition").unwrap_or_default(),
             })
             .collect();
 
