@@ -79,7 +79,10 @@ impl Default for UiConnectionDraft {
             username,
             password,
             driver: UiDriver::Postgres,
-            ssl_mode: UiSslMode::Disable,
+            // #144: new PostgreSQL connections default to TLS Require. Do not change
+            // the Rust `SslMode::default()` / serde fallback — persisted records that
+            // omit the field must keep decoding as Disable.
+            ssl_mode: UiSslMode::Require,
             readonly: false,
             ssh_tunnel_enabled: false,
             ssh_host: String::new(),
@@ -857,7 +860,7 @@ mod tests {
 
         assert_eq!(draft.port, "5432");
         assert_eq!(draft.driver, UiDriver::Postgres);
-        assert_eq!(draft.ssl_mode, UiSslMode::Disable);
+        assert_eq!(draft.ssl_mode, UiSslMode::Require);
         assert!(!draft.readonly);
         assert!(!draft.ssh_tunnel_enabled);
         assert_eq!(draft.ssh_port, "22");

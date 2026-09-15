@@ -319,6 +319,77 @@ fn duplicating_a_connection_preserves_its_stored_ssl_mode() {
 }
 
 #[test]
+fn new_postgresql_connection_defaults_to_tls_require() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+
+    app.open_new_connection();
+
+    assert_eq!(app.connection_draft.driver, UiDriver::Postgres);
+    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::Require);
+
+    app.dispatch_connection_command(true);
+    let UiCommand::CreateConnection { draft, .. } = command_rx.try_recv().expect("create command expected") else {
+        panic!("expected CreateConnection");
+    };
+    assert_eq!(draft.ssl_mode, UiSslMode::Require);
+}
+
+#[test]
+fn editing_a_disable_connection_keeps_disable_until_the_user_changes_it() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let connection = connection_summary_with_ssl_mode(UiSslMode::Disable);
+
+    app.open_edit_connection(&connection);
+    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::Disable);
+
+    app.dispatch_connection_command(true);
+    let UiCommand::UpdateConnection { draft, .. } = command_rx.try_recv().expect("update command expected") else {
+        panic!("expected UpdateConnection");
+    };
+    assert_eq!(draft.ssl_mode, UiSslMode::Disable);
+}
+
+#[test]
+fn switching_sqlite_to_postgresql_initializes_tls_require() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.open_new_connection();
+    app.connection_draft.driver = UiDriver::Sqlite;
+    app.connection_draft.ssl_mode = UiSslMode::Disable;
+
+    app.select_connection_driver(UiDriver::Postgres);
+
+    assert_eq!(app.connection_draft.driver, UiDriver::Postgres);
+    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::Require);
+}
+
+#[test]
+fn explicit_disable_selection_is_preserved_on_submit() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.open_new_connection();
+    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::Require);
+
+    app.connection_draft.ssl_mode = UiSslMode::Disable;
+    app.dispatch_connection_command(true);
+
+    let UiCommand::CreateConnection { draft, .. } = command_rx.try_recv().expect("create command expected") else {
+        panic!("expected CreateConnection");
+    };
+    assert_eq!(draft.ssl_mode, UiSslMode::Disable);
+}
+
+#[test]
+fn ssl_mode_guidance_names_the_plaintext_risk_for_disable() {
+    assert!(super::connection_view::ssl_mode_guidance(UiSslMode::Disable).contains("Plaintext"));
+    assert!(super::connection_view::ssl_mode_guidance(UiSslMode::Require).contains("TLS"));
+    assert!(super::connection_view::ssl_mode_guidance(UiSslMode::VerifyCa).contains("CA"));
+    assert!(super::connection_view::ssl_mode_guidance(UiSslMode::VerifyFull).contains("Strongest"));
+}
+
+#[test]
 fn table_edits_stage_until_explicit_apply() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);

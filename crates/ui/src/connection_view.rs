@@ -14,6 +14,18 @@ use lucide_icons::Icon;
 const SSH_QUALIFICATION_HINT: &str =
     "Unqualified in v0.1: the tunnel has not been end-to-end tested and may not work reliably.";
 
+/// Per-mode guidance for the SSL selector (#144 locked contract).
+pub(crate) fn ssl_mode_guidance(mode: UiSslMode) -> &'static str {
+    match mode {
+        UiSslMode::Disable => {
+            "Plaintext — credentials and query traffic travel without TLS. Use only for localhost/dev."
+        }
+        UiSslMode::Require => "TLS encryption enabled, but server identity is not verified against a CA.",
+        UiSslMode::VerifyCa => "CA validation enabled; hostname identity is weaker than Verify Full.",
+        UiSslMode::VerifyFull => "Strongest available mode — recommended for remote production.",
+    }
+}
+
 struct DriverCardProps<'a> {
     icon: Icon,
     name: &'a str,
@@ -141,6 +153,17 @@ fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &DbPro
 }
 
 impl DbProApp {
+    /// Apply a driver choice from the connection dialog.
+    ///
+    /// Switching onto PostgreSQL always re-initializes TLS to `Require` so a
+    /// prior SQLite draft cannot leave the form on `Disable` (#144).
+    pub(crate) fn select_connection_driver(&mut self, driver: UiDriver) {
+        if driver == UiDriver::Postgres && self.connection_draft.driver != UiDriver::Postgres {
+            self.connection_draft.ssl_mode = UiSslMode::Require;
+        }
+        self.connection_draft.driver = driver;
+    }
+
     pub(crate) fn open_edit_connection(&mut self, connection: &UiConnectionSummary) {
         self.pending_connection_request = None;
         self.editing_connection_id = Some(connection.id.clone());
@@ -370,7 +393,7 @@ impl DbProApp {
             )
             .clicked()
             {
-                self.connection_draft.driver = UiDriver::Postgres;
+                self.select_connection_driver(UiDriver::Postgres);
             }
 
             ui.add_space(gap);
@@ -391,7 +414,7 @@ impl DbProApp {
             )
             .clicked()
             {
-                self.connection_draft.driver = UiDriver::Sqlite;
+                self.select_connection_driver(UiDriver::Sqlite);
             }
 
             ui.add_space(gap);
@@ -649,6 +672,17 @@ impl DbProApp {
                     2 => UiSslMode::VerifyCa,
                     _ => UiSslMode::VerifyFull,
                 };
+                ui.add_space(SPACE_XXS);
+                let guidance_color = match self.connection_draft.ssl_mode {
+                    UiSslMode::Disable => self.theme.danger,
+                    UiSslMode::Require | UiSslMode::VerifyCa => self.theme.warning,
+                    UiSslMode::VerifyFull => self.theme.text_muted,
+                };
+                ui.label(
+                    RichText::new(ssl_mode_guidance(self.connection_draft.ssl_mode))
+                        .size(10.5)
+                        .color(guidance_color),
+                );
             });
         });
         ui.add_space(SPACE_SM);
