@@ -1,6 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use db_pro_ui::{filtered_sorted_indexes, UiCell, UiColumn, UiQueryResult};
-use std::collections::HashMap;
+use db_pro_ui::{filtered_sorted_indexes, GridSelectionLookup, UiCell, UiColumn, UiQueryResult};
 
 fn million_row_result() -> UiQueryResult {
     UiQueryResult {
@@ -154,26 +153,42 @@ fn grid_result(row_count: usize, column_count: usize) -> UiQueryResult {
 fn bench_requested_grid_sizes(c: &mut Criterion) {
     let mut group = c.benchmark_group("result_grid_requested_sizes");
     for row_count in [1_000, 10_000] {
+        // These maps are the selection lookup the draw path builds, so the benchmark measures
+        // `GridSelectionLookup::new` instead of a copy of its body.
         let result = grid_result(row_count, 50);
         let indexes = (0..row_count).collect::<Vec<_>>();
+        let order = (0..result.columns.len()).collect::<Vec<_>>();
         group.throughput(Throughput::Elements((row_count * 50) as u64));
         group.bench_function(format!("build_visual_maps_{row_count}_rows_50_columns"), |b| {
             b.iter(|| {
-                let row_positions: HashMap<usize, usize> = indexes
-                    .iter()
-                    .enumerate()
-                    .map(|(visual_row, &row_index)| (row_index, visual_row))
-                    .collect();
-                let column_positions: HashMap<usize, usize> = result
-                    .columns
-                    .iter()
-                    .enumerate()
-                    .map(|(visual_column, _)| (visual_column, visual_column))
-                    .collect();
-                black_box((row_positions.len(), column_positions.len()));
+                let lookup = GridSelectionLookup::new(black_box(&indexes), black_box(&order));
+                black_box((lookup.row_positions.len(), lookup.column_positions.len()));
             });
         });
     }
+    group.finish();
+}
+
+/// The rebuild the draw path pays once per (projection, column order), on the fixture
+/// the issue measured.
+///
+/// `GridSelectionLookup::new` maps every filtered row index to its visual position and every column
+/// to its visual position. Before this cache the draw path rebuilt it on every frame, which measured
+/// 36.5 ms of a ~40 ms steady-state frame at 200k rows x 4 columns in debug
+/// (`docs/release/evidence/v01-runtime/providers/57-result-grid-selection-lookup-cache.md`).
+fn bench_selection_lookup(c: &mut Criterion) {
+    let row_count = 200_000;
+    let indexes = (0..row_count).collect::<Vec<_>>();
+    let order: Vec<usize> = (0..4).collect();
+    let mut group = c.benchmark_group("result_grid_selection_lookup");
+    group.throughput(Throughput::Elements(row_count as u64));
+    group.sample_size(10);
+    group.bench_function("build_200k_rows_4_columns", |b| {
+        b.iter(|| {
+            let lookup = GridSelectionLookup::new(black_box(&indexes), black_box(&order));
+            black_box((lookup.row_positions.len(), lookup.column_positions.len()));
+        });
+    });
     group.finish();
 }
 
@@ -182,6 +197,7 @@ criterion_group!(
     bench_million_row_metadata,
     bench_sorted_projection,
     bench_visible_scroll_window,
-    bench_requested_grid_sizes
+    bench_requested_grid_sizes,
+    bench_selection_lookup
 );
 criterion_main!(benches);

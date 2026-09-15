@@ -1,4 +1,5 @@
 use super::*;
+use crate::GridProjectionKey;
 use egui::{Align2, Pos2, Rect, Rounding, Stroke, Vec2};
 use std::collections::{HashMap, HashSet};
 
@@ -6,13 +7,18 @@ use std::collections::{HashMap, HashSet};
 ///
 /// Selection is rendered once per visible cell, so resolving coordinates must
 /// not scan the filtered row list and reordered column list for every cell.
-struct GridSelectionLookup {
-    row_positions: HashMap<usize, usize>,
-    column_positions: HashMap<usize, usize>,
+pub struct GridSelectionLookup {
+    pub row_positions: HashMap<usize, usize>,
+    pub column_positions: HashMap<usize, usize>,
 }
 
 impl GridSelectionLookup {
-    fn new(indexes: &[usize], order: &[usize]) -> Self {
+    /// Build a lookup from the filtered row projection and the visual column order.
+    ///
+    /// This is the measured per-frame cost: two `HashMap`s, one entry per filtered row index
+    /// and one per column. `GridSelectionCache` memoizes the result so a frame that changes neither
+    /// the projection nor the column order reuses it instead of rebuilding.
+    pub fn new(indexes: &[usize], order: &[usize]) -> Self {
         Self {
             row_positions: indexes
                 .iter()
@@ -25,6 +31,60 @@ impl GridSelectionLookup {
                 .map(|(position, &column)| (column, position))
                 .collect(),
         }
+    }
+}
+
+/// One-entry memo for [`GridSelectionLookup`].
+///
+/// `draw_grid_body` built a `GridSelectionLookup` on every frame before this cache — two `HashMap`s,
+/// one entry per filtered row index and one per column — even though the lookup only changes when
+/// the projection or the column order changes. With the projection cached, this per-frame
+/// map build dominated the steady-state frame cost of a large result: ~36.5 ms of a
+/// ~40 ms frame at 200k rows × 4 columns in debug.
+///
+/// The cache is keyed on `(GridProjectionKey, column_order)` and follows the same take/restore
+/// idiom as [`GridProjectionCache`]: the lookup is moved out for the frame and handed back, so a
+/// sorted large result reuses it until one of its inputs really changes.
+#[derive(Default)]
+pub struct GridSelectionCache {
+    key: Option<(GridProjectionKey, Vec<usize>)>,
+    lookup: Option<GridSelectionLookup>,
+    rebuilds: u64,
+}
+
+impl GridSelectionCache {
+    /// Take the selection lookup for `(projection_key, order)`, reusing the cached entry when the
+    /// key matches. Returns `None` on a miss — the caller must rebuild and [`Self::restore`] it.
+    pub fn take(&mut self, projection_key: &GridProjectionKey, order: &[usize]) -> Option<GridSelectionLookup> {
+        let hit = self
+            .key
+            .as_ref()
+            .map(|(key, cached_order)| key == projection_key && cached_order.as_slice() == order)
+            .unwrap_or(false);
+        if hit {
+            self.key = None;
+            return self.lookup.take();
+        }
+        self.key = None;
+        self.lookup = None;
+        self.rebuilds = self.rebuilds.saturating_add(1);
+        None
+    }
+
+    /// Store a selection lookup the caller got from [`Self::take`] so the next frame can reuse it.
+    pub fn restore(&mut self, projection_key: GridProjectionKey, order: Vec<usize>, lookup: GridSelectionLookup) {
+        if self.key.is_some() {
+            return;
+        }
+        self.key = Some((projection_key, order));
+        self.lookup = Some(lookup);
+    }
+
+    /// Number of selection lookups built by this cache. Asserted by tests to pin the
+    /// "no per-frame rebuild" property.
+    #[cfg(test)]
+    fn rebuilds(&self) -> u64 {
+        self.rebuilds
     }
 }
 
@@ -77,6 +137,14 @@ impl DbProApp {
         // made a sorted large result unusable (crates/ui/src/result_grid.rs, `GridProjectionCache`).
         let projection_key = self.grid_projection_key(result);
         let indexes = self.grid_projection_cache.take(projection_key.clone(), result);
+        // The selection lookup is memoized on the same inputs: `draw_grid_body` used to
+        // build a `GridSelectionLookup` — two `HashMap`s, one entry per filtered row index — on
+        // every frame, which measured ~36.5 ms of a ~40 ms frame at 200k rows. Reuse it while the
+        // projection and column order are unchanged.
+        let selection_lookup = self
+            .grid_selection_cache
+            .take(&projection_key, &order)
+            .unwrap_or_else(|| GridSelectionLookup::new(&indexes, &order));
 
         if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
             self.rebuild_row_identity_cache(result, &indexes);
@@ -85,7 +153,7 @@ impl DbProApp {
             self.grid_row_identity_cache_ready = false;
         }
 
-        self.handle_grid_keyboard(ui, result, &indexes, &order, editable);
+        self.handle_grid_keyboard(ui, result, &indexes, &order, editable, &selection_lookup);
 
         let is_table_data = self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data;
         if !is_table_data {
@@ -93,11 +161,13 @@ impl DbProApp {
         }
 
         let row_offset = if is_table_data { self.table_data_offset } else { 0 };
-        self.draw_grid_body(ui, result, &indexes, &order, editable, row_offset);
+        self.draw_grid_body(ui, result, &indexes, &order, editable, row_offset, &selection_lookup);
 
-        // Hand the rows back so the next frame can reuse them. Nothing between the take above and
-        // here returns early, which is what keeps the projection from being dropped on the floor.
-        self.grid_projection_cache.restore(projection_key, indexes);
+        self.grid_projection_cache.restore(projection_key.clone(), indexes);
+        // Restore the selection lookup in all cases — take() always moves it out, and it must
+        // be handed back so the next frame can reuse it.
+        self.grid_selection_cache
+            .restore(projection_key, order, selection_lookup);
     }
 
     /// Retrieve or initialize column visual ordering.
@@ -324,6 +394,7 @@ impl DbProApp {
         indexes: &[usize],
         order: &[usize],
         editable: bool,
+        selection_lookup: &GridSelectionLookup,
     ) {
         let modifier = Self::primary_modifier_pressed_ui(ui);
         let shift = ui.input(|i| i.modifiers.shift);
@@ -377,11 +448,11 @@ impl DbProApp {
             self.handle_grid_edit_input(ui, result, pasted);
         }
         if self.data_editing_cell.is_some() && ui.input(|input| input.key_pressed(egui::Key::Tab)) {
-            self.handle_grid_navigation(ui, indexes, order, editable, result);
+            self.handle_grid_navigation(ui, indexes, order, editable, result, selection_lookup);
             return;
         }
         if !ui.ctx().wants_keyboard_input() {
-            self.handle_grid_navigation(ui, indexes, order, editable, result);
+            self.handle_grid_navigation(ui, indexes, order, editable, result, selection_lookup);
         }
     }
 
@@ -593,6 +664,7 @@ impl DbProApp {
         order: &[usize],
         editable: bool,
         result: &UiQueryResult,
+        selection_lookup: &GridSelectionLookup,
     ) {
         if order.is_empty() || indexes.is_empty() {
             return;
@@ -606,7 +678,6 @@ impl DbProApp {
                 if editable && self.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
-                let selection_lookup = GridSelectionLookup::new(indexes, order);
                 let visual_col = selection_lookup.column_positions.get(&curr_col).copied().unwrap_or(0);
                 let next_cell = if is_shift_tab {
                     if visual_col > 0 {
@@ -658,7 +729,6 @@ impl DbProApp {
         };
 
         if let Some((curr_row, curr_col)) = self.selected_cell {
-            let selection_lookup = GridSelectionLookup::new(indexes, order);
             let row_pos = selection_lookup.row_positions.get(&curr_row).copied().unwrap_or(0);
             let visual_col = selection_lookup.column_positions.get(&curr_col).copied().unwrap_or(0);
 
@@ -788,6 +858,7 @@ impl DbProApp {
     }
 
     /// Scrollable grid: continuous spreadsheet header plus visible slice of rows.
+    #[allow(clippy::too_many_arguments)]
     fn draw_grid_body(
         &mut self,
         ui: &mut egui::Ui,
@@ -796,11 +867,11 @@ impl DbProApp {
         order: &[usize],
         editable: bool,
         row_offset: u64,
+        selection_lookup: &GridSelectionLookup,
     ) {
         let grid_height = ui.available_height().max(180.0);
         let grid_width = ui.available_width().max(0.0);
         let widths = self.column_widths(result.columns.len(), grid_width);
-        let selection_lookup = GridSelectionLookup::new(indexes, order);
 
         ui.allocate_ui_with_layout(
             egui::vec2(grid_width, grid_height),
@@ -818,7 +889,7 @@ impl DbProApp {
                         order,
                         editable,
                         row_offset,
-                        selection_lookup: &selection_lookup,
+                        selection_lookup,
                     };
                     let row_height = 28.0;
                     egui::ScrollArea::vertical()
@@ -2621,13 +2692,15 @@ mod tests {
 
         draw_grid_frame(&mut app, &ctx, &result);
         assert_eq!(app.grid_projection_cache.rebuilds(), 1);
+        assert_eq!(app.grid_selection_cache.rebuilds(), 1);
 
         // Two more frames with the same result, filter and sort: the projection is reused. This is
-        // the regression #238 reports — before the cache, every one of these frames paid the full
+        // before the projection cache, every one of these frames paid the full
         // filter/sort pass (seconds per frame on a large temporal-text column).
         draw_grid_frame(&mut app, &ctx, &result);
         draw_grid_frame(&mut app, &ctx, &result);
         assert_eq!(app.grid_projection_cache.rebuilds(), 1);
+        assert_eq!(app.grid_selection_cache.rebuilds(), 1);
     }
 
     #[test]
@@ -2638,26 +2711,157 @@ mod tests {
 
         draw_grid_frame(&mut app, &ctx, &result);
         assert_eq!(app.grid_projection_cache.rebuilds(), 1);
+        assert_eq!(app.grid_selection_cache.rebuilds(), 1);
 
         app.grid_sort_column = Some(1);
         draw_grid_frame(&mut app, &ctx, &result);
         assert_eq!(app.grid_projection_cache.rebuilds(), 2);
+        assert_eq!(app.grid_selection_cache.rebuilds(), 2);
 
         app.grid_sort_desc = true;
         draw_grid_frame(&mut app, &ctx, &result);
         assert_eq!(app.grid_projection_cache.rebuilds(), 3);
+        assert_eq!(app.grid_selection_cache.rebuilds(), 3);
 
         app.grid_filter = "alpha".to_owned();
         draw_grid_frame(&mut app, &ctx, &result);
         assert_eq!(app.grid_projection_cache.rebuilds(), 4);
+        assert_eq!(app.grid_selection_cache.rebuilds(), 4);
 
         // A new result set behind the same filter and sort: only the epoch differs.
         app.invalidate_grid_projection();
         draw_grid_frame(&mut app, &ctx, &result);
         assert_eq!(app.grid_projection_cache.rebuilds(), 5);
+        assert_eq!(app.grid_selection_cache.rebuilds(), 5);
 
         // And a frame that changes nothing reuses that one.
         draw_grid_frame(&mut app, &ctx, &result);
         assert_eq!(app.grid_projection_cache.rebuilds(), 5);
+        assert_eq!(app.grid_selection_cache.rebuilds(), 5);
+    }
+
+    /// A projection key shaped like the draw path's, for the selection-cache unit tests.
+    fn selection_test_key(epoch: u64, sort_column: Option<usize>) -> GridProjectionKey {
+        let result = projection_test_result();
+        GridProjectionKey {
+            epoch,
+            filter: String::new(),
+            sort_column,
+            sort_desc: false,
+            row_count: result.row_count,
+            column_count: result.columns.len(),
+        }
+    }
+
+    /// One frame of the draw path's cache protocol: take, build on a miss, hand the lookup back.
+    fn selection_cache_frame(
+        cache: &mut GridSelectionCache,
+        key: &GridProjectionKey,
+        order: &[usize],
+        indexes: &[usize],
+    ) {
+        let lookup = cache
+            .take(key, order)
+            .unwrap_or_else(|| GridSelectionLookup::new(indexes, order));
+        cache.restore(key.clone(), order.to_vec(), lookup);
+    }
+
+    #[test]
+    fn selection_cache_reuses_the_lookup_across_frames() {
+        let mut cache = GridSelectionCache::default();
+        let key = selection_test_key(0, None);
+        let order = vec![1, 0];
+        let indexes = [2usize, 0, 1];
+
+        selection_cache_frame(&mut cache, &key, &order, &indexes);
+        assert_eq!(cache.rebuilds(), 1);
+
+        // The next frame takes the lookup out instead of building it again, and what it gets is the
+        // map for this projection and this visual order — not the default row or column order.
+        let reused = cache.take(&key, &order).expect("the frame's lookup is reused");
+        assert_eq!(reused.row_positions.get(&2), Some(&0));
+        assert_eq!(reused.row_positions.get(&0), Some(&1));
+        assert_eq!(reused.row_positions.get(&1), Some(&2));
+        assert_eq!(reused.column_positions.get(&1), Some(&0));
+        assert_eq!(reused.column_positions.get(&0), Some(&1));
+        cache.restore(key.clone(), order.clone(), reused);
+
+        selection_cache_frame(&mut cache, &key, &order, &indexes);
+        assert_eq!(cache.rebuilds(), 1);
+    }
+
+    #[test]
+    fn selection_cache_rebuilds_when_the_projection_or_the_column_order_changes() {
+        let mut cache = GridSelectionCache::default();
+        let order = vec![0, 1];
+        let indexes = [0usize, 1, 2];
+
+        selection_cache_frame(&mut cache, &selection_test_key(0, None), &order, &indexes);
+        assert_eq!(cache.rebuilds(), 1);
+
+        // The rows did not move, but the visual column positions the lookup resolves did.
+        selection_cache_frame(&mut cache, &selection_test_key(0, None), &[1, 0], &indexes);
+        assert_eq!(cache.rebuilds(), 2);
+
+        // A sort moves the rows, so the cached positions are stale.
+        selection_cache_frame(&mut cache, &selection_test_key(0, Some(0)), &order, &indexes);
+        assert_eq!(cache.rebuilds(), 3);
+
+        // A new result set behind the same filter and sort: only the epoch differs.
+        selection_cache_frame(&mut cache, &selection_test_key(1, Some(0)), &order, &indexes);
+        assert_eq!(cache.rebuilds(), 4);
+
+        // And an unchanged frame reuses the entry the previous one handed back.
+        selection_cache_frame(&mut cache, &selection_test_key(1, Some(0)), &order, &indexes);
+        assert_eq!(cache.rebuilds(), 4);
+    }
+
+    #[test]
+    fn selection_cache_keeps_a_newer_entry_over_the_frame_copy() {
+        let mut cache = GridSelectionCache::default();
+        let stale_key = selection_test_key(0, None);
+        let newer_key = selection_test_key(0, Some(1));
+        let order = vec![0, 1];
+        let indexes = [0usize, 1, 2];
+        let frame_lookup = cache
+            .take(&stale_key, &order)
+            .unwrap_or_else(|| GridSelectionLookup::new(&indexes, &order));
+        assert_eq!(cache.rebuilds(), 1);
+
+        // Something rebuilt during the same frame (a toolbar action changed the sort).
+        cache.restore(
+            newer_key.clone(),
+            order.clone(),
+            GridSelectionLookup::new(&indexes, &[1, 0]),
+        );
+
+        // The frame's own copy must not overwrite the newer entry.
+        cache.restore(stale_key, order.clone(), frame_lookup);
+        let kept = cache.take(&newer_key, &order).expect("the newer entry survives");
+        assert_eq!(kept.column_positions.get(&0), Some(&1));
+        assert_eq!(cache.rebuilds(), 1);
+    }
+
+    #[test]
+    fn result_grid_rebuilds_the_selection_lookup_when_the_column_order_changes() {
+        let mut app = DbProApp::default();
+        let ctx = egui::Context::default();
+        let result = projection_test_result();
+
+        draw_grid_frame(&mut app, &ctx, &result);
+        assert_eq!(app.grid_projection_cache.rebuilds(), 1);
+        assert_eq!(app.grid_selection_cache.rebuilds(), 1);
+
+        // Reordering the columns leaves the rows and their order alone, so the projection is reused,
+        // while the visual positions the selection lookup resolves are now different.
+        app.grid_column_order = vec![1, 0];
+        draw_grid_frame(&mut app, &ctx, &result);
+        assert_eq!(app.grid_projection_cache.rebuilds(), 1);
+        assert_eq!(app.grid_selection_cache.rebuilds(), 2);
+
+        // And a frame that changes neither reuses both.
+        draw_grid_frame(&mut app, &ctx, &result);
+        assert_eq!(app.grid_projection_cache.rebuilds(), 1);
+        assert_eq!(app.grid_selection_cache.rebuilds(), 2);
     }
 }
