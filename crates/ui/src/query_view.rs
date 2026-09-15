@@ -1972,6 +1972,42 @@ impl DbProApp {
                 }
             }
         }
+        // Duplicate projection aliases: `SELECT a AS x, b AS x`.
+        if let Some(select_at) = lower.find("select") {
+            let after_select = &lower[select_at + "select".len()..];
+            let projection = after_select
+                .split(" from ")
+                .next()
+                .unwrap_or(after_select);
+            let mut seen: Vec<(String, usize)> = Vec::new();
+            let mut search_from = 0usize;
+            while let Some(rel) = projection[search_from..].find(" as ") {
+                let abs_in_proj = search_from + rel + " as ".len();
+                let alias_slice = projection[abs_in_proj..].trim_start();
+                let skip = projection[abs_in_proj..].len() - alias_slice.len();
+                let alias: String = alias_slice
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric() || *c == '_' || *c == '"')
+                    .collect();
+                if !alias.is_empty() {
+                    let alias_key = alias.trim_matches('"').to_ascii_lowercase();
+                    let abs = select_at + "select".len() + abs_in_proj + skip;
+                    if let Some((_, first_at)) = seen.iter().find(|(name, _)| name == &alias_key) {
+                        let msg = format!("Duplicate projection alias `{alias_key}`");
+                        string_diagnostics.push(msg.clone());
+                        structured_diagnostics.push(Diagnostic::lint(
+                            (abs, abs + alias.len()),
+                            msg,
+                            "lint.duplicate-alias",
+                        ));
+                        let _ = first_at;
+                    } else {
+                        seen.push((alias_key, abs));
+                    }
+                }
+                search_from = abs_in_proj + alias.len().max(1);
+            }
+        }
     }
 
     pub(crate) fn parse_sql_diagnostics(sql: &str, driver: &str) -> Vec<String> {

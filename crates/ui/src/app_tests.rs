@@ -2839,6 +2839,16 @@ fn sql_lint_warns_on_order_by_ordinal_and_comma_join() {
 }
 
 #[test]
+fn sql_lint_warns_on_duplicate_projection_alias() {
+    let (messages, structured) =
+        DbProApp::analyze_sql_diagnostics("SELECT a AS x, b AS x FROM t", "PostgreSQL");
+    assert!(messages.iter().any(|m| m.contains("Duplicate projection alias")));
+    assert!(structured
+        .iter()
+        .any(|d| d.code.as_deref() == Some("lint.duplicate-alias")));
+}
+
+#[test]
 fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
     let mut app = DbProApp::default();
     app.query_documents.clear();
