@@ -173,13 +173,18 @@ impl DbProApp {
                     });
                 let running = active_doc_running.is_some();
                 let cancel_supported = self.query_capabilities().allows(|c| c.query.cancel);
+                let cancel_reason = self
+                    .query_capabilities()
+                    .feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Cancel);
                 let run_button = if running {
                     if cancel_supported {
                         secondary_button_with_icon(ui, Icon::Square, "Stop", self.theme)
                             .on_hover_text("Stop query (Esc)")
                     } else {
-                        secondary_button_with_icon(ui, Icon::Loader, "Running…", self.theme)
-                            .on_hover_text("Query running (cancellation is unsupported by this provider)")
+                        let tip = cancel_reason
+                            .as_deref()
+                            .unwrap_or("Query running (cancellation is unsupported by this provider)");
+                        secondary_button_with_icon(ui, Icon::Loader, "Running…", self.theme).on_hover_text(tip)
                     }
                 } else {
                     primary_button_with_icon(ui, Icon::Play, "Run", self.theme)
@@ -190,7 +195,9 @@ impl DbProApp {
                         if cancel_supported {
                             self.cancel_query(request_id);
                         } else {
-                            self.runtime_message = "Query cancellation is not supported for this provider".to_owned();
+                            self.runtime_message = cancel_reason.unwrap_or_else(|| {
+                                "Query cancellation is not supported for this provider".to_owned()
+                            });
                         }
                     } else {
                         self.dispatch_query();
@@ -1453,17 +1460,10 @@ impl DbProApp {
             return;
         }
         let lookup = self.query_capabilities();
-        let Some(capabilities) = lookup.resolved() else {
-            self.runtime_message = format!(
-                "Explain is unavailable: {}",
-                lookup
-                    .unavailable_reason()
-                    .unwrap_or_else(|| "no capability set applies".to_owned())
-            );
-            return;
-        };
-        if !capabilities.query.explain {
-            self.runtime_message = format!("{} does not support Explain", self.active_query_driver());
+        if let Some(reason) =
+            lookup.feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Explain)
+        {
+            self.runtime_message = format!("Explain is unavailable: {reason}");
             return;
         }
         let Some(connection_id) = self.active_query_connection_id().map(str::to_owned) else {

@@ -628,6 +628,22 @@ impl CapabilityLookup {
             Self::UnsupportedDriver { driver } => Some(format!("{driver} has no provider entry in this build")),
         }
     }
+
+    /// Capability-level reason a feature is unavailable for the resolved driver.
+    ///
+    /// Lookup-level failures (no connection / unknown driver) take precedence so
+    /// consumers can use one call site for gated actions.
+    pub(crate) fn feature_limitation(
+        &self,
+        feature: db_pro_core::domain::capabilities::CapabilityFeature,
+    ) -> Option<String> {
+        if let Some(reason) = self.unavailable_reason() {
+            return Some(reason);
+        }
+        self.resolved()
+            .and_then(|caps| caps.limitation(feature))
+            .map(str::to_owned)
+    }
 }
 
 impl DbProApp {

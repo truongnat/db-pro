@@ -111,7 +111,163 @@ pub struct FeatureCapabilities {
     pub data_diff: bool,
 }
 
+/// Features a consumer can ask about when a capability flag is `false`.
+///
+/// This is the capability-level reason channel for #234: a boolean alone does not
+/// say *why* something is unavailable; [`DatabaseCapabilities::limitation`] does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CapabilityFeature {
+    Cancel,
+    Explain,
+    Parameters,
+    NumberedParameters,
+    PositionalParameters,
+    Schemas,
+    AlterColumnType,
+    Sequences,
+    EnumTypes,
+    Functions,
+    UuidType,
+    ArrayTypes,
+    ServerSessions,
+    Partitions,
+    Tablespaces,
+    ObjectDependencies,
+    SshTunnel,
+    Backup,
+    DataDiff,
+    TransactionalDdl,
+    RenameObjects,
+}
+
 impl DatabaseCapabilities {
+    /// Whether `feature` is advertised as available for this capability set.
+    pub fn supports(&self, feature: CapabilityFeature) -> bool {
+        match feature {
+            CapabilityFeature::Cancel => self.query.cancel,
+            CapabilityFeature::Explain => self.query.explain,
+            CapabilityFeature::Parameters => self.query.parameters,
+            CapabilityFeature::NumberedParameters => self.query.numbered_parameters,
+            CapabilityFeature::PositionalParameters => self.query.positional_parameters,
+            CapabilityFeature::Schemas => self.schema.schemas,
+            CapabilityFeature::AlterColumnType => self.schema.alter_column_type,
+            CapabilityFeature::Sequences => self.schema.sequences,
+            CapabilityFeature::EnumTypes => self.schema.enum_types,
+            CapabilityFeature::Functions => self.schema.functions,
+            CapabilityFeature::UuidType => self.data.uuid_type,
+            CapabilityFeature::ArrayTypes => self.data.array_types,
+            CapabilityFeature::ServerSessions => self.features.server_sessions,
+            CapabilityFeature::Partitions => self.features.partitions,
+            CapabilityFeature::Tablespaces => self.features.tablespaces,
+            CapabilityFeature::ObjectDependencies => self.features.object_dependencies,
+            CapabilityFeature::SshTunnel => self.features.ssh_tunnel,
+            CapabilityFeature::Backup => self.features.backup,
+            CapabilityFeature::DataDiff => self.features.data_diff,
+            CapabilityFeature::TransactionalDdl => self.schema.transactional_ddl,
+            CapabilityFeature::RenameObjects => self.schema.rename_objects,
+        }
+    }
+
+    /// User-facing reason `feature` is unavailable, if it is.
+    ///
+    /// Returns `None` when the feature is supported. Reasons are driver-specific where
+    /// the product path (not the engine) is the limiting factor.
+    pub fn limitation(&self, feature: CapabilityFeature) -> Option<&'static str> {
+        if self.supports(feature) {
+            return None;
+        }
+        Some(match (self.driver, feature) {
+            (DriverType::Postgres, CapabilityFeature::Cancel) => {
+                "PostgreSQL wire-level query cancellation is not exposed by the connector yet"
+            }
+            (_, CapabilityFeature::Explain) => "Explain/query plan is not available for this driver",
+            (DriverType::Postgres, CapabilityFeature::PositionalParameters) => {
+                "PostgreSQL uses numbered parameters ($1, $2), not positional ?"
+            }
+            (DriverType::SQLite, CapabilityFeature::Schemas) => {
+                "SQLite has no named schemas; attached databases are not introspected in v0.1"
+            }
+            (DriverType::SQLite, CapabilityFeature::AlterColumnType) => {
+                "SQLite cannot ALTER COLUMN type without table rebuild"
+            }
+            (DriverType::SQLite, CapabilityFeature::Sequences)
+            | (DriverType::Mysql, CapabilityFeature::Sequences) => {
+                "this engine has no standalone SEQUENCE objects"
+            }
+            (DriverType::SQLite, CapabilityFeature::EnumTypes) => {
+                "SQLite has no native ENUM type"
+            }
+            (DriverType::SQLite, CapabilityFeature::Functions)
+            | (DriverType::Mysql, CapabilityFeature::Functions) if !self.schema.functions => {
+                "stored functions/procedures are not available for this driver"
+            }
+            (DriverType::SQLite, CapabilityFeature::UuidType) => {
+                "SQLite has no native UUID type; values are stored as TEXT"
+            }
+            (DriverType::SQLite, CapabilityFeature::ArrayTypes)
+            | (DriverType::Mysql, CapabilityFeature::ArrayTypes) => {
+                "array columns are not supported for this driver"
+            }
+            (DriverType::SQLite, CapabilityFeature::ServerSessions)
+            | (DriverType::Mysql, CapabilityFeature::ServerSessions) => {
+                "user/role management is PostgreSQL-only in this build"
+            }
+            (DriverType::SQLite, CapabilityFeature::Partitions)
+            | (DriverType::Mysql, CapabilityFeature::Partitions) => {
+                "partition administration is PostgreSQL-only in this build"
+            }
+            (DriverType::SQLite, CapabilityFeature::Tablespaces)
+            | (DriverType::Mysql, CapabilityFeature::Tablespaces) => {
+                "tablespaces are PostgreSQL-only in this build"
+            }
+            (DriverType::SQLite, CapabilityFeature::ObjectDependencies)
+            | (DriverType::Mysql, CapabilityFeature::ObjectDependencies) => {
+                "cross-schema dependency catalog is PostgreSQL-only in this build"
+            }
+            (DriverType::SQLite, CapabilityFeature::SshTunnel) => {
+                "SSH tunneling is not used for local SQLite files"
+            }
+            (DriverType::Mysql, CapabilityFeature::SshTunnel) => {
+                "SSH tunneling is not implemented for MySQL yet"
+            }
+            (DriverType::Mysql, CapabilityFeature::Backup) => {
+                "backup/restore is not implemented for MySQL yet"
+            }
+            (DriverType::Mysql, CapabilityFeature::Cancel) => {
+                "the MySQL connector does not support cancelling a running query"
+            }
+            (DriverType::Mysql, CapabilityFeature::NumberedParameters) => {
+                "MySQL uses positional ? parameters, not numbered $n"
+            }
+            (DriverType::Mysql, CapabilityFeature::UuidType) => {
+                "MySQL has no native UUID type in the shipped capability set"
+            }
+            (DriverType::Mysql, CapabilityFeature::TransactionalDdl) => {
+                "MySQL DDL statements cause an implicit commit"
+            }
+            (DriverType::Mysql, CapabilityFeature::RenameObjects)
+            | (DriverType::SQLite, CapabilityFeature::RenameObjects) => {
+                "renaming arbitrary schema objects is limited for this driver"
+            }
+            (DriverType::SQLite, CapabilityFeature::NumberedParameters) => {
+                "SQLite uses positional ? parameters, not numbered $n"
+            }
+            (DriverType::SQLite, CapabilityFeature::DataDiff) if !self.features.data_diff => {
+                "data diff is not available for this driver"
+            }
+            (_, CapabilityFeature::Parameters) => {
+                "parameterized queries are not available for this driver"
+            }
+            (_, CapabilityFeature::DataDiff) => {
+                "data diff is not available for this driver"
+            }
+            (_, CapabilityFeature::Backup) => {
+                "backup/restore is not available for this driver"
+            }
+            _ => "this capability is not available for the current driver",
+        })
+    }
+
     /// Returns the capabilities for the given driver type.
     pub fn for_driver(driver: DriverType) -> Self {
         match driver {
@@ -297,10 +453,9 @@ impl DatabaseCapabilities {
                 // Introspection-based, so it needs no provider-specific path
                 // (`application/schema_diff.rs` compares two `IntrospectResult`s).
                 schema_diff: true,
-                // `DataDiffService::diff_table_data` asks the connector for a dialect, and
-                // `CompositeConnector::dialect` has no MySQL arm
-                // (`infrastructure/src/connector.rs`), so the only data-diff path errors.
-                data_diff: false,
+                // `DataDiffService` quotes identifiers through the connector dialect; MySQL now
+                // has a dialect arm, so the shared path works.
+                data_diff: true,
             },
         }
     }
@@ -363,17 +518,37 @@ mod tests {
     fn mysql_capabilities_do_not_advertise_postgres_only_features() {
         // Each of these features has exactly one product path, and that path rejects MySQL:
         // user management (`application/user_service.rs`), partitions
-        // (`runtime/src/api.rs`), backup/restore (`application/backup_service.rs`), and
-        // data diff (`application/data_diff.rs` — still not wired for MySQL even though
-        // `CompositeConnector::dialect` now returns a MySQL dialect).
+        // (`runtime/src/api.rs`), backup/restore (`application/backup_service.rs`).
         let caps = DatabaseCapabilities::mysql();
         assert!(!caps.features.server_sessions);
         assert!(!caps.features.partitions);
         assert!(!caps.features.backup);
-        assert!(!caps.features.data_diff);
+        assert!(caps.features.data_diff, "MySQL dialect enables shared data-diff path");
         // Already false before this correction; pinned so they cannot drift back.
         assert!(!caps.features.tablespaces);
         assert!(!caps.features.object_dependencies);
+    }
+
+    #[test]
+    fn limitation_explains_why_a_false_flag_is_unavailable() {
+        let pg = DatabaseCapabilities::postgres();
+        assert_eq!(
+            pg.limitation(CapabilityFeature::Cancel),
+            Some("PostgreSQL wire-level query cancellation is not exposed by the connector yet")
+        );
+        assert!(pg.limitation(CapabilityFeature::Parameters).is_none());
+        assert!(pg.supports(CapabilityFeature::Parameters));
+
+        let mysql = DatabaseCapabilities::mysql();
+        assert_eq!(
+            mysql.limitation(CapabilityFeature::Backup),
+            Some("backup/restore is not implemented for MySQL yet")
+        );
+        assert_eq!(
+            mysql.limitation(CapabilityFeature::ServerSessions),
+            Some("user/role management is PostgreSQL-only in this build")
+        );
+        assert!(mysql.limitation(CapabilityFeature::Parameters).is_none());
     }
 
     #[test]

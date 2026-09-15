@@ -67,13 +67,13 @@ are false because the connector drops the parameter list, and `server_sessions`,
 `backup` and `data_diff` are false because their only product paths reject MySQL. The rule exists
 so a capability-driven consumer can never be told to offer an action the provider will refuse.
 
-### What a `false` flag does *not* carry
+### What a `false` flag carries
 
-There is **no per-flag reason channel**: a `false` flag says "not available", not "why". The reason
-lives in the operation-level error instead — `DbError::Unsupported` from the connector or service
-that refused, which the UI surfaces as a named message — and in the capability's doc comment. A
-capability-level reason/limitation field is the part of #234's acceptance (criterion 3) that is
-**not implemented**; until it is, consumers must not invent a reason from a boolean.
+Each `false` flag also has a capability-level reason via
+`DatabaseCapabilities::limitation(CapabilityFeature)` (#234 criterion 3). The UI resolves
+gated actions through `CapabilityLookup::feature_limitation`, so consumers get a named
+reason instead of inventing one from a boolean. Operation-level `DbError::Unsupported`
+remains the second line of defence when a caller bypasses the capability gate.
 
 Consumers resolve flags through the lookup that owns the naming, not by re-deriving them per
 view: `CapabilityLookup` (`crates/ui/src/app.rs`) resolves a connection's driver label to a
@@ -119,7 +119,7 @@ A provider is **supported** when all of the following exist and are verified on 
 | 2 | A `DbConnector` impl covering the full trait surface; a trait method the engine cannot serve returns `DbError::Unsupported` with a named reason rather than an empty success | MySQL `cancel` |
 | 3 | A class-aware query mapper satisfying the value contract | `postgres/query_mapper.rs`, `mysql/query_mapper.rs` |
 | 4 | An introspector producing the canonical schema model (`IntrospectResult`: schemas, tables, columns, PKs, FKs, indexes, triggers, views, routines) | `postgres/introspect.rs`, `mysql/introspect.rs` |
-| 5 | A `SqlDialect` arm (placeholder + identifier quoting + pagination shape) for the paths that build SQL | `PostgresDialect`, `SqliteDialect`; **MySQL has none yet**, which is why its table-data mutation and data-diff paths are not reachable |
+| 5 | A `SqlDialect` arm (placeholder + identifier quoting + pagination shape) for the paths that build SQL | `PostgresDialect`, `SqliteDialect`, `MySqlDialect` |
 | 6 | A capability set whose every `true` flag names a shipping code path | `DatabaseCapabilities::mysql()` |
 | 7 | A committed fixture and live tests that run against a real server, self-skipping with a reason when `DATABASE_URL` is absent | `fixtures/mysql/` + `mysql_fixture_matrix.rs` |
 | 8 | A UI capability entry: the driver label the runtime stores maps to the provider entry in `CapabilityLookup::for_driver_label` | `crates/ui/src/app.rs` |
@@ -132,16 +132,16 @@ advertise the corresponding capability as `false` (item 6) instead of failing at
 
 Recorded rather than implied, so a consumer cannot mistake them for guarantees:
 
-1. **No capability reason channel** (criterion 3): `false` carries no statement of *why*.
+1. **Capability reason channel** — implemented as `CapabilityFeature` +
+   `DatabaseCapabilities::limitation` / `CapabilityLookup::feature_limitation` (#234 criterion 3).
 2. **The UI still resolves capabilities from a driver label.** `CapabilityLookup::for_driver_label`
    maps `PostgreSQL`/`SQLite`/`MySQL`, and a label with no entry is the explicit
    `UnsupportedDriver` state, but the lookup is a string mapping rather than a query to the
    registered factories, and several UI paths still branch on the provider name where a capability
    would do (`query_view.rs` formatting/parsing dialect, schema defaults, `connection_service.rs`,
-   `user_service.rs`) — #234 criterion 2.
+   `user_service.rs`) — #234 criterion 2 remainder.
 3. **PostgreSQL is still reached directly** in places (`crates/runtime/src/api.rs` object
    dependencies, partitions, tablespaces, rename) instead of through the composite.
-4. **MySQL has no dialect arm**, so table-data mutation and data diff cannot run for it; the
-   capability set advertises both as unavailable.
-5. **MySQL has no parameter binder**, so `parameters`/`positional_parameters` are `false` until
-   one exists.
+4. ~~**MySQL has no dialect arm**~~ — `CompositeConnector::dialect` returns `MySqlDialect`;
+   table-data change-set and data-diff paths are reachable (#235).
+5. ~~**MySQL has no parameter binder**~~ — positional `?` binder ships; capability flags are `true`.
