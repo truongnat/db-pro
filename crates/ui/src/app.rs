@@ -121,6 +121,39 @@ enum Activity {
     Monitor,
     Settings,
     Diagram,
+    Problems,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum ProblemsSeverityFilter {
+    #[default]
+    All,
+    Errors,
+    Warnings,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum ProblemsSourceFilter {
+    #[default]
+    All,
+    Parser,
+    Lint,
+    Delimiter,
+    Database,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ProblemEntry {
+    document_index: usize,
+    document_id: String,
+    document_title: String,
+    diagnostic_index: usize,
+    severity: crate::editor::DiagnosticSeverity,
+    source: crate::editor::DiagnosticSource,
+    message: String,
+    line: usize,
+    column: usize,
+    range: (usize, usize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -285,6 +318,9 @@ pub struct DbProApp {
     completion_open: bool,
     snippets_open: bool,
     diagnostics: Vec<String>,
+    problems_severity_filter: ProblemsSeverityFilter,
+    problems_source_filter: ProblemsSourceFilter,
+    problems_selected: Option<(String, usize)>,
     query_history: Vec<String>,
     query_history_entries: Vec<UiQueryHistoryEntry>,
     query_history_search: String,
@@ -988,6 +1024,73 @@ impl DbProApp {
             self.selected_query.clear();
         }
         self.runtime_message = format!("Opened {}", self.query_documents[index].title);
+    }
+
+    pub(crate) fn collect_problem_entries(&self) -> Vec<ProblemEntry> {
+        let mut entries = Vec::new();
+        for (document_index, document) in self.query_documents.iter().enumerate() {
+            for (diagnostic_index, diagnostic) in document.diagnostics.iter().enumerate() {
+                let cursor = crate::editor::CursorPosition::from_offset(&document.buffer, diagnostic.range.0);
+                entries.push(ProblemEntry {
+                    document_index,
+                    document_id: document.id.clone(),
+                    document_title: document.title.clone(),
+                    diagnostic_index,
+                    severity: diagnostic.severity,
+                    source: diagnostic.source,
+                    message: diagnostic.message.clone(),
+                    line: cursor.line,
+                    column: cursor.col,
+                    range: diagnostic.range,
+                });
+            }
+        }
+        entries
+    }
+
+    fn problem_matches_filters(&self, entry: &ProblemEntry) -> bool {
+        let severity_ok = match self.problems_severity_filter {
+            ProblemsSeverityFilter::All => true,
+            ProblemsSeverityFilter::Errors => entry.severity == crate::editor::DiagnosticSeverity::Error,
+            ProblemsSeverityFilter::Warnings => entry.severity == crate::editor::DiagnosticSeverity::Warning,
+        };
+        let source_ok = match self.problems_source_filter {
+            ProblemsSourceFilter::All => true,
+            ProblemsSourceFilter::Parser => entry.source == crate::editor::DiagnosticSource::Parser,
+            ProblemsSourceFilter::Lint => entry.source == crate::editor::DiagnosticSource::Lint,
+            ProblemsSourceFilter::Delimiter => entry.source == crate::editor::DiagnosticSource::Delimiter,
+            ProblemsSourceFilter::Database => entry.source == crate::editor::DiagnosticSource::Database,
+        };
+        severity_ok && source_ok
+    }
+
+    pub(crate) fn navigate_to_problem(&mut self, document_index: usize, diagnostic_index: usize) {
+        let Some(document) = self.query_documents.get(document_index) else {
+            return;
+        };
+        let Some(diagnostic) = document.diagnostics.get(diagnostic_index).cloned() else {
+            return;
+        };
+        if document_index != self.active_query_document {
+            self.active_query_document = document_index;
+        }
+        let doc = &mut self.query_documents[document_index];
+        let start = diagnostic.range.0.min(doc.buffer.len_bytes());
+        let end = diagnostic.range.1.min(doc.buffer.len_bytes()).max(start);
+        doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, start);
+        doc.selection = crate::editor::SelectionRange::new(start, end);
+        self.query_cursor_line = doc.cursor.line + 1;
+        self.query_cursor_column = doc.cursor.col + 1;
+        if start != end {
+            self.selected_query = doc.buffer.slice(start, end).to_owned();
+        } else {
+            self.selected_query.clear();
+        }
+        self.activity = Activity::Problems;
+        self.sidebar_open = true;
+        self.active_tab = WorkspaceTab::Query;
+        self.problems_selected = Some((doc.id.clone(), diagnostic_index));
+        self.runtime_message = format!("Jumped to problem in {}", doc.title);
     }
 
     pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {

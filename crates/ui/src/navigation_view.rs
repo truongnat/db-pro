@@ -429,6 +429,7 @@ impl DbProApp {
                         (Some(Activity::Explorer), Icon::Database, "Explorer"),
                         (Some(Activity::Queries), Icon::FileCode2, "Queries"),
                         (Some(Activity::History), Icon::History, "History"),
+                        (Some(Activity::Problems), Icon::TriangleAlert, "Problems"),
                         (Some(Activity::Transfers), Icon::Upload, "Transfers"),
                         (Some(Activity::Monitor), Icon::Gauge, "Monitor"),
                         (Some(Activity::Diagram), Icon::ArrowRightLeft, "ER diagram"),
@@ -614,6 +615,7 @@ impl DbProApp {
                                 match self.activity {
                                     Activity::Queries => self.draw_queries(ui),
                                     Activity::History => self.draw_history(ui),
+                                    Activity::Problems => self.draw_problems(ui),
                                     Activity::Transfers => self.draw_activity_placeholder(
                                         ui,
                                         "TRANSFERS",
@@ -752,6 +754,126 @@ impl DbProApp {
                 .small()
                 .color(self.theme.text_muted),
         );
+    }
+
+    fn draw_problems(&mut self, ui: &mut egui::Ui) {
+        let entries = self.collect_problem_entries();
+        let error_count = entries
+            .iter()
+            .filter(|entry| entry.severity == crate::editor::DiagnosticSeverity::Error)
+            .count();
+        let warning_count = entries
+            .iter()
+            .filter(|entry| entry.severity == crate::editor::DiagnosticSeverity::Warning)
+            .count();
+
+        ui.horizontal(|ui| {
+            section_label(ui, "PROBLEMS", self.theme);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                badge(
+                    ui,
+                    &format!("{error_count}E · {warning_count}W"),
+                    self.theme.surface_hover,
+                    self.theme.text_muted,
+                );
+            });
+        });
+        ui.add_space(8.0);
+
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = vec2(4.0, 4.0);
+            for (filter, label) in [
+                (ProblemsSeverityFilter::All, "All"),
+                (ProblemsSeverityFilter::Errors, "Errors"),
+                (ProblemsSeverityFilter::Warnings, "Warnings"),
+            ] {
+                let selected = self.problems_severity_filter == filter;
+                if ui.selectable_label(selected, label).clicked() {
+                    self.problems_severity_filter = filter;
+                }
+            }
+        });
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = vec2(4.0, 4.0);
+            for (filter, label) in [
+                (ProblemsSourceFilter::All, "All sources"),
+                (ProblemsSourceFilter::Parser, "Parser"),
+                (ProblemsSourceFilter::Lint, "Lint"),
+                (ProblemsSourceFilter::Delimiter, "Delimiter"),
+                (ProblemsSourceFilter::Database, "Database"),
+            ] {
+                let selected = self.problems_source_filter == filter;
+                if ui.selectable_label(selected, label).clicked() {
+                    self.problems_source_filter = filter;
+                }
+            }
+        });
+        ui.add_space(8.0);
+
+        let filtered: Vec<_> = entries
+            .into_iter()
+            .filter(|entry| self.problem_matches_filters(entry))
+            .collect();
+
+        if filtered.is_empty() {
+            ui.add_space(24.0);
+            ui.vertical_centered(|ui| {
+                ui.label(icon_text(Icon::TriangleAlert, "", self.theme.text_muted));
+                ui.add_space(8.0);
+                ui.label(RichText::new("No problems in open documents").color(self.theme.text_secondary));
+                ui.label(
+                    RichText::new("Lint, parser, and execution diagnostics appear here.")
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+            });
+            return;
+        }
+
+        let mut navigate: Option<(usize, usize)> = None;
+        let mut last_doc: Option<usize> = None;
+        for entry in &filtered {
+            if last_doc != Some(entry.document_index) {
+                last_doc = Some(entry.document_index);
+                ui.add_space(6.0);
+                ui.label(
+                    RichText::new(&entry.document_title)
+                        .small()
+                        .strong()
+                        .color(self.theme.text_muted),
+                );
+            }
+            let selected =
+                self.problems_selected.as_ref() == Some(&(entry.document_id.clone(), entry.diagnostic_index));
+            let (icon, _color) = match entry.severity {
+                crate::editor::DiagnosticSeverity::Error => (Icon::AlertCircle, self.theme.danger),
+                crate::editor::DiagnosticSeverity::Warning => (Icon::TriangleAlert, self.theme.warning),
+                crate::editor::DiagnosticSeverity::Information | crate::editor::DiagnosticSeverity::Hint => {
+                    (Icon::Info, self.theme.text_muted)
+                }
+            };
+            let source = match entry.source {
+                crate::editor::DiagnosticSource::Parser => "parser",
+                crate::editor::DiagnosticSource::Lint => "lint",
+                crate::editor::DiagnosticSource::Delimiter => "delimiter",
+                crate::editor::DiagnosticSource::Database => "database",
+            };
+            let label = format!(
+                "L{}:{}  {}  · {source}",
+                entry.line + 1,
+                entry.column + 1,
+                entry.message
+            );
+            let response = sidebar_item(ui, icon, &label, selected, self.theme);
+            if response.clicked() {
+                self.problems_selected = Some((entry.document_id.clone(), entry.diagnostic_index));
+                navigate = Some((entry.document_index, entry.diagnostic_index));
+            }
+        }
+        if let Some((doc_index, diagnostic_index)) = navigate {
+            self.navigate_to_problem(doc_index, diagnostic_index);
+        }
     }
 
     fn draw_history(&mut self, ui: &mut egui::Ui) {

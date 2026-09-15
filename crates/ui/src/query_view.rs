@@ -1877,6 +1877,61 @@ impl DbProApp {
             string_diagnostics.push(msg.clone());
             structured_diagnostics.push(Diagnostic::lint((0, sql.len().min(6)), msg, "lint.delete-no-where"));
         }
+        // ORDER BY n — positional ordinals are brittle across projection changes.
+        if let Some(order_at) = lower.find("order by") {
+            let after = &lower[order_at + "order by".len()..];
+            let trimmed_after = after.trim_start();
+            let skip = after.len() - trimmed_after.len();
+            if let Some(first) = trimmed_after.chars().next() {
+                if first.is_ascii_digit() {
+                    let abs = order_at + "order by".len() + skip;
+                    let end = abs
+                        + trimmed_after
+                            .chars()
+                            .take_while(|c| c.is_ascii_digit() || *c == ',' || c.is_whitespace())
+                            .map(char::len_utf8)
+                            .sum::<usize>();
+                    let msg = "ORDER BY ordinal is brittle; prefer an explicit column or expression".to_owned();
+                    string_diagnostics.push(msg.clone());
+                    structured_diagnostics.push(Diagnostic::lint(
+                        (abs, end.max(abs + 1)),
+                        msg,
+                        "lint.order-by-ordinal",
+                    ));
+                }
+            }
+        }
+        // FROM a, b — classic comma join / cartesian-product pattern when JOIN is absent.
+        if let Some(from_at) = lower.find("from") {
+            let after_from = &lower[from_at + 4..];
+            let has_join = after_from.contains(" join ")
+                || after_from.contains(" join\n")
+                || after_from.contains("\njoin ")
+                || after_from.starts_with("join ")
+                || after_from.contains(" join(");
+            if !has_join {
+                if let Some(comma_rel) = after_from.find(',') {
+                    let between = after_from[..comma_rel].trim();
+                    let after_comma = after_from[comma_rel + 1..].trim_start();
+                    let looks_like_table = !between.is_empty()
+                        && after_comma
+                            .chars()
+                            .next()
+                            .is_some_and(|c| c.is_alphabetic() || c == '"');
+                    if looks_like_table {
+                        let abs = from_at + 4 + comma_rel;
+                        let msg =
+                            "Comma join may produce a cartesian product; prefer explicit JOIN … ON".to_owned();
+                        string_diagnostics.push(msg.clone());
+                        structured_diagnostics.push(Diagnostic::lint(
+                            (abs, abs + 1),
+                            msg,
+                            "lint.comma-join",
+                        ));
+                    }
+                }
+            }
+        }
     }
 
     pub(crate) fn parse_sql_diagnostics(sql: &str, driver: &str) -> Vec<String> {

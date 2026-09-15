@@ -2766,8 +2766,7 @@ fn sql_diagnostics_report_mixed_delimiter_mismatch() {
 
 #[test]
 fn sql_lint_warns_on_select_star_and_null_compare() {
-    let (messages, structured) =
-        DbProApp::analyze_sql_diagnostics("SELECT * FROM t WHERE id = NULL", "PostgreSQL");
+    let (messages, structured) = DbProApp::analyze_sql_diagnostics("SELECT * FROM t WHERE id = NULL", "PostgreSQL");
     assert!(messages.iter().any(|m| m.contains("SELECT *")));
     assert!(messages.iter().any(|m| m.contains("IS NULL")));
     assert!(structured.iter().any(|d| {
@@ -2782,7 +2781,49 @@ fn sql_lint_warns_on_select_star_and_null_compare() {
 fn sql_lint_warns_on_delete_without_where() {
     let (messages, structured) = DbProApp::analyze_sql_diagnostics("DELETE FROM t", "SQLite");
     assert!(messages.iter().any(|m| m.contains("DELETE without WHERE")));
-    assert!(structured.iter().any(|d| d.code.as_deref() == Some("lint.delete-no-where")));
+    assert!(structured
+        .iter()
+        .any(|d| d.code.as_deref() == Some("lint.delete-no-where")));
+}
+
+#[test]
+fn sql_lint_warns_on_order_by_ordinal_and_comma_join() {
+    let (messages, structured) = DbProApp::analyze_sql_diagnostics("SELECT a, b FROM t1, t2 ORDER BY 1", "PostgreSQL");
+    assert!(messages.iter().any(|m| m.contains("ORDER BY ordinal")));
+    assert!(messages.iter().any(|m| m.contains("Comma join")));
+    assert!(structured
+        .iter()
+        .any(|d| d.code.as_deref() == Some("lint.order-by-ordinal")));
+    assert!(structured.iter().any(|d| d.code.as_deref() == Some("lint.comma-join")));
+}
+
+#[test]
+fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
+    let mut app = DbProApp::default();
+    app.query_documents.clear();
+    let mut doc = crate::query::query_document::QueryDocument::new("doc-1", "Query 1", "SELECT * FROM t");
+    let (_, structured) = DbProApp::analyze_sql_diagnostics(doc.text(), "PostgreSQL");
+    doc.diagnostics = structured;
+    app.query_documents.push(doc);
+
+    let entries = app.collect_problem_entries();
+    assert!(!entries.is_empty());
+    assert!(entries.iter().any(|e| e.message.contains("SELECT *")));
+
+    app.problems_severity_filter = ProblemsSeverityFilter::Warnings;
+    app.problems_source_filter = ProblemsSourceFilter::Lint;
+    assert!(entries.iter().any(|e| app.problem_matches_filters(e)));
+
+    let first_lint = entries
+        .iter()
+        .find(|e| e.source == crate::editor::DiagnosticSource::Lint)
+        .expect("lint entry");
+    app.navigate_to_problem(first_lint.document_index, first_lint.diagnostic_index);
+    assert_eq!(app.active_tab, WorkspaceTab::Query);
+    assert_eq!(app.activity, Activity::Problems);
+    let active = &app.query_documents[app.active_query_document];
+    assert_eq!(active.cursor.offset, first_lint.range.0);
+    assert_eq!(active.selection.normalized(), (first_lint.range.0, first_lint.range.1));
 }
 
 #[test]
