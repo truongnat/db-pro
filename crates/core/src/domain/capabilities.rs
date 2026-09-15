@@ -232,6 +232,13 @@ impl DatabaseCapabilities {
         }
     }
 
+    /// MySQL 8 capabilities.
+    ///
+    /// A flag is `true` only when a shipping code path serves that capability for this
+    /// driver. Where the engine could do the work but the product's only path rejects
+    /// MySQL, the flag is `false`: a capability-driven consumer must not be told to offer
+    /// an action the provider will refuse. Every corrected flag names the code path it was
+    /// measured against.
     pub fn mysql() -> Self {
         Self {
             driver: DriverType::Mysql,
@@ -239,9 +246,13 @@ impl DatabaseCapabilities {
                 multi_statement: true,
                 explain: true,
                 cancel: false,
-                parameters: true,
+                // `MySqlConnector::query`/`execute` accept the parameter list and drop it
+                // (`mysql/connector.rs`). Until a binder exists, advertising parameter
+                // support would let a consumer build a `?`-bound statement that silently
+                // runs unbound.
+                parameters: false,
                 numbered_parameters: false,
-                positional_parameters: true,
+                positional_parameters: false,
                 max_rows_limit: None,
             },
             schema: SchemaCapabilities {
@@ -273,14 +284,25 @@ impl DatabaseCapabilities {
                 generated_columns: true,
             },
             features: FeatureCapabilities {
-                server_sessions: true,
-                partitions: true,
+                // `UserService` rejects every driver except PostgreSQL
+                // (`application/user_service.rs`, `ensure_server_sessions_config`).
+                server_sessions: false,
+                // `PostgresApi::partitions` resolves a PostgreSQL handle and rejects
+                // anything else (`runtime/src/api.rs`); no MySQL partition path exists.
+                partitions: false,
                 tablespaces: false,
                 object_dependencies: false,
                 ssh_tunnel: false,
-                backup: true,
+                // `BackupService::backup`/`restore` return a validation error for MySQL
+                // (`application/backup_service.rs`).
+                backup: false,
+                // Introspection-based, so it needs no provider-specific path
+                // (`application/schema_diff.rs` compares two `IntrospectResult`s).
                 schema_diff: true,
-                data_diff: true,
+                // `DataDiffService::diff_table_data` asks the connector for a dialect, and
+                // `CompositeConnector::dialect` has no MySQL arm
+                // (`infrastructure/src/connector.rs`), so the only data-diff path errors.
+                data_diff: false,
             },
         }
     }
@@ -329,6 +351,63 @@ mod tests {
         let sq = DatabaseCapabilities::for_driver(DriverType::SQLite);
         assert_eq!(sq.driver, DriverType::SQLite);
         assert!(!sq.schema.schemas);
+    }
+
+    #[test]
+    fn mysql_capabilities_drop_parameters_until_a_binder_exists() {
+        // Measured against the provider: `MySqlConnector::query`/`execute` are called with
+        // the parameter list and run `sqlx::query(sql)` with no binds
+        // (`crates/infrastructure/src/mysql/connector.rs`), so no parameter form is served.
+        // When a binder lands, this test is the one that has to change with it.
+        let caps = DatabaseCapabilities::mysql();
+        assert!(!caps.query.parameters, "no MySQL parameter binder exists yet");
+        assert!(
+            !caps.query.positional_parameters,
+            "`?` placeholders are accepted by the signature and dropped, not bound"
+        );
+        assert!(!caps.query.numbered_parameters);
+    }
+
+    #[test]
+    fn mysql_capabilities_do_not_advertise_postgres_only_features() {
+        // Each of these features has exactly one product path, and that path rejects MySQL:
+        // user management (`application/user_service.rs`), partitions
+        // (`runtime/src/api.rs`), backup/restore (`application/backup_service.rs`), and
+        // data diff (`application/data_diff.rs` through `CompositeConnector::dialect`,
+        // which has no MySQL arm). Advertising them would hand the UI an action that can
+        // only fail.
+        let caps = DatabaseCapabilities::mysql();
+        assert!(!caps.features.server_sessions);
+        assert!(!caps.features.partitions);
+        assert!(!caps.features.backup);
+        assert!(!caps.features.data_diff);
+        // Already false before this correction; pinned so they cannot drift back.
+        assert!(!caps.features.tablespaces);
+        assert!(!caps.features.object_dependencies);
+    }
+
+    #[test]
+    fn mysql_capabilities_keep_the_flags_a_shipping_path_serves() {
+        // The other half of the rule: a flag stays `true` only with a path that works.
+        // Query/execute/DDL go through the driver-agnostic `DbConnector` methods (live
+        // MySQL evidence in `crates/infrastructure/tests/mysql_fixture_matrix.rs` and
+        // `docs/release/evidence/v01-runtime/providers/60-mysql-live-fixture-and-mapper.md`),
+        // explain has a live test (`mysql_integration.rs`), introspection reports tables,
+        // routines and indexes (`mysql/introspect.rs`), and schema diff compares two
+        // introspection results, so it needs no MySQL-specific path.
+        let caps = DatabaseCapabilities::mysql();
+        assert!(caps.query.explain);
+        assert!(caps.query.multi_statement);
+        assert!(!caps.query.cancel, "MySQL cancel returns Unsupported");
+        assert!(caps.schema.schemas);
+        assert!(caps.schema.functions);
+        assert!(caps.schema.views);
+        assert!(caps.schema.triggers);
+        assert!(caps.schema.indexes);
+        assert!(caps.data.insert);
+        assert!(caps.data.update);
+        assert!(caps.data.delete);
+        assert!(caps.features.schema_diff);
     }
 
     #[test]

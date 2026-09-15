@@ -54,6 +54,37 @@ async fn composite_handles_mysql_capabilities() {
 // 2. capabilities() dispatches via factory
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// The advertised capability set must not promise what the shipping provider code
+/// refuses. Each assertion names the path it was measured against; a provider that
+/// starts serving one of them should flip the flag and this test together.
+#[test]
+fn mysql_advertisement_matches_the_shipping_code_paths() {
+    let connector = CompositeConnector::new();
+    let caps = connector.capabilities(&ConnectionConfig {
+        driver: DriverType::Mysql,
+        ..sqlite_config()
+    });
+
+    // `MySqlConnector::query`/`execute` drop the parameter list (no binder yet).
+    assert!(!caps.query.parameters);
+    assert!(!caps.query.positional_parameters);
+    assert!(!caps.query.numbered_parameters);
+    // `UserService` / `BackupService` / `PostgresApi::partitions` reject MySQL;
+    // `DataDiffService` needs a dialect and `CompositeConnector::dialect` has no MySQL arm.
+    assert!(!caps.features.server_sessions);
+    assert!(!caps.features.partitions);
+    assert!(!caps.features.backup);
+    assert!(!caps.features.data_diff);
+
+    // Still served, so still advertised: query/execute/DDL through the generic
+    // connector methods, EXPLAIN, and introspection-backed schema diff.
+    assert!(caps.query.explain);
+    assert!(caps.query.multi_statement);
+    assert!(caps.schema.schemas);
+    assert!(caps.schema.functions);
+    assert!(caps.features.schema_diff);
+}
+
 #[test]
 fn capabilities_match_driver() {
     let connector = CompositeConnector::new();
