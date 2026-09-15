@@ -13,6 +13,10 @@
 > `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md` §3 and `risk-register.md` §4.
 > No limitation below is retracted by this note.
 > Risk IDs referenced below (`R003`, `R-LICENSE`, `R001`) are defined in `docs/release/risk-register.md`.
+> Correction (2026-09-15, #234): **LIM-002 corrected** — it said "Only PostgreSQL and SQLite drivers are implemented",
+> which stopped being true when the MySQL 8 provider landed (`640eaf4c`): MySQL now has a real adapter with recorded
+> live evidence. The entry keeps the v0.1 scope decision and states MySQL's actual level and what it still lacks.
+> No entry was deleted.
 > Further addition (2026-09-15, #244): **LIM-020 added** — PostgreSQL restore is not transactional and backup/restore cannot be cancelled. No entry was deleted or rewritten.
 > Further addition (2026-09-15, #242): **LIM-019 added** — the AI features are the app's only egress and the in-app/release disclosure for it. No entry was deleted or rewritten.
 > Issue: #135
@@ -48,19 +52,27 @@ Each entry includes:
 | Must not contradict | README, app title bar, installer metadata, website |
 | Evidence | #137 dbpro.app teardown; native literals `with_title("DB Pro")` in `crates/native-app/src/main.rs` (three occurrences, no icon resource and no `Info.plist` in-repo — the packaging script generates a minimal plist). Register: `R001` (disposition `DEFERRED`) |
 
-## LIM-002: PostgreSQL + SQLite only
+## LIM-002: PostgreSQL, SQLite, and a post-v0.1 MySQL 8 provider
 
 | Field | Value |
 |---|---|
 | Category | connection |
-| Actual behavior | Only PostgreSQL and SQLite drivers are implemented |
-| User-visible impact | MySQL, MariaDB, SQL Server, Oracle, etc. are not supported |
-| Reason | v0.1 scope decision |
-| Status | Accepted v0.1 |
-| Target issue | N/A (scope) |
+| Actual behavior | **PostgreSQL and SQLite are the shipped drivers.** MySQL 8 also has a real provider on `main` (connector, class-aware decoder, introspection, factory registration) with recorded live evidence, but it is **not a shipped v0.1 driver**: it has no parameter binder, no dialect arm, and its driver card in the UI is disabled |
+| User-visible impact | In the shipped build, MySQL, MariaDB, SQL Server, Oracle, etc. cannot be connected. The MySQL provider on `main` is reachable from tests and the runtime, not from the UI |
+| Reason | v0.1 scope decision for the shipped product; MySQL is the first post-v0.1 engine (parent goal #182, issues #234/#235) and is being landed incrementally behind the provider contract |
+| Status | Accepted v0.1 (the shipped-driver restriction is unchanged; the MySQL provider's own level is stated under Actual behavior and in the note below) |
+| Target issue | #234 (provider SDK/capability contract), #235 (MySQL 8 provider) |
 | Safe release-note wording | "Supports PostgreSQL and SQLite" |
 | Must not contradict | README, feature list, marketing |
-| Evidence | `crates/core/src/domain/connection.rs` DriverType enum |
+| Evidence | `crates/core/src/domain/connection.rs` `DriverType` (Postgres, SQLite, Mysql); MySQL provider `crates/infrastructure/src/mysql/` with live evidence `docs/release/evidence/v01-runtime/providers/60-mysql-live-fixture-and-mapper.md`; capability set with the MySQL gaps advertised as `false` in `crates/core/src/domain/capabilities.rs` (`DatabaseCapabilities::mysql`); UI driver card still disabled (`crates/ui/src/connection_view.rs`); contract recorded in `docs/architecture/provider-contract.md` |
+
+**What is still missing for MySQL to be a supported driver** (recorded here so this entry is not
+mistaken for "MySQL is supported, just not advertised"): a parameter binder
+(`MySqlConnector::query`/`execute` drop the parameter list, so `parameters` and
+`positional_parameters` are advertised `false`), a `SqlDialect` arm (without it the table-data
+mutation and data-diff paths return a validation error, and `data_diff` is advertised `false`), an
+enabled UI driver card, and the service-level features that remain PostgreSQL-only
+(`server_sessions`, `partitions`, `backup` — all advertised `false` for MySQL).
 
 ## LIM-003: Row insertion incomplete
 
