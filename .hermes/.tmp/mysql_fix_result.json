@@ -1,0 +1,4 @@
+{
+  "status": "done",
+  "changes": "Fixed MySQL connector compilation in db-pro-infrastructure by:\n\n1. crates/infrastructure/src/mysql/connector.rs — Added `use sqlx::{Column, Row};` to bring row.columns(), row.get(), and col.name() into scope.\n\n2. crates/infrastructure/src/mysql/query_mapper.rs:\n   - Changed imports to `use sqlx::{Column, Row as SqlxRow, TypeInfo};` and added `ColumnMeta` to the domain query imports.\n   - Fixed columns type from Vec<String> to Vec<ColumnMeta> by mapping each column with name (via Column::name()), data_type (via TypeInfo::name()), and nullable=true.\n   - Fixed borrow-of-moved-value error: moved result_rows.len() computation before QueryResult construction.\n\nAll CellValue variants used (Bool, Int64, Float64, Text, Bytes, Null) confirmed to exist in domain::query. `cargo check --package db-pro-infrastructure` now passes cleanly (exit 0)."
+}
