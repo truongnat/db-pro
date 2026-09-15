@@ -14,6 +14,7 @@ impl DbProApp {
             items.extend(self.saved_query_items());
             items.extend(self.query_history_items());
             items.extend(self.schema_column_items());
+            items.extend(self.snippet_items());
         }
         if mode == PaletteMode::Commands {
             items.extend(self.connection_items());
@@ -257,6 +258,20 @@ impl DbProApp {
             .collect()
     }
 
+    fn snippet_items(&self) -> Vec<PaletteItem> {
+        DbProApp::builtin_sql_snippets()
+            .iter()
+            .enumerate()
+            .map(|(index, (label, _))| PaletteItem {
+                icon: Icon::FileCode2,
+                title: (*label).to_owned(),
+                subtitle: "Insert SQL snippet at cursor".to_owned(),
+                shortcut: None,
+                action: PaletteAction::InsertSnippet(index),
+            })
+            .collect()
+    }
+
     pub(crate) fn filtered_palette_items(&self, mode: PaletteMode) -> Vec<PaletteItem> {
         let query = self.palette_query.trim().to_lowercase();
         self.palette_items(mode)
@@ -322,6 +337,11 @@ impl DbProApp {
                 self.active_tab = WorkspaceTab::Query;
                 self.append_to_active_query(&column);
                 self.runtime_message = format!("Inserted column {column}");
+            }
+            PaletteAction::InsertSnippet(index) => {
+                if let Some((_, snippet)) = Self::builtin_sql_snippets().get(index) {
+                    self.insert_snippet(snippet);
+                }
             }
             PaletteAction::ExplainQuery => self.explain_query(),
             PaletteAction::ExportResults => self.export_results_from_palette(),

@@ -348,15 +348,39 @@ impl DbProApp {
     fn draw_sql_snippets(&mut self, ui: &mut egui::Ui) {
         card_frame(self.theme).show(ui, |ui| {
             ui.label(RichText::new("SQL snippets").strong());
-            if compact_button(ui, "SELECT table", self.theme).clicked() {
-                self.insert_snippet("SELECT *\nFROM table_name\nLIMIT 100;");
-                self.snippets_open = false;
-            }
-            if compact_button(ui, "UPDATE by primary key", self.theme).clicked() {
-                self.insert_snippet("UPDATE table_name\nSET column_name = value\nWHERE id = 1;");
-                self.snippets_open = false;
+            for (label, snippet) in Self::builtin_sql_snippets() {
+                if compact_button(ui, label, self.theme).clicked() {
+                    self.insert_snippet(snippet);
+                    self.snippets_open = false;
+                }
             }
         });
+    }
+
+    pub(crate) fn builtin_sql_snippets() -> &'static [(&'static str, &'static str)] {
+        &[
+            ("SELECT table", "SELECT *\nFROM table_name\nLIMIT 100;"),
+            (
+                "UPDATE by primary key",
+                "UPDATE table_name\nSET column_name = value\nWHERE id = 1;",
+            ),
+            (
+                "INSERT row",
+                "INSERT INTO table_name (column_a, column_b)\nVALUES ($1, $2);",
+            ),
+            (
+                "DELETE with WHERE",
+                "DELETE FROM table_name\nWHERE id = $1;",
+            ),
+            (
+                "EXPLAIN ANALYZE",
+                "EXPLAIN (ANALYZE, BUFFERS)\nSELECT *\nFROM table_name\nWHERE id = $1;",
+            ),
+            (
+                "CREATE INDEX",
+                "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_table_column\nON table_name (column_name);",
+            ),
+        ]
     }
 
     /// Parser diagnostics for the current SQL, when any.
@@ -2102,8 +2126,26 @@ impl DbProApp {
         }
     }
 
-    fn insert_snippet(&mut self, snippet: &str) {
-        self.append_to_active_query(snippet);
+    pub(crate) fn insert_snippet(&mut self, snippet: &str) {
+        self.cancel_prediction_for_document(self.active_query_document);
+        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            let offset = doc.cursor.offset.min(doc.buffer.len_bytes());
+            let insertion = if offset > 0 && !doc.buffer.text()[..offset].ends_with('\n') {
+                format!("\n{snippet}")
+            } else {
+                snippet.to_owned()
+            };
+            doc.buffer.insert(offset, &insertion);
+            let new_offset = offset + insertion.len();
+            doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, new_offset);
+            doc.selection = crate::editor::SelectionRange::point(new_offset);
+            doc.dirty = true;
+            self.query_cursor_line = doc.cursor.line + 1;
+            self.query_cursor_column = doc.cursor.col + 1;
+        }
+        self.active_tab = WorkspaceTab::Query;
+        self.refresh_diagnostics();
+        self.runtime_message = "Snippet inserted".to_owned();
     }
 }
 

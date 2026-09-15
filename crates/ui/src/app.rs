@@ -181,6 +181,7 @@ pub(crate) enum PaletteAction {
     OpenSavedQuery(String),
     OpenHistoryEntry(usize),
     InsertColumn(String),
+    InsertSnippet(usize),
     ExplainQuery,
     ExportResults,
     RunQuery,

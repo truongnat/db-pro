@@ -2125,6 +2125,25 @@ fn command_palette_opens_saved_query_into_editor() {
 }
 
 #[test]
+fn sql_snippet_insert_is_one_undoable_buffer_edit() {
+    let mut app = DbProApp::default();
+    app.query_documents.clear();
+    app.query_documents.push(crate::query::query_document::QueryDocument::new(
+        "doc-snip",
+        "Query",
+        "SELECT 1;",
+    ));
+    app.active_query_document = 0;
+    let before = app.active_query_text().to_owned();
+    app.insert_snippet("SELECT 2;");
+    assert!(app.active_query_text().contains("SELECT 2;"));
+    assert_ne!(app.active_query_text(), before);
+    assert!(app.query_documents[0].buffer.undo_stack.can_undo());
+    app.query_documents[0].buffer.undo();
+    assert_eq!(app.active_query_text(), before);
+}
+
+#[test]
 fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
