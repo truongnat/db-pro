@@ -720,14 +720,39 @@ mod tests {
     }
 
     #[test]
-    fn chart_config_survives_clone_for_tab_switches() {
+    fn project_handles_ten_thousand_rows_within_budget() {
+        let columns = vec![
+            UiColumn {
+                name: "x".into(),
+                data_type: "integer".into(),
+                nullable: false,
+            },
+            UiColumn {
+                name: "y".into(),
+                data_type: "decimal".into(),
+                nullable: false,
+            },
+        ];
+        let rows: Vec<Vec<UiCell>> = (0..10_000)
+            .map(|i| {
+                vec![
+                    UiCell::Number(i.to_string()),
+                    UiCell::Number(format!("{}.5", i % 1000)),
+                ]
+            })
+            .collect();
         let mut config = ChartConfig::new();
-        config.chart_type = ChartType::Line;
-        config.x_column = Some(2);
-        config.y_column = Some(3);
-        let cloned = config.clone();
-        assert_eq!(cloned.chart_type, ChartType::Line);
-        assert_eq!(cloned.x_column, Some(2));
-        assert_eq!(cloned.y_column, Some(3));
+        config.x_column = Some(0);
+        config.y_column = Some(1);
+        config.max_points = 1_000;
+        let started = std::time::Instant::now();
+        let points = ChartEngine::project(&columns, &rows, &config);
+        let elapsed = started.elapsed();
+        assert_eq!(points.len(), 1_000);
+        assert!(
+            elapsed.as_millis() < 250,
+            "10k-row project took {:?}, expected <250ms",
+            elapsed
+        );
     }
 }
