@@ -220,6 +220,9 @@ pub async fn rename_saved_query(
     runtime.query_api().rename_saved_query(&uuid, &name).await?;
     Ok(())
 }
+
+#[tauri::command]
+pub async fn create_folder(
     runtime: State<'_, std::sync::Arc<DbProRuntime>>,
     connection_id: String,
     name: String,
