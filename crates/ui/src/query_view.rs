@@ -88,6 +88,7 @@ impl DbProApp {
                     self.draw_sql_snippets(ui);
                 }
                 self.draw_diagnostics(ui);
+                self.draw_sql_parameters_panel(ui);
                 self.draw_output_tabs(ui);
 
                 let result = self.active_query_result().cloned();
@@ -367,6 +368,47 @@ impl DbProApp {
         for diagnostic in &self.diagnostics {
             ui.colored_label(self.theme.warning, format!("• {diagnostic}"));
         }
+    }
+
+    /// Discovered bind placeholders for the active document (#225 discovery slice).
+    fn draw_sql_parameters_panel(&mut self, ui: &mut egui::Ui) {
+        let sql = self.active_query_text().to_owned();
+        let params = crate::query::discover_sql_parameters(&sql);
+        if params.is_empty() {
+            return;
+        }
+        let supports_parameters = self.query_capabilities().allows(|caps| caps.query.parameters);
+        ui.add_space(SPACE_XS);
+        ui.horizontal(|ui| {
+            ui.colored_label(
+                self.theme.accent,
+                format!("Parameters · {}", params.len()),
+            );
+            if !supports_parameters {
+                ui.label(
+                    RichText::new("provider does not advertise bindings yet")
+                        .small()
+                        .color(self.theme.warning),
+                );
+            }
+        });
+        for param in &params {
+            let kind = match param.kind {
+                crate::query::ParameterKind::Numbered => "numbered",
+                crate::query::ParameterKind::Named => "named",
+                crate::query::ParameterKind::Positional => "positional",
+            };
+            ui.label(
+                RichText::new(format!("• {} ({kind})", param.name))
+                    .small()
+                    .color(self.theme.text_secondary),
+            );
+        }
+        ui.label(
+            RichText::new("Typed value bindings and secret handling are still pending.")
+                .small()
+                .color(self.theme.text_muted),
+        );
     }
 
     /// Output tab strip (Results / Messages / Explain / History).
