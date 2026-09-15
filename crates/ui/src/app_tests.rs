@@ -366,6 +366,50 @@ fn switching_sqlite_to_postgresql_initializes_tls_require() {
 }
 
 #[test]
+fn selecting_mysql_sets_port_and_tls_and_preserves_password_on_submit() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.open_new_connection();
+    app.select_connection_driver(UiDriver::Mysql);
+    assert_eq!(app.connection_draft.driver, UiDriver::Mysql);
+    assert_eq!(app.connection_draft.port, "3306");
+    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::Require);
+
+    app.connection_draft.name = "MySQL Local".to_owned();
+    app.connection_draft.host = "127.0.0.1".to_owned();
+    app.connection_draft.database = "app".to_owned();
+    app.connection_draft.username = "root".to_owned();
+    app.connection_draft.password = "secret".to_owned();
+    app.dispatch_connection_command(true);
+
+    let UiCommand::CreateConnection { draft, .. } = command_rx.try_recv().expect("create") else {
+        panic!("expected CreateConnection");
+    };
+    assert_eq!(draft.driver, UiDriver::Mysql);
+    assert_eq!(draft.port, "3306");
+    assert_eq!(draft.password, "secret");
+}
+
+#[test]
+fn editing_a_mysql_connection_keeps_the_mysql_driver() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    let connection = UiConnectionSummary {
+        id: "conn-mysql".to_owned(),
+        name: "MySQL".to_owned(),
+        host: "127.0.0.1".to_owned(),
+        port: 3306,
+        database: "app".to_owned(),
+        username: "root".to_owned(),
+        driver: "MySQL".to_owned(),
+        ssl_mode: UiSslMode::Require,
+        readonly: false,
+    };
+    app.open_edit_connection(&connection);
+    assert_eq!(app.connection_draft.driver, UiDriver::Mysql);
+}
+
+#[test]
 fn explicit_disable_selection_is_preserved_on_submit() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
@@ -1237,7 +1281,8 @@ fn mysql_connection_resolves_to_its_own_capability_set() {
     assert!(!lookup.allows(|caps| caps.features.backup));
     assert!(!lookup.allows(|caps| caps.features.partitions));
     assert!(!lookup.allows(|caps| caps.query.cancel));
-    assert!(!lookup.allows(|caps| caps.query.parameters));
+    assert!(lookup.allows(|caps| caps.query.parameters));
+    assert!(lookup.allows(|caps| caps.query.positional_parameters));
 }
 
 #[test]

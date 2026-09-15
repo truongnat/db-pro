@@ -47,10 +47,10 @@ pub(crate) fn draft_to_domain(
             group: None,
             readonly: draft.readonly,
         },
-        if driver == db_pro_core::domain::connection::DriverType::Postgres {
-            draft.password
-        } else {
+        if driver == db_pro_core::domain::connection::DriverType::SQLite {
             String::new()
+        } else {
+            draft.password
         },
     ))
 }

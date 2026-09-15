@@ -246,13 +246,11 @@ impl DatabaseCapabilities {
                 multi_statement: true,
                 explain: true,
                 cancel: false,
-                // `MySqlConnector::query`/`execute` accept the parameter list and drop it
-                // (`mysql/connector.rs`). Until a binder exists, advertising parameter
-                // support would let a consumer build a `?`-bound statement that silently
-                // runs unbound.
-                parameters: false,
+                // Positional `?` binding is served by `mysql/query_mapper::bind_params`
+                // through `MySqlConnector::query`/`execute`.
+                parameters: true,
                 numbered_parameters: false,
-                positional_parameters: false,
+                positional_parameters: true,
                 max_rows_limit: None,
             },
             schema: SchemaCapabilities {
@@ -354,17 +352,10 @@ mod tests {
     }
 
     #[test]
-    fn mysql_capabilities_drop_parameters_until_a_binder_exists() {
-        // Measured against the provider: `MySqlConnector::query`/`execute` are called with
-        // the parameter list and run `sqlx::query(sql)` with no binds
-        // (`crates/infrastructure/src/mysql/connector.rs`), so no parameter form is served.
-        // When a binder lands, this test is the one that has to change with it.
+    fn mysql_capabilities_advertise_positional_parameters_when_binder_exists() {
         let caps = DatabaseCapabilities::mysql();
-        assert!(!caps.query.parameters, "no MySQL parameter binder exists yet");
-        assert!(
-            !caps.query.positional_parameters,
-            "`?` placeholders are accepted by the signature and dropped, not bound"
-        );
+        assert!(caps.query.parameters);
+        assert!(caps.query.positional_parameters);
         assert!(!caps.query.numbered_parameters);
     }
 
@@ -373,9 +364,8 @@ mod tests {
         // Each of these features has exactly one product path, and that path rejects MySQL:
         // user management (`application/user_service.rs`), partitions
         // (`runtime/src/api.rs`), backup/restore (`application/backup_service.rs`), and
-        // data diff (`application/data_diff.rs` through `CompositeConnector::dialect`,
-        // which has no MySQL arm). Advertising them would hand the UI an action that can
-        // only fail.
+        // data diff (`application/data_diff.rs` — still not wired for MySQL even though
+        // `CompositeConnector::dialect` now returns a MySQL dialect).
         let caps = DatabaseCapabilities::mysql();
         assert!(!caps.features.server_sessions);
         assert!(!caps.features.partitions);

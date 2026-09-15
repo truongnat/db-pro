@@ -66,12 +66,12 @@ fn mysql_advertisement_matches_the_shipping_code_paths() {
         ..sqlite_config()
     });
 
-    // `MySqlConnector::query`/`execute` drop the parameter list (no binder yet).
-    assert!(!caps.query.parameters);
-    assert!(!caps.query.positional_parameters);
+    // `MySqlConnector::query`/`execute` bind positional `?` parameters.
+    assert!(caps.query.parameters);
+    assert!(caps.query.positional_parameters);
     assert!(!caps.query.numbered_parameters);
     // `UserService` / `BackupService` / `PostgresApi::partitions` reject MySQL;
-    // `DataDiffService` needs a dialect and `CompositeConnector::dialect` has no MySQL arm.
+    // data-diff is still not a shipping MySQL path.
     assert!(!caps.features.server_sessions);
     assert!(!caps.features.partitions);
     assert!(!caps.features.backup);

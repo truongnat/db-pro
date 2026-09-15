@@ -100,6 +100,16 @@ impl db_pro_core::ports::SqlDialect for SqliteDialect {
     }
 }
 
+struct MySqlDialect;
+impl db_pro_core::ports::SqlDialect for MySqlDialect {
+    fn placeholder(&self, _index: usize) -> String {
+        "?".to_string()
+    }
+    fn quote_identifier(&self, name: &str) -> String {
+        format!("`{}`", name.replace('`', "``"))
+    }
+}
+
 // ---------------------------------------------------------------------------
 // CompositeConnector — dispatches via registered factories
 // ---------------------------------------------------------------------------
@@ -357,9 +367,7 @@ impl DbConnector for CompositeConnector {
         Ok(match conn.driver {
             db_pro_core::domain::connection::DriverType::Postgres => Box::new(PostgresDialect),
             db_pro_core::domain::connection::DriverType::SQLite => Box::new(SqliteDialect),
-            db_pro_core::domain::connection::DriverType::Mysql => {
-                return Err(DbError::Validation("MySQL dialect not yet implemented".into()))
-            }
+            db_pro_core::domain::connection::DriverType::Mysql => Box::new(MySqlDialect),
         })
     }
 }

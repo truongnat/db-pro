@@ -1,11 +1,80 @@
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryResult, Row};
+use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryParam, QueryResult, Row};
 use sqlx::mysql::types::MySqlTime;
-use sqlx::mysql::MySqlRow;
-use sqlx::{Column, Row as SqlxRow, TypeInfo, ValueRef};
+use sqlx::mysql::{MySqlArguments, MySqlRow};
+use sqlx::{Arguments, Column, Row as SqlxRow, TypeInfo, ValueRef};
 
 pub struct MySqlQueryMapper;
+
+/// Bind typed query parameters for MySQL's positional `?` placeholders.
+pub fn bind_params(params: &[QueryParam], args: &mut MySqlArguments) -> Result<(), DbError> {
+    for param in params {
+        let result = match param {
+            QueryParam::Null => args.add(Option::<String>::None),
+            QueryParam::Bool(v) => args.add(v),
+            QueryParam::Int64(v) => args.add(v),
+            QueryParam::Float64(v) => args.add(v),
+            QueryParam::Decimal(v) => {
+                let decimal = v
+                    .parse::<sqlx::types::BigDecimal>()
+                    .map_err(|error| DbError::QueryFailed(format!("invalid decimal parameter: {error}")))?;
+                args.add(decimal)
+            }
+            QueryParam::Text(v) => args.add(v.as_str()),
+            QueryParam::Bytes(v) => args.add(v.as_slice()),
+            // MySQL has no native UUID type in the shipped capability set; bind the
+            // canonical text so a CHAR/VARCHAR/BINARY(16) column can still receive it.
+            QueryParam::Uuid(v) => {
+                uuid::Uuid::parse_str(v).map_err(|e| DbError::QueryFailed(format!("invalid UUID parameter: {e}")))?;
+                args.add(v.as_str())
+            }
+            QueryParam::DateTime(v) => bind_mysql_datetime(args, v),
+            QueryParam::Time(v) => {
+                let time = chrono::NaiveTime::parse_from_str(v, "%H:%M:%S%.f")
+                    .or_else(|_| chrono::NaiveTime::parse_from_str(v, "%H:%M:%S"))
+                    .or_else(|_| chrono::NaiveTime::parse_from_str(v, "%H:%M"))
+                    .map_err(|_| DbError::QueryFailed(format!("invalid time parameter: {v}")))?;
+                args.add(time)
+            }
+            QueryParam::Interval(v) => {
+                return Err(DbError::Unsupported(format!(
+                    "MySQL does not bind INTERVAL parameters (got {v})"
+                )));
+            }
+            QueryParam::Inet(v) => {
+                return Err(DbError::Unsupported(format!(
+                    "MySQL does not bind INET parameters (got {v})"
+                )));
+            }
+            QueryParam::Json(v) => args.add(sqlx::types::Json(v)),
+        };
+        result.map_err(|e| DbError::QueryFailed(format!("failed to bind MySQL parameter: {e}")))?;
+    }
+    Ok(())
+}
+
+fn bind_mysql_datetime(args: &mut MySqlArguments, value: &str) -> Result<(), sqlx::error::BoxDynError> {
+    if let Ok(dt) = DateTime::parse_from_rfc3339(value) {
+        return args.add(dt.with_timezone(&Utc));
+    }
+    if let Ok(ndt) = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S%.f") {
+        return args.add(ndt);
+    }
+    if let Ok(ndt) = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S") {
+        return args.add(ndt);
+    }
+    if let Ok(ndt) = NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S%.f") {
+        return args.add(ndt);
+    }
+    if let Ok(ndt) = NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S") {
+        return args.add(ndt);
+    }
+    if let Ok(date) = NaiveDate::parse_from_str(value, "%Y-%m-%d") {
+        return args.add(date);
+    }
+    Err(format!("invalid date/datetime parameter: {value}").into())
+}
 
 impl MySqlQueryMapper {
     pub fn map_rows(rows: Vec<sqlx::mysql::MySqlRow>) -> Result<QueryResult, DbError> {
@@ -297,5 +366,35 @@ mod tests {
             format_mysql_time(mysql_time_of(100, 30, 15, 500_000, true)),
             "-100:30:15.500000"
         );
+    }
+
+    #[test]
+    fn bind_params_accepts_common_scalar_types() {
+        use db_pro_core::domain::query::QueryParam;
+        let mut args = sqlx::mysql::MySqlArguments::default();
+        let params = [
+            QueryParam::Null,
+            QueryParam::Bool(true),
+            QueryParam::Int64(42),
+            QueryParam::Float64(1.5),
+            QueryParam::Decimal("12.34".into()),
+            QueryParam::Text("hello".into()),
+            QueryParam::Bytes(vec![1, 2, 3]),
+            QueryParam::Uuid("550e8400-e29b-41d4-a716-446655440000".into()),
+            QueryParam::DateTime("2024-03-15T10:20:30.123456".into()),
+            QueryParam::Time("10:20:30.123456".into()),
+            QueryParam::Json(serde_json::json!({"a": 1})),
+        ];
+        bind_params(&params, &mut args).expect("bind common types");
+    }
+
+    #[test]
+    fn bind_params_rejects_interval_and_inet() {
+        use db_pro_core::domain::query::QueryParam;
+        let mut args = sqlx::mysql::MySqlArguments::default();
+        let err = bind_params(&[QueryParam::Interval("1 day".into())], &mut args).expect_err("interval");
+        assert!(err.to_string().contains("INTERVAL"));
+        let err = bind_params(&[QueryParam::Inet("127.0.0.1".into())], &mut args).expect_err("inet");
+        assert!(err.to_string().contains("INET"));
     }
 }

@@ -156,12 +156,37 @@ impl DbProApp {
     /// Apply a driver choice from the connection dialog.
     ///
     /// Switching onto PostgreSQL always re-initializes TLS to `Require` so a
-    /// prior SQLite draft cannot leave the form on `Disable` (#144).
+    /// prior SQLite draft cannot leave the form on `Disable` (#144). Switching
+    /// onto MySQL sets the conventional port and the same TLS default (#235).
     pub(crate) fn select_connection_driver(&mut self, driver: UiDriver) {
-        if driver == UiDriver::Postgres && self.connection_draft.driver != UiDriver::Postgres {
-            self.connection_draft.ssl_mode = UiSslMode::Require;
+        if driver != self.connection_draft.driver {
+            match driver {
+                UiDriver::Postgres => {
+                    self.connection_draft.ssl_mode = UiSslMode::Require;
+                    if self.connection_draft.port == "3306" || self.connection_draft.port.is_empty() {
+                        self.connection_draft.port = "5432".to_owned();
+                    }
+                }
+                UiDriver::Mysql => {
+                    self.connection_draft.ssl_mode = UiSslMode::Require;
+                    if self.connection_draft.port == "5432" || self.connection_draft.port.is_empty() {
+                        self.connection_draft.port = "3306".to_owned();
+                    }
+                }
+                UiDriver::Sqlite => {}
+            }
         }
         self.connection_draft.driver = driver;
+    }
+
+    fn ui_driver_from_summary(driver: &str) -> UiDriver {
+        if driver.eq_ignore_ascii_case("sqlite") {
+            UiDriver::Sqlite
+        } else if driver.eq_ignore_ascii_case("mysql") {
+            UiDriver::Mysql
+        } else {
+            UiDriver::Postgres
+        }
     }
 
     pub(crate) fn open_edit_connection(&mut self, connection: &UiConnectionSummary) {
@@ -174,11 +199,7 @@ impl DbProApp {
             database: connection.database.clone(),
             username: connection.username.clone(),
             password: String::new(),
-            driver: if connection.driver == "SQLite" {
-                UiDriver::Sqlite
-            } else {
-                UiDriver::Postgres
-            },
+            driver: Self::ui_driver_from_summary(&connection.driver),
             ssl_mode: connection.ssl_mode,
             readonly: connection.readonly,
             ssh_tunnel_enabled: false,
@@ -203,11 +224,7 @@ impl DbProApp {
             database: connection.database.clone(),
             username: connection.username.clone(),
             password: String::new(),
-            driver: if connection.driver == "SQLite" {
-                UiDriver::Sqlite
-            } else {
-                UiDriver::Postgres
-            },
+            driver: Self::ui_driver_from_summary(&connection.driver),
             ssl_mode: connection.ssl_mode,
             readonly: connection.readonly,
             ssh_tunnel_enabled: false,
@@ -364,7 +381,7 @@ impl DbProApp {
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(
-                    RichText::new("2 active · 6 coming soon")
+                    RichText::new("3 active · 5 coming soon")
                         .font(font_caption())
                         .color(self.theme.text_muted),
                 );
@@ -419,19 +436,24 @@ impl DbProApp {
 
             ui.add_space(gap);
 
-            draw_driver_card(
+            let is_mysql = self.connection_draft.driver == UiDriver::Mysql;
+            if draw_driver_card(
                 ui,
                 DriverCardProps {
                     icon: Icon::Database,
                     name: "MySQL",
                     subtitle: "Port 3306 · SQL",
-                    badge: "Soon",
-                    is_selected: false,
-                    is_disabled: true,
+                    badge: "Active",
+                    is_selected: is_mysql,
+                    is_disabled: false,
                     width: card_w,
                 },
                 &self.theme,
-            );
+            )
+            .clicked()
+            {
+                self.select_connection_driver(UiDriver::Mysql);
+            }
 
             ui.add_space(gap);
 
@@ -520,10 +542,9 @@ impl DbProApp {
         ui.add_space(SPACE_MD);
 
         // ── 2. Engine-specific Fields ─────────────────────────────────
-        if self.connection_draft.driver == UiDriver::Postgres {
-            self.draw_postgres_connection_fields(ui);
-        } else {
-            self.draw_sqlite_connection_fields(ui);
+        match self.connection_draft.driver {
+            UiDriver::Postgres | UiDriver::Mysql => self.draw_postgres_connection_fields(ui),
+            UiDriver::Sqlite => self.draw_sqlite_connection_fields(ui),
         }
 
         // ── 3. Feedback Alerts ─────────────────────────────────────────
@@ -739,102 +760,104 @@ impl DbProApp {
         });
         ui.add_space(SPACE_SM);
 
-        // Row 5: SSH Bastion Tunnel Card (Compact)
-        egui::Frame {
-            fill: self.theme.surface_panel,
-            stroke: Stroke::new(1.0, self.theme.border_subtle),
-            rounding: Rounding::same(RADIUS_CARD),
-            inner_margin: Margin::symmetric(12.0, 8.0),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new(char::from(Icon::Shield).to_string())
-                        .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
-                        .color(self.theme.accent),
-                );
-                ui.add_space(SPACE_XXS);
-                ui.checkbox(
-                    &mut self.connection_draft.ssh_tunnel_enabled,
-                    RichText::new("Connect via SSH Bastion Tunnel")
-                        .strong()
-                        .color(self.theme.text_primary),
-                );
-            });
-
-            // Shown with the control itself, before it is enabled: the impression
-            // this caveat guards against is formed while reading the option, not
-            // only after switching it on (#239).
-            ui.add_space(SPACE_XXS);
-            ui.label(
-                RichText::new(SSH_QUALIFICATION_HINT)
-                    .font(font_caption())
-                    .color(self.theme.text_muted),
-            );
-
-            if self.connection_draft.ssh_tunnel_enabled {
-                ui.add_space(SPACE_SM);
-
+        // Row 5: SSH Bastion Tunnel Card (Compact) — PostgreSQL only for v0.1
+        if self.connection_draft.driver == UiDriver::Postgres {
+            egui::Frame {
+                fill: self.theme.surface_panel,
+                stroke: Stroke::new(1.0, self.theme.border_subtle),
+                rounding: Rounding::same(RADIUS_CARD),
+                inner_margin: Margin::symmetric(12.0, 8.0),
+                ..Default::default()
+            }
+            .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    let total = ui.available_width() - 3.0 * SPACE_SM;
-                    let ssh_host_w = total * 0.38;
-                    let ssh_port_w = total * 0.14;
-                    let ssh_user_w = total * 0.20;
-                    let ssh_key_w = total * 0.28;
+                    ui.label(
+                        RichText::new(char::from(Icon::Shield).to_string())
+                            .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
+                            .color(self.theme.accent),
+                    );
+                    ui.add_space(SPACE_XXS);
+                    ui.checkbox(
+                        &mut self.connection_draft.ssh_tunnel_enabled,
+                        RichText::new("Connect via SSH Bastion Tunnel")
+                            .strong()
+                            .color(self.theme.text_primary),
+                    );
+                });
 
-                    ui.vertical(|ui| {
-                        ui.set_width(ssh_host_w);
-                        Input::new(&mut self.connection_draft.ssh_host, "bastion.example.com", self.theme)
-                            .label("SSH Host")
-                            .leading_icon(Icon::Server)
-                            .show(ui);
-                    });
+                // Shown with the control itself, before it is enabled: the impression
+                // this caveat guards against is formed while reading the option, not
+                // only after switching it on (#239).
+                ui.add_space(SPACE_XXS);
+                ui.label(
+                    RichText::new(SSH_QUALIFICATION_HINT)
+                        .font(font_caption())
+                        .color(self.theme.text_muted),
+                );
+
+                if self.connection_draft.ssh_tunnel_enabled {
                     ui.add_space(SPACE_SM);
-                    ui.vertical(|ui| {
-                        ui.set_width(ssh_port_w);
-                        Input::new(&mut self.connection_draft.ssh_port, "22", self.theme)
-                            .label("SSH Port")
-                            .leading_icon(Icon::Hash)
-                            .show(ui);
-                    });
-                    ui.add_space(SPACE_SM);
-                    ui.vertical(|ui| {
-                        ui.set_width(ssh_user_w);
-                        Input::new(&mut self.connection_draft.ssh_user, "ubuntu", self.theme)
-                            .label("SSH User")
-                            .leading_icon(Icon::User)
-                            .show(ui);
-                    });
-                    ui.add_space(SPACE_SM);
-                    ui.vertical(|ui| {
-                        ui.set_width(ssh_key_w);
-                        ui.label(
-                            RichText::new("Private Key")
-                                .size(12.0)
-                                .strong()
-                                .color(self.theme.text_secondary),
-                        );
-                        ui.add_space(SPACE_XXS);
-                        ui.horizontal(|ui| {
-                            let browse_w = 72.0;
-                            let key_input_w = (ssh_key_w - browse_w - SPACE_XS).max(60.0);
-                            ui.vertical(|ui| {
-                                ui.set_width(key_input_w);
-                                Input::new(&mut self.connection_draft.ssh_private_key, "~/.ssh/id_rsa", self.theme)
-                                    .leading_icon(Icon::Key)
-                                    .show(ui);
+
+                    ui.horizontal(|ui| {
+                        let total = ui.available_width() - 3.0 * SPACE_SM;
+                        let ssh_host_w = total * 0.38;
+                        let ssh_port_w = total * 0.14;
+                        let ssh_user_w = total * 0.20;
+                        let ssh_key_w = total * 0.28;
+
+                        ui.vertical(|ui| {
+                            ui.set_width(ssh_host_w);
+                            Input::new(&mut self.connection_draft.ssh_host, "bastion.example.com", self.theme)
+                                .label("SSH Host")
+                                .leading_icon(Icon::Server)
+                                .show(ui);
+                        });
+                        ui.add_space(SPACE_SM);
+                        ui.vertical(|ui| {
+                            ui.set_width(ssh_port_w);
+                            Input::new(&mut self.connection_draft.ssh_port, "22", self.theme)
+                                .label("SSH Port")
+                                .leading_icon(Icon::Hash)
+                                .show(ui);
+                        });
+                        ui.add_space(SPACE_SM);
+                        ui.vertical(|ui| {
+                            ui.set_width(ssh_user_w);
+                            Input::new(&mut self.connection_draft.ssh_user, "ubuntu", self.theme)
+                                .label("SSH User")
+                                .leading_icon(Icon::User)
+                                .show(ui);
+                        });
+                        ui.add_space(SPACE_SM);
+                        ui.vertical(|ui| {
+                            ui.set_width(ssh_key_w);
+                            ui.label(
+                                RichText::new("Private Key")
+                                    .size(12.0)
+                                    .strong()
+                                    .color(self.theme.text_secondary),
+                            );
+                            ui.add_space(SPACE_XXS);
+                            ui.horizontal(|ui| {
+                                let browse_w = 72.0;
+                                let key_input_w = (ssh_key_w - browse_w - SPACE_XS).max(60.0);
+                                ui.vertical(|ui| {
+                                    ui.set_width(key_input_w);
+                                    Input::new(&mut self.connection_draft.ssh_private_key, "~/.ssh/id_rsa", self.theme)
+                                        .leading_icon(Icon::Key)
+                                        .show(ui);
+                                });
+                                ui.add_space(SPACE_XS);
+                                if compact_button_with_icon(ui, Icon::FolderOpen, "Browse", self.theme).clicked() {
+                                    let request_id = self.task_bridge.next_request_id();
+                                    self.dispatch_command(UiCommand::PickSshPrivateKey { request_id });
+                                }
                             });
-                            ui.add_space(SPACE_XS);
-                            if compact_button_with_icon(ui, Icon::FolderOpen, "Browse", self.theme).clicked() {
-                                let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(UiCommand::PickSshPrivateKey { request_id });
-                            }
                         });
                     });
-                });
-            }
-        });
+                }
+            });
+        }
     }
 
     fn draw_sqlite_connection_fields(&mut self, ui: &mut egui::Ui) {
@@ -933,7 +956,9 @@ impl DbProApp {
             self.connection_error = "Name and database are required".to_owned();
             return;
         }
-        if self.connection_draft.driver == UiDriver::Postgres && self.connection_draft.port.parse::<u16>().is_err() {
+        if matches!(self.connection_draft.driver, UiDriver::Postgres | UiDriver::Mysql)
+            && self.connection_draft.port.parse::<u16>().is_err()
+        {
             self.connection_error = "Port must be a number between 1 and 65535".to_owned();
             return;
         }

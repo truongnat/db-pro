@@ -74,14 +74,17 @@ impl DbConnector for MySqlConnector {
         &self,
         handle: &ConnectionHandle,
         sql: &str,
-        _params: &[QueryParam],
+        params: &[QueryParam],
     ) -> Result<db_pro_core::domain::query::QueryResult, DbError> {
         let pool = self
             .get_pool(handle)
             .await
             .ok_or_else(|| DbError::ConnectionFailed("no MySQL pool for handle".into()))?;
 
-        let rows = sqlx::query(sql)
+        let mut args = sqlx::mysql::MySqlArguments::default();
+        super::query_mapper::bind_params(params, &mut args)?;
+
+        let rows = sqlx::query_with(sql, args)
             .fetch_all(&pool)
             .await
             .map_err(|e| DbError::QueryFailed(format!("MySQL query failed: {}", e)))?;
@@ -89,13 +92,16 @@ impl DbConnector for MySqlConnector {
         MySqlQueryMapper::map_rows(rows)
     }
 
-    async fn execute(&self, handle: &ConnectionHandle, sql: &str, _params: &[QueryParam]) -> Result<u64, DbError> {
+    async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
         let pool = self
             .get_pool(handle)
             .await
             .ok_or_else(|| DbError::ConnectionFailed("no MySQL pool for handle".into()))?;
 
-        let result = sqlx::query(sql)
+        let mut args = sqlx::mysql::MySqlArguments::default();
+        super::query_mapper::bind_params(params, &mut args)?;
+
+        let result = sqlx::query_with(sql, args)
             .execute(&pool)
             .await
             .map_err(|e| DbError::QueryFailed(format!("MySQL execute failed: {}", e)))?;
