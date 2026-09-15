@@ -397,7 +397,7 @@ impl DbProApp {
         }
     }
 
-    fn open_table_from_palette(&mut self, table: String) {
+    pub(crate) fn open_table_from_palette(&mut self, table: String) {
         if self.selected_table.as_deref() != Some(table.as_str()) && !self.staged_changes.is_empty() {
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
