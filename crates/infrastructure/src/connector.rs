@@ -6,6 +6,7 @@ use db_pro_core::ports::{DbConnector, ProviderFactory};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::mysql::connector::MySqlConnector;
 use crate::postgres::connector::PostgresConnector;
 use crate::sqlite::connector::SQLiteConnector;
 
@@ -50,6 +51,26 @@ impl ProviderFactory for SqliteFactory {
 
     async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
         SQLiteConnector::new().test_connection(config, password).await
+    }
+}
+
+struct MySqlFactory;
+#[async_trait]
+impl ProviderFactory for MySqlFactory {
+    fn driver(&self) -> db_pro_core::domain::connection::DriverType {
+        db_pro_core::domain::connection::DriverType::Mysql
+    }
+
+    fn capabilities(&self, _config: &ConnectionConfig) -> DatabaseCapabilities {
+        DatabaseCapabilities::mysql()
+    }
+
+    fn build(&self) -> Box<dyn DbConnector> {
+        Box::new(MySqlConnector::new())
+    }
+
+    async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
+        MySqlConnector::new().test_connection(config, password).await
     }
 }
 
@@ -109,6 +130,10 @@ impl CompositeConnector {
         factories.insert(
             db_pro_core::domain::connection::DriverType::SQLite,
             Box::new(SqliteFactory),
+        );
+        factories.insert(
+            db_pro_core::domain::connection::DriverType::Mysql,
+            Box::new(MySqlFactory),
         );
 
         Self {

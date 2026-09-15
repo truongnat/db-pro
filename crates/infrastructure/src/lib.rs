@@ -2,6 +2,7 @@ pub mod backup;
 pub mod connector;
 pub mod error;
 pub mod meta;
+pub mod mysql;
 pub mod postgres;
 pub mod secret;
 pub mod sqlite;

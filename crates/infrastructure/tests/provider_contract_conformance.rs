@@ -37,12 +37,14 @@ async fn composite_connects_to_sqlite_via_factory() {
 }
 
 #[tokio::test]
-async fn composite_rejects_unknown_driver() {
+async fn composite_handles_mysql_capabilities() {
     let connector = CompositeConnector::new();
-    let mut config = sqlite_config();
-    config.driver = DriverType::Mysql;
-    let err = connector.connect(&config, "").await.expect_err("unsupported driver");
-    assert!(matches!(err, DbError::Validation(_)));
+    let caps = connector.capabilities(&ConnectionConfig {
+        driver: DriverType::Mysql,
+        ..sqlite_config()
+    });
+    assert!(caps.schema.schemas, "MySQL should support schemas");
+    assert!(!caps.features.tablespaces, "MySQL connector reports no tablespaces support");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -186,10 +188,11 @@ impl ProviderFactory for StubFactory {
 }
 
 #[test]
-fn register_factory_enables_mysql_capabilities() {
+fn register_factory_replaces_existing_factory() {
     let mut connector = CompositeConnector::new();
+    // MySQL is now registered by default, so replacing it returns the old factory.
     let previous = connector.register_factory(Box::new(StubFactory));
-    assert!(previous.is_none(), "no previous MySQL factory");
+    assert!(previous.is_some(), "MySQL factory is registered by default");
 
     let caps = connector.capabilities(&ConnectionConfig {
         driver: DriverType::Mysql,
