@@ -10,11 +10,15 @@
 //!
 //! Tests are marked `#[ignored]` so they only run when DATABASE_URL is set.
 
+use db_pro_core::application::query_service::QueryService;
+use db_pro_core::application::registry::ConnectionRegistry;
 use db_pro_core::application::sql_builder::{build_count, FilterOp, TableFilter};
-use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
-use db_pro_core::domain::query::{CellValue, QueryParam};
-use db_pro_core::ports::{DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
+use db_pro_core::domain::connection::{Connection, ConnectionConfig, ConnectionHandle, DriverType, SslMode};
+use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult};
+use db_pro_core::ports::{ConnectionRepository, DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
+use db_pro_infrastructure::meta::store::SQLiteMetaStore;
 use db_pro_infrastructure::postgres::connector::PostgresConnector;
+use std::sync::Arc;
 
 /// Build a ConnectionConfig from the DATABASE_URL environment variable.
 /// Returns None if DATABASE_URL is not set (tests will be skipped).
@@ -64,16 +68,21 @@ fn pg_config() -> Option<ConnectionConfig> {
     })
 }
 
-async fn setup() -> (PostgresConnector, db_pro_core::domain::connection::ConnectionHandle) {
-    let config = pg_config().expect("DATABASE_URL must be set for PG integration tests");
-    let password = std::env::var("DATABASE_URL")
+/// The password half of `DATABASE_URL`, for the connect calls that `pg_config()` does not carry.
+fn pg_password() -> String {
+    std::env::var("DATABASE_URL")
         .ok()
         .and_then(|url| {
             url.strip_prefix("postgres://")
                 .and_then(|s| s.split_once('@').map(|(auth, _)| auth))
                 .and_then(|auth| auth.split_once(':').map(|(_, p)| p.to_string()))
         })
-        .unwrap_or_default();
+        .unwrap_or_default()
+}
+
+async fn setup() -> (PostgresConnector, db_pro_core::domain::connection::ConnectionHandle) {
+    let config = pg_config().expect("DATABASE_URL must be set for PG integration tests");
+    let password = pg_password();
 
     let connector = PostgresConnector::new();
     let handle = connector.connect(&config, &password).await.expect("PG connect failed");
@@ -1185,6 +1194,225 @@ async fn pg_introspection_survives_concurrent_index_churn() {
 
     connector
         .query(&handle, "DROP TABLE IF EXISTS churn_probe", &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// #147 — multi-statement batches may not carry transaction control
+//
+// The product path is `QueryService::execute_multi`, which refuses a batch whose statements
+// contain `BEGIN` / `COMMIT` / `ROLLBACK` before any of them reaches the connector. These tests
+// pin, on live PostgreSQL:
+//   1. the product refusal, with nothing written,
+//   2. the documented rollback contract for a batch without control,
+//   3. the defect that made the refusal necessary, measured on the connector itself (a batch that
+//      carries its own transaction control reports `RolledBack` while its earlier writes survive).
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Build the product path used by the app: `QueryService` over a real connector, a real meta store
+/// and a real registry entry for `connection.id`. The meta store lives in a fresh temp directory so
+/// tests stay isolated from whatever `db-pro` state happens to be on the machine.
+async fn product_path(
+    connection: &Connection,
+) -> (QueryService, ConnectionHandle, SQLiteMetaStore, std::path::PathBuf) {
+    let meta_dir = std::env::temp_dir().join(format!("db-pro-pg-ms-tx-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&meta_dir).expect("temp dir for the meta store");
+
+    let meta_store = SQLiteMetaStore::new(&meta_dir.join("meta.db").to_string_lossy())
+        .await
+        .expect("meta store");
+    ConnectionRepository::save(&meta_store, connection)
+        .await
+        .expect("save the connection");
+
+    let registry = Arc::new(ConnectionRegistry::new());
+    let connector = PostgresConnector::new();
+    let config = pg_config().expect("DATABASE_URL must be set for PG integration tests");
+    let handle = connector
+        .connect(&config, &pg_password())
+        .await
+        .expect("PG connect failed");
+    registry.register(connection.id, handle);
+
+    let service = QueryService::new(
+        Box::new(connector),
+        Box::new(meta_store.clone()),
+        Box::new(meta_store.clone()),
+        Box::new(meta_store.clone()),
+        Arc::clone(&registry),
+        Box::new(meta_store.clone()),
+    );
+
+    (service, handle, meta_store, meta_dir)
+}
+
+fn count_cell(result: &QueryResult) -> i64 {
+    match &result.rows[0].0[0] {
+        CellValue::Int64(count) => *count,
+        other => panic!("unexpected count cell {other:?}"),
+    }
+}
+
+/// The product refusal: a batch that carries its own `COMMIT` is rejected before dispatch and
+/// nothing is written. Without this rule the same batch on PostgreSQL commits the insert and then
+/// reports `RolledBack` (see `pg_connector_alone_reports_rolled_back_for_a_batch_that_committed`).
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL
+async fn pg_multi_statement_batch_with_commit_is_refused_and_writes_nothing() {
+    let mut connection = Connection::new(pg_config().expect("DATABASE_URL must be set for PG integration tests"));
+    connection.config.name = "multi-statement-refusal".to_owned();
+    let connection_id = connection.id;
+
+    let (reader, reader_handle) = setup().await;
+    reader
+        .execute(&reader_handle, "DROP TABLE IF EXISTS ms_tx_refused", &[])
+        .await
+        .unwrap();
+    reader
+        .execute(&reader_handle, "CREATE TABLE ms_tx_refused (id INT)", &[])
+        .await
+        .unwrap();
+
+    let (service, _service_handle, _meta_store, _meta_dir) = product_path(&connection).await;
+
+    let result = service
+        .execute_multi(
+            &connection_id,
+            "INSERT INTO ms_tx_refused (id) VALUES (1); COMMIT; SELECT no_such_column FROM ms_tx_refused",
+            None,
+            None,
+        )
+        .await
+        .expect("a refused batch is a result carrying an error");
+
+    let (index, error) = result.error.expect("the batch is refused");
+    assert_eq!(index, 1, "the offending statement is reported by its index");
+    assert!(
+        error.message.contains("`COMMIT`"),
+        "the refusal names the offending statement, got: {}",
+        error.message
+    );
+    assert!(result.results.is_empty(), "no results are returned for a refused batch");
+
+    let count = reader
+        .query(&reader_handle, "SELECT count(*) FROM ms_tx_refused", &[])
+        .await
+        .unwrap();
+    assert_eq!(
+        count_cell(&count),
+        0,
+        "the refusal happens before dispatch, so the insert must not be written"
+    );
+
+    reader
+        .execute(&reader_handle, "DROP TABLE IF EXISTS ms_tx_refused", &[])
+        .await
+        .unwrap();
+    reader.disconnect(&reader_handle).await.unwrap();
+}
+
+/// The contract for a batch without transaction control is unchanged: a failure rolls the whole
+/// batch back and the envelope reports it.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL
+async fn pg_multi_statement_batch_without_transaction_control_still_rolls_back() {
+    let (connector, handle) = setup().await;
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS ms_tx_control", &[])
+        .await
+        .unwrap();
+    connector
+        .execute(&handle, "CREATE TABLE ms_tx_control (id INT)", &[])
+        .await
+        .unwrap();
+
+    let failure = connector
+        .execute_transaction(
+            &handle,
+            &[
+                "INSERT INTO ms_tx_control (id) VALUES (1)".to_owned(),
+                "SELECT no_such_column FROM ms_tx_control".to_owned(),
+            ],
+            &[false, true],
+        )
+        .await
+        .expect_err("the second statement fails");
+
+    assert_eq!(failure.phase, TransactionFailurePhase::Statement);
+    assert_eq!(failure.statement_index, 1);
+    assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
+
+    let count = connector
+        .query(&handle, "SELECT count(*) FROM ms_tx_control", &[])
+        .await
+        .unwrap();
+    assert_eq!(count_cell(&count), 0, "the failure must roll the whole batch back");
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS ms_tx_control", &[])
+        .await
+        .unwrap();
+    connector.disconnect(&handle).await.unwrap();
+}
+
+/// The defect that made the dispatch rule necessary, measured on the connector itself and pinned on
+/// purpose (the #147 fix lives one layer up, so this is what shows the assumption behind the rule is
+/// real on PostgreSQL — and what fails loudly if someone removes the refusal without giving the
+/// connector the guarantee itself). Measured on this host: the batch `BEGIN; INSERT; COMMIT; SELECT
+/// bad` fails on the `SELECT`, and the envelope reports `RolledBack` — but the insert the user's own
+/// `COMMIT` committed is still in the table. The connector is not changed by the fix; its
+/// `execute_transaction` documents that assumption instead.
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL
+async fn pg_connector_alone_reports_rolled_back_for_a_batch_that_committed() {
+    let (connector, handle) = setup().await;
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS ms_tx_characterisation", &[])
+        .await
+        .unwrap();
+    connector
+        .execute(&handle, "CREATE TABLE ms_tx_characterisation (id INT)", &[])
+        .await
+        .unwrap();
+
+    let failure = connector
+        .execute_transaction(
+            &handle,
+            &[
+                "BEGIN".to_owned(),
+                "INSERT INTO ms_tx_characterisation (id) VALUES (1)".to_owned(),
+                "COMMIT".to_owned(),
+                "SELECT no_such_column FROM ms_tx_characterisation".to_owned(),
+            ],
+            &[false, false, false, true],
+        )
+        .await
+        .expect_err("the statement after the COMMIT fails");
+
+    assert_eq!(failure.phase, TransactionFailurePhase::Statement);
+    assert_eq!(failure.statement_index, 3);
+    assert_eq!(
+        failure.outcome,
+        TransactionFailureOutcome::RolledBack,
+        "the envelope reports rolled back although the user's COMMIT already ended the transaction"
+    );
+
+    let count = connector
+        .query(&handle, "SELECT count(*) FROM ms_tx_characterisation", &[])
+        .await
+        .unwrap();
+    assert_eq!(
+        count_cell(&count),
+        1,
+        "the user's COMMIT ended the wrapper transaction, so the insert survived"
+    );
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS ms_tx_characterisation", &[])
         .await
         .unwrap();
     connector.disconnect(&handle).await.unwrap();

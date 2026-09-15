@@ -127,6 +127,39 @@ pub fn classify_script_safety(sql: &str) -> Option<StatementSafety> {
         .max_by_key(|safety| safety.severity_rank())
 }
 
+/// The transaction-control verb a statement starts with, if it is one.
+///
+/// `BEGIN`/`START TRANSACTION`, `COMMIT`/`END`, `ROLLBACK`/`ABORT`, `SAVEPOINT` and `RELEASE`
+/// take control of a transaction explicitly. A multi-statement batch that contains any mutation is
+/// executed inside a transaction of its own (`Connector::execute_transaction`, `#129`), so a
+/// statement like this one does not join that transaction — it ends or re-scopes it. The statements
+/// after it run outside the wrapper, and the wrapper's rollback then has nothing left to undo while
+/// the failure envelope still reports `RolledBack` (#147).
+///
+/// Only the leading keyword is inspected: a `BEGIN` inside `DO $body$ … $body$` belongs to that
+/// statement's own body and is classified by its leading `DO`, and quoted text is not a keyword.
+pub fn transaction_control_verb(sql: &str) -> Option<&'static str> {
+    let trimmed = sql.trim().trim_end_matches(';').trim();
+    let trimmed = strip_leading_comments(trimmed);
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let upper = trimmed.to_ascii_uppercase();
+    let mut words = upper.split_whitespace();
+    match words.next()? {
+        "BEGIN" => Some("BEGIN"),
+        "COMMIT" => Some("COMMIT"),
+        "END" => Some("END"),
+        "ROLLBACK" => Some("ROLLBACK"),
+        "ABORT" => Some("ABORT"),
+        "SAVEPOINT" => Some("SAVEPOINT"),
+        "RELEASE" => Some("RELEASE"),
+        "START" if words.next() == Some("TRANSACTION") => Some("START TRANSACTION"),
+        _ => None,
+    }
+}
+
 /// Split a SQL script into its statements on statement-terminating semicolons.
 ///
 /// Semicolons inside quoted strings, quoted identifiers, comments and
@@ -1145,5 +1178,57 @@ mod tests {
             classify_script_safety("DO $body$ BEGIN PERFORM 1; END $body$"),
             Some(StatementSafety::Destructive)
         );
+    }
+
+    #[test]
+    fn transaction_control_verbs_are_recognised_in_every_form() {
+        for (statement, verb) in [
+            ("BEGIN", "BEGIN"),
+            ("BEGIN;", "BEGIN"),
+            ("begin", "BEGIN"),
+            ("BEGIN TRANSACTION", "BEGIN"),
+            ("BEGIN IMMEDIATE", "BEGIN"),
+            ("START TRANSACTION", "START TRANSACTION"),
+            ("COMMIT", "COMMIT"),
+            ("COMMIT WORK", "COMMIT"),
+            ("END", "END"),
+            ("ROLLBACK", "ROLLBACK"),
+            ("ROLLBACK TO SAVEPOINT before_insert", "ROLLBACK"),
+            ("ABORT", "ABORT"),
+            ("SAVEPOINT s1", "SAVEPOINT"),
+            ("RELEASE SAVEPOINT s1", "RELEASE"),
+            ("-- note\nCOMMIT", "COMMIT"),
+            ("/* note */ COMMIT", "COMMIT"),
+        ] {
+            assert_eq!(
+                transaction_control_verb(statement),
+                Some(verb),
+                "statement: {statement}"
+            );
+        }
+    }
+
+    #[test]
+    fn transaction_control_detection_does_not_match_inside_a_statement() {
+        for statement in [
+            "",
+            "   ",
+            "SELECT 1",
+            // A keyword that merely starts with a control keyword.
+            "BEGINNING",
+            "COMMITTED",
+            "ENDLESS",
+            // Control words inside a statement are not transaction control.
+            "SELECT 'begin' AS word",
+            "SELECT 1 AS commit",
+            "SELECT commit FROM audit_log",
+            "INSERT INTO t (begin) VALUES (1)",
+            // A PL/pgSQL body: the statement is a `DO`, not a `BEGIN`.
+            "DO $body$ BEGIN PERFORM 1; END $body$",
+            // `START` alone is not `START TRANSACTION`.
+            "START",
+        ] {
+            assert_eq!(transaction_control_verb(statement), None, "statement: {statement}");
+        }
     }
 }

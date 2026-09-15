@@ -98,6 +98,19 @@ script through `RunQueryMulti`, and the query editor **holds a batch whose worst
 `Destructive`** for explicit confirmation before anything is dispatched
 (`crates/ui/src/events.rs` `hold_destructive_run` + the destructive-run dialog).
 
+**What a batch may contain (updated 2026-09-15, #147).** A batch dispatched through `execute_multi` may
+not carry its own transaction control: any statement whose leading verb is `BEGIN` / `START
+TRANSACTION` / `COMMIT` / `END` / `ROLLBACK` / `SAVEPOINT` / `RELEASE` is refused before dispatch
+(`transaction_control_verb`, `crates/core/src/domain/safety.rs`; refusal in
+`QueryService::execute_multi`, `crates/core/src/application/query_service.rs`). The reason is
+measured, not stylistic: such a script ends or replaces the wrapper transaction, so the connector's
+rollback can no longer hold the earlier writes, and on PostgreSQL the envelope then reports
+`RolledBack` for a batch whose writes actually committed. Live evidence lives in
+`crates/infrastructure/tests/multistatement_transaction_control.rs` (SQLite, always-on) and
+`crates/infrastructure/tests/pg_integration.rs` (PostgreSQL, `#[ignore]`d, `DATABASE_URL`-gated), which
+also pin the connector-level behaviour the refusal exists to make unreachable. Single statements keep
+working: `BEGIN`, `COMMIT` and `ROLLBACK` typed alone go through the direct execution path (#224).
+
 What the original "future support requires" list asked for, and where it now lives:
 
 - parser-backed statement boundaries — `split_statements` is quote-, comment- and dollar-quote-aware
