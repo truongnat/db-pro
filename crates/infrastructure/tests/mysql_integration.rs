@@ -354,3 +354,147 @@ async fn mysql_introspects_named_check_constraints() {
         .ok();
     connector.disconnect(&handle).await.unwrap();
 }
+
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL=mysql://...
+async fn mysql_table_data_change_set_round_trips() {
+    use db_pro_core::application::sql_builder::{self, FilterOp, TableFilter};
+    use db_pro_core::domain::query::CellValue;
+    use db_pro_core::ports::{DbConnector, ParameterizedTransactionStatement};
+    use db_pro_infrastructure::connector::CompositeConnector;
+
+    let Some((_connector, _handle, database)) = setup().await else {
+        eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
+        return;
+    };
+    let config = mysql_config().expect("mysql config");
+    let password = std::env::var("DATABASE_URL")
+        .ok()
+        .and_then(|url| {
+            url.strip_prefix("mysql://")
+                .and_then(|s| s.split_once('@').map(|(auth, _)| auth))
+                .and_then(|auth| auth.split_once(':').map(|(_, p)| p.to_string()))
+        })
+        .unwrap_or_default();
+
+    let connector = CompositeConnector::new();
+    let handle = connector.connect(&config, &password).await.expect("connect");
+    let dialect = connector.dialect(&handle).expect("mysql dialect");
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_changeset_probe", &[])
+        .await
+        .ok();
+    connector
+        .execute(
+            &handle,
+            "CREATE TABLE mysql_changeset_probe (
+                id BIGINT NOT NULL PRIMARY KEY,
+                label VARCHAR(64) NOT NULL
+            )",
+            &[],
+        )
+        .await
+        .expect("create");
+
+    let (insert_sql, insert_params) = sql_builder::build_insert(
+        dialect.as_ref(),
+        &database,
+        "mysql_changeset_probe",
+        &["id".into(), "label".into()],
+        &[CellValue::Int64(1), CellValue::Text("alpha".into())],
+    )
+    .expect("build insert");
+    connector
+        .execute_parameterized_transaction(
+            &handle,
+            &[ParameterizedTransactionStatement {
+                sql: insert_sql,
+                params: insert_params,
+                expect_affected_rows: true,
+                max_affected_rows: Some(1),
+            }],
+        )
+        .await
+        .expect("insert change-set");
+
+    let (select_sql, select_params) = sql_builder::build_select(
+        dialect.as_ref(),
+        &database,
+        "mysql_changeset_probe",
+        &[TableFilter {
+            column: "id".into(),
+            op: FilterOp::Eq,
+            value: CellValue::Int64(1),
+        }],
+        &[],
+        10,
+        0,
+    )
+    .expect("build select");
+    let selected = connector
+        .query(&handle, &select_sql, &select_params)
+        .await
+        .expect("select");
+    assert_eq!(selected.row_count, 1);
+    assert!(matches!(&selected.rows[0].0[1], CellValue::Text(t) if t == "alpha"));
+
+    let (update_sql, update_params) = sql_builder::build_update(
+        dialect.as_ref(),
+        &database,
+        "mysql_changeset_probe",
+        &["label".into()],
+        &[CellValue::Text("beta".into())],
+        &["id".into()],
+        &[CellValue::Int64(1)],
+    )
+    .expect("build update");
+    connector
+        .execute_parameterized_transaction(
+            &handle,
+            &[ParameterizedTransactionStatement {
+                sql: update_sql,
+                params: update_params,
+                expect_affected_rows: true,
+                max_affected_rows: Some(1),
+            }],
+        )
+        .await
+        .expect("update change-set");
+
+    let (delete_sql, delete_params) = sql_builder::build_delete(
+        dialect.as_ref(),
+        &database,
+        "mysql_changeset_probe",
+        &["id".into()],
+        &[CellValue::Int64(1)],
+    )
+    .expect("build delete");
+    connector
+        .execute_parameterized_transaction(
+            &handle,
+            &[ParameterizedTransactionStatement {
+                sql: delete_sql,
+                params: delete_params,
+                expect_affected_rows: true,
+                max_affected_rows: Some(1),
+            }],
+        )
+        .await
+        .expect("delete change-set");
+
+    let (count_sql, count_params) =
+        sql_builder::build_count(dialect.as_ref(), &database, "mysql_changeset_probe", &[]);
+    let count = connector
+        .query(&handle, &count_sql, &count_params)
+        .await
+        .expect("count");
+    assert_eq!(count.row_count, 1);
+    assert!(matches!(count.rows[0].0[0], CellValue::Int64(0)));
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_changeset_probe", &[])
+        .await
+        .ok();
+    connector.disconnect(&handle).await.unwrap();
+}

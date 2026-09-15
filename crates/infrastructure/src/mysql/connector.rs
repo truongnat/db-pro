@@ -206,6 +206,140 @@ impl DbConnector for MySqlConnector {
         Ok(results)
     }
 
+    async fn execute_parameterized_transaction(
+        &self,
+        handle: &ConnectionHandle,
+        statements: &[db_pro_core::ports::ParameterizedTransactionStatement],
+    ) -> Result<Vec<db_pro_core::ports::TransactionStatementResult>, db_pro_core::ports::TransactionFailure> {
+        use db_pro_core::ports::{
+            TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
+        };
+
+        let pool = self
+            .get_pool(handle)
+            .await
+            .ok_or_else(|| TransactionFailure {
+                phase: TransactionFailurePhase::Validation,
+                statement_index: 0,
+                outcome: TransactionFailureOutcome::NotStarted,
+                results: Vec::new(),
+                error: DbError::ConnectionFailed("no MySQL pool for handle".into()),
+            })?;
+
+        let mut tx = pool.begin().await.map_err(|e| TransactionFailure {
+            phase: TransactionFailurePhase::Begin,
+            statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
+            results: Vec::new(),
+            error: DbError::QueryFailed(format!("MySQL transaction begin failed: {e}")),
+        })?;
+
+        let mut results = Vec::with_capacity(statements.len());
+        for (index, statement) in statements.iter().enumerate() {
+            let mut args = sqlx::mysql::MySqlArguments::default();
+            if let Err(error) = super::query_mapper::bind_params(&statement.params, &mut args) {
+                let (error, outcome) = match tx.rollback().await {
+                    Ok(()) => (error, TransactionFailureOutcome::RolledBack),
+                    Err(rollback_error) => (
+                        DbError::Internal(format!(
+                            "bind failed: {error}; rollback failed: {rollback_error}"
+                        )),
+                        TransactionFailureOutcome::Unknown,
+                    ),
+                };
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: index,
+                    outcome,
+                    results,
+                    error,
+                });
+            }
+
+            let affected = match sqlx::query_with(&statement.sql, args).execute(&mut *tx).await {
+                Ok(result) => result.rows_affected(),
+                Err(e) => {
+                    let error = DbError::QueryFailed(format!("MySQL statement {index} failed: {e}"));
+                    let (error, outcome) = match tx.rollback().await {
+                        Ok(()) => (error, TransactionFailureOutcome::RolledBack),
+                        Err(rollback_error) => (
+                            DbError::Internal(format!(
+                                "statement failed: {error}; rollback failed: {rollback_error}"
+                            )),
+                            TransactionFailureOutcome::Unknown,
+                        ),
+                    };
+                    return Err(TransactionFailure {
+                        phase: TransactionFailurePhase::Statement,
+                        statement_index: index,
+                        outcome,
+                        results,
+                        error,
+                    });
+                }
+            };
+
+            if statement.expect_affected_rows && affected == 0 {
+                let error = DbError::Conflict("table mutation affected no rows".into());
+                let (error, outcome) = match tx.rollback().await {
+                    Ok(()) => (error, TransactionFailureOutcome::RolledBack),
+                    Err(rollback_error) => (
+                        DbError::Internal(format!(
+                            "mutation affected no rows; rollback failed: {rollback_error}"
+                        )),
+                        TransactionFailureOutcome::Unknown,
+                    ),
+                };
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: index,
+                    outcome,
+                    results,
+                    error,
+                });
+            }
+            if statement.max_affected_rows.is_some_and(|maximum| affected > maximum) {
+                let error = DbError::Internal(format!(
+                    "table mutation affected {affected} rows; expected at most {}",
+                    statement.max_affected_rows.unwrap_or_default()
+                ));
+                let (error, outcome) = match tx.rollback().await {
+                    Ok(()) => (error, TransactionFailureOutcome::RolledBack),
+                    Err(rollback_error) => (
+                        DbError::Internal(format!(
+                            "mutation invariant failed: {error}; rollback failed: {rollback_error}"
+                        )),
+                        TransactionFailureOutcome::Unknown,
+                    ),
+                };
+                return Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: index,
+                    outcome,
+                    results,
+                    error,
+                });
+            }
+
+            results.push(TransactionStatementResult::Affected {
+                row_count: affected,
+                duration_ms: 0,
+            });
+        }
+
+        if let Err(e) = tx.commit().await {
+            return Err(TransactionFailure {
+                phase: TransactionFailurePhase::Commit,
+                statement_index: statements.len(),
+                outcome: TransactionFailureOutcome::Unknown,
+                results,
+                error: DbError::QueryFailed(format!("MySQL commit failed: {e}")),
+            });
+        }
+
+        Ok(results)
+    }
+
     async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {
         let pool = self
             .get_pool(handle)

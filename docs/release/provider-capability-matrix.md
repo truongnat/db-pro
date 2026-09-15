@@ -187,9 +187,9 @@ work through the runtime/tests but have no enabled user surface.
 | Schema diff | SUPPORTED + NOT YET QUALIFIED | Compares two `IntrospectResult`s, so it needs no MySQL-specific path; no MySQL test |
 | Data diff | **NOT SUPPORTED** | Needs a dialect and there is no MySQL dialect arm; capability is `false` |
 | Raw SELECT (query editor) | SUPPORTED + QUALIFIED | Live query path; values decode per the provider-value contract |
-| Data Grid read / filter / sort / pagination | SUPPORTED + NOT YET QUALIFIED | Dialect now resolves for MySQL; table-data E2E still pending (#235) |
+| Data Grid read / filter / sort / pagination | SUPPORTED + QUALIFIED | Dialect + `sql_builder` select/count live (`mysql_table_data_change_set_round_trips`) |
 | Row write via the query editor | SUPPORTED + NOT YET QUALIFIED | Plain SQL through `execute`: `INSERT` is live-tested (`mysql_execute_returns_affected_rows`); `UPDATE`/`DELETE` are the same path with no MySQL-specific test |
-| Table Data Editor (staged mutations) | SUPPORTED + NOT YET QUALIFIED | Dialect returned; full change-set E2E still pending (#235) |
+| Table Data Editor (staged mutations) | SUPPORTED + QUALIFIED | `execute_parameterized_transaction` + live change-set round-trip (#235) |
 | Value decoding (all classes) | SUPPORTED + QUALIFIED | Class-aware mapper; 41-column live matrix, `DECIMAL`/temporal/JSON/GEOMETRY/bytes byte-exact (`providers/60-…` §3) |
 | User / role management (`server_sessions`) | NOT SUPPORTED | `UserService` rejects every non-PostgreSQL driver; capability is `false` |
 | Partitions | NOT SUPPORTED | `PostgresApi::partitions` resolves a PostgreSQL handle; capability is `false` |

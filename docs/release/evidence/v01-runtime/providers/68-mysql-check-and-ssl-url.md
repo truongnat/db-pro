@@ -24,4 +24,4 @@ cargo test -p db-pro-infrastructure --test mysql_integration \
 
 ## Residual on #235
 
-Table-data change-set E2E still pending; issue stays open.
+None for CHECK/SSL/change-set. Remaining if any: dedicated native UI/runtime MySQL harness beyond provider-path proofs (#234 conformance remainders may still apply).
