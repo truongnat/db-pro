@@ -48,6 +48,7 @@ impl BackupService {
         let engine = match config.driver {
             DriverType::Postgres => (self.pg_engine_factory)(&config),
             DriverType::SQLite => (self.sqlite_engine_factory)(&config.database),
+            DriverType::Mysql => return Err(DbError::Validation("MySQL backup is not yet supported".into())),
         };
 
         engine.backup(options, &password).await
@@ -79,6 +80,7 @@ impl BackupService {
         let engine = match config.driver {
             DriverType::Postgres => (self.pg_engine_factory)(&config),
             DriverType::SQLite => (self.sqlite_engine_factory)(&config.database),
+            DriverType::Mysql => return Err(DbError::Validation("MySQL backup is not yet supported".into())),
         };
 
         engine.restore(options, &password).await?;

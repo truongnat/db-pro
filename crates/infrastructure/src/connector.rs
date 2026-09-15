@@ -1,23 +1,64 @@
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
-
 use async_trait::async_trait;
-use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle, DriverType};
+use db_pro_core::domain::capabilities::DatabaseCapabilities;
+use db_pro_core::domain::connection::ConnectionConfig;
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::query::{QueryParam, QueryResult};
-use db_pro_core::domain::schema::IntrospectResult;
-use db_pro_core::ports::{
-    DbConnector, ParameterizedTransactionStatement, SqlDialect, TransactionFailure, TransactionFailureOutcome,
-    TransactionFailurePhase, TransactionStatementResult,
-};
+use db_pro_core::ports::{DbConnector, ProviderFactory};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::postgres::connector::PostgresConnector;
 use crate::sqlite::connector::SQLiteConnector;
-use crate::ssh::{SshTunnel, SshTunnelConfig, SshTunnelHandle};
+
+// ---------------------------------------------------------------------------
+// Provider factories — one per driver, registered at startup
+// ---------------------------------------------------------------------------
+
+struct PostgresFactory;
+#[async_trait]
+impl ProviderFactory for PostgresFactory {
+    fn driver(&self) -> db_pro_core::domain::connection::DriverType {
+        db_pro_core::domain::connection::DriverType::Postgres
+    }
+
+    fn capabilities(&self, _config: &ConnectionConfig) -> DatabaseCapabilities {
+        DatabaseCapabilities::postgres()
+    }
+
+    fn build(&self) -> Box<dyn DbConnector> {
+        Box::new(PostgresConnector::new())
+    }
+
+    async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
+        PostgresConnector::new().test_connection(config, password).await
+    }
+}
+
+struct SqliteFactory;
+#[async_trait]
+impl ProviderFactory for SqliteFactory {
+    fn driver(&self) -> db_pro_core::domain::connection::DriverType {
+        db_pro_core::domain::connection::DriverType::SQLite
+    }
+
+    fn capabilities(&self, _config: &ConnectionConfig) -> DatabaseCapabilities {
+        DatabaseCapabilities::sqlite()
+    }
+
+    fn build(&self) -> Box<dyn DbConnector> {
+        Box::new(SQLiteConnector::new())
+    }
+
+    async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
+        SQLiteConnector::new().test_connection(config, password).await
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SqlDialect implementations
+// ---------------------------------------------------------------------------
 
 struct PostgresDialect;
-impl SqlDialect for PostgresDialect {
+impl db_pro_core::ports::SqlDialect for PostgresDialect {
     fn placeholder(&self, index: usize) -> String {
         format!("${index}")
     }
@@ -28,7 +69,7 @@ impl SqlDialect for PostgresDialect {
 }
 
 struct SqliteDialect;
-impl SqlDialect for SqliteDialect {
+impl db_pro_core::ports::SqlDialect for SqliteDialect {
     fn placeholder(&self, _index: usize) -> String {
         "?".to_string()
     }
@@ -38,61 +79,84 @@ impl SqlDialect for SqliteDialect {
     }
 }
 
+// ---------------------------------------------------------------------------
+// CompositeConnector — dispatches via registered factories
+// ---------------------------------------------------------------------------
+
+/// A single connection handle and the connector (built by its factory)
+/// that owns it. The connector is wrapped in `Arc` so we can clone it
+/// and drop the lock before awaiting — `RwLockWriteGuard` is not `Send`.
+struct ActiveConnection {
+    connector: Arc<dyn DbConnector>,
+    inner_handle: db_pro_core::domain::connection::ConnectionHandle,
+    driver: db_pro_core::domain::connection::DriverType,
+}
+
 pub struct CompositeConnector {
-    postgres: Arc<PostgresConnector>,
-    sqlite: SQLiteConnector,
-    next_id: AtomicU64,
-    handle_driver: RwLock<HashMap<u64, DriverType>>,
-    inner_handles: RwLock<HashMap<u64, ConnectionHandle>>,
-    active_tunnels: RwLock<HashMap<u64, SshTunnelHandle>>,
+    factories: HashMap<db_pro_core::domain::connection::DriverType, Box<dyn ProviderFactory>>,
+    connections: std::sync::RwLock<HashMap<u64, ActiveConnection>>,
+    next_id: std::sync::atomic::AtomicU64,
 }
 
 impl CompositeConnector {
     pub fn new() -> Self {
+        let mut factories: HashMap<db_pro_core::domain::connection::DriverType, Box<dyn ProviderFactory>> =
+            HashMap::new();
+        factories.insert(
+            db_pro_core::domain::connection::DriverType::Postgres,
+            Box::new(PostgresFactory),
+        );
+        factories.insert(
+            db_pro_core::domain::connection::DriverType::SQLite,
+            Box::new(SqliteFactory),
+        );
+
         Self {
-            postgres: Arc::new(PostgresConnector::new()),
-            sqlite: SQLiteConnector::new(),
-            next_id: AtomicU64::new(1),
-            handle_driver: RwLock::new(HashMap::new()),
-            inner_handles: RwLock::new(HashMap::new()),
-            active_tunnels: RwLock::new(HashMap::new()),
+            factories,
+            connections: std::sync::RwLock::new(HashMap::new()),
+            next_id: std::sync::atomic::AtomicU64::new(1),
         }
+    }
+
+    /// Register a new provider factory. Returns the previous factory for
+    /// the same driver, if any — so a caller that registers a stub for
+    /// testing can restore the original afterwards.
+    pub fn register_factory(&mut self, factory: Box<dyn ProviderFactory>) -> Option<Box<dyn ProviderFactory>> {
+        self.factories.insert(factory.driver(), factory)
+    }
+
+    /// The capabilities advertised for the given connection config.
+    /// Branches on capability, not driver type: `composite.capabilities(config)`.
+    pub fn capabilities(&self, config: &ConnectionConfig) -> DatabaseCapabilities {
+        self.factories
+            .get(&config.driver)
+            .map(|factory| factory.capabilities(config))
+            .unwrap_or_else(|| DatabaseCapabilities::for_driver(config.driver))
     }
 
     pub fn postgres_connector(&self) -> Arc<PostgresConnector> {
-        Arc::clone(&self.postgres)
+        Arc::new(PostgresConnector::new())
     }
 
-    pub fn inner_postgres_handle(&self, composite_handle: &ConnectionHandle) -> Result<ConnectionHandle, DbError> {
-        let driver = self.driver_of(composite_handle)?;
-        if driver != DriverType::Postgres {
+    pub fn inner_postgres_handle(
+        &self,
+        composite_handle: &db_pro_core::domain::connection::ConnectionHandle,
+    ) -> Result<db_pro_core::domain::connection::ConnectionHandle, DbError> {
+        let guard = self.connections.read().unwrap_or_else(|e| e.into_inner());
+        let conn = guard
+            .get(&composite_handle.0)
+            .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", composite_handle.0)))?;
+        if conn.driver != db_pro_core::domain::connection::DriverType::Postgres {
             return Err(DbError::Validation("connection is not PostgreSQL".into()));
         }
-        self.inner_handle(composite_handle)
-    }
-
-    fn inner_handle(&self, handle: &ConnectionHandle) -> Result<ConnectionHandle, DbError> {
-        self.inner_handles
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(&handle.0)
-            .copied()
-            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {} is not active", handle.0)))
-    }
-
-    fn driver_of(&self, handle: &ConnectionHandle) -> Result<DriverType, DbError> {
-        self.handle_driver
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(&handle.0)
-            .copied()
-            .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))
+        Ok(conn.inner_handle)
     }
 
     pub async fn test_ssh_tunnel(
         &self,
         config: &db_pro_core::domain::connection::SshTunnelConfig,
     ) -> Result<(), DbError> {
+        use crate::ssh::{SshTunnel, SshTunnelConfig};
         let tunnel_config = SshTunnelConfig {
             host: config.host.clone(),
             port: config.port,
@@ -103,27 +167,18 @@ impl CompositeConnector {
         SshTunnel::test(&tunnel_config).await
     }
 
-    async fn effective_config(
+    /// Clone the connector and inner handle for a connection, so we can
+    /// drop the lock before calling an async method — `RwLockWriteGuard`
+    /// is not `Send` and cannot be held across an `.await`.
+    fn clone_connection(
         &self,
-        config: &ConnectionConfig,
-    ) -> Result<(ConnectionConfig, Option<SshTunnelHandle>), DbError> {
-        let Some(ssh_config) = config.ssh_tunnel.as_ref() else {
-            return Ok((config.clone(), None));
-        };
-
-        let tunnel_config = SshTunnelConfig {
-            host: ssh_config.host.clone(),
-            port: ssh_config.port,
-            user: ssh_config.user.clone(),
-            private_key_path: ssh_config.private_key_path.clone(),
-            password: ssh_config.password.clone(),
-        };
-        let tunnel = SshTunnel::start(&tunnel_config, &config.host, config.port).await?;
-
-        let mut effective_config = config.clone();
-        effective_config.host = "127.0.0.1".to_owned();
-        effective_config.port = tunnel.local_port();
-        Ok((effective_config, Some(tunnel)))
+        handle: &db_pro_core::domain::connection::ConnectionHandle,
+    ) -> Result<(Arc<dyn DbConnector>, db_pro_core::domain::connection::ConnectionHandle), DbError> {
+        let guard = self.connections.read().unwrap_or_else(|e| e.into_inner());
+        let conn = guard
+            .get(&handle.0)
+            .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))?;
+        Ok((Arc::clone(&conn.connector), conn.inner_handle))
     }
 }
 
@@ -135,204 +190,151 @@ impl Default for CompositeConnector {
 
 #[async_trait]
 impl DbConnector for CompositeConnector {
-    async fn connect(&self, config: &ConnectionConfig, password: &str) -> Result<ConnectionHandle, DbError> {
-        let (effective_config, tunnel) = self.effective_config(config).await?;
+    async fn connect(
+        &self,
+        config: &ConnectionConfig,
+        password: &str,
+    ) -> Result<db_pro_core::domain::connection::ConnectionHandle, DbError> {
+        let factory = self
+            .factories
+            .get(&config.driver)
+            .ok_or_else(|| DbError::Validation(format!("unsupported driver: {:?}", config.driver)))?;
+        let connector = factory.build();
+        let inner_handle = connector.connect(config, password).await?;
 
-        let (driver, inner_handle) = match effective_config.driver {
-            DriverType::Postgres => {
-                let h = self.postgres.connect(&effective_config, password).await?;
-                (DriverType::Postgres, h)
-            }
-            DriverType::SQLite => {
-                let h = self.sqlite.connect(&effective_config, password).await?;
-                (DriverType::SQLite, h)
-            }
-        };
+        let id = self.next_id.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
-        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        self.handle_driver
-            .write()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert(id, driver);
-        self.inner_handles
-            .write()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert(id, inner_handle);
-        if let Some(tunnel) = tunnel {
-            self.active_tunnels
-                .write()
-                .unwrap_or_else(|e| e.into_inner())
-                .insert(id, tunnel);
-        }
+        self.connections.write().unwrap_or_else(|e| e.into_inner()).insert(
+            id,
+            ActiveConnection {
+                connector: Arc::from(connector),
+                inner_handle,
+                driver: config.driver,
+            },
+        );
 
-        Ok(ConnectionHandle(id))
+        Ok(db_pro_core::domain::connection::ConnectionHandle(id))
     }
 
-    async fn disconnect(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
-        let driver = self
-            .handle_driver
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(&handle.0)
-            .copied()
-            .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))?;
-
-        let inner = self
-            .inner_handles
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(&handle.0)
-            .copied()
-            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {} is not active", handle.0)))?;
-
-        match driver {
-            DriverType::Postgres => self.postgres.disconnect(&inner).await?,
-            DriverType::SQLite => self.sqlite.disconnect(&inner).await?,
-        }
-
-        self.handle_driver
-            .write()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&handle.0);
-        self.inner_handles
-            .write()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&handle.0);
-        self.active_tunnels
-            .write()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(&handle.0);
-
-        Ok(())
+    async fn disconnect(&self, handle: &db_pro_core::domain::connection::ConnectionHandle) -> Result<(), DbError> {
+        let (connector, inner) = {
+            let mut guard = self.connections.write().unwrap_or_else(|e| e.into_inner());
+            let conn = guard
+                .remove(&handle.0)
+                .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))?;
+            (conn.connector, conn.inner_handle)
+        };
+        connector.disconnect(&inner).await
     }
 
     async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
-        let (effective_config, _tunnel) = self.effective_config(config).await?;
-        match effective_config.driver {
-            DriverType::Postgres => self.postgres.test_connection(&effective_config, password).await,
-            DriverType::SQLite => self.sqlite.test_connection(&effective_config, password).await,
-        }
+        let factory = self
+            .factories
+            .get(&config.driver)
+            .ok_or_else(|| DbError::Validation(format!("unsupported driver: {:?}", config.driver)))?;
+        factory.test_connection(config, password).await
     }
 
-    async fn query(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<QueryResult, DbError> {
-        let inner = self.inner_handle(handle)?;
-        let driver = self.driver_of(handle)?;
-        match driver {
-            DriverType::Postgres => self.postgres.query(&inner, sql, params).await,
-            DriverType::SQLite => self.sqlite.query(&inner, sql, params).await,
-        }
+    async fn query(
+        &self,
+        handle: &db_pro_core::domain::connection::ConnectionHandle,
+        sql: &str,
+        params: &[db_pro_core::domain::query::QueryParam],
+    ) -> Result<db_pro_core::domain::query::QueryResult, DbError> {
+        let (connector, inner) = self.clone_connection(handle)?;
+        connector.query(&inner, sql, params).await
     }
 
-    async fn execute(&self, handle: &ConnectionHandle, sql: &str, params: &[QueryParam]) -> Result<u64, DbError> {
-        let inner = self.inner_handle(handle)?;
-        let driver = self.driver_of(handle)?;
-        match driver {
-            DriverType::Postgres => self.postgres.execute(&inner, sql, params).await,
-            DriverType::SQLite => self.sqlite.execute(&inner, sql, params).await,
-        }
+    async fn execute(
+        &self,
+        handle: &db_pro_core::domain::connection::ConnectionHandle,
+        sql: &str,
+        params: &[db_pro_core::domain::query::QueryParam],
+    ) -> Result<u64, DbError> {
+        let (connector, inner) = self.clone_connection(handle)?;
+        connector.execute(&inner, sql, params).await
     }
 
-    async fn cancel(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
-        let inner = self.inner_handle(handle)?;
-        let driver = self.driver_of(handle)?;
-        match driver {
-            DriverType::Postgres => self.postgres.cancel(&inner).await,
-            DriverType::SQLite => self.sqlite.cancel(&inner).await,
-        }
+    async fn cancel(&self, handle: &db_pro_core::domain::connection::ConnectionHandle) -> Result<(), DbError> {
+        let (connector, inner) = self.clone_connection(handle)?;
+        connector.cancel(&inner).await
     }
 
-    async fn execute_batch(&self, handle: &ConnectionHandle, statements: &[String]) -> Result<u64, DbError> {
-        let inner = self.inner_handle(handle)?;
-        let driver = self.driver_of(handle)?;
-        match driver {
-            DriverType::Postgres => self.postgres.execute_batch(&inner, statements).await,
-            DriverType::SQLite => self.sqlite.execute_batch(&inner, statements).await,
-        }
+    async fn execute_batch(
+        &self,
+        handle: &db_pro_core::domain::connection::ConnectionHandle,
+        statements: &[String],
+    ) -> Result<u64, DbError> {
+        let (connector, inner) = self.clone_connection(handle)?;
+        connector.execute_batch(&inner, statements).await
     }
 
     async fn execute_transaction(
         &self,
-        handle: &ConnectionHandle,
+        handle: &db_pro_core::domain::connection::ConnectionHandle,
         statements: &[String],
         read_statements: &[bool],
-    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
-        let inner = self.inner_handle(handle).map_err(|error| TransactionFailure {
-            phase: TransactionFailurePhase::Validation,
-            statement_index: 0,
-            outcome: TransactionFailureOutcome::NotStarted,
-            results: Vec::new(),
-            error,
-        })?;
-        match self.driver_of(handle).map_err(|error| TransactionFailure {
-            phase: TransactionFailurePhase::Validation,
-            statement_index: 0,
-            outcome: TransactionFailureOutcome::NotStarted,
-            results: Vec::new(),
-            error,
-        })? {
-            DriverType::Postgres => {
-                self.postgres
-                    .execute_transaction(&inner, statements, read_statements)
-                    .await
-            }
-            DriverType::SQLite => {
-                self.sqlite
-                    .execute_transaction(&inner, statements, read_statements)
-                    .await
-            }
-        }
+    ) -> Result<Vec<db_pro_core::ports::TransactionStatementResult>, db_pro_core::ports::TransactionFailure> {
+        let (connector, inner) =
+            self.clone_connection(handle)
+                .map_err(|error| db_pro_core::ports::TransactionFailure {
+                    phase: db_pro_core::ports::TransactionFailurePhase::Validation,
+                    statement_index: 0,
+                    outcome: db_pro_core::ports::TransactionFailureOutcome::NotStarted,
+                    results: Vec::new(),
+                    error,
+                })?;
+        connector.execute_transaction(&inner, statements, read_statements).await
     }
 
     async fn execute_parameterized_transaction(
         &self,
-        handle: &ConnectionHandle,
-        statements: &[ParameterizedTransactionStatement],
-    ) -> Result<Vec<TransactionStatementResult>, TransactionFailure> {
-        let inner = self.inner_handle(handle).map_err(|error| TransactionFailure {
-            phase: TransactionFailurePhase::Validation,
-            statement_index: 0,
-            outcome: TransactionFailureOutcome::NotStarted,
-            results: Vec::new(),
-            error,
-        })?;
-        match self.driver_of(handle).map_err(|error| TransactionFailure {
-            phase: TransactionFailurePhase::Validation,
-            statement_index: 0,
-            outcome: TransactionFailureOutcome::NotStarted,
-            results: Vec::new(),
-            error,
-        })? {
-            DriverType::Postgres => {
-                self.postgres
-                    .execute_parameterized_transaction(&inner, statements)
-                    .await
+        handle: &db_pro_core::domain::connection::ConnectionHandle,
+        statements: &[db_pro_core::ports::ParameterizedTransactionStatement],
+    ) -> Result<Vec<db_pro_core::ports::TransactionStatementResult>, db_pro_core::ports::TransactionFailure> {
+        let (connector, inner) =
+            self.clone_connection(handle)
+                .map_err(|error| db_pro_core::ports::TransactionFailure {
+                    phase: db_pro_core::ports::TransactionFailurePhase::Validation,
+                    statement_index: 0,
+                    outcome: db_pro_core::ports::TransactionFailureOutcome::NotStarted,
+                    results: Vec::new(),
+                    error,
+                })?;
+        connector.execute_parameterized_transaction(&inner, statements).await
+    }
+
+    async fn introspect(
+        &self,
+        handle: &db_pro_core::domain::connection::ConnectionHandle,
+    ) -> Result<db_pro_core::domain::schema::IntrospectResult, DbError> {
+        let (connector, inner) = self.clone_connection(handle)?;
+        connector.introspect(&inner).await
+    }
+
+    async fn explain(
+        &self,
+        handle: &db_pro_core::domain::connection::ConnectionHandle,
+        sql: &str,
+    ) -> Result<serde_json::Value, DbError> {
+        let (connector, inner) = self.clone_connection(handle)?;
+        connector.explain(&inner, sql).await
+    }
+
+    fn dialect(
+        &self,
+        handle: &db_pro_core::domain::connection::ConnectionHandle,
+    ) -> Result<Box<dyn db_pro_core::ports::SqlDialect>, DbError> {
+        let guard = self.connections.read().unwrap_or_else(|e| e.into_inner());
+        let conn = guard
+            .get(&handle.0)
+            .ok_or_else(|| DbError::ConnectionFailed(format!("unknown connection handle {}", handle.0)))?;
+        Ok(match conn.driver {
+            db_pro_core::domain::connection::DriverType::Postgres => Box::new(PostgresDialect),
+            db_pro_core::domain::connection::DriverType::SQLite => Box::new(SqliteDialect),
+            db_pro_core::domain::connection::DriverType::Mysql => {
+                return Err(DbError::Validation("MySQL dialect not yet implemented".into()))
             }
-            DriverType::SQLite => self.sqlite.execute_parameterized_transaction(&inner, statements).await,
-        }
-    }
-
-    async fn introspect(&self, handle: &ConnectionHandle) -> Result<IntrospectResult, DbError> {
-        let inner = self.inner_handle(handle)?;
-        let driver = self.driver_of(handle)?;
-        match driver {
-            DriverType::Postgres => self.postgres.introspect(&inner).await,
-            DriverType::SQLite => self.sqlite.introspect(&inner).await,
-        }
-    }
-
-    async fn explain(&self, handle: &ConnectionHandle, sql: &str) -> Result<serde_json::Value, DbError> {
-        let inner = self.inner_handle(handle)?;
-        let driver = self.driver_of(handle)?;
-        match driver {
-            DriverType::Postgres => self.postgres.explain(&inner, sql).await,
-            DriverType::SQLite => self.sqlite.explain(&inner, sql).await,
-        }
-    }
-
-    fn dialect(&self, handle: &ConnectionHandle) -> Result<Box<dyn SqlDialect>, DbError> {
-        match self.driver_of(handle)? {
-            DriverType::Postgres => Ok(Box::new(PostgresDialect)),
-            DriverType::SQLite => Ok(Box::new(SqliteDialect)),
-        }
+        })
     }
 }

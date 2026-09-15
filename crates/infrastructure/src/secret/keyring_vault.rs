@@ -120,6 +120,14 @@ impl KeyringVault {
     }
 
     fn keyring_entry(&self, key: &str) -> Result<keyring::Entry, keyring::Error> {
+        if self.service_name.is_empty() {
+            // An empty service name disables the keyring layer deterministically
+            // across platforms (some `keyring` backends accept empty strings).
+            return Err(keyring::Error::Invalid(
+                "service name is empty".into(),
+                "disallowed".into(),
+            ));
+        }
         keyring::Entry::new(&self.service_name, key)
     }
 

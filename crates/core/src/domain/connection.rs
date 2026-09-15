@@ -35,11 +35,12 @@ impl fmt::Display for ConnectionId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DriverType {
     Postgres,
     SQLite,
+    Mysql,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -132,7 +133,7 @@ impl ConnectionConfig {
         }
 
         match self.driver {
-            DriverType::Postgres => {
+            DriverType::Postgres | DriverType::Mysql => {
                 if self.host.trim().is_empty() {
                     errors.push(ValidationError {
                         field: "host".into(),

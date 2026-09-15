@@ -1,13 +1,18 @@
 use super::*;
 
+fn driver_from_ui(ui_driver: UiDriver) -> db_pro_core::domain::connection::DriverType {
+    match ui_driver {
+        UiDriver::Postgres => db_pro_core::domain::connection::DriverType::Postgres,
+        UiDriver::Sqlite => db_pro_core::domain::connection::DriverType::SQLite,
+        UiDriver::Mysql => db_pro_core::domain::connection::DriverType::Mysql,
+    }
+}
+
 pub(crate) fn draft_to_domain(
     draft: UiConnectionDraft,
 ) -> Option<(db_pro_core::domain::connection::ConnectionConfig, String)> {
     let port = draft.port.parse::<u16>().ok()?;
-    let driver = match draft.driver {
-        UiDriver::Postgres => db_pro_core::domain::connection::DriverType::Postgres,
-        UiDriver::Sqlite => db_pro_core::domain::connection::DriverType::SQLite,
-    };
+    let driver = driver_from_ui(draft.driver);
     let ssl_mode = match draft.ssl_mode {
         UiSslMode::Disable => db_pro_core::domain::connection::SslMode::Disable,
         UiSslMode::Require => db_pro_core::domain::connection::SslMode::Require,
