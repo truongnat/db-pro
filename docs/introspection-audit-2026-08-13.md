@@ -38,16 +38,18 @@ Comprehensive audit of PostgreSQL and SQLite introspection implementations ident
 ## P2 Issues — Partially Fixed
 
 ### 4. CHECK Constraint Introspection
-**Status:** FIXED in current commit
+**Status:** FIXED / KEEP for v0.1 (#68–#70)
 
 **Problem:** Neither PostgreSQL nor SQLite introspected CHECK constraints.
 
 **Fix:**
 - Added `CheckConstraint` struct to domain model
 - PostgreSQL: Query `pg_constraint` where `contype = 'c'` with `pg_get_constraintdef()`
-- SQLite: Parse CHECK(...) patterns from CREATE TABLE SQL in sqlite_master
-- Added to IntrospectResult for both providers
+- SQLite: Parse CHECK(...) patterns from CREATE TABLE SQL in sqlite_master (#69 hardening)
+- Tauri DTO + native bridge + table metadata UI (#70)
+- MySQL 8: `information_schema.CHECK_CONSTRAINTS` (#235)
 
+**Disposition:** KEEP (#68). DEFER path (#71) closed as not planned.
 ### 5. SQLite row_count Always None
 **Status:** DEFERRED
 
@@ -120,19 +122,39 @@ Comprehensive audit of PostgreSQL and SQLite introspection implementations ident
 - 5 unit tests for trigger SQL parsing
 - Integration tests in `tests/integration.rs`
 
-### Missing Test Coverage
-- CHECK constraint introspection (both providers)
-- Composite FK runtime verification
+### Missing Test Coverage (historical — updated 2026-09-15)
+- ~~CHECK constraint introspection (both providers)~~ — covered: SQLite parser + integration fixtures (#69); Tauri fixture + native translate (#70); MySQL live CHECK (#235)
+- Composite FK runtime verification — unit grouping tests present; live PG coverage in `pg_integration`
 - Enum type resolution
 - Attached database handling
 
 ## Recommendations
 
-1. **Add runtime verification tests** for CHECK constraints in both providers
-2. **Document SQLite limitations** in user-facing docs (row_count, attached DBs, trigger status)
+1. ~~**Add runtime verification tests** for CHECK constraints in both providers~~ — done (#69/#70/#235)
+2. **Document SQLite limitations** in user-facing docs (row_count, attached DBs, trigger status) — LIM entries / capability matrix
 3. **Consider performance optimization** for SQLite row_count using `sqlite_stat1`
 4. **Add index method field** to Index struct for completeness
 
 ## Conclusion
 
 All P1 correctness issues resolved. P2 issues are either fixed (CHECK constraints) or deferred as non-critical for v0.1.0 release. Introspection is now production-ready for core use cases.
+
+---
+
+## RC1 reconciliation (#73) — 2026-09-15
+
+**Exact SHA:** `9a972e28c0f344996ef1cd888c6a5ef5f235ae7e`
+
+| Gate | Result |
+|---|---|
+| SQLite introspect unit/integration (`sqlite::introspect`) | **14 passed** |
+| PostgreSQL introspect unit (`postgres::introspect`) | **14 passed** (incl. composite FK grouping) |
+| Tauri introspect IPC contract (`introspect_result_dto*`) | **4 passed** (9-key shape + CHECK fixture) |
+| Native CHECK bridge (`map_table_info_preserves_check_constraints_for_native_ui`) | **passed** |
+| `cargo check -p db-pro-infrastructure -p db-pro-tauri -p db-pro-native` | **ok** |
+
+**CHECK disposition:** KEEP (#68). Path #69/#70 completed; #71 not planned.
+
+**IPC contract:** `crates/tauri-app/tests/fixtures/introspect-contract.json` includes `checkConstraints`; React frontend archived — native egui is the shipping consumer (`table_metadata_view`).
+
+**Evidence:** `docs/release/evidence/v01-runtime/providers/70-introspection-rc1-exact-head.md`
