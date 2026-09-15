@@ -1,5 +1,6 @@
 mod agent;
 mod app;
+mod chart_view;
 pub mod components;
 pub mod diagram;
 pub mod editor;
@@ -15,6 +16,7 @@ pub use agent::{
     AgentProviderKind, AgentProviderState, AgentRole, OfflineAgentProvider,
 };
 pub use app::{ComponentGalleryState, DbProApp};
+pub use chart_view::{ChartAggregation, ChartConfig, ChartEngine, ChartPoint, ChartRenderer, ChartType};
 pub use components::{
     activity_bar_frame, agent_message_frame, badge, card_frame, compact_button, compact_button_enabled,
     compact_button_with_icon, compact_button_with_icon_enabled, compact_icon_button, compact_icon_button_enabled,

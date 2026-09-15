@@ -53,7 +53,10 @@ async fn setup() -> (MySqlConnector, ConnectionHandle, String) {
     let database = config.database.clone();
 
     let connector = MySqlConnector::new();
-    let handle = connector.connect(&config, &password).await.expect("MySQL connect failed");
+    let handle = connector
+        .connect(&config, &password)
+        .await
+        .expect("MySQL connect failed");
     (connector, handle, database)
 }
 
@@ -62,7 +65,10 @@ async fn setup() -> (MySqlConnector, ConnectionHandle, String) {
 async fn mysql_connects_and_executes_query() {
     let (connector, handle, _database) = setup().await;
 
-    let result = connector.query(&handle, "SELECT 1 + 1 AS two", &[]).await.expect("query");
+    let result = connector
+        .query(&handle, "SELECT 1 + 1 AS two", &[])
+        .await
+        .expect("query");
     assert!(!result.rows.is_empty());
     let col_names: Vec<&str> = result.columns.iter().map(|c| c.name.as_str()).collect();
     assert_eq!(col_names, vec!["two"]);
@@ -75,12 +81,24 @@ async fn mysql_connects_and_executes_query() {
 async fn mysql_execute_returns_affected_rows() {
     let (connector, handle, _database) = setup().await;
 
-    connector.execute(&handle, "DROP TABLE IF EXISTS mysql_probe", &[]).await.ok();
-    connector.execute(&handle, "CREATE TABLE mysql_probe (id INT, name VARCHAR(100))", &[]).await.expect("create");
-    let affected = connector.execute(&handle, "INSERT INTO mysql_probe VALUES (1, 'hello')", &[]).await.expect("insert");
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_probe", &[])
+        .await
+        .ok();
+    connector
+        .execute(&handle, "CREATE TABLE mysql_probe (id INT, name VARCHAR(100))", &[])
+        .await
+        .expect("create");
+    let affected = connector
+        .execute(&handle, "INSERT INTO mysql_probe VALUES (1, 'hello')", &[])
+        .await
+        .expect("insert");
     assert_eq!(affected, 1);
 
-    connector.execute(&handle, "DROP TABLE IF EXISTS mysql_probe", &[]).await.ok();
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_probe", &[])
+        .await
+        .ok();
     connector.disconnect(&handle).await.unwrap();
 }
 
@@ -89,31 +107,44 @@ async fn mysql_execute_returns_affected_rows() {
 async fn mysql_transaction_rolls_back_on_failure() {
     let (connector, handle, _database) = setup().await;
 
-    connector.execute(&handle, "DROP TABLE IF EXISTS mysql_tx_probe", &[]).await.ok();
-    connector.execute(&handle, "CREATE TABLE mysql_tx_probe (id INT)", &[]).await.expect("create");
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_tx_probe", &[])
+        .await
+        .ok();
+    connector
+        .execute(&handle, "CREATE TABLE mysql_tx_probe (id INT)", &[])
+        .await
+        .expect("create");
 
-    let failure = connector.execute_transaction(
-        &handle,
-        &[
-            "INSERT INTO mysql_tx_probe VALUES (1)".to_owned(),
-            "INVALID STATEMENT".to_owned(),
-        ],
-        &[false, true],
-    )
-    .await
-    .expect_err("must fail");
+    let failure = connector
+        .execute_transaction(
+            &handle,
+            &[
+                "INSERT INTO mysql_tx_probe VALUES (1)".to_owned(),
+                "INVALID STATEMENT".to_owned(),
+            ],
+            &[false, true],
+        )
+        .await
+        .expect_err("must fail");
 
     assert_eq!(failure.phase, TransactionFailurePhase::Statement);
     assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
 
-    let count = connector.query(&handle, "SELECT count(*) FROM mysql_tx_probe", &[]).await.expect("count");
+    let count = connector
+        .query(&handle, "SELECT count(*) FROM mysql_tx_probe", &[])
+        .await
+        .expect("count");
     let cnt: i64 = match &count.rows[0].0[0] {
         db_pro_core::domain::query::CellValue::Int64(n) => *n,
         _ => panic!("unexpected cell"),
     };
     assert_eq!(cnt, 0, "the failed transaction must have rolled back");
 
-    connector.execute(&handle, "DROP TABLE IF EXISTS mysql_tx_probe", &[]).await.ok();
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_tx_probe", &[])
+        .await
+        .ok();
     connector.disconnect(&handle).await.unwrap();
 }
 
@@ -122,13 +153,26 @@ async fn mysql_transaction_rolls_back_on_failure() {
 async fn mysql_introspect_returns_canonical_model() {
     let (connector, handle, _database) = setup().await;
 
-    connector.execute(&handle, "DROP TABLE IF EXISTS mysql_intro_probe", &[]).await.ok();
-    connector.execute(&handle, "CREATE TABLE mysql_intro_probe (id INT PRIMARY KEY, name VARCHAR(100))", &[]).await.expect("create");
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_intro_probe", &[])
+        .await
+        .ok();
+    connector
+        .execute(
+            &handle,
+            "CREATE TABLE mysql_intro_probe (id INT PRIMARY KEY, name VARCHAR(100))",
+            &[],
+        )
+        .await
+        .expect("create");
 
     let intro = connector.introspect(&handle).await.expect("introspect");
     assert!(intro.tables.iter().any(|t| t.name == "mysql_intro_probe"));
 
-    connector.execute(&handle, "DROP TABLE IF EXISTS mysql_intro_probe", &[]).await.ok();
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_intro_probe", &[])
+        .await
+        .ok();
     connector.disconnect(&handle).await.unwrap();
 }
 
