@@ -2090,6 +2090,18 @@ fn command_palette_new_query_keeps_a_query_entry_point() {
 }
 
 #[test]
+fn command_palette_opens_problems_and_diagnostics() {
+    let mut app = DbProApp::default();
+    let ctx = egui::Context::default();
+    app.execute_palette_action(PaletteAction::Problems, &ctx);
+    assert_eq!(app.activity, Activity::Problems);
+    assert!(app.sidebar_open);
+    app.execute_palette_action(PaletteAction::Diagnostics, &ctx);
+    assert_eq!(app.activity, Activity::Settings);
+    assert!(app.runtime_message.contains("Diagnostics"));
+}
+
+#[test]
 fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
