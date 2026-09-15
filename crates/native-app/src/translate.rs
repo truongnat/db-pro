@@ -1494,4 +1494,32 @@ mod tests {
         assert!(matches!(null_filter.op, FilterOp::IsNull));
         assert!(matches!(null_filter.value, CellValue::Null));
     }
+
+    #[test]
+    fn map_table_info_preserves_check_constraints_for_native_ui() {
+        use db_pro_core::domain::schema::{CheckConstraint, Table, TableInfo};
+
+        let ui = map_table_info(TableInfo {
+            table: Table {
+                name: "orders".to_owned(),
+                schema: "public".to_owned(),
+                row_count: Some(3),
+            },
+            columns: Vec::new(),
+            primary_key: None,
+            indexes: Vec::new(),
+            foreign_keys: Vec::new(),
+            check_constraints: vec![CheckConstraint {
+                name: "orders_total_positive".to_owned(),
+                table_name: "orders".to_owned(),
+                schema: "public".to_owned(),
+                definition: "CHECK (total >= 0)".to_owned(),
+            }],
+            dependencies: Vec::new(),
+        });
+
+        assert_eq!(ui.check_constraints.len(), 1);
+        assert_eq!(ui.check_constraints[0].name, "orders_total_positive");
+        assert_eq!(ui.check_constraints[0].definition, "CHECK (total >= 0)");
+    }
 }

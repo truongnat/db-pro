@@ -191,14 +191,14 @@ enabled UI driver card, and the service-level features that remain PostgreSQL-on
 | Field | Value |
 |---|---|
 | Category | schema |
-| Actual behavior | CHECK constraints are introspected (PostgreSQL catalog; SQLite CREATE TABLE parser) and shown in the native table metadata constraints panel |
-| User-visible impact | SQLite named/edge-case expressions may still need parser hardening; MySQL returns no CHECK rows |
-| Reason | Disposition **KEEP v0.1** (#68). Residual work: #69 (SQLite parser), #70 (native exposure completion). MySQL stays empty/PARTIAL |
+| Actual behavior | CHECK constraints are introspected (PostgreSQL catalog; SQLite CREATE TABLE parser), serialized on the Tauri introspect/TableInfo DTOs, mapped through the native bridge, and shown in the table metadata constraints panel |
+| User-visible impact | MySQL returns no CHECK rows; rare SQLite DDL edge cases may still omit a constraint |
+| Reason | Disposition **KEEP v0.1** (#68). #69 hardened the SQLite parser; #70 completed provider→domain→Tauri DTO→native UI exposure. MySQL stays empty/PARTIAL |
 | Status | Accepted with residual |
 | Target issue | #68 (decision), #69, #70 |
 | Safe release-note wording | "CHECK constraints listed for PostgreSQL and SQLite; MySQL CHECK introspection not yet available" |
 | Must not contradict | Schema panel, introspection docs |
-| Evidence | `docs/release/evidence/v01-runtime/providers/65-check-constraint-disposition-keep.md` |
+| Evidence | `docs/release/evidence/v01-runtime/providers/65-check-constraint-disposition-keep.md`, `66-sqlite-check-parser-hardening.md`, `67-check-e2e-contract.md` |
 
 ## LIM-012: Import deferred
 

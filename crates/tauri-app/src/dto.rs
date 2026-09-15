@@ -6,7 +6,8 @@ use db_pro_core::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryResult, Row};
 use db_pro_core::domain::run_config::RunConfig;
 use db_pro_core::domain::schema::{
-    Column, ForeignKey, Index, IntrospectResult, PrimaryKey, Schema, Table, TableInfo, Trigger, View,
+    CheckConstraint, Column, ForeignKey, Index, IntrospectResult, PrimaryKey, Schema, Table, TableInfo, Trigger,
+    View,
 };
 use db_pro_core::domain::user::{DatabaseUser, Privilege};
 
@@ -382,6 +383,7 @@ pub struct IntrospectResultDto {
     pub primary_keys: Vec<PrimaryKeyDto>,
     pub indexes: Vec<SchemaIndexDto>,
     pub foreign_keys: Vec<SchemaForeignKeyDto>,
+    pub check_constraints: Vec<CheckConstraintDto>,
     pub views: Vec<ViewDto>,
     pub triggers: Vec<TriggerDto>,
 }
@@ -395,6 +397,7 @@ impl From<IntrospectResult> for IntrospectResultDto {
             primary_keys: r.primary_keys.into_iter().map(Into::into).collect(),
             indexes: r.indexes.into_iter().map(Into::into).collect(),
             foreign_keys: r.foreign_keys.into_iter().map(Into::into).collect(),
+            check_constraints: r.check_constraints.into_iter().map(Into::into).collect(),
             views: r.views.into_iter().map(Into::into).collect(),
             triggers: r.triggers.into_iter().map(Into::into).collect(),
         }
@@ -525,6 +528,26 @@ impl From<ForeignKey> for SchemaForeignKeyDto {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckConstraintDto {
+    pub name: String,
+    pub table_name: String,
+    pub schema: String,
+    pub definition: String,
+}
+
+impl From<CheckConstraint> for CheckConstraintDto {
+    fn from(c: CheckConstraint) -> Self {
+        Self {
+            name: c.name,
+            table_name: c.table_name,
+            schema: c.schema,
+            definition: c.definition,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct ViewDto {
     pub name: String,
     pub schema: String,
@@ -577,6 +600,7 @@ pub struct TableInfoDto {
     pub primary_key: Option<PrimaryKeyDto>,
     pub indexes: Vec<SchemaIndexDto>,
     pub foreign_keys: Vec<SchemaForeignKeyDto>,
+    pub check_constraints: Vec<CheckConstraintDto>,
 }
 
 impl From<TableInfo> for TableInfoDto {
@@ -587,6 +611,7 @@ impl From<TableInfo> for TableInfoDto {
             primary_key: info.primary_key.map(Into::into),
             indexes: info.indexes.into_iter().map(Into::into).collect(),
             foreign_keys: info.foreign_keys.into_iter().map(Into::into).collect(),
+            check_constraints: info.check_constraints.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -1252,7 +1277,12 @@ mod tests {
                     initially_deferred: false,
                 },
             ],
-            check_constraints: Vec::new(),
+            check_constraints: vec![CheckConstraint {
+                name: "orders_total_positive".to_owned(),
+                table_name: "orders".to_owned(),
+                schema: "public".to_owned(),
+                definition: "CHECK (total >= 0)".to_owned(),
+            }],
             views: vec![View {
                 name: "open_orders".to_owned(),
                 schema: "public".to_owned(),
@@ -1273,7 +1303,7 @@ mod tests {
     }
 
     /// The exact serialized shape the Tauri `introspect` command emits: camelCase
-    /// everywhere, the eight top-level keys the current contract carries, and
+    /// everywhere, the nine top-level keys the current contract carries, and
     /// optional fields as JSON null (not omitted).
     #[test]
     fn introspect_result_dto_serializes_the_locked_camel_case_shape() {
@@ -1286,6 +1316,7 @@ mod tests {
         assert_eq!(
             keys,
             vec![
+                "checkConstraints",
                 "columns",
                 "foreignKeys",
                 "indexes",
@@ -1316,6 +1347,18 @@ mod tests {
 
         assert_eq!(object["primaryKeys"][1]["columns"][0], "order_id");
         assert_eq!(object["indexes"][0]["tableName"], "orders");
+        assert_eq!(
+            object["checkConstraints"][0]["name"],
+            "orders_total_positive"
+        );
+        assert_eq!(
+            object["checkConstraints"][0]["tableName"],
+            "orders"
+        );
+        assert_eq!(
+            object["checkConstraints"][0]["definition"],
+            "CHECK (total >= 0)"
+        );
         assert_eq!(object["views"][0]["definition"], "SELECT id FROM orders");
         assert_eq!(
             object["triggers"][0]["functionDef"],
@@ -1370,6 +1413,34 @@ mod tests {
             !accepted,
             "a payload using the singular names must not pass the contract"
         );
+    }
+
+    /// TableInfo DTO must carry CHECK constraints (not drop them at the IPC boundary).
+    #[test]
+    fn table_info_dto_serializes_check_constraints() {
+        let info = TableInfo {
+            table: Table {
+                name: "orders".to_owned(),
+                schema: "public".to_owned(),
+                row_count: Some(1),
+            },
+            columns: Vec::new(),
+            primary_key: None,
+            indexes: Vec::new(),
+            foreign_keys: Vec::new(),
+            check_constraints: vec![CheckConstraint {
+                name: "orders_total_positive".to_owned(),
+                table_name: "orders".to_owned(),
+                schema: "public".to_owned(),
+                definition: "CHECK (total >= 0)".to_owned(),
+            }],
+            dependencies: Vec::new(),
+        };
+        let dto: TableInfoDto = info.into();
+        let value = serde_json::to_value(&dto).expect("TableInfoDto must serialize");
+        assert_eq!(value["checkConstraints"][0]["name"], "orders_total_positive");
+        assert_eq!(value["checkConstraints"][0]["tableName"], "orders");
+        assert_eq!(value["checkConstraints"][0]["definition"], "CHECK (total >= 0)");
     }
 
     /// The checked-in fixture is the recorded shape of the IPC boundary: any drift

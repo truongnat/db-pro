@@ -17,7 +17,7 @@
 | Schema service | `crates/core/src/application/schema_service.rs:128` | Filters per-table into `TableInfo` |
 | Native translate | `crates/native-app/src/translate.rs:823` | Maps to `UiCheckConstraint` |
 | Native UI | `crates/ui/src/table_metadata_view.rs:41,736` | Renders CHECK rows in the constraints panel |
-| Tauri DTO | `crates/tauri-app/src/dto.rs` | Does **not** serialize CHECK on the retired IPC contract (archived frontend) |
+| Tauri DTO | `crates/tauri-app/src/dto.rs` | Serializes `checkConstraints` on introspect + TableInfo (completed in #70) |
 
 ## 2. Current behavior table
 

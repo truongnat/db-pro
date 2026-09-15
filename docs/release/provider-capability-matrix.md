@@ -69,7 +69,7 @@
 | Indexes | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | Functional indexes | SUPPORTED + QUALIFIED | NOT SUPPORTED | PG expression indexes |
 | GIN/GiST indexes | SUPPORTED + QUALIFIED | NOT SUPPORTED | PG-specific |
-| CHECK constraints | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | KEEP v0.1 (#68); residual SQLite parser #69 / native exposure #70; MySQL empty |
+| CHECK constraints | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | KEEP v0.1 (#68); #69/#70 closed; MySQL empty/PARTIAL |
 | Triggers | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | Functions/Procedures | SUPPORTED + QUALIFIED | NOT SUPPORTED | SQLite has no stored procedures |
 | Sequences | **NOT SUPPORTED** | NOT SUPPORTED | **Corrected 2026-09-14:** `DatabaseCapabilities::postgres()` declares `sequences: true`, but no catalog query or UI exists (`postgres/introspect.rs` has none; only a `nextval` textual heuristic). The flag is wrong; the matrix follows the code's real capability. Deferred to a code pass (`R-PROV`) |

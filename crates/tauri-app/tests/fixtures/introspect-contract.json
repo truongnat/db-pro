@@ -119,6 +119,14 @@
       "toSchema": "public"
     }
   ],
+  "checkConstraints": [
+    {
+      "name": "orders_total_positive",
+      "tableName": "orders",
+      "schema": "public",
+      "definition": "CHECK (total >= 0)"
+    }
+  ],
   "views": [
     {
       "name": "open_orders",
