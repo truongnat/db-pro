@@ -169,19 +169,40 @@ fn is_keyring_unavailable(err: &keyring::Error) -> bool {
 #[async_trait]
 impl SecretStore for KeyringVault {
     async fn store_secret(&self, key: &str, value: &str) -> Result<(), DbError> {
+        let mut stored = false;
         if self.allow_fallback {
             self.store_fallback(key, value)?;
+            stored = true;
         }
         if self.allow_session_fallback {
             self.store_session_secret(key, value)?;
+            stored = true;
         }
 
-        // Best-effort storage to OS keyring if available (without failing if keyring denied)
+        // Best-effort OS keyring write. A refusal is the documented degradation path of a release
+        // build (the session store keeps the secret for this process only), but it must not be
+        // silent: #243 (K-1) records the silent version, where a denied keyring still reported the
+        // connection as saved and the user only found out after a restart, when connecting failed
+        // with "password not found in secret store".
         if let Ok(entry) = self.keyring_entry(key) {
-            let _ = entry.set_password(value);
+            match entry.set_password(value) {
+                Ok(()) => stored = true,
+                Err(error) => tracing::warn!(
+                    %error,
+                    "OS keyring did not accept the secret; it will not survive a restart unless another store holds it"
+                ),
+            }
         }
 
-        Ok(())
+        if stored {
+            Ok(())
+        } else {
+            Err(DbError::Internal(
+                "the secret was not stored: the OS keyring did not accept it and no fallback store is enabled, so it \
+                 would be lost at restart"
+                    .to_owned(),
+            ))
+        }
     }
 
     async fn retrieve_secret(&self, key: &str) -> Result<Option<String>, DbError> {
@@ -228,19 +249,42 @@ impl SecretStore for KeyringVault {
     }
 
     async fn delete_secret(&self, key: &str) -> Result<(), DbError> {
+        let mut failures: Vec<String> = Vec::new();
+
         if self.allow_fallback {
-            if let Ok(store) = self.get_or_init_fallback() {
-                let _ = store.delete(key);
+            match self.get_or_init_fallback() {
+                Ok(store) => {
+                    if let Err(error) = store.delete(key) {
+                        failures.push(format!("encrypted-file fallback: {error}"));
+                    }
+                }
+                Err(error) => failures.push(format!("encrypted-file fallback unavailable: {error}")),
             }
         }
         if self.allow_session_fallback {
-            let _ = self.delete_session_secret(key);
+            if let Err(error) = self.delete_session_secret(key) {
+                failures.push(format!("session store: {error}"));
+            }
         }
         if let Ok(entry) = self.keyring_entry(key) {
-            let _ = entry.delete_credential();
+            match entry.delete_credential() {
+                // `NoEntry` is the goal state of a delete, not a failure.
+                Ok(()) | Err(keyring::Error::NoEntry) => {}
+                Err(error) => failures.push(format!("OS keyring: {error}")),
+            }
         }
 
-        Ok(())
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            // #243 (K-2): a delete that did not take effect has to be reported, or the surviving
+            // entry is an orphan nobody can see -- the `SecretStore` port has no enumeration, so the
+            // caller is the only place this can surface.
+            Err(DbError::Internal(format!(
+                "the secret could not be deleted from every credential store ({}) -- an orphan entry may remain",
+                failures.join("; ")
+            )))
+        }
     }
 }
 
@@ -372,5 +416,120 @@ mod tests {
         );
 
         let _ = std::fs::remove_file(&path);
+    }
+
+    // -- #243: a store that persisted nothing, and a delete that did not take effect, must not be
+    //    reported as success ------------------------------------------------------------------
+
+    /// An empty service name makes `keyring::Entry::new` fail with
+    /// `Invalid("service", "cannot be empty")` on every platform (verified on this host), so a vault
+    /// built with it has **no usable keyring layer** without any test-only injection. With no
+    /// fallback enabled either, the value has nowhere to go and the store must say so instead of
+    /// reporting success (#243 K-1).
+    #[tokio::test]
+    async fn store_secret_reports_when_no_store_accepts_the_value() {
+        let vault = KeyringVault::new("", std::env::temp_dir().join("db-pro-no-store"));
+
+        let error = vault
+            .store_secret("no-store/probe", "<REDACTED>")
+            .await
+            .expect_err("a store that persisted nothing must not report success");
+
+        assert!(
+            error.to_string().contains("the secret was not stored"),
+            "the error must name the outcome, not just bubble a platform message: {error}"
+        );
+    }
+
+    /// Characterisation test for the behaviour this change deliberately leaves alone.
+    ///
+    /// A session-only store still reports success, because turning that into a user-visible warning
+    /// ("saved, but this will not survive a restart") needs a warning channel the runtime does not
+    /// have, and choosing between that warning and a hard failure is the open decision recorded in
+    /// #243. Pinned here so a future change to it is deliberate rather than accidental.
+    #[tokio::test]
+    async fn store_secret_still_succeeds_when_only_the_session_store_holds_the_secret() {
+        let vault = KeyringVault::new("", std::env::temp_dir().join("db-pro-session-only")).with_session_fallback();
+        let key = "session-only/probe";
+
+        vault
+            .store_secret(key, "<REDACTED>")
+            .await
+            .expect("the session store accepts the value, so the in-session workflow still works");
+        assert_eq!(
+            vault.retrieve_secret(key).await.expect("session read").as_deref(),
+            Some("<REDACTED>")
+        );
+    }
+
+    /// `delete_secret` used to discard every layer's result, so a delete that could not take effect
+    /// was indistinguishable from a successful one and the surviving entry was an invisible orphan
+    /// (#243 K-2). The directory is made read-only after the store so the encrypted-file delete
+    /// cannot be persisted.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn delete_secret_reports_a_store_that_could_not_delete() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = std::env::temp_dir().join(format!("db-pro-delete-fail-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        // Empty service name: no keyring layer, so no real credential ever leaves this test.
+        let vault = KeyringVault::new("", dir.clone()).with_fallback();
+        let key = "delete/probe";
+        vault
+            .store_secret(key, "<REDACTED>")
+            .await
+            .expect("the encrypted-file fallback stores the value");
+
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).expect("chmod read-only");
+        let error = vault
+            .delete_secret(key)
+            .await
+            .expect_err("a delete that could not be persisted must not report success");
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).expect("chmod back");
+
+        assert!(
+            error.to_string().contains("encrypted-file fallback"),
+            "the error must name the store that still holds the secret: {error}"
+        );
+        assert!(
+            error.to_string().contains("orphan"),
+            "the caller has to be told what the consequence is: {error}"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The goal state of a delete is "the key is gone", so deleting something that was never there
+    /// is a success, not a failure.
+    #[tokio::test]
+    async fn delete_secret_of_a_missing_key_is_not_a_failure() {
+        let vault = KeyringVault::new("", std::env::temp_dir().join("db-pro-delete-missing")).with_fallback();
+
+        vault
+            .delete_secret("delete/never-stored")
+            .await
+            .expect("deleting an absent key reaches the goal state and must not fail");
+    }
+
+    /// One deterministic half of the pair that used to be a single accept-either assertion
+    /// (`missing_os_keyring_secret_returns_none_without_fallback` accepted `Ok(None)` **or** an
+    /// "OS keyring unavailable" error, so it could not fail on either branch). This case pins the
+    /// branch where the keyring entry cannot even be created: it is a hard error, not a silent
+    /// `None`, because "I cannot reach the store" and "the store says there is no such key" are
+    /// different answers and only one of them is safe to treat as absent.
+    #[tokio::test]
+    async fn retrieve_secret_reports_a_keyring_entry_that_cannot_be_created() {
+        let vault = KeyringVault::new("", std::env::temp_dir().join("db-pro-entry-error"));
+
+        let error = vault
+            .retrieve_secret("entry-error/probe")
+            .await
+            .expect_err("an unreachable keyring must not be reported as a missing key");
+
+        assert!(
+            error.to_string().contains("keyring entry creation failed"),
+            "the error has to distinguish an unreachable store from an absent key: {error}"
+        );
     }
 }
