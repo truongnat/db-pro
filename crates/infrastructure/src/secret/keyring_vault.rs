@@ -174,6 +174,23 @@ fn is_keyring_unavailable(err: &keyring::Error) -> bool {
     )
 }
 
+/// Classify the result of `Entry::delete_credential` for the orphan check.
+///
+/// The goal state of a delete is "the key is gone". That is reached three ways: the
+/// credential was deleted, there was no entry to delete, or the keyring layer is
+/// *unavailable*. An unavailable keyring cannot have received the value through
+/// `store_secret`'s best-effort write, so nothing can be orphaned there — the same
+/// `is_keyring_unavailable` distinction `retrieve_secret` already makes (and the reverse
+/// of `store_secret`, which only writes when the keyring accepts the value). Anything else
+/// is an entry this vault could not delete, which must be reported (#243 K-2).
+fn keyring_delete_failure(delete_result: Result<(), keyring::Error>) -> Option<String> {
+    match delete_result {
+        Ok(()) | Err(keyring::Error::NoEntry) => None,
+        Err(error) if is_keyring_unavailable(&error) => None,
+        Err(error) => Some(format!("OS keyring: {error}")),
+    }
+}
+
 #[async_trait]
 impl SecretStore for KeyringVault {
     async fn store_secret(&self, key: &str, value: &str) -> Result<(), DbError> {
@@ -275,10 +292,8 @@ impl SecretStore for KeyringVault {
             }
         }
         if let Ok(entry) = self.keyring_entry(key) {
-            match entry.delete_credential() {
-                // `NoEntry` is the goal state of a delete, not a failure.
-                Ok(()) | Err(keyring::Error::NoEntry) => {}
-                Err(error) => failures.push(format!("OS keyring: {error}")),
+            if let Some(failure) = keyring_delete_failure(entry.delete_credential()) {
+                failures.push(failure);
             }
         }
 
@@ -349,7 +364,11 @@ mod tests {
     #[tokio::test]
     async fn session_fallback_round_trips_without_writing_a_file() {
         let fallback_dir = std::env::temp_dir().join(format!("db-pro-session-{}", std::process::id()));
-        let vault = KeyringVault::new("db-pro-session-test", fallback_dir.clone()).with_session_fallback();
+        // Empty service name: no keyring layer exists, so the round-trip is proven through the
+        // session store alone and no real OS keyring is touched (the same deterministic seam the
+        // other #243 tests use). A non-empty name would reach the platform keyring on this host and
+        // fail on a CI runner without one.
+        let vault = KeyringVault::new("", fallback_dir.clone()).with_session_fallback();
         let key = format!("session/{}", std::process::id());
 
         vault
@@ -518,6 +537,38 @@ mod tests {
             .delete_secret("delete/never-stored")
             .await
             .expect("deleting an absent key reaches the goal state and must not fail");
+    }
+
+    /// `delete_secret` used to report "orphan may remain" for *every* `delete_credential`
+    /// failure, which is wrong when the keyring layer is simply unavailable: an unavailable
+    /// keyring could not have received the value via `store_secret`'s best-effort write, so
+    /// nothing can be orphaned there. This pins the classification directly — no real keyring
+    /// and no mock — across every reachable variant.
+    #[test]
+    fn delete_secret_treats_unavailable_keyring_as_not_an_orphan() {
+        let unavailable =
+            |reason: &str| keyring::Error::PlatformFailure(Box::new(std::io::Error::other(reason.to_owned())));
+
+        // Deleted, absent, and unreachable all reach "nothing is in the keyring".
+        assert_eq!(keyring_delete_failure(Ok(())), None);
+        assert_eq!(keyring_delete_failure(Err(keyring::Error::NoEntry)), None);
+        assert_eq!(
+            keyring_delete_failure(Err(unavailable(
+                "org.freedesktop.secrets is not provided by any .service file"
+            ))),
+            None
+        );
+        assert_eq!(
+            keyring_delete_failure(Err(keyring::Error::NoStorageAccess(Box::new(std::io::Error::other(
+                "credential store is locked"
+            ))))),
+            None
+        );
+
+        // A failure that is not "unavailable" is still an orphan and must name the store.
+        let orphan = keyring_delete_failure(Err(keyring::Error::Ambiguous(Vec::new())))
+            .expect("a non-availability delete failure is an orphan");
+        assert!(orphan.contains("OS keyring"), "must name the store: {orphan}");
     }
 
     /// One deterministic half of the pair that used to be a single accept-either assertion
