@@ -139,11 +139,19 @@ macOS/Windows/Linux.
 
 ### Agent provider
 
-Set `GROQ_API_KEY` or `OPENAI_API_KEY` outside the repository before launching `db-pro-native`.
-Groq defaults to `openai/gpt-oss-120b`; `DB_PRO_GROQ_MODEL`, `DB_PRO_GROQ_ENDPOINT`,
-`DB_PRO_CODEX_MODEL`, and `DB_PRO_CODEX_ENDPOINT` are optional overrides. Credentials are read
-once by the runtime worker and are not rendered in the UI or logs. With no key set, the Agent
-panel has no provider and generates nothing.
+Set `GROQ_API_KEY` or `OPENAI_API_KEY` outside the repository before launching `db-pro-native`,
+or enter a key in the Agent panel (stored in the OS keychain). Groq defaults to
+`openai/gpt-oss-120b`; `DB_PRO_GROQ_MODEL`, `DB_PRO_GROQ_ENDPOINT`, `DB_PRO_CODEX_MODEL`, and
+`DB_PRO_CODEX_ENDPOINT` are optional overrides. Credentials are read once by the runtime worker and
+are not rendered in the UI or logs. With no key set, the Agent panel has no provider and generates
+nothing.
+
+A configured key is also the app's **only network egress** beyond your own connections. Inline SQL
+prediction is on by default and sends the SQL around your cursor plus its schema context to that
+provider; the agent sends the conversation and, for agent query tool runs, up to 20 sample result
+rows (50 columns, 256 characters per cell). No telemetry, update check, licence check or remote
+assets exist; the only other outbound connections are the database and SSH connections you
+configure. See LIM-019 in [known limitations](docs/release/known-limitations.md).
 
 ## Development
 

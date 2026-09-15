@@ -13,6 +13,7 @@
 > `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md` §3 and `risk-register.md` §4.
 > No limitation below is retracted by this note.
 > Risk IDs referenced below (`R003`, `R-LICENSE`, `R001`) are defined in `docs/release/risk-register.md`.
+> Further addition (2026-09-15, #242): **LIM-019 added** — the AI features are the app's only egress and the in-app/release disclosure for it. No entry was deleted or rewritten.
 > Issue: #135
 > Supports: #27, #30, #105, #110, #111
 
@@ -286,11 +287,25 @@ Each entry includes:
 
 ---
 
+## LIM-019: The AI features are the app's only egress
+
+| Field | Value |
+|---|---|
+| Category | security |
+| Actual behavior | The AI features are the **only** component that sends data off the machine, and they do so only once a provider key is configured: with no key the runtime answers "AI provider is not configured" and sends nothing (`crates/runtime/src/worker.rs:1118`). When a key is set, two paths egress to the configured provider — `https://api.groq.com/openai/v1/responses` or `https://api.openai.com/v1/responses`, HTTPS-enforced (`crates/runtime/src/agent.rs:13,15,153`): (a) **inline SQL prediction**, which is on by default (`PredictionMode` defaults to `Eager`, `crates/ui/src/editor/prediction.rs:5-11`) and schedules a request 300 ms after an edit or cursor move (`crates/ui/src/query/query_document.rs:13`), sending the SQL text around the cursor plus the schema context it references; (b) **the agent panel**, which sends the conversation so far — including, for agent query tool runs, an `AgentResultSummary` of at most **20 sample rows × 50 columns, each cell truncated to 256 characters** (`crates/core/src/domain/agent.rs:10-12`, applied in `agent_context.rs`; the #122 audit's "20×12" is stale). A key can also be seeded into the process from the OS keyring at startup (`crates/native-app/src/main.rs:203-220`, service `com.dbpro.app`, account `agent/groq_api_key`), so a key saved once keeps working in later sessions without re-entry. The app's only other outbound connections are the database and SSH connections the user configures. |
+| User-visible impact | Enabling an AI provider sends SQL text, schema metadata and — for agent query runs — sample result rows to that provider. The agent panel's API-key section and the editor's AI prediction control now say so in-app (the disclosure added for #242); before that, nothing in the product did. |
+| Reason | The AI features need a hosted model provider; there is no local model in v0.1. Because the app is otherwise offline and local-first, the data flow has to be stated rather than assumed. |
+| Status | Accepted v0.1 |
+| Target issue | #242 (disclosure implemented); #122 (source audit); per-connection or per-session AI opt-out deferred to the post-v0.1 backlogs (#34 agent-native operations, #32 MCP) |
+| Safe release-note wording | "The AI features are the app's only network egress beyond your own database and SSH connections. With a key configured, inline prediction sends the SQL around your cursor and its schema context to Groq or OpenAI, and an agent query run sends up to 20 sample result rows. No key, no egress." |
+| Must not contradict | `0.1.0-release-notes.md` (Known limitations), `README.md` (Agent provider), `docs/notes/PRODUCT_CAPABILITY_MATRIX.md` §Privacy-security, `docs/release/audit-security-boundaries.md` §1/§5 (T-1), UI text in `crates/ui/src/agent_view.rs` and `crates/ui/src/query_view.rs` |
+| Evidence | `docs/release/audit-security-boundaries.md` §1 (data-flow inventory: no telemetry, no update check, no licence check, no remote asset; only these two endpoints) and §5 (T-1); `crates/ui/src/agent_view.rs` (`AI_EGRESS_DISCLOSURE`), `crates/ui/src/query_view.rs` (`AI_PREDICTION_EGRESS_NOTE`); `docs/release/evidence/v01-runtime/providers/54-ai-egress-disclosure.md` |
+
 ## Summary by status
 
 | Status | Count | IDs |
 |---|---|---|
-| Accepted v0.1 | 11 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-013, LIM-014, LIM-015, LIM-016, LIM-017, LIM-018 |
+| Accepted v0.1 | 12 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-013, LIM-014, LIM-015, LIM-016, LIM-017, LIM-018, LIM-019 |
 | Blocked decision | 4 | LIM-001, LIM-009, LIM-010, LIM-011 |
 | Deferred v0.2+ | 3 | LIM-004, LIM-008, LIM-012 |
 | Fix before v0.1 | 0 | — |

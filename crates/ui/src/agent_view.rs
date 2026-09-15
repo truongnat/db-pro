@@ -1,5 +1,18 @@
 use super::*;
 
+/// What the AI features send off the machine, stated where the user enables them (#242).
+///
+/// The #122 trust-boundary audit (`docs/release/audit-security-boundaries.md` §5, finding T-1) found
+/// the AI path to be the app's only egress and the product silent about it; the registry entry that
+/// records the same facts is `docs/release/known-limitations.md` LIM-019. The numbers here track the
+/// code rather than the audit text, which said 20×12: the agent tool result carries at most
+/// `MAX_AGENT_SAMPLE_ROWS` (20) rows and `MAX_AGENT_RESULT_COLUMNS` (50) columns, each cell
+/// truncated to `MAX_AGENT_CELL_CHARS` (256) characters
+/// (`crates/core/src/domain/agent.rs:10-12`, applied in `agent_context.rs`). Egress requires a
+/// configured key: with no provider the runtime answers "AI provider is not configured" and sends
+/// nothing (`crates/runtime/src/worker.rs:1118`).
+const AI_EGRESS_DISCLOSURE: &str = "With a key configured, the AI features send data to that provider: your prompts, the SQL they reference and the schema names and types around them. When the agent runs a query, up to 20 sample result rows (50 columns, 256 characters per cell) are sent too.\nYour database and SSH connections are the app's only other outbound connections.";
+
 impl DbProApp {
     pub(super) fn draw_agent_panel(&mut self, ctx: &egui::Context) {
         let mut submit = false;
@@ -137,6 +150,12 @@ impl DbProApp {
                 RichText::new("Enter a Groq or OpenAI API key to enable the AI provider.\nThe key is stored in the OS keychain and never written to disk in plain text.")
                     .font(font_caption())
                     .color(self.theme.text_secondary),
+            );
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(AI_EGRESS_DISCLOSURE)
+                    .font(font_caption())
+                    .color(self.theme.text_muted),
             );
             ui.add_space(8.0);
             let current_label = if self.agent_provider_label == "Offline draft" {
@@ -609,5 +628,84 @@ fn agent_confirmation_title(kind: db_pro_core::domain::agent_workflow::AgentConf
         db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunMutation => "Run mutation?",
         db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunDestructive => "Execute destructive query?",
         db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunUnknown => "Run unclassified query?",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every text run the frame actually painted.
+    ///
+    /// The assertions below read the rendered frame rather than the constant the panel is written
+    /// from, so deleting the label while keeping the constant still fails (the same idiom the SSH
+    /// qualification caveat is pinned with, `connection_view.rs`).
+    fn rendered_settings_texts(app: &mut DbProApp) -> Vec<String> {
+        fn collect(shape: &egui::Shape, texts: &mut Vec<String>) {
+            match shape {
+                egui::Shape::Text(text) => texts.push(text.galley.text().to_owned()),
+                egui::Shape::Vec(shapes) => {
+                    for shape in shapes {
+                        collect(shape, texts);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        let output = ctx.run(Default::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                app.draw_agent_settings(ui);
+            });
+        });
+
+        let mut texts = Vec::new();
+        for clipped in &output.shapes {
+            collect(&clipped.shape, &mut texts);
+        }
+        texts
+    }
+
+    #[test]
+    fn agent_key_section_discloses_what_the_ai_path_sends() {
+        let mut app = DbProApp::default();
+
+        let texts = rendered_settings_texts(&mut app);
+
+        assert!(
+            texts.iter().any(|text| text == AI_EGRESS_DISCLOSURE),
+            "the surface that enables the AI provider must state what leaves the machine (#242); painted texts: {texts:?}"
+        );
+        // The note must not replace the key-handling sentence the section already carried.
+        assert!(
+            texts.iter().any(|text| text.contains("stored in the OS keychain")),
+            "the API-key handling caption is still painted; painted texts: {texts:?}"
+        );
+    }
+
+    #[test]
+    fn agent_egress_disclosure_names_the_provider_payload_and_limits() {
+        // What is sent, and the code-derived bounds rather than the audit's stale 20x12.
+        assert!(AI_EGRESS_DISCLOSURE.contains("prompts"));
+        assert!(AI_EGRESS_DISCLOSURE.contains("SQL they reference"));
+        assert!(AI_EGRESS_DISCLOSURE.contains("schema names and types"));
+        assert!(AI_EGRESS_DISCLOSURE.contains("up to 20 sample result rows"));
+        assert!(AI_EGRESS_DISCLOSURE.contains("50 columns"));
+        assert!(AI_EGRESS_DISCLOSURE.contains("256 characters"));
+        // And the only-egress claim, which is what the audit verified.
+        assert!(AI_EGRESS_DISCLOSURE.contains("only other outbound connections"));
+        // The audit's finding was silence, so the note states the data flow and nothing more: a
+        // privacy claim would contradict LIM-019's "Actual behavior" field. This is a keyword guard,
+        // not a proof of semantics -- it catches the obvious overclaim, and the painted-text test
+        // above pins the wording itself.
+        let lowered = AI_EGRESS_DISCLOSURE.to_lowercase();
+        for overclaim in ["private", "anonymous", "never leaves", "encrypted", "secure"] {
+            assert!(
+                !lowered.contains(overclaim),
+                "the disclosure must not claim {overclaim:?}: it records what is sent, not a privacy guarantee"
+            );
+        }
     }
 }

@@ -5,6 +5,17 @@ use crate::editor::{
 use crate::query::{CompletionContext, SchemaCompletionProvider};
 use std::time::Instant;
 
+/// Egress note shown with the AI prediction control (#242).
+///
+/// Inline prediction is the one AI feature that runs without any user action — `PredictionMode`
+/// defaults to `Eager` (`crates/ui/src/editor/prediction.rs:5-11`) and a scheduled request follows
+/// 300 ms after an edit or cursor move (`query_document.rs:13`) — so the control that chooses the
+/// mode is where its data flow has to be stated. The registry entry recording the same facts is
+/// `docs/release/known-limitations.md` LIM-019; with no key configured the runtime answers
+/// "AI provider is not configured" and nothing leaves the machine (`crates/runtime/src/worker.rs:1118`).
+const AI_PREDICTION_EGRESS_NOTE: &str =
+    "Sends the SQL around your cursor and its schema context to your configured AI provider.";
+
 impl DbProApp {
     pub(super) fn draw_query(&mut self, ui: &mut egui::Ui) {
         ui.add_space(SPACE_SM);
@@ -836,6 +847,12 @@ impl DbProApp {
                 }
             }
         });
+        ui.label(
+            RichText::new(AI_PREDICTION_EGRESS_NOTE)
+                .font(font_caption())
+                .color(self.theme.text_muted),
+        );
+        ui.add_space(4.0);
         if menu_button_with_icon(ui, Icon::FileCode2, "SQL snippets", self.theme).clicked() {
             self.snippets_open = !self.snippets_open;
             close_menu = true;
@@ -1693,4 +1710,64 @@ fn prediction_replacement_range(
         .find(|(_, ch)| !ch.is_ascii_alphanumeric() && *ch != '_')
         .map_or(0, |(offset, ch)| offset + ch.len_utf8());
     (start, anchor)
+}
+
+#[cfg(test)]
+mod egress_tests {
+    use super::*;
+
+    /// Every text run the frame actually painted, with the editor actions menu open.
+    fn rendered_editor_actions_texts(app: &mut DbProApp) -> Vec<String> {
+        fn collect(shape: &egui::Shape, texts: &mut Vec<String>) {
+            match shape {
+                egui::Shape::Text(text) => texts.push(text.galley.text().to_owned()),
+                egui::Shape::Vec(shapes) => {
+                    for shape in shapes {
+                        collect(shape, texts);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        let output = ctx.run(Default::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let _ = app.draw_query_editor_actions(ui);
+            });
+        });
+
+        let mut texts = Vec::new();
+        for clipped in &output.shapes {
+            collect(&clipped.shape, &mut texts);
+        }
+        texts
+    }
+
+    #[test]
+    fn ai_prediction_control_discloses_its_egress() {
+        let mut app = DbProApp::default();
+
+        let texts = rendered_editor_actions_texts(&mut app);
+
+        assert!(
+            texts.iter().any(|text| text == AI_PREDICTION_EGRESS_NOTE),
+            "the AI prediction control must state that it sends SQL and schema context (#242); painted texts: {texts:?}"
+        );
+        assert!(
+            texts.iter().any(|text| text == "AI prediction"),
+            "the prediction mode control itself is still painted; painted texts: {texts:?}"
+        );
+    }
+
+    #[test]
+    fn prediction_default_stays_eager_with_the_note_visible() {
+        // #242 item 3: the decision is "keep Eager", so the note is the disclosure that makes the
+        // default an informed one. If the default ever changes, this test fails on purpose.
+        let app = DbProApp::default();
+
+        assert_eq!(app.prediction_mode, PredictionMode::Eager);
+        assert!(AI_PREDICTION_EGRESS_NOTE.contains("configured AI provider"));
+    }
 }
