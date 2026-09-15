@@ -3,6 +3,11 @@
 //! These tests are marked `#[ignore]` so they only run when `DATABASE_URL` is set
 //! to a MySQL connection string (e.g. `mysql://user:pass@host:3306/db`).
 //!
+//! `#[ignore]` alone is not enough: the CI command is
+//! `cargo test --all -- --include-ignored` with a *PostgreSQL* `DATABASE_URL`, so every test here
+//! also runs in an environment with no MySQL server. `setup()` returns `None` there and the test
+//! skips with a reason, instead of failing the run on a fixture it cannot have.
+//!
 //! Run with: `cargo test --package db-pro-infrastructure --test mysql_integration -- --ignored`
 
 use db_pro_core::application::registry::ConnectionRegistry;
@@ -40,8 +45,8 @@ fn mysql_config() -> Option<ConnectionConfig> {
     })
 }
 
-async fn setup() -> (MySqlConnector, ConnectionHandle, String) {
-    let config = mysql_config().expect("DATABASE_URL must be a mysql:// URL for MySQL integration tests");
+async fn setup() -> Option<(MySqlConnector, ConnectionHandle, String)> {
+    let config = mysql_config()?;
     let password = std::env::var("DATABASE_URL")
         .ok()
         .and_then(|url| {
@@ -57,13 +62,16 @@ async fn setup() -> (MySqlConnector, ConnectionHandle, String) {
         .connect(&config, &password)
         .await
         .expect("MySQL connect failed");
-    (connector, handle, database)
+    Some((connector, handle, database))
 }
 
 #[tokio::test]
 #[ignore] // Requires DATABASE_URL=mysql://...
 async fn mysql_connects_and_executes_query() {
-    let (connector, handle, _database) = setup().await;
+    let Some((connector, handle, _database)) = setup().await else {
+        eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
+        return;
+    };
 
     let result = connector
         .query(&handle, "SELECT 1 + 1 AS two", &[])
@@ -79,7 +87,10 @@ async fn mysql_connects_and_executes_query() {
 #[tokio::test]
 #[ignore] // Requires DATABASE_URL=mysql://...
 async fn mysql_execute_returns_affected_rows() {
-    let (connector, handle, _database) = setup().await;
+    let Some((connector, handle, _database)) = setup().await else {
+        eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
+        return;
+    };
 
     connector
         .execute(&handle, "DROP TABLE IF EXISTS mysql_probe", &[])
@@ -105,7 +116,10 @@ async fn mysql_execute_returns_affected_rows() {
 #[tokio::test]
 #[ignore] // Requires DATABASE_URL=mysql://...
 async fn mysql_transaction_rolls_back_on_failure() {
-    let (connector, handle, _database) = setup().await;
+    let Some((connector, handle, _database)) = setup().await else {
+        eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
+        return;
+    };
 
     connector
         .execute(&handle, "DROP TABLE IF EXISTS mysql_tx_probe", &[])
@@ -151,7 +165,10 @@ async fn mysql_transaction_rolls_back_on_failure() {
 #[tokio::test]
 #[ignore] // Requires DATABASE_URL=mysql://...
 async fn mysql_introspect_returns_canonical_model() {
-    let (connector, handle, _database) = setup().await;
+    let Some((connector, handle, _database)) = setup().await else {
+        eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
+        return;
+    };
 
     connector
         .execute(&handle, "DROP TABLE IF EXISTS mysql_intro_probe", &[])
@@ -179,7 +196,10 @@ async fn mysql_introspect_returns_canonical_model() {
 #[tokio::test]
 #[ignore] // Requires DATABASE_URL=mysql://...
 async fn mysql_explain_returns_json() {
-    let (connector, handle, _database) = setup().await;
+    let Some((connector, handle, _database)) = setup().await else {
+        eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
+        return;
+    };
 
     let plan = connector.explain(&handle, "SELECT 1").await.expect("explain");
     assert!(plan.is_array());
