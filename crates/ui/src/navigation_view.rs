@@ -1077,6 +1077,8 @@ impl DbProApp {
     fn draw_settings(&mut self, ui: &mut egui::Ui) {
         self.draw_appearance_settings(ui);
         ui.add_space(12.0);
+        self.draw_editor_settings(ui);
+        ui.add_space(12.0);
         self.draw_diagnostics_settings(ui);
         ui.add_space(12.0);
         card_frame(self.theme).show(ui, |ui| {
@@ -1093,6 +1095,45 @@ impl DbProApp {
             self.draw_backup_settings(ui);
             ui.add_space(14.0);
             self.draw_restore_settings(ui);
+        });
+    }
+
+    fn draw_editor_settings(&mut self, ui: &mut egui::Ui) {
+        card_frame(self.theme).show(ui, |ui| {
+            section_label(ui, "EDITOR", self.theme);
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("Font size").color(self.theme.text_secondary));
+                if compact_button(ui, "−", self.theme).clicked() {
+                    self.editor_font_size = (self.editor_font_size - 1.0).max(10.0);
+                }
+                ui.label(
+                    RichText::new(format!("{:.0} px", self.editor_font_size)).color(self.theme.text_primary),
+                );
+                if compact_button(ui, "+", self.theme).clicked() {
+                    self.editor_font_size = (self.editor_font_size + 1.0).min(24.0);
+                }
+            });
+            ui.add_space(8.0);
+            ui.label(RichText::new("AI prediction").color(self.theme.text_secondary));
+            ui.horizontal_wrapped(|ui| {
+                for (mode, label) in [
+                    (PredictionMode::Off, "Off"),
+                    (PredictionMode::Subtle, "Subtle"),
+                    (PredictionMode::Eager, "Eager"),
+                ] {
+                    if ui.selectable_label(self.prediction_mode == mode, label).clicked() {
+                        self.prediction_mode = mode;
+                    }
+                }
+            });
+            ui.label(
+                RichText::new(
+                    "Sends the SQL around your cursor and its schema context to your configured AI provider.",
+                )
+                .small()
+                .color(self.theme.text_muted),
+            );
         });
     }
 
