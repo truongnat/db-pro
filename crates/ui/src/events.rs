@@ -234,9 +234,14 @@ impl DbProApp {
             Some(SchemaObjectSelection::Trigger(name)) => {
                 self.schema.triggers.iter().any(|trigger| &trigger.name == name)
             }
-            Some(SchemaObjectSelection::Function(name)) => {
-                self.schema.functions.iter().any(|function| &function.name == name)
-            }
+            Some(SchemaObjectSelection::Function {
+                name,
+                identity_arguments,
+            }) => self
+                .schema
+                .functions
+                .iter()
+                .any(|function| &function.name == name && &function.identity_arguments == identity_arguments),
             None => true,
         }
     }

@@ -818,9 +818,18 @@ async fn introspect_functions(pool: &sqlx::PgPool) -> Result<Vec<Function>, DbEr
                 ELSE 'FUNCTION'
             END AS routine_type,
             pg_get_function_result(p.oid) AS data_type,
-            COALESCE(pg_get_functiondef(p.oid), '') AS definition
+            COALESCE(pg_get_functiondef(p.oid), '') AS definition,
+            COALESCE(pg_get_function_identity_arguments(p.oid), '') AS identity_arguments,
+            COALESCE(l.lanname, '') AS language,
+            CASE p.provolatile
+                WHEN 'i' THEN 'IMMUTABLE'
+                WHEN 's' THEN 'STABLE'
+                ELSE 'VOLATILE'
+            END AS volatility,
+            p.prosecdef AS security_definer
         FROM pg_proc p
         JOIN pg_namespace n ON n.oid = p.pronamespace
+        LEFT JOIN pg_language l ON l.oid = p.prolang
         WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
           AND p.prokind IN ('f', 'p')
         ORDER BY n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)
@@ -837,12 +846,20 @@ async fn introspect_functions(pool: &sqlx::PgPool) -> Result<Vec<Function>, DbEr
             let routine_type = required_string(&row, "routine_type")?;
             let data_type = optional_string(&row, "data_type")?.unwrap_or_default();
             let definition = required_string(&row, "definition")?;
+            let identity_arguments = optional_string(&row, "identity_arguments")?.unwrap_or_default();
+            let language = optional_string(&row, "language")?.unwrap_or_default();
+            let volatility = optional_string(&row, "volatility")?.unwrap_or_default();
+            let security_definer = row.try_get::<bool, _>("security_definer").unwrap_or(false);
             Ok(Function {
                 name,
                 schema,
                 routine_type,
                 data_type,
                 definition,
+                identity_arguments,
+                language,
+                volatility,
+                security_definer,
             })
         })
         .collect()

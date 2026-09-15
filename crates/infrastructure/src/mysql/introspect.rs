@@ -291,6 +291,10 @@ impl MySqlIntrospect {
                 routine_type: info(row, "routine_type"),
                 data_type: info::<Option<String>>(row, "data_type").unwrap_or_default(),
                 definition: info::<Option<String>>(row, "routine_definition").unwrap_or_default(),
+                identity_arguments: String::new(),
+                language: String::new(),
+                volatility: String::new(),
+                security_definer: false,
             })
             .collect();
 

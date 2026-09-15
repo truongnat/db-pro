@@ -108,6 +108,10 @@ pub struct FunctionSummary {
     pub routine_type: String,
     pub data_type: String,
     pub definition: String,
+    pub identity_arguments: String,
+    pub language: String,
+    pub volatility: String,
+    pub security_definer: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -500,6 +504,10 @@ impl SchemaApi {
                     routine_type: function.routine_type,
                     data_type: function.data_type,
                     definition: function.definition,
+                    identity_arguments: function.identity_arguments,
+                    language: function.language,
+                    volatility: function.volatility,
+                    security_definer: function.security_definer,
                 })
                 .collect(),
         })

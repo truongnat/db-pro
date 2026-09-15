@@ -315,7 +315,7 @@ pub(crate) enum OutputTab {
 enum SchemaObjectSelection {
     View(String),
     Trigger(String),
-    Function(String),
+    Function { name: String, identity_arguments: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

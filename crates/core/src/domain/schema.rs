@@ -124,6 +124,15 @@ pub struct Function {
     pub data_type: String,
     #[serde(default)]
     pub definition: String,
+    /// Stable overload identity from `pg_get_function_identity_arguments`.
+    #[serde(default)]
+    pub identity_arguments: String,
+    #[serde(default)]
+    pub language: String,
+    #[serde(default)]
+    pub volatility: String,
+    #[serde(default)]
+    pub security_definer: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

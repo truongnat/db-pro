@@ -1321,6 +1321,10 @@ fn map_function_summary(function: db_pro_runtime::FunctionSummary) -> UiFunction
         routine_type: function.routine_type,
         data_type: function.data_type,
         definition: function.definition,
+        identity_arguments: function.identity_arguments,
+        language: function.language,
+        volatility: function.volatility,
+        security_definer: function.security_definer,
     }
 }
 

@@ -164,14 +164,24 @@ impl DbProApp {
     fn draw_function_row(&mut self, ui: &mut egui::Ui, function: &UiFunctionSummary, theme: &DbProTheme) {
         let is_selected = matches!(
             self.selected_schema_object.as_ref(),
-            Some(SchemaObjectSelection::Function(s)) if s == &function.name
+            Some(SchemaObjectSelection::Function {
+                name,
+                identity_arguments
+            }) if name == &function.name && identity_arguments == &function.identity_arguments
         );
         let icon = if function.routine_type.eq_ignore_ascii_case("procedure") {
             Icon::GitBranch
         } else {
             Icon::Code2
         };
-        let label = format!("{} · {}", function.name, function.routine_type);
+        let label = if function.identity_arguments.is_empty() {
+            format!("{} · {}", function.name, function.routine_type)
+        } else {
+            format!(
+                "{}({}) · {}",
+                function.name, function.identity_arguments, function.routine_type
+            )
+        };
 
         let (response, _) = draw_codex_tree_row(
             ui,
@@ -232,7 +242,10 @@ impl DbProApp {
 
         if response.clicked() && !is_ctx {
             self.open_schema_object(
-                SchemaObjectSelection::Function(function.name.clone()),
+                SchemaObjectSelection::Function {
+                    name: function.name.clone(),
+                    identity_arguments: function.identity_arguments.clone(),
+                },
                 &function.schema,
                 &function.name,
                 "function",

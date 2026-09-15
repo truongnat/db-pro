@@ -155,6 +155,10 @@ pub struct UiFunctionSummary {
     pub routine_type: String,
     pub data_type: String,
     pub definition: String,
+    pub identity_arguments: String,
+    pub language: String,
+    pub volatility: String,
+    pub security_definer: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

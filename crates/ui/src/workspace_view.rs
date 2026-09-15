@@ -385,7 +385,7 @@ impl DbProApp {
                                 let (icon, name) = match &selection {
                                     SchemaObjectSelection::View(name) => (Icon::Eye, name.clone()),
                                     SchemaObjectSelection::Trigger(name) => (Icon::Zap, name.clone()),
-                                    SchemaObjectSelection::Function(name) => (Icon::Code2, name.clone()),
+                                    SchemaObjectSelection::Function { name, .. } => (Icon::Code2, name.clone()),
                                 };
                                 let selected = self.active_tab == WorkspaceTab::SchemaObject;
                                 let mut close_obj = false;

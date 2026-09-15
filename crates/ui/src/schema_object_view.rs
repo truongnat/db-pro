@@ -87,20 +87,38 @@ impl DbProApp {
                     query: trigger.definition,
                 })
             }
-            SchemaObjectSelection::Function(name) => {
+            SchemaObjectSelection::Function {
+                name,
+                identity_arguments,
+            } => {
                 let function = self
                     .schema
                     .functions
                     .iter()
-                    .find(|function| &function.name == name)?
+                    .find(|function| &function.name == name && &function.identity_arguments == identity_arguments)?
                     .clone();
+                let display_name = if function.identity_arguments.is_empty() {
+                    function.name.clone()
+                } else {
+                    format!("{}({})", function.name, function.identity_arguments)
+                };
                 Some(SchemaObjectDetails {
                     icon: Icon::Code2,
                     kind: function.routine_type,
-                    name: function.name,
+                    name: display_name,
                     schema: function.schema,
                     definition: function.definition.clone(),
-                    metadata: Some(format!("returns {}", function.data_type)),
+                    metadata: Some(format!(
+                        "{} · {} · returns {}{}",
+                        function.language,
+                        function.volatility,
+                        function.data_type,
+                        if function.security_definer {
+                            " · SECURITY DEFINER"
+                        } else {
+                            ""
+                        }
+                    )),
                     query: function.definition,
                 })
             }
