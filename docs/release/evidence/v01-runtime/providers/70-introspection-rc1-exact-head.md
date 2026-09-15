@@ -7,7 +7,8 @@ regressions, and native exposure agree with the updated audit document.
 
 ## Exact SHA
 
-`9a972e28c0f344996ef1cd888c6a5ef5f235ae7e`
+Verification commands run against `9a972e28c0f344996ef1cd888c6a5ef5f235ae7e`.
+Evidence commit on `main`: `a4ff898c0a92db54574328b409425e8e534bd31b`.
 
 ## Commands / results
 
