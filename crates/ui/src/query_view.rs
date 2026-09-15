@@ -660,6 +660,24 @@ impl DbProApp {
                             }
                         });
                 }
+
+                ui.label(RichText::new("Series").small().color(self.theme.text_secondary));
+                if let Some(doc) = self.query_documents.get_mut(doc_index) {
+                    let series_label = doc
+                        .chart_config
+                        .series_column
+                        .and_then(|i| column_names.get(i))
+                        .cloned()
+                        .unwrap_or_else(|| "—".to_owned());
+                    egui::ComboBox::from_id_salt("chart_series")
+                        .selected_text(series_label)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut doc.chart_config.series_column, None, "—");
+                            for (idx, name) in column_names.iter().enumerate() {
+                                ui.selectable_value(&mut doc.chart_config.series_column, Some(idx), name);
+                            }
+                        });
+                }
             });
 
             ui.add_space(8.0);
@@ -669,19 +687,25 @@ impl DbProApp {
                 .get(doc_index)
                 .map(|doc| doc.chart_config.clone())
                 .unwrap_or_default();
-            let points = ChartEngine::project(&result.columns, &result.rows, &config);
+            let projection = ChartEngine::project(&result.columns, &result.rows, &config);
             ui.allocate_ui(egui::vec2(ui.available_width(), 280.0), |ui| {
-                ChartRenderer::draw(ui, &points, &config, &self.theme);
+                ChartRenderer::draw(ui, &projection.points, &config, &self.theme);
             });
-            ui.label(
-                RichText::new(format!(
-                    "{} points (max {})",
-                    points.len(),
-                    config.max_points.max(1)
-                ))
-                .small()
-                .color(self.theme.text_muted),
+            let mut footer = format!(
+                "{} points (max {})",
+                projection.points.len(),
+                config.max_points.max(1)
             );
+            if projection.skipped_null_y > 0 {
+                footer.push_str(&format!(" · skipped {} null/non-numeric Y", projection.skipped_null_y));
+            }
+            if projection.x_fallback_to_index > 0 {
+                footer.push_str(&format!(
+                    " · {} X nulls mapped to row index",
+                    projection.x_fallback_to_index
+                ));
+            }
+            ui.label(RichText::new(footer).small().color(self.theme.text_muted));
         });
     }
 

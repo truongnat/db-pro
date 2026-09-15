@@ -77,12 +77,22 @@ impl ChartConfig {
 }
 
 /// A single data point extracted from a result row.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ChartPoint {
     pub x: f64,
     pub y: f64,
     pub label: String,
     pub series: String,
+}
+
+/// Projection outcome — points plus explicit null/skip accounting for the UI.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ChartProjection {
+    pub points: Vec<ChartPoint>,
+    /// Rows skipped because Y was null or non-numeric.
+    pub skipped_null_y: usize,
+    /// Rows whose X was null/non-numeric and fell back to the row index.
+    pub x_fallback_to_index: usize,
 }
 
 /// Chart engine: projects query results into chart-ready points.
@@ -147,17 +157,19 @@ impl ChartEngine {
             || lower.contains("real")
     }
 
-    /// Project result rows into chart points with optional downsampling.
-    pub fn project(columns: &[crate::UiColumn], rows: &[Vec<crate::UiCell>], config: &ChartConfig) -> Vec<ChartPoint> {
+    /// Project result rows into chart points with optional aggregation then downsampling.
+    pub fn project(columns: &[crate::UiColumn], rows: &[Vec<crate::UiCell>], config: &ChartConfig) -> ChartProjection {
         let x_idx = config.x_column.unwrap_or(0);
         let y_idx = config.y_column.unwrap_or(1usize.min(columns.len().saturating_sub(1)));
         let series_idx = config.series_column.unwrap_or(columns.len()); // out of bounds = no series
 
         if x_idx >= columns.len() || y_idx >= columns.len() {
-            return Vec::new();
+            return ChartProjection::default();
         }
 
-        let mut points = Vec::with_capacity(rows.len().min(config.max_points));
+        let mut points = Vec::with_capacity(rows.len().min(config.max_points.max(1)));
+        let mut skipped_null_y = 0usize;
+        let mut x_fallback_to_index = 0usize;
 
         for (row_idx, row) in rows.iter().enumerate() {
             let x_cell = &row[x_idx];
@@ -168,10 +180,21 @@ impl ChartEngine {
                 String::new()
             };
 
-            let x = Self::cell_to_numeric(x_cell).unwrap_or(row_idx as f64);
+            let x = match Self::cell_to_numeric(x_cell) {
+                Some(v) => v,
+                None => {
+                    if matches!(x_cell, crate::UiCell::Null) {
+                        x_fallback_to_index += 1;
+                    }
+                    row_idx as f64
+                }
+            };
             let y = match Self::cell_to_numeric(y_cell) {
                 Some(v) => v,
-                None => continue, // skip rows with null/non-numeric Y
+                None => {
+                    skipped_null_y += 1;
+                    continue;
+                }
             };
 
             points.push(ChartPoint {
@@ -182,17 +205,20 @@ impl ChartEngine {
             });
         }
 
-        // Downsample if needed
-        if points.len() > config.max_points {
-            points = lttb_downsample(points, config.max_points);
-        }
-
-        // Apply aggregation
+        // Aggregate on the full point set first so downsampling never hides groups.
         if config.aggregation != ChartAggregation::None && !points.is_empty() {
             points = aggregate_points(points, config.aggregation);
         }
 
-        points
+        if points.len() > config.max_points {
+            points = lttb_downsample(points, config.max_points);
+        }
+
+        ChartProjection {
+            points,
+            skipped_null_y,
+            x_fallback_to_index,
+        }
     }
 
     /// Project for pie chart: one value per category (grouped by label).
@@ -269,6 +295,15 @@ fn lttb_downsample(points: Vec<ChartPoint>, target: usize) -> Vec<ChartPoint> {
     if points.len() <= target {
         return points;
     }
+    if target == 0 {
+        return Vec::new();
+    }
+    if target == 1 {
+        return vec![points[0].clone()];
+    }
+    if target == 2 {
+        return vec![points[0].clone(), points[points.len() - 1].clone()];
+    }
 
     let mut sampled = Vec::with_capacity(target);
     sampled.push(points[0].clone());
@@ -308,15 +343,16 @@ fn lttb_downsample(points: Vec<ChartPoint>, target: usize) -> Vec<ChartPoint> {
     sampled
 }
 
-/// Aggregate points by label (X axis) using the specified function.
+/// Aggregate points by (series, label) using the specified function.
 fn aggregate_points(points: Vec<ChartPoint>, agg: ChartAggregation) -> Vec<ChartPoint> {
-    let mut groups: BTreeMap<String, (f64, usize, f64, f64)> = BTreeMap::new();
-    // (sum, count, min, max)
+    let mut groups: BTreeMap<(String, String), (f64, usize, f64, f64)> = BTreeMap::new();
+    // key = (series, label); value = (sum, count, min, max)
 
     for p in &points {
-        let entry = groups
-            .entry(p.label.clone())
-            .or_insert((0.0, 0, f64::INFINITY, f64::NEG_INFINITY));
+        let entry =
+            groups
+                .entry((p.series.clone(), p.label.clone()))
+                .or_insert((0.0, 0, f64::INFINITY, f64::NEG_INFINITY));
         entry.0 += p.y;
         entry.1 += 1;
         entry.2 = entry.2.min(p.y);
@@ -325,7 +361,8 @@ fn aggregate_points(points: Vec<ChartPoint>, agg: ChartAggregation) -> Vec<Chart
 
     groups
         .into_iter()
-        .map(|(label, (sum, count, min, max))| {
+        .enumerate()
+        .map(|(idx, ((series, label), (sum, count, min, max)))| {
             let y = match agg {
                 ChartAggregation::None => sum,
                 ChartAggregation::Count => count as f64,
@@ -341,10 +378,10 @@ fn aggregate_points(points: Vec<ChartPoint>, agg: ChartAggregation) -> Vec<Chart
                 ChartAggregation::Max => max,
             };
             ChartPoint {
-                x: 0.0, // placeholder, will be re-indexed
+                x: idx as f64,
                 y,
                 label,
-                series: String::new(),
+                series,
             }
         })
         .collect()
@@ -507,11 +544,30 @@ impl ChartRenderer {
         rect.bottom() - ((y - y_min) / y_range) as f32 * rect.height()
     }
 
+    fn series_color(series_name: &str, series_order: &[String]) -> Color32 {
+        if series_name.is_empty() {
+            return Self::PALETTE[0];
+        }
+        let idx = series_order.iter().position(|name| name == series_name).unwrap_or(0);
+        Self::PALETTE[idx % Self::PALETTE.len()]
+    }
+
+    fn series_order(points: &[ChartPoint]) -> Vec<String> {
+        let mut order = Vec::new();
+        for point in points {
+            if !point.series.is_empty() && !order.iter().any(|existing| existing == &point.series) {
+                order.push(point.series.clone());
+            }
+        }
+        order
+    }
+
     fn draw_bars(painter: &egui::Painter, rect: Rect, points: &[ChartPoint], _x_min: f64, y_min: f64, y_range: f64) {
         let bar_width = (rect.width() / points.len().max(1) as f32 * 0.7).max(2.0);
-        let color = Self::PALETTE[0];
+        let series_order = Self::series_order(points);
 
         for (i, point) in points.iter().enumerate() {
+            let color = Self::series_color(&point.series, &series_order);
             let px = rect.left() + (i as f32 / points.len().max(1) as f32) * rect.width();
             let py = Self::map_y(point.y, y_min, y_range, rect);
             let base_y = Self::map_y(y_min.max(0.0), y_min, y_range, rect);
@@ -534,9 +590,6 @@ impl ChartRenderer {
         y_range: f64,
         fill_area: bool,
     ) {
-        let x_range = (points.last().map(|p| p.x).unwrap_or(0.0) - x_min).abs().max(1.0);
-        let color = Self::PALETTE[0];
-
         if points.len() < 2 {
             painter.text(
                 rect.center(),
@@ -548,42 +601,62 @@ impl ChartRenderer {
             return;
         }
 
-        let points_pos: Vec<Pos2> = points
-            .iter()
-            .map(|p| {
-                Pos2::new(
-                    Self::map_x(p.x, x_min, x_range, rect),
-                    Self::map_y(p.y, y_min, y_range, rect),
-                )
-            })
-            .collect();
+        let x_range = (points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max) - x_min)
+            .abs()
+            .max(1.0);
+        let series_order = Self::series_order(points);
+        let series_keys: Vec<String> = if series_order.is_empty() {
+            vec![String::new()]
+        } else {
+            series_order.clone()
+        };
 
-        // Fill area under line
-        if fill_area {
-            let mut fill_points = points_pos.clone();
-            fill_points.push(Pos2::new(points_pos.last().unwrap().x, rect.bottom()));
-            fill_points.push(Pos2::new(points_pos.first().unwrap().x, rect.bottom()));
-            painter.add(egui::Shape::convex_polygon(
-                fill_points,
-                color.gamma_multiply(0.15),
-                Stroke::NONE,
-            ));
-        }
+        for series_name in &series_keys {
+            let series_points: Vec<&ChartPoint> = if series_name.is_empty() {
+                points.iter().collect()
+            } else {
+                points.iter().filter(|p| &p.series == series_name).collect()
+            };
+            if series_points.len() < 2 {
+                continue;
+            }
+            let color = Self::series_color(series_name, &series_order);
+            let points_pos: Vec<Pos2> = series_points
+                .iter()
+                .map(|p| {
+                    Pos2::new(
+                        Self::map_x(p.x, x_min, x_range, rect),
+                        Self::map_y(p.y, y_min, y_range, rect),
+                    )
+                })
+                .collect();
 
-        // Draw line
-        painter.add(egui::Shape::line(points_pos.clone(), Stroke::new(2.0_f32, color)));
+            if fill_area {
+                let mut fill_points = points_pos.clone();
+                fill_points.push(Pos2::new(points_pos.last().unwrap().x, rect.bottom()));
+                fill_points.push(Pos2::new(points_pos.first().unwrap().x, rect.bottom()));
+                painter.add(egui::Shape::convex_polygon(
+                    fill_points,
+                    color.gamma_multiply(0.15),
+                    Stroke::NONE,
+                ));
+            }
 
-        // Draw points
-        for pos in &points_pos {
-            painter.circle_filled(*pos, 3.0, color);
+            painter.add(egui::Shape::line(points_pos.clone(), Stroke::new(2.0_f32, color)));
+            for pos in &points_pos {
+                painter.circle_filled(*pos, 3.0, color);
+            }
         }
     }
 
     fn draw_scatter(painter: &egui::Painter, rect: Rect, points: &[ChartPoint], x_min: f64, y_min: f64, y_range: f64) {
-        let x_range = (points.last().map(|p| p.x).unwrap_or(0.0) - x_min).abs().max(1.0);
-        let color = Self::PALETTE[0];
+        let x_range = (points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max) - x_min)
+            .abs()
+            .max(1.0);
+        let series_order = Self::series_order(points);
 
         for point in points {
+            let color = Self::series_color(&point.series, &series_order);
             let px = Self::map_x(point.x, x_min, x_range, rect);
             let py = Self::map_y(point.y, y_min, y_range, rect);
             painter.circle_filled(Pos2::new(px, py), 4.0, color.gamma_multiply(0.7));
@@ -716,7 +789,57 @@ mod tests {
         config.y_column = Some(1);
         config.max_points = 10;
         let points = ChartEngine::project(&columns, &rows, &config);
-        assert!(points.len() <= 10, "expected downsample, got {}", points.len());
+        assert!(
+            points.points.len() <= 10,
+            "expected downsample, got {}",
+            points.points.len()
+        );
+    }
+
+    #[test]
+    fn project_aggregates_before_downsample_and_reports_null_skips() {
+        let columns = vec![
+            UiColumn {
+                name: "category".into(),
+                data_type: "text".into(),
+                nullable: true,
+            },
+            UiColumn {
+                name: "value".into(),
+                data_type: "integer".into(),
+                nullable: true,
+            },
+            UiColumn {
+                name: "series".into(),
+                data_type: "text".into(),
+                nullable: false,
+            },
+        ];
+        let rows = vec![
+            vec![
+                UiCell::Text("a".into()),
+                UiCell::Number("1".into()),
+                UiCell::Text("s1".into()),
+            ],
+            vec![
+                UiCell::Text("a".into()),
+                UiCell::Number("3".into()),
+                UiCell::Text("s1".into()),
+            ],
+            vec![UiCell::Null, UiCell::Number("9".into()), UiCell::Text("s2".into())],
+            vec![UiCell::Text("b".into()), UiCell::Null, UiCell::Text("s2".into())],
+        ];
+        let mut config = ChartConfig::new();
+        config.x_column = Some(0);
+        config.y_column = Some(1);
+        config.series_column = Some(2);
+        config.aggregation = ChartAggregation::Sum;
+        config.max_points = 1;
+        let projection = ChartEngine::project(&columns, &rows, &config);
+        assert_eq!(projection.skipped_null_y, 1);
+        assert_eq!(projection.x_fallback_to_index, 1);
+        assert_eq!(projection.points.len(), 1, "downsample after aggregate");
+        assert!(!projection.points[0].series.is_empty());
     }
 
     #[test]
@@ -734,12 +857,7 @@ mod tests {
             },
         ];
         let rows: Vec<Vec<UiCell>> = (0..10_000)
-            .map(|i| {
-                vec![
-                    UiCell::Number(i.to_string()),
-                    UiCell::Number(format!("{}.5", i % 1000)),
-                ]
-            })
+            .map(|i| vec![UiCell::Number(i.to_string()), UiCell::Number(format!("{}.5", i % 1000))])
             .collect();
         let mut config = ChartConfig::new();
         config.x_column = Some(0);
@@ -748,7 +866,7 @@ mod tests {
         let started = std::time::Instant::now();
         let points = ChartEngine::project(&columns, &rows, &config);
         let elapsed = started.elapsed();
-        assert_eq!(points.len(), 1_000);
+        assert_eq!(points.points.len(), 1_000);
         assert!(
             elapsed.as_millis() < 250,
             "10k-row project took {:?}, expected <250ms",
