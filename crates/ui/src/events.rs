@@ -1329,6 +1329,37 @@ impl DbProApp {
         version: u64,
         all_statements: bool,
     ) {
+        let discovered = crate::query::discover_sql_parameters(&sql);
+        if all_statements && !discovered.is_empty() {
+            self.runtime_message =
+                "Parameterized scripts are not supported yet — run a single statement with bindings".to_owned();
+            return;
+        }
+
+        let style = if self.active_driver().eq_ignore_ascii_case("postgresql")
+            || self.active_driver().eq_ignore_ascii_case("postgres")
+        {
+            crate::query::PlaceholderStyle::NumberedDollar
+        } else {
+            crate::query::PlaceholderStyle::QuestionMark
+        };
+        let values = self
+            .query_documents
+            .get(self.active_query_document)
+            .map(|doc| doc.parameter_values.clone())
+            .unwrap_or_default();
+        let (sql, params) = if discovered.is_empty() {
+            (sql, Vec::new())
+        } else {
+            match crate::query::prepare_bound_sql(&sql, &values, style) {
+                Ok(prepared) => (prepared.sql, prepared.values),
+                Err(missing) => {
+                    self.runtime_message = format!("Fill parameter {missing} before running");
+                    return;
+                }
+            }
+        };
+
         if !self.query_history.iter().any(|query| query == &sql) {
             self.query_history.push(sql.clone());
             if self.query_history.len() > 20 {
@@ -1363,6 +1394,7 @@ impl DbProApp {
                 request_id,
                 connection_id,
                 sql,
+                params,
             }
         });
     }

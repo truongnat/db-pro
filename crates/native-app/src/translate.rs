@@ -489,10 +489,12 @@ fn translate_execution_command(command: UiCommand) -> Option<RuntimeCommand> {
             request_id,
             connection_id,
             sql,
+            params,
         } => Some(RuntimeCommand::ExecuteQuery {
             request_id: runtime_request_id(request_id),
             connection_id,
             sql,
+            params,
         }),
         UiCommand::RunQueryMulti {
             request_id,

@@ -492,6 +492,8 @@ pub enum UiCommand {
         request_id: RequestId,
         connection_id: String,
         sql: String,
+        /// Bound parameter values in placeholder order (#225). Mapped to `QueryParam::Text`.
+        params: Vec<String>,
     },
     RunQueryMulti {
         request_id: RequestId,

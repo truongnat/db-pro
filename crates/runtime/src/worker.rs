@@ -180,6 +180,8 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         connection_id: String,
         sql: String,
+        /// Bound parameter values in placeholder order (#225).
+        params: Vec<String>,
     },
     ExecuteQueryMulti {
         request_id: RuntimeRequestId,
@@ -1308,6 +1310,7 @@ pub fn spawn_worker(
                     request_id,
                     connection_id,
                     sql,
+                    params,
                 } => {
                     let (cancel_tx, cancel_rx) = oneshot::channel();
                     let query_api = runtime.query_api();
@@ -1325,8 +1328,18 @@ pub fn spawn_worker(
                     let event_tx = event_tx.clone();
                     let query_cancellations = Arc::clone(&query_cancellations);
                     tokio::spawn(async move {
+                        let bound: Vec<db_pro_core::domain::query::QueryParam> = params
+                            .into_iter()
+                            .map(db_pro_core::domain::query::QueryParam::Text)
+                            .collect();
                         let result = tokio::select! {
-                            result = query_api.execute(&connection_id, &sql) => result,
+                            result = query_api.execute_with_params(
+                                &connection_id,
+                                &sql,
+                                &bound,
+                                None,
+                                None,
+                            ) => result,
                             _ = cancel_rx => Err(crate::DbErrorDto {
                                 code: "QUERY_CANCELLED".to_owned(),
                                 message: "Query cancelled".to_owned(),

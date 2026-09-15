@@ -5328,3 +5328,33 @@ fn data_activity_palette_action_opens_sidebar() {
     assert_eq!(app.activity, Activity::Data);
     assert!(app.sidebar_open);
 }
+
+#[test]
+fn dispatch_query_binds_named_parameters_for_postgres() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connections = vec![UiConnectionSummary {
+        id: "conn-1".to_owned(),
+        name: "Local".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "db".to_owned(),
+        username: "u".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
+        readonly: false,
+    }];
+    app.active_connection_id = Some("conn-1".to_owned());
+    app.connected = true;
+    app.set_active_query_text("SELECT :id, :name".to_owned());
+    if let Some(doc) = app.query_documents.get_mut(0) {
+        doc.parameter_values.insert(":id".to_owned(), "7".to_owned());
+        doc.parameter_values.insert(":name".to_owned(), "Ada".to_owned());
+    }
+    app.dispatch_query();
+    let UiCommand::RunQuery { sql, params, .. } = command_rx.try_recv().expect("bound query") else {
+        panic!("expected RunQuery");
+    };
+    assert_eq!(sql, "SELECT $1, $2");
+    assert_eq!(params, vec!["7".to_owned(), "Ada".to_owned()]);
+}
