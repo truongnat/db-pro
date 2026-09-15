@@ -2128,11 +2128,12 @@ fn command_palette_opens_saved_query_into_editor() {
 fn sql_snippet_insert_is_one_undoable_buffer_edit() {
     let mut app = DbProApp::default();
     app.query_documents.clear();
-    app.query_documents.push(crate::query::query_document::QueryDocument::new(
-        "doc-snip",
-        "Query",
-        "SELECT 1;",
-    ));
+    app.query_documents
+        .push(crate::query::query_document::QueryDocument::new(
+            "doc-snip",
+            "Query",
+            "SELECT 1;",
+        ));
     app.active_query_document = 0;
     let before = app.active_query_text().to_owned();
     app.insert_snippet("SELECT 2;");
@@ -2894,8 +2895,7 @@ fn sql_lint_warns_on_order_by_ordinal_and_comma_join() {
 
 #[test]
 fn sql_lint_warns_on_duplicate_projection_alias() {
-    let (messages, structured) =
-        DbProApp::analyze_sql_diagnostics("SELECT a AS x, b AS x FROM t", "PostgreSQL");
+    let (messages, structured) = DbProApp::analyze_sql_diagnostics("SELECT a AS x, b AS x FROM t", "PostgreSQL");
     assert!(messages.iter().any(|m| m.contains("Duplicate projection alias")));
     assert!(structured
         .iter()
@@ -5303,4 +5303,28 @@ fn pinned_tables_toggle_appears_in_quick_open() {
         .any(|item| item.title == "users" && item.subtitle.contains("Pinned")));
     app.toggle_pinned_table("users".to_owned());
     assert!(app.pinned_tables.is_empty());
+}
+
+#[test]
+fn recent_tables_track_mru_and_appear_in_quick_open() {
+    let mut app = DbProApp::default();
+    app.open_table("orders".to_owned());
+    app.open_table("users".to_owned());
+    app.open_table("orders".to_owned());
+    assert_eq!(app.recent_tables, vec!["orders".to_owned(), "users".to_owned()]);
+    assert!(app
+        .filtered_palette_items(PaletteMode::QuickOpen)
+        .iter()
+        .any(|item| item.title == "orders" && item.subtitle.contains("Recent")));
+    app.remove_recent_table("orders");
+    assert_eq!(app.recent_tables, vec!["users".to_owned()]);
+}
+
+#[test]
+fn data_activity_palette_action_opens_sidebar() {
+    let mut app = DbProApp::default();
+    app.sidebar_open = false;
+    app.execute_palette_action(PaletteAction::Data, &egui::Context::default());
+    assert_eq!(app.activity, Activity::Data);
+    assert!(app.sidebar_open);
 }

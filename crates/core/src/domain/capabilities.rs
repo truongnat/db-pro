@@ -194,24 +194,20 @@ impl DatabaseCapabilities {
             (DriverType::SQLite, CapabilityFeature::AlterColumnType) => {
                 "SQLite cannot ALTER COLUMN type without table rebuild"
             }
-            (DriverType::SQLite, CapabilityFeature::Sequences)
-            | (DriverType::Mysql, CapabilityFeature::Sequences) => {
+            (DriverType::SQLite, CapabilityFeature::Sequences) | (DriverType::Mysql, CapabilityFeature::Sequences) => {
                 "this engine has no standalone SEQUENCE objects"
             }
-            (DriverType::SQLite, CapabilityFeature::EnumTypes) => {
-                "SQLite has no native ENUM type"
-            }
-            (DriverType::SQLite, CapabilityFeature::Functions)
-            | (DriverType::Mysql, CapabilityFeature::Functions) if !self.schema.functions => {
+            (DriverType::SQLite, CapabilityFeature::EnumTypes) => "SQLite has no native ENUM type",
+            (DriverType::SQLite, CapabilityFeature::Functions) | (DriverType::Mysql, CapabilityFeature::Functions)
+                if !self.schema.functions =>
+            {
                 "stored functions/procedures are not available for this driver"
             }
             (DriverType::SQLite, CapabilityFeature::UuidType) => {
                 "SQLite has no native UUID type; values are stored as TEXT"
             }
             (DriverType::SQLite, CapabilityFeature::ArrayTypes)
-            | (DriverType::Mysql, CapabilityFeature::ArrayTypes) => {
-                "array columns are not supported for this driver"
-            }
+            | (DriverType::Mysql, CapabilityFeature::ArrayTypes) => "array columns are not supported for this driver",
             (DriverType::SQLite, CapabilityFeature::ServerSessions)
             | (DriverType::Mysql, CapabilityFeature::ServerSessions) => {
                 "user/role management is PostgreSQL-only in this build"
@@ -221,22 +217,14 @@ impl DatabaseCapabilities {
                 "partition administration is PostgreSQL-only in this build"
             }
             (DriverType::SQLite, CapabilityFeature::Tablespaces)
-            | (DriverType::Mysql, CapabilityFeature::Tablespaces) => {
-                "tablespaces are PostgreSQL-only in this build"
-            }
+            | (DriverType::Mysql, CapabilityFeature::Tablespaces) => "tablespaces are PostgreSQL-only in this build",
             (DriverType::SQLite, CapabilityFeature::ObjectDependencies)
             | (DriverType::Mysql, CapabilityFeature::ObjectDependencies) => {
                 "cross-schema dependency catalog is PostgreSQL-only in this build"
             }
-            (DriverType::SQLite, CapabilityFeature::SshTunnel) => {
-                "SSH tunneling is not used for local SQLite files"
-            }
-            (DriverType::Mysql, CapabilityFeature::SshTunnel) => {
-                "SSH tunneling is not implemented for MySQL yet"
-            }
-            (DriverType::Mysql, CapabilityFeature::Backup) => {
-                "backup/restore is not implemented for MySQL yet"
-            }
+            (DriverType::SQLite, CapabilityFeature::SshTunnel) => "SSH tunneling is not used for local SQLite files",
+            (DriverType::Mysql, CapabilityFeature::SshTunnel) => "SSH tunneling is not implemented for MySQL yet",
+            (DriverType::Mysql, CapabilityFeature::Backup) => "backup/restore is not implemented for MySQL yet",
             (DriverType::Mysql, CapabilityFeature::Cancel) => {
                 "the MySQL connector does not support cancelling a running query"
             }
@@ -246,9 +234,7 @@ impl DatabaseCapabilities {
             (DriverType::Mysql, CapabilityFeature::UuidType) => {
                 "MySQL has no native UUID type in the shipped capability set"
             }
-            (DriverType::Mysql, CapabilityFeature::TransactionalDdl) => {
-                "MySQL DDL statements cause an implicit commit"
-            }
+            (DriverType::Mysql, CapabilityFeature::TransactionalDdl) => "MySQL DDL statements cause an implicit commit",
             (DriverType::Mysql, CapabilityFeature::RenameObjects)
             | (DriverType::SQLite, CapabilityFeature::RenameObjects) => {
                 "renaming arbitrary schema objects is limited for this driver"
@@ -259,15 +245,9 @@ impl DatabaseCapabilities {
             (DriverType::SQLite, CapabilityFeature::DataDiff) if !self.features.data_diff => {
                 "data diff is not available for this driver"
             }
-            (_, CapabilityFeature::Parameters) => {
-                "parameterized queries are not available for this driver"
-            }
-            (_, CapabilityFeature::DataDiff) => {
-                "data diff is not available for this driver"
-            }
-            (_, CapabilityFeature::Backup) => {
-                "backup/restore is not available for this driver"
-            }
+            (_, CapabilityFeature::Parameters) => "parameterized queries are not available for this driver",
+            (_, CapabilityFeature::DataDiff) => "data diff is not available for this driver",
+            (_, CapabilityFeature::Backup) => "backup/restore is not available for this driver",
             _ => "this capability is not available for the current driver",
         })
     }

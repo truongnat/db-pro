@@ -120,7 +120,10 @@ pub fn discover_sql_parameters(sql: &str) -> Vec<DiscoveredParameter> {
         }
 
         if ch == '?' {
-            let name = format!("?{}", out.iter().filter(|p| p.kind == ParameterKind::Positional).count() + 1);
+            let name = format!(
+                "?{}",
+                out.iter().filter(|p| p.kind == ParameterKind::Positional).count() + 1
+            );
             // Positional placeholders are ordered and may repeat; keep every occurrence
             // identity by synthesizing ?1, ?2, … for the panel.
             out.push(DiscoveredParameter {

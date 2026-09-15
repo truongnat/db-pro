@@ -10,6 +10,7 @@ impl DbProApp {
             PaletteMode::Commands => Self::command_items(),
         };
         if mode == PaletteMode::QuickOpen {
+            items.extend(self.recent_table_items());
             items.extend(self.schema_table_items());
             items.extend(self.pinned_table_items());
             items.extend(self.saved_query_items());
@@ -45,6 +46,13 @@ impl DbProApp {
                 subtitle: "Browse saved and recent queries".to_owned(),
                 shortcut: None,
                 action: PaletteAction::History,
+            },
+            PaletteItem {
+                icon: Icon::Table2,
+                title: "Data".to_owned(),
+                subtitle: "Recent and pinned tables".to_owned(),
+                shortcut: None,
+                action: PaletteAction::Data,
             },
             PaletteItem {
                 icon: Icon::ArrowRightLeft,
@@ -202,6 +210,20 @@ impl DbProApp {
             .collect()
     }
 
+    fn recent_table_items(&self) -> Vec<PaletteItem> {
+        self.recent_tables
+            .iter()
+            .cloned()
+            .map(|table| PaletteItem {
+                icon: Icon::History,
+                title: table.clone(),
+                subtitle: "Recent table · open".to_owned(),
+                shortcut: None,
+                action: PaletteAction::OpenTable(table),
+            })
+            .collect()
+    }
+
     fn connection_items(&self) -> Vec<PaletteItem> {
         self.connections
             .iter()
@@ -319,6 +341,10 @@ impl DbProApp {
                 self.activity = Activity::History;
                 self.sidebar_open = true;
             }
+            PaletteAction::Data => {
+                self.activity = Activity::Data;
+                self.sidebar_open = true;
+            }
             PaletteAction::Diagram => self.active_tab = WorkspaceTab::Diagram,
             PaletteAction::Settings => {
                 self.activity = Activity::Settings;
@@ -403,6 +429,7 @@ impl DbProApp {
             return;
         }
         self.persist_current_grid_layout();
+        self.record_recent_table(&table);
         self.selected_table = Some(table.clone());
         self.restore_grid_layout_for_active_table();
         self.selected_schema_object = None;
