@@ -2933,8 +2933,10 @@ fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
 
 #[test]
 fn diagnostics_summary_redacts_runtime_errors_and_lists_mysql() {
-    let mut app = DbProApp::default();
-    app.runtime_message = "connection failed password=hunter2".to_owned();
+    let mut app = DbProApp {
+        runtime_message: "connection failed password=hunter2".to_owned(),
+        ..DbProApp::default()
+    };
     app.connections.push(crate::UiConnectionSummary {
         id: "c1".to_owned(),
         name: "local".to_owned(),
@@ -5293,8 +5295,10 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
 
 #[test]
 fn pinned_tables_toggle_appears_in_quick_open() {
-    let mut app = DbProApp::default();
-    app.selected_table = Some("users".to_owned());
+    let mut app = DbProApp {
+        selected_table: Some("users".to_owned()),
+        ..DbProApp::default()
+    };
     app.toggle_pinned_table(String::new());
     assert_eq!(app.pinned_tables, vec!["users".to_owned()]);
     assert!(app
@@ -5322,8 +5326,10 @@ fn recent_tables_track_mru_and_appear_in_quick_open() {
 
 #[test]
 fn data_activity_palette_action_opens_sidebar() {
-    let mut app = DbProApp::default();
-    app.sidebar_open = false;
+    let mut app = DbProApp {
+        sidebar_open: false,
+        ..DbProApp::default()
+    };
     app.execute_palette_action(PaletteAction::Data, &egui::Context::default());
     assert_eq!(app.activity, Activity::Data);
     assert!(app.sidebar_open);
@@ -5371,10 +5377,10 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
 
     let mut app = DbProApp::default();
     app.open_workspace_folder(dir.clone());
-    assert!(app.ide_workspace.root.is_some());
+    assert!(app.ide_workspace.root().is_some());
     assert!(app
         .ide_workspace
-        .index
+        .index()
         .iter()
         .any(|entry| entry.relative_path == "sql/demo.sql"));
     app.open_workspace_sql_file("sql/demo.sql".to_owned());

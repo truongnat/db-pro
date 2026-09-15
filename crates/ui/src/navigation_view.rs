@@ -706,12 +706,12 @@ impl DbProApp {
             section_label(ui, "WORKSPACE", self.theme);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if compact_icon_button(ui, Icon::FolderOpen, self.theme)
-                    .on_hover_text("Open folder")
+                    .on_hover_text("Add / open folder")
                     .clicked()
                 {
                     self.request_open_workspace_folder();
                 }
-                if self.ide_workspace.root.is_some()
+                if !self.ide_workspace.roots.is_empty()
                     && compact_icon_button(ui, Icon::RefreshCw, self.theme)
                         .on_hover_text("Refresh tree")
                         .clicked()
@@ -722,7 +722,7 @@ impl DbProApp {
         });
         ui.add_space(6.0);
 
-        if self.ide_workspace.root.is_none() {
+        if self.ide_workspace.roots.is_empty() {
             ui.label(
                 RichText::new("Open a folder to browse SQL, migrations, and project files.")
                     .small()
@@ -753,15 +753,38 @@ impl DbProApp {
             return;
         }
 
-        ui.label(
-            RichText::new(self.ide_workspace.root.as_ref().unwrap().display().to_string())
-                .small()
-                .monospace()
-                .color(self.theme.text_secondary),
-        );
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = vec2(4.0, 4.0);
+            for (index, root) in self.ide_workspace.roots.clone().into_iter().enumerate() {
+                let label = root
+                    .path
+                    .file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| root.path.display().to_string());
+                let selected = self.ide_workspace.active_root == index;
+                if ui.selectable_label(selected, label).clicked() {
+                    self.ide_workspace.active_root = index;
+                }
+            }
+            if compact_button(ui, "+ Root", self.theme).clicked() {
+                self.request_open_workspace_folder();
+            }
+            if compact_button(ui, "Remove", self.theme).clicked() {
+                self.ide_workspace.remove_active_root();
+            }
+        });
+        ui.add_space(4.0);
+        if let Some(path) = self.ide_workspace.primary_path() {
+            ui.label(
+                RichText::new(path.display().to_string())
+                    .small()
+                    .monospace()
+                    .color(self.theme.text_secondary),
+            );
+        }
         ui.add_space(4.0);
         ui.horizontal(|ui| {
-            let trusted = matches!(self.ide_workspace.trust, ide_workspace::WorkspaceTrust::Trusted);
+            let trusted = self.ide_workspace.is_trusted();
             if ui.selectable_label(trusted, "Trusted").clicked() {
                 self.ide_workspace.set_trusted(true);
             }
@@ -772,46 +795,304 @@ impl DbProApp {
                 self.close_workspace_folder();
             }
         });
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|ui| {
+            for (index, env) in self.ide_workspace.environments.clone().into_iter().enumerate() {
+                let selected = self.ide_workspace.active_environment == index;
+                if ui.selectable_label(selected, &env.name).clicked() {
+                    self.ide_workspace.set_active_environment(index);
+                    self.runtime_message = format!("Environment → {}", env.name);
+                }
+            }
+        });
+        if let Some(drift) = self.ide_workspace.schema_drift_message.clone() {
+            ui.label(RichText::new(drift).small().color(self.theme.warning));
+        }
         if let Some(error) = self.ide_workspace.last_error.clone() {
-            ui.add_space(4.0);
             ui.label(RichText::new(error).small().color(self.theme.danger));
         }
 
+        ui.add_space(6.0);
+        ui.horizontal_wrapped(|ui| {
+            for (tab, label) in [
+                (FilesPanelTab::Tree, "Tree"),
+                (FilesPanelTab::Search, "Search"),
+                (FilesPanelTab::Migrations, "Migrations"),
+                (FilesPanelTab::Tasks, "Tasks"),
+                (FilesPanelTab::Graph, "Graph"),
+            ] {
+                let selected = self.files_panel_tab == tab;
+                if ui.selectable_label(selected, label).clicked() {
+                    self.files_panel_tab = tab;
+                }
+            }
+        });
+        ui.add_space(6.0);
+
+        match self.files_panel_tab {
+            FilesPanelTab::Tree => self.draw_files_tree_tab(ui),
+            FilesPanelTab::Search => self.draw_files_search_tab(ui),
+            FilesPanelTab::Migrations => self.draw_files_migrations_tab(ui),
+            FilesPanelTab::Tasks => self.draw_files_tasks_tab(ui),
+            FilesPanelTab::Graph => self.draw_files_graph_tab(ui),
+        }
+
         ui.add_space(8.0);
+        section_label(ui, "CONTEXT PICKER", self.theme);
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|ui| {
+            if compact_button(ui, "Add file", self.theme).clicked() {
+                if let Some(doc) = self.query_documents.get(self.active_query_document) {
+                    if let Some(path) = doc.file_path.clone() {
+                        self.add_workspace_context_item(path);
+                    } else {
+                        self.add_workspace_context_item(format!("query:{}", doc.title));
+                    }
+                }
+            }
+            if compact_button(ui, "Add selection", self.theme).clicked() {
+                let selected = self.selected_query.clone();
+                if !selected.trim().is_empty() {
+                    self.add_workspace_context_item(format!(
+                        "selection:{}",
+                        selected.chars().take(80).collect::<String>()
+                    ));
+                }
+            }
+            if compact_button(ui, "Add table", self.theme).clicked() {
+                if let Some(table) = self.selected_table.clone() {
+                    self.add_workspace_context_item(format!("table:{table}"));
+                }
+            }
+            if compact_button(ui, "Clear", self.theme).clicked() {
+                self.clear_workspace_context_items();
+            }
+            if compact_button(ui, "Split", self.theme).clicked() {
+                self.toggle_split_editor();
+            }
+            if compact_button(ui, "Snapshot", self.theme).clicked() {
+                self.export_live_schema_snapshot();
+            }
+            if compact_button(ui, "Drift", self.theme).clicked() {
+                self.refresh_schema_drift_watch();
+            }
+        });
+        for item in self.workspace_context_items.clone() {
+            ui.label(RichText::new(item).small().color(self.theme.text_secondary));
+        }
+    }
+
+    fn draw_files_tree_tab(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.workspace_search_query)
-                    .hint_text("Find in files…")
-                    .desired_width(ui.available_width() - 52.0),
-            );
+            if compact_button(ui, "New SQL", self.theme).clicked() {
+                match self
+                    .ide_workspace
+                    .create_file("", "untitled.sql", "-- new query\nSELECT 1;\n")
+                {
+                    Ok(path) => {
+                        let relative = path
+                            .file_name()
+                            .map(|name| name.to_string_lossy().into_owned())
+                            .unwrap_or_else(|| "untitled.sql".to_owned());
+                        self.open_workspace_sql_file(relative);
+                    }
+                    Err(error) => self.runtime_message = error,
+                }
+            }
+            if compact_button(ui, "New folder", self.theme).clicked() {
+                if let Err(error) = self.ide_workspace.create_folder("", "new-folder") {
+                    self.runtime_message = error;
+                }
+            }
+        });
+        ui.add_space(6.0);
+        // Breadcrumb for active file-backed document (#266).
+        if let Some(path) = self
+            .query_documents
+            .get(self.active_query_document)
+            .and_then(|doc| doc.file_path.clone())
+        {
+            ui.label(RichText::new(path).small().monospace().color(self.theme.text_muted));
+            ui.add_space(4.0);
+        }
+        section_label(ui, format!("FILES · {}", self.ide_workspace.index().len()), self.theme);
+        ui.add_space(6.0);
+        let tree = self.ide_workspace.tree().to_vec();
+        for node in &tree {
+            self.draw_workspace_tree_node(ui, node, 0);
+        }
+    }
+
+    fn draw_files_search_tab(&mut self, ui: &mut egui::Ui) {
+        ui.add(
+            egui::TextEdit::singleline(&mut self.workspace_search_query)
+                .hint_text("Find in files…")
+                .desired_width(ui.available_width()),
+        );
+        ui.add_space(4.0);
+        ui.add(
+            egui::TextEdit::singleline(&mut self.workspace_replace_query)
+                .hint_text("Replace with…")
+                .desired_width(ui.available_width()),
+        );
+        ui.add_space(4.0);
+        ui.horizontal(|ui| {
             if compact_button(ui, "Find", self.theme).clicked() {
                 self.run_workspace_search();
             }
+            if compact_button(ui, "Preview", self.theme).clicked() {
+                self.preview_workspace_replace();
+            }
+            if compact_button(ui, "Replace all", self.theme).clicked() {
+                self.apply_workspace_replace();
+            }
         });
+        ui.add_space(6.0);
+        ui.horizontal(|ui| {
+            ui.add(
+                egui::TextEdit::singleline(&mut self.workspace_refactor_from)
+                    .hint_text("Rename from")
+                    .desired_width(90.0),
+            );
+            ui.add(
+                egui::TextEdit::singleline(&mut self.workspace_refactor_to)
+                    .hint_text("to")
+                    .desired_width(90.0),
+            );
+            if compact_button(ui, "Refactor", self.theme).clicked() {
+                self.apply_workspace_refactor();
+            }
+        });
+        if !self.workspace_replace_previews.is_empty() {
+            ui.add_space(6.0);
+            section_label(ui, "REPLACE PREVIEW", self.theme);
+            for preview in self.workspace_replace_previews.clone().into_iter().take(30) {
+                ui.label(
+                    RichText::new(format!(
+                        "{}::{} · {} hits",
+                        preview.root_id, preview.relative_path, preview.replacements
+                    ))
+                    .small()
+                    .color(self.theme.text_secondary),
+                );
+            }
+        }
         if !self.workspace_search_hits.is_empty() {
             ui.add_space(6.0);
             section_label(ui, "SEARCH RESULTS", self.theme);
             ui.add_space(4.0);
             let hits = self.workspace_search_hits.clone();
-            for (path, line, preview) in hits.into_iter().take(40) {
-                let label = format!("{path}:{line}");
+            for hit in hits.into_iter().take(40) {
+                let label = format!("{}:{}", hit.relative_path, hit.line);
                 if sidebar_item(ui, Icon::Search, &label, false, self.theme)
-                    .on_hover_text(preview)
+                    .on_hover_text(&hit.preview)
                     .clicked()
-                    && path.ends_with(".sql")
+                    && hit.relative_path.ends_with(".sql")
                 {
-                    self.open_workspace_sql_file(path);
+                    self.open_workspace_sql_file(format!("{}::{}", hit.root_id, hit.relative_path));
                 }
             }
-            ui.add_space(8.0);
         }
+    }
 
+    fn draw_files_migrations_tab(&mut self, ui: &mut egui::Ui) {
+        let migrations = self.ide_workspace.detect_migrations();
+        if migrations.is_empty() {
+            ui.label(
+                RichText::new("No migration SQL detected under migrations/ paths.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            return;
+        }
+        for entry in migrations {
+            let label = format!("{} · {:?}", entry.version, entry.status);
+            if sidebar_item(ui, Icon::FileCode2, &label, false, self.theme)
+                .on_hover_text(&entry.relative_path)
+                .clicked()
+            {
+                self.open_workspace_sql_file(entry.relative_path);
+            }
+        }
+    }
+
+    fn draw_files_tasks_tab(&mut self, ui: &mut egui::Ui) {
+        ui.add(
+            egui::TextEdit::singleline(&mut self.workspace_task_command)
+                .hint_text("shell command in workspace root…")
+                .desired_width(ui.available_width()),
+        );
         ui.add_space(4.0);
-        section_label(ui, &format!("FILES · {}", self.ide_workspace.index.len()), self.theme);
-        ui.add_space(6.0);
-        let tree = self.ide_workspace.tree.clone();
-        for node in &tree {
-            self.draw_workspace_tree_node(ui, node, 0);
+        if compact_button(ui, "Run", self.theme).clicked() {
+            self.run_workspace_task();
+        }
+        if let Some(result) = self.ide_workspace.last_task.clone() {
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(format!(
+                    "$ {} · exit {:?} · {}ms",
+                    result.command, result.exit_code, result.duration_ms
+                ))
+                .small()
+                .monospace()
+                .color(self.theme.text_secondary),
+            );
+            if !result.stdout.is_empty() {
+                ui.label(
+                    RichText::new(result.stdout.chars().take(800).collect::<String>())
+                        .small()
+                        .monospace()
+                        .color(self.theme.text_muted),
+                );
+            }
+            if !result.stderr.is_empty() {
+                ui.label(
+                    RichText::new(result.stderr.chars().take(400).collect::<String>())
+                        .small()
+                        .monospace()
+                        .color(self.theme.danger),
+                );
+            }
+        }
+        ui.add_space(8.0);
+        section_label(ui, "BENCHMARK (local timing)", self.theme);
+        if compact_button(ui, "Run sample suite", self.theme).clicked() {
+            let cases = vec![
+                ide_workspace::BenchmarkCase {
+                    name: "select-1".to_owned(),
+                    sql: "SELECT 1".to_owned(),
+                },
+                ide_workspace::BenchmarkCase {
+                    name: "select-now".to_owned(),
+                    sql: "SELECT CURRENT_TIMESTAMP".to_owned(),
+                },
+            ];
+            let results = ide_workspace::measure_local_benchmark(&cases, 5);
+            self.runtime_message = results
+                .into_iter()
+                .map(|result| format!("{}={}ms", result.name, result.avg_ms))
+                .collect::<Vec<_>>()
+                .join(", ");
+        }
+    }
+
+    fn draw_files_graph_tab(&mut self, ui: &mut egui::Ui) {
+        let edges = self.ide_workspace.dependency_edges();
+        if edges.is_empty() {
+            ui.label(
+                RichText::new("No FROM/JOIN object references found yet.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            return;
+        }
+        for edge in edges.into_iter().take(60) {
+            ui.label(
+                RichText::new(format!("{} → {}", edge.from_file, edge.object_name))
+                    .small()
+                    .monospace()
+                    .color(self.theme.text_secondary),
+            );
         }
     }
 
@@ -827,12 +1108,50 @@ impl DbProApp {
                     Icon::ChevronRight
                 };
                 let response = sidebar_item(ui, chevron, &node.name, false, self.theme);
+                let mut create_sql = false;
+                let mut delete_node = false;
+                context_action_menu(ui, &response, self.theme, |ui, close_menu| {
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::FileCode2),
+                        "New SQL here",
+                        None,
+                        self.theme.text_primary,
+                        self.theme,
+                    )
+                    .clicked()
+                    {
+                        create_sql = true;
+                        *close_menu = true;
+                    }
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::Trash2),
+                        "Delete folder",
+                        None,
+                        self.theme.danger,
+                        self.theme,
+                    )
+                    .clicked()
+                    {
+                        delete_node = true;
+                        *close_menu = true;
+                    }
+                });
                 if response.clicked() {
                     if expanded {
                         self.ide_workspace.expanded.remove(&node.relative_path);
                     } else {
                         self.ide_workspace.expanded.insert(node.relative_path.clone());
                     }
+                }
+                if create_sql {
+                    let _ =
+                        self.ide_workspace
+                            .create_file(&node.relative_path, "query.sql", "-- new query\nSELECT 1;\n");
+                }
+                if delete_node {
+                    let _ = self.ide_workspace.delete_path(&node.relative_path);
                 }
             } else {
                 let icon = if node.name.ends_with(".sql") {
@@ -845,12 +1164,74 @@ impl DbProApp {
                     .get(self.active_query_document)
                     .and_then(|doc| doc.file_path.as_ref())
                     .is_some_and(|path| path == &node.absolute_path.to_string_lossy());
-                if sidebar_item(ui, icon, &node.name, selected, self.theme)
-                    .on_hover_text(&node.relative_path)
+                let response =
+                    sidebar_item(ui, icon, &node.name, selected, self.theme).on_hover_text(&node.relative_path);
+                let mut open_file = false;
+                let mut add_context = false;
+                let mut delete_node = false;
+                let mut find_refs = false;
+                context_action_menu(ui, &response, self.theme, |ui, close_menu| {
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::FileCode2),
+                        "Open",
+                        None,
+                        self.theme.text_primary,
+                        self.theme,
+                    )
                     .clicked()
-                    && node.name.ends_with(".sql")
-                {
+                    {
+                        open_file = true;
+                        *close_menu = true;
+                    }
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::Plus),
+                        "Add to Agent context",
+                        None,
+                        self.theme.text_primary,
+                        self.theme,
+                    )
+                    .clicked()
+                    {
+                        add_context = true;
+                        *close_menu = true;
+                    }
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::Search),
+                        "Find references",
+                        None,
+                        self.theme.text_primary,
+                        self.theme,
+                    )
+                    .clicked()
+                    {
+                        find_refs = true;
+                        *close_menu = true;
+                    }
+                    if ctx_menu_item(ui, Some(Icon::Trash2), "Delete", None, self.theme.danger, self.theme).clicked() {
+                        delete_node = true;
+                        *close_menu = true;
+                    }
+                });
+                if response.clicked() && node.name.ends_with(".sql") {
+                    open_file = true;
+                }
+                if open_file && node.name.ends_with(".sql") {
                     self.open_workspace_sql_file(node.relative_path.clone());
+                }
+                if add_context {
+                    self.add_workspace_context_item(node.absolute_path.to_string_lossy().into_owned());
+                }
+                if find_refs {
+                    let stem = node.name.trim_end_matches(".sql").to_owned();
+                    self.workspace_search_query = stem;
+                    self.files_panel_tab = FilesPanelTab::Search;
+                    self.run_workspace_search();
+                }
+                if delete_node {
+                    let _ = self.ide_workspace.delete_path(&node.relative_path);
                 }
             }
         });
@@ -1204,7 +1585,13 @@ impl DbProApp {
             let response = sidebar_item(ui, icon, &label, selected, self.theme);
             if response.clicked() {
                 self.problems_selected = Some((entry.document_id.clone(), entry.diagnostic_index));
-                navigate = Some((entry.document_index, entry.diagnostic_index));
+                if entry.document_index == usize::MAX {
+                    // Workspace-indexed diagnostic (#269): open the SQL file if possible.
+                    self.open_workspace_sql_file(entry.document_title.clone());
+                    self.files_panel_tab = FilesPanelTab::Search;
+                } else {
+                    navigate = Some((entry.document_index, entry.diagnostic_index));
+                }
             }
             if entry.has_fix {
                 ui.horizontal(|ui| {

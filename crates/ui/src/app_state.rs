@@ -112,16 +112,28 @@ impl DbProApp {
                     app.ide_workspace.recent_roots = paths.into_iter().map(std::path::PathBuf::from).collect();
                 }
             }
-            if let Some(root) = storage.get_string("dbpro.native.workspace-root-v1") {
-                if !root.is_empty() {
-                    let path = std::path::PathBuf::from(root);
-                    if path.is_dir() {
-                        let _ = app.ide_workspace.open_root(path);
-                        if storage.get_string("dbpro.native.workspace-trusted-v1").as_deref() == Some("true") {
-                            app.ide_workspace.set_trusted(true);
-                        }
-                    }
+            let roots = storage
+                .get_string("dbpro.native.workspace-roots-v1")
+                .and_then(|raw| serde_json::from_str::<Vec<String>>(&raw).ok())
+                .or_else(|| {
+                    storage
+                        .get_string("dbpro.native.workspace-root-v1")
+                        .filter(|root| !root.is_empty())
+                        .map(|root| vec![root])
+                })
+                .unwrap_or_default();
+            for root in roots {
+                let path = std::path::PathBuf::from(root);
+                if path.is_dir() {
+                    let _ = if app.ide_workspace.roots.is_empty() {
+                        app.ide_workspace.open_root(path)
+                    } else {
+                        app.ide_workspace.add_root(path)
+                    };
                 }
+            }
+            if storage.get_string("dbpro.native.workspace-trusted-v1").as_deref() == Some("true") {
+                app.ide_workspace.set_trusted(true);
             }
         }
         app
@@ -244,7 +256,15 @@ impl Default for DbProApp {
             recent_tables: Vec::new(),
             ide_workspace: ide_workspace::IdeWorkspaceState::default(),
             workspace_search_query: String::new(),
+            workspace_replace_query: String::new(),
             workspace_search_hits: Vec::new(),
+            workspace_replace_previews: Vec::new(),
+            workspace_task_command: String::new(),
+            workspace_refactor_from: String::new(),
+            workspace_refactor_to: String::new(),
+            workspace_context_items: Vec::new(),
+            split_editor_secondary: None,
+            files_panel_tab: FilesPanelTab::Tree,
             selected_schema_object: None,
             schema_object_view: SchemaObjectView::Definition,
             diagram_zoom: 1.0,

@@ -25,6 +25,8 @@ pub struct AgentContext {
     pub result_summary: Option<String>,
     pub explain_plan: Option<String>,
     pub last_error: Option<String>,
+    /// Explicit workspace context picks (#263).
+    pub workspace_files: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -45,10 +45,15 @@ impl DbProApp {
             result_summary,
             explain_plan: self.active_explain_plan().map(|p| p.to_owned()),
             last_error,
+            workspace_files: self.workspace_context_items.clone(),
         }
     }
 
     pub(super) fn submit_agent_prompt(&mut self) {
+        if !self.workspace_context_items.is_empty() && !self.ide_workspace.is_trusted() {
+            self.runtime_message = "Trust the workspace before sending folder/file context to Agent".to_owned();
+            return;
+        }
         let prompt = self.agent_input.trim().to_owned();
         if prompt.is_empty() {
             return;

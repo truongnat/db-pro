@@ -128,6 +128,16 @@ enum Activity {
     Problems,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum FilesPanelTab {
+    #[default]
+    Tree,
+    Search,
+    Migrations,
+    Tasks,
+    Graph,
+}
+
 /// Cap for MRU recent-table entries persisted for Data Activity (#212).
 const RECENT_TABLES_MAX: usize = 20;
 
@@ -429,9 +439,17 @@ pub struct DbProApp {
     recent_tables: Vec<String>,
     /// Local IDE workspace folder / file tree (#261–#264).
     ide_workspace: ide_workspace::IdeWorkspaceState,
-    /// Find-in-Files query draft for the Files activity (#267 foundation).
+    /// Find-in-Files / replace drafts for the Files activity (#267).
     workspace_search_query: String,
-    workspace_search_hits: Vec<(String, usize, String)>,
+    workspace_replace_query: String,
+    workspace_search_hits: Vec<ide_workspace::SearchHit>,
+    workspace_replace_previews: Vec<ide_workspace::ReplacePreview>,
+    workspace_task_command: String,
+    workspace_refactor_from: String,
+    workspace_refactor_to: String,
+    workspace_context_items: Vec<String>,
+    split_editor_secondary: Option<usize>,
+    files_panel_tab: FilesPanelTab,
     selected_schema_object: Option<SchemaObjectSelection>,
     schema_object_view: SchemaObjectView,
     diagram_zoom: f32,
@@ -555,14 +573,19 @@ impl eframe::App for DbProApp {
         ) {
             storage.set_string("dbpro.native.workspace-recent-v1", recent_ws);
         }
-        if let Some(root) = self.ide_workspace.root.as_ref() {
-            storage.set_string("dbpro.native.workspace-root-v1", root.to_string_lossy().into_owned());
-        } else {
-            storage.set_string("dbpro.native.workspace-root-v1", String::new());
+        if let Ok(roots) = serde_json::to_string(
+            &self
+                .ide_workspace
+                .roots
+                .iter()
+                .map(|root| root.path.to_string_lossy().into_owned())
+                .collect::<Vec<_>>(),
+        ) {
+            storage.set_string("dbpro.native.workspace-roots-v1", roots);
         }
         storage.set_string(
             "dbpro.native.workspace-trusted-v1",
-            matches!(self.ide_workspace.trust, ide_workspace::WorkspaceTrust::Trusted).to_string(),
+            self.ide_workspace.is_trusted().to_string(),
         );
         storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
         storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
@@ -1099,6 +1122,25 @@ impl DbProApp {
                     has_fix: diagnostic.fix.is_some(),
                 });
             }
+        }
+        for (index, diagnostic) in self.ide_workspace.workspace_diagnostics.iter().enumerate() {
+            let severity = match diagnostic.severity {
+                ide_workspace::WorkspaceDiagnosticSeverity::Error => crate::editor::DiagnosticSeverity::Error,
+                ide_workspace::WorkspaceDiagnosticSeverity::Warning => crate::editor::DiagnosticSeverity::Warning,
+            };
+            entries.push(ProblemEntry {
+                document_index: usize::MAX,
+                document_id: format!("{}::{}", diagnostic.root_id, diagnostic.relative_path),
+                document_title: diagnostic.relative_path.clone(),
+                diagnostic_index: index,
+                severity,
+                source: crate::editor::DiagnosticSource::Lint,
+                message: diagnostic.message.clone(),
+                line: diagnostic.line.saturating_sub(1),
+                column: 0,
+                range: (0, 0),
+                has_fix: false,
+            });
         }
         entries
     }
@@ -1680,15 +1722,22 @@ impl DbProApp {
     }
 
     pub(crate) fn open_workspace_folder(&mut self, path: std::path::PathBuf) {
-        match self.ide_workspace.open_root(path) {
+        let result = if self.ide_workspace.roots.is_empty() {
+            self.ide_workspace.open_root(path)
+        } else {
+            self.ide_workspace.add_root(path)
+        };
+        match result {
             Ok(()) => {
                 self.activity = Activity::Files;
                 self.sidebar_open = true;
                 self.workspace_search_hits.clear();
+                self.ide_workspace.scan_diagnostics();
                 self.runtime_message = format!(
-                    "Opened workspace {} · {} files indexed",
+                    "Opened workspace {} · {} files · {} roots",
                     self.ide_workspace.root_label(),
-                    self.ide_workspace.index.len()
+                    self.ide_workspace.index().len(),
+                    self.ide_workspace.roots.len()
                 );
             }
             Err(error) => {
@@ -1700,14 +1749,20 @@ impl DbProApp {
     pub(crate) fn close_workspace_folder(&mut self) {
         self.ide_workspace.close();
         self.workspace_search_hits.clear();
+        self.workspace_replace_previews.clear();
+        self.workspace_context_items.clear();
+        self.split_editor_secondary = None;
         self.runtime_message = "Workspace closed".to_owned();
     }
 
     pub(crate) fn refresh_workspace_folder(&mut self) {
         match self.ide_workspace.refresh() {
             Ok(()) => {
-                self.runtime_message =
-                    format!("Workspace refreshed · {} files indexed", self.ide_workspace.index.len());
+                self.ide_workspace.scan_diagnostics();
+                self.runtime_message = format!(
+                    "Workspace refreshed · {} files indexed",
+                    self.ide_workspace.index().len()
+                );
             }
             Err(error) => {
                 self.runtime_message = format!("Workspace refresh failed: {error}");
@@ -1773,14 +1828,112 @@ impl DbProApp {
     }
 
     pub(crate) fn run_workspace_search(&mut self) {
-        let Some(root) = self.ide_workspace.root.clone() else {
+        if self.ide_workspace.roots.is_empty() {
             self.workspace_search_hits.clear();
             self.runtime_message = "Open a workspace folder before searching".to_owned();
             return;
-        };
-        self.workspace_search_hits =
-            ide_workspace::search_workspace_files(&root, &self.ide_workspace.index, &self.workspace_search_query, 100);
+        }
+        self.workspace_search_hits = self.ide_workspace.search(&self.workspace_search_query, 100);
         self.runtime_message = format!("{} matches", self.workspace_search_hits.len());
+    }
+
+    pub(crate) fn preview_workspace_replace(&mut self) {
+        self.workspace_replace_previews = self
+            .ide_workspace
+            .preview_replace(&self.workspace_search_query, &self.workspace_replace_query);
+        self.runtime_message = format!("{} files would change", self.workspace_replace_previews.len());
+    }
+
+    pub(crate) fn apply_workspace_replace(&mut self) {
+        match self
+            .ide_workspace
+            .apply_replace(&self.workspace_search_query, &self.workspace_replace_query)
+        {
+            Ok(count) => {
+                self.preview_workspace_replace();
+                self.run_workspace_search();
+                self.runtime_message = format!("Replaced {count} occurrence(s)");
+            }
+            Err(error) => self.runtime_message = error,
+        }
+    }
+
+    pub(crate) fn add_workspace_context_item(&mut self, item: String) {
+        if !self.workspace_context_items.iter().any(|existing| existing == &item) {
+            self.workspace_context_items.push(item);
+        }
+    }
+
+    pub(crate) fn clear_workspace_context_items(&mut self) {
+        self.workspace_context_items.clear();
+    }
+
+    pub(crate) fn export_live_schema_snapshot(&mut self) {
+        let mut sql = String::from("-- DB Pro schema snapshot\n");
+        for table in &self.schema.table_details {
+            sql.push_str(&format!(
+                "-- table {}.{} ({} columns)\n",
+                table.schema,
+                table.name,
+                table.columns.len()
+            ));
+        }
+        match self.ide_workspace.export_schema_snapshot(&sql) {
+            Ok(path) => self.runtime_message = format!("Wrote schema snapshot {}", path.display()),
+            Err(error) => self.runtime_message = error,
+        }
+    }
+
+    pub(crate) fn run_workspace_task(&mut self) {
+        let command = self.workspace_task_command.clone();
+        match self.ide_workspace.run_task(&command) {
+            Ok(result) => {
+                self.runtime_message = format!("Task exit {:?} · {}ms", result.exit_code, result.duration_ms);
+            }
+            Err(error) => self.runtime_message = error,
+        }
+    }
+
+    pub(crate) fn apply_workspace_refactor(&mut self) {
+        let from = self.workspace_refactor_from.clone();
+        let to = self.workspace_refactor_to.clone();
+        match self.ide_workspace.rename_symbol_across_sql(&from, &to) {
+            Ok(count) => self.runtime_message = format!("Refactored {count} occurrence(s)"),
+            Err(error) => self.runtime_message = error,
+        }
+    }
+
+    pub(crate) fn toggle_split_editor(&mut self) {
+        if self.split_editor_secondary.is_some() {
+            self.split_editor_secondary = None;
+            self.runtime_message = "Split editor closed".to_owned();
+            return;
+        }
+        if self.query_documents.len() < 2 {
+            self.runtime_message = "Open a second document before splitting".to_owned();
+            return;
+        }
+        let secondary = if self.active_query_document + 1 < self.query_documents.len() {
+            self.active_query_document + 1
+        } else {
+            0
+        };
+        self.split_editor_secondary = Some(secondary);
+        self.runtime_message = "Split editor enabled".to_owned();
+    }
+
+    pub(crate) fn refresh_schema_drift_watch(&mut self) {
+        let names: Vec<String> = self
+            .schema
+            .table_details
+            .iter()
+            .map(|table| format!("{}.{}", table.schema, table.name))
+            .collect();
+        let fingerprint = ide_workspace::fingerprint_schema_names(&names);
+        self.ide_workspace.update_schema_fingerprint(fingerprint);
+        if let Some(message) = self.ide_workspace.schema_drift_message.clone() {
+            self.runtime_message = message;
+        }
     }
 
     fn open_palette(&mut self, mode: PaletteMode) {

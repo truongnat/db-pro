@@ -248,16 +248,16 @@ impl DbProApp {
 
     fn workspace_file_items(&self) -> Vec<PaletteItem> {
         self.ide_workspace
-            .index
-            .iter()
+            .index()
+            .into_iter()
             .filter(|entry| entry.is_sql)
             .take(80)
             .map(|entry| PaletteItem {
                 icon: Icon::FileCode2,
                 title: entry.relative_path.clone(),
-                subtitle: "Workspace SQL · open".to_owned(),
+                subtitle: format!("Workspace SQL · {}", entry.root_id),
                 shortcut: None,
-                action: PaletteAction::OpenWorkspaceFile(entry.relative_path.clone()),
+                action: PaletteAction::OpenWorkspaceFile(format!("{}::{}", entry.root_id, entry.relative_path)),
             })
             .collect()
     }
