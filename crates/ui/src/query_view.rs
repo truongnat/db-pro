@@ -71,12 +71,15 @@ impl DbProApp {
             .show(ui, |ui| {
                 self.refresh_diagnostics();
                 let more_anchor = self.draw_query_header(ui);
-                ui.add_space(6.0);
-                if let Some(action) = TransactionBar::new(self.query_in_transaction, self.query_txn_pending, self.theme)
-                    .auto_commit(self.query_auto_commit)
-                    .show(ui)
-                {
-                    self.handle_transaction_action(action);
+                if self.query_txn_bar_open || self.query_in_transaction {
+                    ui.add_space(6.0);
+                    if let Some(action) =
+                        TransactionBar::new(self.query_in_transaction, self.query_txn_pending, self.theme)
+                            .auto_commit(self.query_auto_commit)
+                            .show(ui)
+                    {
+                        self.handle_transaction_action(action);
+                    }
                 }
                 if self.disconnect_txn_guard {
                     ui.colored_label(
@@ -116,12 +119,16 @@ impl DbProApp {
             });
     }
 
-    /// Query title, connection breadcrumb, run/stop and the overflow button.
+    /// Query title / file path, connection breadcrumb, run/stop and the overflow button.
     /// Returns the overflow button rect so the actions menu can anchor to it.
     fn draw_query_header(&mut self, ui: &mut egui::Ui) -> Option<egui::Rect> {
         let modifier = Self::primary_modifier_label();
         let mut more_anchor = None;
         let doc_idx = self.active_query_document;
+        let file_path = self
+            .query_documents
+            .get(doc_idx)
+            .and_then(|document| document.file_path.clone());
         let query_title = self
             .query_documents
             .get(doc_idx)
@@ -134,18 +141,35 @@ impl DbProApp {
             .or_else(|| self.active_connection_id.clone());
         let conn_label = self.active_query_connection_name().to_owned();
         let current_schema = self.active_query_schema().to_owned();
+        let connected = self.active_query_connection_id().is_some() && self.connected;
 
         let mut next_conn_id = None;
         let mut next_schema = None;
 
+        // Zed-like path strip for file-backed SQL; plain title for untitled buffers.
+        if let Some(path) = file_path.as_deref() {
+            ui.horizontal(|ui| {
+                ui.label(icon_text(Icon::FileCode2, "", self.theme.text_muted));
+                ui.label(
+                    RichText::new(path)
+                        .font(font_caption())
+                        .monospace()
+                        .color(self.theme.text_secondary),
+                );
+            });
+            ui.add_space(4.0);
+        }
+
         ui.horizontal(|ui| {
-            ui.label(
-                RichText::new(query_title)
-                    .font(font_subheading())
-                    .strong()
-                    .color(self.theme.text_primary),
-            );
-            ui.label(icon_text(Icon::ChevronRight, "", self.theme.text_muted));
+            if file_path.is_none() {
+                ui.label(
+                    RichText::new(query_title)
+                        .font(font_subheading())
+                        .strong()
+                        .color(self.theme.text_primary),
+                );
+                ui.label(icon_text(Icon::ChevronRight, "", self.theme.text_muted));
+            }
 
             egui::ComboBox::from_id_salt(("query_header_conn", doc_idx))
                 .selected_text(RichText::new(&conn_label).font(font_caption()).color(self.theme.accent))
@@ -163,7 +187,6 @@ impl DbProApp {
             let available_schemas = if !self.schema.schemas.is_empty() {
                 self.schema.schemas.clone()
             } else if !self.query_capabilities().allows(|caps| caps.schema.schemas) {
-                // Engines without named schemas (SQLite) expose a single default catalog.
                 vec!["main".to_string()]
             } else {
                 vec!["public".to_string()]
@@ -182,6 +205,7 @@ impl DbProApp {
                         }
                     }
                 });
+
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let active_doc_running = self
                     .query_documents
@@ -206,8 +230,12 @@ impl DbProApp {
                         secondary_button_with_icon(ui, Icon::Loader, "Running…", self.theme).on_hover_text(tip)
                     }
                 } else {
-                    primary_button_with_icon(ui, Icon::Play, "Run", self.theme)
-                        .on_hover_text(format!("Run query ({modifier}↵)"))
+                    let tip = if !connected {
+                        "Connect to a database before running".to_owned()
+                    } else {
+                        format!("Run query ({modifier}↵)")
+                    };
+                    primary_button_with_icon(ui, Icon::Play, "Run", self.theme).on_hover_text(tip)
                 };
                 if run_button.clicked() {
                     if let Some(request_id) = active_doc_running {
@@ -217,6 +245,8 @@ impl DbProApp {
                             self.runtime_message = cancel_reason
                                 .unwrap_or_else(|| "Query cancellation is not supported for this provider".to_owned());
                         }
+                    } else if !connected {
+                        self.runtime_message = "Connect to a database before running a query".to_owned();
                     } else {
                         self.dispatch_query();
                     }
@@ -1154,6 +1184,15 @@ impl DbProApp {
             self.editor_search_open = !self.editor_search_open;
             close_menu = true;
         }
+        let txn_label = if self.query_txn_bar_open {
+            "Hide transaction controls"
+        } else {
+            "Show transaction controls"
+        };
+        if menu_button_with_icon(ui, Icon::GitBranch, txn_label, self.theme).clicked() {
+            self.query_txn_bar_open = !self.query_txn_bar_open;
+            close_menu = true;
+        }
         if menu_button_with_icon(ui, Icon::Minus, "Decrease font size", self.theme).clicked() {
             self.editor_font_size = (self.editor_font_size - 1.0).max(10.0);
         }
@@ -1225,11 +1264,13 @@ impl DbProApp {
 
     fn draw_query_editor(&mut self, ui: &mut egui::Ui) {
         let editor_width = ui.max_rect().width();
-        let editor_height = if self.active_query_result().is_some() {
-            ui.available_height().clamp(260.0, 360.0)
+        // File-editor feel: grow into remaining space instead of capping at ~480px.
+        let reserved_for_output = if self.active_query_result().is_some() {
+            240.0
         } else {
-            ui.available_height().clamp(320.0, 480.0)
+            140.0
         };
+        let editor_height = (ui.available_height() - reserved_for_output).max(220.0);
 
         if self.active_query_document >= self.query_documents.len() {
             return;
@@ -1253,7 +1294,7 @@ impl DbProApp {
         let mut manual_completion = false;
         let mut completion_pos = egui::Pos2::ZERO;
 
-        let available_size = egui::vec2((editor_width - 24.0).max(280.0), (editor_height - 20.0).max(240.0));
+        let available_size = egui::vec2((editor_width - 24.0).max(280.0), editor_height);
 
         let doc_index = self.active_query_document;
         let doc = &mut self.query_documents[doc_index];

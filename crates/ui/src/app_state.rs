@@ -274,6 +274,7 @@ impl Default for DbProApp {
             query_in_transaction: false,
             query_txn_pending: 0,
             disconnect_txn_guard: false,
+            query_txn_bar_open: false,
             diagram_zoom: 1.0,
             diagram_pan: egui::Vec2::ZERO,
             diagram_pan_origin: None,

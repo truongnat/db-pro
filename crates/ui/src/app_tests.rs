@@ -5376,6 +5376,9 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
     std::fs::write(dir.join("sql/demo.sql"), "SELECT 42;").unwrap();
 
     let mut app = DbProApp::default();
+    app.active_connection_id = Some("conn-1".to_owned());
+    app.connected = true;
+    app.selected_schema = Some("public".to_owned());
     app.open_workspace_folder(dir.clone());
     assert!(app.ide_workspace.root().is_some());
     assert!(app
@@ -5387,6 +5390,8 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
     let doc = app.query_documents.last().expect("file doc");
     assert_eq!(doc.text(), "SELECT 42;");
     assert!(doc.file_path.as_ref().is_some_and(|path| path.ends_with("demo.sql")));
+    assert_eq!(doc.connection_id.as_deref(), Some("conn-1"));
+    assert_eq!(doc.schema.as_deref(), Some("public"));
     assert_eq!(app.active_tab, WorkspaceTab::Query);
 
     let _ = std::fs::remove_dir_all(dir);

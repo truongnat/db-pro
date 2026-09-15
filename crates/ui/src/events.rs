@@ -1262,7 +1262,7 @@ impl DbProApp {
 
     /// Buffer version of the active query document, so an execution stays bound to the
     /// text it was started from.
-    fn active_query_buffer_version(&self) -> u64 {
+    pub(crate) fn active_query_buffer_version(&self) -> u64 {
         self.query_documents
             .get(self.active_query_document)
             .map(|doc| doc.buffer.version())
@@ -1330,7 +1330,7 @@ impl DbProApp {
         }
     }
 
-    fn send_query_run(
+    pub(crate) fn send_query_run(
         &mut self,
         connection_id: String,
         sql: String,

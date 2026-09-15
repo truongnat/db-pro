@@ -480,6 +480,8 @@ pub struct DbProApp {
     query_in_transaction: bool,
     query_txn_pending: usize,
     disconnect_txn_guard: bool,
+    /// Transaction bar is opt-in so the SQL surface stays file-editor quiet by default.
+    query_txn_bar_open: bool,
     diagram_zoom: f32,
     diagram_pan: egui::Vec2,
     diagram_pan_origin: Option<egui::Vec2>,
@@ -1379,14 +1381,9 @@ impl DbProApp {
             self.runtime_message = "Connect before using transaction controls".into();
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
-        let _ = self.task_bridge.send(UiCommand::RunQuery {
-            request_id,
-            connection_id,
-            sql: sql.to_owned(),
-            params: Vec::new(),
-        });
-        self.runtime_message = format!("Sent {sql}");
+        // Reuse the normal run path so execution state / cancel / history stay consistent.
+        let version = self.active_query_buffer_version();
+        self.send_query_run(connection_id, sql.to_owned(), (0, sql.len()), version, false);
     }
 
     pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {
@@ -1953,10 +1950,14 @@ impl DbProApp {
         let id = format!("file-{absolute_str}");
         let mut doc = QueryDocument::new(id, title, content);
         doc.file_path = Some(absolute_str);
+        doc.connection_id = self.active_connection_id.clone();
+        doc.schema = Some(self.active_schema().to_owned());
         doc.mark_saved();
         self.query_documents.push(doc);
         self.active_query_document = self.query_documents.len() - 1;
+        self.activity = Activity::Queries;
         self.active_tab = WorkspaceTab::Query;
+        self.reset_query_cursor();
         self.runtime_message = format!("Opened {relative_path}");
     }
 
