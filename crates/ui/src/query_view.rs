@@ -144,7 +144,11 @@ impl DbProApp {
 
             let available_schemas = if !self.schema.schemas.is_empty() {
                 self.schema.schemas.clone()
-            } else if self.active_query_driver().eq_ignore_ascii_case("sqlite") {
+            } else if !self
+                .query_capabilities()
+                .allows(|caps| caps.schema.schemas)
+            {
+                // Engines without named schemas (SQLite) expose a single default catalog.
                 vec!["main".to_string()]
             } else {
                 vec!["public".to_string()]
@@ -300,7 +304,9 @@ impl DbProApp {
     fn draw_sql_completion(&mut self, ui: &mut egui::Ui) {
         card_frame(self.theme).show(ui, |ui| {
             ui.label(RichText::new("SQL completion").strong());
-            let is_sqlite = self.active_driver().eq_ignore_ascii_case("sqlite");
+            let uses_positional = !self
+                .query_capabilities()
+                .allows(|caps| caps.query.numbered_parameters);
             let mut candidates = vec![
                 "SELECT".to_owned(),
                 "FROM".to_owned(),
@@ -311,7 +317,7 @@ impl DbProApp {
                 "LIMIT".to_owned(),
                 "COUNT(*)".to_owned(),
             ];
-            if is_sqlite {
+            if uses_positional {
                 candidates.extend(["GLOB", "strftime", "WITHOUT ROWID"].into_iter().map(str::to_owned));
             } else {
                 candidates.extend(
@@ -1103,12 +1109,17 @@ impl DbProApp {
             return;
         }
 
-        let is_sqlite = self.active_query_driver().eq_ignore_ascii_case("sqlite");
-        let dialect = if is_sqlite {
-            SqlDialect::SQLite
-        } else {
+        // Prefer numbered-parameter dialect heuristics when the capability set advertises
+        // them; otherwise use the positional/SQLite editor dialect (covers SQLite + MySQL).
+        let dialect = if self
+            .query_capabilities()
+            .allows(|caps| caps.query.numbered_parameters)
+        {
             SqlDialect::Postgres
+        } else {
+            SqlDialect::SQLite
         };
+        let uses_positional_editor = !matches!(dialect, SqlDialect::Postgres);
         let active_schema = self.active_query_schema().to_owned();
 
         let theme = self.theme;
@@ -1246,7 +1257,7 @@ impl DbProApp {
                 doc.cursor.offset,
                 &active_schema,
                 &self.schema,
-                is_sqlite,
+                uses_positional_editor,
             );
             let document_version = doc.buffer.version();
             let anchor = doc.cursor.offset;
@@ -1300,7 +1311,7 @@ impl DbProApp {
                 active_schema: &active_schema,
                 schema_summary: &self.schema,
                 cached_tokens: Some(&doc.cached_tokens),
-                is_sqlite,
+                is_sqlite: uses_positional_editor,
                 is_manual_trigger: manual_completion,
             };
             let (prefix, items) = SchemaCompletionProvider::provide(&ctx);
@@ -1323,11 +1334,13 @@ impl DbProApp {
     }
 
     fn draw_floating_completion_popup(&mut self, ctx: &egui::Context) {
-        let is_sqlite = self.active_driver().eq_ignore_ascii_case("sqlite");
-        let dialect = if is_sqlite {
-            SqlDialect::SQLite
-        } else {
+        let dialect = if self
+            .query_capabilities()
+            .allows(|caps| caps.query.numbered_parameters)
+        {
             SqlDialect::Postgres
+        } else {
+            SqlDialect::SQLite
         };
         let theme = self.theme;
 
@@ -1706,10 +1719,13 @@ impl DbProApp {
     pub(crate) fn format_active_query(&mut self) {
         let doc_index = self.active_query_document;
         self.cancel_prediction_for_document(doc_index);
-        let dialect = if self.active_query_driver().eq_ignore_ascii_case("sqlite") {
-            SqlDialect::SQLite
-        } else {
+        let dialect = if self
+            .query_capabilities()
+            .allows(|caps| caps.query.numbered_parameters)
+        {
             SqlDialect::Postgres
+        } else {
+            SqlDialect::SQLite
         };
         if let Some(doc) = self.query_documents.get_mut(doc_index) {
             format_query_document(doc, dialect);
