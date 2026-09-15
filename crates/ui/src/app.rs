@@ -171,6 +171,8 @@ pub(crate) enum PaletteAction {
     Settings,
     Diagram,
     Agent,
+    Problems,
+    Diagnostics,
     NewQuery,
     NewConnection,
     RefreshSchema,

@@ -62,6 +62,20 @@ impl DbProApp {
                 shortcut: None,
                 action: PaletteAction::Agent,
             },
+            PaletteItem {
+                icon: Icon::TriangleAlert,
+                title: "Problems".to_owned(),
+                subtitle: "Open SQL diagnostics across documents".to_owned(),
+                shortcut: None,
+                action: PaletteAction::Problems,
+            },
+            PaletteItem {
+                icon: Icon::Activity,
+                title: "Diagnostics".to_owned(),
+                subtitle: "App version, drivers, and redacted support summary".to_owned(),
+                shortcut: None,
+                action: PaletteAction::Diagnostics,
+            },
         ]
     }
 
@@ -208,6 +222,15 @@ impl DbProApp {
             }
             PaletteAction::Agent => {
                 self.agent_open = true;
+            }
+            PaletteAction::Problems => {
+                self.activity = Activity::Problems;
+                self.sidebar_open = true;
+            }
+            PaletteAction::Diagnostics => {
+                self.activity = Activity::Settings;
+                self.sidebar_open = true;
+                self.runtime_message = "Opened Settings → Diagnostics".to_owned();
             }
             PaletteAction::NewQuery => {
                 self.active_tab = WorkspaceTab::Query;
