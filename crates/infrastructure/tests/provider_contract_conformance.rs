@@ -1,6 +1,7 @@
 use db_pro_core::domain::capabilities::DatabaseCapabilities;
 use db_pro_core::domain::connection::{ConnectionConfig, DriverType};
 use db_pro_core::domain::error::DbError;
+use db_pro_core::domain::query::{CellValue, QueryResult};
 use db_pro_core::ports::{DbConnector, ProviderFactory, TransactionFailureOutcome, TransactionFailurePhase};
 use db_pro_infrastructure::connector::CompositeConnector;
 
@@ -234,4 +235,310 @@ fn register_factory_replaces_existing_factory() {
     });
     assert!(!caps.features.tablespaces);
     assert!(caps.schema.schemas);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8. Value/decoder contract, driven against whichever provider DATABASE_URL names
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Sections 3–6 above exercise SQLite in memory, so nothing in this file read a value from
+// a real server — which is why the MySQL mapper could serve `count(*)` as a boolean and
+// `DECIMAL`/`DATE` as the literal text `unsupported` with every test here green (#235;
+// `docs/release/evidence/v01-runtime/providers/60-mysql-live-fixture-and-mapper.md`).
+// This section reads the fixture's `decoder_matrix` — the table both fixtures ship for
+// exactly this purpose (`fixtures/postgres/001_schema.sql`, `fixtures/mysql/001_schema.sql`)
+// — through the composite connector, so the same contract is asserted against whichever
+// provider `DATABASE_URL` points at. With no `postgres://`/`mysql://` URL the tests skip
+// with a reason instead of failing, which keeps a PostgreSQL-only CI job green.
+
+/// A fixture this suite can drive: the parsed connection plus the two per-fixture details
+/// the shared `decoder_matrix` contract needs.
+struct FixtureTarget {
+    config: ConnectionConfig,
+    password: String,
+    /// The fixture's byte column — the contract needs a binary cell, and the two fixtures
+    /// name theirs differently (`blob` vs `blob_data`).
+    binary_column: &'static str,
+    /// What that column holds, so "stays bytes" is asserted against the fixture.
+    binary_hex: &'static str,
+}
+
+/// Parses `DATABASE_URL` the way `pg_integration.rs` and `mysql_fixture_matrix.rs` already do.
+fn fixture_target() -> Option<FixtureTarget> {
+    let url = std::env::var("DATABASE_URL").ok()?;
+    let (driver, rest, fallback_port) = if let Some(rest) = url.strip_prefix("postgres://") {
+        (DriverType::Postgres, rest, 5432u16)
+    } else if let Some(rest) = url.strip_prefix("mysql://") {
+        (DriverType::Mysql, rest, 3306u16)
+    } else {
+        return None;
+    };
+    let (binary_column, binary_hex) = match driver {
+        DriverType::Postgres => ("blob", "deadbeef"),
+        DriverType::Mysql => ("blob_data", "ff00fe01"),
+        DriverType::SQLite => return None,
+    };
+
+    let (without_query, _query) = rest.split_once('?').unwrap_or((rest, ""));
+    let (authority, database) = without_query.rsplit_once('/')?;
+    let (auth, host_port) = authority.rsplit_once('@').unwrap_or(("", authority));
+    let (username, password) = auth.split_once(':').unwrap_or((auth, ""));
+    let (host, port) = host_port.rsplit_once(':').unwrap_or((host_port, ""));
+
+    Some(FixtureTarget {
+        config: ConnectionConfig {
+            name: "conformance-fixture".into(),
+            host: host.to_string(),
+            port: port.parse().unwrap_or(fallback_port),
+            database: database.to_string(),
+            username: username.to_string(),
+            driver,
+            ssl_mode: Default::default(),
+            ssh_tunnel: None,
+            query_timeout_ms: 30_000,
+            max_rows: 10_000,
+            color: None,
+            tags: vec![],
+            group: None,
+            readonly: false,
+        },
+        password: password.to_string(),
+        binary_column,
+        binary_hex,
+    })
+}
+
+fn cell<'a>(result: &'a QueryResult, row: usize, column: &str) -> &'a CellValue {
+    let index = result
+        .columns
+        .iter()
+        .position(|meta| meta.name == column)
+        .unwrap_or_else(|| panic!("decoder_matrix has no column {column}"));
+    &result.rows[row].0[index]
+}
+
+/// `CellValue` deliberately has no `PartialEq` (two `Decimal("1.0")` and `Decimal("1.00")`
+/// are different representations of the same number), so each class is destructured here
+/// and the mismatch panic prints the value that actually arrived.
+fn expect_int64(cell: &CellValue, column: &str) -> i64 {
+    match cell {
+        CellValue::Int64(value) => *value,
+        other => panic!("{column} must decode to Int64, got {other:?}"),
+    }
+}
+
+fn expect_bool(cell: &CellValue, column: &str) -> bool {
+    match cell {
+        CellValue::Bool(value) => *value,
+        other => panic!("{column} must decode to Bool, got {other:?}"),
+    }
+}
+
+fn expect_decimal(cell: &CellValue, column: &str) -> String {
+    match cell {
+        CellValue::Decimal(digits) => digits.clone(),
+        other => panic!("{column} must decode to Decimal, got {other:?}"),
+    }
+}
+
+fn expect_date(cell: &CellValue, column: &str) -> String {
+    match cell {
+        CellValue::Date(value) => value.clone(),
+        other => panic!("{column} must decode to Date, got {other:?}"),
+    }
+}
+
+fn expect_text(cell: &CellValue, column: &str) -> String {
+    match cell {
+        CellValue::Text(value) => value.clone(),
+        other => panic!("{column} must decode to Text, got {other:?}"),
+    }
+}
+
+fn expect_timestamp(cell: &CellValue, column: &str) -> String {
+    match cell {
+        CellValue::Timestamp(value) => value.clone(),
+        other => panic!("{column} must decode to Timestamp, got {other:?}"),
+    }
+}
+
+fn expect_timestamp_tz(cell: &CellValue, column: &str) -> String {
+    match cell {
+        CellValue::TimestampTz(value) => value.clone(),
+        other => panic!("{column} must decode to TimestampTz, got {other:?}"),
+    }
+}
+
+fn expect_bytes_hex(cell: &CellValue, column: &str) -> String {
+    match cell {
+        CellValue::Bytes(bytes) => bytes.iter().map(|byte| format!("{byte:02x}")).collect(),
+        other => panic!("{column} must stay Bytes, got {other:?}"),
+    }
+}
+
+fn assert_null(cell: &CellValue, column: &str) {
+    assert!(matches!(cell, CellValue::Null), "{column} must stay NULL, got {cell:?}");
+}
+
+/// The class-aware decode contract, asserted cell by cell against a live server.
+#[tokio::test]
+async fn provider_value_decoder_contract_holds_against_the_fixture() {
+    let Some(target) = fixture_target() else {
+        eprintln!("skipping value/decoder conformance: DATABASE_URL is not a postgres:// or mysql:// URL");
+        return;
+    };
+    let connector = CompositeConnector::new();
+    let handle = connector
+        .connect(&target.config, &target.password)
+        .await
+        .expect("fixture connect must succeed");
+    let sql = format!(
+        "SELECT id, flag, big_count, ratio, precise_ratio, amount, calendar_date, wall_time, \
+         local_stamp, instant, doc, status, missing, {} FROM decoder_matrix ORDER BY id",
+        target.binary_column
+    );
+    let result = connector
+        .query(&handle, &sql, &[])
+        .await
+        .expect("decoder_matrix must exist: load the fixture (001_schema.sql, 002_seed.sql)");
+    connector.disconnect(&handle).await.expect("disconnect");
+
+    assert_eq!(result.row_count, 2, "one populated row and one all-NULL row");
+
+    // ── Integers stay integers, and are never booleans ──────────────────────
+    // The MySQL mapper's old probe chain decoded every integer that fit an `i8` through the
+    // driver's `bool` decoder, so `SELECT count(*)` arrived as `Bool(true)`.
+    assert_eq!(
+        expect_int64(cell(&result, 0, "id"), "id"),
+        1,
+        "an integer primary key is Int64, not Bool"
+    );
+    assert_eq!(
+        expect_int64(cell(&result, 0, "big_count"), "big_count"),
+        i64::MAX,
+        "the widest integer keeps its exact value"
+    );
+    // The one genuinely boolean column still decodes as a boolean: the rule is class-aware,
+    // not "every value is an integer".
+    assert!(expect_bool(cell(&result, 0, "flag"), "flag"));
+
+    // ── Floating classes stay Float64 ───────────────────────────────────────
+    assert!(matches!(cell(&result, 0, "ratio"), CellValue::Float64(_)));
+    assert!(matches!(cell(&result, 0, "precise_ratio"), CellValue::Float64(_)));
+
+    // ── DECIMAL-class values are exact: no f64 hop, no rounding, scale kept ─
+    let amount = expect_decimal(cell(&result, 0, "amount"), "amount");
+    let (integer_part, fraction) = amount.split_once('.').expect("Decimal keeps its scale");
+    assert_eq!(
+        integer_part, "12345678901234567890",
+        "all 20 integer digits survive; an f64 round-trip would have destroyed them"
+    );
+    assert!(!fraction.is_empty(), "the declared scale survives");
+    let through_f64: f64 = integer_part.parse().expect("parses as a float");
+    assert_ne!(
+        format!("{through_f64:.0}"),
+        integer_part,
+        "proof this column is not served through an f64"
+    );
+
+    // ── Temporal classes keep their real semantics ──────────────────────────
+    let date = expect_date(cell(&result, 0, "calendar_date"), "calendar_date");
+    assert_eq!(date.len(), 10, "a DATE carries no time and no offset: {date}");
+    assert!(matches!(cell(&result, 0, "wall_time"), CellValue::Time(_)));
+
+    // A naive wall-clock value must not gain an invented offset. Both fixtures seed
+    // `2024-03-15 10:20:30.123456`; MySQL used to serve this column as unusable text.
+    let naive = expect_timestamp(cell(&result, 0, "local_stamp"), "local_stamp");
+    assert!(
+        naive.starts_with("2024-03-15T10:20:30.123456"),
+        "the wall-clock reading is kept verbatim: {naive}"
+    );
+    assert!(
+        !naive.ends_with('Z') && !naive.contains('+'),
+        "a timestamp without time zone must not gain an offset: {naive}"
+    );
+
+    // An instant keeps its marker.
+    let instant = expect_timestamp_tz(cell(&result, 0, "instant"), "instant");
+    assert!(
+        instant.ends_with('Z') || instant.contains('+'),
+        "an instant keeps an explicit offset marker: {instant}"
+    );
+
+    // ── Structured classes ─────────────────────────────────────────────────
+    match cell(&result, 0, "doc") {
+        CellValue::Json(value) => assert_eq!(value["a"], serde_json::json!(1)),
+        other => panic!("doc must decode to Json, got {other:?}"),
+    }
+    expect_text(cell(&result, 0, "status"), "status");
+
+    // ── Binary classes stay bytes, byte-exact ──────────────────────────────
+    assert_eq!(
+        expect_bytes_hex(cell(&result, 0, target.binary_column), target.binary_column),
+        target.binary_hex,
+        "{} must arrive byte-exact",
+        target.binary_column
+    );
+
+    // ── NULL is preserved per family, on the all-NULL row ──────────────────
+    // `flag` is excluded: PostgreSQL declares it NOT NULL and seeds FALSE, MySQL declares
+    // it nullable and seeds NULL, so that one column differs by provider on the NULL row.
+    for column in [
+        "big_count",
+        "ratio",
+        "precise_ratio",
+        "amount",
+        "calendar_date",
+        "wall_time",
+        "local_stamp",
+        "instant",
+        "doc",
+        "status",
+        "missing",
+        target.binary_column,
+    ] {
+        assert_null(cell(&result, 1, column), column);
+    }
+}
+
+/// Criterion 1 of #234 asserted "no regressions" for the new factory dispatch without
+/// demonstrating it: `pg_integration.rs` builds `PostgresConnector` directly, so no test
+/// drove PostgreSQL *through* the composite. This one does, against the live fixture.
+#[tokio::test]
+async fn factory_dispatch_drives_postgres_against_the_live_fixture() {
+    let Some(target) = fixture_target() else {
+        eprintln!("skipping factory-dispatch test: DATABASE_URL is not a postgres:// or mysql:// URL");
+        return;
+    };
+    if target.config.driver != DriverType::Postgres {
+        eprintln!("skipping factory-dispatch test: DATABASE_URL is not a postgres:// URL");
+        return;
+    }
+
+    let connector = CompositeConnector::new();
+    // The capability set must come from the registered factory, not from a default.
+    let caps = connector.capabilities(&target.config);
+    assert_eq!(caps.driver, DriverType::Postgres);
+    assert!(caps.schema.schemas, "the PostgreSQL factory's own set is served");
+    assert!(caps.features.server_sessions);
+
+    let handle = connector
+        .connect(&target.config, &target.password)
+        .await
+        .expect("the factory-built PostgreSQL connector must connect");
+    let result = connector
+        .query(&handle, "SELECT count(*) AS total FROM decoder_matrix", &[])
+        .await
+        .expect("query through the composite");
+    assert_eq!(
+        expect_int64(cell(&result, 0, "total"), "total"),
+        2,
+        "the fixture seeds two rows"
+    );
+    let introspected = connector
+        .introspect(&handle)
+        .await
+        .expect("introspect through the composite");
+    assert!(introspected.tables.iter().any(|table| table.name == "decoder_matrix"));
+    connector.disconnect(&handle).await.expect("disconnect");
 }
