@@ -93,6 +93,7 @@ mod palette_view;
 mod query_view;
 #[path = "result_grid_view.rs"]
 mod result_grid_view;
+pub(crate) use result_grid_view::GridSelectionCache;
 #[path = "schema_object_view.rs"]
 mod schema_object_view;
 #[path = "table_ddl_view.rs"]
@@ -332,6 +333,7 @@ pub struct DbProApp {
     /// projection (see `GridProjectionCache`).
     grid_projection_epoch: u64,
     grid_projection_cache: GridProjectionCache,
+    grid_selection_cache: GridSelectionCache,
     grid_columns_user_resized: bool,
     selected_cell: Option<(usize, usize)>,
     selected_row: Option<usize>,

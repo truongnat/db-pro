@@ -14,6 +14,7 @@ pub use agent::{
     respond as respond_to_agent, AgentContext, AgentMessage, AgentProvider, AgentProviderError, AgentProviderInfo,
     AgentProviderKind, AgentProviderState, AgentRole, OfflineAgentProvider,
 };
+pub use app::result_grid_view::GridSelectionLookup;
 pub use app::{ComponentGalleryState, DbProApp};
 pub use components::{
     activity_bar_frame, agent_message_frame, badge, card_frame, compact_button, compact_button_enabled,
