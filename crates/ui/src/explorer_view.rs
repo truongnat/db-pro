@@ -635,8 +635,9 @@ impl DbProApp {
         let views = self.filter_by_schema(&self.schema.views, schema, |v| &v.schema);
         self.draw_dbeaver_views_folder(ui, &views);
 
-        // Functions are PostgreSQL-only.
-        if self.active_capabilities().is_some_and(|c| c.schema.functions) {
+        // Capability-gated, not driver-gated: the folder appears when the
+        // provider reports routines (PostgreSQL and MySQL do, SQLite does not).
+        if self.active_capabilities().allows(|c| c.schema.functions) {
             let functions = self.filter_by_schema(&self.schema.functions, schema, |f| &f.schema);
             self.draw_dbeaver_functions_folder(ui, &functions);
         }

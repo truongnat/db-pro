@@ -563,6 +563,73 @@ impl eframe::App for DbProApp {
     }
 }
 
+/// The answer to "which capabilities apply to this connection?".
+///
+/// Deliberately not an `Option`: a lookup that cannot answer has to say *why*, so a
+/// driver the UI has no provider entry for is a named state instead of `None`. `None`
+/// conflated two different situations — "no connection is active" and "this driver has
+/// no capability entry" — and a consumer could not tell them apart from a genuine
+/// "the provider supports nothing".
+#[derive(Debug, Clone)]
+pub(crate) enum CapabilityLookup {
+    /// The driver is a provider this build ships; the set is authoritative.
+    Supported(DatabaseCapabilities),
+    /// Nothing is connected, so there is nothing to resolve.
+    NoActiveConnection,
+    /// The connection names a driver with no provider entry in this build.
+    UnsupportedDriver { driver: String },
+}
+
+impl CapabilityLookup {
+    /// Resolves a connection's driver label to the provider entry the UI dispatches on.
+    ///
+    /// The label is what the runtime stored on the connection summary (`PostgreSQL`,
+    /// `SQLite`, `MySQL`). A label with no entry resolves to
+    /// [`CapabilityLookup::UnsupportedDriver`] rather than to a default driver's set.
+    pub(crate) fn for_driver_label(label: &str) -> Self {
+        let driver = if label.eq_ignore_ascii_case("sqlite") {
+            Some(DriverType::SQLite)
+        } else if label.eq_ignore_ascii_case("postgresql") || label.eq_ignore_ascii_case("postgres") {
+            Some(DriverType::Postgres)
+        } else if label.eq_ignore_ascii_case("mysql") {
+            Some(DriverType::Mysql)
+        } else {
+            None
+        };
+        match driver {
+            Some(driver) => Self::Supported(DatabaseCapabilities::for_driver(driver)),
+            None => Self::UnsupportedDriver {
+                driver: label.to_owned(),
+            },
+        }
+    }
+
+    /// The resolved capability set, when one exists.
+    pub(crate) fn resolved(&self) -> Option<&DatabaseCapabilities> {
+        match self {
+            Self::Supported(capabilities) => Some(capabilities),
+            Self::NoActiveConnection | Self::UnsupportedDriver { .. } => None,
+        }
+    }
+
+    /// Whether the resolved set satisfies `predicate`.
+    ///
+    /// A lookup that could not answer never satisfies a capability predicate, so an
+    /// unresolved driver never enables a capability-gated action.
+    pub(crate) fn allows(&self, predicate: impl FnOnce(&DatabaseCapabilities) -> bool) -> bool {
+        self.resolved().is_some_and(predicate)
+    }
+
+    /// A user-facing reason this lookup has no capability set, if it has none.
+    pub(crate) fn unavailable_reason(&self) -> Option<String> {
+        match self {
+            Self::Supported(_) => None,
+            Self::NoActiveConnection => Some("no database connection is active".to_owned()),
+            Self::UnsupportedDriver { driver } => Some(format!("{driver} has no provider entry in this build")),
+        }
+    }
+}
+
 impl DbProApp {
     fn grid_layout_scope(&self) -> Option<String> {
         Some(format!(
@@ -684,16 +751,11 @@ impl DbProApp {
             .unwrap_or("PostgreSQL")
     }
 
-    pub(crate) fn active_capabilities(&self) -> Option<DatabaseCapabilities> {
-        let driver = self.active_connection()?.driver.as_str();
-        let driver = if driver.eq_ignore_ascii_case("sqlite") {
-            DriverType::SQLite
-        } else if driver.eq_ignore_ascii_case("postgresql") || driver.eq_ignore_ascii_case("postgres") {
-            DriverType::Postgres
-        } else {
-            return None;
-        };
-        Some(DatabaseCapabilities::for_driver(driver))
+    pub(crate) fn active_capabilities(&self) -> CapabilityLookup {
+        match self.active_connection() {
+            Some(connection) => CapabilityLookup::for_driver_label(&connection.driver),
+            None => CapabilityLookup::NoActiveConnection,
+        }
     }
 
     fn active_schema(&self) -> &str {
@@ -986,16 +1048,20 @@ impl DbProApp {
         self.connections.iter().find(|c| c.id == conn_id)
     }
 
-    pub(crate) fn query_capabilities(&self) -> Option<DatabaseCapabilities> {
-        let driver = self.active_query_driver();
-        let driver = if driver.eq_ignore_ascii_case("sqlite") {
-            DriverType::SQLite
-        } else if driver.eq_ignore_ascii_case("postgresql") || driver.eq_ignore_ascii_case("postgres") {
-            DriverType::Postgres
-        } else {
-            return None;
-        };
-        Some(DatabaseCapabilities::for_driver(driver))
+    /// Capabilities for the connection the active query document is bound to.
+    ///
+    /// Resolved from the bound connection, then from the active connection. It
+    /// deliberately does **not** go through `active_query_driver`, whose display fallback
+    /// is the literal `"PostgreSQL"`: answering with PostgreSQL's set while no connection
+    /// exists is the same silent-wrong-answer this lookup replaces with a named state.
+    pub(crate) fn query_capabilities(&self) -> CapabilityLookup {
+        match self.active_query_connection() {
+            Some(connection) => CapabilityLookup::for_driver_label(&connection.driver),
+            None => match self.active_connection() {
+                Some(connection) => CapabilityLookup::for_driver_label(&connection.driver),
+                None => CapabilityLookup::NoActiveConnection,
+            },
+        }
     }
 
     pub(crate) fn active_query_connection_name(&self) -> &str {

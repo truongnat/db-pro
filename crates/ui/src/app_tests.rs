@@ -1109,15 +1109,160 @@ fn provider_capabilities_gate_provider_specific_actions() {
         ..Default::default()
     };
 
-    let sqlite_capabilities = sqlite_app.active_capabilities().expect("SQLite capabilities");
+    let sqlite_capabilities = sqlite_app
+        .active_capabilities()
+        .resolved()
+        .cloned()
+        .expect("SQLite capabilities");
     assert!(!sqlite_capabilities.schema.functions);
     assert!(!sqlite_capabilities.features.server_sessions);
     assert!(sqlite_capabilities.features.backup);
 
-    let postgres_capabilities = postgres_app.active_capabilities().expect("PostgreSQL capabilities");
+    let postgres_capabilities = postgres_app
+        .active_capabilities()
+        .resolved()
+        .cloned()
+        .expect("PostgreSQL capabilities");
     assert!(postgres_capabilities.schema.functions);
     assert!(postgres_capabilities.query.explain);
     assert!(postgres_capabilities.features.server_sessions);
+}
+
+#[test]
+fn mysql_connection_resolves_to_its_own_capability_set() {
+    // Regression for #234 criterion 2: the lookup used to return `None` for MySQL, so the
+    // newly registered provider had no capability path at all and every gate behaved as
+    // "capability absent".
+    let app = DbProApp {
+        connections: vec![UiConnectionSummary {
+            id: "mysql".to_owned(),
+            name: "MySQL".to_owned(),
+            host: "127.0.0.1".to_owned(),
+            port: 33306,
+            database: "dbpro_fixture".to_owned(),
+            username: "root".to_owned(),
+            driver: "MySQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+        }],
+        active_connection_id: Some("mysql".to_owned()),
+        ..Default::default()
+    };
+
+    let lookup = app.active_capabilities();
+    assert_eq!(
+        lookup.resolved().map(|caps| caps.driver),
+        Some(DriverType::Mysql),
+        "MySQL must resolve to the provider's own set"
+    );
+    assert_eq!(
+        lookup.resolved().map(|caps| caps.query.parameters),
+        Some(DatabaseCapabilities::mysql().query.parameters),
+        "the resolved set is the provider's own, not a default"
+    );
+
+    // The gates the UI reads are the provider's real values.
+    assert!(lookup.allows(|caps| caps.schema.functions));
+    assert!(!lookup.allows(|caps| caps.features.backup));
+    assert!(!lookup.allows(|caps| caps.features.partitions));
+    assert!(!lookup.allows(|caps| caps.query.cancel));
+    assert!(!lookup.allows(|caps| caps.query.parameters));
+}
+
+#[test]
+fn unknown_driver_resolves_to_a_named_state_not_none() {
+    let app = DbProApp {
+        connections: vec![UiConnectionSummary {
+            id: "oracle".to_owned(),
+            name: "Oracle".to_owned(),
+            host: "db.example.com".to_owned(),
+            port: 1521,
+            database: "ORCL".to_owned(),
+            username: "system".to_owned(),
+            driver: "Oracle".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+        }],
+        active_connection_id: Some("oracle".to_owned()),
+        ..Default::default()
+    };
+
+    let lookup = app.active_capabilities();
+    match &lookup {
+        CapabilityLookup::UnsupportedDriver { driver } => assert_eq!(driver, "Oracle"),
+        other => panic!("expected the named UnsupportedDriver state, got {other:?}"),
+    }
+    assert!(
+        lookup.resolved().is_none(),
+        "an unresolved driver must not hand out a capability set"
+    );
+    assert!(
+        !lookup.allows(|caps| caps.query.explain),
+        "an unresolved driver must never enable a capability-gated action"
+    );
+    assert_eq!(
+        lookup.unavailable_reason().as_deref(),
+        Some("Oracle has no provider entry in this build")
+    );
+}
+
+#[test]
+fn no_active_connection_is_distinct_from_an_unsupported_driver() {
+    let app = DbProApp::default();
+    let lookup = app.active_capabilities();
+
+    assert!(matches!(lookup, CapabilityLookup::NoActiveConnection));
+    assert!(!lookup.allows(|caps| caps.query.explain));
+    assert_eq!(
+        lookup.unavailable_reason().as_deref(),
+        Some("no database connection is active")
+    );
+}
+
+#[test]
+fn query_capabilities_follow_the_bound_connection_and_do_not_default_to_postgres() {
+    let pg = UiConnectionSummary {
+        id: "pg".to_owned(),
+        name: "PostgreSQL".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "app".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
+        readonly: false,
+    };
+    let sqlite = UiConnectionSummary {
+        id: "sqlite".to_owned(),
+        name: "SQLite".to_owned(),
+        host: String::new(),
+        port: 0,
+        database: "app.db".to_owned(),
+        username: String::new(),
+        driver: "SQLite".to_owned(),
+        ssl_mode: UiSslMode::Disable,
+        readonly: false,
+    };
+
+    // With no connection at all, the old lookup answered with PostgreSQL's set through
+    // `active_query_driver`'s display fallback; it must now say nothing is connected.
+    let empty = DbProApp::default();
+    assert!(matches!(
+        empty.query_capabilities(),
+        CapabilityLookup::NoActiveConnection
+    ));
+
+    let mut app = DbProApp {
+        connections: vec![pg, sqlite],
+        active_connection_id: Some("pg".to_owned()),
+        ..Default::default()
+    };
+    assert!(app.query_capabilities().allows(|caps| caps.features.server_sessions));
+
+    // The active query document's connection wins over the active connection.
+    app.query_documents[app.active_query_document].connection_id = Some("sqlite".to_owned());
+    assert!(!app.query_capabilities().allows(|caps| caps.features.server_sessions));
+    assert!(app.query_capabilities().allows(|caps| caps.query.cancel));
 }
 
 #[test]
@@ -3122,13 +3267,11 @@ fn test_query_cancellation_capability_gate() {
     };
 
     // PostgreSQL does not support query cancellation in capabilities
-    let caps = app.active_capabilities().expect("PG capabilities");
-    assert!(!caps.query.cancel);
+    assert!(!app.active_capabilities().allows(|caps| caps.query.cancel));
 
     // Switching to SQLite enables query cancellation
     app.active_connection_id = Some("sqlite".to_owned());
-    let caps_sqlite = app.active_capabilities().expect("SQLite capabilities");
-    assert!(caps_sqlite.query.cancel);
+    assert!(app.active_capabilities().allows(|caps| caps.query.cancel));
 }
 
 #[test]

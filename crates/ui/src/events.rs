@@ -1161,7 +1161,7 @@ impl DbProApp {
         }
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             if let Some(request_id) = self.active_query_running_request() {
-                if self.query_capabilities().is_some_and(|c| c.query.cancel) {
+                if self.query_capabilities().allows(|c| c.query.cancel) {
                     self.cancel_query(request_id);
                 } else {
                     self.runtime_message = "Query cancellation is not supported for this provider".to_owned();

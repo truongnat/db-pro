@@ -172,7 +172,7 @@ impl DbProApp {
                         _ => None,
                     });
                 let running = active_doc_running.is_some();
-                let cancel_supported = self.query_capabilities().is_some_and(|c| c.query.cancel);
+                let cancel_supported = self.query_capabilities().allows(|c| c.query.cancel);
                 let run_button = if running {
                     if cancel_supported {
                         secondary_button_with_icon(ui, Icon::Square, "Stop", self.theme)
@@ -1452,8 +1452,14 @@ impl DbProApp {
         if self.active_explain_request().is_some() {
             return;
         }
-        let Some(capabilities) = self.query_capabilities() else {
-            self.runtime_message = "Explain is unavailable until a supported connection is active".to_owned();
+        let lookup = self.query_capabilities();
+        let Some(capabilities) = lookup.resolved() else {
+            self.runtime_message = format!(
+                "Explain is unavailable: {}",
+                lookup
+                    .unavailable_reason()
+                    .unwrap_or_else(|| "no capability set applies".to_owned())
+            );
             return;
         };
         if !capabilities.query.explain {

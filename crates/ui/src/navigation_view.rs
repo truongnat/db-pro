@@ -987,7 +987,7 @@ impl DbProApp {
 
     fn supports_backup_restore(&self) -> bool {
         self.active_capabilities()
-            .is_some_and(|capabilities| capabilities.features.backup)
+            .allows(|capabilities| capabilities.features.backup)
     }
 
     fn draw_backup_settings(&mut self, ui: &mut egui::Ui) {
