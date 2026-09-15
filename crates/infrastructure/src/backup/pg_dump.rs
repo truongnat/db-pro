@@ -72,6 +72,37 @@ impl PgDumpEngine {
             tracing::warn!(path = %path.display(), %error, "failed to remove incomplete PostgreSQL backup output");
         }
     }
+
+    /// The `psql`/`pg_restore` invocation used by [`Self::restore`].
+    ///
+    /// Split out so the argv shape is testable without a live PostgreSQL server (#244, E-2 asks for
+    /// exactly that): the restore runs **without** `--single-transaction` and without
+    /// `--exit-on-error`, which is the behaviour LIM-020 documents.
+    fn restore_command(options: &RestoreOptions, config: &ConnectionConfig, password: &str) -> Command {
+        let mut cmd = match options.format {
+            BackupFormat::Plain => {
+                let mut command = Command::new("psql");
+                command.arg("-f").arg(&options.input_path);
+                command
+            }
+            BackupFormat::Custom => {
+                let mut command = Command::new("pg_restore");
+                command.arg(&options.input_path);
+                command
+            }
+        };
+        cmd.arg("-h")
+            .arg(&config.host)
+            .arg("-p")
+            .arg(config.port.to_string())
+            .arg("-U")
+            .arg(&config.username)
+            .arg("-d")
+            .arg(&config.database)
+            .env("PGPASSWORD", password)
+            .stdin(Stdio::null());
+        cmd
+    }
 }
 
 #[async_trait::async_trait]
@@ -139,34 +170,23 @@ impl BackupEngine for PgDumpEngine {
 
     async fn restore(&self, options: &RestoreOptions, password: &str) -> Result<(), DbError> {
         let (config, _tunnel) = self.effective_config().await?;
-        let mut cmd = match options.format {
-            BackupFormat::Plain => {
-                let mut command = Command::new("psql");
-                command.arg("-f").arg(&options.input_path);
-                command
-            }
-            BackupFormat::Custom => {
-                let mut command = Command::new("pg_restore");
-                command.arg(&options.input_path);
-                command
-            }
-        };
-        cmd.arg("-h")
-            .arg(&config.host)
-            .arg("-p")
-            .arg(config.port.to_string())
-            .arg("-U")
-            .arg(&config.username)
-            .arg("-d")
-            .arg(&config.database)
-            .env("PGPASSWORD", password)
-            .stdin(Stdio::null());
+        let mut cmd = Self::restore_command(options, &config, password);
 
         let output = Self::run_command(&mut cmd, config.query_timeout_ms, "PostgreSQL restore").await?;
 
         if !output.status.success() {
+            // #244 (E-2), option (b) of the issue: the restore is deliberately **not** run inside a
+            // transaction, so a mid-script failure can leave the target database partially restored.
+            // The state is what matters to the user and it is reported here rather than left implicit
+            // in a bare subprocess error; `psql --single-transaction` / `pg_restore
+            // --single-transaction` (option (a)) would trade that for failing as a whole on dumps
+            // that contain non-transactional statements, which is a compatibility decision the owner
+            // owns (recorded in LIM-020).
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(DbError::Internal(format!("restore failed: {stderr}")));
+            return Err(DbError::Internal(format!(
+                "restore failed: {stderr} -- the restore was NOT run in a transaction, so the target database may now be \
+                 partially restored; inspect it before using it (documented in LIM-020). The full psql/pg_restore output is above"
+            )));
         }
 
         Ok(())
@@ -176,6 +196,65 @@ impl BackupEngine for PgDumpEngine {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+
+    /// #244 (E-2) asks for the argv shape to be asserted without a live server. This pins the
+    /// **chosen** behaviour (option (b) of the issue): the restore is not wrapped in a transaction,
+    /// so the app must say so on failure rather than silently implying an atomic restore.
+    #[test]
+    fn restore_argv_has_no_transaction_boundary_and_is_documented_as_such() {
+        let config = ConnectionConfig {
+            name: "fixture".to_owned(),
+            host: "127.0.0.1".to_owned(),
+            port: 55432,
+            database: "dbpro_fixture".to_owned(),
+            username: "dbpro".to_owned(),
+            driver: db_pro_core::domain::connection::DriverType::Postgres,
+            ssl_mode: db_pro_core::domain::connection::SslMode::Disable,
+            ssh_tunnel: None,
+            query_timeout_ms: 30_000,
+            max_rows: 500,
+            color: None,
+            tags: Vec::new(),
+            group: None,
+            readonly: false,
+        };
+        let plain = RestoreOptions {
+            connection_id: "c1".to_owned(),
+            input_path: "/tmp/dump.sql".to_owned(),
+            format: BackupFormat::Plain,
+        };
+        let custom = RestoreOptions {
+            connection_id: "c1".to_owned(),
+            input_path: "/tmp/dump.dump".to_owned(),
+            format: BackupFormat::Custom,
+        };
+
+        let plain_args = PgDumpEngine::restore_command(&plain, &config, "pw")
+            .as_std()
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        let custom_args = PgDumpEngine::restore_command(&custom, &config, "pw")
+            .as_std()
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert_eq!(plain_args.first().map(String::as_str), Some("-f"));
+        assert_eq!(plain_args.get(1).map(String::as_str), Some("/tmp/dump.sql"));
+        assert_eq!(custom_args.first().map(String::as_str), Some("/tmp/dump.dump"));
+        for args in [&plain_args, &custom_args] {
+            assert!(
+                !args.iter().any(|arg| arg.contains("single-transaction")),
+                "option (b) is chosen: the restore must not silently become transactional: {args:?}"
+            );
+            assert!(
+                !args.iter().any(|arg| arg == "--exit-on-error"),
+                "option (b) is chosen: no exit-on-error flag either: {args:?}"
+            );
+            assert!(args.windows(2).any(|pair| pair == ["-d", "dbpro_fixture"]), "{args:?}");
+        }
+    }
 
     #[tokio::test]
     async fn external_command_timeout_returns_query_timeout() {

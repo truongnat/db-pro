@@ -3,6 +3,7 @@ use crate::editor::{
     CompletionItemKind, CompletionTriggerKind, Diagnostic, EditorSnapshot, SelectionRange, SqlDialect, SqlEditor,
 };
 use crate::query::{CompletionContext, SchemaCompletionProvider};
+use std::path::PathBuf;
 use std::time::Instant;
 
 /// Egress note shown with the AI prediction control (#242).
@@ -15,6 +16,52 @@ use std::time::Instant;
 /// "AI provider is not configured" and nothing leaves the machine (`crates/runtime/src/worker.rs:1118`).
 const AI_PREDICTION_EGRESS_NOTE: &str =
     "Sends the SQL around your cursor and its schema context to your configured AI provider.";
+
+/// Distinguishes concurrent temp files of one process (see [`write_file_atomically`]).
+static ATOMIC_WRITE_SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Write `contents` to `path`, publishing the file in one step (#244, E-1).
+///
+/// `std::fs::write(path, …)` streams straight at the destination, so a failure part-way through —
+/// disk full, I/O error, volume removed — leaves a **truncated file that looks like a complete
+/// export**. This writes a sibling temp file first (same directory, so the rename stays on one
+/// filesystem), removes it if anything fails, and only then renames it over the destination: the
+/// destination either keeps its previous content or holds the complete new bytes, never a prefix of
+/// them.
+pub(crate) fn write_file_atomically(path: &std::path::Path, contents: &[u8]) -> std::io::Result<()> {
+    use std::io::Write as _;
+
+    let parent = match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => std::path::Path::new("."),
+    };
+    let Some(file_name) = path.file_name() else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "export path has no file name",
+        ));
+    };
+    let temp_path = parent.join(format!(
+        ".{}.tmp.{}.{}",
+        file_name.to_string_lossy(),
+        std::process::id(),
+        ATOMIC_WRITE_SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+
+    let result = (|| -> std::io::Result<()> {
+        let mut file = std::fs::File::create(&temp_path)?;
+        file.write_all(contents)?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&temp_path, path)
+    })();
+
+    if result.is_err() {
+        // Best effort: a failed export must not leave its scratch file behind either.
+        let _ = std::fs::remove_file(&temp_path);
+    }
+    result
+}
 
 impl DbProApp {
     pub(super) fn draw_query(&mut self, ui: &mut egui::Ui) {
@@ -1378,8 +1425,26 @@ impl DbProApp {
                 }
                 if compact_button(ui, "Cancel", self.theme).clicked() {
                     self.export_open = false;
+                    self.export_overwrite_pending = false;
                 }
             });
+            if self.export_overwrite_pending {
+                ui.add_space(SPACE_XS);
+                ui.colored_label(
+                    self.theme.warning,
+                    format!("{} already exists. Overwrite it?", self.export_path.trim()),
+                );
+                ui.horizontal(|ui| {
+                    if danger_button(ui, "Overwrite", self.theme).clicked() {
+                        if let Some(result) = result {
+                            self.export_result_confirming_overwrite(result);
+                        }
+                    }
+                    if compact_button(ui, "Keep existing file", self.theme).clicked() {
+                        self.export_overwrite_pending = false;
+                    }
+                });
+            }
         });
     }
 
@@ -1429,17 +1494,52 @@ impl DbProApp {
     }
 
     pub(crate) fn export_result(&mut self, result: &UiQueryResult) {
-        let path = self.export_path.trim();
-        if path.is_empty() {
+        self.export_result_to_disk(result, false);
+    }
+
+    /// Write the export after the user confirmed overwriting an existing file (#244, E-1).
+    pub(crate) fn export_result_confirming_overwrite(&mut self, result: &UiQueryResult) {
+        self.export_result_to_disk(result, true);
+    }
+
+    /// Export the visible result to `export_path`.
+    ///
+    /// #244 (E-1): the file is published atomically and an existing path is never replaced without
+    /// asking, so a failed export cannot leave a truncated file that looks complete and a typo in the
+    /// path cannot destroy an unrelated file.
+    fn export_result_to_disk(&mut self, result: &UiQueryResult, overwrite: bool) {
+        let path_text = self.export_path.trim().to_owned();
+        if path_text.is_empty() {
             self.runtime_message = "Choose an export path first".to_owned();
             return;
         }
+        let path = PathBuf::from(&path_text);
+        if path.exists() && !overwrite {
+            self.export_overwrite_pending = true;
+            return;
+        }
+
         let delimiter = if self.export_format == "CSV" { "," } else { "\t" };
         let output = DbProApp::format_result_delimited(result, delimiter);
-        match std::fs::write(path, output) {
-            Ok(()) => self.runtime_message = format!("Exported {} rows to {path}", result.rows.len()),
-            Err(error) => self.runtime_message = format!("Export failed: {error}"),
+        let exported_rows = result.rows.len();
+        match write_file_atomically(&path, output.as_bytes()) {
+            Ok(()) => {
+                // Truthful row count: a capped result exports the rows it holds, not the rows the
+                // query matched, and the message has to say which one it is.
+                self.runtime_message = if result.row_count > exported_rows as u64 {
+                    format!(
+                        "Exported {exported_rows} rows to {path_text} ({} rows matched; the result holds the first {exported_rows})",
+                        result.row_count
+                    )
+                } else {
+                    format!("Exported {exported_rows} rows to {path_text}")
+                };
+            }
+            Err(error) => {
+                self.runtime_message = format!("Export failed: {error} (no file was written)");
+            }
         }
+        self.export_overwrite_pending = false;
         self.export_open = false;
     }
 
@@ -1769,5 +1869,202 @@ mod egress_tests {
 
         assert_eq!(app.prediction_mode, PredictionMode::Eager);
         assert!(AI_PREDICTION_EGRESS_NOTE.contains("configured AI provider"));
+    }
+}
+
+#[cfg(test)]
+mod export_tests {
+    use super::*;
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("db-pro-export-{label}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    fn dir_entries(dir: &std::path::Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .expect("read temp dir")
+            .map(|entry| entry.expect("entry").file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn atomic_write_publishes_the_whole_file_and_leaves_no_scratch_file() {
+        let dir = temp_dir("publish");
+        let path = dir.join("out.csv");
+
+        write_file_atomically(&path, b"id,name\n1,alpha\n").expect("write");
+
+        assert_eq!(std::fs::read_to_string(&path).expect("read"), "id,name\n1,alpha\n");
+        assert_eq!(
+            dir_entries(&dir),
+            vec!["out.csv".to_owned()],
+            "the temp file must not survive a successful write"
+        );
+    }
+
+    /// The regression #244 (E-1) describes: a write that cannot complete must leave **no** truncated
+    /// file at the destination. The directory is made read-only so the temp file cannot be created —
+    /// the destination is then untouched, where `std::fs::write` would have failed mid-stream.
+    #[cfg(unix)]
+    #[test]
+    fn failed_atomic_write_leaves_the_destination_untouched() {
+        let dir = temp_dir("failure");
+        let path = dir.join("out.csv");
+        std::fs::write(&path, "previous export\n").expect("seed existing file");
+
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).expect("chmod read-only");
+        let error = write_file_atomically(&path, b"id,name\n1,alpha\n")
+            .expect_err("a write into a read-only directory must fail");
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).expect("chmod back");
+
+        assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
+        assert_eq!(
+            std::fs::read_to_string(&path).expect("read"),
+            "previous export\n",
+            "the destination must keep its previous content, never a truncated prefix"
+        );
+        assert_eq!(
+            dir_entries(&dir),
+            vec!["out.csv".to_owned()],
+            "no scratch file may survive"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn failed_atomic_write_into_a_missing_directory_creates_nothing() {
+        let dir = temp_dir("missing");
+        let path = dir.join("no-such-dir").join("out.csv");
+
+        write_file_atomically(&path, b"id,name\n").expect_err("the parent does not exist");
+
+        assert!(!path.exists());
+        assert_eq!(dir_entries(&dir), Vec::<String>::new(), "nothing may be created");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Pins that the **export path** publishes rather than rewrites in place — the property the
+    /// acceptance cares about ("no partial file survives"), which a test of the helper alone does not
+    /// establish: reverting `export_result_to_disk` to `std::fs::write` leaves a helper-only suite
+    /// green. An in-place rewrite truncates the destination before writing into it; a publish
+    /// replaces it, so the destination is a different file afterwards even though the path is the
+    /// same.
+    #[cfg(unix)]
+    #[test]
+    fn export_replaces_the_destination_instead_of_truncating_it() {
+        use std::os::unix::fs::MetadataExt as _;
+
+        let dir = temp_dir("publish-semantics");
+        let path = dir.join("out.csv");
+        std::fs::write(&path, "previous export\n").expect("seed existing file");
+        let inode_before = std::fs::metadata(&path).expect("metadata").ino();
+
+        let mut app = DbProApp {
+            export_open: true,
+            export_path: path.to_string_lossy().into_owned(),
+            export_format: "CSV".to_owned(),
+            ..Default::default()
+        };
+        let result = UiQueryResult {
+            columns: vec![crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+            }],
+            rows: vec![vec![UiCell::Number("1".to_owned())]],
+            row_count: 1,
+            duration_ms: 0,
+        };
+
+        app.export_result(&result);
+        app.export_result_confirming_overwrite(&result);
+
+        assert_eq!(std::fs::read_to_string(&path).expect("read"), "id\n1\n");
+        assert_ne!(
+            std::fs::metadata(&path).expect("metadata").ino(),
+            inode_before,
+            "the destination must be replaced by a rename, not rewritten in place: an in-place write \
+             is what leaves a truncated file when it fails part-way"
+        );
+        assert_eq!(dir_entries(&dir), vec!["out.csv".to_owned()]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn export_refuses_to_replace_an_existing_file_without_confirmation() {
+        let dir = temp_dir("confirm");
+        let path = dir.join("out.csv");
+        std::fs::write(&path, "previous export\n").expect("seed existing file");
+        let mut app = DbProApp {
+            export_open: true,
+            export_path: path.to_string_lossy().into_owned(),
+            export_format: "CSV".to_owned(),
+            ..Default::default()
+        };
+        let result = UiQueryResult {
+            columns: vec![crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+            }],
+            rows: vec![vec![UiCell::Number("1".to_owned())]],
+            row_count: 1,
+            duration_ms: 0,
+        };
+
+        app.export_result(&result);
+
+        assert!(app.export_overwrite_pending, "the first click must ask, not overwrite");
+        assert!(app.export_open, "the dialog stays open for the confirmation");
+        assert_eq!(
+            std::fs::read_to_string(&path).expect("read"),
+            "previous export\n",
+            "nothing may be written before the user confirms"
+        );
+
+        app.export_result_confirming_overwrite(&result);
+
+        assert!(!app.export_overwrite_pending);
+        assert!(!app.export_open);
+        assert_eq!(std::fs::read_to_string(&path).expect("read"), "id\n1\n");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn export_message_names_a_capped_result_as_capped() {
+        let dir = temp_dir("capped");
+        let path = dir.join("out.csv");
+        let mut app = DbProApp {
+            export_open: true,
+            export_path: path.to_string_lossy().into_owned(),
+            export_format: "CSV".to_owned(),
+            ..Default::default()
+        };
+        let result = UiQueryResult {
+            columns: vec![crate::UiColumn {
+                name: "id".to_owned(),
+                data_type: "int".to_owned(),
+                nullable: false,
+            }],
+            rows: vec![vec![UiCell::Number("1".to_owned())]],
+            row_count: 500,
+            duration_ms: 0,
+        };
+
+        app.export_result(&result);
+
+        assert!(
+            app.runtime_message.contains("Exported 1 rows") && app.runtime_message.contains("500 rows matched"),
+            "a capped export must not read as a complete one: {}",
+            app.runtime_message
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

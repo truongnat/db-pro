@@ -352,6 +352,9 @@ pub struct DbProApp {
     export_open: bool,
     export_format: String,
     export_path: String,
+    /// Set when the export dialog was asked to write over an existing file and is waiting for the
+    /// user to confirm it (#244, E-1).
+    export_overwrite_pending: bool,
     connections: Vec<UiConnectionSummary>,
     saved_queries: Vec<UiSavedQuerySummary>,
     query_folders: Vec<UiQueryFolderSummary>,

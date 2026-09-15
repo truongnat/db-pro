@@ -13,6 +13,7 @@
 > `docs/release/0.1.0-readiness.md`, `docs/release/0.1.0-handoff.md` §3 and `risk-register.md` §4.
 > No limitation below is retracted by this note.
 > Risk IDs referenced below (`R003`, `R-LICENSE`, `R001`) are defined in `docs/release/risk-register.md`.
+> Further addition (2026-09-15, #244): **LIM-020 added** — PostgreSQL restore is not transactional and backup/restore cannot be cancelled. No entry was deleted or rewritten.
 > Further addition (2026-09-15, #242): **LIM-019 added** — the AI features are the app's only egress and the in-app/release disclosure for it. No entry was deleted or rewritten.
 > Issue: #135
 > Supports: #27, #30, #105, #110, #111
@@ -301,11 +302,25 @@ Each entry includes:
 | Must not contradict | `0.1.0-release-notes.md` (Known limitations), `README.md` (Agent provider), `docs/notes/PRODUCT_CAPABILITY_MATRIX.md` §Privacy-security, `docs/release/audit-security-boundaries.md` §1/§5 (T-1), UI text in `crates/ui/src/agent_view.rs` and `crates/ui/src/query_view.rs` |
 | Evidence | `docs/release/audit-security-boundaries.md` §1 (data-flow inventory: no telemetry, no update check, no licence check, no remote asset; only these two endpoints) and §5 (T-1); `crates/ui/src/agent_view.rs` (`AI_EGRESS_DISCLOSURE`), `crates/ui/src/query_view.rs` (`AI_PREDICTION_EGRESS_NOTE`); `docs/release/evidence/v01-runtime/providers/54-ai-egress-disclosure.md` |
 
+## LIM-020: PostgreSQL restore is not transactional; backup and restore cannot be cancelled
+
+| Field | Value |
+|---|---|
+| Category | data-grid |
+| Actual behavior | Two related gaps in the shipped backup/restore surface. (1) **A PostgreSQL restore is not atomic**: the plain path runs `psql -f <dump>` and the custom path runs `pg_restore <dump>` with neither `--single-transaction` nor `--exit-on-error` (`crates/infrastructure/src/backup/pg_dump.rs`, argv pinned by `restore_argv_has_no_transaction_boundary_and_is_documented_as_such`), so a mid-script failure leaves the **target database partially restored**. #244 chose option (b) of that issue — keep the behaviour, state the consequence — and the failure message now says so ("the restore was NOT run in a transaction … may now be partially restored; inspect it before using it"), naming the state rather than leaving it in a bare subprocess error. SQLite restore is validate-then-rename by contrast (`sqlite_backup.rs`), i.e. all-or-nothing. (2) **A running backup or restore cannot be cancelled**: `RuntimeCommand::CancelOperation` is declared (`crates/runtime/src/worker.rs:205`) and handled (`:1563`) but constructed nowhere in the workspace, so there is no Stop affordance for `pg_dump`. |
+| User-visible impact | A failed PostgreSQL restore can leave the target database in a mixed state — some objects restored, some not — and the user has to inspect it; the app says this at failure time but cannot undo it. A long-running `pg_dump` runs to completion or to the query timeout, with no way to stop it from the UI. |
+| Reason | `--single-transaction` would make the restore atomic but makes any dump containing non-transactional statements (`CREATE INDEX CONCURRENTLY`, `VACUUM`, …) fail as a whole, which is a compatibility trade the owner owns; the issue offers both options and option (b) is the one implemented. Cancellation needs a Stop control wired to `CancelOperation` plus child-process kill and temp-file cleanup, which the issue's acceptance allows to be recorded instead of built. |
+| Status | Accepted v0.1 |
+| Target issue | #244 (implemented: atomic export, restore state stated, cancellation recorded); a cancel affordance is post-v0.1 work, and `--single-transaction` remains an owner decision |
+| Safe release-note wording | "Export publishes atomically, so a failed export never leaves a half-written file. A failed PostgreSQL restore can leave the target database partially restored — the app says so when it happens, and the database should be inspected before use. A running backup or restore cannot be cancelled yet." |
+| Must not contradict | `0.1.0-release-notes.md` (§Export and Backup, §Known limitations), `provider-capability-matrix.md` (Backup / Restore / CSV-TSV export / Backup-restore cancellation rows), `docs/release/audit-data-integrity.md` (E-1/E-2/E-3), `crates/ui/src/query_view.rs` (export dialog), `crates/infrastructure/src/backup/pg_dump.rs` (restore) |
+| Evidence | `docs/release/audit-data-integrity.md` §2 (findings E-1/E-2/E-3) and §3 (partial-failure table); `crates/ui/src/query_view.rs` (`write_file_atomically`, `export_result_to_disk`); `crates/infrastructure/src/backup/pg_dump.rs` (`restore_command`); `docs/release/evidence/v01-runtime/providers/56-export-atomicity-and-restore-state.md` |
+
 ## Summary by status
 
 | Status | Count | IDs |
 |---|---|---|
-| Accepted v0.1 | 12 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-013, LIM-014, LIM-015, LIM-016, LIM-017, LIM-018, LIM-019 |
+| Accepted v0.1 | 13 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-013, LIM-014, LIM-015, LIM-016, LIM-017, LIM-018, LIM-019, LIM-020 |
 | Blocked decision | 4 | LIM-001, LIM-009, LIM-010, LIM-011 |
 | Deferred v0.2+ | 3 | LIM-004, LIM-008, LIM-012 |
 | Fix before v0.1 | 0 | — |
