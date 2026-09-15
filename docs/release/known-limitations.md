@@ -186,19 +186,19 @@ enabled UI driver card, and the service-level features that remain PostgreSQL-on
 | Must not contradict | Repository, distribution metadata |
 | Evidence | No LICENSE file at repo root |
 
-## LIM-011: CHECK constraint disposition pending
+## LIM-011: CHECK constraints kept with residual SQLite parser risk
 
 | Field | Value |
 |---|---|
 | Category | schema |
-| Actual behavior | CHECK constraints are introspected but the release disposition (keep/defer/fix) is undecided |
-| User-visible impact | May show incorrect CHECK info or miss edge cases |
-| Reason | Decision pending (#68) |
-| Status | Blocked decision |
-| Target issue | #68 |
-| Safe release-note wording | "Basic constraint introspection" |
+| Actual behavior | CHECK constraints are introspected (PostgreSQL catalog; SQLite CREATE TABLE parser) and shown in the native table metadata constraints panel |
+| User-visible impact | SQLite named/edge-case expressions may still need parser hardening; MySQL returns no CHECK rows |
+| Reason | Disposition **KEEP v0.1** (#68). Residual work: #69 (SQLite parser), #70 (native exposure completion). MySQL stays empty/PARTIAL |
+| Status | Accepted with residual |
+| Target issue | #68 (decision), #69, #70 |
+| Safe release-note wording | "CHECK constraints listed for PostgreSQL and SQLite; MySQL CHECK introspection not yet available" |
 | Must not contradict | Schema panel, introspection docs |
-| Evidence | `SchemaCapabilities` does not have a `check_constraints` field |
+| Evidence | `docs/release/evidence/v01-runtime/providers/65-check-constraint-disposition-keep.md` |
 
 ## LIM-012: Import deferred
 
@@ -332,8 +332,8 @@ enabled UI driver card, and the service-level features that remain PostgreSQL-on
 
 | Status | Count | IDs |
 |---|---|---|
-| Accepted v0.1 | 13 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-013, LIM-014, LIM-015, LIM-016, LIM-017, LIM-018, LIM-019, LIM-020 |
-| Blocked decision | 4 | LIM-001, LIM-009, LIM-010, LIM-011 |
+| Accepted v0.1 | 14 | LIM-002, LIM-003, LIM-005, LIM-006, LIM-007, LIM-011, LIM-013, LIM-014, LIM-015, LIM-016, LIM-017, LIM-018, LIM-019, LIM-020 |
+| Blocked decision | 3 | LIM-001, LIM-009, LIM-010 |
 | Deferred v0.2+ | 3 | LIM-004, LIM-008, LIM-012 |
 | Fix before v0.1 | 0 | — |
 
