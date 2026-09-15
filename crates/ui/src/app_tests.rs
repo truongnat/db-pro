@@ -2765,6 +2765,21 @@ fn sql_diagnostics_report_mixed_delimiter_mismatch() {
 }
 
 #[test]
+fn sql_diagnostics_gate_ilike_and_glob_through_capabilities() {
+    let sqlite = DbProApp::parse_sql_diagnostics("SELECT * FROM t WHERE name ILIKE 'a%'", "SQLite");
+    assert!(sqlite.iter().any(|m| m.contains("ILIKE")));
+
+    let postgres = DbProApp::parse_sql_diagnostics("SELECT * FROM t WHERE name GLOB 'a*'", "PostgreSQL");
+    assert!(postgres.iter().any(|m| m.contains("GLOB")));
+
+    let mysql = DbProApp::parse_sql_diagnostics("SELECT * FROM t WHERE name ILIKE 'a%'", "MySQL");
+    assert!(mysql.iter().any(|m| m.contains("ILIKE")));
+
+    let pg_ok = DbProApp::parse_sql_diagnostics("SELECT * FROM t WHERE name ILIKE 'a%'", "PostgreSQL");
+    assert!(!pg_ok.iter().any(|m| m.contains("ILIKE is not supported")));
+}
+
+#[test]
 fn sql_lint_warns_on_select_star_and_null_compare() {
     let (messages, structured) = DbProApp::analyze_sql_diagnostics("SELECT * FROM t WHERE id = NULL", "PostgreSQL");
     assert!(messages.iter().any(|m| m.contains("SELECT *")));

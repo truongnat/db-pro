@@ -1759,12 +1759,21 @@ impl DbProApp {
     pub(crate) fn analyze_sql_diagnostics(sql: &str, driver: &str) -> (Vec<String>, Vec<Diagnostic>) {
         let mut string_diagnostics = Vec::new();
         let mut structured_diagnostics = Vec::new();
-        let parse_result = if driver.eq_ignore_ascii_case("sqlite") {
-            Parser::parse_sql(&SQLiteDialect {}, sql)
-        } else if driver.eq_ignore_ascii_case("postgres") {
+        let capabilities = match CapabilityLookup::for_driver_label(driver) {
+            CapabilityLookup::Supported(caps) => Some(caps),
+            CapabilityLookup::NoActiveConnection | CapabilityLookup::UnsupportedDriver { .. } => None,
+        };
+        let parse_result = if capabilities
+            .as_ref()
+            .is_some_and(|caps| caps.query.numbered_parameters)
+        {
             Parser::parse_sql(&PostgreSqlDialect {}, sql)
-        } else {
+        } else if driver.eq_ignore_ascii_case("mysql") {
+            // MySQL shares the positional editor dialect; GenericDialect is the closest
+            // sqlparser stand-in until a dedicated MySQL dialect is wired.
             Parser::parse_sql(&GenericDialect {}, sql)
+        } else {
+            Parser::parse_sql(&SQLiteDialect {}, sql)
         };
         if let Err(error) = parse_result {
             let msg = format!("SQL parser: {error}");
@@ -1827,16 +1836,22 @@ impl DbProApp {
             string_diagnostics.push(msg.clone());
             structured_diagnostics.push(Diagnostic::warning((0, sql.len()), msg));
         }
-        if driver.eq_ignore_ascii_case("sqlite") {
+        if !capabilities
+            .as_ref()
+            .is_some_and(|caps| caps.query.ilike)
+        {
             if let Some((_, offset)) = tokens.iter().find(|(t, _)| t == "ilike") {
-                let msg = "SQLite does not support ILIKE; use LIKE or lower()".to_owned();
+                let msg = "ILIKE is not supported for this provider; use LIKE or lower()".to_owned();
                 string_diagnostics.push(msg.clone());
                 structured_diagnostics.push(Diagnostic::error((*offset, offset + 5), msg));
             }
         }
-        if driver.eq_ignore_ascii_case("postgres") {
+        if !capabilities
+            .as_ref()
+            .is_some_and(|caps| caps.query.glob)
+        {
             if let Some((_, offset)) = tokens.iter().find(|(t, _)| t == "glob") {
-                let msg = "GLOB is SQLite-specific; use LIKE for PostgreSQL".to_owned();
+                let msg = "GLOB is not supported for this provider; use LIKE instead".to_owned();
                 string_diagnostics.push(msg.clone());
                 structured_diagnostics.push(Diagnostic::error((*offset, offset + 4), msg));
             }

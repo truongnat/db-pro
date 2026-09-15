@@ -30,6 +30,10 @@ pub struct QueryCapabilities {
     pub numbered_parameters: bool,
     /// Supports positional parameters (e.g. ?).
     pub positional_parameters: bool,
+    /// Supports the ILIKE operator (PostgreSQL-style case-insensitive LIKE).
+    pub ilike: bool,
+    /// Supports the GLOB operator (SQLite-style).
+    pub glob: bool,
     /// Maximum number of rows that can be fetched in a single query.
     /// None means no enforced limit.
     pub max_rows_limit: Option<u64>,
@@ -290,6 +294,8 @@ impl DatabaseCapabilities {
                 parameters: true,
                 numbered_parameters: true,
                 positional_parameters: false,
+                ilike: true,
+                glob: false,
                 max_rows_limit: None,
             },
             schema: SchemaCapabilities {
@@ -345,6 +351,8 @@ impl DatabaseCapabilities {
                 parameters: true,
                 numbered_parameters: false,
                 positional_parameters: true,
+                ilike: false,
+                glob: true,
                 max_rows_limit: None,
             },
             schema: SchemaCapabilities {
@@ -407,6 +415,8 @@ impl DatabaseCapabilities {
                 parameters: true,
                 numbered_parameters: false,
                 positional_parameters: true,
+                ilike: false,
+                glob: false,
                 max_rows_limit: None,
             },
             schema: SchemaCapabilities {
@@ -478,6 +488,8 @@ mod tests {
         assert!(caps.features.server_sessions);
         assert!(caps.features.partitions);
         assert!(caps.features.tablespaces);
+        assert!(caps.query.ilike);
+        assert!(!caps.query.glob);
     }
 
     #[test]
@@ -493,6 +505,8 @@ mod tests {
         assert!(!caps.features.tablespaces);
         assert!(!caps.data.uuid_type);
         assert!(!caps.data.array_types);
+        assert!(!caps.query.ilike);
+        assert!(caps.query.glob);
     }
 
     #[test]
@@ -512,6 +526,8 @@ mod tests {
         assert!(caps.query.parameters);
         assert!(caps.query.positional_parameters);
         assert!(!caps.query.numbered_parameters);
+        assert!(!caps.query.ilike);
+        assert!(!caps.query.glob);
     }
 
     #[test]
