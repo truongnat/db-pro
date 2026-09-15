@@ -215,16 +215,13 @@ impl DbConnector for MySqlConnector {
             TransactionFailure, TransactionFailureOutcome, TransactionFailurePhase, TransactionStatementResult,
         };
 
-        let pool = self
-            .get_pool(handle)
-            .await
-            .ok_or_else(|| TransactionFailure {
-                phase: TransactionFailurePhase::Validation,
-                statement_index: 0,
-                outcome: TransactionFailureOutcome::NotStarted,
-                results: Vec::new(),
-                error: DbError::ConnectionFailed("no MySQL pool for handle".into()),
-            })?;
+        let pool = self.get_pool(handle).await.ok_or_else(|| TransactionFailure {
+            phase: TransactionFailurePhase::Validation,
+            statement_index: 0,
+            outcome: TransactionFailureOutcome::NotStarted,
+            results: Vec::new(),
+            error: DbError::ConnectionFailed("no MySQL pool for handle".into()),
+        })?;
 
         let mut tx = pool.begin().await.map_err(|e| TransactionFailure {
             phase: TransactionFailurePhase::Begin,
@@ -241,9 +238,7 @@ impl DbConnector for MySqlConnector {
                 let (error, outcome) = match tx.rollback().await {
                     Ok(()) => (error, TransactionFailureOutcome::RolledBack),
                     Err(rollback_error) => (
-                        DbError::Internal(format!(
-                            "bind failed: {error}; rollback failed: {rollback_error}"
-                        )),
+                        DbError::Internal(format!("bind failed: {error}; rollback failed: {rollback_error}")),
                         TransactionFailureOutcome::Unknown,
                     ),
                 };
@@ -263,9 +258,7 @@ impl DbConnector for MySqlConnector {
                     let (error, outcome) = match tx.rollback().await {
                         Ok(()) => (error, TransactionFailureOutcome::RolledBack),
                         Err(rollback_error) => (
-                            DbError::Internal(format!(
-                                "statement failed: {error}; rollback failed: {rollback_error}"
-                            )),
+                            DbError::Internal(format!("statement failed: {error}; rollback failed: {rollback_error}")),
                             TransactionFailureOutcome::Unknown,
                         ),
                     };
@@ -284,9 +277,7 @@ impl DbConnector for MySqlConnector {
                 let (error, outcome) = match tx.rollback().await {
                     Ok(()) => (error, TransactionFailureOutcome::RolledBack),
                     Err(rollback_error) => (
-                        DbError::Internal(format!(
-                            "mutation affected no rows; rollback failed: {rollback_error}"
-                        )),
+                        DbError::Internal(format!("mutation affected no rows; rollback failed: {rollback_error}")),
                         TransactionFailureOutcome::Unknown,
                     ),
                 };

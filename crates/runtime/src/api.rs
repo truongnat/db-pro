@@ -262,7 +262,7 @@ impl QueryApi {
     }
 
     pub async fn execute(&self, connection_id: &str, sql: &str) -> Result<QueryResult, DbErrorDto> {
-        self.execute_with_context(connection_id, sql, None, None).await
+        self.execute_with_params(connection_id, sql, &[], None, None).await
     }
 
     pub async fn cancel(&self, connection_id: &str) -> Result<(), DbErrorDto> {
@@ -277,6 +277,18 @@ impl QueryApi {
         database: Option<&str>,
         schema: Option<&str>,
     ) -> Result<QueryResult, DbErrorDto> {
+        self.execute_with_params(connection_id, sql, &[], database, schema)
+            .await
+    }
+
+    pub async fn execute_with_params(
+        &self,
+        connection_id: &str,
+        sql: &str,
+        params: &[QueryParam],
+        database: Option<&str>,
+        schema: Option<&str>,
+    ) -> Result<QueryResult, DbErrorDto> {
         let connection_id = ConnectionId::parse(connection_id).map_err(|error| DbErrorDto {
             code: "VALIDATION_ERROR".to_owned(),
             message: format!("invalid connection id: {error}"),
@@ -285,7 +297,7 @@ impl QueryApi {
             position: None,
         })?;
         self.service
-            .execute(&connection_id, sql, &[] as &[QueryParam], database, schema)
+            .execute(&connection_id, sql, params, database, schema)
             .await
             .map_err(Into::into)
     }

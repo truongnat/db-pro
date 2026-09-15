@@ -145,10 +145,7 @@ impl DbProApp {
 
             let available_schemas = if !self.schema.schemas.is_empty() {
                 self.schema.schemas.clone()
-            } else if !self
-                .query_capabilities()
-                .allows(|caps| caps.schema.schemas)
-            {
+            } else if !self.query_capabilities().allows(|caps| caps.schema.schemas) {
                 // Engines without named schemas (SQLite) expose a single default catalog.
                 vec!["main".to_string()]
             } else {
@@ -200,9 +197,8 @@ impl DbProApp {
                         if cancel_supported {
                             self.cancel_query(request_id);
                         } else {
-                            self.runtime_message = cancel_reason.unwrap_or_else(|| {
-                                "Query cancellation is not supported for this provider".to_owned()
-                            });
+                            self.runtime_message = cancel_reason
+                                .unwrap_or_else(|| "Query cancellation is not supported for this provider".to_owned());
                         }
                     } else {
                         self.dispatch_query();
@@ -305,9 +301,7 @@ impl DbProApp {
     fn draw_sql_completion(&mut self, ui: &mut egui::Ui) {
         card_frame(self.theme).show(ui, |ui| {
             ui.label(RichText::new("SQL completion").strong());
-            let uses_positional = !self
-                .query_capabilities()
-                .allows(|caps| caps.query.numbered_parameters);
+            let uses_positional = !self.query_capabilities().allows(|caps| caps.query.numbered_parameters);
             let mut candidates = vec![
                 "SELECT".to_owned(),
                 "FROM".to_owned(),
@@ -368,10 +362,7 @@ impl DbProApp {
                 "INSERT row",
                 "INSERT INTO table_name (column_a, column_b)\nVALUES ($1, $2);",
             ),
-            (
-                "DELETE with WHERE",
-                "DELETE FROM table_name\nWHERE id = $1;",
-            ),
+            ("DELETE with WHERE", "DELETE FROM table_name\nWHERE id = $1;"),
             (
                 "EXPLAIN ANALYZE",
                 "EXPLAIN (ANALYZE, BUFFERS)\nSELECT *\nFROM table_name\nWHERE id = $1;",
@@ -720,11 +711,7 @@ impl DbProApp {
                                 ui.label("No numeric columns");
                             }
                             for idx in numeric_idxs {
-                                ui.selectable_value(
-                                    &mut doc.chart_config.y_column,
-                                    Some(idx),
-                                    &column_names[idx],
-                                );
+                                ui.selectable_value(&mut doc.chart_config.y_column, Some(idx), &column_names[idx]);
                             }
                         });
                 }
@@ -742,11 +729,7 @@ impl DbProApp {
                                 ChartAggregation::Min,
                                 ChartAggregation::Max,
                             ] {
-                                ui.selectable_value(
-                                    &mut doc.chart_config.aggregation,
-                                    agg,
-                                    agg.to_string(),
-                                );
+                                ui.selectable_value(&mut doc.chart_config.aggregation, agg, agg.to_string());
                             }
                         });
                 }
@@ -785,11 +768,7 @@ impl DbProApp {
             ui.allocate_ui(egui::vec2(ui.available_width(), 280.0), |ui| {
                 ChartRenderer::draw(ui, &projection.points, &config, &self.theme);
             });
-            let mut footer = format!(
-                "{} points (max {})",
-                projection.points.len(),
-                config.max_points.max(1)
-            );
+            let mut footer = format!("{} points (max {})", projection.points.len(), config.max_points.max(1));
             if projection.skipped_null_y > 0 {
                 footer.push_str(&format!(" · skipped {} null/non-numeric Y", projection.skipped_null_y));
             }
@@ -797,10 +776,7 @@ impl DbProApp {
                 let x_note = if config.chart_type == ChartType::Pie {
                     format!(" · {} X nulls labeled NULL", projection.x_fallback_to_index)
                 } else {
-                    format!(
-                        " · {} X nulls mapped to row index",
-                        projection.x_fallback_to_index
-                    )
+                    format!(" · {} X nulls mapped to row index", projection.x_fallback_to_index)
                 };
                 footer.push_str(&x_note);
             }
@@ -1234,10 +1210,7 @@ impl DbProApp {
 
         // Prefer numbered-parameter dialect heuristics when the capability set advertises
         // them; otherwise use the positional/SQLite editor dialect (covers SQLite + MySQL).
-        let dialect = if self
-            .query_capabilities()
-            .allows(|caps| caps.query.numbered_parameters)
-        {
+        let dialect = if self.query_capabilities().allows(|caps| caps.query.numbered_parameters) {
             SqlDialect::Postgres
         } else {
             SqlDialect::SQLite
@@ -1457,10 +1430,7 @@ impl DbProApp {
     }
 
     fn draw_floating_completion_popup(&mut self, ctx: &egui::Context) {
-        let dialect = if self
-            .query_capabilities()
-            .allows(|caps| caps.query.numbered_parameters)
-        {
+        let dialect = if self.query_capabilities().allows(|caps| caps.query.numbered_parameters) {
             SqlDialect::Postgres
         } else {
             SqlDialect::SQLite
@@ -1750,9 +1720,7 @@ impl DbProApp {
             return;
         }
         let lookup = self.query_capabilities();
-        if let Some(reason) =
-            lookup.feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Explain)
-        {
+        if let Some(reason) = lookup.feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Explain) {
             self.runtime_message = format!("Explain is unavailable: {reason}");
             return;
         }
@@ -1842,10 +1810,7 @@ impl DbProApp {
     pub(crate) fn format_active_query(&mut self) {
         let doc_index = self.active_query_document;
         self.cancel_prediction_for_document(doc_index);
-        let dialect = if self
-            .query_capabilities()
-            .allows(|caps| caps.query.numbered_parameters)
-        {
+        let dialect = if self.query_capabilities().allows(|caps| caps.query.numbered_parameters) {
             SqlDialect::Postgres
         } else {
             SqlDialect::SQLite
@@ -1862,10 +1827,7 @@ impl DbProApp {
             CapabilityLookup::Supported(caps) => Some(caps),
             CapabilityLookup::NoActiveConnection | CapabilityLookup::UnsupportedDriver { .. } => None,
         };
-        let parse_result = if capabilities
-            .as_ref()
-            .is_some_and(|caps| caps.query.numbered_parameters)
-        {
+        let parse_result = if capabilities.as_ref().is_some_and(|caps| caps.query.numbered_parameters) {
             Parser::parse_sql(&PostgreSqlDialect {}, sql)
         } else if driver.eq_ignore_ascii_case("mysql") {
             // MySQL shares the positional editor dialect; GenericDialect is the closest
@@ -1935,20 +1897,14 @@ impl DbProApp {
             string_diagnostics.push(msg.clone());
             structured_diagnostics.push(Diagnostic::warning((0, sql.len()), msg));
         }
-        if !capabilities
-            .as_ref()
-            .is_some_and(|caps| caps.query.ilike)
-        {
+        if !capabilities.as_ref().is_some_and(|caps| caps.query.ilike) {
             if let Some((_, offset)) = tokens.iter().find(|(t, _)| t == "ilike") {
                 let msg = "ILIKE is not supported for this provider; use LIKE or lower()".to_owned();
                 string_diagnostics.push(msg.clone());
                 structured_diagnostics.push(Diagnostic::error((*offset, offset + 5), msg));
             }
         }
-        if !capabilities
-            .as_ref()
-            .is_some_and(|caps| caps.query.glob)
-        {
+        if !capabilities.as_ref().is_some_and(|caps| caps.query.glob) {
             if let Some((_, offset)) = tokens.iter().find(|(t, _)| t == "glob") {
                 let msg = "GLOB is not supported for this provider; use LIKE instead".to_owned();
                 string_diagnostics.push(msg.clone());
@@ -2059,14 +2015,9 @@ impl DbProApp {
                             .is_some_and(|c| c.is_alphabetic() || c == '"');
                     if looks_like_table {
                         let abs = from_at + 4 + comma_rel;
-                        let msg =
-                            "Comma join may produce a cartesian product; prefer explicit JOIN … ON".to_owned();
+                        let msg = "Comma join may produce a cartesian product; prefer explicit JOIN … ON".to_owned();
                         string_diagnostics.push(msg.clone());
-                        structured_diagnostics.push(Diagnostic::lint(
-                            (abs, abs + 1),
-                            msg,
-                            "lint.comma-join",
-                        ));
+                        structured_diagnostics.push(Diagnostic::lint((abs, abs + 1), msg, "lint.comma-join"));
                     }
                 }
             }
@@ -2074,10 +2025,7 @@ impl DbProApp {
         // Duplicate projection aliases: `SELECT a AS x, b AS x`.
         if let Some(select_at) = lower.find("select") {
             let after_select = &lower[select_at + "select".len()..];
-            let projection = after_select
-                .split(" from ")
-                .next()
-                .unwrap_or(after_select);
+            let projection = after_select.split(" from ").next().unwrap_or(after_select);
             let mut seen: Vec<(String, usize)> = Vec::new();
             let mut search_from = 0usize;
             while let Some(rel) = projection[search_from..].find(" as ") {

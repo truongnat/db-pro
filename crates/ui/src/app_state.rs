@@ -102,6 +102,11 @@ impl DbProApp {
                     app.pinned_tables = tables;
                 }
             }
+            if let Some(recent) = storage.get_string("dbpro.native.recent-tables-v1") {
+                if let Ok(tables) = serde_json::from_str::<Vec<String>>(&recent) {
+                    app.recent_tables = tables;
+                }
+            }
         }
         app
     }
@@ -220,6 +225,7 @@ impl Default for DbProApp {
             schema_request: None,
             selected_table: None,
             pinned_tables: Vec::new(),
+            recent_tables: Vec::new(),
             selected_schema_object: None,
             schema_object_view: SchemaObjectView::Definition,
             diagram_zoom: 1.0,

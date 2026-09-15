@@ -116,6 +116,7 @@ pub use crate::query::{QueryDocument, QueryExecutionState};
 enum Activity {
     Explorer,
     Queries,
+    Data,
     History,
     Transfers,
     Monitor,
@@ -123,6 +124,9 @@ enum Activity {
     Diagram,
     Problems,
 }
+
+/// Cap for MRU recent-table entries persisted for Data Activity (#212).
+const RECENT_TABLES_MAX: usize = 20;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum ProblemsSeverityFilter {
@@ -168,6 +172,7 @@ pub(crate) enum PaletteAction {
     Welcome,
     Query,
     History,
+    Data,
     Settings,
     Diagram,
     Agent,
@@ -411,8 +416,10 @@ pub struct DbProApp {
     schema_error: Option<String>,
     schema_request: Option<crate::RequestId>,
     selected_table: Option<String>,
-    /// Table names pinned for quick reopen (#202). Persisted locally.
+    /// Table names pinned for quick reopen (#202 / #212). Persisted locally.
     pinned_tables: Vec<String>,
+    /// Most-recently-opened tables for Data Activity (#212). Persisted locally.
+    recent_tables: Vec<String>,
     selected_schema_object: Option<SchemaObjectSelection>,
     schema_object_view: SchemaObjectView,
     diagram_zoom: f32,
@@ -522,6 +529,9 @@ impl eframe::App for DbProApp {
         }
         if let Ok(pinned) = serde_json::to_string(&self.pinned_tables) {
             storage.set_string("dbpro.native.pinned-tables-v1", pinned);
+        }
+        if let Ok(recent) = serde_json::to_string(&self.recent_tables) {
+            storage.set_string("dbpro.native.recent-tables-v1", recent);
         }
         storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
         storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
@@ -1142,7 +1152,7 @@ impl DbProApp {
 
     pub(crate) fn build_diagnostics_summary(&self) -> db_pro_core::domain::diagnostics::DiagnosticsSummary {
         use db_pro_core::domain::diagnostics::{
-            ConnectionDiagnostic, DiagnosticsSummary, DriverDiagnostic, ErrorDiagnostic, redact_sensitive,
+            redact_sensitive, ConnectionDiagnostic, DiagnosticsSummary, DriverDiagnostic, ErrorDiagnostic,
         };
 
         let mut summary = DiagnosticsSummary::placeholder();
@@ -1597,6 +1607,7 @@ impl DbProApp {
     pub(crate) fn open_table(&mut self, table: String) {
         if self.selected_table.as_deref() == Some(&table) {
             self.active_tab = WorkspaceTab::Table;
+            self.record_recent_table(&table);
             return;
         }
         if !self.staged_changes.is_empty() {
@@ -1607,11 +1618,28 @@ impl DbProApp {
         }
         self.pending_navigation_action = None;
         self.persist_current_grid_layout();
+        self.record_recent_table(&table);
         self.selected_table = Some(table);
         self.restore_grid_layout_for_active_table();
         self.request_table_info();
         self.request_table_data();
         self.active_tab = WorkspaceTab::Table;
+    }
+
+    /// Push `table` to the front of the MRU recent list (#212).
+    pub(crate) fn record_recent_table(&mut self, table: &str) {
+        if table.is_empty() {
+            return;
+        }
+        self.recent_tables.retain(|item| item != table);
+        self.recent_tables.insert(0, table.to_owned());
+        if self.recent_tables.len() > RECENT_TABLES_MAX {
+            self.recent_tables.truncate(RECENT_TABLES_MAX);
+        }
+    }
+
+    pub(crate) fn remove_recent_table(&mut self, table: &str) {
+        self.recent_tables.retain(|item| item != table);
     }
 
     fn open_palette(&mut self, mode: PaletteMode) {

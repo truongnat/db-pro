@@ -340,7 +340,11 @@ async fn mysql_introspects_named_check_constraints() {
         .iter()
         .filter(|c| c.table_name == "mysql_check_probe")
         .collect();
-    assert_eq!(checks.len(), 1, "expected one CHECK on mysql_check_probe, got {checks:?}");
+    assert_eq!(
+        checks.len(),
+        1,
+        "expected one CHECK on mysql_check_probe, got {checks:?}"
+    );
     assert_eq!(checks[0].name, "chk_amount_nonneg");
     assert!(
         checks[0].definition.to_lowercase().contains("amount"),
@@ -483,8 +487,7 @@ async fn mysql_table_data_change_set_round_trips() {
         .await
         .expect("delete change-set");
 
-    let (count_sql, count_params) =
-        sql_builder::build_count(dialect.as_ref(), &database, "mysql_changeset_probe", &[]);
+    let (count_sql, count_params) = sql_builder::build_count(dialect.as_ref(), &database, "mysql_changeset_probe", &[]);
     let count = connector
         .query(&handle, &count_sql, &count_params)
         .await

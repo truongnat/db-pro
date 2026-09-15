@@ -6,8 +6,7 @@ use db_pro_core::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use db_pro_core::domain::query::{CellValue, ColumnMeta, QueryResult, Row};
 use db_pro_core::domain::run_config::RunConfig;
 use db_pro_core::domain::schema::{
-    CheckConstraint, Column, ForeignKey, Index, IntrospectResult, PrimaryKey, Schema, Table, TableInfo, Trigger,
-    View,
+    CheckConstraint, Column, ForeignKey, Index, IntrospectResult, PrimaryKey, Schema, Table, TableInfo, Trigger, View,
 };
 use db_pro_core::domain::user::{DatabaseUser, Privilege};
 
@@ -1347,18 +1346,9 @@ mod tests {
 
         assert_eq!(object["primaryKeys"][1]["columns"][0], "order_id");
         assert_eq!(object["indexes"][0]["tableName"], "orders");
-        assert_eq!(
-            object["checkConstraints"][0]["name"],
-            "orders_total_positive"
-        );
-        assert_eq!(
-            object["checkConstraints"][0]["tableName"],
-            "orders"
-        );
-        assert_eq!(
-            object["checkConstraints"][0]["definition"],
-            "CHECK (total >= 0)"
-        );
+        assert_eq!(object["checkConstraints"][0]["name"], "orders_total_positive");
+        assert_eq!(object["checkConstraints"][0]["tableName"], "orders");
+        assert_eq!(object["checkConstraints"][0]["definition"], "CHECK (total >= 0)");
         assert_eq!(object["views"][0]["definition"], "SELECT id FROM orders");
         assert_eq!(
             object["triggers"][0]["functionDef"],

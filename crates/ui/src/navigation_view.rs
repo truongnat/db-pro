@@ -428,6 +428,7 @@ impl DbProApp {
                     for (activity, icon, hint) in [
                         (Some(Activity::Explorer), Icon::Database, "Explorer"),
                         (Some(Activity::Queries), Icon::FileCode2, "Queries"),
+                        (Some(Activity::Data), Icon::Table2, "Data"),
                         (Some(Activity::History), Icon::History, "History"),
                         (Some(Activity::Problems), Icon::TriangleAlert, "Problems"),
                         (Some(Activity::Transfers), Icon::Upload, "Transfers"),
@@ -614,6 +615,7 @@ impl DbProApp {
                                 ui.add_space(4.0);
                                 match self.activity {
                                     Activity::Queries => self.draw_queries(ui),
+                                    Activity::Data => self.draw_data_activity(ui),
                                     Activity::History => self.draw_history(ui),
                                     Activity::Problems => self.draw_problems(ui),
                                     Activity::Transfers => self.draw_activity_placeholder(
@@ -754,19 +756,177 @@ impl DbProApp {
                 .small()
                 .color(self.theme.text_muted),
         );
+    }
 
-        if !self.pinned_tables.is_empty() {
-            ui.add_space(12.0);
+    fn draw_data_activity(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
             section_label(ui, "PINNED TABLES", self.theme);
-            ui.add_space(6.0);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                badge(
+                    ui,
+                    &self.pinned_tables.len().to_string(),
+                    self.theme.surface_hover,
+                    self.theme.text_muted,
+                );
+            });
+        });
+        ui.add_space(8.0);
+        if self.pinned_tables.is_empty() {
+            ui.label(
+                RichText::new("Pin tables from Explorer or Quick Open for fast reopen.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+        } else {
             let pinned = self.pinned_tables.clone();
             for table in pinned {
-                let selected = self.selected_table.as_deref() == Some(table.as_str());
-                let response = sidebar_item(ui, Icon::Pin, &table, selected, self.theme);
-                if response.clicked() {
-                    self.open_table_from_palette(table);
-                }
+                self.draw_data_table_row(ui, &table, true);
             }
+        }
+
+        ui.add_space(16.0);
+        ui.horizontal(|ui| {
+            section_label(ui, "RECENT TABLES", self.theme);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                badge(
+                    ui,
+                    &self.recent_tables.len().to_string(),
+                    self.theme.surface_hover,
+                    self.theme.text_muted,
+                );
+            });
+        });
+        ui.add_space(8.0);
+        if self.recent_tables.is_empty() {
+            ui.label(
+                RichText::new("Tables you open appear here in most-recent order.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+        } else {
+            let recent = self.recent_tables.clone();
+            for table in recent {
+                self.draw_data_table_row(ui, &table, false);
+            }
+        }
+
+        ui.add_space(12.0);
+        ui.label(
+            RichText::new("Right-click for open, pin, or remove")
+                .small()
+                .color(self.theme.text_muted),
+        );
+    }
+
+    fn draw_data_table_row(&mut self, ui: &mut egui::Ui, table: &str, from_pinned: bool) {
+        let selected = self.selected_table.as_deref() == Some(table);
+        let icon = if from_pinned { Icon::Pin } else { Icon::Table2 };
+        let response = sidebar_item(ui, icon, table, selected, self.theme);
+        let is_ctx = is_context_menu_triggered(&response, ui);
+
+        let mut open_data = false;
+        let mut open_structure = false;
+        let mut open_query = false;
+        let mut toggle_pin = false;
+        let mut remove_recent = false;
+        let is_pinned = self.pinned_tables.iter().any(|item| item == table);
+        let pin_label = if is_pinned { "Unpin table" } else { "Pin table" };
+
+        context_action_menu(ui, &response, self.theme, |ui, close_menu| {
+            if ctx_menu_item(
+                ui,
+                Some(Icon::Table2),
+                "Open data",
+                None,
+                self.theme.text_primary,
+                self.theme,
+            )
+            .clicked()
+            {
+                open_data = true;
+                *close_menu = true;
+            }
+            if ctx_menu_item(
+                ui,
+                Some(Icon::Columns3),
+                "Open structure",
+                None,
+                self.theme.text_primary,
+                self.theme,
+            )
+            .clicked()
+            {
+                open_structure = true;
+                *close_menu = true;
+            }
+            if ctx_menu_item(
+                ui,
+                Some(Icon::FileCode2),
+                "New query for table",
+                None,
+                self.theme.text_primary,
+                self.theme,
+            )
+            .clicked()
+            {
+                open_query = true;
+                *close_menu = true;
+            }
+            ui.separator();
+            if ctx_menu_item(
+                ui,
+                Some(Icon::Pin),
+                pin_label,
+                None,
+                self.theme.text_primary,
+                self.theme,
+            )
+            .clicked()
+            {
+                toggle_pin = true;
+                *close_menu = true;
+            }
+            if !from_pinned
+                && ctx_menu_item(
+                    ui,
+                    Some(Icon::Trash2),
+                    "Remove from recent",
+                    None,
+                    self.theme.text_primary,
+                    self.theme,
+                )
+                .clicked()
+            {
+                remove_recent = true;
+                *close_menu = true;
+            }
+        });
+
+        if response.clicked() && !is_ctx {
+            open_data = true;
+        }
+
+        if open_data {
+            self.open_table(table.to_owned());
+            self.table_view = TableView::Data;
+        }
+        if open_structure {
+            self.open_table_from_palette(table.to_owned());
+        }
+        if open_query {
+            let schema = self.active_schema().to_owned();
+            self.new_query_document();
+            self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
+            self.active_tab = WorkspaceTab::Query;
+            self.activity = Activity::Queries;
+            self.runtime_message = format!("Query ready for {table}");
+        }
+        if toggle_pin {
+            self.toggle_pinned_table(table.to_owned());
+        }
+        if remove_recent {
+            self.remove_recent_table(table);
+            self.runtime_message = format!("Removed {table} from recent");
         }
     }
 
@@ -1121,9 +1281,7 @@ impl DbProApp {
                 if compact_button(ui, "−", self.theme).clicked() {
                     self.editor_font_size = (self.editor_font_size - 1.0).max(10.0);
                 }
-                ui.label(
-                    RichText::new(format!("{:.0} px", self.editor_font_size)).color(self.theme.text_primary),
-                );
+                ui.label(RichText::new(format!("{:.0} px", self.editor_font_size)).color(self.theme.text_primary));
                 if compact_button(ui, "+", self.theme).clicked() {
                     self.editor_font_size = (self.editor_font_size + 1.0).min(24.0);
                 }
