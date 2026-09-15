@@ -172,3 +172,27 @@ every deferred item names its sites and its risk instead of being silently dropp
 defects are carried by one focused child issue (**#241**) with the measurements. Cross-referenced, not
 re-counted: §A (`QA-P2-02/04/05/23`), §B (`QA-P2-10/12`), §C (`QA-P2-15/16/17/19`). Measurement record:
 `docs/release/evidence/v01-runtime/providers/48-cross-cutting-polish-audit.md`.
+
+---
+
+## G. Synthesis (#81) — canonical Fix list and freeze handoff
+
+**Declared final on:** `main @ d401b7656d8c40e122ae075e7bee89c8fb695148` (2026-09-15)
+
+This section is the #81 deliverable: one authoritative Fix/Accept/Defer table already lives in
+§A–§F above; the only remaining synthesis act is to name every `Fix RC1` child and confirm none
+remain open.
+
+| Fix RC1 child | Title | State on synthesis SHA |
+|---|---|---|
+| #238 | Result-grid sort rebuilds projection every frame | **CLOSED** |
+| #239 | SSH tunnel control ships with no in-UI qualification | **CLOSED** |
+| #240 | perf-scan unqualified PASS / exit-0 on warnings | **CLOSED** |
+| #241 | Feedback, false DDL affordance, a11y/shortcut/theme drift | **CLOSED** |
+| #246 | Selection-lookup rebuild every frame (follow-on from #238) | **CLOSED** |
+
+No additional `Fix RC1` children are required from §A–§F. Accept/Defer rows keep their rationales
+in those sections; none were silently reclassified into Fix without a child issue.
+
+**#27 handoff:** with #81 closed, #82 may verify on an exact post-remediation SHA that every Fix
+child above is an ancestor of `main` and that Accept/Defer rows still match source.
