@@ -10,9 +10,7 @@
 //!
 //! Run with: `cargo test --package db-pro-infrastructure --test mysql_integration -- --ignored`
 
-use db_pro_core::application::registry::ConnectionRegistry;
 use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle, DriverType, SslMode};
-use db_pro_core::domain::error::DbError;
 use db_pro_core::ports::{DbConnector, TransactionFailureOutcome, TransactionFailurePhase};
 use db_pro_infrastructure::mysql::connector::MySqlConnector;
 
@@ -24,7 +22,7 @@ fn mysql_config() -> Option<ConnectionConfig> {
     // Parse mysql://user:pass@host:port/db
     let without_prefix = url.strip_prefix("mysql://")?;
     let (auth, rest) = without_prefix.split_once('@')?;
-    let (username, password) = auth.split_once(':').unwrap_or((auth, ""));
+    let (username, _password) = auth.split_once(':').unwrap_or((auth, ""));
     let (host_port, database) = rest.split_once('/')?;
     let (host, port) = host_port.split_once(':').unwrap_or((host_port, "3306"));
     Some(ConnectionConfig {
