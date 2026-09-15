@@ -687,7 +687,11 @@ impl DbProApp {
                 .get(doc_index)
                 .map(|doc| doc.chart_config.clone())
                 .unwrap_or_default();
-            let projection = ChartEngine::project(&result.columns, &result.rows, &config);
+            let projection = if config.chart_type == ChartType::Pie {
+                ChartEngine::project_pie(&result.columns, &result.rows, &config)
+            } else {
+                ChartEngine::project(&result.columns, &result.rows, &config)
+            };
             ui.allocate_ui(egui::vec2(ui.available_width(), 280.0), |ui| {
                 ChartRenderer::draw(ui, &projection.points, &config, &self.theme);
             });
@@ -700,10 +704,15 @@ impl DbProApp {
                 footer.push_str(&format!(" · skipped {} null/non-numeric Y", projection.skipped_null_y));
             }
             if projection.x_fallback_to_index > 0 {
-                footer.push_str(&format!(
-                    " · {} X nulls mapped to row index",
-                    projection.x_fallback_to_index
-                ));
+                let x_note = if config.chart_type == ChartType::Pie {
+                    format!(" · {} X nulls labeled NULL", projection.x_fallback_to_index)
+                } else {
+                    format!(
+                        " · {} X nulls mapped to row index",
+                        projection.x_fallback_to_index
+                    )
+                };
+                footer.push_str(&x_note);
             }
             ui.label(RichText::new(footer).small().color(self.theme.text_muted));
         });

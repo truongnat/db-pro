@@ -226,20 +226,30 @@ impl ChartEngine {
         columns: &[crate::UiColumn],
         rows: &[Vec<crate::UiCell>],
         config: &ChartConfig,
-    ) -> Vec<ChartPoint> {
+    ) -> ChartProjection {
         let x_idx = config.x_column.unwrap_or(0);
         let y_idx = config.y_column.unwrap_or(1usize.min(columns.len().saturating_sub(1)));
 
         if x_idx >= columns.len() || y_idx >= columns.len() {
-            return Vec::new();
+            return ChartProjection::default();
         }
 
         let mut groups: BTreeMap<String, f64> = BTreeMap::new();
+        let mut skipped_null_y = 0usize;
+        let mut x_fallback_to_index = 0usize;
 
         for row in rows {
-            let label = cell_to_label(&row[x_idx]);
+            let label = match &row[x_idx] {
+                crate::UiCell::Null => {
+                    x_fallback_to_index += 1;
+                    "NULL".to_owned()
+                }
+                other => cell_to_label(other),
+            };
             if let Some(val) = Self::cell_to_numeric(&row[y_idx]) {
                 *groups.entry(label).or_insert(0.0) += val;
+            } else {
+                skipped_null_y += 1;
             }
         }
 
@@ -268,7 +278,11 @@ impl ChartEngine {
             });
         }
 
-        points
+        ChartProjection {
+            points,
+            skipped_null_y,
+            x_fallback_to_index,
+        }
     }
 }
 
@@ -840,6 +854,35 @@ mod tests {
         assert_eq!(projection.x_fallback_to_index, 1);
         assert_eq!(projection.points.len(), 1, "downsample after aggregate");
         assert!(!projection.points[0].series.is_empty());
+    }
+
+    #[test]
+    fn project_pie_reports_null_skips() {
+        let columns = vec![
+            UiColumn {
+                name: "label".into(),
+                data_type: "text".into(),
+                nullable: true,
+            },
+            UiColumn {
+                name: "value".into(),
+                data_type: "integer".into(),
+                nullable: true,
+            },
+        ];
+        let rows = vec![
+            vec![UiCell::Text("a".into()), UiCell::Number("2".into())],
+            vec![UiCell::Null, UiCell::Number("3".into())],
+            vec![UiCell::Text("b".into()), UiCell::Null],
+        ];
+        let mut config = ChartConfig::new();
+        config.chart_type = ChartType::Pie;
+        config.x_column = Some(0);
+        config.y_column = Some(1);
+        let projection = ChartEngine::project_pie(&columns, &rows, &config);
+        assert_eq!(projection.skipped_null_y, 1);
+        assert_eq!(projection.x_fallback_to_index, 1);
+        assert!(projection.points.iter().any(|p| p.label == "NULL"));
     }
 
     #[test]
