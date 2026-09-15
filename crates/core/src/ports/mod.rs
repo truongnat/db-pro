@@ -3,6 +3,7 @@ pub mod connection_repository;
 pub mod db_connector;
 pub mod dialect;
 pub mod introspection_cache;
+pub mod provider_factory;
 pub mod query_history_repository;
 pub mod run_config_repository;
 pub mod saved_query_repository;
@@ -19,6 +20,7 @@ pub use db_connector::{
 };
 pub use dialect::SqlDialect;
 pub use introspection_cache::IntrospectionCache;
+pub use provider_factory::ProviderFactory;
 pub use query_history_repository::QueryHistoryRepository;
 pub use run_config_repository::RunConfigRepository;
 pub use saved_query_repository::SavedQueryRepository;

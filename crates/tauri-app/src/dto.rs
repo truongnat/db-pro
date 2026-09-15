@@ -186,6 +186,7 @@ impl ConnectionConfigDto {
 pub enum DriverTypeDto {
     Postgres,
     Sqlite,
+    Mysql,
 }
 
 impl From<DriverType> for DriverTypeDto {
@@ -193,6 +194,7 @@ impl From<DriverType> for DriverTypeDto {
         match d {
             DriverType::Postgres => Self::Postgres,
             DriverType::SQLite => Self::Sqlite,
+            DriverType::Mysql => Self::Mysql,
         }
     }
 }
@@ -202,6 +204,7 @@ impl From<DriverTypeDto> for DriverType {
         match d {
             DriverTypeDto::Postgres => Self::Postgres,
             DriverTypeDto::Sqlite => Self::SQLite,
+            DriverTypeDto::Mysql => Self::Mysql,
         }
     }
 }

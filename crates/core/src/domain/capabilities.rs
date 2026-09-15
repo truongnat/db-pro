@@ -117,6 +117,7 @@ impl DatabaseCapabilities {
         match driver {
             DriverType::Postgres => Self::postgres(),
             DriverType::SQLite => Self::sqlite(),
+            DriverType::Mysql => Self::mysql(),
         }
     }
 
@@ -221,6 +222,59 @@ impl DatabaseCapabilities {
             features: FeatureCapabilities {
                 server_sessions: false,
                 partitions: false,
+                tablespaces: false,
+                object_dependencies: false,
+                ssh_tunnel: false,
+                backup: true,
+                schema_diff: true,
+                data_diff: true,
+            },
+        }
+    }
+
+    pub fn mysql() -> Self {
+        Self {
+            driver: DriverType::Mysql,
+            query: QueryCapabilities {
+                multi_statement: true,
+                explain: true,
+                cancel: false,
+                parameters: true,
+                numbered_parameters: false,
+                positional_parameters: true,
+                max_rows_limit: None,
+            },
+            schema: SchemaCapabilities {
+                schemas: true,
+                alter_column_type: true,
+                add_column: true,
+                drop_column: true,
+                rename_column: true,
+                transactional_ddl: false,
+                foreign_keys: true,
+                indexes: true,
+                triggers: true,
+                views: true,
+                functions: true,
+                sequences: false,
+                enum_types: true,
+                rename_objects: false,
+            },
+            data: DataCapabilities {
+                insert: true,
+                update: true,
+                delete: true,
+                composite_pk: true,
+                no_pk_tables: true,
+                json_type: true,
+                uuid_type: false,
+                blob_type: true,
+                array_types: false,
+                generated_columns: true,
+            },
+            features: FeatureCapabilities {
+                server_sessions: true,
+                partitions: true,
                 tablespaces: false,
                 object_dependencies: false,
                 ssh_tunnel: false,

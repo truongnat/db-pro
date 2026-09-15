@@ -10,6 +10,7 @@ pub struct RequestId(pub u64);
 pub enum UiDriver {
     Postgres,
     Sqlite,
+    Mysql,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
