@@ -338,12 +338,15 @@ fn introspect_check_constraints(
             .map_err(crate::error::from_rusqlite)?;
 
         if let Some(sql) = create_sql {
-            for (constraint_idx, definition) in parse_check_constraint_definitions(&sql).into_iter().enumerate() {
+            for (constraint_idx, parsed) in parse_check_constraints(&sql).into_iter().enumerate() {
+                let name = parsed
+                    .name
+                    .unwrap_or_else(|| format!("{table_name}_check_{constraint_idx}"));
                 check_constraints.push(CheckConstraint {
-                    name: format!("{table_name}_check_{constraint_idx}"),
+                    name,
                     table_name: table_name.clone(),
                     schema: "main".into(),
-                    definition,
+                    definition: parsed.definition,
                 });
             }
         }
@@ -352,7 +355,19 @@ fn introspect_check_constraints(
     Ok(check_constraints)
 }
 
-fn parse_check_constraint_definitions(sql: &str) -> Vec<String> {
+#[derive(Debug, PartialEq, Eq)]
+struct ParsedCheckConstraint {
+    name: Option<String>,
+    definition: String,
+}
+
+/// Extract CHECK definitions from a CREATE TABLE statement.
+///
+/// The scan is quote-, comment-, and parenthesis-depth aware. A preceding
+/// `CONSTRAINT <name>` is preserved when it sits immediately before `CHECK`.
+/// Unbalanced parentheses or unterminated quotes stop the scan without inventing
+/// a truncated constraint.
+fn parse_check_constraints(sql: &str) -> Vec<ParsedCheckConstraint> {
     let mut definitions = Vec::new();
     let mut cursor = 0;
 
@@ -367,11 +382,74 @@ fn parse_check_constraint_definitions(sql: &str) -> Vec<String> {
         let Some(close_paren) = matching_parenthesis(sql, open_paren) else {
             break;
         };
-        definitions.push(sql[open_paren + 1..close_paren].trim().to_owned());
+        definitions.push(ParsedCheckConstraint {
+            name: preceding_constraint_name(sql, check_start),
+            definition: sql[open_paren + 1..close_paren].trim().to_owned(),
+        });
         cursor = close_paren + 1;
     }
 
     definitions
+}
+
+/// If `CONSTRAINT <ident>` sits immediately before `CHECK` (trivia only between),
+/// return that identifier. Otherwise the CHECK is unnamed/column-level.
+fn preceding_constraint_name(sql: &str, check_start: usize) -> Option<String> {
+    let mut last_match = None;
+    let mut cursor = 0;
+    while let Some(constraint_pos) = find_sql_keyword(sql, cursor, "CONSTRAINT") {
+        if constraint_pos >= check_start {
+            break;
+        }
+        let after_keyword = skip_sql_trivia(sql, constraint_pos + "CONSTRAINT".len());
+        let Some((name, name_end)) = read_sql_identifier(sql, after_keyword) else {
+            cursor = constraint_pos + 1;
+            continue;
+        };
+        let after_name = skip_sql_trivia(sql, name_end);
+        if after_name == check_start {
+            last_match = Some(name);
+        }
+        cursor = constraint_pos + 1;
+    }
+    last_match
+}
+
+fn read_sql_identifier(sql: &str, start: usize) -> Option<(String, usize)> {
+    let bytes = sql.as_bytes();
+    if start >= bytes.len() {
+        return None;
+    }
+    // Quoted identifiers: "name", `name`, [name]
+    match bytes[start] {
+        b'"' | b'`' | b'[' => {
+            let end = skip_quoted(sql, start);
+            if end <= start + 1 {
+                return None;
+            }
+            let raw = &sql[start + 1..end - 1];
+            if raw.is_empty() {
+                return None;
+            }
+            Some((raw.replace("\"\"", "\"").replace("``", "`").replace("]]", "]"), end))
+        }
+        _ => {
+            let mut end = start;
+            let mut chars = sql[start..].chars();
+            let first = chars.next()?;
+            if !(first == '_' || first.is_alphabetic()) {
+                return None;
+            }
+            end += first.len_utf8();
+            for ch in chars {
+                if !is_sql_identifier_char(ch) {
+                    break;
+                }
+                end += ch.len_utf8();
+            }
+            Some((sql[start..end].to_owned(), end))
+        }
+    }
 }
 
 fn find_sql_keyword(sql: &str, from: usize, keyword: &str) -> Option<usize> {
@@ -635,6 +713,50 @@ mod tests {
             result.check_constraints[0].definition,
             "(balance >= 0) AND (balance <= 100)"
         );
+    }
+
+    #[test]
+    fn introspection_preserves_named_check_constraints_and_escaped_quotes() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute(
+            "CREATE TABLE people (
+                id INTEGER,
+                name TEXT,
+                age INTEGER CHECK (age >= 0),
+                CONSTRAINT chk_name CHECK (name <> 'O''Brien')
+            )",
+            [],
+        )
+        .unwrap();
+
+        let result = run_introspection(&conn).unwrap();
+        assert_eq!(result.check_constraints.len(), 2);
+        assert_eq!(result.check_constraints[0].name, "people_check_0");
+        assert_eq!(result.check_constraints[0].definition, "age >= 0");
+        assert_eq!(result.check_constraints[1].name, "chk_name");
+        assert_eq!(result.check_constraints[1].definition, "name <> 'O''Brien'");
+    }
+
+    #[test]
+    fn parse_check_constraints_stops_safely_on_unbalanced_parentheses() {
+        let parsed = parse_check_constraints("CREATE TABLE t (id INTEGER CHECK (id > 0), bad CHECK ((id > 1)");
+        // The first complete CHECK is kept; the truncated one must not be fabricated.
+        assert_eq!(
+            parsed,
+            vec![ParsedCheckConstraint {
+                name: None,
+                definition: "id > 0".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn parse_check_constraints_is_case_insensitive_and_ordered() {
+        let parsed = parse_check_constraints("CREATE TABLE t (a INT check (a > 0), CONSTRAINT Chk_B Check (b < 10))");
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].definition, "a > 0");
+        assert_eq!(parsed[1].name.as_deref(), Some("Chk_B"));
+        assert_eq!(parsed[1].definition, "b < 10");
     }
 
     #[test]
