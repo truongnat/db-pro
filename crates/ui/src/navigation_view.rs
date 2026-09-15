@@ -754,6 +754,20 @@ impl DbProApp {
                 .small()
                 .color(self.theme.text_muted),
         );
+
+        if !self.pinned_tables.is_empty() {
+            ui.add_space(12.0);
+            section_label(ui, "PINNED TABLES", self.theme);
+            ui.add_space(6.0);
+            let pinned = self.pinned_tables.clone();
+            for table in pinned {
+                let selected = self.selected_table.as_deref() == Some(table.as_str());
+                let response = sidebar_item(ui, Icon::Pin, &table, selected, self.theme);
+                if response.clicked() {
+                    self.open_table_from_palette(table);
+                }
+            }
+        }
     }
 
     fn draw_problems(&mut self, ui: &mut egui::Ui) {

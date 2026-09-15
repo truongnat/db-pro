@@ -11,6 +11,7 @@ impl DbProApp {
         };
         if mode == PaletteMode::QuickOpen {
             items.extend(self.schema_table_items());
+            items.extend(self.pinned_table_items());
             items.extend(self.saved_query_items());
             items.extend(self.query_history_items());
             items.extend(self.schema_column_items());
@@ -121,6 +122,13 @@ impl DbProApp {
                 action: PaletteAction::RefreshSchema,
             },
             PaletteItem {
+                icon: Icon::Pin,
+                title: "Pin / unpin selected table".to_owned(),
+                subtitle: "Toggle the active table in pinned Quick Open entries".to_owned(),
+                shortcut: None,
+                action: PaletteAction::TogglePinTable(String::new()),
+            },
+            PaletteItem {
                 icon: Icon::PanelLeft,
                 title: "Toggle explorer".to_owned(),
                 subtitle: "Show or hide the connection sidebar".to_owned(),
@@ -174,6 +182,20 @@ impl DbProApp {
                 icon: Icon::Table2,
                 title: table.clone(),
                 subtitle: format!("Open table in {}", self.active_schema()),
+                shortcut: None,
+                action: PaletteAction::OpenTable(table),
+            })
+            .collect()
+    }
+
+    fn pinned_table_items(&self) -> Vec<PaletteItem> {
+        self.pinned_tables
+            .iter()
+            .cloned()
+            .map(|table| PaletteItem {
+                icon: Icon::Pin,
+                title: table.clone(),
+                subtitle: "Pinned table · open".to_owned(),
                 shortcut: None,
                 action: PaletteAction::OpenTable(table),
             })
@@ -357,6 +379,9 @@ impl DbProApp {
             PaletteAction::SwitchConnection(connection_id) => {
                 self.switch_connection_from_palette(connection_id);
             }
+            PaletteAction::TogglePinTable(table) => {
+                self.toggle_pinned_table(table);
+            }
             PaletteAction::ComponentGallery => {
                 self.active_tab = WorkspaceTab::ComponentGallery;
             }
@@ -404,6 +429,25 @@ impl DbProApp {
         }
         self.active_tab = WorkspaceTab::Query;
         self.runtime_message = format!("Opened saved query {}", query.name);
+    }
+
+    pub(crate) fn toggle_pinned_table(&mut self, table: String) {
+        let target = if table.is_empty() {
+            self.selected_table.clone()
+        } else {
+            Some(table)
+        };
+        let Some(table) = target else {
+            self.runtime_message = "Select a table before pinning".to_owned();
+            return;
+        };
+        if let Some(index) = self.pinned_tables.iter().position(|item| item == &table) {
+            self.pinned_tables.remove(index);
+            self.runtime_message = format!("Unpinned table {table}");
+        } else {
+            self.pinned_tables.push(table.clone());
+            self.runtime_message = format!("Pinned table {table}");
+        }
     }
 
     fn export_results_from_palette(&mut self) {

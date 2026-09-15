@@ -5290,3 +5290,17 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
         "a read-only script must dispatch immediately"
     );
 }
+
+#[test]
+fn pinned_tables_toggle_appears_in_quick_open() {
+    let mut app = DbProApp::default();
+    app.selected_table = Some("users".to_owned());
+    app.toggle_pinned_table(String::new());
+    assert_eq!(app.pinned_tables, vec!["users".to_owned()]);
+    assert!(app
+        .filtered_palette_items(PaletteMode::QuickOpen)
+        .iter()
+        .any(|item| item.title == "users" && item.subtitle.contains("Pinned")));
+    app.toggle_pinned_table("users".to_owned());
+    assert!(app.pinned_tables.is_empty());
+}

@@ -97,6 +97,11 @@ impl DbProApp {
                     app.query_history_entries = history;
                 }
             }
+            if let Some(pinned) = storage.get_string("dbpro.native.pinned-tables-v1") {
+                if let Ok(tables) = serde_json::from_str::<Vec<String>>(&pinned) {
+                    app.pinned_tables = tables;
+                }
+            }
         }
         app
     }
@@ -214,6 +219,7 @@ impl Default for DbProApp {
             schema_error: None,
             schema_request: None,
             selected_table: None,
+            pinned_tables: Vec::new(),
             selected_schema_object: None,
             schema_object_view: SchemaObjectView::Definition,
             diagram_zoom: 1.0,

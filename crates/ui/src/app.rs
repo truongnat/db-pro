@@ -187,6 +187,7 @@ pub(crate) enum PaletteAction {
     RunQuery,
     FormatSql,
     SwitchConnection(String),
+    TogglePinTable(String),
     ComponentGallery,
 }
 
@@ -410,6 +411,8 @@ pub struct DbProApp {
     schema_error: Option<String>,
     schema_request: Option<crate::RequestId>,
     selected_table: Option<String>,
+    /// Table names pinned for quick reopen (#202). Persisted locally.
+    pinned_tables: Vec<String>,
     selected_schema_object: Option<SchemaObjectSelection>,
     schema_object_view: SchemaObjectView,
     diagram_zoom: f32,
@@ -516,6 +519,9 @@ impl eframe::App for DbProApp {
         }
         if let Ok(history) = serde_json::to_string(&self.query_history_entries) {
             storage.set_string("dbpro.native.query-history-v1", history);
+        }
+        if let Ok(pinned) = serde_json::to_string(&self.pinned_tables) {
+            storage.set_string("dbpro.native.pinned-tables-v1", pinned);
         }
         storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
         storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
