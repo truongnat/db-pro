@@ -96,6 +96,8 @@ mod query_view;
 #[path = "result_grid_view.rs"]
 pub(crate) mod result_grid_view;
 pub(crate) use result_grid_view::GridSelectionCache;
+#[path = "schema_compare.rs"]
+mod schema_compare;
 #[path = "schema_object_view.rs"]
 mod schema_object_view;
 #[path = "schema_workbench.rs"]
@@ -128,6 +130,7 @@ enum Activity {
     Settings,
     Diagram,
     Schema,
+    Compare,
     Problems,
 }
 
@@ -284,6 +287,7 @@ pub(crate) enum WorkspaceTab {
     SchemaObject,
     Diagram,
     SchemaWorkbench,
+    SchemaCompare,
     ComponentGallery,
 }
 
@@ -457,6 +461,12 @@ pub struct DbProApp {
     selected_schema_object: Option<SchemaObjectSelection>,
     schema_object_view: SchemaObjectView,
     schema_workbench: schema_workbench::SchemaWorkbenchState,
+    schema_snapshot: Option<schema_compare::UiSchemaSnapshot>,
+    schema_diff: Option<schema_compare::UiSchemaDiffResult>,
+    query_auto_commit: bool,
+    query_in_transaction: bool,
+    query_txn_pending: usize,
+    disconnect_txn_guard: bool,
     diagram_zoom: f32,
     diagram_pan: egui::Vec2,
     diagram_pan_origin: Option<egui::Vec2>,
@@ -987,6 +997,7 @@ impl DbProApp {
             WorkspaceTab::SchemaObject => "Schema Object",
             WorkspaceTab::Diagram => "ER Diagram",
             WorkspaceTab::SchemaWorkbench => "Schema Workbench",
+            WorkspaceTab::SchemaCompare => "Schema Compare",
             WorkspaceTab::ComponentGallery => "Component Gallery",
         }
     }
@@ -1295,6 +1306,73 @@ impl DbProApp {
         };
         std::fs::write(&path, json.as_bytes()).map_err(|e| e.to_string())?;
         Ok(path.display().to_string())
+    }
+
+    pub(crate) fn take_schema_snapshot(&mut self) {
+        let label = format!(
+            "{} @ {}",
+            self.active_connection_name(),
+            chrono::Utc::now().format("%H:%M:%S")
+        );
+        self.schema_snapshot = Some(schema_compare::UiSchemaSnapshot::from_summary(label, &self.schema));
+        self.runtime_message = "Schema snapshot captured".to_owned();
+    }
+
+    pub(crate) fn diff_against_schema_snapshot(&mut self) {
+        let Some(snapshot) = self.schema_snapshot.clone() else {
+            self.runtime_message = "Take a schema snapshot before comparing".to_owned();
+            return;
+        };
+        let current = schema_compare::UiSchemaSnapshot::from_summary("current", &self.schema);
+        self.schema_diff = Some(schema_compare::diff_snapshots(&snapshot, &current));
+        self.runtime_message = "Schema diff ready".to_owned();
+    }
+
+    pub(crate) fn handle_transaction_action(&mut self, action: crate::components::TransactionAction) {
+        match action {
+            crate::components::TransactionAction::ToggleAutoCommit(value) => {
+                if self.query_in_transaction && value {
+                    self.runtime_message = "Commit or rollback the open transaction before enabling auto-commit".into();
+                    return;
+                }
+                self.query_auto_commit = value;
+                if value {
+                    self.query_in_transaction = false;
+                    self.query_txn_pending = 0;
+                }
+            }
+            crate::components::TransactionAction::Begin => {
+                self.query_auto_commit = false;
+                self.dispatch_transaction_sql("BEGIN");
+                self.query_in_transaction = true;
+                self.query_txn_pending = 0;
+            }
+            crate::components::TransactionAction::Commit => {
+                self.dispatch_transaction_sql("COMMIT");
+                self.query_in_transaction = false;
+                self.query_txn_pending = 0;
+            }
+            crate::components::TransactionAction::Rollback => {
+                self.dispatch_transaction_sql("ROLLBACK");
+                self.query_in_transaction = false;
+                self.query_txn_pending = 0;
+            }
+        }
+    }
+
+    fn dispatch_transaction_sql(&mut self, sql: &str) {
+        let Some(connection_id) = self.active_query_connection_id().map(str::to_owned) else {
+            self.runtime_message = "Connect before using transaction controls".into();
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        let _ = self.task_bridge.send(UiCommand::RunQuery {
+            request_id,
+            connection_id,
+            sql: sql.to_owned(),
+            params: Vec::new(),
+        });
+        self.runtime_message = format!("Sent {sql}");
     }
 
     pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {
@@ -1726,6 +1804,9 @@ impl DbProApp {
             }
             WorkspaceTab::SchemaWorkbench => {
                 self.schema_workbench.apply_confirmation = false;
+            }
+            WorkspaceTab::SchemaCompare => {
+                self.schema_diff = None;
             }
             WorkspaceTab::ComponentGallery => {}
             WorkspaceTab::Welcome | WorkspaceTab::Query => return,

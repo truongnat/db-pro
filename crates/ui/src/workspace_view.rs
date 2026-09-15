@@ -526,6 +526,46 @@ impl DbProApp {
                                 }
                             }
 
+                            if self.active_tab == WorkspaceTab::SchemaCompare {
+                                let mut close_cmp = false;
+                                let cmp_action = draw_workspace_tab_item(
+                                    ui,
+                                    self.theme,
+                                    WorkspaceTabItem {
+                                        selected: true,
+                                        icon: Icon::GitCompare,
+                                        title: "Schema Compare",
+                                        unsaved: false,
+                                        show_close: true,
+                                    },
+                                    |ui, close_menu| {
+                                        ui.label(
+                                            RichText::new("Schema Compare")
+                                                .font(font_ui_label())
+                                                .strong()
+                                                .color(self.theme.text_primary),
+                                        );
+                                        ui.separator();
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::X),
+                                            "Close Tab",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
+                                        {
+                                            close_cmp = true;
+                                            *close_menu = true;
+                                        }
+                                    },
+                                );
+                                if cmp_action.close_clicked || close_cmp {
+                                    self.request_close_workspace_tab(WorkspaceTab::SchemaCompare);
+                                }
+                            }
+
                             // 6. Component Gallery Tab
                             if self.active_tab == WorkspaceTab::ComponentGallery {
                                 let mut close_gallery = false;
@@ -591,6 +631,7 @@ impl DbProApp {
             WorkspaceTab::SchemaObject => self.draw_schema_object_workspace(ui),
             WorkspaceTab::Diagram => self.draw_diagram(ui),
             WorkspaceTab::SchemaWorkbench => self.draw_schema_workbench(ui),
+            WorkspaceTab::SchemaCompare => self.draw_schema_compare(ui),
             WorkspaceTab::ComponentGallery => self.draw_component_gallery(ui),
         }
         self.draw_discard_changes_confirmation(ui);

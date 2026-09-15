@@ -71,6 +71,23 @@ impl DbProApp {
             .show(ui, |ui| {
                 self.refresh_diagnostics();
                 let more_anchor = self.draw_query_header(ui);
+                ui.add_space(6.0);
+                if let Some(action) = TransactionBar::new(self.query_in_transaction, self.query_txn_pending, self.theme)
+                    .auto_commit(self.query_auto_commit)
+                    .show(ui)
+                {
+                    self.handle_transaction_action(action);
+                }
+                if self.disconnect_txn_guard {
+                    ui.colored_label(
+                        self.theme.warning,
+                        "Open transaction blocks disconnect — Commit or Rollback first.",
+                    );
+                    if compact_button(ui, "Dismiss", self.theme).clicked() {
+                        self.disconnect_txn_guard = false;
+                    }
+                }
+                ui.add_space(4.0);
                 if self.query_tools_open {
                     if let Some(anchor) = more_anchor {
                         self.draw_query_actions_menu(ui.ctx(), anchor);

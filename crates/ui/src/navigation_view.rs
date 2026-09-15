@@ -436,6 +436,7 @@ impl DbProApp {
                         (Some(Activity::Monitor), Icon::Gauge, "Monitor"),
                         (Some(Activity::Diagram), Icon::ArrowRightLeft, "ER diagram"),
                         (Some(Activity::Schema), Icon::Boxes, "Schema workbench"),
+                        (Some(Activity::Compare), Icon::GitCompare, "Schema compare"),
                         (None, Icon::Bot, "Agent (Copilot)"),
                     ] {
                         let active = activity.is_some_and(|value| self.activity == value)
@@ -453,6 +454,8 @@ impl DbProApp {
                                         self.active_tab = WorkspaceTab::Diagram;
                                     } else if value == Activity::Schema {
                                         self.open_schema_workbench();
+                                    } else if value == Activity::Compare {
+                                        self.active_tab = WorkspaceTab::SchemaCompare;
                                     }
                                 }
                                 (None, "Agent (Copilot)") => self.set_agent_open(!self.agent_open, ctx),
@@ -638,6 +641,7 @@ impl DbProApp {
                                     Activity::Settings => self.draw_settings(ui),
                                     Activity::Diagram => self.draw_diagram_sidebar(ui),
                                     Activity::Schema => self.draw_schema_workbench_sidebar(ui),
+                                    Activity::Compare => self.draw_schema_compare_sidebar(ui),
                                     Activity::Explorer => unreachable!(),
                                 }
                             });
@@ -701,6 +705,77 @@ impl DbProApp {
             if secondary_button_with_icon(ui, Icon::Database, "Back to Explorer", self.theme).clicked() {
                 self.activity = Activity::Explorer;
                 self.sidebar_open = true;
+            }
+        });
+    }
+
+    fn draw_schema_compare_sidebar(&mut self, ui: &mut egui::Ui) {
+        section_label(ui, "SCHEMA COMPARE", self.theme);
+        ui.add_space(6.0);
+        ui.label(
+            RichText::new("Snapshot the loaded schema, then re-introspect and diff.")
+                .small()
+                .color(self.theme.text_muted),
+        );
+        ui.add_space(8.0);
+        if compact_button_with_icon(ui, Icon::Camera, "Take snapshot", self.theme).clicked() {
+            self.take_schema_snapshot();
+        }
+        if compact_button_with_icon(ui, Icon::GitCompare, "Diff vs snapshot", self.theme).clicked() {
+            self.diff_against_schema_snapshot();
+            self.active_tab = WorkspaceTab::SchemaCompare;
+        }
+        ui.add_space(8.0);
+        if let Some(snap) = &self.schema_snapshot {
+            ui.label(
+                RichText::new(format!("Snapshot: {}", snap.label))
+                    .small()
+                    .color(self.theme.text_secondary),
+            );
+            ui.label(
+                RichText::new(format!("{} tables", snap.tables.len()))
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+        } else {
+            ui.label(RichText::new("No snapshot yet.").small().color(self.theme.text_muted));
+        }
+    }
+
+    pub(super) fn draw_schema_compare(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Schema Compare").strong().color(self.theme.text_primary));
+            if compact_button(ui, "Snapshot", self.theme).clicked() {
+                self.take_schema_snapshot();
+            }
+            if compact_button(ui, "Diff now", self.theme).clicked() {
+                self.diff_against_schema_snapshot();
+            }
+        });
+        ui.add_space(8.0);
+        let Some(diff) = self.schema_diff.clone() else {
+            ui.label(RichText::new("Take a snapshot, refresh schema, then Diff now.").color(self.theme.text_muted));
+            return;
+        };
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            for (title, items) in [
+                ("Tables only in snapshot", &diff.tables_only_in_source),
+                ("Tables only in current", &diff.tables_only_in_target),
+                ("Views only in snapshot", &diff.views_only_in_source),
+                ("Views only in current", &diff.views_only_in_target),
+                ("Routines only in snapshot", &diff.functions_only_in_source),
+                ("Routines only in current", &diff.functions_only_in_target),
+                ("Column / type changes", &diff.column_changes),
+            ] {
+                ui.label(RichText::new(title).strong());
+                if items.is_empty() {
+                    ui.label(RichText::new("— none —").small().color(self.theme.text_muted));
+                } else {
+                    for item in items {
+                        ui.label(RichText::new(format!("• {item}")).small());
+                    }
+                }
+                ui.add_space(8.0);
             }
         });
     }
