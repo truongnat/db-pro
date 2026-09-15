@@ -6,8 +6,8 @@ use crate::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use crate::domain::query::{QueryParam, QueryResult};
 use crate::domain::run_config::RunConfig;
 use crate::domain::safety::{
-    classify_statement_safety, has_top_level_sql_keyword, validate_against_policy, ConnectionSafetyPolicy,
-    StatementSafety,
+    classify_statement_safety, has_top_level_sql_keyword, transaction_control_verb, validate_against_policy,
+    ConnectionSafetyPolicy, StatementSafety,
 };
 use crate::ports::{
     ConnectionRepository, DbConnector, IntrospectionCache, QueryHistoryRepository, RunConfigRepository,
@@ -231,6 +231,31 @@ impl QueryService {
                         error: Some((idx, MultiQueryError::message(msg))),
                     });
                 }
+            }
+
+            // A batch that manages its own transaction cannot be executed atomically here: the
+            // batch is about to run inside one transaction, so a statement that opens or ends a
+            // transaction ends *that* one instead of joining it. The statements after it then run
+            // outside the wrapper, and a later failure rolls back nothing while the envelope still
+            // reports `RolledBack` — the gap the issue measured (#147). Rejecting before dispatch
+            // is the option that fails closed.
+            //
+            // Reached by every batch that carries transaction control: those verbs classify as
+            // `Write` (the classifier's fail-safe default), so they set `has_mutation` and this
+            // branch is taken even when the script is otherwise all reads. A single statement is
+            // deliberately not covered — manual transaction control is out of v0.1 scope (#224) and
+            // a lone statement makes no atomicity claim this dispatch point owns.
+            if let Some((idx, verb)) = statements
+                .iter()
+                .enumerate()
+                .find_map(|(idx, statement)| transaction_control_verb(statement).map(|verb| (idx, verb)))
+            {
+                return Ok(MultiQueryResult {
+                    results: Vec::new(),
+                    result_kinds: Vec::new(),
+                    total_duration_ms: start.elapsed().as_millis() as u64,
+                    error: Some((idx, MultiQueryError::message(transaction_control_rejection(verb)))),
+                });
             }
 
             match self
@@ -522,6 +547,18 @@ fn format_transaction_failure(
         (_, TransactionFailureOutcome::NotStarted) => format!("transaction did not start: {error}"),
         _ => format!("transaction failed; final outcome is unknown: {error}"),
     }
+}
+
+/// Message for a multi-statement batch that carries its own transaction control (#147).
+///
+/// It names the verb and the reason, and it states the two ways out, because the user's next
+/// action depends on knowing that the batch — not the verb — is what is refused here.
+fn transaction_control_rejection(verb: &str) -> String {
+    format!(
+        "`{verb}` is not allowed inside a multi-statement batch: the batch runs in one transaction, so `{verb}` \
+         would end that transaction and leave the statements before it committed. Remove the transaction control, \
+         or run each statement separately."
+    )
 }
 
 enum StatementClass {
@@ -1075,6 +1112,132 @@ mod tests {
         );
         assert_eq!(result.results[0].row_count, 1);
         assert_eq!(result.results[1].row_count, 3);
+    }
+    /// The batch the issue measured (#147): an insert that commits itself, then a failing
+    /// statement whose failure the envelope used to report as `RolledBack` while the insert
+    /// survived. It must now be refused before any statement reaches the database.
+    #[tokio::test]
+    async fn execute_multi_rejects_a_batch_that_commits_itself() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        // Nothing may reach the database, and no history may be written: a refused batch has not run.
+        let mut connector = MockDbConnector::new();
+        connector.expect_execute_transaction().never();
+        connector.expect_query().never();
+        connector.expect_execute().never();
+
+        let mut history = MockQueryHistoryRepository::new();
+        history.expect_save().never();
+
+        let svc = QueryService::new(
+            Box::new(connector),
+            Box::new(history),
+            Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
+            Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
+        );
+
+        let result = svc
+            .execute_multi(
+                &conn_id,
+                "INSERT INTO probe (id) VALUES (1); COMMIT; SELECT no_such_column FROM probe",
+                None,
+                None,
+            )
+            .await
+            .expect("a refused batch is a result carrying an error, not a transport failure");
+
+        let (index, error) = result.error.expect("the batch carrying `COMMIT` is refused");
+        assert_eq!(index, 1, "the refusing statement is reported at its own index");
+        assert!(
+            error.message.contains("`COMMIT`"),
+            "the message names the verb, got: {}",
+            error.message
+        );
+        assert!(result.results.is_empty(), "no statement of a refused batch runs");
+        assert!(result.result_kinds.is_empty());
+    }
+
+    #[tokio::test]
+    async fn execute_multi_rejects_transaction_control_wherever_it_appears() {
+        let conn_id = ConnectionId::new();
+
+        for (sql, expected_index, expected_verb) in [
+            ("BEGIN; UPDATE t SET x = 1; COMMIT", 0, "BEGIN"),
+            ("UPDATE t SET x = 1; ROLLBACK", 1, "ROLLBACK"),
+            // An otherwise all-read script: the control verbs classify as `Write`, so the batch
+            // still takes the transactional path this refusal guards.
+            ("SELECT 1; SELECT 2; COMMIT", 2, "COMMIT"),
+            ("SELECT 1; END", 1, "END"),
+            ("INSERT INTO t (id) VALUES (1); SAVEPOINT s1", 1, "SAVEPOINT"),
+            ("START TRANSACTION; UPDATE t SET x = 1", 0, "START TRANSACTION"),
+            ("UPDATE t SET x = 1; ABORT", 1, "ABORT"),
+        ] {
+            let registry = Arc::new(ConnectionRegistry::new());
+            registry.register(conn_id, ConnectionHandle(1));
+
+            let mut connector = MockDbConnector::new();
+            connector.expect_execute_transaction().never();
+            connector.expect_query().never();
+            connector.expect_execute().never();
+
+            let svc = QueryService::new(
+                Box::new(connector),
+                Box::new(MockQueryHistoryRepository::new()),
+                Box::new(MockSavedQueryRepository::new()),
+                Box::new(MockRunConfigRepository::new()),
+                Arc::clone(&registry),
+                Box::new(mock_connections_full_access()),
+            );
+
+            let result = svc
+                .execute_multi(&conn_id, sql, None, None)
+                .await
+                .expect("a refused batch is a result carrying an error");
+            let (index, error) = result.error.unwrap_or_else(|| panic!("not refused: {sql}"));
+            assert_eq!(index, expected_index, "refusing statement index for: {sql}");
+            assert!(
+                error.message.contains(expected_verb),
+                "message for {sql} names `{expected_verb}`, got: {}",
+                error.message
+            );
+        }
+    }
+
+    /// The refusal is about a *batch*: manual transaction control is out of v0.1 scope (#224), so a
+    /// lone statement keeps the path it already had instead of being refused by this rule.
+    #[tokio::test]
+    async fn execute_multi_does_not_apply_the_batch_rule_to_a_single_statement() {
+        let conn_id = ConnectionId::new();
+        let registry = Arc::new(ConnectionRegistry::new());
+        registry.register(conn_id, ConnectionHandle(1));
+
+        let mut connector = MockDbConnector::new();
+        connector.expect_execute().times(1).returning(|_, _, _| Ok(0));
+        connector.expect_execute_transaction().never();
+
+        let mut history = MockQueryHistoryRepository::new();
+        history.expect_save().returning(|_, _, _, _, _| Ok(()));
+
+        let svc = QueryService::new(
+            Box::new(connector),
+            Box::new(history),
+            Box::new(MockSavedQueryRepository::new()),
+            Box::new(MockRunConfigRepository::new()),
+            Arc::clone(&registry),
+            Box::new(mock_connections_full_access()),
+        );
+
+        let result = svc.execute_multi(&conn_id, "COMMIT", None, None).await.unwrap();
+        assert!(
+            result.error.is_none(),
+            "a single statement is not refused by the batch rule: {:?}",
+            result.error
+        );
+        assert_eq!(result.results.len(), 1);
     }
 
     #[tokio::test]
