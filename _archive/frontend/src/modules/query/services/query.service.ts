@@ -87,6 +87,10 @@ export class QueryService {
     return apiInvoke<void>("delete_saved_query", { id });
   }
 
+  async renameSaved(id: string, newName: string): Promise<void> {
+    return apiInvoke<void>("rename_saved_query", { id, newName });
+  }
+
   async createFolder(connectionId: string, name: string): Promise<SavedQueryFolder> {
     return apiInvoke<SavedQueryFolder>("create_folder", {
       connectionId: connectionId,

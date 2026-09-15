@@ -45,6 +45,7 @@ export interface IQueryService {
   save(connectionId: string, name: string, sql: string, folder?: string): Promise<unknown>;
   listSaved(connectionId: string): Promise<unknown[]>;
   deleteSaved(id: string): Promise<void>;
+  renameSaved(id: string, newName: string): Promise<void>;
   createFolder(connectionId: string, name: string): Promise<unknown>;
   listFolders(connectionId: string): Promise<unknown[]>;
   deleteFolder(id: string): Promise<void>;

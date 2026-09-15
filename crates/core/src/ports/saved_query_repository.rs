@@ -13,7 +13,7 @@ pub trait SavedQueryRepository: Send + Sync {
 
     async fn delete(&self, id: &uuid::Uuid) -> Result<(), DbError>;
 
-    async fn rename(&self, id: &uuid::Uuid, name: &str) -> Result<(), DbError>;
+    async fn rename(&self, id: &uuid::Uuid, new_name: &str) -> Result<(), DbError>;
 
     async fn create_folder(&self, folder: &SavedQueryFolder) -> Result<(), DbError>;
 

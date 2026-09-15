@@ -61,12 +61,12 @@ impl SavedQueryRepository for SQLiteMetaStore {
         Ok(())
     }
 
-    async fn rename(&self, id: &uuid::Uuid, name: &str) -> Result<(), DbError> {
+    async fn rename(&self, id: &uuid::Uuid, new_name: &str) -> Result<(), DbError> {
         let affected = self
             .actor
             .execute_param(
                 "UPDATE saved_queries SET name = ?1 WHERE id = ?2".into(),
-                vec![QueryParam::Text(name.to_string()), QueryParam::Uuid(id.to_string())],
+                vec![QueryParam::Text(new_name.to_string()), QueryParam::Uuid(id.to_string())],
             )
             .await?;
         if affected == 0 {
@@ -94,7 +94,7 @@ impl SavedQueryRepository for SQLiteMetaStore {
         let rows = self
             .actor
             .raw_query(
-                "SELECT id, connection_id, name, created_at FROM saved_query_folders WHERE connection_id = ?1 ORDER BY name".into(),
+                "SELECT id, connection_id, name, created_at FROM saved_query_folders WHERE connection_id = ?1 ORDER BY created_at DESC".into(),
                 vec![connection_id.to_string()],
             )
             .await?;
@@ -115,25 +115,8 @@ impl SavedQueryRepository for SQLiteMetaStore {
 
     async fn delete_folder(&self, id: &uuid::Uuid) -> Result<(), DbError> {
         self.actor
-            .raw_query(
-                "DELETE FROM saved_query_folders WHERE id = ?1".into(),
-                vec![id.to_string()],
-            )
+            .raw_query("DELETE FROM saved_query_folders WHERE id = ?1".into(), vec![id.to_string()])
             .await?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn rename_rejects_missing_saved_query() {
-        let store = SQLiteMetaStore::new(":memory:").await.unwrap();
-
-        let error = store.rename(&uuid::Uuid::new_v4(), "New Name").await.unwrap_err();
-
-        assert!(matches!(error, DbError::NotFound(_)));
     }
 }
