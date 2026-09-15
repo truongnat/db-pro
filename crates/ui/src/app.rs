@@ -1279,6 +1279,24 @@ impl DbProApp {
         summary
     }
 
+    /// Write a redacted diagnostics support bundle next to the backup path or temp (#214).
+    pub(crate) fn export_support_bundle(&self) -> Result<String, String> {
+        let summary = self.build_diagnostics_summary();
+        let json = serde_json::to_string_pretty(&summary).map_err(|e| e.to_string())?;
+        let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
+        let file_name = format!("db-pro-support-bundle-{stamp}.json");
+        let path = if !self.backup_output_path.trim().is_empty() {
+            let parent = std::path::Path::new(self.backup_output_path.trim())
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."));
+            parent.join(&file_name)
+        } else {
+            std::env::temp_dir().join(&file_name)
+        };
+        std::fs::write(&path, json.as_bytes()).map_err(|e| e.to_string())?;
+        Ok(path.display().to_string())
+    }
+
     pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {
         self.query_documents.get(self.active_query_document).and_then(|doc| {
             doc.query_results
@@ -1433,6 +1451,38 @@ impl DbProApp {
         self.activity = Activity::Queries;
         self.sidebar_open = true;
         self.active_tab = WorkspaceTab::Query;
+    }
+
+    /// Disposable scratch tab for throwaway SQL (#211).
+    pub(crate) fn new_scratch_query_document(&mut self) {
+        let (document_id, index) = self.next_query_document_identity();
+        let mut doc = QueryDocument::new(document_id, format!("Scratch {index}"), String::new());
+        doc.connection_id = self.active_connection_id.clone();
+        doc.schema = Some(self.active_schema().to_owned());
+        self.query_documents.push(doc);
+        self.active_query_document = self.query_documents.len() - 1;
+        self.reset_query_cursor();
+        self.activity = Activity::Queries;
+        self.sidebar_open = true;
+        self.active_tab = WorkspaceTab::Query;
+        self.runtime_message = "Opened scratch SQL tab".to_owned();
+    }
+
+    /// Cycle a simple numbered rename for the open query tab (#211).
+    pub(crate) fn rename_query_document_inline(&mut self, index: usize) {
+        let Some(doc) = self.query_documents.get_mut(index) else {
+            return;
+        };
+        if doc.title.starts_with("Scratch ") {
+            let n = doc.title.trim_start_matches("Scratch ").parse::<u32>().unwrap_or(1);
+            doc.title = format!("Scratch {}", n + 1);
+        } else if let Some(rest) = doc.title.strip_prefix("Query ") {
+            let n = rest.parse::<u32>().unwrap_or(1);
+            doc.title = format!("Query {}", n + 1);
+        } else {
+            doc.title = format!("{} (renamed)", doc.title);
+        }
+        self.runtime_message = format!("Renamed tab to {}", doc.title);
     }
 
     pub(crate) fn open_history_entry(&mut self, entry: &UiQueryHistoryEntry, run: bool) {

@@ -1248,8 +1248,14 @@ impl DbProApp {
 
     fn draw_queries(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            section_label(ui, "OPEN DOCUMENTS", self.theme);
+            section_label(ui, "OPEN QUERIES", self.theme);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if compact_icon_button(ui, Icon::FilePlus2, self.theme)
+                    .on_hover_text("New scratch query")
+                    .clicked()
+                {
+                    self.new_scratch_query_document();
+                }
                 if compact_icon_button(ui, Icon::Plus, self.theme)
                     .on_hover_text("New query")
                     .clicked()
@@ -1272,10 +1278,15 @@ impl DbProApp {
             let is_ctx = is_context_menu_triggered(&response, ui);
             let mut close_requested = false;
             let mut duplicate_requested = false;
+            let mut rename_requested = false;
             let theme = self.theme;
             context_action_menu(ui, &response, theme, |ui, close_menu| {
                 if ctx_menu_item(ui, Some(Icon::Copy), "Duplicate query", None, theme.text_primary, theme).clicked() {
                     duplicate_requested = true;
+                    *close_menu = true;
+                }
+                if ctx_menu_item(ui, Some(Icon::Pencil), "Rename tab", None, theme.text_primary, theme).clicked() {
+                    rename_requested = true;
                     *close_menu = true;
                 }
                 if self.query_documents.len() > 1
@@ -1292,17 +1303,49 @@ impl DbProApp {
             if duplicate_requested {
                 self.duplicate_query_document(index);
             }
+            if rename_requested {
+                self.rename_query_document_inline(index);
+            }
             if close_requested {
                 self.request_close_query_document(index);
             }
         }
 
-        ui.add_space(12.0);
+        ui.add_space(14.0);
+        section_label(ui, "SAVED QUERIES", self.theme);
+        ui.add_space(6.0);
+        self.draw_saved_queries_section(ui);
+
+        ui.add_space(14.0);
+        section_label(ui, "HISTORY", self.theme);
+        ui.add_space(6.0);
+        self.draw_local_history_section(ui);
+
+        ui.add_space(14.0);
+        section_label(ui, "SNIPPETS", self.theme);
+        ui.add_space(6.0);
+        for (label, snippet) in Self::builtin_sql_snippets() {
+            if sidebar_item(ui, Icon::Braces, label, false, self.theme)
+                .on_hover_text(*snippet)
+                .clicked()
+            {
+                self.insert_snippet(snippet);
+                self.active_tab = WorkspaceTab::Query;
+                self.activity = Activity::Queries;
+            }
+        }
+
+        ui.add_space(14.0);
+        section_label(ui, "SCRATCH", self.theme);
+        ui.add_space(6.0);
         ui.label(
-            RichText::new("Right-click a document for actions")
+            RichText::new("Scratch tabs are disposable — use New scratch for throwaway SQL.")
                 .small()
                 .color(self.theme.text_muted),
         );
+        if compact_button_with_icon(ui, Icon::FilePlus2, "Open scratch SQL", self.theme).clicked() {
+            self.new_scratch_query_document();
+        }
     }
 
     fn draw_data_activity(&mut self, ui: &mut egui::Ui) {
@@ -1919,9 +1962,19 @@ impl DbProApp {
                         self.runtime_message = "Diagnostics summary copied (secrets redacted)".to_owned();
                     }
                 }
+                if compact_button_with_icon(ui, Icon::Download, "Export support bundle", self.theme).clicked() {
+                    match self.export_support_bundle() {
+                        Ok(path) => {
+                            self.runtime_message = format!("Support bundle written to {path} (secrets redacted)");
+                        }
+                        Err(error) => {
+                            self.runtime_message = format!("Support bundle export failed: {error}");
+                        }
+                    }
+                }
             });
             ui.label(
-                RichText::new("Passwords, tokens, and embedded URL credentials are redacted. Support-bundle zip export is still pending.")
+                RichText::new("Passwords, tokens, and embedded URL credentials are redacted.")
                     .small()
                     .color(self.theme.text_muted),
             );

@@ -1937,6 +1937,87 @@ impl DbProApp {
         output
     }
 
+    /// SQL INSERT statements for result rows (#220).
+    pub(crate) fn format_result_sql_insert(result: &UiQueryResult, table: &str) -> String {
+        if result.columns.is_empty() {
+            return String::new();
+        }
+        let cols = result
+            .columns
+            .iter()
+            .map(|c| format!("\"{}\"", c.name.replace('"', "\"\"")))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let mut out = String::new();
+        const BATCH: usize = 50;
+        for chunk in result.rows.chunks(BATCH) {
+            out.push_str(&format!("INSERT INTO \"{table}\" ({cols}) VALUES\n"));
+            for (i, row) in chunk.iter().enumerate() {
+                let values = row
+                    .iter()
+                    .map(Self::format_cell_sql_literal)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                out.push_str("  (");
+                out.push_str(&values);
+                out.push(')');
+                if i + 1 < chunk.len() {
+                    out.push_str(",\n");
+                } else {
+                    out.push_str(";\n");
+                }
+            }
+            out.push('\n');
+        }
+        out
+    }
+
+    /// PostgreSQL COPY text script for result rows (#220).
+    pub(crate) fn format_result_copy(result: &UiQueryResult, table: &str) -> String {
+        let cols = result
+            .columns
+            .iter()
+            .map(|c| format!("\"{}\"", c.name.replace('"', "\"\"")))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let mut out = format!("COPY \"{table}\" ({cols}) FROM stdin;\n");
+        for row in &result.rows {
+            let line = row
+                .iter()
+                .map(Self::format_cell_copy_field)
+                .collect::<Vec<_>>()
+                .join("\t");
+            out.push_str(&line);
+            out.push('\n');
+        }
+        out.push_str("\\.\n");
+        out
+    }
+
+    fn format_cell_sql_literal(cell: &crate::UiCell) -> String {
+        match cell {
+            crate::UiCell::Null => "NULL".into(),
+            crate::UiCell::Boolean(b) => if *b { "TRUE" } else { "FALSE" }.into(),
+            crate::UiCell::Number(n) => n.clone(),
+            crate::UiCell::Text(t) | crate::UiCell::Json(t) | crate::UiCell::Bytes(t) => {
+                format!("'{}'", t.replace('\'', "''"))
+            }
+        }
+    }
+
+    fn format_cell_copy_field(cell: &crate::UiCell) -> String {
+        match cell {
+            crate::UiCell::Null => "\\N".into(),
+            crate::UiCell::Boolean(b) => if *b { "t" } else { "f" }.into(),
+            crate::UiCell::Number(n) => n.clone(),
+            crate::UiCell::Text(t) | crate::UiCell::Json(t) | crate::UiCell::Bytes(t) => t
+                .replace('\\', "\\\\")
+                .replace('\t', "\\t")
+                .replace('\n', "\\n")
+                .replace('\r', "\\r"),
+        }
+    }
+
     /// Copy-as-JSON must not lose a value. An integer inside the range every JSON
     /// reader represents exactly is written as a JSON integer; any other number is
     /// written as a JSON number only when the decimal text is exactly the shortest form
@@ -2876,5 +2957,37 @@ mod tests {
         draw_grid_frame(&mut app, &ctx, &result);
         assert_eq!(app.grid_projection_cache.rebuilds(), 1);
         assert_eq!(app.grid_selection_cache.rebuilds(), 2);
+    }
+
+    #[test]
+    fn sql_insert_and_copy_export_preserve_null_and_quotes() {
+        let result = crate::UiQueryResult {
+            columns: vec![
+                crate::UiColumn {
+                    name: "id".into(),
+                    data_type: "int".into(),
+                    nullable: false,
+                },
+                crate::UiColumn {
+                    name: "name".into(),
+                    data_type: "text".into(),
+                    nullable: true,
+                },
+            ],
+            rows: vec![
+                vec![crate::UiCell::Number("1".into()), crate::UiCell::Text("O'Brien".into())],
+                vec![crate::UiCell::Number("2".into()), crate::UiCell::Null],
+            ],
+            row_count: 2,
+            duration_ms: 0,
+        };
+        let insert = DbProApp::format_result_sql_insert(&result, "people");
+        assert!(insert.contains("INSERT INTO \"people\""));
+        assert!(insert.contains("'O''Brien'"));
+        assert!(insert.contains("NULL"));
+        let copy = DbProApp::format_result_copy(&result, "people");
+        assert!(copy.contains("COPY \"people\""));
+        assert!(copy.contains("\\N"));
+        assert!(copy.contains("\\."));
     }
 }

@@ -1694,6 +1694,8 @@ impl DbProApp {
                 ui.label("Export results");
                 ui.selectable_value(&mut self.export_format, "CSV".to_owned(), "CSV");
                 ui.selectable_value(&mut self.export_format, "TSV".to_owned(), "TSV");
+                ui.selectable_value(&mut self.export_format, "SQL".to_owned(), "INSERT");
+                ui.selectable_value(&mut self.export_format, "COPY".to_owned(), "COPY");
                 input(ui, &mut self.export_path, "output path", 260.0, self.theme);
                 if compact_button(ui, "Export", self.theme).clicked() {
                     if let Some(result) = result {
@@ -1794,7 +1796,11 @@ impl DbProApp {
         }
 
         let delimiter = if self.export_format == "CSV" { "," } else { "\t" };
-        let output = DbProApp::format_result_delimited(result, delimiter);
+        let output = match self.export_format.as_str() {
+            "SQL" => DbProApp::format_result_sql_insert(result, "exported_rows"),
+            "COPY" => DbProApp::format_result_copy(result, "exported_rows"),
+            _ => DbProApp::format_result_delimited(result, delimiter),
+        };
         let exported_rows = result.rows.len();
         match write_file_atomically(&path, output.as_bytes()) {
             Ok(()) => {
