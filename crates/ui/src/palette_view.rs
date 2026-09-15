@@ -12,6 +12,7 @@ impl DbProApp {
         if mode == PaletteMode::QuickOpen {
             items.extend(self.schema_table_items());
             items.extend(self.saved_query_items());
+            items.extend(self.query_history_items());
             items.extend(self.schema_column_items());
         }
         if mode == PaletteMode::Commands {
@@ -226,6 +227,36 @@ impl DbProApp {
             .collect()
     }
 
+    fn query_history_items(&self) -> Vec<PaletteItem> {
+        self.query_history_entries
+            .iter()
+            .take(30)
+            .enumerate()
+            .map(|(index, entry)| {
+                let preview = entry.sql.chars().take(72).collect::<String>();
+                let status = match entry.status {
+                    UiQueryHistoryStatus::Success => "success",
+                    UiQueryHistoryStatus::Failed => "failed",
+                    UiQueryHistoryStatus::Cancelled => "cancelled",
+                };
+                PaletteItem {
+                    icon: Icon::History,
+                    title: if preview.len() < entry.sql.len() {
+                        format!("{preview}…")
+                    } else {
+                        preview
+                    },
+                    subtitle: format!(
+                        "History · {} · {status}",
+                        entry.connection_id.clone().unwrap_or_else(|| "any".to_owned())
+                    ),
+                    shortcut: None,
+                    action: PaletteAction::OpenHistoryEntry(index),
+                }
+            })
+            .collect()
+    }
+
     pub(crate) fn filtered_palette_items(&self, mode: PaletteMode) -> Vec<PaletteItem> {
         let query = self.palette_query.trim().to_lowercase();
         self.palette_items(mode)
@@ -280,6 +311,13 @@ impl DbProApp {
             PaletteAction::ToggleExplorer => self.sidebar_open = !self.sidebar_open,
             PaletteAction::OpenTable(table) => self.open_table_from_palette(table),
             PaletteAction::OpenSavedQuery(query_id) => self.open_saved_query_from_palette(query_id),
+            PaletteAction::OpenHistoryEntry(index) => {
+                if let Some(entry) = self.query_history_entries.get(index).cloned() {
+                    self.open_history_entry(&entry, false);
+                } else {
+                    self.runtime_message = "History entry is no longer available".to_owned();
+                }
+            }
             PaletteAction::InsertColumn(column) => {
                 self.active_tab = WorkspaceTab::Query;
                 self.append_to_active_query(&column);

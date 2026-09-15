@@ -179,6 +179,7 @@ pub(crate) enum PaletteAction {
     ToggleExplorer,
     OpenTable(String),
     OpenSavedQuery(String),
+    OpenHistoryEntry(usize),
     InsertColumn(String),
     ExplainQuery,
     ExportResults,
