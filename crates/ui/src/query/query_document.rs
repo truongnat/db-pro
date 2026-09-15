@@ -8,6 +8,7 @@ use crate::editor::selection::SelectionRange;
 use crate::editor::syntax::{CachedSqlTokens, SqlDialect};
 use crate::runtime::{UiQueryExecutionOutput, UiQueryResult};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 pub const SQL_PREDICTION_DEBOUNCE: Duration = Duration::from_millis(300);
@@ -130,6 +131,10 @@ pub struct QueryDocument {
     pub explain_plan: Option<String>,
     pub explain_request: Option<crate::runtime::RequestId>,
     pub chart_config: crate::ChartConfig,
+    /// In-memory parameter drafts for the current SQL template (#225). Secrets are
+    /// never persisted with the document snapshot.
+    pub parameter_values: HashMap<String, String>,
+    pub parameter_secrets: std::collections::BTreeSet<String>,
     pub executing_range: Option<(usize, usize)>,
     pub executing_sql: Option<String>,
     pub executing_version: Option<u64>,
@@ -194,6 +199,8 @@ impl QueryDocument {
             explain_plan: None,
             explain_request: None,
             chart_config: crate::ChartConfig::new(),
+            parameter_values: HashMap::new(),
+            parameter_secrets: std::collections::BTreeSet::new(),
             executing_range: None,
             executing_sql: None,
             executing_version: None,
