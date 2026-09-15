@@ -141,8 +141,9 @@ documents' shape (`> Status:`, `## Source`, tables, fenced diagrams) and records
    live tests, UI capability entry);
 6. five recorded contract gaps so a consumer cannot mistake them for guarantees.
 
-`grep -rl ProviderFactory docs/` returned **no files** before this pass and now returns the new
-architecture document (plus `docs/plans/**` if the ledger is included in the pattern).
+`grep -rl ProviderFactory docs/` returned **no files** before this pass. It now returns
+`docs/architecture/provider-contract.md`, plus this evidence file and the #234 ledger row, which
+name the trait in prose.
 
 **Corrected:** `docs/release/known-limitations.md` LIM-002. It said "Only PostgreSQL and SQLite drivers
 are implemented", which stopped being true at `640eaf4c`. It now states that PostgreSQL and SQLite are
