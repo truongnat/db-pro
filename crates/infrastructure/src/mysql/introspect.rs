@@ -294,6 +294,35 @@ impl MySqlIntrospect {
             })
             .collect();
 
+        // CHECK constraints (MySQL 8.0.16+)
+        let check_rows = sqlx::query(
+            "SELECT
+                tc.CONSTRAINT_NAME AS constraint_name,
+                tc.TABLE_NAME AS table_name,
+                cc.CHECK_CLAUSE AS check_clause
+             FROM information_schema.TABLE_CONSTRAINTS tc
+             JOIN information_schema.CHECK_CONSTRAINTS cc
+               ON tc.CONSTRAINT_SCHEMA = cc.CONSTRAINT_SCHEMA
+              AND tc.CONSTRAINT_NAME = cc.CONSTRAINT_NAME
+             WHERE tc.TABLE_SCHEMA = ?
+               AND tc.CONSTRAINT_TYPE = 'CHECK'
+             ORDER BY tc.TABLE_NAME, tc.CONSTRAINT_NAME",
+        )
+        .bind(&database)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| DbError::QueryFailed(format!("MySQL introspect CHECK failed: {}", e)))?;
+
+        let check_constraints = check_rows
+            .iter()
+            .map(|row| CheckConstraint {
+                name: info(row, "constraint_name"),
+                table_name: info(row, "table_name"),
+                schema: database.clone(),
+                definition: info::<Option<String>>(row, "check_clause").unwrap_or_default(),
+            })
+            .collect();
+
         Ok(IntrospectResult {
             schemas: vec![schema],
             tables,
@@ -301,7 +330,7 @@ impl MySqlIntrospect {
             primary_keys,
             indexes,
             foreign_keys,
-            check_constraints: Vec::new(),
+            check_constraints,
             views,
             triggers,
             functions,

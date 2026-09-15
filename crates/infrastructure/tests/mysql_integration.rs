@@ -308,3 +308,49 @@ async fn mysql_positional_parameters_bind_and_round_trip() {
         .ok();
     connector.disconnect(&handle).await.unwrap();
 }
+
+#[tokio::test]
+#[ignore] // Requires DATABASE_URL=mysql://...
+async fn mysql_introspects_named_check_constraints() {
+    let Some((connector, handle, _database)) = setup().await else {
+        eprintln!("skipping MySQL integration test: DATABASE_URL is not a mysql:// URL");
+        return;
+    };
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_check_probe", &[])
+        .await
+        .ok();
+    connector
+        .execute(
+            &handle,
+            "CREATE TABLE mysql_check_probe (
+                id BIGINT NOT NULL,
+                amount DECIMAL(10,2) NOT NULL,
+                CONSTRAINT chk_amount_nonneg CHECK (amount >= 0)
+            )",
+            &[],
+        )
+        .await
+        .expect("create with CHECK");
+
+    let schema = connector.introspect(&handle).await.expect("introspect");
+    let checks: Vec<_> = schema
+        .check_constraints
+        .iter()
+        .filter(|c| c.table_name == "mysql_check_probe")
+        .collect();
+    assert_eq!(checks.len(), 1, "expected one CHECK on mysql_check_probe, got {checks:?}");
+    assert_eq!(checks[0].name, "chk_amount_nonneg");
+    assert!(
+        checks[0].definition.to_lowercase().contains("amount"),
+        "definition should mention amount: {}",
+        checks[0].definition
+    );
+
+    connector
+        .execute(&handle, "DROP TABLE IF EXISTS mysql_check_probe", &[])
+        .await
+        .ok();
+    connector.disconnect(&handle).await.unwrap();
+}

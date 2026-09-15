@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle};
+use db_pro_core::domain::connection::{ConnectionConfig, ConnectionHandle, SslMode};
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::query::QueryParam;
 use db_pro_core::domain::schema::IntrospectResult;
@@ -38,13 +38,29 @@ impl Default for MySqlConnector {
     }
 }
 
+/// Build the sqlx MySQL URL, including the stored TLS mode.
+///
+/// sqlx accepts `ssl-mode` as `DISABLED` / `REQUIRED` / `VERIFY_CA` / `VERIFY_IDENTITY`
+/// (see `sqlx_mysql::options::parse`). Without this query parameter the connector always
+/// negotiated `PREFERRED`, so an explicit `Disable` or `Require` in the connection form
+/// was silently ignored.
+pub(crate) fn mysql_connection_url(config: &ConnectionConfig, password: &str) -> String {
+    let ssl_mode = match config.ssl_mode {
+        SslMode::Disable => "DISABLED",
+        SslMode::Require => "REQUIRED",
+        SslMode::VerifyCa => "VERIFY_CA",
+        SslMode::VerifyFull => "VERIFY_IDENTITY",
+    };
+    format!(
+        "mysql://{}:{}@{}:{}/{}?ssl-mode={}",
+        config.username, password, config.host, config.port, config.database, ssl_mode
+    )
+}
+
 #[async_trait]
 impl DbConnector for MySqlConnector {
     async fn connect(&self, config: &ConnectionConfig, password: &str) -> Result<ConnectionHandle, DbError> {
-        let url = format!(
-            "mysql://{}:{}@{}:{}/{}",
-            config.username, password, config.host, config.port, config.database
-        );
+        let url = mysql_connection_url(config, password);
 
         let pool = MySqlPoolOptions::new()
             .max_connections(5)
@@ -240,5 +256,48 @@ impl db_pro_core::ports::SqlDialect for MySqlDialect {
     }
     fn quote_identifier(&self, name: &str) -> String {
         format!("`{}`", name.replace('`', "``"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use db_pro_core::domain::connection::DriverType;
+
+    fn sample_config(ssl_mode: SslMode) -> ConnectionConfig {
+        ConnectionConfig {
+            name: "mysql".into(),
+            host: "127.0.0.1".into(),
+            port: 3306,
+            database: "app".into(),
+            username: "root".into(),
+            driver: DriverType::Mysql,
+            ssl_mode,
+            ssh_tunnel: None,
+            query_timeout_ms: 30_000,
+            max_rows: 10_000,
+            color: None,
+            tags: vec![],
+            group: None,
+            readonly: false,
+        }
+    }
+
+    #[test]
+    fn mysql_connection_url_maps_every_ssl_mode() {
+        let cases = [
+            (SslMode::Disable, "DISABLED"),
+            (SslMode::Require, "REQUIRED"),
+            (SslMode::VerifyCa, "VERIFY_CA"),
+            (SslMode::VerifyFull, "VERIFY_IDENTITY"),
+        ];
+        for (mode, expected) in cases {
+            let url = mysql_connection_url(&sample_config(mode), "secret");
+            assert!(
+                url.ends_with(&format!("?ssl-mode={expected}")),
+                "expected ssl-mode={expected} in {url}"
+            );
+            assert!(url.starts_with("mysql://root:secret@127.0.0.1:3306/app"));
+        }
     }
 }

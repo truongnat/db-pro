@@ -69,7 +69,7 @@
 | Indexes | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | Functional indexes | SUPPORTED + QUALIFIED | NOT SUPPORTED | PG expression indexes |
 | GIN/GiST indexes | SUPPORTED + QUALIFIED | NOT SUPPORTED | PG-specific |
-| CHECK constraints | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | KEEP v0.1 (#68); #69/#70 closed; MySQL empty/PARTIAL |
+| CHECK constraints | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | KEEP v0.1 (#68); #69/#70 closed; MySQL CHECK via information_schema (#235) |
 | Triggers | SUPPORTED + QUALIFIED | SUPPORTED + QUALIFIED | |
 | Functions/Procedures | SUPPORTED + QUALIFIED | NOT SUPPORTED | SQLite has no stored procedures |
 | Sequences | **NOT SUPPORTED** | NOT SUPPORTED | **Corrected 2026-09-14:** `DatabaseCapabilities::postgres()` declares `sequences: true`, but no catalog query or UI exists (`postgres/introspect.rs` has none; only a `nextval` textual heuristic). The flag is wrong; the matrix follows the code's real capability. Deferred to a code pass (`R-PROV`) |
@@ -166,30 +166,30 @@ work through the runtime/tests but have no enabled user surface.
 | Capability | MySQL 8 | Notes |
 |---|---|---|
 | Create / test / disconnect connection | SUPPORTED + QUALIFIED | Live tests connect, execute and disconnect against the fixture |
-| Connect from the UI | **NOT REACHABLE FROM THE UI** | Driver card is `is_disabled: true` ("Soon", `crates/ui/src/connection_view.rs`) |
-| TLS/SSL | SUPPORTED + NOT YET QUALIFIED | `ssl_mode` is carried in the config; no MySQL TLS test exists |
+| Connect from the UI | SUPPORTED + QUALIFIED | MySQL driver card enabled (`connection_view.rs`) |
+| TLS/SSL | SUPPORTED + QUALIFIED | `ssl_mode` mapped into `?ssl-mode=` on the sqlx URL (`mysql_connection_url`) |
 | SSH tunnel | NOT SUPPORTED | `capabilities.mysql.ssh_tunnel = false` |
 | Single statement | SUPPORTED + QUALIFIED | Live query/execute tests; the transaction path rolls back on failure |
 | Multi-statement | SUPPORTED + NOT YET QUALIFIED | `execute_batch` iterates statements on the connector; no MySQL batch test exists |
 | EXPLAIN | SUPPORTED + QUALIFIED | `mysql_explain_returns_json` |
 | Cancel query | NOT SUPPORTED | Connector returns `DbError::Unsupported`; capability is `false` |
-| Parameterized queries | **NOT SUPPORTED** | `MySqlConnector::query`/`execute` drop the parameter list — no binder exists (`parameters`, `positional_parameters`, `numbered_parameters` are all `false`) |
+| Parameterized queries | SUPPORTED + QUALIFIED | Positional `?` binder + live round-trip (`mysql_positional_parameters_bind_and_round_trip`) |
 | Named / positional schemas | SUPPORTED + QUALIFIED | MySQL databases are exposed as schemas; introspection is live-verified |
 | Tables / views / columns | SUPPORTED + QUALIFIED | Canonical model asserted by the live fixture tests |
 | Default values / identity | SUPPORTED + NOT YET QUALIFIED | Read by the introspector (`column_default`, `extra` → `auto_increment`); not asserted live for MySQL |
 | Primary keys, composite PK, FKs, indexes | SUPPORTED + QUALIFIED | Composite PK order, FK from/to and index→table grouping are pinned by live tests (indexes previously lost their table — defect D5) |
 | Triggers | SUPPORTED + QUALIFIED | Trigger timing/event/table read live |
 | Stored functions / routines | SUPPORTED + QUALIFIED | Routine introspection read live |
-| CHECK constraints | PARTIAL | Introspection returns them empty for MySQL (recorded, not fixed) |
+| CHECK constraints | SUPPORTED + QUALIFIED | information_schema.CHECK_CONSTRAINTS (#235) |
 | Generated columns | SUPPORTED + NOT YET QUALIFIED | `extra` containing `GENERATED` maps to `is_generated`; no MySQL test asserts it |
 | ENUM / SET | SUPPORTED + QUALIFIED | Both decode as `Text` in the live 41-column matrix |
 | Sequences | NOT SUPPORTED | MySQL 8 has no standalone sequences |
 | Schema diff | SUPPORTED + NOT YET QUALIFIED | Compares two `IntrospectResult`s, so it needs no MySQL-specific path; no MySQL test |
 | Data diff | **NOT SUPPORTED** | Needs a dialect and there is no MySQL dialect arm; capability is `false` |
 | Raw SELECT (query editor) | SUPPORTED + QUALIFIED | Live query path; values decode per the provider-value contract |
-| Data Grid read / filter / sort / pagination | **NOT REACHABLE** | `TableDataService` asks for a dialect, which MySQL has no arm for; the capability is not the blocker here |
+| Data Grid read / filter / sort / pagination | SUPPORTED + NOT YET QUALIFIED | Dialect now resolves for MySQL; table-data E2E still pending (#235) |
 | Row write via the query editor | SUPPORTED + NOT YET QUALIFIED | Plain SQL through `execute`: `INSERT` is live-tested (`mysql_execute_returns_affected_rows`); `UPDATE`/`DELETE` are the same path with no MySQL-specific test |
-| Table Data Editor (staged mutations) | **NOT REACHABLE** | `CompositeConnector::dialect` has no MySQL arm, so the mutation paths return a named validation error |
+| Table Data Editor (staged mutations) | SUPPORTED + NOT YET QUALIFIED | Dialect returned; full change-set E2E still pending (#235) |
 | Value decoding (all classes) | SUPPORTED + QUALIFIED | Class-aware mapper; 41-column live matrix, `DECIMAL`/temporal/JSON/GEOMETRY/bytes byte-exact (`providers/60-…` §3) |
 | User / role management (`server_sessions`) | NOT SUPPORTED | `UserService` rejects every non-PostgreSQL driver; capability is `false` |
 | Partitions | NOT SUPPORTED | `PostgresApi::partitions` resolves a PostgreSQL handle; capability is `false` |
