@@ -485,6 +485,47 @@ impl DbProApp {
                                 }
                             }
 
+                            if self.active_tab == WorkspaceTab::SchemaWorkbench {
+                                let mut close_wb = false;
+                                let wb_action = draw_workspace_tab_item(
+                                    ui,
+                                    self.theme,
+                                    WorkspaceTabItem {
+                                        selected: true,
+                                        icon: Icon::Boxes,
+                                        title: "Schema Workbench",
+                                        unsaved: false,
+                                        show_close: true,
+                                    },
+                                    |ui, close_menu| {
+                                        ui.label(
+                                            RichText::new("Schema Workbench")
+                                                .font(font_ui_label())
+                                                .strong()
+                                                .color(self.theme.text_primary),
+                                        );
+                                        ui.separator();
+                                        if ctx_menu_item(
+                                            ui,
+                                            Some(Icon::X),
+                                            "Close Tab",
+                                            None,
+                                            self.theme.text_primary,
+                                            self.theme,
+                                        )
+                                        .clicked()
+                                        {
+                                            close_wb = true;
+                                            *close_menu = true;
+                                        }
+                                    },
+                                );
+
+                                if wb_action.close_clicked || close_wb {
+                                    self.request_close_workspace_tab(WorkspaceTab::SchemaWorkbench);
+                                }
+                            }
+
                             // 6. Component Gallery Tab
                             if self.active_tab == WorkspaceTab::ComponentGallery {
                                 let mut close_gallery = false;
@@ -549,6 +590,7 @@ impl DbProApp {
             WorkspaceTab::Table => self.draw_table_workspace(ui),
             WorkspaceTab::SchemaObject => self.draw_schema_object_workspace(ui),
             WorkspaceTab::Diagram => self.draw_diagram(ui),
+            WorkspaceTab::SchemaWorkbench => self.draw_schema_workbench(ui),
             WorkspaceTab::ComponentGallery => self.draw_component_gallery(ui),
         }
         self.draw_discard_changes_confirmation(ui);

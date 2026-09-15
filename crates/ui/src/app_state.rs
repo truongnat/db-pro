@@ -267,6 +267,7 @@ impl Default for DbProApp {
             files_panel_tab: FilesPanelTab::Tree,
             selected_schema_object: None,
             schema_object_view: SchemaObjectView::Definition,
+            schema_workbench: schema_workbench::SchemaWorkbenchState::default(),
             diagram_zoom: 1.0,
             diagram_pan: egui::Vec2::ZERO,
             diagram_pan_origin: None,

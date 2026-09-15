@@ -435,6 +435,7 @@ impl DbProApp {
                         (Some(Activity::Transfers), Icon::Upload, "Transfers"),
                         (Some(Activity::Monitor), Icon::Gauge, "Monitor"),
                         (Some(Activity::Diagram), Icon::ArrowRightLeft, "ER diagram"),
+                        (Some(Activity::Schema), Icon::Boxes, "Schema workbench"),
                         (None, Icon::Bot, "Agent (Copilot)"),
                     ] {
                         let active = activity.is_some_and(|value| self.activity == value)
@@ -450,6 +451,8 @@ impl DbProApp {
                                         self.active_tab = WorkspaceTab::Query;
                                     } else if value == Activity::Diagram {
                                         self.active_tab = WorkspaceTab::Diagram;
+                                    } else if value == Activity::Schema {
+                                        self.open_schema_workbench();
                                     }
                                 }
                                 (None, "Agent (Copilot)") => self.set_agent_open(!self.agent_open, ctx),
@@ -634,6 +637,7 @@ impl DbProApp {
                                     ),
                                     Activity::Settings => self.draw_settings(ui),
                                     Activity::Diagram => self.draw_diagram_sidebar(ui),
+                                    Activity::Schema => self.draw_schema_workbench_sidebar(ui),
                                     Activity::Explorer => unreachable!(),
                                 }
                             });

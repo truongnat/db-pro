@@ -98,6 +98,8 @@ pub(crate) mod result_grid_view;
 pub(crate) use result_grid_view::GridSelectionCache;
 #[path = "schema_object_view.rs"]
 mod schema_object_view;
+#[path = "schema_workbench.rs"]
+mod schema_workbench;
 #[path = "table_ddl_view.rs"]
 mod table_ddl_view;
 #[path = "table_editor_view.rs"]
@@ -125,6 +127,7 @@ enum Activity {
     Monitor,
     Settings,
     Diagram,
+    Schema,
     Problems,
 }
 
@@ -280,6 +283,7 @@ pub(crate) enum WorkspaceTab {
     Table,
     SchemaObject,
     Diagram,
+    SchemaWorkbench,
     ComponentGallery,
 }
 
@@ -452,6 +456,7 @@ pub struct DbProApp {
     files_panel_tab: FilesPanelTab,
     selected_schema_object: Option<SchemaObjectSelection>,
     schema_object_view: SchemaObjectView,
+    schema_workbench: schema_workbench::SchemaWorkbenchState,
     diagram_zoom: f32,
     diagram_pan: egui::Vec2,
     diagram_pan_origin: Option<egui::Vec2>,
@@ -981,6 +986,7 @@ impl DbProApp {
             },
             WorkspaceTab::SchemaObject => "Schema Object",
             WorkspaceTab::Diagram => "ER Diagram",
+            WorkspaceTab::SchemaWorkbench => "Schema Workbench",
             WorkspaceTab::ComponentGallery => "Component Gallery",
         }
     }
@@ -1667,6 +1673,9 @@ impl DbProApp {
                 self.diagram_show_all = false;
                 self.diagram_pan = egui::Vec2::ZERO;
                 self.diagram_pan_origin = None;
+            }
+            WorkspaceTab::SchemaWorkbench => {
+                self.schema_workbench.apply_confirmation = false;
             }
             WorkspaceTab::ComponentGallery => {}
             WorkspaceTab::Welcome | WorkspaceTab::Query => return,
