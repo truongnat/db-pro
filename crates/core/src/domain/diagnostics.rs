@@ -120,6 +120,10 @@ impl DiagnosticsSummary {
                     driver: "sqlite".into(),
                     available: true,
                 },
+                DriverDiagnostic {
+                    driver: "mysql".into(),
+                    available: true,
+                },
             ],
             connections: Vec::new(),
             recent_errors: Vec::new(),
@@ -135,20 +139,36 @@ impl DiagnosticsSummary {
 
 /// Redact a string for safe inclusion in diagnostics.
 ///
-/// Replaces the value with `"***"` if it looks like a credential.
+/// Replaces the value with `"***"` if it looks like a credential or secret-bearing URL.
 pub fn redact_sensitive(value: &str) -> String {
-    // Simple heuristic: if it contains common password/secret patterns, redact.
     let lower = value.to_ascii_lowercase();
     if lower.contains("password")
         || lower.contains("secret")
         || lower.contains("token")
         || lower.contains("private_key")
         || lower.contains("passphrase")
+        || lower.contains("api_key")
+        || lower.contains("apikey")
     {
-        "***".to_string()
-    } else {
-        value.to_string()
+        return "***".to_string();
     }
+    // user:password@host in connection URLs
+    if let Some(at) = value.find('@') {
+        if let Some(scheme_end) = value.find("://") {
+            let creds = &value[scheme_end + 3..at];
+            if creds.contains(':') {
+                let scheme = &value[..scheme_end + 3];
+                let rest = &value[at..];
+                return format!("{scheme}***{rest}");
+            }
+        }
+    }
+    value.to_string()
+}
+
+/// Redact common connection URL shapes used in support text.
+pub fn redact_connection_url(url: &str) -> String {
+    redact_sensitive(url)
 }
 
 #[cfg(test)]
@@ -161,7 +181,7 @@ mod tests {
         assert!(!diag.app_version.is_empty());
         assert!(!diag.os.is_empty());
         assert!(!diag.architecture.is_empty());
-        assert_eq!(diag.drivers.len(), 2);
+        assert_eq!(diag.drivers.len(), 3);
     }
 
     #[test]
@@ -177,6 +197,18 @@ mod tests {
     #[test]
     fn redact_sensitive_token() {
         assert_eq!(redact_sensitive("bearer token_value"), "***");
+    }
+
+    #[test]
+    fn redact_connection_url_strips_embedded_password() {
+        assert_eq!(
+            redact_connection_url("postgres://alice:s3cret@localhost:5432/app"),
+            "postgres://***@localhost:5432/app"
+        );
+        assert_eq!(
+            redact_connection_url("mysql://root:hunter2@127.0.0.1/db"),
+            "mysql://***@127.0.0.1/db"
+        );
     }
 
     #[test]

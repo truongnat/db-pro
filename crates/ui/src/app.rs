@@ -1128,6 +1128,56 @@ impl DbProApp {
         true
     }
 
+    pub(crate) fn build_diagnostics_summary(&self) -> db_pro_core::domain::diagnostics::DiagnosticsSummary {
+        use db_pro_core::domain::diagnostics::{
+            ConnectionDiagnostic, DiagnosticsSummary, DriverDiagnostic, ErrorDiagnostic, redact_sensitive,
+        };
+
+        let mut summary = DiagnosticsSummary::placeholder();
+        summary.connections = self
+            .connections
+            .iter()
+            .map(|connection| ConnectionDiagnostic {
+                connection_id: connection.id.clone(),
+                driver: connection.driver.clone(),
+                host: redact_sensitive(&connection.host),
+                port: connection.port,
+                database: connection.database.clone(),
+                username: connection.username.clone(),
+                has_password: true,
+                has_ssh: false,
+                is_connected: self.active_connection_id.as_deref() == Some(connection.id.as_str()),
+            })
+            .collect();
+        summary.runtime.active_connections = usize::from(self.active_connection_id.is_some());
+        summary.runtime.active_executions = self
+            .query_documents
+            .iter()
+            .filter(|doc| {
+                matches!(
+                    doc.execution_state,
+                    crate::query::query_document::QueryExecutionState::Running(_)
+                )
+            })
+            .count();
+        if self.has_runtime_error() && !self.runtime_message.trim().is_empty() {
+            summary.recent_errors.push(ErrorDiagnostic {
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                error_code: "UI_RUNTIME".to_owned(),
+                message: redact_sensitive(&self.runtime_message),
+                module: "ui".to_owned(),
+            });
+        }
+        // Ensure MySQL stays listed alongside PG/SQLite in the shipped driver set.
+        if !summary.drivers.iter().any(|d| d.driver == "mysql") {
+            summary.drivers.push(DriverDiagnostic {
+                driver: "mysql".into(),
+                available: true,
+            });
+        }
+        summary
+    }
+
     pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {
         self.query_documents.get(self.active_query_document).and_then(|doc| {
             doc.query_results

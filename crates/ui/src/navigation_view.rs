@@ -1077,6 +1077,8 @@ impl DbProApp {
     fn draw_settings(&mut self, ui: &mut egui::Ui) {
         self.draw_appearance_settings(ui);
         ui.add_space(12.0);
+        self.draw_diagnostics_settings(ui);
+        ui.add_space(12.0);
         card_frame(self.theme).show(ui, |ui| {
             section_label(ui, "DATABASE FILES", self.theme);
             if !self.supports_backup_restore() {
@@ -1091,6 +1093,72 @@ impl DbProApp {
             self.draw_backup_settings(ui);
             ui.add_space(14.0);
             self.draw_restore_settings(ui);
+        });
+    }
+
+    fn draw_diagnostics_settings(&mut self, ui: &mut egui::Ui) {
+        card_frame(self.theme).show(ui, |ui| {
+            section_label(ui, "DIAGNOSTICS", self.theme);
+            ui.add_space(10.0);
+            let summary = self.build_diagnostics_summary();
+            ui.label(
+                RichText::new(format!(
+                    "DB Pro {} · {} / {}",
+                    summary.app_version, summary.os, summary.architecture
+                ))
+                .color(self.theme.text_primary),
+            );
+            ui.label(
+                RichText::new(format!(
+                    "Drivers: {}",
+                    summary
+                        .drivers
+                        .iter()
+                        .map(|d| format!("{}{}", d.driver, if d.available { "" } else { " (n/a)" }))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ))
+                .small()
+                .color(self.theme.text_secondary),
+            );
+            ui.label(
+                RichText::new(format!(
+                    "Connections: {} · active executions tracked: {}",
+                    summary.connections.len(),
+                    summary.runtime.active_executions
+                ))
+                .small()
+                .color(self.theme.text_secondary),
+            );
+            if summary.recent_errors.is_empty() {
+                ui.label(
+                    RichText::new("No recent structured errors in this session.")
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+            } else {
+                for error in summary.recent_errors.iter().take(5) {
+                    ui.label(
+                        RichText::new(format!("• [{}] {}", error.error_code, error.message))
+                            .small()
+                            .color(self.theme.warning),
+                    );
+                }
+            }
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if compact_button_with_icon(ui, Icon::Copy, "Copy diagnostics summary", self.theme).clicked() {
+                    if let Ok(json) = serde_json::to_string_pretty(&summary) {
+                        ui.ctx().copy_text(json);
+                        self.runtime_message = "Diagnostics summary copied (secrets redacted)".to_owned();
+                    }
+                }
+            });
+            ui.label(
+                RichText::new("Passwords, tokens, and embedded URL credentials are redacted. Support-bundle zip export is still pending.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
         });
     }
 

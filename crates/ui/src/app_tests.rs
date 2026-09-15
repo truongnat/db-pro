@@ -2853,6 +2853,30 @@ fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
 }
 
 #[test]
+fn diagnostics_summary_redacts_runtime_errors_and_lists_mysql() {
+    let mut app = DbProApp::default();
+    app.runtime_message = "connection failed password=hunter2".to_owned();
+    app.connections.push(crate::UiConnectionSummary {
+        id: "c1".to_owned(),
+        name: "local".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "app".to_owned(),
+        username: "alice".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        ssl_mode: crate::UiSslMode::Disable,
+        readonly: false,
+    });
+    let summary = app.build_diagnostics_summary();
+    assert!(summary.drivers.iter().any(|d| d.driver == "mysql"));
+    assert_eq!(summary.connections.len(), 1);
+    assert_eq!(summary.recent_errors.len(), 1);
+    assert_eq!(summary.recent_errors[0].message, "***");
+    let json = serde_json::to_string(&summary).expect("serialize");
+    assert!(!json.contains("hunter2"));
+}
+
+#[test]
 fn database_error_position_maps_postgres_character_to_utf8_editor_offset() {
     let sql = "SELECT café FROM users";
     let diagnostic = super::query_view::database_error_diagnostic(
