@@ -2765,6 +2765,27 @@ fn sql_diagnostics_report_mixed_delimiter_mismatch() {
 }
 
 #[test]
+fn sql_lint_warns_on_select_star_and_null_compare() {
+    let (messages, structured) =
+        DbProApp::analyze_sql_diagnostics("SELECT * FROM t WHERE id = NULL", "PostgreSQL");
+    assert!(messages.iter().any(|m| m.contains("SELECT *")));
+    assert!(messages.iter().any(|m| m.contains("IS NULL")));
+    assert!(structured.iter().any(|d| {
+        d.source == crate::editor::DiagnosticSource::Lint && d.code.as_deref() == Some("lint.select-star")
+    }));
+    assert!(structured.iter().any(|d| {
+        d.source == crate::editor::DiagnosticSource::Lint && d.code.as_deref() == Some("lint.null-compare")
+    }));
+}
+
+#[test]
+fn sql_lint_warns_on_delete_without_where() {
+    let (messages, structured) = DbProApp::analyze_sql_diagnostics("DELETE FROM t", "SQLite");
+    assert!(messages.iter().any(|m| m.contains("DELETE without WHERE")));
+    assert!(structured.iter().any(|d| d.code.as_deref() == Some("lint.delete-no-where")));
+}
+
+#[test]
 fn database_error_position_maps_postgres_character_to_utf8_editor_offset() {
     let sql = "SELECT café FROM users";
     let diagnostic = super::query_view::database_error_diagnostic(

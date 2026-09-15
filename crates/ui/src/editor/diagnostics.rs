@@ -5,6 +5,7 @@ pub enum DiagnosticSource {
     Parser,
     Delimiter,
     Database,
+    Lint,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,6 +35,16 @@ impl Diagnostic {
             message: message.into(),
             source: DiagnosticSource::Parser,
             code: None,
+        }
+    }
+
+    pub fn lint(range: (usize, usize), message: impl Into<String>, code: impl Into<String>) -> Self {
+        Self {
+            range,
+            severity: DiagnosticSeverity::Warning,
+            message: message.into(),
+            source: DiagnosticSource::Lint,
+            code: Some(code.into()),
         }
     }
 

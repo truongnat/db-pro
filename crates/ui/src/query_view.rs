@@ -1761,6 +1761,7 @@ impl DbProApp {
             string_diagnostics.push(message.clone());
             structured_diagnostics.push(Diagnostic::delimiter((issue.offset, end), message));
         }
+        Self::append_sql_lint_diagnostics(sql, &mut string_diagnostics, &mut structured_diagnostics);
         let mut tokens = Vec::new();
         let mut current = String::new();
         let mut in_string = false;
@@ -1827,6 +1828,55 @@ impl DbProApp {
             deduplicate_messages(string_diagnostics),
             deduplicate_diagnostics(structured_diagnostics),
         )
+    }
+
+    /// Local, explainable lint rules (issue #257). Never requires schema or network.
+    fn append_sql_lint_diagnostics(
+        sql: &str,
+        string_diagnostics: &mut Vec<String>,
+        structured_diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        let lower = sql.to_lowercase();
+        // SELECT * — warn on the star token when it is a projection wildcard.
+        if let Some(star_at) = lower.find("select") {
+            let after = &lower[star_at..];
+            if let Some(rel) = after.find('*') {
+                let abs = star_at + rel;
+                let before_ok = after[..rel].chars().rev().find(|c| !c.is_whitespace()).is_some();
+                let from_follows = after[rel..].contains("from");
+                if before_ok && from_follows {
+                    let msg = "SELECT * makes column contracts brittle; prefer an explicit column list".to_owned();
+                    string_diagnostics.push(msg.clone());
+                    structured_diagnostics.push(Diagnostic::lint((abs, abs + 1), msg, "lint.select-star"));
+                }
+            }
+        }
+        // = NULL / != NULL / <> NULL — always unknown in SQL; suggest IS [NOT] NULL.
+        for (needle, suggestion) in [
+            ("= null", "IS NULL"),
+            ("!= null", "IS NOT NULL"),
+            ("<> null", "IS NOT NULL"),
+            ("=null", "IS NULL"),
+            ("!=null", "IS NOT NULL"),
+            ("<>null", "IS NOT NULL"),
+        ] {
+            if let Some(at) = lower.find(needle) {
+                let msg = format!("Comparing with NULL using {needle} is always unknown; use {suggestion}");
+                string_diagnostics.push(msg.clone());
+                structured_diagnostics.push(Diagnostic::lint(
+                    (at, at + needle.len()),
+                    msg,
+                    "lint.null-compare",
+                ));
+            }
+        }
+        // DELETE / UPDATE without WHERE already warned above for UPDATE; cover DELETE.
+        let trimmed = lower.trim_start();
+        if trimmed.starts_with("delete") && !lower.contains("where") {
+            let msg = "DELETE without WHERE will remove every row".to_owned();
+            string_diagnostics.push(msg.clone());
+            structured_diagnostics.push(Diagnostic::lint((0, sql.len().min(6)), msg, "lint.delete-no-where"));
+        }
     }
 
     pub(crate) fn parse_sql_diagnostics(sql: &str, driver: &str) -> Vec<String> {
