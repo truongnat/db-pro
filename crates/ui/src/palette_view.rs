@@ -12,6 +12,7 @@ impl DbProApp {
         if mode == PaletteMode::QuickOpen {
             items.extend(self.schema_table_items());
             items.extend(self.saved_query_items());
+            items.extend(self.schema_column_items());
         }
         if mode == PaletteMode::Commands {
             items.extend(self.connection_items());
@@ -209,6 +210,22 @@ impl DbProApp {
             .collect()
     }
 
+    fn schema_column_items(&self) -> Vec<PaletteItem> {
+        let mut seen = std::collections::BTreeSet::new();
+        self.active_schema_column_names()
+            .into_iter()
+            .filter(|column| seen.insert(column.clone()))
+            .take(60)
+            .map(|column| PaletteItem {
+                icon: Icon::Columns3,
+                title: column.clone(),
+                subtitle: format!("Insert column · {}", self.active_schema()),
+                shortcut: None,
+                action: PaletteAction::InsertColumn(column),
+            })
+            .collect()
+    }
+
     pub(crate) fn filtered_palette_items(&self, mode: PaletteMode) -> Vec<PaletteItem> {
         let query = self.palette_query.trim().to_lowercase();
         self.palette_items(mode)
@@ -263,6 +280,11 @@ impl DbProApp {
             PaletteAction::ToggleExplorer => self.sidebar_open = !self.sidebar_open,
             PaletteAction::OpenTable(table) => self.open_table_from_palette(table),
             PaletteAction::OpenSavedQuery(query_id) => self.open_saved_query_from_palette(query_id),
+            PaletteAction::InsertColumn(column) => {
+                self.active_tab = WorkspaceTab::Query;
+                self.append_to_active_query(&column);
+                self.runtime_message = format!("Inserted column {column}");
+            }
             PaletteAction::ExplainQuery => self.explain_query(),
             PaletteAction::ExportResults => self.export_results_from_palette(),
             PaletteAction::RunQuery => {
