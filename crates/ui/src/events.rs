@@ -314,8 +314,7 @@ impl DbProApp {
             }
         }
         self.table_info = Some(table_info);
-        self.grid_row_identity_cache.clear();
-        self.grid_row_identity_cache_ready = false;
+        self.invalidate_grid_row_caches();
         self.table_info_error = None;
         self.table_info_request = None;
         self.runtime_message = "Table structure loaded".to_owned();
@@ -356,8 +355,7 @@ impl DbProApp {
             }
         }
         self.table_data_result = Some(result);
-        self.grid_row_identity_cache.clear();
-        self.grid_row_identity_cache_ready = false;
+        self.invalidate_grid_row_caches();
         self.table_data_total_rows = Some(total_rows);
         if self.staged_changes.is_empty() {
             self.selected_cell = None;
@@ -389,6 +387,7 @@ impl DbProApp {
             return;
         };
 
+        let mut replaced_row = false;
         if let Some(table_result) = self.table_data_result.as_mut() {
             let column_indexes: std::collections::HashMap<&str, usize> = table_result
                 .columns
@@ -402,9 +401,12 @@ impl DbProApp {
                 .position(|row| Self::row_matches_identity(row, &column_indexes, &identity))
             {
                 table_result.rows[row_index] = server_row;
-                self.grid_row_identity_cache.clear();
-                self.grid_row_identity_cache_ready = false;
+                replaced_row = true;
             }
+        }
+        // Outside the borrow above: a replaced row invalidates both grid caches at once.
+        if replaced_row {
+            self.invalidate_grid_row_caches();
         }
         self.table_data_error = None;
         self.runtime_message = "Row reloaded from database".to_owned();
@@ -575,6 +577,9 @@ impl DbProApp {
 
     fn on_query_completed(&mut self, request_id: RequestId, result: UiQueryResult) {
         let target_doc_id = self.query_document_requests.remove(&request_id);
+        // A new result set replaces the rows behind the grid, so nothing the projection cache holds
+        // may survive it.
+        self.invalidate_grid_projection();
         let mut history = None;
         if let Some(doc_id) = &target_doc_id {
             if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
@@ -649,6 +654,8 @@ impl DbProApp {
         let Some(doc_id) = target_doc_id else {
             return;
         };
+        // Same as the single-statement path: the result sets behind the grid are being replaced.
+        self.invalidate_grid_projection();
         let mut history = None;
         if let Some(doc) = self.query_documents.iter_mut().find(|doc| doc.id == doc_id) {
             let (started_at, duration_ms) = doc.take_execution_timing(output.total_duration_ms);

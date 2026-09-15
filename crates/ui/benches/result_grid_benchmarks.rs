@@ -48,6 +48,69 @@ fn bench_million_row_metadata(c: &mut Criterion) {
     group.finish();
 }
 
+/// Sorted projection on a 200k-row x 4-column result: the fixture the sort issue measured
+/// (`docs/release/evidence/v01-runtime/providers/53-result-grid-projection-cache.md`).
+///
+/// The temporal case is the one that reaches seconds: its values parse, so the comparator runs the
+/// date/time parsers on both operands for every comparison. That cost is why the draw path must not
+/// rebuild this projection per frame (`GridProjectionCache`).
+fn sortable_result(row_count: usize) -> UiQueryResult {
+    UiQueryResult {
+        columns: (0..4)
+            .map(|index| UiColumn {
+                name: format!("column_{index}"),
+                data_type: "text".to_owned(),
+                nullable: true,
+            })
+            .collect(),
+        rows: (0..row_count)
+            .map(|index| {
+                vec![
+                    UiCell::Number(index.to_string()),
+                    UiCell::Text(format!("customer-{index:06}")),
+                    UiCell::Text(format!(
+                        "2026-01-{:02} 12:{:02}:{:02}",
+                        index % 28 + 1,
+                        index % 60,
+                        index % 60
+                    )),
+                    UiCell::Text(if index % 2 == 0 { "active" } else { "idle" }.to_owned()),
+                ]
+            })
+            .collect(),
+        row_count: row_count as u64,
+        duration_ms: 0,
+    }
+}
+
+fn bench_sorted_projection(c: &mut Criterion) {
+    let result = sortable_result(200_000);
+    let mut group = c.benchmark_group("result_grid_projection_sorted");
+    group.throughput(Throughput::Elements(200_000));
+    group.sample_size(10);
+    group.bench_function("sort_plain_text_column", |b| {
+        b.iter(|| {
+            black_box(filtered_sorted_indexes(black_box(&result), "", Some(1), false));
+        });
+    });
+    group.bench_function("sort_temporal_text_column", |b| {
+        b.iter(|| {
+            black_box(filtered_sorted_indexes(black_box(&result), "", Some(2), false));
+        });
+    });
+    group.bench_function("filter_and_sort", |b| {
+        b.iter(|| {
+            black_box(filtered_sorted_indexes(
+                black_box(&result),
+                "customer-0001",
+                Some(1),
+                false,
+            ));
+        });
+    });
+    group.finish();
+}
+
 fn bench_visible_scroll_window(c: &mut Criterion) {
     let result = million_row_result();
     let indexes = filtered_sorted_indexes(&result, "", None, false);
@@ -117,6 +180,7 @@ fn bench_requested_grid_sizes(c: &mut Criterion) {
 criterion_group!(
     benches,
     bench_million_row_metadata,
+    bench_sorted_projection,
     bench_visible_scroll_window,
     bench_requested_grid_sizes
 );

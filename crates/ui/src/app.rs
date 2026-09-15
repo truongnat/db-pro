@@ -7,11 +7,11 @@ use crate::{
     grid_frame, icon_button, icon_text, input, input_full_width, menu_button_with_icon, panel_frame,
     primary_button_with_icon, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame,
     toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock, ColumnWritePolicy,
-    DbProTheme, OfflineAgentProvider, TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver,
-    UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry,
-    UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
-    UiStatementOutput, UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation,
-    UiTableSummary, UiTriggerSummary, UiViewSummary,
+    DbProTheme, GridProjectionCache, GridProjectionKey, OfflineAgentProvider, TaskBridge, UiCell, UiCommand,
+    UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput,
+    UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary,
+    UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableDataFilter, UiTableDataSort,
+    UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use db_pro_core::domain::capabilities::DatabaseCapabilities;
@@ -326,6 +326,12 @@ pub struct DbProApp {
     grid_layout_column_names: Vec<String>,
     grid_row_identity_cache: HashMap<usize, RowIdentity>,
     grid_row_identity_cache_ready: bool,
+    /// Monotonic id for the row data behind the grid. Everything that replaces the displayed result
+    /// set, or edits a displayed row in place, must advance it through
+    /// `invalidate_grid_projection`, or the grid keeps drawing the previous filtered/sorted
+    /// projection (see `GridProjectionCache`).
+    grid_projection_epoch: u64,
+    grid_projection_cache: GridProjectionCache,
     grid_columns_user_resized: bool,
     selected_cell: Option<(usize, usize)>,
     selected_row: Option<usize>,
@@ -918,9 +924,41 @@ impl DbProApp {
 
     pub(crate) fn set_active_query_result(&mut self, index: usize) {
         if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
-            if index < doc.query_results.len() {
+            if index < doc.query_results.len() && doc.active_result_index != index {
                 doc.active_result_index = index;
+                self.invalidate_grid_projection();
             }
+        }
+    }
+
+    /// Advance the grid's projection epoch: the displayed rows are about to change.
+    ///
+    /// Called wherever the row data behind the grid is replaced or edited in place — loading query
+    /// results, loading table data, reloading one row, switching the active result set. Missing a
+    /// call does not corrupt data, but the grid would keep drawing the previous order and filter.
+    pub(crate) fn invalidate_grid_projection(&mut self) {
+        self.grid_projection_epoch = self.grid_projection_epoch.wrapping_add(1);
+    }
+
+    /// Drop the per-row identity cache and the projection built from those rows.
+    ///
+    /// The two are invalidated together on purpose: every site that changes row data needs both, and
+    /// keeping them in one call is what makes "no site was forgotten" checkable by grep.
+    pub(crate) fn invalidate_grid_row_caches(&mut self) {
+        self.grid_row_identity_cache.clear();
+        self.grid_row_identity_cache_ready = false;
+        self.invalidate_grid_projection();
+    }
+
+    /// The projection key for the result currently being drawn.
+    fn grid_projection_key(&self, result: &UiQueryResult) -> GridProjectionKey {
+        GridProjectionKey {
+            epoch: self.grid_projection_epoch,
+            filter: self.grid_filter.clone(),
+            sort_column: self.grid_sort_column,
+            sort_desc: self.grid_sort_desc,
+            row_count: result.row_count,
+            column_count: result.columns.len(),
         }
     }
 

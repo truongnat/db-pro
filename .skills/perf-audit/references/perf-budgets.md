@@ -20,15 +20,27 @@ number is only quotable together with the artifact digest and source revision it
 
 ### Runtime Performance (criterion: `crates/ui/benches/result_grid_benchmarks.rs`)
 
-Only the three ids below are registered by that file; they are what
+Only the ids below are registered by that file; they are what
 `cargo bench --package db-pro-ui` actually runs. Measured baseline:
 `docs/architecture/performance-baseline.md`.
 
 | Benchmark id (group/function) | Target | Critical |
 |-----------|--------|----------|
 | `result_grid_million_rows/project_without_filter_or_sort` | < 5ms | > 20ms |
+| `result_grid_projection_sorted/sort_plain_text_column` (200k rows × 4 cols) | < 10ms | > 50ms |
+| `result_grid_projection_sorted/sort_temporal_text_column` (200k rows × 4 cols) | **no target** | **no critical** |
+| `result_grid_projection_sorted/filter_and_sort` (200k rows × 4 cols) | < 20ms | > 100ms |
 | `result_grid_scroll_window/materialize_100_visible_rows` | < 1ms | > 5ms |
 | `result_grid_requested_sizes/build_visual_maps_{1_000,10_000}_rows_50_columns` | no target | no critical |
+
+The three `result_grid_projection_sorted` rows were added with the projection cache (#238,
+`docs/release/evidence/v01-runtime/providers/53-result-grid-projection-cache.md`). They measure the
+**rebuild** cost, which the grid now pays once per data/filter/sort change instead of once per frame,
+so they are a worst-case-per-rebuild budget rather than a frame budget. `sort_temporal_text_column`
+deliberately carries no target: it measured **571 ms** in release for 200k rows on this host because
+the comparator parses dates on every comparison, and a pass target would mean either changing the
+comparison semantics or claiming a number the code does not meet. The cache is what keeps that cost
+off the frame path; the parse cost itself stays tracked by the issue, not by a budget row.
 
 **Budget rows with no benchmark behind them (React-era carry-over; nothing in this tree enforces
 them):** grid visible-range computation, grid hit-testing, cell codec round-trip, Quick Open index

@@ -160,6 +160,73 @@ pub fn filtered_sorted_indexes(
     indexes
 }
 
+/// The inputs that decide one filtered/sorted row projection.
+///
+/// `epoch` is the caller's monotonic id for the row data behind the grid: replacing a result set, or
+/// editing a displayed row in place, must advance it (`DbProApp::invalidate_grid_projection`). The
+/// remaining fields are the grid's own filter/sort state plus a shape guard, so a projection is
+/// reused across frames until one of these inputs really changes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GridProjectionKey {
+    pub epoch: u64,
+    pub filter: String,
+    pub sort_column: Option<usize>,
+    pub sort_desc: bool,
+    pub row_count: u64,
+    pub column_count: usize,
+}
+
+/// One-entry memo for [`filtered_sorted_indexes`].
+///
+/// Rebuilding the projection on every frame is what made a sorted large result unusable: the
+/// comparator parses temporal text per comparison, so a 200k-row sort on a timestamp-shaped column
+/// measured 10.5 s *per frame* in debug (`docs/release/evidence/v01-runtime/providers/53-...md`).
+/// The cache is deliberately dumb — a single entry and no eviction — because a grid draws exactly
+/// one result at a time, and the epoch in the key is what keeps it honest: a stale projection can
+/// only survive if a caller changes row data without advancing the epoch.
+#[derive(Default)]
+pub struct GridProjectionCache {
+    /// Key the cached projection was built for, or `None` while a frame holds the rows.
+    key: Option<GridProjectionKey>,
+    indexes: Vec<usize>,
+    rebuilds: u64,
+}
+
+impl GridProjectionCache {
+    /// Take the projection for `key`, rebuilding it only when the cache holds a different key.
+    ///
+    /// The rows are *moved out*: the draw path needs them as an owned local while it keeps `&mut
+    /// self` available for the rest of the frame. [`Self::restore`] hands them back.
+    pub fn take(&mut self, key: GridProjectionKey, result: &UiQueryResult) -> Vec<usize> {
+        if self.key.as_ref() == Some(&key) {
+            self.key = None;
+            return std::mem::take(&mut self.indexes);
+        }
+        self.key = None;
+        self.indexes.clear();
+        self.rebuilds = self.rebuilds.saturating_add(1);
+        filtered_sorted_indexes(result, &key.filter, key.sort_column, key.sort_desc)
+    }
+
+    /// Store a projection the caller got from [`Self::take`] so the next frame can reuse it.
+    ///
+    /// A projection cached meanwhile under the same-or-different key wins: dropping the frame's copy
+    /// only costs one rebuild, whereas overwriting a newer entry could serve a stale order.
+    pub fn restore(&mut self, key: GridProjectionKey, indexes: Vec<usize>) {
+        if self.key.is_some() {
+            return;
+        }
+        self.key = Some(key);
+        self.indexes = indexes;
+    }
+
+    /// Number of projections built by this cache. Asserted by tests to pin the
+    /// "no per-frame rebuild" property, which is invisible in the rendered frame.
+    pub fn rebuilds(&self) -> u64 {
+        self.rebuilds
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,5 +263,111 @@ mod tests {
         let text_unicode = UiCell::Text("người_dùng".to_owned());
         assert!(cell_contains_filter(&text_unicode, "người"));
         assert!(!cell_contains_filter(&text_unicode, "nguoi"));
+    }
+
+    fn cache_result() -> UiQueryResult {
+        UiQueryResult {
+            columns: (0..2)
+                .map(|index| crate::UiColumn {
+                    name: format!("c{index}"),
+                    data_type: "text".to_owned(),
+                    nullable: true,
+                })
+                .collect(),
+            rows: vec![
+                vec![UiCell::Text("2".to_owned()), UiCell::Text("Beta".to_owned())],
+                vec![UiCell::Text("1".to_owned()), UiCell::Text("Alpha".to_owned())],
+                vec![UiCell::Text("3".to_owned()), UiCell::Text("Gamma".to_owned())],
+            ],
+            row_count: 3,
+            duration_ms: 0,
+        }
+    }
+
+    fn key(epoch: u64, filter: &str, sort_column: Option<usize>, sort_desc: bool) -> GridProjectionKey {
+        let result = cache_result();
+        GridProjectionKey {
+            epoch,
+            filter: filter.to_owned(),
+            sort_column,
+            sort_desc,
+            row_count: result.row_count,
+            column_count: result.columns.len(),
+        }
+    }
+
+    #[test]
+    fn projection_cache_reuses_the_projection_across_frames() {
+        let result = cache_result();
+        let mut cache = GridProjectionCache::default();
+
+        let first = cache.take(key(0, "", None, false), &result);
+        assert_eq!(first, vec![0, 1, 2]);
+        assert_eq!(cache.rebuilds(), 1);
+        cache.restore(key(0, "", None, false), first);
+
+        // Two more frames with unchanged inputs: the rows come back without a second rebuild.
+        for _ in 0..2 {
+            let rows = cache.take(key(0, "", None, false), &result);
+            assert_eq!(rows, vec![0, 1, 2]);
+            cache.restore(key(0, "", None, false), rows);
+        }
+        assert_eq!(cache.rebuilds(), 1);
+    }
+
+    #[test]
+    fn projection_cache_rebuilds_when_an_input_changes() {
+        let result = cache_result();
+        let mut cache = GridProjectionCache::default();
+        let sorted = |cache: &mut GridProjectionCache, key: GridProjectionKey| {
+            let rows = cache.take(key.clone(), &result);
+            cache.restore(key, rows.clone());
+            rows
+        };
+
+        assert_eq!(sorted(&mut cache, key(0, "", Some(0), false)), vec![1, 0, 2]);
+        assert_eq!(cache.rebuilds(), 1);
+
+        // Sorted descending: same epoch, different direction.
+        assert_eq!(sorted(&mut cache, key(0, "", Some(0), true)), vec![2, 0, 1]);
+        assert_eq!(cache.rebuilds(), 2);
+
+        // Filtered.
+        assert_eq!(sorted(&mut cache, key(0, "gamma", Some(0), true)), vec![2]);
+        assert_eq!(cache.rebuilds(), 3);
+
+        // A new result behind the same filter/sort: only the epoch differs.
+        assert_eq!(sorted(&mut cache, key(1, "gamma", Some(0), true)), vec![2]);
+        assert_eq!(cache.rebuilds(), 4);
+    }
+
+    #[test]
+    fn projection_cache_rebuilds_when_the_row_shape_changes() {
+        let result = cache_result();
+        let mut cache = GridProjectionCache::default();
+        cache.restore(key(0, "", None, false), vec![0, 1, 2]);
+
+        // Same epoch, but a result with a different shape cannot reuse the cached rows.
+        let mut wider = key(0, "", None, false);
+        wider.column_count = 4;
+        assert_eq!(cache.take(wider, &result), vec![0, 1, 2]);
+        assert_eq!(cache.rebuilds(), 1);
+    }
+
+    #[test]
+    fn projection_cache_keeps_a_newer_entry_over_the_frame_copy() {
+        let result = cache_result();
+        let mut cache = GridProjectionCache::default();
+        let stale_key = key(0, "", None, false);
+        let frame_rows = cache.take(stale_key.clone(), &result);
+
+        // Something rebuilt during the same frame (a toolbar action changed the sort).
+        let newer_key = key(0, "", Some(1), false);
+        cache.restore(newer_key.clone(), vec![1, 2, 0]);
+
+        // The frame's own copy must not overwrite the newer entry.
+        cache.restore(stale_key, frame_rows);
+        assert_eq!(cache.take(newer_key, &result), vec![1, 2, 0]);
+        assert_eq!(cache.rebuilds(), 1);
     }
 }

@@ -178,6 +178,8 @@ impl Default for DbProApp {
             grid_layout_column_names: Vec::new(),
             grid_row_identity_cache: std::collections::HashMap::new(),
             grid_row_identity_cache_ready: false,
+            grid_projection_epoch: 0,
+            grid_projection_cache: crate::GridProjectionCache::default(),
             grid_columns_user_resized: false,
             selected_cell: None,
             selected_row: None,

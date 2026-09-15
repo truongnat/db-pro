@@ -72,8 +72,11 @@ impl DbProApp {
         let order = self.column_order_for_columns(&result.columns);
         let editable =
             self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data && self.can_edit_table_rows();
-        let indexes =
-            crate::filtered_sorted_indexes(result, &self.grid_filter, self.grid_sort_column, self.grid_sort_desc);
+        // The projection is memoized across frames: sorting a 200k-row result on a timestamp-shaped
+        // column costs seconds per invocation in debug, so rebuilding it in the draw path is what
+        // made a sorted large result unusable (crates/ui/src/result_grid.rs, `GridProjectionCache`).
+        let projection_key = self.grid_projection_key(result);
+        let indexes = self.grid_projection_cache.take(projection_key.clone(), result);
 
         if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
             self.rebuild_row_identity_cache(result, &indexes);
@@ -91,6 +94,10 @@ impl DbProApp {
 
         let row_offset = if is_table_data { self.table_data_offset } else { 0 };
         self.draw_grid_body(ui, result, &indexes, &order, editable, row_offset);
+
+        // Hand the rows back so the next frame can reuse them. Nothing between the take above and
+        // here returns early, which is what keeps the projection from being dropped on the floor.
+        self.grid_projection_cache.restore(projection_key, indexes);
     }
 
     /// Retrieve or initialize column visual ordering.
@@ -804,7 +811,7 @@ impl DbProApp {
                     ui.spacing_mut().item_spacing = Vec2::ZERO;
                     let content_width = GRID_ROW_NUMBER_WIDTH + widths.iter().sum::<f32>();
                     ui.set_min_width(content_width);
-                    self.draw_grid_header(ui, result, &widths, order);
+                    self.draw_grid_header(ui, result, indexes, &widths, order);
                     let rows = GridRows {
                         indexes,
                         widths: &widths,
@@ -1919,7 +1926,14 @@ impl DbProApp {
         widths
     }
 
-    fn draw_grid_header(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, widths: &[f32], order: &[usize]) {
+    fn draw_grid_header(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        indexes: &[usize],
+        widths: &[f32],
+        order: &[usize],
+    ) {
         let (mut move_left_req, mut move_right_req, mut reset_order_req, mut reset_widths_req) =
             (None, None, false, false);
         let (mut hide_column_req, mut show_columns_req, mut reset_layout_req, mut auto_size_req) =
@@ -2314,9 +2328,9 @@ impl DbProApp {
             self.reset_grid_layout(result.columns.len());
         }
         if let Some(column_index) = auto_size_req {
-            let indexes =
-                crate::filtered_sorted_indexes(result, &self.grid_filter, self.grid_sort_column, self.grid_sort_desc);
-            self.auto_size_column(result, &indexes, column_index);
+            // `indexes` is the projection this frame already holds; recomputing it here would repeat
+            // the whole filter/sort pass for one column-width change.
+            self.auto_size_column(result, indexes, column_index);
         }
     }
 
@@ -2560,5 +2574,90 @@ mod tests {
 
         assert!(app.table_data_sorts.is_empty());
         assert!(app.runtime_message.contains("staged changes"));
+    }
+
+    fn projection_test_result() -> UiQueryResult {
+        UiQueryResult {
+            columns: vec![
+                crate::UiColumn {
+                    name: "id".to_owned(),
+                    data_type: "int".to_owned(),
+                    nullable: false,
+                },
+                crate::UiColumn {
+                    name: "name".to_owned(),
+                    data_type: "text".to_owned(),
+                    nullable: false,
+                },
+            ],
+            rows: vec![
+                vec![UiCell::Number("2".to_owned()), UiCell::Text("Beta".to_owned())],
+                vec![UiCell::Number("1".to_owned()), UiCell::Text("Alpha".to_owned())],
+                vec![UiCell::Number("3".to_owned()), UiCell::Text("Gamma".to_owned())],
+            ],
+            row_count: 3,
+            duration_ms: 1,
+        }
+    }
+
+    /// Draw the result grid for one frame, the way the app does.
+    fn draw_grid_frame(app: &mut DbProApp, ctx: &egui::Context, result: &UiQueryResult) {
+        DbProTheme::install_fonts(ctx);
+        ctx.begin_pass(egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1024.0, 640.0))),
+            ..Default::default()
+        });
+        egui::CentralPanel::default().show(ctx, |ui| {
+            app.draw_result_grid(ui, result);
+        });
+        let _ = ctx.end_pass();
+    }
+
+    #[test]
+    fn result_grid_does_not_rebuild_the_projection_every_frame() {
+        let mut app = DbProApp::default();
+        let ctx = egui::Context::default();
+        let result = projection_test_result();
+
+        draw_grid_frame(&mut app, &ctx, &result);
+        assert_eq!(app.grid_projection_cache.rebuilds(), 1);
+
+        // Two more frames with the same result, filter and sort: the projection is reused. This is
+        // the regression #238 reports — before the cache, every one of these frames paid the full
+        // filter/sort pass (seconds per frame on a large temporal-text column).
+        draw_grid_frame(&mut app, &ctx, &result);
+        draw_grid_frame(&mut app, &ctx, &result);
+        assert_eq!(app.grid_projection_cache.rebuilds(), 1);
+    }
+
+    #[test]
+    fn result_grid_rebuilds_the_projection_when_an_input_changes() {
+        let mut app = DbProApp::default();
+        let ctx = egui::Context::default();
+        let result = projection_test_result();
+
+        draw_grid_frame(&mut app, &ctx, &result);
+        assert_eq!(app.grid_projection_cache.rebuilds(), 1);
+
+        app.grid_sort_column = Some(1);
+        draw_grid_frame(&mut app, &ctx, &result);
+        assert_eq!(app.grid_projection_cache.rebuilds(), 2);
+
+        app.grid_sort_desc = true;
+        draw_grid_frame(&mut app, &ctx, &result);
+        assert_eq!(app.grid_projection_cache.rebuilds(), 3);
+
+        app.grid_filter = "alpha".to_owned();
+        draw_grid_frame(&mut app, &ctx, &result);
+        assert_eq!(app.grid_projection_cache.rebuilds(), 4);
+
+        // A new result set behind the same filter and sort: only the epoch differs.
+        app.invalidate_grid_projection();
+        draw_grid_frame(&mut app, &ctx, &result);
+        assert_eq!(app.grid_projection_cache.rebuilds(), 5);
+
+        // And a frame that changes nothing reuses that one.
+        draw_grid_frame(&mut app, &ctx, &result);
+        assert_eq!(app.grid_projection_cache.rebuilds(), 5);
     }
 }
