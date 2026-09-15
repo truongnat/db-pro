@@ -234,6 +234,7 @@ enum TableView {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OutputTab {
     Results,
+    Chart,
     Messages,
     Explain,
     History,

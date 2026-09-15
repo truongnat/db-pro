@@ -336,6 +336,7 @@ impl DbProApp {
                     section_label(ui, "OUTPUT", self.theme);
                     for (tab, label) in [
                         (OutputTab::Results, "Results"),
+                        (OutputTab::Chart, "Chart"),
                         (OutputTab::Messages, "Messages"),
                         (OutputTab::Explain, "Explain"),
                         (OutputTab::History, "History"),
@@ -369,6 +370,13 @@ impl DbProApp {
                             )
                             .small()
                             .color(self.theme.text_secondary),
+                        );
+                    }
+                    OutputTab::Chart => {
+                        ui.label(
+                            RichText::new("Chart view — open the Chart tab for full controls")
+                                .small()
+                                .color(self.theme.text_muted),
                         );
                     }
                     OutputTab::Messages => {
