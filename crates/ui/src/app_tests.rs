@@ -2773,8 +2773,34 @@ fn sql_lint_warns_on_select_star_and_null_compare() {
         d.source == crate::editor::DiagnosticSource::Lint && d.code.as_deref() == Some("lint.select-star")
     }));
     assert!(structured.iter().any(|d| {
-        d.source == crate::editor::DiagnosticSource::Lint && d.code.as_deref() == Some("lint.null-compare")
+        d.source == crate::editor::DiagnosticSource::Lint
+            && d.code.as_deref() == Some("lint.null-compare")
+            && d.fix.as_deref() == Some("IS NULL")
     }));
+}
+
+#[test]
+fn sql_lint_null_compare_quick_fix_is_one_undoable_replace() {
+    let mut app = DbProApp::default();
+    app.query_documents.clear();
+    let mut doc =
+        crate::query::query_document::QueryDocument::new("doc-fix", "Query fix", "SELECT 1 FROM t WHERE id = NULL");
+    let (_, structured) = DbProApp::analyze_sql_diagnostics(doc.text(), "PostgreSQL");
+    doc.diagnostics = structured;
+    app.query_documents.push(doc);
+
+    let entry = app
+        .collect_problem_entries()
+        .into_iter()
+        .find(|e| e.has_fix)
+        .expect("null-compare fix");
+    assert!(app.apply_problem_fix(entry.document_index, entry.diagnostic_index));
+    let text = app.query_documents[0].text().to_owned();
+    assert!(text.contains("IS NULL"), "fixed text was {text}");
+    assert!(!text.to_lowercase().contains("= null"));
+    assert!(app.query_documents[0].buffer.undo_stack.can_undo());
+    app.query_documents[0].buffer.undo();
+    assert!(app.query_documents[0].text().to_lowercase().contains("= null"));
 }
 
 #[test]

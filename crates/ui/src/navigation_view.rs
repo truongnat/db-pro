@@ -870,6 +870,14 @@ impl DbProApp {
                 self.problems_selected = Some((entry.document_id.clone(), entry.diagnostic_index));
                 navigate = Some((entry.document_index, entry.diagnostic_index));
             }
+            if entry.has_fix {
+                ui.horizontal(|ui| {
+                    ui.add_space(12.0);
+                    if compact_button(ui, "Quick fix", self.theme).clicked() {
+                        self.apply_problem_fix(entry.document_index, entry.diagnostic_index);
+                    }
+                });
+            }
         }
         if let Some((doc_index, diagnostic_index)) = navigate {
             self.navigate_to_problem(doc_index, diagnostic_index);

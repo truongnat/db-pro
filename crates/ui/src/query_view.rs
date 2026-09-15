@@ -1887,10 +1887,11 @@ impl DbProApp {
             if let Some(at) = lower.find(needle) {
                 let msg = format!("Comparing with NULL using {needle} is always unknown; use {suggestion}");
                 string_diagnostics.push(msg.clone());
-                structured_diagnostics.push(Diagnostic::lint(
+                structured_diagnostics.push(Diagnostic::lint_with_fix(
                     (at, at + needle.len()),
                     msg,
                     "lint.null-compare",
+                    suggestion,
                 ));
             }
         }
@@ -1962,7 +1963,7 @@ impl DbProApp {
         Self::analyze_sql_diagnostics(sql, driver).0
     }
 
-    fn refresh_diagnostics(&mut self) {
+    pub(crate) fn refresh_diagnostics(&mut self) {
         let driver = self.active_driver().to_owned();
         let doc_index = self.active_query_document;
         if let Some(doc) = self.query_documents.get_mut(doc_index) {

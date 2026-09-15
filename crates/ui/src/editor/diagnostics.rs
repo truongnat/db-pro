@@ -15,6 +15,8 @@ pub struct Diagnostic {
     pub message: String,
     pub source: DiagnosticSource,
     pub code: Option<String>,
+    /// Deterministic replacement for `range` when a safe one-shot rewrite exists (#257).
+    pub fix: Option<String>,
 }
 
 impl Diagnostic {
@@ -25,6 +27,7 @@ impl Diagnostic {
             message: message.into(),
             source: DiagnosticSource::Parser,
             code: None,
+            fix: None,
         }
     }
 
@@ -35,6 +38,7 @@ impl Diagnostic {
             message: message.into(),
             source: DiagnosticSource::Parser,
             code: None,
+            fix: None,
         }
     }
 
@@ -45,6 +49,23 @@ impl Diagnostic {
             message: message.into(),
             source: DiagnosticSource::Lint,
             code: Some(code.into()),
+            fix: None,
+        }
+    }
+
+    pub fn lint_with_fix(
+        range: (usize, usize),
+        message: impl Into<String>,
+        code: impl Into<String>,
+        fix: impl Into<String>,
+    ) -> Self {
+        Self {
+            range,
+            severity: DiagnosticSeverity::Warning,
+            message: message.into(),
+            source: DiagnosticSource::Lint,
+            code: Some(code.into()),
+            fix: Some(fix.into()),
         }
     }
 
@@ -55,6 +76,7 @@ impl Diagnostic {
             message: message.into(),
             source: DiagnosticSource::Delimiter,
             code: None,
+            fix: None,
         }
     }
 
@@ -65,6 +87,7 @@ impl Diagnostic {
             message: message.into(),
             source: DiagnosticSource::Database,
             code: None,
+            fix: None,
         }
     }
 
@@ -75,6 +98,7 @@ impl Diagnostic {
             message: message.into(),
             source: DiagnosticSource::Database,
             code: Some(code.into()),
+            fix: None,
         }
     }
 }

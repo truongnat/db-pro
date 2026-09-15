@@ -154,6 +154,7 @@ pub(crate) struct ProblemEntry {
     line: usize,
     column: usize,
     range: (usize, usize),
+    has_fix: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1042,6 +1043,7 @@ impl DbProApp {
                     line: cursor.line,
                     column: cursor.col,
                     range: diagnostic.range,
+                    has_fix: diagnostic.fix.is_some(),
                 });
             }
         }
@@ -1091,6 +1093,39 @@ impl DbProApp {
         self.active_tab = WorkspaceTab::Query;
         self.problems_selected = Some((doc.id.clone(), diagnostic_index));
         self.runtime_message = format!("Jumped to problem in {}", doc.title);
+    }
+
+    /// Apply a deterministic lint quick-fix as one undoable buffer replace (#257).
+    pub(crate) fn apply_problem_fix(&mut self, document_index: usize, diagnostic_index: usize) -> bool {
+        let Some(document) = self.query_documents.get(document_index) else {
+            return false;
+        };
+        let Some(diagnostic) = document.diagnostics.get(diagnostic_index).cloned() else {
+            return false;
+        };
+        let Some(fix) = diagnostic.fix.clone() else {
+            return false;
+        };
+        let (start, end) = diagnostic.range;
+        if start > end || end > document.buffer.len_bytes() {
+            return false;
+        }
+        if document_index != self.active_query_document {
+            self.active_query_document = document_index;
+        }
+        let doc = &mut self.query_documents[document_index];
+        doc.buffer.replace(start, end, &fix);
+        let new_end = start + fix.len();
+        doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, new_end);
+        doc.selection = crate::editor::SelectionRange::new(start, new_end);
+        doc.dirty = true;
+        self.query_cursor_line = doc.cursor.line + 1;
+        self.query_cursor_column = doc.cursor.col + 1;
+        let title = doc.title.clone();
+        self.active_tab = WorkspaceTab::Query;
+        self.refresh_diagnostics();
+        self.runtime_message = format!("Applied quick fix in {title}");
+        true
     }
 
     pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {
