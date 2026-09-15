@@ -349,7 +349,7 @@ impl DbProApp {
         card_frame(self.theme).show(ui, |ui| {
             ui.label(RichText::new("SQL snippets").strong());
             for (label, snippet) in Self::builtin_sql_snippets() {
-                if compact_button(ui, label, self.theme).clicked() {
+                if compact_button(ui, *label, self.theme).clicked() {
                     self.insert_snippet(snippet);
                     self.snippets_open = false;
                 }
