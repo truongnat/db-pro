@@ -1,6 +1,7 @@
 //! Schema workbench object form and SQL preview panes.
 use super::schema_workbench::{ConstraintKindUi, SchemaWorkbenchMode};
 use super::*;
+use crate::components::{Button, ButtonSize, ButtonVariant};
 use db_pro_core::domain::object_mutation::ObjectAction;
 
 impl DbProApp {
@@ -279,10 +280,22 @@ impl DbProApp {
                     ui.label("Apply the previewed DDL to the active connection?");
                     ui.add_space(8.0);
                     ui.horizontal(|ui| {
-                        if ui.button("Cancel").clicked() {
+                        if Button::new(self.theme)
+                            .text("Cancel")
+                            .size(ButtonSize::Sm)
+                            .variant(ButtonVariant::Ghost)
+                            .show(ui)
+                            .clicked()
+                        {
                             self.schema_workbench.apply_confirmation = false;
                         }
-                        if ui.button("Apply").clicked() {
+                        if Button::new(self.theme)
+                            .text("Apply")
+                            .size(ButtonSize::Sm)
+                            .variant(ButtonVariant::Destructive)
+                            .show(ui)
+                            .clicked()
+                        {
                             self.schema_workbench.apply_confirmation = false;
                             self.apply_workbench_ddl();
                         }

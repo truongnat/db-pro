@@ -1,6 +1,7 @@
 //! Schema Workbench — Phase A object mutation UI (#183–#190, #207, #216–#218, #249–#250).
 
 use super::*;
+use crate::components::{Button, ButtonSize, ButtonVariant};
 use db_pro_core::application::ObjectMutationService;
 use db_pro_core::domain::object_mutation::*;
 use db_pro_core::ports::SqlDialect;
@@ -279,11 +280,23 @@ impl DbProApp {
         ui.label(RichText::new("Schema documentation export").strong());
         ui.add_space(4.0);
         ui.horizontal(|ui| {
-            if ui.button("Generate Markdown").clicked() {
+            if Button::new(self.theme)
+                .text("Generate Markdown")
+                .size(ButtonSize::Sm)
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 self.schema_workbench.docs_format_html = false;
                 self.schema_workbench.docs_markdown = self.export_schema_docs_markdown();
             }
-            if ui.button("Generate HTML").clicked() {
+            if Button::new(self.theme)
+                .text("Generate HTML")
+                .size(ButtonSize::Sm)
+                .variant(ButtonVariant::Secondary)
+                .show(ui)
+                .clicked()
+            {
                 self.schema_workbench.docs_format_html = true;
                 let md = self.export_schema_docs_markdown();
                 self.schema_workbench.docs_markdown = format!(
@@ -291,7 +304,14 @@ impl DbProApp {
                     md.replace('&', "&amp;").replace('<', "&lt;")
                 );
             }
-            if ui.button("Open as query").clicked() && !self.schema_workbench.docs_markdown.is_empty() {
+            if Button::new(self.theme)
+                .text("Open as query")
+                .size(ButtonSize::Sm)
+                .variant(ButtonVariant::Ghost)
+                .show(ui)
+                .clicked()
+                && !self.schema_workbench.docs_markdown.is_empty()
+            {
                 let body = self.schema_workbench.docs_markdown.clone();
                 self.new_query_document();
                 if let Some(doc) = self.query_documents.last_mut() {

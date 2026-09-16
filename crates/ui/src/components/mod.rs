@@ -89,6 +89,20 @@ mod tests {
         assert!(btn.full_width);
     }
 
+    #[test]
+    fn primary_native_surfaces_do_not_reintroduce_raw_buttons() {
+        let sources = [
+            include_str!("../schema_workbench.rs"),
+            include_str!("../schema_workbench_form.rs"),
+            include_str!("../explorer_view.rs"),
+            include_str!("../result_grid_edit.rs"),
+        ];
+
+        for source in sources {
+            assert!(!source.contains("ui.button("), "raw button found in primary UI surface");
+        }
+    }
+
     fn tab_press_event() -> egui::Event {
         egui::Event::Key {
             key: egui::Key::Tab,
