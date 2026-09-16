@@ -5,7 +5,7 @@
 //! and the Views / Functions / Triggers folders in `explorer_folders`.
 
 use super::*;
-use egui::{vec2, FontFamily, Margin, Rounding, Stroke};
+use egui::FontFamily;
 use lucide_icons::Icon;
 
 /// Actions selectable from a connection row's context menu.
@@ -227,43 +227,11 @@ impl DbProApp {
         let row_width = ui.available_width();
         ui.horizontal(|ui| {
             ui.set_min_width(row_width);
-            let clear_width = if self.explorer_search.is_empty() { 0.0 } else { 22.0 };
             let actions_width = 56.0;
-            let search_width = (row_width - clear_width - actions_width).max(80.0);
-
-            egui::Frame {
-                fill: self.theme.surface_hover,
-                rounding: Rounding::same(6.0),
-                stroke: Stroke::new(1.0, self.theme.border_subtle),
-                inner_margin: Margin::symmetric(6.0, 3.0),
-                ..Default::default()
-            }
-            .show(ui, |ui| {
-                ui.set_min_width((search_width - 12.0).max(60.0));
-                ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new(char::from(Icon::Search).to_string())
-                            .family(FontFamily::Name("lucide".into()))
-                            .size(12.0)
-                            .color(self.theme.text_muted),
-                    );
-                    ui.add_sized(
-                        vec2((search_width - 36.0).max(40.0), 20.0),
-                        egui::TextEdit::singleline(&mut self.explorer_search)
-                            .hint_text(RichText::new("Filter objects…").size(12.0).color(self.theme.text_muted))
-                            .frame(false)
-                            .text_color(self.theme.text_primary),
-                    );
-                });
-            });
-
-            if !self.explorer_search.is_empty()
-                && compact_icon_button(ui, Icon::X, self.theme)
-                    .on_hover_text("Clear filter")
-                    .clicked()
-            {
-                self.explorer_search.clear();
-            }
+            let search_width = (row_width - actions_width).max(80.0);
+            SearchInput::new(&mut self.explorer_search, "Filter objects…", self.theme)
+                .width(search_width)
+                .show(ui);
 
             if compact_icon_button(ui, Icon::Plus, self.theme)
                 .on_hover_text("New connection")
@@ -276,7 +244,16 @@ impl DbProApp {
             let refresh_btn =
                 compact_icon_button(ui, Icon::RotateCcw, self.theme).on_hover_text("Refresh active schema");
             refresh_btn.context_menu(|ui| {
-                if ui.button("Refresh Schema").clicked() {
+                if ctx_menu_item(
+                    ui,
+                    Some(Icon::RotateCcw),
+                    "Refresh Schema",
+                    Some("F5"),
+                    self.theme.text_primary,
+                    self.theme,
+                )
+                .clicked()
+                {
                     refresh_schema = true;
                     ui.close_menu();
                 }

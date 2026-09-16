@@ -1,5 +1,6 @@
 //! In-cell editor + advanced value inspector for the result grid (#228).
 use super::*;
+use crate::components::{Button, ButtonSize, ButtonVariant, SegmentedTabs};
 use egui::Rect;
 
 impl DbProApp {
@@ -125,18 +126,34 @@ impl DbProApp {
                         cell_inspector::CellInspectorMode::Pretty,
                     ],
                 };
+                let mut selected_mode = modes
+                    .iter()
+                    .position(|mode| *mode == self.cell_inspector_mode)
+                    .unwrap_or_default();
+                let mode_labels: Vec<&str> = modes.iter().map(|mode| mode.as_label()).collect();
                 ui.horizontal(|ui| {
-                    for mode in modes {
-                        let selected = self.cell_inspector_mode == *mode;
-                        if ui.selectable_label(selected, mode.as_label()).clicked() {
-                            self.cell_inspector_mode = *mode;
-                        }
+                    SegmentedTabs::new(&mut selected_mode, &mode_labels, self.theme).show(ui);
+                    if let Some(mode) = modes.get(selected_mode) {
+                        self.cell_inspector_mode = *mode;
                     }
-                    if ui.button("Copy raw").clicked() {
+                    if Button::new(self.theme)
+                        .text("Copy raw")
+                        .size(ButtonSize::Sm)
+                        .variant(ButtonVariant::Ghost)
+                        .show(ui)
+                        .clicked()
+                    {
                         ui.ctx().copy_text(self.data_edit_value.clone());
                         self.runtime_message = "Copied raw value".into();
                     }
-                    if kind == cell_inspector::CellInspectorKind::Bytes && ui.button("Export bytes…").clicked() {
+                    if kind == cell_inspector::CellInspectorKind::Bytes
+                        && Button::new(self.theme)
+                            .text("Export bytes…")
+                            .size(ButtonSize::Sm)
+                            .variant(ButtonVariant::Secondary)
+                            .show(ui)
+                            .clicked()
+                    {
                         self.export_inspected_bytes();
                     }
                 });
@@ -171,7 +188,14 @@ impl DbProApp {
                                 .desired_rows(16)
                                 .interactive(false),
                         );
-                        if writable && ui.button("Use pretty as edit buffer").clicked() {
+                        if writable
+                            && Button::new(self.theme)
+                                .text("Use pretty as edit buffer")
+                                .size(ButtonSize::Sm)
+                                .variant(ButtonVariant::Ghost)
+                                .show(ui)
+                                .clicked()
+                        {
                             self.data_edit_value = pretty;
                             self.cell_inspector_mode = cell_inspector::CellInspectorMode::Raw;
                         }
@@ -227,10 +251,22 @@ impl DbProApp {
                     ui.label(RichText::new(error).small().color(self.theme.danger));
                 }
                 ui.horizontal(|ui| {
-                    if writable && ui.button("Apply to ChangeSet").clicked() {
+                    if writable
+                        && Button::new(self.theme)
+                            .text("Apply to ChangeSet")
+                            .size(ButtonSize::Sm)
+                            .show(ui)
+                            .clicked()
+                    {
                         commit = true;
                     }
-                    if ui.button("Close").clicked() {
+                    if Button::new(self.theme)
+                        .text("Close")
+                        .size(ButtonSize::Sm)
+                        .variant(ButtonVariant::Ghost)
+                        .show(ui)
+                        .clicked()
+                    {
                         cancel = true;
                     }
                 });
