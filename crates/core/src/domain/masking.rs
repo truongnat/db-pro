@@ -67,14 +67,11 @@ pub fn suggest_sensitive_columns(column_names: &[String]) -> Vec<String> {
 }
 
 pub fn mask_cell(value: &str, rule: &ColumnMask, keyed: bool, key_material: &str) -> String {
-    if value.is_empty() || value.eq_ignore_ascii_case("null") {
-        if matches!(rule.rule, MaskRule::PreserveNull) || value.eq_ignore_ascii_case("null") {
-            return if value.eq_ignore_ascii_case("null") {
-                "NULL".into()
-            } else {
-                value.to_owned()
-            };
-        }
+    if value.eq_ignore_ascii_case("null") {
+        return "NULL".into();
+    }
+    if value.is_empty() && matches!(rule.rule, MaskRule::PreserveNull) {
+        return value.to_owned();
     }
     match rule.rule {
         MaskRule::PreserveNull => {
