@@ -1,4 +1,5 @@
 use super::*;
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use egui::{pos2, vec2, Align2, FontFamily, FontId, Margin, Rect, Rounding, Stroke};
 use lucide_icons::Icon;
 
@@ -305,7 +306,13 @@ impl DbProApp {
                         ui.colored_label(self.theme.warning, "This action cannot be undone.");
                         ui.add_space(SPACE_MD);
                         ui.horizontal(|ui| {
-                            if danger_button(ui, "Delete Connection", self.theme).clicked() {
+                            if Button::new(self.theme)
+                                .text("Delete Connection")
+                                .variant(ButtonVariant::Destructive)
+                                .size(ButtonSize::Sm)
+                                .show(ui)
+                                .clicked()
+                            {
                                 let request_id = self.task_bridge.next_request_id();
                                 self.dispatch_command(UiCommand::DeleteConnection {
                                     request_id,
@@ -315,7 +322,13 @@ impl DbProApp {
                                 self.runtime_message = format!("Deleting {name}…");
                                 self.delete_confirmation_id = None;
                             }
-                            if compact_button(ui, "Cancel", self.theme).clicked() {
+                            if Button::new(self.theme)
+                                .text("Cancel")
+                                .variant(ButtonVariant::Ghost)
+                                .size(ButtonSize::Sm)
+                                .show(ui)
+                                .clicked()
+                            {
                                 self.delete_confirmation_id = None;
                             }
                         });
@@ -352,7 +365,13 @@ impl DbProApp {
                         ui.colored_label(self.theme.warning, "Saved queries in this folder will become unfiled.");
                         ui.add_space(SPACE_MD);
                         ui.horizontal(|ui| {
-                            if danger_button(ui, "Delete Folder", self.theme).clicked() {
+                            if Button::new(self.theme)
+                                .text("Delete Folder")
+                                .variant(ButtonVariant::Destructive)
+                                .size(ButtonSize::Sm)
+                                .show(ui)
+                                .clicked()
+                            {
                                 let request_id = self.task_bridge.next_request_id();
                                 self.dispatch_command(UiCommand::DeleteQueryFolder {
                                     request_id,
@@ -360,7 +379,13 @@ impl DbProApp {
                                 });
                                 self.folder_delete_confirmation = None;
                             }
-                            if compact_button(ui, "Cancel", self.theme).clicked() {
+                            if Button::new(self.theme)
+                                .text("Cancel")
+                                .variant(ButtonVariant::Ghost)
+                                .size(ButtonSize::Sm)
+                                .show(ui)
+                                .clicked()
+                            {
                                 self.folder_delete_confirmation = None;
                             }
                         });
@@ -707,7 +732,13 @@ impl DbProApp {
                             ui.selectable_value(&mut self.connection_draft.cloud_preset, key.to_owned(), label);
                         }
                     });
-                if secondary_button(ui, "Apply preset", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Apply preset")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.apply_cloud_preset();
                 }
             });
@@ -739,7 +770,13 @@ impl DbProApp {
             .label("Paste console URI (secrets redacted on export)")
             .show(ui);
             ui.horizontal(|ui| {
-                if ghost_button(ui, "Import URI", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Import URI")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     match parse_connection_snippet(&self.connection_draft.cloud_snippet) {
                         Ok(parsed) => {
                             self.connection_draft.host = parsed.host;
@@ -1072,7 +1109,14 @@ impl DbProApp {
                                         .show(ui);
                                 });
                                 ui.add_space(SPACE_XS);
-                                if compact_button_with_icon(ui, Icon::FolderOpen, "Browse", self.theme).clicked() {
+                                if Button::new(self.theme)
+                                    .icon(Icon::FolderOpen)
+                                    .text("Browse")
+                                    .variant(ButtonVariant::Secondary)
+                                    .size(ButtonSize::Sm)
+                                    .show(ui)
+                                    .clicked()
+                                {
                                     let request_id = self.task_bridge.next_request_id();
                                     self.dispatch_command(UiCommand::PickSshPrivateKey { request_id });
                                 }
@@ -1081,7 +1125,13 @@ impl DbProApp {
                     });
                     ui.add_space(SPACE_XS);
                     ui.horizontal(|ui| {
-                        if compact_button(ui, "Save as SSH profile", self.theme).clicked() {
+                        if Button::new(self.theme)
+                            .text("Save as SSH profile")
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::Sm)
+                            .show(ui)
+                            .clicked()
+                        {
                             self.save_draft_as_ssh_profile();
                         }
                         if !self.ssh_profiles.is_empty() {
@@ -1279,7 +1329,14 @@ impl DbProApp {
                     .show(ui);
             });
             ui.add_space(SPACE_SM);
-            if compact_button_with_icon(ui, Icon::FolderOpen, "Browse File…", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::FolderOpen)
+                .text("Browse File…")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 let request_id = self.task_bridge.next_request_id();
                 self.dispatch_command(UiCommand::PickSqliteFile { request_id });
             }

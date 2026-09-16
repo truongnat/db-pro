@@ -105,6 +105,8 @@ mod tests {
             include_str!("../table_ddl_view.rs"),
             include_str!("../table_metadata_view.rs"),
             include_str!("../table_view.rs"),
+            include_str!("../connection_view.rs"),
+            include_str!("../query_dialogs_view.rs"),
         ];
 
         for source in sources {

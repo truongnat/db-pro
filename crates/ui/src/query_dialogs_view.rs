@@ -1,8 +1,10 @@
 //! Query destructive-run, export, and SQL diagnostics helpers.
 use super::query_view::{deduplicate_diagnostics, deduplicate_messages, format_query_document, write_file_atomically};
 use super::*;
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::editor::{Diagnostic, SqlDialect};
 use egui::RichText;
+use lucide_icons::Icon;
 use std::path::PathBuf;
 
 impl DbProApp {
@@ -41,10 +43,22 @@ impl DbProApp {
                 );
                 ui.add_space(SPACE_MD);
                 ui.horizontal(|ui| {
-                    if danger_button(ui, "Run Destructive Statement", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Run Destructive Statement")
+                        .variant(ButtonVariant::Destructive)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         confirmed = true;
                     }
-                    if compact_button(ui, "Cancel", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         cancelled = true;
                     }
                 });
@@ -68,12 +82,24 @@ impl DbProApp {
                 ui.selectable_value(&mut self.export_format, "SQL".to_owned(), "INSERT");
                 ui.selectable_value(&mut self.export_format, "COPY".to_owned(), "COPY");
                 input(ui, &mut self.export_path, "output path", 260.0, self.theme);
-                if compact_button(ui, "Export", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Export")
+                    .variant(ButtonVariant::Default)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     if let Some(result) = result {
                         self.export_result(result);
                     }
                 }
-                if compact_button(ui, "Cancel", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Cancel")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.export_open = false;
                     self.export_overwrite_pending = false;
                 }
@@ -85,12 +111,24 @@ impl DbProApp {
                     format!("{} already exists. Overwrite it?", self.export_path.trim()),
                 );
                 ui.horizontal(|ui| {
-                    if danger_button(ui, "Overwrite", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Overwrite")
+                        .variant(ButtonVariant::Destructive)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         if let Some(result) = result {
                             self.export_result_confirming_overwrite(result);
                         }
                     }
-                    if compact_button(ui, "Keep existing file", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Keep existing file")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         self.export_overwrite_pending = false;
                     }
                 });
@@ -421,10 +459,24 @@ impl DbProApp {
                 ui.label("Name");
                 ui.text_edit_singleline(&mut self.save_as_name);
                 ui.horizontal(|ui| {
-                    if primary_button_with_icon(ui, Icon::Save, "Save", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::Save)
+                        .text("Save")
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         save = true;
                     }
-                    if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::X)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         cancel = true;
                     }
                 });
@@ -468,13 +520,34 @@ impl DbProApp {
             .show(ctx, |ui| {
                 ui.label(format!("Save changes to {title} before closing?"));
                 ui.horizontal(|ui| {
-                    if primary_button_with_icon(ui, Icon::Save, "Save", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::Save)
+                        .text("Save")
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         save = true;
                     }
-                    if secondary_button_with_icon(ui, Icon::Trash2, "Don't Save", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::Trash2)
+                        .text("Don't Save")
+                        .variant(ButtonVariant::Destructive)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         discard = true;
                     }
-                    if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::X)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         cancel = true;
                     }
                 });
