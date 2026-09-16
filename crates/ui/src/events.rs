@@ -142,6 +142,23 @@ impl DbProApp {
                     });
                 }
             }
+            UiEvent::EventTriggerInventoryLoaded { inventory, .. } => {
+                self.event_trigger_inventory = Some(inventory.clone());
+                self.event_trigger_error = None;
+                self.runtime_message = format!("Event triggers · {}", inventory.message);
+            }
+            UiEvent::EventTriggerActionCompleted { action, name, .. } => {
+                self.runtime_message = format!("Event trigger {action} `{name}` ok");
+                self.event_trigger_drop_confirm = None;
+                self.event_trigger_ddl_preview = None;
+                if let Some(connection_id) = self.active_connection_id.clone() {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.dispatch_command(UiCommand::ListEventTriggers {
+                        request_id,
+                        connection_id,
+                    });
+                }
+            }
             UiEvent::MonitoringActionCompleted {
                 action,
                 backend_id,

@@ -1325,6 +1325,59 @@ impl PostgresApi {
             .map_err(Into::into)
     }
 
+    pub async fn list_event_triggers(
+        &self,
+        connection_id: &str,
+    ) -> Result<db_pro_core::domain::event_trigger::EventTriggerInventory, DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::event_trigger::PostgresEventTriggerPort::new(connector)
+            .inventory(&handle, connection_id)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn create_event_trigger(
+        &self,
+        connection_id: &str,
+        name: &str,
+        event: &str,
+        function_ref: &str,
+        tags_csv: &str,
+        confirmed: bool,
+    ) -> Result<(), DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::event_trigger::PostgresEventTriggerPort::new(connector)
+            .create_event_trigger(&handle, name, event, function_ref, tags_csv, confirmed)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn drop_event_trigger(&self, connection_id: &str, name: &str, confirmed: bool) -> Result<(), DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::event_trigger::PostgresEventTriggerPort::new(connector)
+            .drop_event_trigger(&handle, name, confirmed)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn alter_event_trigger(
+        &self,
+        connection_id: &str,
+        name: &str,
+        mode: &str,
+        confirmed: bool,
+    ) -> Result<(), DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::event_trigger::PostgresEventTriggerPort::new(connector)
+            .alter_event_trigger(&handle, name, mode, confirmed)
+            .await
+            .map_err(Into::into)
+    }
+
     fn postgres_handle(
         &self,
         connection_id: &str,

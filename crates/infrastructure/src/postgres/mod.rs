@@ -1,6 +1,7 @@
 pub mod connection_string;
 pub mod connector;
 pub mod cross_connection;
+pub mod event_trigger;
 pub mod fdw;
 pub mod introspect;
 pub mod monitoring;

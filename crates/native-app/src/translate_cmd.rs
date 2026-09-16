@@ -178,6 +178,10 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::CreatePublicationAll { .. }
         | UiCommand::DropPublication { .. }
         | UiCommand::DropSubscription { .. }
+        | UiCommand::ListEventTriggers { .. }
+        | UiCommand::CreateEventTrigger { .. }
+        | UiCommand::DropEventTrigger { .. }
+        | UiCommand::AlterEventTrigger { .. }
         | UiCommand::ListUsers { .. }
         | UiCommand::CreateRole { .. }
         | UiCommand::DropRole { .. }
@@ -808,6 +812,54 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             request_id: runtime_request_id(request_id),
             connection_id,
             name,
+            confirmed,
+        }),
+        UiCommand::ListEventTriggers {
+            request_id,
+            connection_id,
+        } => Some(RuntimeCommand::ListEventTriggers {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+        }),
+        UiCommand::CreateEventTrigger {
+            request_id,
+            connection_id,
+            name,
+            event,
+            function_ref,
+            tags_csv,
+            confirmed,
+        } => Some(RuntimeCommand::CreateEventTrigger {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
+            event,
+            function_ref,
+            tags_csv,
+            confirmed,
+        }),
+        UiCommand::DropEventTrigger {
+            request_id,
+            connection_id,
+            name,
+            confirmed,
+        } => Some(RuntimeCommand::DropEventTrigger {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
+            confirmed,
+        }),
+        UiCommand::AlterEventTrigger {
+            request_id,
+            connection_id,
+            name,
+            mode,
+            confirmed,
+        } => Some(RuntimeCommand::AlterEventTrigger {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
+            mode,
             confirmed,
         }),
         UiCommand::ListUsers {

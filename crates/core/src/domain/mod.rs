@@ -8,6 +8,7 @@ pub mod connection_diagnostics;
 pub mod cross_connection;
 pub mod diagnostics;
 pub mod error;
+pub mod event_trigger;
 pub mod execution;
 pub mod explain_plan;
 pub mod fdw;

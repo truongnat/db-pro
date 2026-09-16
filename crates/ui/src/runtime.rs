@@ -646,6 +646,32 @@ pub enum UiCommand {
         name: String,
         confirmed: bool,
     },
+    ListEventTriggers {
+        request_id: RequestId,
+        connection_id: String,
+    },
+    CreateEventTrigger {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+        event: String,
+        function_ref: String,
+        tags_csv: String,
+        confirmed: bool,
+    },
+    DropEventTrigger {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+        confirmed: bool,
+    },
+    AlterEventTrigger {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+        mode: String,
+        confirmed: bool,
+    },
     ListUsers {
         request_id: RequestId,
         connection_id: String,
@@ -904,6 +930,15 @@ pub enum UiEvent {
         inventory: db_pro_core::domain::replication::ReplicationInventory,
     },
     ReplicationActionCompleted {
+        request_id: RequestId,
+        action: String,
+        name: String,
+    },
+    EventTriggerInventoryLoaded {
+        request_id: RequestId,
+        inventory: db_pro_core::domain::event_trigger::EventTriggerInventory,
+    },
+    EventTriggerActionCompleted {
         request_id: RequestId,
         action: String,
         name: String,

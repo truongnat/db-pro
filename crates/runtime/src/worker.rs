@@ -293,6 +293,32 @@ pub enum RuntimeCommand {
         name: String,
         confirmed: bool,
     },
+    ListEventTriggers {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+    },
+    CreateEventTrigger {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        event: String,
+        function_ref: String,
+        tags_csv: String,
+        confirmed: bool,
+    },
+    DropEventTrigger {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        confirmed: bool,
+    },
+    AlterEventTrigger {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        mode: String,
+        confirmed: bool,
+    },
     ListUsers {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -475,6 +501,15 @@ pub enum RuntimeEvent {
         inventory: db_pro_core::domain::replication::ReplicationInventory,
     },
     ReplicationActionCompleted {
+        request_id: RuntimeRequestId,
+        action: &'static str,
+        name: String,
+    },
+    EventTriggerInventoryLoaded {
+        request_id: RuntimeRequestId,
+        inventory: db_pro_core::domain::event_trigger::EventTriggerInventory,
+    },
+    EventTriggerActionCompleted {
         request_id: RuntimeRequestId,
         action: &'static str,
         name: String,
@@ -2121,6 +2156,102 @@ pub fn spawn_worker(
                             Ok(()) => RuntimeEvent::ReplicationActionCompleted {
                                 request_id,
                                 action: "drop_subscription",
+                                name,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::ListEventTriggers {
+                    request_id,
+                    connection_id,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api.list_event_triggers(&connection_id).await {
+                            Ok(inventory) => RuntimeEvent::EventTriggerInventoryLoaded { request_id, inventory },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::CreateEventTrigger {
+                    request_id,
+                    connection_id,
+                    name,
+                    event,
+                    function_ref,
+                    tags_csv,
+                    confirmed,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api
+                            .create_event_trigger(&connection_id, &name, &event, &function_ref, &tags_csv, confirmed)
+                            .await
+                        {
+                            Ok(()) => RuntimeEvent::EventTriggerActionCompleted {
+                                request_id,
+                                action: "create",
+                                name,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::DropEventTrigger {
+                    request_id,
+                    connection_id,
+                    name,
+                    confirmed,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api.drop_event_trigger(&connection_id, &name, confirmed).await {
+                            Ok(()) => RuntimeEvent::EventTriggerActionCompleted {
+                                request_id,
+                                action: "drop",
+                                name,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::AlterEventTrigger {
+                    request_id,
+                    connection_id,
+                    name,
+                    mode,
+                    confirmed,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api
+                            .alter_event_trigger(&connection_id, &name, &mode, confirmed)
+                            .await
+                        {
+                            Ok(()) => RuntimeEvent::EventTriggerActionCompleted {
+                                request_id,
+                                action: "alter",
                                 name,
                             },
                             Err(error) => RuntimeEvent::Failed {
