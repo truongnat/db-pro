@@ -120,24 +120,32 @@ impl DbProApp {
         if let Some(path) = file_path.as_deref() {
             ui.horizontal(|ui| {
                 ui.label(icon_text(Icon::FileCode2, "", self.theme.text_muted));
-                ui.label(
-                    RichText::new(path)
-                        .font(font_caption())
-                        .monospace()
-                        .color(self.theme.text_secondary),
-                );
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(path)
+                            .font(font_caption())
+                            .monospace()
+                            .color(self.theme.text_secondary),
+                    )
+                    .truncate(),
+                )
+                .on_hover_text(path);
             });
             ui.add_space(4.0);
         }
 
         ui.horizontal(|ui| {
             if file_path.is_none() {
-                ui.label(
-                    RichText::new(query_title)
-                        .font(font_subheading())
-                        .strong()
-                        .color(self.theme.text_primary),
-                );
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(&query_title)
+                            .font(font_subheading())
+                            .strong()
+                            .color(self.theme.text_primary),
+                    )
+                    .truncate(),
+                )
+                .on_hover_text(&query_title);
                 ui.label(icon_text(Icon::ChevronRight, "", self.theme.text_muted));
             }
 

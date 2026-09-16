@@ -62,7 +62,7 @@ impl<'a> Dialog<'a> {
         let screen = screen_rect(ui);
         let mut inner = None;
         let theme = self.theme;
-        let width = self.width;
+        let width = self.width.min((screen.width() - 32.0).max(80.0));
         let title = self.title;
         let description = self.description;
         let open = self.open;
@@ -105,7 +105,14 @@ impl<'a> Dialog<'a> {
             .show(ui.ctx(), |ui| {
                 ui.set_min_size(screen.size());
                 let resp = ui.allocate_response(screen.size(), egui::Sense::click());
-                paint_dim(ui, screen, theme.overlay, progress);
+                paint_dim(
+                    ui,
+                    OverlayPaint {
+                        screen,
+                        overlay: theme.overlay,
+                        progress,
+                    },
+                );
                 resp
             });
 
@@ -143,16 +150,17 @@ fn paint_dialog_card<R>(
     .show(ui, |ui| {
         ui.set_width((width - 40.0).max(80.0));
         ui.horizontal(|ui| {
-            ui.vertical(|ui| {
-                ui.label(RichText::new(title).size(16.0).strong().color(theme.text_primary));
-                if let Some(description) = description {
-                    ui.add_space(4.0);
-                    ui.add(egui::Label::new(RichText::new(description).size(13.0).color(theme.text_secondary)).wrap());
-                }
-            });
             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                 if close_icon_button(ui, theme).clicked() {
                     *open = false;
+                }
+            });
+            ui.vertical(|ui| {
+                ui.add(egui::Label::new(RichText::new(title).size(16.0).strong().color(theme.text_primary)).truncate())
+                    .on_hover_text(title);
+                if let Some(description) = description {
+                    ui.add_space(4.0);
+                    ui.add(egui::Label::new(RichText::new(description).size(13.0).color(theme.text_secondary)).wrap());
                 }
             });
         });
@@ -205,7 +213,7 @@ impl<'a> Sheet<'a> {
         let screen = screen_rect(ui);
         let mut inner = None;
         let theme = self.theme;
-        let width = self.width;
+        let width = self.width.min((screen.width() - 16.0).max(80.0));
         let title = self.title;
         let open = self.open;
         let x = screen.right() - width + small_translate(progress, SHEET_TRANSLATE_PX);
@@ -216,7 +224,14 @@ impl<'a> Sheet<'a> {
             .interactable(true)
             .show(ui.ctx(), |ui| {
                 ui.set_min_size(screen.size());
-                paint_dim(ui, screen, theme.overlay, progress);
+                paint_dim(
+                    ui,
+                    OverlayPaint {
+                        screen,
+                        overlay: theme.overlay,
+                        progress,
+                    },
+                );
                 let sheet_rect = Rect::from_min_max(Pos2::new(x, screen.top()), screen.max);
                 ui.allocate_new_ui(egui::UiBuilder::new().max_rect(sheet_rect), |ui| {
                     ui.set_width(width);
@@ -239,12 +254,16 @@ impl<'a> Sheet<'a> {
                         ui.set_width((width - 32.0).max(80.0));
                         ui.set_min_height((screen.height() - 32.0).max(80.0));
                         ui.horizontal(|ui| {
-                            ui.label(RichText::new(title).size(16.0).strong().color(theme.text_primary));
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                 if close_icon_button(ui, theme).clicked() {
                                     *open = false;
                                 }
                             });
+                            ui.add(
+                                egui::Label::new(RichText::new(title).size(16.0).strong().color(theme.text_primary))
+                                    .truncate(),
+                            )
+                            .on_hover_text(title);
                         });
                         ui.add_space(12.0);
                         inner = Some(add_contents(ui));
@@ -264,9 +283,18 @@ fn overlay_widget_id(ui: &mut Ui, salt: Option<Id>, kind: &'static str) -> Id {
     id
 }
 
-fn paint_dim(ui: &mut Ui, screen: Rect, overlay: egui::Color32, progress: f32) {
-    ui.painter()
-        .rect_filled(screen, Rounding::ZERO, faded_overlay(overlay, progress));
+struct OverlayPaint {
+    screen: Rect,
+    overlay: egui::Color32,
+    progress: f32,
+}
+
+fn paint_dim(ui: &mut Ui, paint: OverlayPaint) {
+    ui.painter().rect_filled(
+        paint.screen,
+        Rounding::ZERO,
+        faded_overlay(paint.overlay, paint.progress),
+    );
 }
 
 fn close_icon_button(ui: &mut Ui, theme: DbProTheme) -> Response {
@@ -277,14 +305,19 @@ fn close_icon_button(ui: &mut Ui, theme: DbProTheme) -> Response {
         .show(ui)
 }
 
-pub fn dialog_actions(ui: &mut Ui, theme: DbProTheme, secondary: &str, primary: &str) -> (bool, bool) {
+pub struct DialogActionLabels<'a> {
+    pub secondary: &'a str,
+    pub primary: &'a str,
+}
+
+pub fn dialog_actions(ui: &mut Ui, theme: DbProTheme, labels: DialogActionLabels<'_>) -> (bool, bool) {
     let mut secondary_clicked = false;
     let mut primary_clicked = false;
     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-        primary_clicked = Button::new(theme).text(primary).show(ui).clicked();
+        primary_clicked = Button::new(theme).text(labels.primary).show(ui).clicked();
         ui.add_space(8.0);
         secondary_clicked = Button::new(theme)
-            .text(secondary)
+            .text(labels.secondary)
             .variant(ButtonVariant::Ghost)
             .show(ui)
             .clicked();

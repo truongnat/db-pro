@@ -13,6 +13,11 @@ struct TabChromeAction {
     close_clicked: bool,
 }
 
+const TAB_MIN_WIDTH: f32 = 72.0;
+const TAB_MAX_WIDTH: f32 = 220.0;
+const TAB_TITLE_MAX_WIDTH: f32 = 160.0;
+const TAB_HEIGHT: f32 = 28.0;
+
 impl DbProApp {
     pub(super) fn draw_workspace_tabs(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
@@ -645,6 +650,44 @@ impl DbProApp {
     }
 }
 
+fn truncate_tab_title(
+    ui: &egui::Ui,
+    title: &str,
+    font_id: egui::FontId,
+    color: egui::Color32,
+    max_width: f32,
+) -> String {
+    let full_width = ui
+        .painter()
+        .layout_no_wrap(title.to_owned(), font_id.clone(), color)
+        .size()
+        .x;
+    if full_width <= max_width {
+        return title.to_owned();
+    }
+
+    let ellipsis_width = ui
+        .painter()
+        .layout_no_wrap("…".to_owned(), font_id.clone(), color)
+        .size()
+        .x;
+    let mut visible = String::new();
+    for character in title.chars() {
+        let candidate = format!("{visible}{character}…");
+        let candidate_width = ui
+            .painter()
+            .layout_no_wrap(candidate.clone(), font_id.clone(), color)
+            .size()
+            .x;
+        if candidate_width > max_width.max(ellipsis_width) {
+            break;
+        }
+        visible.push(character);
+    }
+
+    format!("{visible}…")
+}
+
 fn draw_workspace_tab_item(
     ui: &mut egui::Ui,
     theme: DbProTheme,
@@ -659,14 +702,21 @@ fn draw_workspace_tab_item(
     };
     let icon_color = if item.selected { theme.accent } else { theme.text_muted };
 
-    let title_galley = ui.painter().layout_no_wrap(item.title.to_string(), font_id, text_color);
+    let full_title_galley = ui
+        .painter()
+        .layout_no_wrap(item.title.to_owned(), font_id.clone(), text_color);
     let close_slot = if item.show_close { 22.0 } else { 0.0 };
     let unsaved_slot = if item.unsaved { 10.0 } else { 0.0 };
-    let item_width = (18.0 + title_galley.size().x + unsaved_slot + close_slot + 18.0).clamp(72.0, 220.0);
-    let tab_height = 28.0;
+    let title_width = full_title_galley.size().x.min(TAB_TITLE_MAX_WIDTH);
+    let item_width = (18.0 + title_width + unsaved_slot + close_slot + 18.0).clamp(TAB_MIN_WIDTH, TAB_MAX_WIDTH);
+    let title_available_width = item_width - 18.0 - unsaved_slot - close_slot - 18.0;
+    let display_title = truncate_tab_title(ui, item.title, font_id.clone(), text_color, title_available_width);
+    let title_galley = ui.painter().layout_no_wrap(display_title, font_id, text_color);
 
-    let (rect, resp) = ui.allocate_exact_size(egui::vec2(item_width, tab_height), egui::Sense::click());
-    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+    let (rect, resp) = ui.allocate_exact_size(egui::vec2(item_width, TAB_HEIGHT), egui::Sense::click());
+    let resp = resp
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text(item.title);
     let hovered = resp.hovered();
 
     let context_clicked = is_context_menu_triggered(&resp, ui);

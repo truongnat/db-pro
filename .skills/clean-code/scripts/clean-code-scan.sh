@@ -5,6 +5,8 @@
 #   --with-linters          : chạy thêm cargo fmt / clippy (eslint/prettier/tsc đã gỡ)
 #   --ci                    : exit 1 nếu có ✗
 #   --diff                  : chỉ quét file thay đổi so với origin/main (hoặc main)
+#   --ratchet               : coi nợ kích thước đã tồn tại trong file thay đổi là ⚠, không phải ✗
+#                            (các lỗi mới như debug output, nuốt lỗi và unsafe vẫn block)
 #
 # Script chỉ dùng grep/awk — không cần cài thêm gì. Đây là bộ lọc thô, không thay thế review.
 
@@ -24,12 +26,14 @@ SCOPE="all"
 WITH_LINTERS=0
 CI_MODE=0
 DIFF_MODE=0
+RATCHET_MODE=0
 for arg in "$@"; do
   case "$arg" in
     frontend|rust|all) SCOPE="$arg" ;;
     --with-linters) WITH_LINTERS=1 ;;
     --ci) CI_MODE=1 ;;
     --diff) DIFF_MODE=1 ;;
+    --ratchet) RATCHET_MODE=1 ;;
     -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
   esac
 done
@@ -182,9 +186,12 @@ report_size_list() { # phân biệt warn/fail theo tag [FAIL]; chỉ chặn (✗
   local n nf; n="$(echo "$out" | count_lines)"; nf="$(echo "$out" | grep -c '\[FAIL\]')"
   if [ "$n" -eq 0 ]; then
     check "$label" pass "trong ngưỡng"
-  elif [ "$nf" -gt 0 ] && [ "$DIFF_MODE" -eq 1 ]; then
+  elif [ "$nf" -gt 0 ] && [ "$DIFF_MODE" -eq 1 ] && [ "$RATCHET_MODE" -eq 0 ]; then
     check "$label" fail "$n vượt ngưỡng cảnh báo, $nf vượt ngưỡng chặn"
     echo "$out" | show
+  elif [ "$nf" -gt 0 ] && [ "$DIFF_MODE" -eq 1 ] && [ "$RATCHET_MODE" -eq 1 ]; then
+    check "$label" warn "$n vượt ngưỡng; ratchet giữ nợ kích thước cũ ở mức cảnh báo"
+    echo "$out" | sed 's/  \[FAIL\]//' | show
   elif [ "$nf" -gt 0 ]; then
     check "$label" warn "$n vượt ngưỡng cảnh báo, $nf vượt ngưỡng chặn (nợ hiện có — dùng --diff để gate PR)"
     echo "$out" | show
@@ -321,7 +328,7 @@ scan_rust() {
 
   # 7. Nuốt lỗi
   report_list "let _ = <fallible> không comment lý do" \
-    "$(echo "$RS_PROD" | tr '\n' '\0' | xargs -0 awk '
+    "$(echo "$NONTEST" | tr '\n' '\0' | xargs -0 awk '
       FNR == 1 { prev = "" }
       /^[[:space:]]*let _ = / && prev !~ /^[[:space:]]*\/\// { printf "%s:%d: %s\n", FILENAME, FNR, $0 }
       { prev = $0 }' 2>/dev/null)" warn \

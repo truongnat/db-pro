@@ -38,6 +38,16 @@ mod app_types;
 mod cell_inspector;
 #[path = "change_set.rs"]
 mod change_set;
+#[path = "component_gallery_agent.rs"]
+mod component_gallery_agent;
+#[path = "component_gallery_feedback.rs"]
+mod component_gallery_feedback;
+#[path = "component_gallery_inputs.rs"]
+mod component_gallery_inputs;
+#[path = "component_gallery_overlays.rs"]
+mod component_gallery_overlays;
+#[path = "component_gallery_surfaces.rs"]
+mod component_gallery_surfaces;
 #[path = "component_gallery_view.rs"]
 mod component_gallery_view;
 #[path = "connection_view.rs"]
@@ -729,6 +739,7 @@ impl DbProApp {
             .success(message, crate::components::overlay::ToastPosition::BottomRight);
     }
 
+    // Kept as a public runtime entry point for future informational notifications.
     #[allow(dead_code)]
     pub(crate) fn show_toast_info(&mut self, message: impl Into<String>) {
         self.toasts

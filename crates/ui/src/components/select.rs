@@ -23,7 +23,7 @@ pub struct Select<'a> {
 }
 
 impl<'a> Select<'a> {
-    pub fn new(id_salt: &'a str, selected: &'a mut usize, options: &'a [String], theme: DbProTheme) -> Self {
+    pub fn new(id_salt: &'a str, selected: &'a mut usize, options: &'a [String]) -> Self {
         Self {
             id_salt,
             label: None,
@@ -32,8 +32,13 @@ impl<'a> Select<'a> {
             width: None,
             has_more: false,
             load_more: None,
-            theme,
+            theme: DbProTheme::default(),
         }
+    }
+
+    pub fn theme(mut self, theme: DbProTheme) -> Self {
+        self.theme = theme;
+        self
     }
 
     pub fn label(mut self, label: &'a str) -> Self {
@@ -153,10 +158,15 @@ impl<'a> Select<'a> {
         let space_below = (screen.bottom() - parent_rect.bottom()).max(0.0);
         let space_above = (parent_rect.top() - screen.top()).max(0.0);
         let open_up = dropdown_should_open_above(space_below, space_above, menu_h);
+        let menu_width = parent_rect.width().max(160.0).min((screen.width() - 16.0).max(80.0));
+        let menu_left = parent_rect.left().clamp(
+            screen.left() + 8.0,
+            (screen.right() - menu_width - 8.0).max(screen.left() + 8.0),
+        );
         let menu_pos = if open_up {
-            Pos2::new(parent_rect.left(), parent_rect.top() - 4.0 - menu_h)
+            Pos2::new(menu_left, parent_rect.top() - 4.0 - menu_h)
         } else {
-            parent_rect.left_bottom() + Vec2::new(0.0, 4.0)
+            Pos2::new(menu_left, parent_rect.bottom() + 4.0)
         };
 
         let area_resp = egui::Area::new(popup_id)
@@ -164,21 +174,37 @@ impl<'a> Select<'a> {
             .order(egui::Order::Foreground)
             .show(ui.ctx(), |ui| {
                 floating_surface(self.theme, 10.0, Margin::symmetric(4.0, MENU_PAD)).show(ui, |ui| {
-                    ui.set_min_width((parent_rect.width() - 8.0).max(160.0));
-                    ui.set_max_width(parent_rect.width().max(160.0));
+                    ui.set_min_width(menu_width - 8.0);
+                    ui.set_max_width(menu_width);
                     egui::ScrollArea::vertical()
                         .id_salt(popup_id.with("scroll"))
                         .max_height(MAX_VISIBLE_ITEMS as f32 * ITEM_HEIGHT)
                         .auto_shrink([false, true])
                         .show(ui, |ui| {
                             for (idx, opt) in self.options.iter().enumerate() {
-                                if paint_option(ui, opt, idx == *self.selected, self.theme).clicked() {
+                                if paint_option(
+                                    ui,
+                                    SelectOption {
+                                        label: opt,
+                                        selected: idx == *self.selected,
+                                        theme: self.theme,
+                                    },
+                                )
+                                .clicked()
+                                {
                                     *self.selected = idx;
                                     ui.memory_mut(|mem| mem.close_popup());
                                 }
                             }
                             if self.has_more {
-                                let load = paint_option(ui, "Load more…", false, self.theme);
+                                let load = paint_option(
+                                    ui,
+                                    SelectOption {
+                                        label: "Load more…",
+                                        selected: false,
+                                        theme: self.theme,
+                                    },
+                                );
                                 if load.clicked() {
                                     if let Some(flag) = self.load_more {
                                         *flag = true;
@@ -203,7 +229,14 @@ pub fn dropdown_should_open_above(space_below: f32, space_above: f32, menu_h: f3
     space_below < menu_h && space_above > space_below
 }
 
-fn paint_option(ui: &mut Ui, label: &str, selected: bool, theme: DbProTheme) -> Response {
+struct SelectOption<'a> {
+    label: &'a str,
+    selected: bool,
+    theme: DbProTheme,
+}
+
+fn paint_option(ui: &mut Ui, option: SelectOption<'_>) -> Response {
+    let SelectOption { label, selected, theme } = option;
     let (rect, response) = ui.allocate_exact_size(Vec2::new(ui.available_width(), ITEM_HEIGHT), Sense::click());
     let hover = hover_t(ui.ctx(), response.id.with("opt"), response.hovered() && !selected);
     let bg = if selected {
@@ -213,12 +246,17 @@ fn paint_option(ui: &mut Ui, label: &str, selected: bool, theme: DbProTheme) -> 
     };
     ui.painter().rect_filled(rect, Rounding::same(6.0), bg);
     let text_color = if selected { theme.accent } else { theme.text_primary };
-    ui.painter().text(
-        Pos2::new(rect.left() + 8.0, rect.center().y),
-        egui::Align2::LEFT_CENTER,
-        label,
-        FontId::proportional(13.0),
-        text_color,
+    let text_right = if selected {
+        rect.right() - 28.0
+    } else {
+        rect.right() - 8.0
+    };
+    ui.put(
+        Rect::from_min_max(
+            Pos2::new(rect.left() + 8.0, rect.top()),
+            Pos2::new(text_right, rect.bottom()),
+        ),
+        egui::Label::new(RichText::new(label).font(FontId::proportional(13.0)).color(text_color)).truncate(),
     );
     if selected {
         ui.painter().text(

@@ -111,6 +111,9 @@ jobs:
             echo "DB_PRO_SSH_PASSWORD=dbpro_test"
           } >> "$GITHUB_ENV"
 
+      - name: Clean code scan
+        run: bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci
+
       - name: cargo fmt
         run: cargo fmt --all --check
 

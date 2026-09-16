@@ -61,12 +61,16 @@ impl DbProApp {
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
                                 ui.spacing_mut().item_spacing = vec2(SPACE_XS, 0.0);
-                                ui.label(
-                                    RichText::new(active_name)
-                                        .font(font_ui_label())
-                                        .strong()
-                                        .color(self.theme.text_primary),
-                                    );
+                                ui.add(
+                                    egui::Label::new(
+                                        RichText::new(active_name)
+                                            .font(font_ui_label())
+                                            .strong()
+                                            .color(self.theme.text_primary),
+                                    )
+                                    .truncate(),
+                                )
+                                .on_hover_text(active_name);
                                 ui.label(
                                     RichText::new(char::from(Icon::ChevronDown).to_string())
                                         .font(font_icon(ICON_XS))

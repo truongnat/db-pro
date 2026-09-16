@@ -42,7 +42,7 @@ pub use chrome::{toolbar_button, Avatar, AvatarSize, EmptyState, Skeleton, Toolb
 pub use code::{CodeBlock, InlineCode};
 pub use database::{ConnectionCard, ConnectionCardAction, ConnectionStatus, DatabaseDriver, DatabaseTypeBadge};
 pub use dev_tools::{ProgressRing, TerminalBlock};
-pub use dialog::{dialog_actions, Dialog, Sheet};
+pub use dialog::{dialog_actions, Dialog, DialogActionLabels, Sheet};
 pub use diff::{DiffLine, DiffLineType, DiffViewer};
 pub use explain::{ExplainPlanTree, PlanNode};
 pub use feedback::{kbd_badge, kbd_combo, separator_with_text, Progress, Spinner};
@@ -231,7 +231,8 @@ mod tests {
         let mut selected = 3;
         let mut load_more = false;
         run_ui(|ui| {
-            Select::new("many-options", &mut selected, &options[..12], theme)
+            Select::new("many-options", &mut selected, &options[..12])
+                .theme(theme)
                 .has_more(true)
                 .load_more(&mut load_more)
                 .show(ui);
@@ -614,6 +615,7 @@ mod tests {
             let bar = TransactionBar::new(true, 2, theme)
                 .auto_commit(false)
                 .isolation_level("SERIALIZABLE");
+            // This test only verifies that the transaction bar renders without panicking.
             let _ = bar.show(ui);
         });
     }

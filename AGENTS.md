@@ -195,8 +195,12 @@ Use the `clean-code` skill when:
 Quick check before PR (only files changed vs `main`):
 
 ```bash
-bash .skills/clean-code/scripts/clean-code-scan.sh --diff
+bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci
 ```
+
+`--ratchet` keeps pre-existing function/file-size debt as warnings while new debug output, swallowed
+errors, unsafe code and boundary violations remain blocking failures. Warnings still require review or
+follow-up; the ratchet is not an exclusion mechanism.
 
 Standards and Sai/Đúng examples live in `.skills/clean-code/references/` (naming, functions, comments,
 formatting, objects-and-data, error-handling, design-principles, code-health, review-checklist).
