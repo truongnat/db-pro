@@ -1235,6 +1235,51 @@ impl PostgresApi {
             .map_err(Into::into)
     }
 
+    pub async fn list_fdw_inventory(
+        &self,
+        connection_id: &str,
+    ) -> Result<db_pro_core::domain::fdw::FdwInventory, DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::fdw::PostgresFdwPort::new(connector)
+            .inventory(&handle, connection_id)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn create_fdw_server(
+        &self,
+        connection_id: &str,
+        name: &str,
+        fdw: &str,
+        host: &str,
+        dbname: &str,
+        port: &str,
+        confirmed: bool,
+    ) -> Result<(), DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::fdw::PostgresFdwPort::new(connector)
+            .create_server(&handle, name, fdw, host, dbname, port, confirmed)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn drop_fdw_server(
+        &self,
+        connection_id: &str,
+        name: &str,
+        cascade: bool,
+        confirmed: bool,
+    ) -> Result<(), DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::fdw::PostgresFdwPort::new(connector)
+            .drop_server(&handle, name, cascade, confirmed)
+            .await
+            .map_err(Into::into)
+    }
+
     fn postgres_handle(
         &self,
         connection_id: &str,

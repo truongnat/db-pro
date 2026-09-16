@@ -250,6 +250,27 @@ pub enum RuntimeCommand {
         connection_id: String,
         name: String,
     },
+    ListFdwInventory {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+    },
+    CreateFdwServer {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        fdw: String,
+        host: String,
+        dbname: String,
+        port: String,
+        confirmed: bool,
+    },
+    DropFdwServer {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        cascade: bool,
+        confirmed: bool,
+    },
     ListUsers {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -414,6 +435,15 @@ pub enum RuntimeEvent {
         snapshot: db_pro_core::domain::pg_settings::PgSettingsSnapshot,
     },
     PgSettingActionCompleted {
+        request_id: RuntimeRequestId,
+        action: &'static str,
+        name: String,
+    },
+    FdwInventoryLoaded {
+        request_id: RuntimeRequestId,
+        inventory: db_pro_core::domain::fdw::FdwInventory,
+    },
+    FdwActionCompleted {
         request_id: RuntimeRequestId,
         action: &'static str,
         name: String,
@@ -1897,6 +1927,80 @@ pub fn spawn_worker(
                             Ok(()) => RuntimeEvent::PgSettingActionCompleted {
                                 request_id,
                                 action: "reset",
+                                name,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::ListFdwInventory {
+                    request_id,
+                    connection_id,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api.list_fdw_inventory(&connection_id).await {
+                            Ok(inventory) => RuntimeEvent::FdwInventoryLoaded { request_id, inventory },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::CreateFdwServer {
+                    request_id,
+                    connection_id,
+                    name,
+                    fdw,
+                    host,
+                    dbname,
+                    port,
+                    confirmed,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api
+                            .create_fdw_server(&connection_id, &name, &fdw, &host, &dbname, &port, confirmed)
+                            .await
+                        {
+                            Ok(()) => RuntimeEvent::FdwActionCompleted {
+                                request_id,
+                                action: "create_server",
+                                name,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::DropFdwServer {
+                    request_id,
+                    connection_id,
+                    name,
+                    cascade,
+                    confirmed,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api
+                            .drop_fdw_server(&connection_id, &name, cascade, confirmed)
+                            .await
+                        {
+                            Ok(()) => RuntimeEvent::FdwActionCompleted {
+                                request_id,
+                                action: "drop_server",
                                 name,
                             },
                             Err(error) => RuntimeEvent::Failed {

@@ -107,6 +107,23 @@ impl DbProApp {
                     });
                 }
             }
+            UiEvent::FdwInventoryLoaded { inventory, .. } => {
+                self.fdw_inventory = Some(inventory.clone());
+                self.fdw_error = None;
+                self.runtime_message = format!("FDW · {}", inventory.message);
+            }
+            UiEvent::FdwActionCompleted { action, name, .. } => {
+                self.runtime_message = format!("FDW {action} `{name}` ok");
+                self.fdw_drop_confirm = None;
+                self.fdw_ddl_preview = None;
+                if let Some(connection_id) = self.active_connection_id.clone() {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.dispatch_command(UiCommand::ListFdwInventory {
+                        request_id,
+                        connection_id,
+                    });
+                }
+            }
             UiEvent::MonitoringActionCompleted {
                 action,
                 backend_id,

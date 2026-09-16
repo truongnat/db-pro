@@ -603,6 +603,27 @@ pub enum UiCommand {
         connection_id: String,
         name: String,
     },
+    ListFdwInventory {
+        request_id: RequestId,
+        connection_id: String,
+    },
+    CreateFdwServer {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+        fdw: String,
+        host: String,
+        dbname: String,
+        port: String,
+        confirmed: bool,
+    },
+    DropFdwServer {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+        cascade: bool,
+        confirmed: bool,
+    },
     ListUsers {
         request_id: RequestId,
         connection_id: String,
@@ -843,6 +864,15 @@ pub enum UiEvent {
         snapshot: db_pro_core::domain::pg_settings::PgSettingsSnapshot,
     },
     PgSettingActionCompleted {
+        request_id: RequestId,
+        action: String,
+        name: String,
+    },
+    FdwInventoryLoaded {
+        request_id: RequestId,
+        inventory: db_pro_core::domain::fdw::FdwInventory,
+    },
+    FdwActionCompleted {
         request_id: RequestId,
         action: String,
         name: String,

@@ -10,6 +10,7 @@ pub mod diagnostics;
 pub mod error;
 pub mod execution;
 pub mod explain_plan;
+pub mod fdw;
 pub mod health_advisor;
 pub mod history;
 pub mod migration;

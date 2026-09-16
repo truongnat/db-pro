@@ -171,6 +171,9 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::ListPgSettings { .. }
         | UiCommand::SetPgSettingSession { .. }
         | UiCommand::ResetPgSettingSession { .. }
+        | UiCommand::ListFdwInventory { .. }
+        | UiCommand::CreateFdwServer { .. }
+        | UiCommand::DropFdwServer { .. }
         | UiCommand::ListUsers { .. }
         | UiCommand::CreateRole { .. }
         | UiCommand::DropRole { .. }
@@ -723,6 +726,45 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             request_id: runtime_request_id(request_id),
             connection_id,
             name,
+        }),
+        UiCommand::ListFdwInventory {
+            request_id,
+            connection_id,
+        } => Some(RuntimeCommand::ListFdwInventory {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+        }),
+        UiCommand::CreateFdwServer {
+            request_id,
+            connection_id,
+            name,
+            fdw,
+            host,
+            dbname,
+            port,
+            confirmed,
+        } => Some(RuntimeCommand::CreateFdwServer {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
+            fdw,
+            host,
+            dbname,
+            port,
+            confirmed,
+        }),
+        UiCommand::DropFdwServer {
+            request_id,
+            connection_id,
+            name,
+            cascade,
+            confirmed,
+        } => Some(RuntimeCommand::DropFdwServer {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
+            cascade,
+            confirmed,
         }),
         UiCommand::ListUsers {
             request_id,

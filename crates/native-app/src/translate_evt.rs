@@ -50,6 +50,19 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             action: action.to_owned(),
             name,
         }),
+        RuntimeEvent::FdwInventoryLoaded { request_id, inventory } => Some(UiEvent::FdwInventoryLoaded {
+            request_id: ui_request_id(request_id),
+            inventory,
+        }),
+        RuntimeEvent::FdwActionCompleted {
+            request_id,
+            action,
+            name,
+        } => Some(UiEvent::FdwActionCompleted {
+            request_id: ui_request_id(request_id),
+            action: action.to_owned(),
+            name,
+        }),
         RuntimeEvent::MonitoringActionCompleted {
             request_id,
             action,
