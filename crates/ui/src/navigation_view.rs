@@ -2062,6 +2062,103 @@ impl DbProApp {
                     self.apply_migration_preview();
                 }
             }
+            ui.separator();
+            ui.add_space(8.0);
+            section_label(ui, "DATA COMPARE", self.theme);
+            ui.label(
+                RichText::new("Key-aware sample compare across two active connections. Sync SQL is preview-only.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            input_full_width(ui, &mut self.data_diff_target_id, "target connection id", self.theme);
+            input_full_width(ui, &mut self.data_diff_schema, "schema", self.theme);
+            input_full_width(ui, &mut self.data_diff_table, "table", self.theme);
+            input_full_width(ui, &mut self.data_diff_keys, "key columns (comma)", self.theme);
+            if primary_button_with_icon(ui, Icon::GitCompare, "Compare rows", self.theme).clicked() {
+                self.request_data_diff_keyed();
+            }
+            if let Some(diff) = &self.data_diff_result {
+                ui.label(
+                    RichText::new(format!(
+                        "counts src={} tgt={} · +{} -{} ~{} ={} · truncated={}",
+                        diff.source_row_count,
+                        diff.target_row_count,
+                        diff.added,
+                        diff.removed,
+                        diff.changed,
+                        diff.equal,
+                        diff.truncated
+                    ))
+                    .small()
+                    .monospace()
+                    .color(self.theme.text_secondary),
+                );
+                ui.horizontal(|ui| {
+                    for label in ["all", "added", "removed", "changed"] {
+                        if ui.selectable_label(self.data_diff_filter == label, label).clicked() {
+                            self.data_diff_filter = label.to_owned();
+                        }
+                    }
+                });
+                for row in &diff.row_diffs {
+                    let include = match self.data_diff_filter.as_str() {
+                        "added" => row.state == db_pro_core::domain::cross_connection::DataRowState::Added,
+                        "removed" => row.state == db_pro_core::domain::cross_connection::DataRowState::Removed,
+                        "changed" => row.state == db_pro_core::domain::cross_connection::DataRowState::Changed,
+                        _ => true,
+                    };
+                    if !include {
+                        continue;
+                    }
+                    ui.label(
+                        RichText::new(format!("{:?} · {}", row.state, row.key.replace('\u{1f}', "|")))
+                            .small()
+                            .monospace()
+                            .color(self.theme.text_secondary),
+                    );
+                }
+                for sql in &diff.sync_sql_preview {
+                    ui.label(RichText::new(sql).small().monospace().color(self.theme.text_muted));
+                }
+            }
         });
+    }
+
+    pub(crate) fn request_data_diff_keyed(&mut self) {
+        let Some(source_id) = self.active_connection_id.clone() else {
+            self.runtime_message = "Connect a source database first".into();
+            return;
+        };
+        let target_id = self.data_diff_target_id.trim().to_owned();
+        if target_id.is_empty() {
+            self.runtime_message = "Target connection id is required".into();
+            return;
+        }
+        let table = self.data_diff_table.trim().to_owned();
+        if table.is_empty() {
+            self.runtime_message = "Table is required".into();
+            return;
+        }
+        let key_columns = self
+            .data_diff_keys
+            .split(',')
+            .map(|s| s.trim().to_owned())
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>();
+        if key_columns.is_empty() {
+            self.runtime_message = "At least one key column is required".into();
+            return;
+        }
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::DiffTableDataKeyed {
+            request_id,
+            source_id,
+            target_id,
+            schema: self.data_diff_schema.trim().to_owned(),
+            table,
+            key_columns,
+            sample_limit: Some(1_000),
+        });
+        self.runtime_message = "Running key-aware data compare…".into();
     }
 }

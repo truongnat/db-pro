@@ -127,6 +127,7 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::RevokeMembership { .. }
         | UiCommand::GrantPrivilege { .. }
         | UiCommand::RevokePrivilege { .. }
+        | UiCommand::DiffTableDataKeyed { .. }
         | UiCommand::CancelQuery { .. }
         | UiCommand::RequestSqlPrediction { .. }
         | UiCommand::CancelSqlPrediction { .. } => translate_execution_command(command),
@@ -751,6 +752,23 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             schema,
             object_name,
             privilege,
+        }),
+        UiCommand::DiffTableDataKeyed {
+            request_id,
+            source_id,
+            target_id,
+            schema,
+            table,
+            key_columns,
+            sample_limit,
+        } => Some(RuntimeCommand::DiffTableDataKeyed {
+            request_id: runtime_request_id(request_id),
+            source_id,
+            target_id,
+            schema,
+            table,
+            key_columns,
+            sample_limit,
         }),
         UiCommand::CancelQuery { request_id } => Some(RuntimeCommand::CancelQuery {
             request_id: runtime_request_id(request_id),

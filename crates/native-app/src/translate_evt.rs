@@ -70,6 +70,10 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             request_id: ui_request_id(request_id),
             state,
         }),
+        RuntimeEvent::DataDiffLoaded { request_id, diff } => Some(UiEvent::DataDiffLoaded {
+            request_id: ui_request_id(request_id),
+            diff,
+        }),
         RuntimeEvent::OperationCompleted { request_id, operation } => {
             translate_operation_completed(request_id, operation)
         }

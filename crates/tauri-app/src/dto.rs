@@ -1043,6 +1043,14 @@ pub struct DataDiffDto {
     pub source_row_count: i64,
     pub target_row_count: i64,
     pub row_count_diff: i64,
+    pub key_columns: Vec<String>,
+    pub sample_limit: Option<u64>,
+    pub added: u64,
+    pub removed: u64,
+    pub changed: u64,
+    pub equal: u64,
+    pub truncated: bool,
+    pub sync_sql_preview: Vec<String>,
 }
 
 impl From<db_pro_core::domain::cross_connection::DataDiff> for DataDiffDto {
@@ -1053,6 +1061,14 @@ impl From<db_pro_core::domain::cross_connection::DataDiff> for DataDiffDto {
             source_row_count: d.source_row_count,
             target_row_count: d.target_row_count,
             row_count_diff: d.row_count_diff,
+            key_columns: d.key_columns,
+            sample_limit: d.sample_limit,
+            added: d.added,
+            removed: d.removed,
+            changed: d.changed,
+            equal: d.equal,
+            truncated: d.truncated,
+            sync_sql_preview: d.sync_sql_preview,
         }
     }
 }

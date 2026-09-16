@@ -1050,6 +1050,23 @@ impl DataDiffApi {
             .await
             .map_err(Into::into)
     }
+
+    pub async fn diff_table_data_keyed(
+        &self,
+        source_id: &str,
+        target_id: &str,
+        schema: &str,
+        table: &str,
+        key_columns: &[String],
+        sample_limit: Option<u64>,
+    ) -> Result<DataDiff, DbErrorDto> {
+        let source_id = parse_connection_id(source_id)?;
+        let target_id = parse_connection_id(target_id)?;
+        self.service
+            .diff_table_data_keyed(&source_id, &target_id, schema, table, key_columns, sample_limit)
+            .await
+            .map_err(Into::into)
+    }
 }
 
 #[derive(Clone)]

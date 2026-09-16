@@ -122,6 +122,10 @@ impl DbProApp {
                 self.security_error = None;
                 self.runtime_message = "Security · RLS state loaded".into();
             }
+            UiEvent::DataDiffLoaded { diff, .. } => {
+                self.data_diff_result = Some(diff);
+                self.runtime_message = "Data compare ready".into();
+            }
             UiEvent::DdlCompleted {
                 request_id,
                 affected_rows,

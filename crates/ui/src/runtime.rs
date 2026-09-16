@@ -629,6 +629,15 @@ pub enum UiCommand {
         object_name: String,
         privilege: String,
     },
+    DiffTableDataKeyed {
+        request_id: RequestId,
+        source_id: String,
+        target_id: String,
+        schema: String,
+        table: String,
+        key_columns: Vec<String>,
+        sample_limit: Option<u64>,
+    },
     CancelQuery {
         request_id: RequestId,
     },
@@ -801,6 +810,10 @@ pub enum UiEvent {
     TableRlsLoaded {
         request_id: RequestId,
         state: db_pro_core::domain::rls::TableRlsState,
+    },
+    DataDiffLoaded {
+        request_id: RequestId,
+        diff: db_pro_core::domain::cross_connection::DataDiff,
     },
     OperationCompleted {
         request_id: RequestId,

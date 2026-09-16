@@ -25,13 +25,54 @@ pub struct ColumnTypeMismatch {
     pub target_type: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DataDiff {
     pub schema: String,
     pub table: String,
     pub source_row_count: i64,
     pub target_row_count: i64,
     pub row_count_diff: i64,
+    #[serde(default)]
+    pub key_columns: Vec<String>,
+    #[serde(default)]
+    pub sample_limit: Option<u64>,
+    #[serde(default)]
+    pub added: u64,
+    #[serde(default)]
+    pub removed: u64,
+    #[serde(default)]
+    pub changed: u64,
+    #[serde(default)]
+    pub equal: u64,
+    #[serde(default)]
+    pub truncated: bool,
+    #[serde(default)]
+    pub row_diffs: Vec<DataRowDiff>,
+    #[serde(default)]
+    pub sync_sql_preview: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DataRowState {
+    Added,
+    Removed,
+    Changed,
+    Equal,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DataRowDiff {
+    pub state: DataRowState,
+    pub key: String,
+    pub column_changes: Vec<DataColumnChange>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DataColumnChange {
+    pub column: String,
+    pub source_value: Option<String>,
+    pub target_value: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

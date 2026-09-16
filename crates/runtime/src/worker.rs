@@ -296,6 +296,15 @@ pub enum RuntimeCommand {
         object_name: String,
         privilege: String,
     },
+    DiffTableDataKeyed {
+        request_id: RuntimeRequestId,
+        source_id: String,
+        target_id: String,
+        schema: String,
+        table: String,
+        key_columns: Vec<String>,
+        sample_limit: Option<u64>,
+    },
     CancelQuery {
         request_id: RuntimeRequestId,
     },
@@ -392,6 +401,10 @@ pub enum RuntimeEvent {
     TableRlsLoaded {
         request_id: RuntimeRequestId,
         state: db_pro_core::domain::rls::TableRlsState,
+    },
+    DataDiffLoaded {
+        request_id: RuntimeRequestId,
+        diff: db_pro_core::domain::cross_connection::DataDiff,
     },
     OperationCompleted {
         request_id: RuntimeRequestId,
@@ -2024,6 +2037,31 @@ pub fn spawn_worker(
                                 request_id,
                                 operation: "revoke_privilege",
                             },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::DiffTableDataKeyed {
+                    request_id,
+                    source_id,
+                    target_id,
+                    schema,
+                    table,
+                    key_columns,
+                    sample_limit,
+                } => {
+                    let data_diff_api = runtime.data_diff_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match data_diff_api
+                            .diff_table_data_keyed(&source_id, &target_id, &schema, &table, &key_columns, sample_limit)
+                            .await
+                        {
+                            Ok(diff) => RuntimeEvent::DataDiffLoaded { request_id, diff },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,
