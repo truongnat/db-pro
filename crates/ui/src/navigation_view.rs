@@ -426,6 +426,21 @@ impl DbProApp {
                 .color(self.theme.text_muted),
         );
         ui.add_space(SPACE_MD);
+        card_frame(self.theme).show(ui, |ui| {
+            section_label(ui, "BACKUP / RESTORE", self.theme);
+            ui.label(
+                RichText::new("Provider-aware backup lives in Settings → Backup / Restore (pg_dump/pg_restore or SQLite snapshot).")
+                    .small()
+                    .color(self.theme.text_secondary),
+            );
+            ui.add_space(6.0);
+            if secondary_button_with_icon(ui, Icon::Archive, "Open Backup settings", self.theme).clicked() {
+                self.activity = Activity::Settings;
+                self.settings_section = SettingsSection::Backup;
+                self.sidebar_open = true;
+            }
+        });
+        ui.add_space(SPACE_MD);
         ui.horizontal_wrapped(|ui| {
             if primary_button_with_icon(ui, Icon::Play, "Run synthetic harness", self.theme).clicked() {
                 self.run_synthetic_transfer_harness(false);

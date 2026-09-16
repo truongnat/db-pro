@@ -311,6 +311,19 @@ impl DbProApp {
                 return;
             }
             ui.add_space(10.0);
+            let tool_hint = if self.active_driver().eq_ignore_ascii_case("sqlite") {
+                "SQLite uses VACUUM INTO for consistent snapshots (including WAL). Restore refuses while the connection is active — disconnect first."
+            } else if self.active_driver().eq_ignore_ascii_case("mysql") {
+                "MySQL backup/restore is not available yet."
+            } else {
+                "PostgreSQL backups require `pg_dump` on PATH; restores use `psql` (plain) or `pg_restore` (custom). Missing tools are detected before spawn."
+            };
+            ui.label(
+                RichText::new(tool_hint)
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            ui.add_space(10.0);
             self.draw_backup_settings(ui);
             ui.add_space(14.0);
             self.draw_restore_settings(ui);

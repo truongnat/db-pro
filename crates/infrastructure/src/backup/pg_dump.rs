@@ -73,6 +73,39 @@ impl PgDumpEngine {
         }
     }
 
+    /// Detect `pg_dump` / `pg_restore` / `psql` on PATH before spawning (#208).
+    pub fn ensure_tool_available(tool: &str) -> Result<(), DbError> {
+        Self::which_tool(tool).map(|_| ()).map_err(|hint| {
+            DbError::Validation(format!(
+                "{tool} was not found on PATH. Install PostgreSQL client tools and ensure `{tool}` is available. {hint}"
+            ))
+        })
+    }
+
+    fn which_tool(tool: &str) -> Result<std::path::PathBuf, String> {
+        if let Ok(path) = std::env::var(format!("{}_PATH", tool.to_ascii_uppercase())) {
+            let candidate = Path::new(&path);
+            if candidate.is_file() {
+                return Ok(candidate.to_path_buf());
+            }
+        }
+        let path_env = std::env::var_os("PATH").unwrap_or_default();
+        for dir in std::env::split_paths(&path_env) {
+            let candidate = dir.join(tool);
+            if candidate.is_file() {
+                return Ok(candidate);
+            }
+            #[cfg(windows)]
+            {
+                let exe = dir.join(format!("{tool}.exe"));
+                if exe.is_file() {
+                    return Ok(exe);
+                }
+            }
+        }
+        Err(format!("Searched PATH but did not find `{tool}`."))
+    }
+
     /// The `psql`/`pg_restore` invocation used by [`Self::restore`].
     ///
     /// Split out so the argv shape is testable without a live PostgreSQL server (#244, E-2 asks for
@@ -108,6 +141,7 @@ impl PgDumpEngine {
 #[async_trait::async_trait]
 impl BackupEngine for PgDumpEngine {
     async fn backup(&self, options: &BackupOptions, password: &str) -> Result<BackupResult, DbError> {
+        Self::ensure_tool_available("pg_dump")?;
         let output_path = Path::new(&options.output_path);
         Self::reserve_backup_output(output_path).await?;
 
@@ -169,6 +203,11 @@ impl BackupEngine for PgDumpEngine {
     }
 
     async fn restore(&self, options: &RestoreOptions, password: &str) -> Result<(), DbError> {
+        let tool = match options.format {
+            BackupFormat::Plain => "psql",
+            BackupFormat::Custom => "pg_restore",
+        };
+        Self::ensure_tool_available(tool)?;
         let (config, _tunnel) = self.effective_config().await?;
         let mut cmd = Self::restore_command(options, &config, password);
 
@@ -196,6 +235,20 @@ impl BackupEngine for PgDumpEngine {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ensure_tool_available_rejects_missing_binary() {
+        let err = PgDumpEngine::ensure_tool_available("db-pro-definitely-missing-tool-xyz").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("not found on PATH"), "{msg}");
+        assert!(msg.contains("Install PostgreSQL client tools"), "{msg}");
+    }
+
+    #[test]
+    fn ensure_tool_available_finds_common_unix_binary() {
+        // `sh` is present on unix CI images; proves the PATH search path works.
+        PgDumpEngine::ensure_tool_available("sh").unwrap();
+    }
 
     /// #244 (E-2) asks for the argv shape to be asserted without a live server. This pins the
     /// **chosen** behaviour (option (b) of the issue): the restore is not wrapped in a transaction,
@@ -253,7 +306,19 @@ mod tests {
                 "option (b) is chosen: no exit-on-error flag either: {args:?}"
             );
             assert!(args.windows(2).any(|pair| pair == ["-d", "dbpro_fixture"]), "{args:?}");
+            assert!(
+                !args.iter().any(|arg| arg.contains("pw")),
+                "password must not appear in argv (use PGPASSWORD env): {args:?}"
+            );
         }
+
+        let plain_env = PgDumpEngine::restore_command(&plain, &config, "pw")
+            .as_std()
+            .get_envs()
+            .find_map(|(key, value)| {
+                (key.to_string_lossy() == "PGPASSWORD").then(|| value.map(|v| v.to_string_lossy().into_owned()))
+            });
+        assert_eq!(plain_env, Some(Some("pw".to_owned())));
     }
 
     #[tokio::test]
