@@ -114,7 +114,68 @@ impl DbProApp {
         };
         let current = schema_compare::UiSchemaSnapshot::from_summary("current", &self.schema);
         self.schema_diff = Some(schema_compare::diff_snapshots(&snapshot, &current));
+        self.migration_plan = None;
+        self.migration_preview_sql.clear();
+        self.migration_confirm_destructive = false;
+        self.migration_fingerprint_at_preview.clear();
         self.runtime_message = "Schema diff ready".to_owned();
+    }
+
+    pub(crate) fn plan_migration_from_schema_diff(&mut self) {
+        use db_pro_core::application::MigrationPlanner;
+
+        let Some(diff) = self.schema_diff.clone() else {
+            self.runtime_message = "Diff a schema snapshot before planning a migration".into();
+            return;
+        };
+        let core_diff = schema_compare::to_core_schema_diff(&diff);
+        let driver = self.active_driver().to_owned();
+        let plan = MigrationPlanner::plan_from_schema_diff(&core_diff, &driver);
+        self.migration_preview_sql = MigrationPlanner::preview_sql(&plan, true);
+        self.migration_fingerprint_at_preview = plan.fingerprint.clone();
+        self.migration_confirm_destructive = false;
+        self.migration_plan = Some(plan);
+        self.runtime_message = "Migration plan ready — review SQL before apply".into();
+    }
+
+    pub(crate) fn apply_migration_preview(&mut self) {
+        use db_pro_core::application::MigrationPlanner;
+
+        let Some(plan) = self.migration_plan.clone() else {
+            self.runtime_message = "Plan a migration before applying".into();
+            return;
+        };
+        if !MigrationPlanner::verify_fingerprint(&plan, &self.migration_fingerprint_at_preview) {
+            self.runtime_message = "Migration fingerprint changed — re-plan before apply".into();
+            return;
+        }
+        if plan.has_destructive && !self.migration_confirm_destructive {
+            self.runtime_message = "Destructive migration requires explicit confirmation checkbox".into();
+            return;
+        }
+        let sql = if plan.has_destructive && self.migration_confirm_destructive {
+            MigrationPlanner::preview_sql(&plan, false)
+        } else {
+            MigrationPlanner::non_destructive_sql(&plan)
+        };
+        if sql.trim().is_empty() {
+            self.runtime_message = "No supported SQL operations to apply".into();
+            return;
+        }
+        if self.ddl_execution_request.is_some() {
+            return;
+        }
+        let Some(connection_id) = self.active_connection_id.clone() else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::ExecuteDdl {
+            request_id,
+            connection_id,
+            sql,
+        });
+        self.ddl_execution_request = Some(request_id);
+        self.runtime_message = "Applying migration plan…".into();
     }
 
     pub(crate) fn handle_transaction_action(&mut self, action: crate::components::TransactionAction) {

@@ -2010,6 +2010,58 @@ impl DbProApp {
                 }
                 ui.add_space(8.0);
             }
+            ui.separator();
+            ui.add_space(8.0);
+            section_label(ui, "MIGRATION PLAN", self.theme);
+            if primary_button_with_icon(ui, Icon::FileCode2, "Generate migration plan", self.theme).clicked() {
+                self.plan_migration_from_schema_diff();
+            }
+            if let Some(plan) = &self.migration_plan {
+                ui.label(
+                    RichText::new(format!(
+                        "{} ops · fingerprint {} · destructive={}",
+                        plan.operations.len(),
+                        plan.fingerprint,
+                        plan.has_destructive
+                    ))
+                    .small()
+                    .monospace()
+                    .color(self.theme.text_secondary),
+                );
+                for warning in &plan.warnings {
+                    ui.label(RichText::new(format!("⚠ {warning}")).small().color(self.theme.warning));
+                }
+                for op in &plan.operations {
+                    let risk = match op.risk {
+                        db_pro_core::domain::migration::MigrationRisk::Destructive => "DESTRUCTIVE",
+                        db_pro_core::domain::migration::MigrationRisk::Mutating => "mutating",
+                        db_pro_core::domain::migration::MigrationRisk::Safe => "safe",
+                    };
+                    ui.label(
+                        RichText::new(format!("{} · {} · {}", op.id, risk, op.sql))
+                            .small()
+                            .monospace()
+                            .color(self.theme.text_secondary),
+                    );
+                }
+            }
+            if !self.migration_preview_sql.is_empty() {
+                ui.label(
+                    RichText::new(&self.migration_preview_sql)
+                        .small()
+                        .monospace()
+                        .color(self.theme.text_primary),
+                );
+                if self.migration_plan.as_ref().is_some_and(|p| p.has_destructive) {
+                    ui.checkbox(
+                        &mut self.migration_confirm_destructive,
+                        "Confirm destructive operations (never auto-applied)",
+                    );
+                }
+                if primary_button_with_icon(ui, Icon::Play, "Apply migration SQL", self.theme).clicked() {
+                    self.apply_migration_preview();
+                }
+            }
         });
     }
 }

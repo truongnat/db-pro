@@ -115,6 +115,70 @@ pub(crate) fn diff_snapshots(source: &UiSchemaSnapshot, target: &UiSchemaSnapsho
     }
 }
 
+/// Map a UI snapshot diff into the core `SchemaDiff` shape for MigrationPlanner (#200).
+pub(crate) fn to_core_schema_diff(diff: &UiSchemaDiffResult) -> db_pro_core::domain::cross_connection::SchemaDiff {
+    use db_pro_core::domain::cross_connection::{ColumnTypeMismatch, SchemaDiff, TableColumnDiff};
+    use std::collections::BTreeMap;
+
+    let mut by_table: BTreeMap<(String, String), TableColumnDiff> = BTreeMap::new();
+    for change in &diff.column_changes {
+        if let Some((left, rest)) = change.split_once(": column `") {
+            let (schema, table) = split_table_key(left);
+            let entry = by_table
+                .entry((schema.clone(), table.clone()))
+                .or_insert(TableColumnDiff {
+                    schema,
+                    table,
+                    columns_only_in_source: Vec::new(),
+                    columns_only_in_target: Vec::new(),
+                    type_mismatches: Vec::new(),
+                });
+            if let Some(col) = rest.strip_suffix("` only in source") {
+                entry.columns_only_in_source.push(col.to_owned());
+            } else if let Some(col) = rest.strip_suffix("` only in target") {
+                entry.columns_only_in_target.push(col.to_owned());
+            }
+        } else if let Some((left, rest)) = change.split_once(": type ") {
+            if let Some((from, to)) = rest.split_once(" → ") {
+                let mut parts = left.rsplitn(2, '.');
+                let column = parts.next().unwrap_or("").to_owned();
+                let table_key = parts.next().unwrap_or("").to_owned();
+                let (schema, table) = split_table_key(&table_key);
+                let entry = by_table
+                    .entry((schema.clone(), table.clone()))
+                    .or_insert(TableColumnDiff {
+                        schema,
+                        table,
+                        columns_only_in_source: Vec::new(),
+                        columns_only_in_target: Vec::new(),
+                        type_mismatches: Vec::new(),
+                    });
+                entry.type_mismatches.push(ColumnTypeMismatch {
+                    column,
+                    source_type: from.to_owned(),
+                    target_type: to.to_owned(),
+                });
+            }
+        }
+    }
+
+    SchemaDiff {
+        tables_only_in_source: diff.tables_only_in_source.clone(),
+        tables_only_in_target: diff.tables_only_in_target.clone(),
+        column_diffs: by_table.into_values().collect(),
+        indexes_only_in_source: Vec::new(),
+        indexes_only_in_target: Vec::new(),
+    }
+}
+
+fn split_table_key(key: &str) -> (String, String) {
+    if let Some((schema, table)) = key.split_once('.') {
+        (schema.to_owned(), table.to_owned())
+    } else {
+        (String::new(), key.to_owned())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
