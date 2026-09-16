@@ -165,6 +165,22 @@ impl MonitoringService {
         self.pg.reset_stat_statements(&handle).await
     }
 
+    /// Deterministic health report from a fresh snapshot (#259). Does not mutate the DB.
+    pub async fn health_report(
+        &self,
+        connection_id: &ConnectionId,
+        config: &crate::domain::health_advisor::HealthAdvisorConfig,
+    ) -> Result<crate::domain::health_advisor::HealthReport, DbError> {
+        let snapshot = self.snapshot(connection_id).await?;
+        let workload = snapshot.workload.clone();
+        Ok(crate::domain::health_advisor::analyze_health(
+            &snapshot,
+            workload.as_ref(),
+            config,
+            now_ms(),
+        ))
+    }
+
     pub async fn run_maintenance(
         &self,
         connection_id: &ConnectionId,

@@ -875,6 +875,76 @@ impl DbProApp {
         }
 
         if let Some(snapshot) = self.monitoring_snapshot.clone() {
+            let health = db_pro_core::domain::health_advisor::analyze_health(
+                &snapshot,
+                snapshot.workload.as_ref(),
+                &db_pro_core::domain::health_advisor::HealthAdvisorConfig::default(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis() as u64)
+                    .unwrap_or(0),
+            );
+            section_label(ui, "HEALTH ADVISOR", self.theme);
+            ui.add_space(SPACE_SM);
+            ui.label(
+                RichText::new(format!(
+                    "{} · snapshot @ {} ms",
+                    health.message, health.snapshot_fetched_at_ms
+                ))
+                .small()
+                .color(self.theme.text_muted),
+            );
+            ui.label(
+                RichText::new("Deterministic heuristics only — never auto-mutates the database.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            ui.add_space(SPACE_SM);
+            if health.findings.is_empty() {
+                ui.label(
+                    RichText::new("No findings for the current snapshot.")
+                        .small()
+                        .color(self.theme.text_secondary),
+                );
+            } else {
+                for finding in health.findings.iter().take(25) {
+                    let color = match finding.severity {
+                        db_pro_core::domain::health_advisor::HealthSeverity::Critical => self.theme.danger,
+                        db_pro_core::domain::health_advisor::HealthSeverity::Warning => self.theme.warning,
+                        db_pro_core::domain::health_advisor::HealthSeverity::Info => self.theme.accent,
+                    };
+                    card_frame(self.theme).show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            badge(ui, finding.severity.as_label(), color, self.theme.text_primary);
+                            ui.label(RichText::new(&finding.title).strong().color(self.theme.text_primary));
+                        });
+                        ui.label(
+                            RichText::new(format!("affected: {}", finding.affected))
+                                .small()
+                                .color(self.theme.text_secondary),
+                        );
+                        ui.label(
+                            RichText::new(format!("evidence: {}", finding.evidence))
+                                .small()
+                                .monospace()
+                                .color(self.theme.text_muted),
+                        );
+                        ui.label(
+                            RichText::new(&finding.explanation)
+                                .small()
+                                .color(self.theme.text_secondary),
+                        );
+                        ui.label(
+                            RichText::new(format!("suggest: {}", finding.suggested_action))
+                                .small()
+                                .color(self.theme.text_primary),
+                        );
+                    });
+                    ui.add_space(SPACE_SM);
+                }
+            }
+            ui.add_space(SPACE_MD);
+
             if let Some(local) = &snapshot.local {
                 section_label(ui, "LOCAL STATE", self.theme);
                 ui.add_space(SPACE_SM);
