@@ -68,9 +68,12 @@ mod files_activity_view;
 mod ide_workspace;
 #[path = "navigation_view.rs"]
 mod navigation_view;
+#[path = "settings_model.rs"]
+mod settings_model;
 #[path = "settings_view.rs"]
 mod settings_view;
 pub(crate) use capability_lookup::CapabilityLookup;
+pub(crate) use settings_model::{default_keybinding_catalog, AppSettings, SettingsSection, SETTINGS_STORAGE_KEY};
 #[path = "activity_bar_view.rs"]
 mod activity_bar_view;
 #[path = "connection_status.rs"]
@@ -144,6 +147,11 @@ pub struct DbProApp {
     theme: DbProTheme,
     dark_mode: bool,
     reduce_motion: bool,
+    settings: AppSettings,
+    settings_section: SettingsSection,
+    keybindings_filter: String,
+    keybinding_edit_id: Option<String>,
+    keybinding_edit_draft: String,
     activity: Activity,
     welcome_open: bool,
     active_tab: WorkspaceTab,
@@ -375,6 +383,10 @@ impl eframe::App for DbProApp {
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         self.persist_current_grid_layout();
+        self.sync_settings_from_runtime();
+        if let Ok(settings) = serde_json::to_string(&self.settings) {
+            storage.set_string(SETTINGS_STORAGE_KEY, settings);
+        }
         if let Ok(layouts) = serde_json::to_string(&self.grid_layout_preferences) {
             storage.set_string("dbpro.native.grid-layouts", layouts);
         }

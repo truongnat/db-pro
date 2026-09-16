@@ -34,6 +34,15 @@ impl DbProApp {
             {
                 app.prediction_mode = mode;
             }
+            // Typed settings blob wins when present (#205).
+            if let Some(raw) = storage.get_string(SETTINGS_STORAGE_KEY) {
+                if let Some(settings) = AppSettings::from_json(&raw) {
+                    app.settings = settings;
+                    app.apply_settings_to_runtime();
+                }
+            } else {
+                app.sync_settings_from_runtime();
+            }
             if let Some(width) = storage
                 .get_string("dbpro.native.sidebar-width")
                 .and_then(|value| value.parse::<f32>().ok())
@@ -148,6 +157,11 @@ impl Default for DbProApp {
             theme: DbProTheme::default(),
             dark_mode: false,
             reduce_motion: false,
+            settings: AppSettings::default(),
+            settings_section: SettingsSection::General,
+            keybindings_filter: String::new(),
+            keybinding_edit_id: None,
+            keybinding_edit_draft: String::new(),
             activity: Activity::Explorer,
             welcome_open: true,
             active_tab: WorkspaceTab::ComponentGallery,

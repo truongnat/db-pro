@@ -7,38 +7,34 @@ impl DbProApp {
         if self.palette_mode.is_some() {
             return;
         }
-        if ctx.input(|input| {
-            input.key_pressed(egui::Key::S) && Self::primary_modifier_pressed(input) && input.modifiers.shift
-        }) {
+        if ctx.input(|input| self.shortcut_pressed(input, "query.save_as")) {
             self.open_save_as_dialog();
             return;
         }
-        if ctx.input(|input| input.key_pressed(egui::Key::S) && Self::primary_modifier_pressed(input)) {
+        if ctx.input(|input| self.shortcut_pressed(input, "query.save")) {
             self.save_query_document_at(self.active_query_document);
             return;
         }
         let text_input_has_focus = ctx.wants_keyboard_input();
-        if !text_input_has_focus
-            && ctx.input(|i| i.key_pressed(egui::Key::P) && Self::primary_modifier_pressed(i) && i.modifiers.shift)
-        {
+        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "palette.commands")) {
             self.open_palette(PaletteMode::Commands);
             return;
         }
         if !text_input_has_focus
-            && (ctx.input(|i| i.key_pressed(egui::Key::K) && Self::primary_modifier_pressed(i))
-                || ctx.input(|i| i.key_pressed(egui::Key::P) && Self::primary_modifier_pressed(i)))
+            && (ctx.input(|i| self.shortcut_pressed(i, "palette.quick_open_alt"))
+                || ctx.input(|i| self.shortcut_pressed(i, "palette.quick_open")))
         {
             self.open_palette(PaletteMode::QuickOpen);
             return;
         }
-        if !text_input_has_focus && ctx.input(|i| i.key_pressed(egui::Key::B) && Self::primary_modifier_pressed(i)) {
+        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "view.toggle_sidebar")) {
             self.sidebar_open = !self.sidebar_open;
         }
-        if !text_input_has_focus && ctx.input(|i| i.key_pressed(egui::Key::F) && Self::primary_modifier_pressed(i)) {
+        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "editor.find")) {
             self.editor_search_open = true;
         }
         if ctx.input(|i| {
-            i.key_pressed(egui::Key::F5)
+            self.shortcut_pressed(i, "query.run")
                 || (self.query_editor_focused
                     && !self.agent_open
                     && i.key_pressed(egui::Key::Enter)
@@ -61,6 +57,11 @@ impl DbProApp {
                 self.set_agent_open(false, ctx);
             }
         }
+    }
+
+    fn shortcut_pressed(&self, input: &egui::InputState, command_id: &str) -> bool {
+        let token = self.settings.keybindings.resolved(command_id);
+        settings_model::match_shortcut_token(input, &token)
     }
 
     pub(super) fn cancel_query(&mut self, request_id: crate::RequestId) {
