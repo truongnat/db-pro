@@ -2,7 +2,6 @@
 
 use super::explorer_tree::{draw_category_folder, draw_codex_tree_row, CategoryFolder, CodexTreeRow};
 use super::*;
-use egui::Color32;
 use lucide_icons::Icon;
 
 impl DbProApp {
@@ -17,7 +16,7 @@ impl DbProApp {
                 depth: 3,
                 id: folder_id,
                 icon: Icon::Eye,
-                icon_color: Color32::from_rgb(5, 150, 105), // emerald green
+                icon_color: theme.success,
                 label: "Views",
                 count: views.len(),
                 empty_label: Some("No views in schema"),
@@ -41,7 +40,7 @@ impl DbProApp {
                 depth: 3,
                 id: folder_id,
                 icon: Icon::Code2,
-                icon_color: Color32::from_rgb(124, 58, 237), // purple
+                icon_color: theme.code_type,
                 label: "Functions",
                 count: functions.len(),
                 empty_label: Some("No functions in schema"),
@@ -65,7 +64,7 @@ impl DbProApp {
                 depth: 3,
                 id: folder_id,
                 icon: Icon::Zap,
-                icon_color: Color32::from_rgb(234, 88, 12), // amber-orange
+                icon_color: theme.warning,
                 label: "Triggers",
                 count: triggers.len(),
                 empty_label: Some("No triggers in schema"),
@@ -93,11 +92,7 @@ impl DbProApp {
                 is_expandable: false,
                 is_expanded: false,
                 icon: Icon::Eye,
-                icon_color: if is_selected {
-                    theme.accent
-                } else {
-                    Color32::from_rgb(5, 150, 105)
-                },
+                icon_color: if is_selected { theme.accent } else { theme.success },
                 label: &view.name,
                 is_selected,
                 is_dimmed: false,
@@ -191,11 +186,7 @@ impl DbProApp {
                 is_expandable: false,
                 is_expanded: false,
                 icon,
-                icon_color: if is_selected {
-                    theme.accent
-                } else {
-                    Color32::from_rgb(124, 58, 237)
-                },
+                icon_color: if is_selected { theme.accent } else { theme.code_type },
                 label: &label,
                 is_selected,
                 is_dimmed: false,
@@ -277,11 +268,7 @@ impl DbProApp {
                 is_expandable: false,
                 is_expanded: false,
                 icon: Icon::Zap,
-                icon_color: if is_selected {
-                    theme.accent
-                } else {
-                    Color32::from_rgb(234, 88, 12)
-                },
+                icon_color: if is_selected { theme.accent } else { theme.warning },
                 label: &label,
                 is_selected,
                 is_dimmed: false,
