@@ -101,6 +101,63 @@ pub enum SavedTaskRunStatus {
     Cancelled,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SavedTaskRunTrigger {
+    #[default]
+    Manual,
+    Scheduled,
+    Retry,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MissedRunPolicy {
+    /// Skip all missed intervals; schedule from "now".
+    #[default]
+    SkipMissed,
+    /// Run once for the backlog, then advance to the next future slot.
+    RunOnce,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskSchedule {
+    pub enabled: bool,
+    /// Simple interval schedule (seconds). Cron-like labels may be stored in `expression`.
+    pub interval_secs: u64,
+    /// Optional human/cron-like expression for display (e.g. `every 5m`).
+    #[serde(default)]
+    pub expression: String,
+    pub next_run_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub last_scheduled_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub missed_run_policy: MissedRunPolicy,
+    /// Max automatic retries after a failed scheduled run (0 = no retry).
+    #[serde(default)]
+    pub max_retries: u32,
+    #[serde(default)]
+    pub retry_count: u32,
+    /// Explicit opt-in required before a destructive task can be scheduled.
+    #[serde(default)]
+    pub allow_destructive: bool,
+}
+
+impl TaskSchedule {
+    pub fn every_secs(interval_secs: u64) -> Self {
+        let interval_secs = interval_secs.max(1);
+        Self {
+            enabled: true,
+            interval_secs,
+            expression: format!("every {interval_secs}s"),
+            next_run_at: Some(chrono::Utc::now() + chrono::Duration::seconds(interval_secs as i64)),
+            last_scheduled_at: None,
+            missed_run_policy: MissedRunPolicy::SkipMissed,
+            max_retries: 0,
+            retry_count: 0,
+            allow_destructive: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SavedTaskRun {
     pub id: Uuid,
@@ -110,6 +167,8 @@ pub struct SavedTaskRun {
     pub finished_at: chrono::DateTime<chrono::Utc>,
     pub duration_ms: u64,
     pub message: String,
+    #[serde(default)]
+    pub trigger: SavedTaskRunTrigger,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -123,6 +182,8 @@ pub struct SavedTask {
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
     pub last_run: Option<SavedTaskRun>,
+    #[serde(default)]
+    pub schedule: Option<TaskSchedule>,
 }
 
 impl SavedTask {
@@ -158,6 +219,14 @@ impl SavedTaskStore {
         if task.connection_id.trim().is_empty() {
             return Err("connection_id is required".to_owned());
         }
+        if let Some(schedule) = &task.schedule {
+            if schedule.enabled && task.payload.is_destructive() && !schedule.allow_destructive {
+                return Err("destructive tasks cannot be scheduled without explicit allow_destructive".to_owned());
+            }
+            if schedule.enabled && schedule.interval_secs == 0 {
+                return Err("schedule interval_secs must be >= 1".to_owned());
+            }
+        }
         if let Some(existing) = self.tasks.iter_mut().find(|t| t.id == task.id) {
             *existing = task;
         } else {
@@ -173,8 +242,83 @@ impl SavedTaskStore {
         before != self.tasks.len()
     }
 
+    pub fn set_schedule_enabled(&mut self, id: &Uuid, enabled: bool) -> Result<(), String> {
+        let Some(task) = self.tasks.iter_mut().find(|t| &t.id == id) else {
+            return Err("task not found".to_owned());
+        };
+        let Some(schedule) = task.schedule.as_mut() else {
+            return Err("task has no schedule".to_owned());
+        };
+        if enabled && task.payload.is_destructive() && !schedule.allow_destructive {
+            return Err("destructive schedule blocked".to_owned());
+        }
+        schedule.enabled = enabled;
+        if enabled && schedule.next_run_at.is_none() {
+            schedule.next_run_at = Some(chrono::Utc::now() + chrono::Duration::seconds(schedule.interval_secs as i64));
+        }
+        task.updated_at = chrono::Utc::now();
+        Ok(())
+    }
+
+    /// In-app scheduler tick. Returns task ids that should run now.
+    ///
+    /// Semantics: only while the app process is alive — there is no background daemon.
+    /// Missed runs while the app was closed follow [`MissedRunPolicy`].
+    pub fn due_scheduled_task_ids(&mut self, now: chrono::DateTime<chrono::Utc>) -> Vec<Uuid> {
+        let mut due = Vec::new();
+        for task in &mut self.tasks {
+            let Some(schedule) = task.schedule.as_mut() else {
+                continue;
+            };
+            if !schedule.enabled {
+                continue;
+            }
+            if task.payload.is_destructive() && !schedule.allow_destructive {
+                schedule.enabled = false;
+                continue;
+            }
+            let Some(next) = schedule.next_run_at else {
+                schedule.next_run_at = Some(now + chrono::Duration::seconds(schedule.interval_secs as i64));
+                continue;
+            };
+            if next > now {
+                continue;
+            }
+            // Deduplicate: do not fire twice for the same scheduled slot.
+            if schedule.last_scheduled_at == Some(next) {
+                schedule.next_run_at = Some(next + chrono::Duration::seconds(schedule.interval_secs as i64));
+                continue;
+            }
+            match schedule.missed_run_policy {
+                MissedRunPolicy::SkipMissed => {
+                    // Advance from now so closed-app gaps are not backfilled.
+                    schedule.last_scheduled_at = Some(next);
+                    schedule.next_run_at = Some(now + chrono::Duration::seconds(schedule.interval_secs as i64));
+                    due.push(task.id);
+                }
+                MissedRunPolicy::RunOnce => {
+                    schedule.last_scheduled_at = Some(next);
+                    schedule.next_run_at = Some(now + chrono::Duration::seconds(schedule.interval_secs as i64));
+                    due.push(task.id);
+                }
+            }
+        }
+        due
+    }
+
     pub fn record_run(&mut self, run: SavedTaskRun) {
         if let Some(task) = self.tasks.iter_mut().find(|t| t.id == run.task_id) {
+            if let Some(schedule) = task.schedule.as_mut() {
+                if run.trigger == SavedTaskRunTrigger::Scheduled || run.trigger == SavedTaskRunTrigger::Retry {
+                    if run.status == SavedTaskRunStatus::Failed && schedule.retry_count < schedule.max_retries {
+                        schedule.retry_count += 1;
+                        // Retry soon while the app is still active.
+                        schedule.next_run_at = Some(run.finished_at + chrono::Duration::seconds(5));
+                    } else if run.status == SavedTaskRunStatus::Success {
+                        schedule.retry_count = 0;
+                    }
+                }
+            }
             task.last_run = Some(run.clone());
             task.updated_at = run.finished_at;
         }
@@ -229,6 +373,7 @@ mod tests {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             last_run: None,
+            schedule: None,
         };
         store.upsert(task).unwrap();
         let run = SavedTaskRun {
@@ -239,6 +384,7 @@ mod tests {
             finished_at: chrono::Utc::now(),
             duration_ms: 12,
             message: "ok".into(),
+            trigger: SavedTaskRunTrigger::Manual,
         };
         store.record_run(run);
         assert_eq!(
@@ -246,5 +392,55 @@ mod tests {
             SavedTaskRunStatus::Success
         );
         assert_eq!(store.runs_for(&id).len(), 1);
+    }
+
+    #[test]
+    fn destructive_schedule_requires_explicit_allow() {
+        let mut store = SavedTaskStore::new();
+        let id = Uuid::new_v4();
+        let err = store
+            .upsert(SavedTask {
+                id,
+                name: "Wipe".into(),
+                description: String::new(),
+                connection_id: "conn-1".into(),
+                payload: SavedTaskPayload::Sql {
+                    sql: "DELETE FROM t".into(),
+                },
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+                last_run: None,
+                schedule: Some(TaskSchedule::every_secs(60)),
+            })
+            .unwrap_err();
+        assert!(err.contains("allow_destructive"));
+    }
+
+    #[test]
+    fn due_schedule_fires_once_and_advances() {
+        let mut store = SavedTaskStore::new();
+        let id = Uuid::new_v4();
+        let now = chrono::Utc::now();
+        let mut schedule = TaskSchedule::every_secs(30);
+        schedule.next_run_at = Some(now - chrono::Duration::seconds(1));
+        store
+            .upsert(SavedTask {
+                id,
+                name: "Ping".into(),
+                description: String::new(),
+                connection_id: "conn-1".into(),
+                payload: SavedTaskPayload::Sql { sql: "SELECT 1".into() },
+                created_at: now,
+                updated_at: now,
+                last_run: None,
+                schedule: Some(schedule),
+            })
+            .unwrap();
+        let due = store.due_scheduled_task_ids(now);
+        assert_eq!(due, vec![id]);
+        let due_again = store.due_scheduled_task_ids(now);
+        assert!(due_again.is_empty());
+        let next = store.tasks[0].schedule.as_ref().unwrap().next_run_at.unwrap();
+        assert!(next > now);
     }
 }

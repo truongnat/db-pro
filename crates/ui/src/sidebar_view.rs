@@ -207,7 +207,10 @@ impl DbProApp {
                                                 if let Some(id) = self.pending_destructive_task_id {
                                                     if primary_button(ui, "Run destructive task", self.theme).clicked()
                                                     {
-                                                        self.run_saved_task(id);
+                                                        self.run_saved_task(
+                                                            id,
+                                                            db_pro_core::domain::saved_task::SavedTaskRunTrigger::Manual,
+                                                        );
                                                     }
                                                 }
                                             }

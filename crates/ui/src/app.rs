@@ -536,7 +536,14 @@ impl eframe::App for DbProApp {
         }
         self.request_connections_once();
         self.apply_runtime_events();
-        if self.runtime_work_pending() {
+        self.tick_saved_task_scheduler();
+        if self.runtime_work_pending()
+            || self
+                .saved_task_store
+                .tasks
+                .iter()
+                .any(|t| t.schedule.as_ref().is_some_and(|s| s.enabled))
+        {
             ctx.request_repaint_after(Duration::from_millis(50));
         }
         self.theme = if self.dark_mode {
