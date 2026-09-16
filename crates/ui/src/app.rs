@@ -340,6 +340,11 @@ pub struct DbProApp {
     synthetic_preview: Option<db_pro_core::domain::synthetic_data::SyntheticPreview>,
     synthetic_error: Option<String>,
     synthetic_production_confirm: bool,
+    masking_columns_csv: String,
+    masking_rule: db_pro_core::domain::masking::MaskRule,
+    masking_keyed: bool,
+    masking_preview: Option<db_pro_core::domain::masking::MaskingPreview>,
+    masking_error: Option<String>,
     /// Latest monitoring snapshot for Monitor activity (#196).
     monitoring_snapshot: Option<db_pro_core::domain::monitoring::MonitoringSnapshot>,
     monitoring_error: Option<String>,

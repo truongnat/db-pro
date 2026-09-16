@@ -517,6 +517,75 @@ impl DbProApp {
             }
         });
         ui.add_space(SPACE_MD);
+        card_frame(self.theme).show(ui, |ui| {
+            section_label(ui, "MASKING / SAFE SAMPLE", self.theme);
+            ui.label(
+                RichText::new(
+                    "Preview-only by default · no in-place destructive masking · keyed hash for join-preserving IDs",
+                )
+                .small()
+                .color(self.theme.text_muted),
+            );
+            ui.horizontal(|ui| {
+                ui.add(egui::TextEdit::singleline(&mut self.masking_columns_csv).hint_text("cols: email,phone"));
+                egui::ComboBox::from_id_salt("mask_rule")
+                    .selected_text(format!("{:?}", self.masking_rule))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.masking_rule,
+                            db_pro_core::domain::masking::MaskRule::Redact,
+                            "Redact",
+                        );
+                        ui.selectable_value(
+                            &mut self.masking_rule,
+                            db_pro_core::domain::masking::MaskRule::Hash,
+                            "Hash",
+                        );
+                        ui.selectable_value(
+                            &mut self.masking_rule,
+                            db_pro_core::domain::masking::MaskRule::PartialReveal,
+                            "Partial",
+                        );
+                        ui.selectable_value(
+                            &mut self.masking_rule,
+                            db_pro_core::domain::masking::MaskRule::Fixed,
+                            "Fixed",
+                        );
+                        ui.selectable_value(
+                            &mut self.masking_rule,
+                            db_pro_core::domain::masking::MaskRule::Synthetic,
+                            "Synthetic",
+                        );
+                    });
+                ui.checkbox(&mut self.masking_keyed, "Keyed hash");
+                if secondary_button(ui, "Suggest cols", self.theme).clicked() {
+                    let names: Vec<String> = self
+                        .schema
+                        .table_details
+                        .first()
+                        .map(|t| t.columns.iter().map(|c| c.name.clone()).collect())
+                        .unwrap_or_default();
+                    self.masking_columns_csv =
+                        db_pro_core::domain::masking::suggest_sensitive_columns(&names).join(",");
+                }
+                if secondary_button(ui, "Preview sample", self.theme).clicked() {
+                    self.preview_masking_sample();
+                }
+                if secondary_button(ui, "Masked CSV export", self.theme).clicked() {
+                    self.run_masked_csv_export_harness();
+                }
+            });
+            if let Some(error) = &self.masking_error {
+                ui.colored_label(self.theme.danger, error);
+            }
+            if let Some(preview) = &self.masking_preview {
+                ui.label(RichText::new(&preview.message).small().color(self.theme.text_secondary));
+                for (i, (orig, masked)) in preview.original.iter().zip(preview.masked.iter()).take(5).enumerate() {
+                    ui.label(RichText::new(format!("#{i} {orig:?} → {masked:?}")).monospace().small());
+                }
+            }
+        });
+        ui.add_space(SPACE_MD);
         ui.horizontal_wrapped(|ui| {
             if primary_button_with_icon(ui, Icon::Play, "Run synthetic harness", self.theme).clicked() {
                 self.run_synthetic_transfer_harness(false);
@@ -718,6 +787,165 @@ impl DbProApp {
         }
         self.dispatch_query();
         self.runtime_message = "Synthetic seed INSERT dispatched via query runtime".into();
+    }
+
+    pub(crate) fn preview_masking_sample(&mut self) {
+        use db_pro_core::domain::masking::{preview_masking, ColumnMask, MaskingProfile};
+        let cols: Vec<String> = self
+            .masking_columns_csv
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+            .collect();
+        let headers = if cols.is_empty() {
+            vec!["email".into(), "phone".into(), "id".into()]
+        } else {
+            let mut h = cols.clone();
+            if !h.iter().any(|c| c == "id") {
+                h.push("id".into());
+            }
+            h
+        };
+        let sample = vec![
+            headers
+                .iter()
+                .map(|h| match h.as_str() {
+                    "email" => "ada@example.com".into(),
+                    "phone" => "1234567890".into(),
+                    "id" => "42".into(),
+                    _ => format!("val_{h}"),
+                })
+                .collect::<Vec<_>>(),
+            headers
+                .iter()
+                .map(|h| match h.as_str() {
+                    "email" => "grace@example.com".into(),
+                    "phone" => "0987654321".into(),
+                    "id" => "42".into(),
+                    _ => format!("val2_{h}"),
+                })
+                .collect::<Vec<_>>(),
+        ];
+        let profile = MaskingProfile {
+            name: "preview".into(),
+            schema: String::new(),
+            table: String::new(),
+            columns: cols
+                .into_iter()
+                .map(|column| ColumnMask {
+                    column,
+                    rule: self.masking_rule,
+                    replacement: "[masked]".into(),
+                    keep_prefix: 2,
+                    keep_suffix: 2,
+                })
+                .collect(),
+            keyed: self.masking_keyed,
+            key_id: "local-dev".into(),
+        };
+        let key_material = if self.masking_keyed {
+            "db-pro-local-masking-key"
+        } else {
+            ""
+        };
+        self.masking_preview = Some(preview_masking(&headers, &sample, &profile, key_material));
+        self.masking_error = None;
+    }
+
+    pub(crate) fn run_masked_csv_export_harness(&mut self) {
+        use db_pro_core::application::{DelimitedFileTarget, DelimitedFormat, TransferService};
+        use db_pro_core::domain::masking::{mask_transfer_batch, ColumnMask, MaskingProfile};
+        use db_pro_core::domain::transfer::{
+            TransferCancellation, TransferJob, TransferSourceKind, TransferStatus, TransferTargetKind,
+        };
+
+        let path = std::env::temp_dir().join(format!("db-pro-masked-{}.csv", self.transfer_jobs.len() + 1));
+        let headers = vec!["id".into(), "email".into(), "phone".into()];
+        let profile = MaskingProfile {
+            name: "export".into(),
+            schema: String::new(),
+            table: String::new(),
+            columns: self
+                .masking_columns_csv
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(|column| ColumnMask {
+                    column: column.to_owned(),
+                    rule: self.masking_rule,
+                    replacement: "[masked]".into(),
+                    keep_prefix: 2,
+                    keep_suffix: 2,
+                })
+                .collect(),
+            keyed: self.masking_keyed,
+            key_id: "local-dev".into(),
+        };
+        let raw = vec![
+            db_pro_core::domain::transfer::TransferRow {
+                cells: vec!["1".into(), "ada@example.com".into(), "1234567890".into()],
+            },
+            db_pro_core::domain::transfer::TransferRow {
+                cells: vec!["2".into(), "grace@example.com".into(), "0987654321".into()],
+            },
+        ];
+        let masked = mask_transfer_batch(&headers, &raw, &profile, "db-pro-local-masking-key");
+        let mut job = TransferJob {
+            id: format!("masked-{}", self.transfer_jobs.len() + 1),
+            label: format!("Masked CSV → {}", path.display()),
+            source: TransferSourceKind::Synthetic {
+                rows: masked.len() as u64,
+            },
+            target: TransferTargetKind::File {
+                path: path.display().to_string(),
+                format: "csv".into(),
+            },
+            mapping: Default::default(),
+            batch_size: 50,
+            options: Default::default(),
+            status: TransferStatus::Pending,
+            progress: Default::default(),
+            error: None,
+        };
+        match DelimitedFileTarget::create(&path, DelimitedFormat::Csv, headers.clone()) {
+            Ok(mut target) => {
+                let cancel = TransferCancellation::new();
+                struct MaskedSource {
+                    rows: Vec<db_pro_core::domain::transfer::TransferRow>,
+                    idx: usize,
+                }
+                impl db_pro_core::application::TransferSource for MaskedSource {
+                    fn next_batch(
+                        &mut self,
+                        max_rows: usize,
+                    ) -> Result<
+                        Option<Vec<db_pro_core::domain::transfer::TransferRow>>,
+                        db_pro_core::domain::transfer::TransferError,
+                    > {
+                        if self.idx >= self.rows.len() {
+                            return Ok(None);
+                        }
+                        let end = (self.idx + max_rows).min(self.rows.len());
+                        let batch = self.rows[self.idx..end].to_vec();
+                        self.idx = end;
+                        Ok(Some(batch))
+                    }
+                }
+                let mut source = MaskedSource { rows: masked, idx: 0 };
+                let _ = TransferService::run(&mut job, &mut source, &mut target, &cancel);
+                self.runtime_message = format!("Masked CSV written to {}", path.display());
+            }
+            Err(err) => {
+                job.status = TransferStatus::Failed;
+                job.error = Some(err.to_string());
+                self.masking_error = Some(err.to_string());
+            }
+        }
+        self.transfer_jobs.insert(0, job);
+        if self.transfer_jobs.len() > 40 {
+            self.transfer_jobs.truncate(40);
+        }
     }
 
     pub(crate) fn run_synthetic_transfer_harness(&mut self, cancel_midway: bool) {

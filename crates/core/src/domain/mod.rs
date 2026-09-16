@@ -14,6 +14,7 @@ pub mod explain_plan;
 pub mod fdw;
 pub mod health_advisor;
 pub mod history;
+pub mod masking;
 pub mod migration;
 pub mod monitoring;
 pub mod object_mutation;
