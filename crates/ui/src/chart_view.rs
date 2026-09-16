@@ -293,13 +293,7 @@ fn cell_to_label(cell: &crate::UiCell) -> String {
         crate::UiCell::Boolean(v) => v.to_string(),
         crate::UiCell::Number(v) => v.clone(),
         crate::UiCell::Text(v) => v.clone(),
-        crate::UiCell::Json(v) => {
-            if v.len() > 20 {
-                format!("{}…", &v[..20])
-            } else {
-                v.clone()
-            }
-        }
+        crate::UiCell::Json(v) => crate::components::truncate_ellipsis(v, 20),
         crate::UiCell::Bytes(v) => format!("<{} bytes>", v.len()),
     }
 }

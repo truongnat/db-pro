@@ -864,11 +864,7 @@ fn paint_er_node_lod(
                 egui::Stroke::new(1.0, theme.border_default),
             );
             painter.rect_filled(screen_rect, egui::Rounding::same(6.0), theme.surface_hover);
-            let title = if node.table.name.len() > 22 {
-                format!("{}…", &node.table.name[..20])
-            } else {
-                node.table.name.clone()
-            };
+            let title = crate::components::truncate_ellipsis(&node.table.name, 20);
             painter.text(
                 screen_rect.center_top() + egui::vec2(0.0, 14.0 * zoom),
                 egui::Align2::CENTER_CENTER,
@@ -922,12 +918,8 @@ fn paint_er_node_lod(
             } else {
                 format!("{}.{}", node.table.schema, node.table.name)
             };
-            let max_title_chars = if zoom > 1.0 { 26 } else { 20 };
-            let display_title = if full_table_name.len() > max_title_chars {
-                format!("{}…", &full_table_name[..max_title_chars.saturating_sub(2)])
-            } else {
-                full_table_name
-            };
+            let max_title_chars = if zoom > 1.0 { 24 } else { 18 };
+            let display_title = crate::components::truncate_ellipsis(&full_table_name, max_title_chars);
             painter.text(
                 screen_rect.min + egui::vec2(14.0 * zoom, 20.0 * zoom),
                 egui::Align2::LEFT_CENTER,
@@ -977,11 +969,7 @@ fn paint_er_node_lod(
                 );
 
                 let col_name_max = if lod.shows_data_types() { 16 } else { 24 };
-                let col_name = if column.name.len() > col_name_max {
-                    format!("{}…", &column.name[..col_name_max.saturating_sub(1)])
-                } else {
-                    column.name.clone()
-                };
+                let col_name = crate::components::truncate_ellipsis(&column.name, col_name_max);
                 painter.text(
                     egui::pos2(row_rect.min.x + 23.0 * zoom, row_rect.center().y),
                     egui::Align2::LEFT_CENTER,

@@ -42,7 +42,12 @@ impl DbProApp {
                 ui.set_width(128.0);
                 for section in SettingsSection::all() {
                     let selected = self.settings_section == *section;
-                    if ui.selectable_label(selected, section.label()).clicked() {
+                    let label = RichText::new(section.label()).color(if selected {
+                        self.theme.accent
+                    } else {
+                        self.theme.text_secondary
+                    });
+                    if ui.selectable_label(selected, label).clicked() {
                         self.settings_section = *section;
                     }
                 }

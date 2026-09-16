@@ -81,12 +81,16 @@ impl DbProApp {
                     if has_connection {
                         ui.horizontal(|ui| {
                             ui.label(icon_text(connection_icon, "", connection_color));
-                            ui.label(
-                                RichText::new(&connection_name)
+                            let display_name = crate::components::truncate_ellipsis(&connection_name, 22);
+                            let resp = ui.label(
+                                RichText::new(display_name)
                                     .font(font_caption())
                                     .strong()
                                     .color(self.theme.text_primary),
                             );
+                            if connection_name.len() > 22 {
+                                resp.on_hover_text(&connection_name);
+                            }
                             let driver_tag = if driver.to_ascii_lowercase().contains("sqlite") {
                                 "SQLite"
                             } else {
