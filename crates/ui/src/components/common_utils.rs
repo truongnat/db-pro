@@ -56,6 +56,36 @@ pub fn format_count_with_suffix(count: usize, singular: &str, plural: &str) -> S
     }
 }
 
+/// Formats a table pagination range description (e.g. `Rows 1–50 of 200`, `Rows 1–25`, `0 rows`).
+pub fn format_page_range(offset: u64, count: u64, total_rows: Option<u64>) -> String {
+    if let Some(total) = total_rows {
+        if total > 0 && count > 0 {
+            let start = offset + 1;
+            let end = (offset + count).min(total);
+            format!("Rows {start}–{end} of {total}")
+        } else if total > 0 {
+            format!("0 of {total} rows")
+        } else {
+            "0 rows".to_owned()
+        }
+    } else if count > 0 {
+        let start = offset + 1;
+        let end = offset + count;
+        format!("Rows {start}–{end}")
+    } else {
+        "0 rows".to_owned()
+    }
+}
+
+/// Formats a percentage ratio with one decimal precision (e.g. `98.5%`, `100.0%`).
+pub fn format_percentage(numerator: u64, denominator: u64) -> String {
+    if denominator == 0 {
+        return "0.0%".to_owned();
+    }
+    let ratio = (numerator as f64 / denominator as f64) * 100.0;
+    format!("{ratio:.1}%")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,5 +118,21 @@ mod tests {
         assert_eq!(format_count_with_suffix(1, "row", "rows"), "1 row");
         assert_eq!(format_count_with_suffix(0, "row", "rows"), "0 rows");
         assert_eq!(format_count_with_suffix(5, "table", "tables"), "5 tables");
+    }
+
+    #[test]
+    fn test_format_page_range() {
+        assert_eq!(format_page_range(0, 50, Some(200)), "Rows 1–50 of 200");
+        assert_eq!(format_page_range(50, 50, Some(200)), "Rows 51–100 of 200");
+        assert_eq!(format_page_range(180, 50, Some(200)), "Rows 181–200 of 200");
+        assert_eq!(format_page_range(0, 25, None), "Rows 1–25");
+        assert_eq!(format_page_range(0, 0, Some(0)), "0 rows");
+    }
+
+    #[test]
+    fn test_format_percentage() {
+        assert_eq!(format_percentage(985, 1000), "98.5%");
+        assert_eq!(format_percentage(1, 1), "100.0%");
+        assert_eq!(format_percentage(0, 0), "0.0%");
     }
 }

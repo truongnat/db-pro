@@ -37,17 +37,11 @@ impl DbProApp {
         let total_known = self.table_data_total_rows.is_some();
         let total_rows = self.table_data_total_rows.unwrap_or(result.row_count);
         let paging = TableDataPaging {
-            page_range: if total_known && total_rows > 0 {
-                let start = self.table_data_offset + 1;
-                let end = (self.table_data_offset + result.row_count).min(total_rows);
-                format!("Rows {start}–{end} of {total_rows}")
-            } else if result.row_count > 0 {
-                let start = self.table_data_offset + 1;
-                let end = self.table_data_offset + result.row_count;
-                format!("Rows {start}–{end}")
-            } else {
-                "0 rows".to_owned()
-            },
+            page_range: crate::components::common_utils::format_page_range(
+                self.table_data_offset,
+                result.row_count,
+                self.table_data_total_rows,
+            ),
             total_rows,
             total_known,
             has_next: if total_known {
