@@ -1,6 +1,6 @@
 //! Primary left sidebar shell: exact-width panel, padded content, and resize grip.
 use super::*;
-use egui::{vec2, Align2, Color32, FontFamily, FontId, Margin, Pos2, Rect, Rounding, Sense, Stroke};
+use egui::{vec2, Align2, Color32, Margin, Pos2, Rect, Rounding, Sense, Stroke};
 
 impl DbProApp {
     pub(super) fn draw_sidebar(&mut self, ctx: &egui::Context) {
@@ -43,7 +43,7 @@ impl DbProApp {
                     ui.set_max_width(content_w);
 
                     // ── 1. Codex-style Header Row: Workspace Selector + Action Icons ──
-                    ui.add_space(8.0);
+                    ui.add_space(SPACE_SM);
                     ui.horizontal(|ui| {
                         let active_name = if self.active_connection_id.is_some() {
                             self.active_connection_name()
@@ -54,22 +54,22 @@ impl DbProApp {
                         // Workspace / Connection Dropdown Selector (e.g. "Codex ⌵")
                         let selector_resp = egui::Frame {
                             fill: Color32::TRANSPARENT,
-                            rounding: Rounding::same(6.0),
-                            inner_margin: Margin::symmetric(4.0, 3.0),
+                            rounding: Rounding::same(RADIUS_SM),
+                            inner_margin: Margin::symmetric(SPACE_XS, 3.0),
                             ..Default::default()
                         }
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
-                                ui.spacing_mut().item_spacing = vec2(4.0, 0.0);
+                                ui.spacing_mut().item_spacing = vec2(SPACE_XS, 0.0);
                                 ui.label(
                                     RichText::new(active_name)
-                                        .font(FontId::proportional(13.5))
+                                        .font(font_ui_label())
                                         .strong()
                                         .color(self.theme.text_primary),
-                                );
+                                    );
                                 ui.label(
                                     RichText::new(char::from(Icon::ChevronDown).to_string())
-                                        .font(FontId::new(11.0, FontFamily::Name("lucide".into())))
+                                        .font(font_icon(ICON_XS))
                                         .color(self.theme.text_secondary),
                                 );
                             });
@@ -82,7 +82,7 @@ impl DbProApp {
                         if selector_interact.hovered() {
                             ui.painter().rect_filled(
                                 selector_resp.response.rect,
-                                Rounding::same(6.0),
+                                Rounding::same(RADIUS_SM),
                                 self.theme.surface_hover,
                             );
                         }
@@ -118,11 +118,11 @@ impl DbProApp {
                             }
                         });
                     });
-                    ui.add_space(4.0);
+                    ui.add_space(SPACE_XS);
 
                     // ── 2. Codex-style Primary Action: "+ New query" Button ──────
                     let new_query_rect = ui.available_rect_before_wrap();
-                    let new_query_h = 30.0;
+                    let new_query_h = BUTTON_HEIGHT_SM;
                     let btn_rect = Rect::from_min_size(new_query_rect.min, vec2(ui.available_width(), new_query_h));
                     let new_query_resp = ui.allocate_rect(btn_rect, Sense::click());
                     let is_hovered = new_query_resp.hovered();
@@ -131,12 +131,12 @@ impl DbProApp {
                     } else {
                         self.theme.surface_panel
                     };
-                    ui.painter().rect_filled(btn_rect, Rounding::same(6.0), bg_color);
+                    ui.painter().rect_filled(btn_rect, Rounding::same(RADIUS_SM), bg_color);
                     ui.painter().rect_stroke(
                         btn_rect,
-                        Rounding::same(6.0),
+                        Rounding::same(RADIUS_SM),
                         Stroke::new(
-                            1.0,
+                            STROKE_THIN,
                             if is_hovered {
                                 self.theme.border_default
                             } else {
@@ -145,26 +145,26 @@ impl DbProApp {
                         ),
                     );
 
-                    let left_center = Pos2::new(btn_rect.left() + 10.0, btn_rect.center().y);
+                    let left_center = Pos2::new(btn_rect.left() + SPACE_MD, btn_rect.center().y);
                     ui.painter().text(
                         left_center,
                         Align2::LEFT_CENTER,
                         char::from(Icon::SquarePen).to_string(),
-                        FontId::new(13.0, FontFamily::Name("lucide".into())),
+                        font_icon(ICON_SM),
                         self.theme.text_primary,
                     );
                     ui.painter().text(
-                        Pos2::new(left_center.x + 18.0, left_center.y),
+                        Pos2::new(left_center.x + SPACE_LG + 2.0, left_center.y),
                         Align2::LEFT_CENTER,
                         "New query",
-                        FontId::proportional(12.5),
+                        font_caption(),
                         self.theme.text_primary,
                     );
                     ui.painter().text(
-                        Pos2::new(btn_rect.right() - 10.0, left_center.y),
+                        Pos2::new(btn_rect.right() - SPACE_MD, left_center.y),
                         Align2::RIGHT_CENTER,
                         format!("{}N", Self::primary_modifier_label()),
-                        FontId::proportional(11.0),
+                        font_caption(),
                         self.theme.text_muted,
                     );
 
@@ -174,9 +174,9 @@ impl DbProApp {
                     }
                     new_query_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
 
-                    ui.add_space(8.0);
+                    ui.add_space(SPACE_SM);
                     ui.separator();
-                    ui.add_space(4.0);
+                    ui.add_space(SPACE_XS);
 
                     // ── 3. Per-activity content ────────────────────────────────────
                     match self.activity {

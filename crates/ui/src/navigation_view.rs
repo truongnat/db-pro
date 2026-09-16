@@ -92,16 +92,10 @@ impl DbProApp {
                             } else {
                                 "PostgreSQL"
                             };
-                            egui::Frame {
-                                fill: self.theme.surface_panel,
-                                inner_margin: egui::Margin::symmetric(5.0, 1.0),
-                                rounding: egui::Rounding::same(3.0),
-                                stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
-                                ..Default::default()
-                            }
-                            .show(ui, |ui| {
-                                ui.label(RichText::new(driver_tag).size(9.5).color(self.theme.text_secondary));
-                            });
+                            Badge::new(driver_tag, self.theme)
+                                .variant(BadgeVariant::Secondary)
+                                .compact(true)
+                                .show(ui);
                         });
                     } else {
                         ui.horizontal(|ui| {
@@ -292,8 +286,12 @@ impl DbProApp {
                         );
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if compact_icon_button(ui, Icon::PanelBottom, self.theme)
-                            .on_hover_text("Toggle output panel")
+                        if Button::new(self.theme)
+                            .icon(Icon::PanelBottom)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip("Toggle output panel")
+                            .show(ui)
                             .clicked()
                         {
                             self.bottom_panel_open = !self.bottom_panel_open;
