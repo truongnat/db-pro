@@ -647,5 +647,7 @@ fn agent_tool_label(tool: db_pro_core::domain::agent::AgentTool) -> String {
         AgentTool::RunQuery => "Running query".to_owned(),
         AgentTool::InspectQueryResult => "Inspecting query result".to_owned(),
         AgentTool::ExplainQuery => "Explaining query".to_owned(),
+        AgentTool::SuggestIndexes => "Suggesting indexes".to_owned(),
+        AgentTool::MonitoringRead => "Reading monitoring snapshot".to_owned(),
     }
 }

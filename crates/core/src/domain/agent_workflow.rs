@@ -222,6 +222,8 @@ impl AgentToolError {
                     AgentTool::PatchQuery => "Modifying query text",
                     AgentTool::RunQuery => "Executing queries",
                     AgentTool::ExplainQuery => "Explaining queries",
+                    AgentTool::SuggestIndexes => "Suggesting indexes",
+                    AgentTool::MonitoringRead => "Reading monitoring snapshot",
                     AgentTool::InspectQueryResult => "Inspecting previous results",
                     _ => "This operation",
                 };
@@ -526,6 +528,9 @@ pub fn is_tool_allowed(mode: AgentMode, tool: AgentTool) -> bool {
                 | AgentTool::InspectForeignKeys
                 | AgentTool::GetCurrentQuery
                 | AgentTool::InspectQueryResult
+                | AgentTool::ExplainQuery
+                | AgentTool::SuggestIndexes
+                | AgentTool::MonitoringRead
         ),
         AgentMode::Edit => matches!(
             tool,
@@ -535,6 +540,9 @@ pub fn is_tool_allowed(mode: AgentMode, tool: AgentTool) -> bool {
                 | AgentTool::InspectForeignKeys
                 | AgentTool::GetCurrentQuery
                 | AgentTool::InspectQueryResult
+                | AgentTool::ExplainQuery
+                | AgentTool::SuggestIndexes
+                | AgentTool::MonitoringRead
                 | AgentTool::PatchQuery
         ),
         AgentMode::Agent => true,
@@ -550,6 +558,8 @@ fn validate_tool_input(request: &AgentToolRequest) -> Result<(), AgentToolError>
         (AgentTool::InspectQueryResult, AgentToolInput::ResultSample { max_rows, .. }) => *max_rows > 0,
         (AgentTool::PatchQuery, AgentToolInput::Patch { .. }) => true,
         (AgentTool::RunQuery | AgentTool::ExplainQuery, AgentToolInput::Query { sql }) => !sql.trim().is_empty(),
+        (AgentTool::SuggestIndexes, AgentToolInput::Table { .. }) => true,
+        (AgentTool::MonitoringRead, AgentToolInput::None) => true,
         _ => false,
     };
     if valid {
@@ -617,6 +627,9 @@ mod tests {
     fn modes_enforce_tool_permissions() {
         assert!(!is_tool_allowed(AgentMode::Ask, AgentTool::PatchQuery));
         assert!(!is_tool_allowed(AgentMode::Ask, AgentTool::RunQuery));
+        assert!(is_tool_allowed(AgentMode::Ask, AgentTool::ExplainQuery));
+        assert!(is_tool_allowed(AgentMode::Ask, AgentTool::SuggestIndexes));
+        assert!(is_tool_allowed(AgentMode::Ask, AgentTool::MonitoringRead));
         assert!(is_tool_allowed(AgentMode::Edit, AgentTool::PatchQuery));
         assert!(!is_tool_allowed(AgentMode::Edit, AgentTool::RunQuery));
         assert!(is_tool_allowed(AgentMode::Agent, AgentTool::RunQuery));

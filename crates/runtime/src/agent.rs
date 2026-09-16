@@ -475,6 +475,8 @@ fn parse_tool_name(name: &str) -> Result<AgentTool, CodexProviderError> {
         "runquery" => Ok(AgentTool::RunQuery),
         "inspectqueryresult" => Ok(AgentTool::InspectQueryResult),
         "explainquery" => Ok(AgentTool::ExplainQuery),
+        "suggestindexes" => Ok(AgentTool::SuggestIndexes),
+        "monitoringread" => Ok(AgentTool::MonitoringRead),
         _ => Err(CodexProviderError::Decode(format!("unknown agent tool: {name}"))),
     }
 }
@@ -502,6 +504,14 @@ fn parse_tool_input(tool: AgentTool, arguments: serde_json::Value) -> Result<Age
         AgentTool::RunQuery | AgentTool::ExplainQuery => Ok(AgentToolInput::Query {
             sql: required_string(object, "sql", tool)?,
         }),
+        AgentTool::SuggestIndexes => {
+            let table = object
+                .and_then(|value| value.get("table"))
+                .and_then(parse_object_ref)
+                .ok_or_else(|| CodexProviderError::Decode("suggest_indexes requires table.name".to_owned()))?;
+            Ok(AgentToolInput::Table { table })
+        }
+        AgentTool::MonitoringRead => Ok(AgentToolInput::None),
         AgentTool::InspectQueryResult => Ok(AgentToolInput::ResultSample {
             max_rows: object
                 .and_then(|value| value.get("max_rows"))
@@ -573,6 +583,8 @@ fn tool_definitions() -> Vec<serde_json::Value> {
         AgentTool::RunQuery,
         AgentTool::InspectQueryResult,
         AgentTool::ExplainQuery,
+        AgentTool::SuggestIndexes,
+        AgentTool::MonitoringRead,
     ]
     .into_iter()
     .map(|tool| {
@@ -597,6 +609,8 @@ fn tool_name(tool: AgentTool) -> &'static str {
         AgentTool::RunQuery => "run_query",
         AgentTool::InspectQueryResult => "inspect_query_result",
         AgentTool::ExplainQuery => "explain_query",
+        AgentTool::SuggestIndexes => "suggest_indexes",
+        AgentTool::MonitoringRead => "monitoring_read",
     }
 }
 
@@ -610,17 +624,23 @@ fn tool_description(tool: AgentTool) -> &'static str {
         AgentTool::PatchQuery => "Propose a range-based SQL editor patch for user review.",
         AgentTool::RunQuery => "Execute SQL through the database safety policy.",
         AgentTool::InspectQueryResult => "Inspect a bounded summary of the latest agent result.",
-        AgentTool::ExplainQuery => "Run EXPLAIN without ANALYZE.",
+        AgentTool::ExplainQuery => "Run EXPLAIN without ANALYZE via the query runtime.",
+        AgentTool::SuggestIndexes => {
+            "Suggest missing indexes from table metadata heuristics (not autonomous DDL)."
+        }
+        AgentTool::MonitoringRead => "Read a bounded monitoring snapshot (sessions/locks) via MonitoringService.",
     }
 }
 
 fn tool_parameters(tool: AgentTool) -> serde_json::Value {
     match tool {
         AgentTool::InspectSchema => json!({"type":"object","properties":{"schema":{"type":"string"}}}),
-        AgentTool::InspectTable | AgentTool::InspectColumns | AgentTool::InspectForeignKeys => json!({
+        AgentTool::InspectTable | AgentTool::InspectColumns | AgentTool::InspectForeignKeys | AgentTool::SuggestIndexes => {
+            json!({
             "type":"object","properties":{"table":{"type":"object","properties":{"schema":{"type":"string"},"name":{"type":"string"}},"required":["name"]}},"required":["table"]
-        }),
-        AgentTool::GetCurrentQuery => json!({"type":"object","properties":{}}),
+        })
+        }
+        AgentTool::GetCurrentQuery | AgentTool::MonitoringRead => json!({"type":"object","properties":{}}),
         AgentTool::PatchQuery => json!({
             "type":"object","properties":{"document_id":{"type":"string"},"expected_version":{"type":"integer"},"range":{"type":"array","items":{"type":"integer"},"minItems":2,"maxItems":2},"replacement":{"type":"string"}},"required":["document_id","expected_version","range","replacement"]
         }),

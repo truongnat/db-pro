@@ -228,6 +228,10 @@ pub enum AgentTool {
     RunQuery,
     InspectQueryResult,
     ExplainQuery,
+    /// Deterministic index suggestions from table metadata (#203).
+    SuggestIndexes,
+    /// Read-only monitoring snapshot via MonitoringService (#203).
+    MonitoringRead,
 }
 
 pub fn allows_stale_document_version(tool: AgentTool) -> bool {
@@ -238,6 +242,8 @@ pub fn allows_stale_document_version(tool: AgentTool) -> bool {
             | AgentTool::InspectTable
             | AgentTool::InspectColumns
             | AgentTool::InspectForeignKeys
+            | AgentTool::SuggestIndexes
+            | AgentTool::MonitoringRead
     )
 }
 
@@ -345,6 +351,10 @@ pub enum AgentToolOutput {
     },
     Explain {
         plan: String,
+    },
+    Advice {
+        title: String,
+        items: Vec<String>,
     },
 }
 

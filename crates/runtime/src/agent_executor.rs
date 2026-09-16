@@ -59,6 +59,8 @@ impl AgentToolExecutor {
             AgentTool::RunQuery => self.run_query(request, context).await?,
             AgentTool::InspectQueryResult => result_summary(request, context)?,
             AgentTool::ExplainQuery => self.explain_query(request, context).await?,
+            AgentTool::SuggestIndexes => self.suggest_indexes(request, context).await?,
+            AgentTool::MonitoringRead => self.monitoring_read(request, context).await?,
         };
 
         Ok(AgentToolResult {
@@ -235,6 +237,90 @@ impl AgentToolExecutor {
         })?;
         Ok(AgentToolOutput::Explain {
             plan: truncate_chars(&plan, MAX_AGENT_EXPLAIN_CHARS),
+        })
+    }
+
+    async fn suggest_indexes(
+        &self,
+        request: &AgentToolRequest,
+        context: &AgentExecutionContext,
+    ) -> Result<AgentToolOutput, AgentToolError> {
+        let table = table_input(request)?;
+        let info = self.load_table_info(context, table).await?;
+        let indexed_cols: std::collections::HashSet<String> = info
+            .indexes
+            .iter()
+            .flat_map(|idx| idx.columns.iter().cloned())
+            .collect();
+        let mut items = Vec::new();
+        for fk in &info.foreign_keys {
+            for col in &fk.from_columns {
+                if !indexed_cols.contains(col) {
+                    items.push(format!(
+                        "Consider index on {}.{}({}) — FK column without supporting index",
+                        info.table.schema, info.table.name, col
+                    ));
+                }
+            }
+        }
+        for col in &info.columns {
+            let lower = col.name.to_ascii_lowercase();
+            if (lower.ends_with("_id") || lower == "id")
+                && !col.is_primary_key
+                && !indexed_cols.contains(&col.name)
+            {
+                items.push(format!(
+                    "Consider index on {}.{}({}) — common lookup column",
+                    info.table.schema, info.table.name, col.name
+                ));
+            }
+        }
+        if items.is_empty() {
+            items.push(format!(
+                "No obvious missing indexes detected on {}.{} (heuristic only; not a substitute for EXPLAIN)",
+                info.table.schema, info.table.name
+            ));
+        }
+        Ok(AgentToolOutput::Advice {
+            title: format!("Index suggestions for {}.{}", info.table.schema, info.table.name),
+            items: items.into_iter().take(12).collect(),
+        })
+    }
+
+    async fn monitoring_read(
+        &self,
+        request: &AgentToolRequest,
+        context: &AgentExecutionContext,
+    ) -> Result<AgentToolOutput, AgentToolError> {
+        let _ = request;
+        let connection_id = connection_id(context)?;
+        let snapshot = self
+            .runtime
+            .monitoring_api()
+            .snapshot(connection_id)
+            .await
+            .map_err(query_error)?;
+        let active = snapshot.active_queries();
+        let mut items = Vec::new();
+        items.push(format!(
+            "sessions={} active_queries={} locks={} · {}",
+            snapshot.sessions.len(),
+            active.len(),
+            snapshot.locks.len(),
+            snapshot.message
+        ));
+        for q in active.into_iter().take(8) {
+            items.push(format!(
+                "pid={} state={} duration_ms={} · {}",
+                q.backend_id,
+                q.state.as_deref().unwrap_or("?"),
+                q.query_duration_ms.unwrap_or(0),
+                truncate_chars(q.query_text.as_deref().unwrap_or(""), 120)
+            ));
+        }
+        Ok(AgentToolOutput::Advice {
+            title: "Monitoring snapshot (read-only)".into(),
+            items,
         })
     }
 }
