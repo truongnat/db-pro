@@ -1,4 +1,5 @@
 use super::*;
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 
 /// What the AI features send off the machine, stated where the user enables them (#242).
 ///
@@ -96,8 +97,12 @@ impl DbProApp {
                     .is_some_and(|session| !session.messages.is_empty());
                 if can_clear_conversation
                     && (!self.agent_messages.is_empty() || typed_has_messages)
-                    && compact_icon_button(ui, Icon::RotateCcw, self.theme)
-                        .on_hover_text("Clear conversation")
+                    && Button::new(self.theme)
+                        .icon(Icon::RotateCcw)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Clear conversation")
+                        .show(ui)
                         .clicked()
                 {
                     self.agent_messages.clear();
@@ -112,15 +117,24 @@ impl DbProApp {
                         }
                     }
                 }
-                if compact_icon_button(ui, Icon::X, self.theme)
-                    .on_hover_text("Close Agent")
+                if Button::new(self.theme)
+                    .icon(Icon::X)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Close Agent")
+                    .show(ui)
                     .clicked()
                 {
                     self.set_agent_open(false, ctx);
                 }
-                let settings_btn =
-                    compact_icon_button(ui, Icon::Settings, self.theme).on_hover_text("Agent settings (API key)");
-                if settings_btn.clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::Settings)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Agent settings (API key)")
+                    .show(ui)
+                    .clicked()
+                {
                     self.agent_settings_open = !self.agent_settings_open;
                     if self.agent_settings_open {
                         self.agent_api_key_draft.clear();
@@ -136,8 +150,12 @@ impl DbProApp {
             ui.horizontal(|ui| {
                 ui.label(icon_text(Icon::KeyRound, "API Key", self.theme.text_primary));
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if compact_icon_button(ui, Icon::X, self.theme)
-                        .on_hover_text("Cancel")
+                    if Button::new(self.theme)
+                        .icon(Icon::X)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Cancel")
+                        .show(ui)
                         .clicked()
                     {
                         self.agent_settings_open = false;
@@ -193,12 +211,14 @@ impl DbProApp {
         ui.horizontal(|ui| {
             let key_non_empty = !self.agent_api_key_draft.trim().is_empty();
             let is_saving = self.agent_configure_request.is_some();
-            let save_btn = compact_button_with_icon(
-                ui,
-                if is_saving { Icon::Loader } else { Icon::Check },
-                if is_saving { "Saving…" } else { "Save key" },
-                self.theme,
-            );
+            let save_btn = Button::new(self.theme)
+                .icon(if is_saving { Icon::Loader } else { Icon::Check })
+                .text(if is_saving { "Saving…" } else { "Save key" })
+                .variant(ButtonVariant::Default)
+                .size(ButtonSize::Sm)
+                .enabled(!is_saving && key_non_empty)
+                .loading(is_saving)
+                .show(ui);
             let save_clicked = (save_btn.clicked() || save_shortcut) && key_non_empty && !is_saving;
             if save_clicked {
                 let request_id = self.task_bridge.next_request_id();
@@ -217,7 +237,12 @@ impl DbProApp {
             }
             let can_forget = self.agent_provider_label != "Offline draft" && !is_saving && !key_non_empty;
             if can_forget {
-                let forget_button = compact_button_with_icon(ui, Icon::Trash2, "Forget key", self.theme);
+                let forget_button = Button::new(self.theme)
+                    .icon(Icon::Trash2)
+                    .text("Forget key")
+                    .variant(ButtonVariant::Destructive)
+                    .size(ButtonSize::Sm)
+                    .show(ui);
                 if forget_button.clicked() {
                     let request_id = self.task_bridge.next_request_id();
                     self.agent_configure_request = Some(request_id);
@@ -295,25 +320,49 @@ impl DbProApp {
         toolbar_frame(self.theme).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 if !context.current_sql.trim().is_empty()
-                    && compact_button_with_icon(ui, Icon::ChartNoAxesCombined, "Explain query", self.theme).clicked()
+                    && Button::new(self.theme)
+                        .icon(Icon::ChartNoAxesCombined)
+                        .text("Explain query")
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
                 {
                     self.agent_input = "Explain the current SQL and its query plan".to_owned();
                     submit = true;
                 }
                 if !context.current_sql.trim().is_empty()
-                    && compact_button_with_icon(ui, Icon::Gauge, "Optimize", self.theme).clicked()
+                    && Button::new(self.theme)
+                        .icon(Icon::Gauge)
+                        .text("Optimize")
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
                 {
                     self.agent_input = "Optimize the current SQL and explain the trade-offs".to_owned();
                     submit = true;
                 }
                 if context.selected_table.is_some()
-                    && compact_button_with_icon(ui, Icon::Table2, "Explain table", self.theme).clicked()
+                    && Button::new(self.theme)
+                        .icon(Icon::Table2)
+                        .text("Explain table")
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
                 {
                     self.agent_input = "Explain the selected table and suggest useful read-only queries".to_owned();
                     submit = true;
                 }
                 if context.last_error.is_some()
-                    && compact_button_with_icon(ui, Icon::TriangleAlert, "Investigate error", self.theme).clicked()
+                    && Button::new(self.theme)
+                        .icon(Icon::TriangleAlert)
+                        .text("Investigate error")
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
                 {
                     self.agent_input = "Investigate the current database error and propose a safe fix".to_owned();
                     submit = true;
@@ -384,7 +433,14 @@ impl DbProApp {
                         "Count rows in the active table",
                         "Explain query performance",
                     ] {
-                        if ghost_button_with_icon(ui, Icon::WandSparkles, suggestion, self.theme).clicked() {
+                        if Button::new(self.theme)
+                            .icon(Icon::WandSparkles)
+                            .text(suggestion)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::Sm)
+                            .show(ui)
+                            .clicked()
+                        {
                             self.agent_input = suggestion.to_owned();
                             submit = true;
                         }
@@ -456,7 +512,14 @@ impl DbProApp {
                                     } else {
                                         "Open in Results"
                                     };
-                                    if compact_button_with_icon(ui, Icon::Table2, btn_label, self.theme).clicked() {
+                                    if Button::new(self.theme)
+                                        .icon(Icon::Table2)
+                                        .text(btn_label)
+                                        .variant(ButtonVariant::Secondary)
+                                        .size(ButtonSize::Sm)
+                                        .show(ui)
+                                        .clicked()
+                                    {
                                         open_result_call_id = Some(call_id.clone());
                                     }
                                 });
@@ -560,10 +623,33 @@ impl DbProApp {
                                     "Run Unclassified Query"
                                 }
                             };
-                            if primary_button_with_icon(ui, Icon::Check, approve_label, self.theme).clicked() {
+                            let is_destructive = matches!(
+                                pending.kind,
+                                db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunDestructive
+                            );
+                            let approve_variant = if is_destructive {
+                                ButtonVariant::Destructive
+                            } else {
+                                ButtonVariant::Default
+                            };
+                            if Button::new(self.theme)
+                                .icon(Icon::Check)
+                                .text(approve_label)
+                                .variant(approve_variant)
+                                .size(ButtonSize::Sm)
+                                .show(ui)
+                                .clicked()
+                            {
                                 self.agent_confirmation_action(true);
                             }
-                            if secondary_button_with_icon(ui, Icon::X, "Reject", self.theme).clicked() {
+                            if Button::new(self.theme)
+                                .icon(Icon::X)
+                                .text("Reject")
+                                .variant(ButtonVariant::Secondary)
+                                .size(ButtonSize::Sm)
+                                .show(ui)
+                                .clicked()
+                            {
                                 self.agent_confirmation_action(false);
                             }
                         });
@@ -572,7 +658,14 @@ impl DbProApp {
                 if session_state == db_pro_core::domain::agent::AgentSessionState::Failed {
                     ui.add_space(SPACE_SM);
                     ui.horizontal(|ui| {
-                        if compact_button_with_icon(ui, Icon::RotateCcw, "Retry", self.theme).clicked() {
+                        if Button::new(self.theme)
+                            .icon(Icon::RotateCcw)
+                            .text("Retry")
+                            .variant(ButtonVariant::Secondary)
+                            .size(ButtonSize::Sm)
+                            .show(ui)
+                            .clicked()
+                        {
                             retry = true;
                         }
                     });
