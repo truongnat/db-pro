@@ -1247,6 +1247,7 @@ impl PostgresApi {
             .map_err(Into::into)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_fdw_server(
         &self,
         connection_id: &str,

@@ -301,6 +301,6 @@ mod tests {
         assert!(opts
             .iter()
             .any(|o| o.key == "password" && o.sensitive && o.value.is_empty()));
-        assert!(quote_ident("ok_name").is_ok());
+        assert!(db_pro_core::domain::fdw::quote_ident("ok_name").is_ok());
     }
 }
