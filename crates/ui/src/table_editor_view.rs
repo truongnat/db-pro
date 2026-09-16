@@ -1489,9 +1489,18 @@ impl DbProApp {
                 // nothing — pressing it used to store the buffer back and stop there.
                 if writable
                     && self.ddl_execution_request.is_none()
-                    && compact_button_with_icon_enabled(ui, Icon::Play, "Apply DDL", DDL_APPLY_ENABLED, self.theme)
-                        .on_hover_text("Execute the DDL script")
-                        .on_disabled_hover_text("Not enabled in v0.1 — run DDL with Open in Query")
+                    && Button::new(self.theme)
+                        .icon(Icon::Play)
+                        .text("Apply DDL")
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .enabled(DDL_APPLY_ENABLED)
+                        .tooltip(if DDL_APPLY_ENABLED {
+                            "Execute the DDL script"
+                        } else {
+                            "Not enabled in v0.1 — run DDL with Open in Query"
+                        })
+                        .show(ui)
                         .clicked()
                 {
                     request_execution = true;

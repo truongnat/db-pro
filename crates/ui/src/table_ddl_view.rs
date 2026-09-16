@@ -1,5 +1,6 @@
 use super::*;
 use crate::components::badge::{Badge, BadgeVariant};
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::overlay::ToastPosition;
 use egui::{Align, Layout};
 use lucide_icons::Icon;
@@ -24,16 +25,26 @@ impl DbProApp {
                     .show(ui);
 
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if compact_button_with_icon(ui, Icon::RotateCcw, "Refresh DDL", self.theme)
-                        .on_hover_text("Re-generate DDL from latest database schema")
+                    if Button::new(self.theme)
+                        .icon(Icon::RotateCcw)
+                        .text("Refresh DDL")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .tooltip("Re-generate DDL from latest database schema")
+                        .show(ui)
                         .clicked()
                     {
                         self.table_ddl = None;
                         self.request_table_ddl();
                     }
 
-                    if compact_button_with_icon(ui, Icon::Play, "Open in Query", self.theme)
-                        .on_hover_text("Open DDL in SQL query console")
+                    if Button::new(self.theme)
+                        .icon(Icon::Play)
+                        .text("Open in Query")
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .tooltip("Open DDL in SQL query console")
+                        .show(ui)
                         .clicked()
                     {
                         self.set_active_query_text(ddl.clone());
@@ -41,8 +52,13 @@ impl DbProApp {
                         self.runtime_message = format!("Opened DDL for {schema}.{table_name} in Query editor");
                     }
 
-                    if compact_button_with_icon(ui, Icon::Copy, "Copy DDL", self.theme)
-                        .on_hover_text("Copy DDL statement to clipboard")
+                    if Button::new(self.theme)
+                        .icon(Icon::Copy)
+                        .text("Copy DDL")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .tooltip("Copy DDL statement to clipboard")
+                        .show(ui)
                         .clicked()
                     {
                         ui.ctx().copy_text(ddl.clone());

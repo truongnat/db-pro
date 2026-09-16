@@ -94,6 +94,7 @@ mod tests {
         let sources = [
             include_str!("../schema_workbench.rs"),
             include_str!("../schema_workbench_form.rs"),
+            include_str!("../schema_object_view.rs"),
             include_str!("../explorer_view.rs"),
             include_str!("../result_grid_edit.rs"),
             include_str!("../tasks_view.rs"),
@@ -101,6 +102,9 @@ mod tests {
             include_str!("../query_view.rs"),
             include_str!("../result_grid_view.rs"),
             include_str!("../table_editor_view.rs"),
+            include_str!("../table_ddl_view.rs"),
+            include_str!("../table_metadata_view.rs"),
+            include_str!("../table_view.rs"),
         ];
 
         for source in sources {

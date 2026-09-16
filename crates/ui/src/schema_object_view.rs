@@ -1,5 +1,6 @@
 //! Schema object workspace — views/triggers/routines (#192 routine workbench).
 use super::*;
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use db_pro_core::application::ObjectMutationService;
 use db_pro_core::domain::object_mutation::{
     MutationOptions, ObjectAction, ObjectDefinition, ObjectMutationRequest, ObjectRef, RoutineDefinition,
@@ -56,7 +57,14 @@ impl DbProApp {
                 if is_view {
                     self.draw_schema_object_view_tabs(ui);
                 }
-                if secondary_button_with_icon(ui, Icon::FileCode2, "Open in Query", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::FileCode2)
+                    .text("Open in Query")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.set_active_query_text(details.query.clone());
                     self.active_tab = WorkspaceTab::Query;
                 }
@@ -129,10 +137,24 @@ impl DbProApp {
             );
             ui.add_space(SPACE_SM);
             ui.horizontal_wrapped(|ui| {
-                if secondary_button_with_icon(ui, Icon::Eye, "Preview DDL", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::Eye)
+                    .text("Preview DDL")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.preview_routine_mutation(&function, ObjectAction::Alter);
                 }
-                if primary_button_with_icon(ui, Icon::Check, "Apply CREATE OR REPLACE", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::Check)
+                    .text("Apply CREATE OR REPLACE")
+                    .variant(ButtonVariant::Default)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.preview_routine_mutation(&function, ObjectAction::Alter);
                     if let Some(sql) = self.routine_ddl_preview.clone() {
                         self.set_active_query_text(sql);
@@ -140,7 +162,13 @@ impl DbProApp {
                         self.dispatch_query();
                     }
                 }
-                if danger_button(ui, "Drop…", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Drop…")
+                    .variant(ButtonVariant::Destructive)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.routine_drop_confirm = true;
                 }
             });
@@ -159,7 +187,13 @@ impl DbProApp {
                     ),
                 );
                 ui.horizontal(|ui| {
-                    if danger_button(ui, "Confirm drop", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Confirm drop")
+                        .variant(ButtonVariant::Destructive)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         self.preview_routine_mutation(&function, ObjectAction::Drop);
                         if let Some(sql) = self.routine_ddl_preview.clone() {
                             self.set_active_query_text(sql);
@@ -168,7 +202,14 @@ impl DbProApp {
                         }
                         self.routine_drop_confirm = false;
                     }
-                    if ghost_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .icon(Icon::X)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         self.routine_drop_confirm = false;
                     }
                 });
@@ -251,14 +292,26 @@ impl DbProApp {
             CodeBlock::new(&invoke_sql, self.theme).language("sql").show(ui);
             ui.add_space(SPACE_SM);
             ui.horizontal(|ui| {
-                if primary_button_with_icon(ui, Icon::Play, if is_proc { "Call" } else { "Execute" }, self.theme)
+                if Button::new(self.theme)
+                    .icon(Icon::Play)
+                    .text(if is_proc { "Call" } else { "Execute" })
+                    .variant(ButtonVariant::Default)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
                     .clicked()
                 {
                     self.set_active_query_text(invoke_sql.clone());
                     self.active_tab = WorkspaceTab::Query;
                     self.dispatch_query();
                 }
-                if secondary_button_with_icon(ui, Icon::FileCode2, "Open SQL in editor", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::FileCode2)
+                    .text("Open SQL in editor")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.set_active_query_text(invoke_sql.clone());
                     self.active_tab = WorkspaceTab::Query;
                 }

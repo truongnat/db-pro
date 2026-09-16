@@ -189,29 +189,72 @@ impl DbProApp {
 
         ui.add_space(SPACE_MD);
         ui.horizontal_wrapped(|ui| {
-            if secondary_button(ui, "Plan create", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Plan create")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.plan_workbench_action(ObjectAction::Create);
             }
-            if secondary_button(ui, "Plan drop", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Plan drop")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.plan_workbench_action(ObjectAction::Drop);
             }
-            if mode == SchemaWorkbenchMode::Column && secondary_button(ui, "Plan rename", self.theme).clicked() {
+            if mode == SchemaWorkbenchMode::Column
+                && Button::new(self.theme)
+                    .text("Plan rename")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+            {
                 self.plan_workbench_action(ObjectAction::Rename);
             }
             if mode == SchemaWorkbenchMode::View
                 && self.schema_workbench.materialized
-                && secondary_button(ui, "Plan refresh", self.theme).clicked()
+                && Button::new(self.theme)
+                    .text("Plan refresh")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
             {
                 self.plan_workbench_action(ObjectAction::Refresh);
             }
-            if mode == SchemaWorkbenchMode::Comment && secondary_button(ui, "Plan comment", self.theme).clicked() {
+            if mode == SchemaWorkbenchMode::Comment
+                && Button::new(self.theme)
+                    .text("Plan comment")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+            {
                 self.plan_workbench_action(ObjectAction::Comment);
             }
             if mode == SchemaWorkbenchMode::SchemaDb {
-                if secondary_button(ui, "Plan create database", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Plan create database")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.plan_database_action(ObjectAction::Create);
                 }
-                if secondary_button(ui, "Plan drop database", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Plan drop database")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.plan_database_action(ObjectAction::Drop);
                 }
             }

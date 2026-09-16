@@ -3,15 +3,15 @@ use crate::editor::PredictionMode;
 use crate::tokens::*;
 use crate::{
     agent_message_frame, badge, card_frame, compact_button, compact_button_with_icon, compact_icon_button,
-    danger_button, editor_frame, empty_state, ghost_button_with_icon, grid_frame,
-    icon_button, icon_text, input, input_full_width, menu_button_with_icon, panel_frame, primary_button,
-    primary_button_with_icon, secondary_button, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item,
-    tab_frame, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock,
-    ColumnWritePolicy, DbProTheme, GridProjectionCache, GridProjectionKey, OfflineAgentProvider, TaskBridge, UiCell,
-    UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput,
-    UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary,
-    UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableDataFilter, UiTableDataSort,
-    UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
+    danger_button, editor_frame, empty_state, ghost_button_with_icon, grid_frame, icon_button, icon_text, input,
+    input_full_width, menu_button_with_icon, panel_frame, primary_button, primary_button_with_icon, secondary_button,
+    secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame, toolbar_frame, AgentContext,
+    AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock, ColumnWritePolicy, DbProTheme, GridProjectionCache,
+    GridProjectionKey, OfflineAgentProvider, TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary,
+    UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry,
+    UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode,
+    UiStatementOutput, UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation,
+    UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};

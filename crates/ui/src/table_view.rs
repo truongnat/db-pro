@@ -1,4 +1,5 @@
 use super::*;
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 
 impl DbProApp {
     pub(super) fn draw_welcome(&mut self, ui: &mut egui::Ui) {
@@ -100,16 +101,33 @@ impl DbProApp {
             );
             ui.add_space(SPACE_SM);
             ui.horizontal(|ui| {
-                if primary_button_with_icon(ui, Icon::ArrowUp, "Open in Query", self.theme).clicked()
+                if Button::new(self.theme)
+                    .icon(Icon::ArrowUp)
+                    .text("Open in Query")
+                    .variant(ButtonVariant::Default)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
                     || (prompt_response.has_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)))
                 {
                     open_query = true;
                 }
-                if secondary_button_with_icon(ui, Icon::Database, "New connection", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::Database)
+                    .text("New connection")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.open_new_connection();
                 }
-                if compact_icon_button(ui, Icon::Search, self.theme)
-                    .on_hover_text("Quick Open")
+                if Button::new(self.theme)
+                    .icon(Icon::Search)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Quick Open")
+                    .show(ui)
                     .clicked()
                 {
                     self.open_palette(PaletteMode::QuickOpen);
@@ -122,10 +140,24 @@ impl DbProApp {
     /// Secondary "New query" row shown under the prompt card.
     fn draw_welcome_footer(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            if compact_button_with_icon(ui, Icon::FilePlus2, "New query", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::FilePlus2)
+                .text("New query")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.new_query_document();
             }
-            if compact_button_with_icon(ui, Icon::Palette, "Component Gallery", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::Palette)
+                .text("Component Gallery")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.active_tab = WorkspaceTab::ComponentGallery;
             }
             ui.label(
@@ -198,8 +230,13 @@ impl DbProApp {
                 }
 
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if compact_button_with_icon(ui, Icon::Bot, "Ask Agent", self.theme)
-                        .on_hover_text("Open AI Assistant with table context")
+                    if Button::new(self.theme)
+                        .icon(Icon::Bot)
+                        .text("Ask Agent")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .tooltip("Open AI Assistant with table context")
+                        .show(ui)
                         .clicked()
                     {
                         self.open_agent_prompt(
@@ -207,15 +244,25 @@ impl DbProApp {
                             ui.ctx(),
                         );
                     }
-                    if compact_button_with_icon(ui, Icon::FileCode2, "New Query", self.theme)
-                        .on_hover_text("Open SQL Editor for this table")
+                    if Button::new(self.theme)
+                        .icon(Icon::FileCode2)
+                        .text("New Query")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .tooltip("Open SQL Editor for this table")
+                        .show(ui)
                         .clicked()
                     {
                         self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table_name}\nLIMIT 100;"));
                         self.active_tab = WorkspaceTab::Query;
                     }
-                    if compact_button_with_icon(ui, Icon::RotateCcw, "Refresh", self.theme)
-                        .on_hover_text("Reload table metadata and rows")
+                    if Button::new(self.theme)
+                        .icon(Icon::RotateCcw)
+                        .text("Refresh")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .tooltip("Reload table metadata and rows")
+                        .show(ui)
                         .clicked()
                     {
                         self.request_table_info();

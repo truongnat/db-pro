@@ -1,5 +1,6 @@
 use super::*;
 use crate::components::badge::{Badge, BadgeVariant};
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::table::{Table, TableColumn};
 use crate::{UiDependencyDirection, UiDependencyKind};
 use egui::{Align, Color32, Layout, RichText};
@@ -76,8 +77,12 @@ impl DbProApp {
                     self.theme,
                 );
                 if !self.table_structure_search.is_empty()
-                    && compact_icon_button(ui, Icon::X, self.theme)
-                        .on_hover_text("Clear filter")
+                    && Button::new(self.theme)
+                        .icon(Icon::X)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Clear filter")
+                        .show(ui)
                         .clicked()
                 {
                     self.table_structure_search.clear();
@@ -307,8 +312,12 @@ impl DbProApp {
                     self.theme,
                 );
                 if !self.table_metadata_search.is_empty()
-                    && compact_icon_button(ui, Icon::X, self.theme)
-                        .on_hover_text("Clear filter")
+                    && Button::new(self.theme)
+                        .icon(Icon::X)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Clear filter")
+                        .show(ui)
                         .clicked()
                 {
                     self.table_metadata_search.clear();
@@ -503,8 +512,12 @@ impl DbProApp {
                     self.theme,
                 );
                 if !self.table_metadata_search.is_empty()
-                    && compact_icon_button(ui, Icon::X, self.theme)
-                        .on_hover_text("Clear filter")
+                    && Button::new(self.theme)
+                        .icon(Icon::X)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Clear filter")
+                        .show(ui)
                         .clicked()
                 {
                     self.table_metadata_search.clear();
@@ -618,8 +631,12 @@ impl DbProApp {
                                             .color(self.theme.text_muted),
                                         )
                                         .on_hover_text(format!("MATCH {}", relation.match_option));
-                                        if compact_icon_button(ui, Icon::ExternalLink, self.theme)
-                                            .on_hover_text("Open referenced table")
+                                        if Button::new(self.theme)
+                                            .icon(Icon::ExternalLink)
+                                            .variant(ButtonVariant::Ghost)
+                                            .size(ButtonSize::IconSm)
+                                            .tooltip("Open referenced table")
+                                            .show(ui)
                                             .clicked()
                                         {
                                             switch_table = Some(relation.to_table.clone());
@@ -660,8 +677,12 @@ impl DbProApp {
                     self.theme,
                 );
                 if !self.table_metadata_search.is_empty()
-                    && compact_icon_button(ui, Icon::X, self.theme)
-                        .on_hover_text("Clear filter")
+                    && Button::new(self.theme)
+                        .icon(Icon::X)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Clear filter")
+                        .show(ui)
                         .clicked()
                 {
                     self.table_metadata_search.clear();
@@ -866,8 +887,12 @@ impl DbProApp {
                     self.theme,
                 );
                 if !self.table_metadata_search.is_empty()
-                    && compact_icon_button(ui, Icon::X, self.theme)
-                        .on_hover_text("Clear filter")
+                    && Button::new(self.theme)
+                        .icon(Icon::X)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Clear filter")
+                        .show(ui)
                         .clicked()
                 {
                     self.table_metadata_search.clear();
@@ -991,8 +1016,12 @@ impl DbProApp {
                                         ui.label(RichText::new(&qualified).strong().color(self.theme.text_primary));
                                         if dep.kind == UiDependencyKind::Table
                                             && dep.name != info.name
-                                            && compact_icon_button(ui, Icon::ExternalLink, self.theme)
-                                                .on_hover_text("Open table workspace")
+                                            && Button::new(self.theme)
+                                                .icon(Icon::ExternalLink)
+                                                .variant(ButtonVariant::Ghost)
+                                                .size(ButtonSize::IconSm)
+                                                .tooltip("Open table workspace")
+                                                .show(ui)
                                                 .clicked()
                                         {
                                             jump_target = Some(dep.name.clone());
