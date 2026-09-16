@@ -8,7 +8,7 @@
 | Issue(s) | #119 |
 | Task state | Review |
 | Baseline SHA | `a81757aadcb97062c74259b83b304ede051ca5ed` |
-| Branch / PR | `fix/auren-license-policy` · PR not created |
+| Branch / PR | `fix/license-public-release` · PR not created |
 | Scope interpretation | Implement the owner-approved MIT policy and reconcile current release documentation. |
 | Out of scope | Product rename, runtime qualification, signing, legal trademark clearance, final binary notice packaging. |
 
@@ -43,12 +43,12 @@ Pending independent review; self-verification is not independent approval.
 - Source references: `Cargo.toml`, `crates/*/Cargo.toml`, `README.md`, `docs/release/0.1.0-readiness.md`, `docs/release/risk-register.md`, `crates/ui/assets/fonts/OFL.txt`.
 - Factual finding: baseline had no project `LICENSE` or manifest license metadata.
 - Inference: MIT is the lowest-friction permissive policy for the intended public desktop tool; legal counsel remains authoritative for entity-specific terms.
-- Decision: MIT selected by the project owner; Auren trademarks remain separate.
+- Decision: MIT selected by the project owner; DB Pro trademarks remain separate.
 - Unresolved questions: exact binary notice bundle generation before public distribution.
 - Downstream tasks activated: none.
 
 ## 6. Tổng kết bằng tiếng Việt
 
-Đã bắt đầu triển khai policy MIT cho Auren trên branch riêng. Scope chỉ gồm license,
+Đã triển khai policy MIT cho DB Pro trên branch riêng. Scope chỉ gồm license,
 manifest metadata, third-party notice index và release docs; không đổi runtime hay rename
 source. Còn phải chạy gate và tạo notice bundle hoàn chỉnh trước khi public binary release.

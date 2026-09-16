@@ -241,9 +241,8 @@ candidate archives predate this policy and must be rebuilt before public distrib
 material keeps its own terms; see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and the
 bundled [Inter font license](crates/ui/assets/fonts/OFL.txt).
 
-The public product identity is **Auren**. The Auren name and logos are not granted by the MIT
-license and remain subject to separate trademark rights. The source/binary rename is tracked
-separately from this license policy.
+The public product identity remains **DB Pro**. The DB Pro name and logos are not granted by the
+MIT license and remain subject to separate trademark rights.
 
 ## Release readiness
 

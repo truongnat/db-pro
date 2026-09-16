@@ -1,4 +1,4 @@
-# Auren license and public-release policy
+# DB Pro license and public-release policy
 
 ## Goal
 
@@ -9,15 +9,15 @@ from the current release documentation and Rust package metadata.
 
 - add the MIT license text;
 - declare MIT metadata for every workspace package;
-- record the Auren trademark boundary;
+- record the DB Pro trademark boundary;
 - add the third-party notice inventory index;
 - reconcile current release/readiness documents.
 
 ## Non-goals
 
-- renaming source identifiers, binaries, bundle IDs, or persisted paths to Auren;
+- renaming source identifiers, binaries, bundle IDs, or persisted paths;
 - changing release runtime support, signing, or GUI-smoke decisions;
-- legal clearance of the Auren trademark;
+- legal clearance of the DB Pro trademark;
 - generating a final platform-specific binary notice bundle.
 
 ## Acceptance

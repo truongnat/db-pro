@@ -65,7 +65,7 @@ blocks.
 | ID | `R-LICENSE` |
 | Description | MIT is selected for the project and future v0.1.0 artifacts. `LICENSE` and workspace/package metadata are present. Existing candidate archives predate this policy and must be rebuilt. The bundled Inter font remains under SIL OFL 1.1, and resolved Rust dependency notices remain separately inventoried in `THIRD_PARTY_NOTICES.md`. |
 | Severity | `P1` (governance) |
-| Owner / Decision | **Project owner selected MIT on 2026-09-16.** The Auren name and logos remain outside the code license. |
+| Owner / Decision | **Project owner selected MIT on 2026-09-16.** The DB Pro name and logos remain outside the code license. |
 | Status | `RESOLVED` |
 | Release disposition | **`RESOLVED`** for the source-license decision. A complete exact-artifact third-party notice bundle remains required before public binary distribution. |
 
@@ -426,10 +426,10 @@ Rationale: the preview is useful and confirmation-gated; autonomy is unverified 
 
 ```
 DECISION D007 (2026-09-16)
-Question: Which license governs the Auren source repository and v0.1.0 artifacts?
+Question: Which license governs the DB Pro source repository and v0.1.0 artifacts?
 Source issues: #119, #136
 Decision: MIT License. Add root LICENSE and declare MIT in the workspace and every package.
-         Preserve third-party licenses and notices; Auren names and logos are not licensed as
+         Preserve third-party licenses and notices; DB Pro names and logos are not licensed as
          trademarks by MIT.
 Rationale: permissive redistribution is the lowest-friction policy for a public desktop tool;
            no copyleft obligations are introduced.

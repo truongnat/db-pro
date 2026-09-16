@@ -7,8 +7,8 @@ root `LICENSE` file and no package license metadata. This blocked public
 distribution because users had no explicit source or binary redistribution
 policy.
 
-Decision: MIT License, effective for the Auren source repository and v0.1
-artifacts, with third-party notices preserved separately and Auren trademarks
+Decision: MIT License, effective for the DB Pro source repository and v0.1
+artifacts, with third-party notices preserved separately and DB Pro trademarks
 excluded from the MIT grant.
 
 ## F2 — P2 remains: binary notice bundle is not generated
