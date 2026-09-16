@@ -73,7 +73,9 @@ mod settings_model;
 #[path = "settings_view.rs"]
 mod settings_view;
 pub(crate) use capability_lookup::CapabilityLookup;
-pub(crate) use settings_model::{default_keybinding_catalog, AppSettings, SettingsSection, SETTINGS_STORAGE_KEY};
+pub(crate) use settings_model::{
+    default_keybinding_catalog, AppSettings, SettingsSection, SqlLintSettings, SETTINGS_STORAGE_KEY,
+};
 #[path = "activity_bar_view.rs"]
 mod activity_bar_view;
 #[path = "connection_status.rs"]

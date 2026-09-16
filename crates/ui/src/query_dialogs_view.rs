@@ -207,7 +207,16 @@ impl DbProApp {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn analyze_sql_diagnostics(sql: &str, driver: &str) -> (Vec<String>, Vec<Diagnostic>) {
+        Self::analyze_sql_diagnostics_with_lint(sql, driver, &SqlLintSettings::default())
+    }
+
+    pub(crate) fn analyze_sql_diagnostics_with_lint(
+        sql: &str,
+        driver: &str,
+        lint: &SqlLintSettings,
+    ) -> (Vec<String>, Vec<Diagnostic>) {
         let mut string_diagnostics = Vec::new();
         let mut structured_diagnostics = Vec::new();
         let capabilities = match CapabilityLookup::for_driver_label(driver) {
@@ -242,7 +251,7 @@ impl DbProApp {
             string_diagnostics.push(message.clone());
             structured_diagnostics.push(Diagnostic::delimiter((issue.offset, end), message));
         }
-        Self::append_sql_lint_diagnostics(sql, &mut string_diagnostics, &mut structured_diagnostics);
+        Self::append_sql_lint_diagnostics(sql, lint, &mut string_diagnostics, &mut structured_diagnostics);
         let mut tokens = Vec::new();
         let mut current = String::new();
         let mut in_string = false;
@@ -279,11 +288,15 @@ impl DbProApp {
             string_diagnostics.push(msg.clone());
             structured_diagnostics.push(Diagnostic::error((string_start_byte, sql.len()), msg));
         }
-        if tokens.first().map(|(t, _)| t.as_str()) == Some("update") && !tokens.iter().any(|(t, _)| t == "where") {
+        if lint.allows("lint.update-no-where")
+            && tokens.first().map(|(t, _)| t.as_str()) == Some("update")
+            && !tokens.iter().any(|(t, _)| t == "where")
+        {
             let msg = "UPDATE without WHERE will affect every row".to_owned();
             string_diagnostics.push(msg.clone());
-            structured_diagnostics.push(Diagnostic::warning((0, sql.len()), msg));
+            structured_diagnostics.push(Diagnostic::lint((0, sql.len().min(6)), msg, "lint.update-no-where"));
         }
+        // Dialect capability mismatches — distinct from lint; these are provider contract errors.
         if !capabilities.as_ref().is_some_and(|caps| caps.query.ilike) {
             if let Some((_, offset)) = tokens.iter().find(|(t, _)| t == "ilike") {
                 let msg = "ILIKE is not supported for this provider; use LIKE or lower()".to_owned();
@@ -461,150 +474,167 @@ impl DbProApp {
     /// Returns true when the menu should close.
     pub(crate) fn append_sql_lint_diagnostics(
         sql: &str,
+        lint: &SqlLintSettings,
         string_diagnostics: &mut Vec<String>,
         structured_diagnostics: &mut Vec<Diagnostic>,
     ) {
+        if !lint.enabled {
+            return;
+        }
         let lower = sql.to_lowercase();
         // SELECT * — warn on the star token when it is a projection wildcard.
-        if let Some(star_at) = lower.find("select") {
-            let after = &lower[star_at..];
-            if let Some(rel) = after.find('*') {
-                let abs = star_at + rel;
-                let before_ok = after[..rel].chars().rev().find(|c| !c.is_whitespace()).is_some();
-                let from_follows = after[rel..].contains("from");
-                if before_ok && from_follows {
-                    let msg = "SELECT * makes column contracts brittle; prefer an explicit column list".to_owned();
-                    string_diagnostics.push(msg.clone());
-                    structured_diagnostics.push(Diagnostic::lint((abs, abs + 1), msg, "lint.select-star"));
+        if lint.allows("lint.select-star") {
+            if let Some(star_at) = lower.find("select") {
+                let after = &lower[star_at..];
+                if let Some(rel) = after.find('*') {
+                    let abs = star_at + rel;
+                    let before_ok = after[..rel].chars().rev().find(|c| !c.is_whitespace()).is_some();
+                    let from_follows = after[rel..].contains("from");
+                    if before_ok && from_follows {
+                        let msg = "SELECT * makes column contracts brittle; prefer an explicit column list".to_owned();
+                        string_diagnostics.push(msg.clone());
+                        structured_diagnostics.push(Diagnostic::lint((abs, abs + 1), msg, "lint.select-star"));
+                    }
                 }
             }
         }
         // = NULL / != NULL / <> NULL — always unknown in SQL; suggest IS [NOT] NULL.
-        for (needle, suggestion) in [
-            ("= null", "IS NULL"),
-            ("!= null", "IS NOT NULL"),
-            ("<> null", "IS NOT NULL"),
-            ("=null", "IS NULL"),
-            ("!=null", "IS NOT NULL"),
-            ("<>null", "IS NOT NULL"),
-        ] {
-            if let Some(at) = lower.find(needle) {
-                let msg = format!("Comparing with NULL using {needle} is always unknown; use {suggestion}");
-                string_diagnostics.push(msg.clone());
-                structured_diagnostics.push(Diagnostic::lint_with_fix(
-                    (at, at + needle.len()),
-                    msg,
-                    "lint.null-compare",
-                    suggestion,
-                ));
+        if lint.allows("lint.null-compare") {
+            for (needle, suggestion) in [
+                ("= null", "IS NULL"),
+                ("!= null", "IS NOT NULL"),
+                ("<> null", "IS NOT NULL"),
+                ("=null", "IS NULL"),
+                ("!=null", "IS NOT NULL"),
+                ("<>null", "IS NOT NULL"),
+            ] {
+                if let Some(at) = lower.find(needle) {
+                    let msg = format!("Comparing with NULL using {needle} is always unknown; use {suggestion}");
+                    string_diagnostics.push(msg.clone());
+                    structured_diagnostics.push(Diagnostic::lint_with_fix(
+                        (at, at + needle.len()),
+                        msg,
+                        "lint.null-compare",
+                        suggestion,
+                    ));
+                }
             }
         }
-        // DELETE / UPDATE without WHERE already warned above for UPDATE; cover DELETE.
+        // DELETE without WHERE.
         let trimmed = lower.trim_start();
-        if trimmed.starts_with("delete") && !lower.contains("where") {
+        if lint.allows("lint.delete-no-where") && trimmed.starts_with("delete") && !lower.contains("where") {
             let msg = "DELETE without WHERE will remove every row".to_owned();
             string_diagnostics.push(msg.clone());
             structured_diagnostics.push(Diagnostic::lint((0, sql.len().min(6)), msg, "lint.delete-no-where"));
         }
         // ORDER BY n — positional ordinals are brittle across projection changes.
-        if let Some(order_at) = lower.find("order by") {
-            let after = &lower[order_at + "order by".len()..];
-            let trimmed_after = after.trim_start();
-            let skip = after.len() - trimmed_after.len();
-            if let Some(first) = trimmed_after.chars().next() {
-                if first.is_ascii_digit() {
-                    let abs = order_at + "order by".len() + skip;
-                    let end = abs
-                        + trimmed_after
-                            .chars()
-                            .take_while(|c| c.is_ascii_digit() || *c == ',' || c.is_whitespace())
-                            .map(char::len_utf8)
-                            .sum::<usize>();
-                    let msg = "ORDER BY ordinal is brittle; prefer an explicit column or expression".to_owned();
-                    string_diagnostics.push(msg.clone());
-                    structured_diagnostics.push(Diagnostic::lint(
-                        (abs, end.max(abs + 1)),
-                        msg,
-                        "lint.order-by-ordinal",
-                    ));
+        if lint.allows("lint.order-by-ordinal") {
+            if let Some(order_at) = lower.find("order by") {
+                let after = &lower[order_at + "order by".len()..];
+                let trimmed_after = after.trim_start();
+                let skip = after.len() - trimmed_after.len();
+                if let Some(first) = trimmed_after.chars().next() {
+                    if first.is_ascii_digit() {
+                        let abs = order_at + "order by".len() + skip;
+                        let end = abs
+                            + trimmed_after
+                                .chars()
+                                .take_while(|c| c.is_ascii_digit() || *c == ',' || c.is_whitespace())
+                                .map(char::len_utf8)
+                                .sum::<usize>();
+                        let msg = "ORDER BY ordinal is brittle; prefer an explicit column or expression".to_owned();
+                        string_diagnostics.push(msg.clone());
+                        structured_diagnostics.push(Diagnostic::lint(
+                            (abs, end.max(abs + 1)),
+                            msg,
+                            "lint.order-by-ordinal",
+                        ));
+                    }
                 }
             }
         }
         // FROM a, b — classic comma join / cartesian-product pattern when JOIN is absent.
-        if let Some(from_at) = lower.find("from") {
-            let after_from = &lower[from_at + 4..];
-            let has_join = after_from.contains(" join ")
-                || after_from.contains(" join\n")
-                || after_from.contains("\njoin ")
-                || after_from.starts_with("join ")
-                || after_from.contains(" join(");
-            if !has_join {
-                if let Some(comma_rel) = after_from.find(',') {
-                    let between = after_from[..comma_rel].trim();
-                    let after_comma = after_from[comma_rel + 1..].trim_start();
-                    let looks_like_table = !between.is_empty()
-                        && after_comma
-                            .chars()
-                            .next()
-                            .is_some_and(|c| c.is_alphabetic() || c == '"');
-                    if looks_like_table {
-                        let abs = from_at + 4 + comma_rel;
-                        let msg = "Comma join may produce a cartesian product; prefer explicit JOIN … ON".to_owned();
-                        string_diagnostics.push(msg.clone());
-                        structured_diagnostics.push(Diagnostic::lint((abs, abs + 1), msg, "lint.comma-join"));
+        if lint.allows("lint.comma-join") {
+            if let Some(from_at) = lower.find("from") {
+                let after_from = &lower[from_at + 4..];
+                let has_join = after_from.contains(" join ")
+                    || after_from.contains(" join\n")
+                    || after_from.contains("\njoin ")
+                    || after_from.starts_with("join ")
+                    || after_from.contains(" join(");
+                if !has_join {
+                    if let Some(comma_rel) = after_from.find(',') {
+                        let between = after_from[..comma_rel].trim();
+                        let after_comma = after_from[comma_rel + 1..].trim_start();
+                        let looks_like_table = !between.is_empty()
+                            && after_comma
+                                .chars()
+                                .next()
+                                .is_some_and(|c| c.is_alphabetic() || c == '"');
+                        if looks_like_table {
+                            let abs = from_at + 4 + comma_rel;
+                            let msg =
+                                "Comma join may produce a cartesian product; prefer explicit JOIN … ON".to_owned();
+                            string_diagnostics.push(msg.clone());
+                            structured_diagnostics.push(Diagnostic::lint((abs, abs + 1), msg, "lint.comma-join"));
+                        }
                     }
                 }
             }
         }
         // Duplicate projection aliases: `SELECT a AS x, b AS x`.
-        if let Some(select_at) = lower.find("select") {
-            let after_select = &lower[select_at + "select".len()..];
-            let projection = after_select.split(" from ").next().unwrap_or(after_select);
-            let mut seen: Vec<(String, usize)> = Vec::new();
-            let mut search_from = 0usize;
-            while let Some(rel) = projection[search_from..].find(" as ") {
-                let abs_in_proj = search_from + rel + " as ".len();
-                let alias_slice = projection[abs_in_proj..].trim_start();
-                let skip = projection[abs_in_proj..].len() - alias_slice.len();
-                let alias: String = alias_slice
-                    .chars()
-                    .take_while(|c| c.is_alphanumeric() || *c == '_' || *c == '"')
-                    .collect();
-                if !alias.is_empty() {
-                    let alias_key = alias.trim_matches('"').to_ascii_lowercase();
-                    let abs = select_at + "select".len() + abs_in_proj + skip;
-                    if let Some((_, first_at)) = seen.iter().find(|(name, _)| name == &alias_key) {
-                        let msg = format!("Duplicate projection alias `{alias_key}`");
-                        string_diagnostics.push(msg.clone());
-                        structured_diagnostics.push(Diagnostic::lint(
-                            (abs, abs + alias.len()),
-                            msg,
-                            "lint.duplicate-alias",
-                        ));
-                        let _ = first_at;
-                    } else {
-                        seen.push((alias_key, abs));
+        if lint.allows("lint.duplicate-alias") {
+            if let Some(select_at) = lower.find("select") {
+                let after_select = &lower[select_at + "select".len()..];
+                let projection = after_select.split(" from ").next().unwrap_or(after_select);
+                let mut seen: Vec<(String, usize)> = Vec::new();
+                let mut search_from = 0usize;
+                while let Some(rel) = projection[search_from..].find(" as ") {
+                    let abs_in_proj = search_from + rel + " as ".len();
+                    let alias_slice = projection[abs_in_proj..].trim_start();
+                    let skip = projection[abs_in_proj..].len() - alias_slice.len();
+                    let alias: String = alias_slice
+                        .chars()
+                        .take_while(|c| c.is_alphanumeric() || *c == '_' || *c == '"')
+                        .collect();
+                    if !alias.is_empty() {
+                        let alias_key = alias.trim_matches('"').to_ascii_lowercase();
+                        let abs = select_at + "select".len() + abs_in_proj + skip;
+                        if let Some((_, first_at)) = seen.iter().find(|(name, _)| name == &alias_key) {
+                            let msg = format!("Duplicate projection alias `{alias_key}`");
+                            string_diagnostics.push(msg.clone());
+                            structured_diagnostics.push(Diagnostic::lint(
+                                (abs, abs + alias.len()),
+                                msg,
+                                "lint.duplicate-alias",
+                            ));
+                            let _ = first_at;
+                        } else {
+                            seen.push((alias_key, abs));
+                        }
                     }
+                    search_from = abs_in_proj + alias.len().max(1);
                 }
-                search_from = abs_in_proj + alias.len().max(1);
             }
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn parse_sql_diagnostics(sql: &str, driver: &str) -> Vec<String> {
-        Self::analyze_sql_diagnostics(sql, driver).0
+        Self::analyze_sql_diagnostics_with_lint(sql, driver, &SqlLintSettings::default()).0
     }
 
     pub(crate) fn refresh_diagnostics(&mut self) {
         let driver = self.active_driver().to_owned();
+        let lint = self.settings.editor.lint.clone();
         let doc_index = self.active_query_document;
         if let Some(doc) = self.query_documents.get_mut(doc_index) {
-            let (raw_diags, structured) = Self::analyze_sql_diagnostics(doc.text(), &driver);
+            let (raw_diags, structured) = Self::analyze_sql_diagnostics_with_lint(doc.text(), &driver, &lint);
             self.diagnostics = raw_diags;
             doc.diagnostics =
                 deduplicate_diagnostics(structured.into_iter().chain(doc.execution_diagnostic.clone()).collect());
         } else {
-            self.diagnostics = Self::parse_sql_diagnostics(self.active_query_text(), &driver);
+            self.diagnostics = Self::analyze_sql_diagnostics_with_lint(self.active_query_text(), &driver, &lint).0;
         }
     }
 }

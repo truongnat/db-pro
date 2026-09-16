@@ -124,6 +124,39 @@ impl DbProApp {
                 .small()
                 .color(self.theme.text_muted),
             );
+            ui.add_space(12.0);
+            section_label(ui, "SQL LINT", self.theme);
+            ui.add_space(6.0);
+            ui.checkbox(&mut self.settings.editor.lint.enabled, "Enable SQL lint warnings");
+            ui.add_enabled_ui(self.settings.editor.lint.enabled, |ui| {
+                ui.checkbox(&mut self.settings.editor.lint.select_star, "Warn on SELECT *");
+                ui.checkbox(&mut self.settings.editor.lint.null_compare, "Warn on = NULL / != NULL");
+                ui.checkbox(
+                    &mut self.settings.editor.lint.delete_no_where,
+                    "Warn on DELETE without WHERE",
+                );
+                ui.checkbox(
+                    &mut self.settings.editor.lint.update_no_where,
+                    "Warn on UPDATE without WHERE",
+                );
+                ui.checkbox(
+                    &mut self.settings.editor.lint.order_by_ordinal,
+                    "Warn on ORDER BY ordinal",
+                );
+                ui.checkbox(
+                    &mut self.settings.editor.lint.comma_join,
+                    "Warn on comma / cartesian joins",
+                );
+                ui.checkbox(
+                    &mut self.settings.editor.lint.duplicate_alias,
+                    "Warn on duplicate projection aliases",
+                );
+            });
+            ui.label(
+                RichText::new("Lint warnings stay local and never call AI or the network.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
         });
     }
 

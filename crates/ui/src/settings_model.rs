@@ -135,6 +135,9 @@ pub(crate) struct EditorSettings {
     pub completion_enabled: bool,
     /// Serialized PredictionMode label: off | subtle | eager
     pub prediction_mode: String,
+    /// Deterministic SQL lint rules (#257).
+    #[serde(default)]
+    pub lint: SqlLintSettings,
 }
 
 impl Default for EditorSettings {
@@ -145,6 +148,58 @@ impl Default for EditorSettings {
             format_on_save: false,
             completion_enabled: true,
             prediction_mode: "eager".to_owned(),
+            lint: SqlLintSettings::default(),
+        }
+    }
+}
+
+/// Per-rule SQL lint toggles and suppressions (#257).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub(crate) struct SqlLintSettings {
+    /// Master switch — when false, no lint diagnostics are emitted.
+    pub enabled: bool,
+    pub select_star: bool,
+    pub null_compare: bool,
+    pub delete_no_where: bool,
+    pub update_no_where: bool,
+    pub order_by_ordinal: bool,
+    pub comma_join: bool,
+    pub duplicate_alias: bool,
+    /// Explicitly suppressed rule codes (e.g. `lint.select-star`).
+    #[serde(default)]
+    pub suppressed_codes: BTreeSet<String>,
+}
+
+impl Default for SqlLintSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            select_star: true,
+            null_compare: true,
+            delete_no_where: true,
+            update_no_where: true,
+            order_by_ordinal: true,
+            comma_join: true,
+            duplicate_alias: true,
+            suppressed_codes: BTreeSet::new(),
+        }
+    }
+}
+
+impl SqlLintSettings {
+    pub(crate) fn allows(&self, code: &str) -> bool {
+        if !self.enabled || self.suppressed_codes.contains(code) {
+            return false;
+        }
+        match code {
+            "lint.select-star" => self.select_star,
+            "lint.null-compare" => self.null_compare,
+            "lint.delete-no-where" => self.delete_no_where,
+            "lint.update-no-where" => self.update_no_where,
+            "lint.order-by-ordinal" => self.order_by_ordinal,
+            "lint.comma-join" => self.comma_join,
+            "lint.duplicate-alias" => self.duplicate_alias,
+            _ => true,
         }
     }
 }
@@ -434,5 +489,18 @@ mod tests {
         let loaded = AppSettings::from_json(&json).unwrap();
         assert!(loaded.appearance.dark_mode);
         assert_eq!(loaded.keybindings.resolved("query.run"), "mod+enter");
+    }
+
+    #[test]
+    fn sql_lint_settings_persist_and_suppress() {
+        let mut settings = AppSettings::default();
+        settings.editor.lint.select_star = false;
+        settings.editor.lint.suppressed_codes.insert("lint.comma-join".into());
+        let json = serde_json::to_string(&settings).unwrap();
+        let loaded = AppSettings::from_json(&json).unwrap();
+        assert!(!loaded.editor.lint.select_star);
+        assert!(!loaded.editor.lint.allows("lint.select-star"));
+        assert!(!loaded.editor.lint.allows("lint.comma-join"));
+        assert!(loaded.editor.lint.allows("lint.null-compare"));
     }
 }

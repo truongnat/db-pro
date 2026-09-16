@@ -3068,6 +3068,31 @@ fn sql_lint_warns_on_duplicate_projection_alias() {
 }
 
 #[test]
+fn sql_lint_warns_on_update_without_where() {
+    let (messages, structured) = DbProApp::analyze_sql_diagnostics("UPDATE t SET a = 1", "PostgreSQL");
+    assert!(messages.iter().any(|m| m.contains("UPDATE without WHERE")));
+    assert!(structured.iter().any(|d| {
+        d.source == crate::editor::DiagnosticSource::Lint && d.code.as_deref() == Some("lint.update-no-where")
+    }));
+}
+
+#[test]
+fn sql_lint_respects_disabled_and_suppressed_rules() {
+    let mut lint = crate::app::SqlLintSettings {
+        select_star: false,
+        ..crate::app::SqlLintSettings::default()
+    };
+    lint.suppressed_codes.insert("lint.null-compare".into());
+    let (messages, structured) =
+        DbProApp::analyze_sql_diagnostics_with_lint("SELECT * FROM t WHERE id = NULL", "PostgreSQL", &lint);
+    assert!(!messages.iter().any(|m| m.contains("SELECT *")));
+    assert!(!structured.iter().any(|d| d.code.as_deref() == Some("lint.select-star")));
+    assert!(!structured
+        .iter()
+        .any(|d| d.code.as_deref() == Some("lint.null-compare")));
+}
+
+#[test]
 fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
     let mut app = DbProApp::default();
     app.query_documents.clear();
