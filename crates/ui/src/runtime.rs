@@ -45,6 +45,12 @@ pub struct UiConnectionDraft {
     pub ssl_root_cert_path: String,
     pub ssl_client_cert_path: String,
     pub ssl_client_key_path: String,
+    /// Cloud preset key, e.g. `aws_rds:postgres`. Empty = none.
+    pub cloud_preset: String,
+    /// `password` or `ephemeral_token`.
+    pub auth_kind: String,
+    pub cloud_snippet: String,
+    pub cloud_guidance: String,
 }
 
 /// Developer-convenience identity for a new connection draft.
@@ -105,6 +111,10 @@ impl Default for UiConnectionDraft {
             ssl_root_cert_path: String::new(),
             ssl_client_cert_path: String::new(),
             ssl_client_key_path: String::new(),
+            cloud_preset: String::new(),
+            auth_kind: "password".into(),
+            cloud_snippet: String::new(),
+            cloud_guidance: String::new(),
         }
     }
 }

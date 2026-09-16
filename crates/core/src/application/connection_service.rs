@@ -47,6 +47,13 @@ impl ConnectionService {
     }
 
     fn requires_database_secret(config: &ConnectionConfig) -> bool {
+        if config
+            .tags
+            .iter()
+            .any(|t| t.eq_ignore_ascii_case("auth:ephemeral-token"))
+        {
+            return false;
+        }
         matches!(config.driver, DriverType::Postgres)
     }
 

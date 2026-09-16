@@ -265,10 +265,7 @@ impl AgentToolExecutor {
         }
         for col in &info.columns {
             let lower = col.name.to_ascii_lowercase();
-            if (lower.ends_with("_id") || lower == "id")
-                && !col.is_primary_key
-                && !indexed_cols.contains(&col.name)
-            {
+            if (lower.ends_with("_id") || lower == "id") && !col.is_primary_key && !indexed_cols.contains(&col.name) {
                 items.push(format!(
                     "Consider index on {}.{}({}) — common lookup column",
                     info.table.schema, info.table.name, col.name

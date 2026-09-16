@@ -3,6 +3,7 @@ pub mod agent_context;
 pub mod agent_workflow;
 pub mod backup;
 pub mod capabilities;
+pub mod cloud_presets;
 pub mod connection;
 pub mod connection_diagnostics;
 pub mod cross_connection;

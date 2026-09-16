@@ -215,6 +215,18 @@ impl DbProApp {
             ssl_root_cert_path: String::new(),
             ssl_client_cert_path: String::new(),
             ssl_client_key_path: String::new(),
+            cloud_preset: String::new(),
+            auth_kind: if connection
+                .tags
+                .iter()
+                .any(|t| t.eq_ignore_ascii_case("auth:ephemeral-token"))
+            {
+                "ephemeral_token".into()
+            } else {
+                "password".into()
+            },
+            cloud_snippet: String::new(),
+            cloud_guidance: String::new(),
         };
         self.connection_error.clear();
         self.connection_test_valid = false;
@@ -248,6 +260,18 @@ impl DbProApp {
             ssl_root_cert_path: String::new(),
             ssl_client_cert_path: String::new(),
             ssl_client_key_path: String::new(),
+            cloud_preset: String::new(),
+            auth_kind: if connection
+                .tags
+                .iter()
+                .any(|t| t.eq_ignore_ascii_case("auth:ephemeral-token"))
+            {
+                "ephemeral_token".into()
+            } else {
+                "password".into()
+            },
+            cloud_snippet: String::new(),
+            cloud_guidance: String::new(),
         };
         self.connection_error.clear();
         self.connection_test_valid = false;
@@ -647,9 +671,112 @@ impl DbProApp {
     fn draw_postgres_connection_fields(&mut self, ui: &mut egui::Ui) {
         use crate::components::input::{Input, PasswordInput};
         use crate::components::tabs::SegmentedTabs;
+        use db_pro_core::domain::cloud_presets::parse_connection_snippet;
+        use db_pro_core::domain::connection::{DriverType, SslMode};
 
         let avail = ui.available_width() - SPACE_SM;
         let half_w = avail * 0.5;
+
+        // Cloud managed-DB helpers (#254)
+        if !matches!(self.connection_draft.driver, UiDriver::Sqlite) {
+            ui.label(
+                RichText::new("CLOUD PRESET (optional)")
+                    .font(DbProTheme::ui_medium_font(10.5))
+                    .color(self.theme.text_muted),
+            );
+            ui.add_space(SPACE_XXS);
+            ui.horizontal(|ui| {
+                let selected = if self.connection_draft.cloud_preset.is_empty() {
+                    "None (manual)".to_owned()
+                } else {
+                    self.connection_draft.cloud_preset.clone()
+                };
+                egui::ComboBox::from_id_salt("cloud_preset")
+                    .selected_text(selected)
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.connection_draft.cloud_preset, String::new(), "None (manual)");
+                        for (key, label) in [
+                            ("aws_rds:postgres", "AWS RDS · PostgreSQL"),
+                            ("aws_rds:mysql", "AWS RDS · MySQL"),
+                            ("aws_aurora:postgres", "AWS Aurora · PostgreSQL"),
+                            ("gcp_cloudsql:postgres", "Cloud SQL · PostgreSQL"),
+                            ("gcp_cloudsql:mysql", "Cloud SQL · MySQL"),
+                            ("azure:postgres", "Azure Database · PostgreSQL"),
+                            ("azure:mysql", "Azure Database · MySQL"),
+                        ] {
+                            ui.selectable_value(&mut self.connection_draft.cloud_preset, key.to_owned(), label);
+                        }
+                    });
+                if secondary_button(ui, "Apply preset", self.theme).clicked() {
+                    self.apply_cloud_preset();
+                }
+            });
+            ui.horizontal(|ui| {
+                let mut auth_idx = if self.connection_draft.auth_kind == "ephemeral_token" {
+                    1
+                } else {
+                    0
+                };
+                SegmentedTabs::new(&mut auth_idx, &["Password", "Ephemeral token"], self.theme).show(ui);
+                self.connection_draft.auth_kind = if auth_idx == 1 {
+                    "ephemeral_token".into()
+                } else {
+                    "password".into()
+                };
+                if self.connection_draft.auth_kind == "ephemeral_token" {
+                    ui.colored_label(
+                        self.theme.warning,
+                        "Token is session-only — never stored as a long-lived password",
+                    );
+                }
+            });
+            ui.add_space(SPACE_XXS);
+            Input::new(
+                &mut self.connection_draft.cloud_snippet,
+                "postgresql://user@host:5432/db?sslmode=verify-full",
+                self.theme,
+            )
+            .label("Paste console URI (secrets redacted on export)")
+            .show(ui);
+            ui.horizontal(|ui| {
+                if ghost_button(ui, "Import URI", self.theme).clicked() {
+                    match parse_connection_snippet(&self.connection_draft.cloud_snippet) {
+                        Ok(parsed) => {
+                            self.connection_draft.host = parsed.host;
+                            self.connection_draft.port = parsed.port.to_string();
+                            self.connection_draft.database = parsed.database;
+                            self.connection_draft.username = parsed.username;
+                            if let Some(pwd) = parsed.password {
+                                self.connection_draft.password = pwd;
+                            }
+                            if let Some(mode) = parsed.ssl_mode {
+                                self.connection_draft.ssl_mode = match mode {
+                                    SslMode::Disable => UiSslMode::Disable,
+                                    SslMode::Require => UiSslMode::Require,
+                                    SslMode::VerifyCa => UiSslMode::VerifyCa,
+                                    SslMode::VerifyFull => UiSslMode::VerifyFull,
+                                };
+                            }
+                            self.connection_draft.driver = match parsed.driver {
+                                DriverType::Postgres => UiDriver::Postgres,
+                                DriverType::Mysql => UiDriver::Mysql,
+                                DriverType::SQLite => UiDriver::Sqlite,
+                            };
+                            self.connection_error.clear();
+                        }
+                        Err(err) => self.connection_error = err,
+                    }
+                }
+            });
+            if !self.connection_draft.cloud_guidance.is_empty() {
+                ui.label(
+                    RichText::new(&self.connection_draft.cloud_guidance)
+                        .small()
+                        .color(self.theme.text_secondary),
+                );
+            }
+            ui.add_space(SPACE_SM);
+        }
 
         // Row 1: Connection Display Name & Database Name
         ui.horizontal(|ui| {
@@ -789,7 +916,9 @@ impl DbProApp {
             ui.add_space(SPACE_SM);
             ui.vertical(|ui| {
                 ui.set_width(half_w);
-                let pwd_placeholder = if self.editing_connection_id.is_some() {
+                let pwd_placeholder = if self.connection_draft.auth_kind == "ephemeral_token" {
+                    "Paste short-lived IAM/access token (not stored)"
+                } else if self.editing_connection_id.is_some() {
                     "•••••••• (Leave blank to keep saved password)"
                 } else {
                     "Optional (Leave blank if no password)"
@@ -800,7 +929,11 @@ impl DbProApp {
                     &mut self.connection_show_password,
                     self.theme,
                 )
-                .label("Password")
+                .label(if self.connection_draft.auth_kind == "ephemeral_token" {
+                    "Access token"
+                } else {
+                    "Password"
+                })
                 .show(ui);
             });
         });
@@ -1007,6 +1140,85 @@ impl DbProApp {
         self.connection_draft.ssh_user = profile.user;
         self.connection_draft.ssh_private_key = profile.private_key_path;
         self.connection_draft.ssh_profile_id = profile.id;
+        self.connection_test_valid = false;
+    }
+
+    pub(crate) fn apply_cloud_preset(&mut self) {
+        use db_pro_core::domain::cloud_presets::{apply_preset, find_preset, validate_cloud_endpoint, CloudProvider};
+        use db_pro_core::domain::connection::{ConnectionConfig, DriverType, SslMode};
+
+        let key = self.connection_draft.cloud_preset.clone();
+        if key.is_empty() {
+            self.connection_draft.cloud_guidance.clear();
+            return;
+        }
+        let (provider, driver) = match key.as_str() {
+            "aws_rds:postgres" => (CloudProvider::AwsRds, DriverType::Postgres),
+            "aws_rds:mysql" => (CloudProvider::AwsRds, DriverType::Mysql),
+            "aws_aurora:postgres" => (CloudProvider::AwsAurora, DriverType::Postgres),
+            "gcp_cloudsql:postgres" => (CloudProvider::GcpCloudSql, DriverType::Postgres),
+            "gcp_cloudsql:mysql" => (CloudProvider::GcpCloudSql, DriverType::Mysql),
+            "azure:postgres" => (CloudProvider::AzureDatabase, DriverType::Postgres),
+            "azure:mysql" => (CloudProvider::AzureDatabase, DriverType::Mysql),
+            _ => {
+                self.connection_error = format!("unknown cloud preset `{key}`");
+                return;
+            }
+        };
+        let Some(preset) = find_preset(provider, driver) else {
+            self.connection_error = "preset not found for driver".into();
+            return;
+        };
+        let mut cfg = ConnectionConfig {
+            name: self.connection_draft.name.clone(),
+            host: self.connection_draft.host.clone(),
+            port: self.connection_draft.port.parse().unwrap_or(preset.default_port),
+            database: self.connection_draft.database.clone(),
+            username: self.connection_draft.username.clone(),
+            driver,
+            ssl_mode: SslMode::Require,
+            ..ConnectionConfig::default()
+        };
+        apply_preset(&mut cfg, &preset);
+        self.connection_draft.driver = match cfg.driver {
+            DriverType::Postgres => UiDriver::Postgres,
+            DriverType::Mysql => UiDriver::Mysql,
+            DriverType::SQLite => UiDriver::Sqlite,
+        };
+        self.connection_draft.port = cfg.port.to_string();
+        self.connection_draft.ssl_mode = match cfg.ssl_mode {
+            SslMode::Disable => UiSslMode::Disable,
+            SslMode::Require => UiSslMode::Require,
+            SslMode::VerifyCa => UiSslMode::VerifyCa,
+            SslMode::VerifyFull => UiSslMode::VerifyFull,
+        };
+        if self.connection_draft.host.trim().is_empty()
+            || self.connection_draft.host == "localhost"
+            || self.connection_draft.host.contains("xxxxx")
+            || self.connection_draft.host.contains("x.x.x")
+        {
+            self.connection_draft.host = cfg.host;
+        }
+        if self.connection_draft.name.trim().is_empty() {
+            self.connection_draft.name = cfg.name;
+        }
+        if !preset.token_auth_supported && self.connection_draft.auth_kind == "ephemeral_token" {
+            self.connection_draft.auth_kind = "password".into();
+        }
+        let warn = validate_cloud_endpoint(&self.connection_draft.host, provider)
+            .err()
+            .unwrap_or_default();
+        self.connection_draft.cloud_guidance = format!(
+            "{} · {}{}",
+            preset.ca_guidance,
+            preset.notes,
+            if warn.is_empty() {
+                String::new()
+            } else {
+                format!(" · note: {warn}")
+            }
+        );
+        self.connection_error.clear();
         self.connection_test_valid = false;
     }
 

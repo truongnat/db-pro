@@ -77,12 +77,28 @@ pub(crate) fn draft_to_domain(
             query_timeout_ms: 30_000,
             max_rows: 500,
             color: None,
-            tags: draft
-                .tags
-                .split(',')
-                .map(|s| s.trim().to_owned())
-                .filter(|s| !s.is_empty())
-                .collect(),
+            tags: {
+                let mut tags: Vec<String> = draft
+                    .tags
+                    .split(',')
+                    .map(|s| s.trim().to_owned())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                if draft.auth_kind.eq_ignore_ascii_case("ephemeral_token") {
+                    if !tags.iter().any(|t| t.eq_ignore_ascii_case("auth:ephemeral-token")) {
+                        tags.push("auth:ephemeral-token".into());
+                    }
+                } else {
+                    tags.retain(|t| !t.eq_ignore_ascii_case("auth:ephemeral-token"));
+                }
+                if !draft.cloud_preset.is_empty() {
+                    let cloud_tag = format!("cloud:{}", draft.cloud_preset);
+                    if !tags.iter().any(|t| t == &cloud_tag) {
+                        tags.push(cloud_tag);
+                    }
+                }
+                tags
+            },
             group: {
                 let g = draft.group.trim();
                 if g.is_empty() {
@@ -102,6 +118,9 @@ pub(crate) fn draft_to_domain(
         },
         if driver == db_pro_core::domain::connection::DriverType::SQLite {
             String::new()
+        } else if draft.auth_kind.eq_ignore_ascii_case("ephemeral_token") {
+            // Token is for the current connect attempt only; ConnectionService will not persist it.
+            draft.password
         } else {
             draft.password
         },

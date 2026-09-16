@@ -625,9 +625,7 @@ fn tool_description(tool: AgentTool) -> &'static str {
         AgentTool::RunQuery => "Execute SQL through the database safety policy.",
         AgentTool::InspectQueryResult => "Inspect a bounded summary of the latest agent result.",
         AgentTool::ExplainQuery => "Run EXPLAIN without ANALYZE via the query runtime.",
-        AgentTool::SuggestIndexes => {
-            "Suggest missing indexes from table metadata heuristics (not autonomous DDL)."
-        }
+        AgentTool::SuggestIndexes => "Suggest missing indexes from table metadata heuristics (not autonomous DDL).",
         AgentTool::MonitoringRead => "Read a bounded monitoring snapshot (sessions/locks) via MonitoringService.",
     }
 }
@@ -635,10 +633,13 @@ fn tool_description(tool: AgentTool) -> &'static str {
 fn tool_parameters(tool: AgentTool) -> serde_json::Value {
     match tool {
         AgentTool::InspectSchema => json!({"type":"object","properties":{"schema":{"type":"string"}}}),
-        AgentTool::InspectTable | AgentTool::InspectColumns | AgentTool::InspectForeignKeys | AgentTool::SuggestIndexes => {
+        AgentTool::InspectTable
+        | AgentTool::InspectColumns
+        | AgentTool::InspectForeignKeys
+        | AgentTool::SuggestIndexes => {
             json!({
-            "type":"object","properties":{"table":{"type":"object","properties":{"schema":{"type":"string"},"name":{"type":"string"}},"required":["name"]}},"required":["table"]
-        })
+                "type":"object","properties":{"table":{"type":"object","properties":{"schema":{"type":"string"},"name":{"type":"string"}},"required":["name"]}},"required":["table"]
+            })
         }
         AgentTool::GetCurrentQuery | AgentTool::MonitoringRead => json!({"type":"object","properties":{}}),
         AgentTool::PatchQuery => json!({
