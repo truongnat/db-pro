@@ -869,6 +869,80 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn apply_mutations_detailed_maps_statement_index_complex_reordering() {
+        let (conn_id, registry) = setup();
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+
+        // Input mutations:
+        // idx 0: Insert 1
+        // idx 1: Update 1
+        // idx 2: Delete 1
+        // idx 3: Insert 2
+        // Reordered execution:
+        // exec 0: Delete 1 (orig idx 2)
+        // exec 1: Update 1 (orig idx 1)
+        // exec 2: Insert 1 (orig idx 0)
+        // exec 3: Insert 2 (orig idx 3)
+        // Let exec 1 (Update 1) fail.
+        connector
+            .expect_execute_parameterized_transaction()
+            .returning(|_, statements| {
+                assert_eq!(statements.len(), 4);
+                assert!(statements[0].sql.starts_with("DELETE FROM"));
+                assert!(statements[1].sql.starts_with("UPDATE"));
+                assert!(statements[2].sql.starts_with("INSERT INTO"));
+                assert!(statements[3].sql.starts_with("INSERT INTO"));
+                Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: 1, // exec index 1 (Update 1)
+                    outcome: TransactionFailureOutcome::RolledBack,
+                    results: vec![TransactionStatementResult::Affected {
+                        row_count: 1,
+                        duration_ms: 0,
+                    }],
+                    error: DbError::Conflict("row lock failure".into()),
+                })
+            });
+
+        let service = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
+        let failure = service
+            .apply_mutations_detailed(
+                &conn_id,
+                "public",
+                "users",
+                &[
+                    TableDataMutation::Insert {
+                        columns: vec!["name".into()],
+                        values: vec![CellValue::Text("insert 1".into())],
+                    },
+                    TableDataMutation::Update {
+                        columns: vec!["name".into()],
+                        values: vec![CellValue::Text("update 1".into())],
+                        pk_columns: vec!["id".into()],
+                        pk_values: vec![CellValue::Int64(10)],
+                    },
+                    TableDataMutation::Delete {
+                        pk_columns: vec!["id".into()],
+                        pk_values: vec![CellValue::Int64(20)],
+                    },
+                    TableDataMutation::Insert {
+                        columns: vec!["name".into()],
+                        values: vec![CellValue::Text("insert 2".into())],
+                    },
+                ],
+            )
+            .await
+            .expect_err("failing transaction must map statement_index back to original input position");
+
+        // Exec index 1 corresponds to Update 1, which was original input index 1.
+        assert_eq!(failure.statement_index, 1);
+        assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
+    }
+
+    #[tokio::test]
     async fn fetch_rows_connection_not_active() {
         let registry = Arc::new(ConnectionRegistry::new());
         let connector = MockDbConnector::new();
