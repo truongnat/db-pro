@@ -23,3 +23,10 @@ the native window for accessibility capture. This prevents the required
 The clean-code scan also reports inherited long methods in
 `schema_workbench.rs`/`schema_workbench_form.rs`; the follow-up only changes
 button composition and does not claim those methods were refactored.
+
+## Follow-up slice — Tasks, Settings Sessions, and Query Output
+
+- `tasks_view.rs`: Migrated manual action buttons (Run, Disable schedule, Schedule 60s, Delete, Save task, Cancel) to canonical `Button` with appropriate size `ButtonSize::Sm` and variants (`Default`, `Secondary`, `Destructive`, `Ghost`).
+- `settings_view.rs`: Migrated workspace session management buttons (Save workspace, Restore, Duplicate, Delete) to canonical `Button`.
+- `query_output_view.rs`: Migrated EXPLAIN ANALYZE button to canonical `Button` with `enabled` binding.
+- `components/mod.rs`: Expanded `primary_native_surfaces_do_not_reintroduce_raw_buttons` test to prevent raw `ui.button` regressions in these files.

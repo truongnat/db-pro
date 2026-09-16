@@ -252,13 +252,25 @@ impl DbProApp {
                 let can_apply = !self.schema_workbench.preview_sql.trim().is_empty()
                     && self.schema_workbench.preview_error.is_none()
                     && self.can_mutate_active_connection();
-                ui.add_enabled_ui(can_apply, |ui| {
-                    if primary_button(ui, "Apply DDL…", self.theme).clicked() {
-                        self.schema_workbench.apply_confirmation = true;
-                    }
-                });
-                if secondary_button(ui, "Open in SQL editor", self.theme).clicked()
-                    && !self.schema_workbench.preview_sql.trim().is_empty()
+                if Button::new(self.theme)
+                    .text("Apply DDL…")
+                    .variant(ButtonVariant::Default)
+                    .size(ButtonSize::Sm)
+                    .enabled(can_apply)
+                    .show(ui)
+                    .clicked()
+                {
+                    self.schema_workbench.apply_confirmation = true;
+                }
+                let can_open_editor = !self.schema_workbench.preview_sql.trim().is_empty();
+                if Button::new(self.theme)
+                    .text("Open in SQL editor")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .enabled(can_open_editor)
+                    .show(ui)
+                    .clicked()
+                    && can_open_editor
                 {
                     let sql = self.schema_workbench.preview_sql.clone();
                     self.new_query_document();

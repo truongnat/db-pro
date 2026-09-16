@@ -96,18 +96,42 @@ impl DbProApp {
                     );
                 }
                 ui.horizontal(|ui| {
-                    if primary_button(ui, "Run", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Run")
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         self.run_saved_task(task.id, SavedTaskRunTrigger::Manual);
                     }
                     if task.schedule.as_ref().is_some_and(|s| s.enabled) {
-                        if compact_button(ui, "Disable schedule", self.theme).clicked() {
+                        if Button::new(self.theme)
+                            .text("Disable schedule")
+                            .variant(ButtonVariant::Secondary)
+                            .size(ButtonSize::Sm)
+                            .show(ui)
+                            .clicked()
+                        {
                             let _ = self.saved_task_store.set_schedule_enabled(&task.id, false);
                             self.saved_tasks_dirty = true;
                         }
-                    } else if compact_button(ui, "Schedule 60s", self.theme).clicked() {
+                    } else if Button::new(self.theme)
+                        .text("Schedule 60s")
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         self.enable_task_schedule(task.id, 60);
                     }
-                    if compact_button(ui, "Delete", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Delete")
+                        .variant(ButtonVariant::Destructive)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         self.saved_task_store.remove(&task.id);
                         self.saved_tasks_dirty = true;
                     }
@@ -200,10 +224,22 @@ impl DbProApp {
             }
         }
         ui.horizontal(|ui| {
-            if primary_button(ui, "Save task", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Save task")
+                .variant(ButtonVariant::Default)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.commit_task_draft();
             }
-            if compact_button(ui, "Cancel", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Cancel")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.saved_task_draft = None;
             }
         });

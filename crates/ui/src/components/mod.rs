@@ -96,6 +96,8 @@ mod tests {
             include_str!("../schema_workbench_form.rs"),
             include_str!("../explorer_view.rs"),
             include_str!("../result_grid_edit.rs"),
+            include_str!("../tasks_view.rs"),
+            include_str!("../query_output_view.rs"),
         ];
 
         for source in sources {

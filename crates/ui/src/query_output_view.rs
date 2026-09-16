@@ -370,11 +370,16 @@ impl DbProApp {
                     &mut self.explain_analyze_confirmed,
                     "I understand this will execute the query",
                 );
-                ui.add_enabled_ui(self.explain_analyze_confirmed, |ui| {
-                    if primary_button(ui, "Run EXPLAIN ANALYZE", self.theme).clicked() {
-                        self.explain_query_analyze();
-                    }
-                });
+                if Button::new(self.theme)
+                    .text("Run EXPLAIN ANALYZE")
+                    .variant(ButtonVariant::Default)
+                    .size(ButtonSize::Sm)
+                    .enabled(self.explain_analyze_confirmed)
+                    .show(ui)
+                    .clicked()
+                {
+                    self.explain_query_analyze();
+                }
             }
             ui.add_space(8.0);
             if let Some(plan_json) = self.active_explain_plan() {

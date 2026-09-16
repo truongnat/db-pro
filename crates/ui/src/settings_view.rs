@@ -89,11 +89,17 @@ impl DbProApp {
             );
             input_full_width(ui, &mut self.session_name_draft, "Session name", self.theme);
             ui.horizontal(|ui| {
-                if primary_button(ui, "Save workspace", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Save workspace")
+                    .variant(ButtonVariant::Default)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.save_named_workspace_session();
                 }
             });
-            ui.add_space(6.0);
+            ui.add_space(SPACE_SM);
             let sessions = self.named_session_store.sessions.clone();
             for session in sessions {
                 ui.horizontal(|ui| {
@@ -101,13 +107,31 @@ impl DbProApp {
                     if ui.selectable_label(selected, &session.name).clicked() {
                         self.selected_named_session_id = Some(session.id.clone());
                     }
-                    if compact_button(ui, "Restore", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Restore")
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         self.restore_named_workspace_session(&session.id);
                     }
-                    if compact_button(ui, "Duplicate", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Duplicate")
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         self.duplicate_named_workspace_session(&session.id);
                     }
-                    if compact_button(ui, "Delete", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Delete")
+                        .variant(ButtonVariant::Destructive)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         self.named_session_store.remove(&session.id);
                     }
                 });
