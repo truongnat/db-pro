@@ -405,6 +405,8 @@ fn db_config(
         color: None,
         tags: Vec::new(),
         group: None,
+        favorite: false,
+        environment: Default::default(),
         readonly: false,
     }
 }

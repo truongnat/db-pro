@@ -45,8 +45,27 @@ pub(crate) fn draft_to_domain(
             query_timeout_ms: 30_000,
             max_rows: 500,
             color: None,
-            tags: Vec::new(),
-            group: None,
+            tags: draft
+                .tags
+                .split(',')
+                .map(|s| s.trim().to_owned())
+                .filter(|s| !s.is_empty())
+                .collect(),
+            group: {
+                let g = draft.group.trim();
+                if g.is_empty() {
+                    None
+                } else {
+                    Some(g.to_owned())
+                }
+            },
+            favorite: draft.favorite,
+            environment: match draft.environment.to_ascii_lowercase().as_str() {
+                "staging" => db_pro_core::domain::connection::ConnectionEnvironment::Staging,
+                "production" => db_pro_core::domain::connection::ConnectionEnvironment::Production,
+                "custom" => db_pro_core::domain::connection::ConnectionEnvironment::Custom,
+                _ => db_pro_core::domain::connection::ConnectionEnvironment::Development,
+            },
             readonly: draft.readonly,
         },
         if driver == db_pro_core::domain::connection::DriverType::SQLite {

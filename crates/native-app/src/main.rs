@@ -300,6 +300,8 @@ fn developer_preset_connection() -> Option<db_pro_core::domain::connection::Conn
         color: Some("#6366f1".to_owned()),
         tags: vec!["docker".to_owned(), "xe-lac-hong".to_owned()],
         group: None,
+        favorite: false,
+        environment: Default::default(),
         readonly: false,
     })
 }

@@ -17,6 +17,8 @@ fn test_config() -> ConnectionConfig {
         color: None,
         tags: vec![],
         group: None,
+        favorite: false,
+        environment: Default::default(),
         readonly: false,
     }
 }

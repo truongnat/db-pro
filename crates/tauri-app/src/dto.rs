@@ -151,6 +151,10 @@ pub struct ConnectionConfigDto {
     #[serde(default)]
     pub group: Option<String>,
     #[serde(default)]
+    pub favorite: bool,
+    #[serde(default)]
+    pub environment: String,
+    #[serde(default)]
     pub readonly: bool,
 }
 
@@ -176,6 +180,13 @@ impl ConnectionConfigDto {
             color: self.color.clone(),
             tags: self.tags.clone(),
             group: self.group.clone(),
+            favorite: self.favorite,
+            environment: match self.environment.to_ascii_lowercase().as_str() {
+                "staging" => db_pro_core::domain::connection::ConnectionEnvironment::Staging,
+                "production" => db_pro_core::domain::connection::ConnectionEnvironment::Production,
+                "custom" => db_pro_core::domain::connection::ConnectionEnvironment::Custom,
+                _ => db_pro_core::domain::connection::ConnectionEnvironment::Development,
+            },
             readonly: self.readonly,
         }
     }
@@ -1803,6 +1814,8 @@ mod tests {
             color: None,
             tags: vec![],
             group: None,
+            favorite: false,
+            environment: Default::default(),
             readonly: false,
         };
         (config, password.to_owned())

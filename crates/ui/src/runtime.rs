@@ -32,6 +32,10 @@ pub struct UiConnectionDraft {
     pub driver: UiDriver,
     pub ssl_mode: UiSslMode,
     pub readonly: bool,
+    pub group: String,
+    pub tags: String,
+    pub favorite: bool,
+    pub environment: String,
     pub ssh_tunnel_enabled: bool,
     pub ssh_host: String,
     pub ssh_port: String,
@@ -84,6 +88,10 @@ impl Default for UiConnectionDraft {
             // omit the field must keep decoding as Disable.
             ssl_mode: UiSslMode::Require,
             readonly: false,
+            group: String::new(),
+            tags: String::new(),
+            favorite: false,
+            environment: "Development".to_owned(),
             ssh_tunnel_enabled: false,
             ssh_host: String::new(),
             ssh_port: "22".to_owned(),
@@ -331,6 +339,10 @@ pub struct UiConnectionSummary {
     /// prefill can restore it instead of falling back to a default.
     pub ssl_mode: UiSslMode,
     pub readonly: bool,
+    pub tags: Vec<String>,
+    pub group: Option<String>,
+    pub favorite: bool,
+    pub environment: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -18,6 +18,8 @@ async fn setup_sqlite_connector() -> (SQLiteConnector, db_pro_core::domain::conn
         color: None,
         tags: vec![],
         group: None,
+        favorite: false,
+        environment: Default::default(),
         readonly: false,
     };
     let handle = connector.connect(&config, "").await.unwrap();

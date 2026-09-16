@@ -99,10 +99,91 @@ pub struct ConnectionConfig {
     pub tags: Vec<String>,
     #[serde(default)]
     pub group: Option<String>,
+    /// Pinned/favorite connection for quick access.
+    #[serde(default)]
+    pub favorite: bool,
+    /// Workspace environment label for safety UX.
+    #[serde(default)]
+    pub environment: ConnectionEnvironment,
     /// If true, only read-only queries (SELECT, SHOW, EXPLAIN) are allowed.
     /// Enforced at the backend application layer.
     #[serde(default)]
     pub readonly: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConnectionEnvironment {
+    #[default]
+    Development,
+    Staging,
+    Production,
+    Custom,
+}
+
+impl ConnectionEnvironment {
+    pub fn as_label(self) -> &'static str {
+        match self {
+            Self::Development => "Development",
+            Self::Staging => "Staging",
+            Self::Production => "Production",
+            Self::Custom => "Custom",
+        }
+    }
+}
+
+/// Non-secret connection profile for import/export (#204).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectionProfileExport {
+    pub version: u32,
+    pub connections: Vec<ConnectionConfig>,
+}
+
+impl ConnectionConfig {
+    /// Clone suitable for profile export: SSH passwords cleared, no secret material.
+    pub fn without_secrets(&self) -> Self {
+        let mut cfg = self.clone();
+        if let Some(tunnel) = cfg.ssh_tunnel.as_mut() {
+            tunnel.password = None;
+        }
+        cfg
+    }
+
+    pub fn is_production(&self) -> bool {
+        matches!(self.environment, ConnectionEnvironment::Production)
+    }
+}
+
+impl Default for ConnectionConfig {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            host: String::new(),
+            port: 5432,
+            database: String::new(),
+            username: String::new(),
+            driver: DriverType::Postgres,
+            ssl_mode: SslMode::Disable,
+            ssh_tunnel: None,
+            query_timeout_ms: default_query_timeout(),
+            max_rows: default_max_rows(),
+            color: None,
+            tags: Vec::new(),
+            group: None,
+            favorite: false,
+            environment: ConnectionEnvironment::Development,
+            readonly: false,
+        }
+    }
+}
+
+impl ConnectionProfileExport {
+    pub fn from_configs(configs: impl IntoIterator<Item = ConnectionConfig>) -> Self {
+        Self {
+            version: 1,
+            connections: configs.into_iter().map(|c| c.without_secrets()).collect(),
+        }
+    }
 }
 
 fn default_query_timeout() -> u64 {
@@ -280,6 +361,8 @@ mod tests {
             color: None,
             tags: vec![],
             group: None,
+            favorite: false,
+            environment: Default::default(),
             readonly: false,
         }
     }
@@ -328,6 +411,8 @@ mod tests {
             color: None,
             tags: vec![],
             group: None,
+            favorite: false,
+            environment: Default::default(),
             readonly: false,
         };
         let errors = config.validate().unwrap_err();
@@ -350,6 +435,8 @@ mod tests {
             color: None,
             tags: vec![],
             group: None,
+            favorite: false,
+            environment: Default::default(),
             readonly: false,
         };
         assert!(config.validate().is_ok());
@@ -377,6 +464,8 @@ mod tests {
             color: None,
             tags: vec![],
             group: None,
+            favorite: false,
+            environment: Default::default(),
             readonly: false,
         };
 
@@ -471,5 +560,25 @@ mod tests {
         )
         .expect("legacy SSH metadata should remain readable");
         assert_eq!(decoded.password.as_deref(), Some("legacy"));
+    }
+
+    #[test]
+    fn without_secrets_clears_ssh_password_for_profile_export() {
+        let mut config = valid_config();
+        config.ssh_tunnel = Some(SshTunnelConfig {
+            host: "bastion".into(),
+            port: 22,
+            user: "ubuntu".into(),
+            private_key_path: "~/.ssh/id_rsa".into(),
+            password: Some("s3cret".into()),
+        });
+        let exported = ConnectionProfileExport::from_configs([config]);
+        assert_eq!(exported.version, 1);
+        assert!(exported.connections[0]
+            .ssh_tunnel
+            .as_ref()
+            .unwrap()
+            .password
+            .is_none());
     }
 }

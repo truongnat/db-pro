@@ -402,6 +402,10 @@ fn translate_connections_loaded(
                 driver: connection.driver,
                 ssl_mode: ui_ssl_mode(connection.ssl_mode),
                 readonly: connection.readonly,
+                tags: connection.tags,
+                group: connection.group,
+                favorite: connection.favorite,
+                environment: connection.environment.as_label().to_owned(),
             })
             .collect(),
     })

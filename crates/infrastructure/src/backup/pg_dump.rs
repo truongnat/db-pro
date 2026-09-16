@@ -269,6 +269,8 @@ mod tests {
             color: None,
             tags: Vec::new(),
             group: None,
+            favorite: false,
+            environment: Default::default(),
             readonly: false,
         };
         let plain = RestoreOptions {

@@ -21,6 +21,8 @@ fn connections_for(driver: DriverType) -> MockConnectionRepository {
             color: None,
             tags: vec![],
             group: None,
+            favorite: false,
+            environment: Default::default(),
             readonly: false,
         }))
     });
@@ -195,6 +197,8 @@ async fn introspect_discards_sqlite_cache_when_database_file_is_empty() {
             color: None,
             tags: vec![],
             group: None,
+            favorite: false,
+            environment: Default::default(),
             readonly: false,
         }))
     });

@@ -202,6 +202,10 @@ impl DbProApp {
             driver: Self::ui_driver_from_summary(&connection.driver),
             ssl_mode: connection.ssl_mode,
             readonly: connection.readonly,
+            group: connection.group.clone().unwrap_or_default(),
+            tags: connection.tags.join(", "),
+            favorite: connection.favorite,
+            environment: connection.environment.clone(),
             ssh_tunnel_enabled: false,
             ssh_host: String::new(),
             ssh_port: "22".to_owned(),
@@ -227,6 +231,10 @@ impl DbProApp {
             driver: Self::ui_driver_from_summary(&connection.driver),
             ssl_mode: connection.ssl_mode,
             readonly: connection.readonly,
+            group: connection.group.clone().unwrap_or_default(),
+            tags: connection.tags.join(", "),
+            favorite: connection.favorite,
+            environment: connection.environment.clone(),
             ssh_tunnel_enabled: false,
             ssh_host: String::new(),
             ssh_port: "22".to_owned(),
@@ -757,6 +765,28 @@ impl DbProApp {
                 );
                 ui.checkbox(&mut self.connection_draft.readonly, "Read-only mode");
             });
+        });
+        ui.add_space(SPACE_SM);
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Folder/group").small().color(self.theme.text_secondary));
+            Input::new(&mut self.connection_draft.group, "e.g. Acme / Local", self.theme).show(ui);
+            ui.label(RichText::new("Tags").small().color(self.theme.text_secondary));
+            Input::new(&mut self.connection_draft.tags, "prod, analytics", self.theme).show(ui);
+            ui.checkbox(&mut self.connection_draft.favorite, "Favorite");
+        });
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Environment").small().color(self.theme.text_secondary));
+            for label in ["Development", "Staging", "Production", "Custom"] {
+                if ui
+                    .selectable_label(self.connection_draft.environment == label, label)
+                    .clicked()
+                {
+                    self.connection_draft.environment = label.to_owned();
+                }
+            }
+            if self.connection_draft.environment == "Production" {
+                ui.colored_label(self.theme.warning, "Production — destructive actions need extra care");
+            }
         });
         ui.add_space(SPACE_SM);
 

@@ -748,6 +748,8 @@ mod tests {
                 color: None,
                 tags: vec![],
                 group: None,
+                favorite: false,
+                environment: Default::default(),
                 readonly: false,
             }))
         });
@@ -771,6 +773,8 @@ mod tests {
                 color: None,
                 tags: vec![],
                 group: None,
+                favorite: false,
+                environment: Default::default(),
                 readonly: true,
             }))
         });

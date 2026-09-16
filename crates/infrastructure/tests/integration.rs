@@ -34,6 +34,8 @@ async fn setup_fixture() -> (SQLiteConnector, db_pro_core::domain::connection::C
         color: None,
         tags: vec![],
         group: None,
+        favorite: false,
+        environment: Default::default(),
         readonly: false,
     };
 
@@ -183,6 +185,8 @@ async fn test_connection_succeeds() {
         color: None,
         tags: vec![],
         group: None,
+        favorite: false,
+        environment: Default::default(),
         readonly: false,
     };
     connector.test_connection(&config, "").await.unwrap();
@@ -205,6 +209,8 @@ async fn sqlite_query_timeout_interrupts_vm_and_actor_recovers() {
         color: None,
         tags: vec![],
         group: None,
+        favorite: false,
+        environment: Default::default(),
         readonly: false,
     };
     let handle = connector.connect(&config, "").await.unwrap();
@@ -239,6 +245,8 @@ async fn sqlite_query_cancel_interrupts_vm_and_waits_for_actor_recovery() {
         color: None,
         tags: vec![],
         group: None,
+        favorite: false,
+        environment: Default::default(),
         readonly: false,
     };
     let handle = connector.connect(&config, "").await.unwrap();
@@ -274,6 +282,8 @@ async fn sqlite_transaction_timeout_waits_for_rollback_before_returning() {
         color: None,
         tags: vec![],
         group: None,
+        favorite: false,
+        environment: Default::default(),
         readonly: false,
     };
     let handle = connector.connect(&config, "").await.unwrap();
@@ -327,6 +337,8 @@ async fn sqlite_transaction_commit_failure_reports_unknown_outcome() {
         color: None,
         tags: vec![],
         group: None,
+        favorite: false,
+        environment: Default::default(),
         readonly: false,
     };
     let handle = connector.connect(&config, "").await.unwrap();
@@ -380,6 +392,8 @@ async fn sqlite_execute_batch_timeout_waits_for_rollback_before_returning() {
         color: None,
         tags: vec![],
         group: None,
+        favorite: false,
+        environment: Default::default(),
         readonly: false,
     };
     let handle = connector.connect(&config, "").await.unwrap();

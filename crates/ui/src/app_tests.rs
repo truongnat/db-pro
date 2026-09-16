@@ -276,6 +276,10 @@ fn connection_summary_with_ssl_mode(ssl_mode: UiSslMode) -> UiConnectionSummary 
         driver: "PostgreSQL".to_owned(),
         ssl_mode,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     }
 }
 
@@ -406,6 +410,10 @@ fn editing_a_mysql_connection_keeps_the_mysql_driver() {
         driver: "MySQL".to_owned(),
         ssl_mode: UiSslMode::Require,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     };
     app.open_edit_connection(&connection);
     assert_eq!(app.connection_draft.driver, UiDriver::Mysql);
@@ -449,6 +457,10 @@ fn table_edits_stage_until_explicit_apply() {
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     }];
     app.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
@@ -547,6 +559,10 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
             driver: "PostgreSQL".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         }],
         active_connection_id: Some("conn-1".to_owned()),
         table_info: Some(UiTableInfo {
@@ -603,6 +619,10 @@ fn no_primary_key_table_blocks_safe_row_mutations() {
             driver: "PostgreSQL".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         }],
         table_info: Some(UiTableInfo {
             schema: "public".to_owned(),
@@ -637,6 +657,10 @@ fn binary_cell_edit_is_refused_with_a_reason() {
             driver: "PostgreSQL".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         }],
         table_info: Some(UiTableInfo {
             schema: "public".to_owned(),
@@ -719,6 +743,10 @@ fn generated_column_edit_is_refused_before_staging() {
             driver: "PostgreSQL".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         }],
         table_info: Some(UiTableInfo {
             schema: "public".to_owned(),
@@ -798,6 +826,10 @@ fn generated_column_is_never_staged_by_insert() {
             driver: "PostgreSQL".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         }],
         selected_table: Some("line_items".to_owned()),
         table_info: Some(UiTableInfo {
@@ -870,6 +902,10 @@ fn generated_column_is_never_staged_by_insert() {
             driver: "PostgreSQL".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         }],
         selected_table: Some("line_items".to_owned()),
         table_info: app.table_info.clone(),
@@ -901,6 +937,10 @@ fn duplicated_row_leaves_blocked_columns_empty() {
             driver: "PostgreSQL".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         }],
         table_info: Some(UiTableInfo {
             schema: "public".to_owned(),
@@ -1055,6 +1095,10 @@ fn explain_query_uses_selected_connection_and_switches_output() {
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     }];
     app.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
@@ -1126,6 +1170,10 @@ fn selected_connection_is_not_shown_as_connected() {
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     };
     let mut app = DbProApp {
         connections: vec![connection],
@@ -1208,6 +1256,10 @@ fn provider_capabilities_gate_provider_specific_actions() {
         driver: "SQLite".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     };
     let postgres = UiConnectionSummary {
         ssl_mode: UiSslMode::Disable,
@@ -1261,6 +1313,10 @@ fn mysql_connection_resolves_to_its_own_capability_set() {
             driver: "MySQL".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         }],
         active_connection_id: Some("mysql".to_owned()),
         ..Default::default()
@@ -1300,6 +1356,10 @@ fn unknown_driver_resolves_to_a_named_state_not_none() {
             driver: "Oracle".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         }],
         active_connection_id: Some("oracle".to_owned()),
         ..Default::default()
@@ -1349,6 +1409,10 @@ fn query_capabilities_follow_the_bound_connection_and_do_not_default_to_postgres
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     };
     let sqlite = UiConnectionSummary {
         id: "sqlite".to_owned(),
@@ -1360,6 +1424,10 @@ fn query_capabilities_follow_the_bound_connection_and_do_not_default_to_postgres
         driver: "SQLite".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     };
 
     // With no connection at all, the old lookup answered with PostgreSQL's set through
@@ -2243,6 +2311,10 @@ fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     }];
     app.active_connection_id = Some("active".to_owned());
     app.connected = true;
@@ -2280,6 +2352,10 @@ fn loading_connections_automatically_connects_active_connection() {
                 driver: "PostgreSQL".to_owned(),
                 ssl_mode: UiSslMode::Disable,
                 readonly: false,
+                tags: vec![],
+                group: None,
+                favorite: false,
+                environment: "Development".to_owned(),
             }],
         })
         .expect("connections should be queued");
@@ -2310,6 +2386,10 @@ fn failed_connection_shows_red_indicator_and_records_error() {
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     }];
     app.active_connection_id = Some("conn-bad".to_owned());
     app.pending_connection_id = Some("conn-bad".to_owned());
@@ -3032,6 +3112,10 @@ fn diagnostics_summary_redacts_runtime_errors_and_lists_mysql() {
         driver: "PostgreSQL".to_owned(),
         ssl_mode: crate::UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     });
     let summary = app.build_diagnostics_summary();
     assert!(summary.drivers.iter().any(|d| d.driver == "mysql"));
@@ -3211,6 +3295,10 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
         driver: "SQLite".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     }];
     app.active_connection_id = Some("active".to_owned());
     app.selected_table = Some("customers".to_owned());
@@ -3312,6 +3400,10 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
             driver: "PostgreSQL".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         },
         UiConnectionSummary {
             id: "active".to_owned(),
@@ -3323,6 +3415,10 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
             driver: "PostgreSQL".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         },
     ];
     app.active_connection_id = Some("active".to_owned());
@@ -3349,6 +3445,10 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     }];
     app.active_connection_id = Some("active".to_owned());
     app.connected = true;
@@ -3640,6 +3740,10 @@ fn test_query_cancellation_capability_gate() {
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     };
     let sqlite_conn = UiConnectionSummary {
         id: "sqlite".to_owned(),
@@ -3651,6 +3755,10 @@ fn test_query_cancellation_capability_gate() {
         driver: "SQLite".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     };
 
     let mut app = DbProApp {
@@ -4119,6 +4227,10 @@ fn query_dispatch_allows_independent_documents_to_run_concurrently() {
             driver: "PostgreSQL".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         },
         UiConnectionSummary {
             id: "conn-2".to_owned(),
@@ -4130,6 +4242,10 @@ fn query_dispatch_allows_independent_documents_to_run_concurrently() {
             driver: "SQLite".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         },
     ];
     app.active_connection_id = Some("conn-1".to_owned());
@@ -4274,6 +4390,10 @@ fn test_multi_tab_explain_plan_routing() {
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     }];
 
     // Tab 1
@@ -4341,6 +4461,10 @@ fn test_per_document_connection_and_schema_isolation() {
                 username: "postgres".to_owned(),
                 ssl_mode: UiSslMode::Disable,
                 readonly: false,
+                tags: vec![],
+                group: None,
+                favorite: false,
+                environment: "Development".to_owned(),
             },
             UiConnectionSummary {
                 id: "conn-sqlite".to_owned(),
@@ -4352,6 +4476,10 @@ fn test_per_document_connection_and_schema_isolation() {
                 username: "".to_owned(),
                 ssl_mode: UiSslMode::Disable,
                 readonly: false,
+                tags: vec![],
+                group: None,
+                favorite: false,
+                environment: "Development".to_owned(),
             },
         ],
         active_connection_id: Some("conn-pg".to_owned()),
@@ -5230,6 +5358,10 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     }];
     app.active_connection_id = Some("active".to_owned());
     app.connected = true;
@@ -5272,6 +5404,10 @@ fn cancelling_a_held_destructive_statement_sends_nothing() {
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     }];
     app.active_connection_id = Some("active".to_owned());
     app.connected = true;
@@ -5313,6 +5449,10 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
             driver: "PostgreSQL".to_owned(),
             ssl_mode: UiSslMode::Disable,
             readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
         }];
         app.active_connection_id = Some("active".to_owned());
         app.connected = true;
@@ -5347,6 +5487,10 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     }];
     app.active_connection_id = Some("active".to_owned());
     app.connected = true;
@@ -5434,6 +5578,10 @@ fn dispatch_query_binds_named_parameters_for_postgres() {
         driver: "PostgreSQL".to_owned(),
         ssl_mode: UiSslMode::Disable,
         readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
     }];
     app.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;

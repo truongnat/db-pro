@@ -54,6 +54,8 @@ fn mysql_config() -> Option<(ConnectionConfig, String)> {
             color: None,
             tags: vec![],
             group: None,
+            favorite: false,
+            environment: Default::default(),
             readonly: false,
         },
         password.to_string(),

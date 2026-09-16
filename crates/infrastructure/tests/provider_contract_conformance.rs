@@ -20,6 +20,8 @@ fn sqlite_config() -> ConnectionConfig {
         color: None,
         tags: vec![],
         group: None,
+        favorite: false,
+        environment: Default::default(),
         readonly: false,
     }
 }
@@ -300,6 +302,8 @@ fn fixture_target() -> Option<FixtureTarget> {
             color: None,
             tags: vec![],
             group: None,
+            favorite: false,
+            environment: Default::default(),
             readonly: false,
         },
         password: password.to_string(),

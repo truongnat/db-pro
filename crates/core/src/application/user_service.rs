@@ -206,6 +206,8 @@ mod tests {
             color: None,
             tags: vec![],
             group: None,
+            favorite: false,
+            environment: Default::default(),
             readonly: false,
         };
         assert!(config.validate().is_ok());
