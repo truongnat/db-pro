@@ -599,7 +599,7 @@ impl DbProApp {
                 );
 
                 // Paint visible edges:
-                paint_scene_edges(&painter, &self.diagram_graph, &scene, &viewport, theme);
+                paint_scene_edges(&painter, &self.diagram_graph, &scene, &viewport, zoom, theme);
 
                 // Paint visible nodes:
                 let selected_table_name = self.selected_table.as_deref();
@@ -760,6 +760,7 @@ fn paint_scene_edges(
     graph: &ErGraph,
     scene: &ErRenderScene,
     viewport: &ErViewport,
+    zoom: f32,
     theme: DbProTheme,
 ) {
     for &edge_id in &scene.visible_edges {
@@ -791,10 +792,30 @@ fn paint_scene_edges(
         let bend_x = (from.x + to.x) / 2.0;
         let bend_a = egui::pos2(bend_x, from.y);
         let bend_b = egui::pos2(bend_x, to.y);
-        let stroke = egui::Stroke::new(1.2, theme.accent);
+        let stroke = egui::Stroke::new((1.2 * zoom).clamp(1.0, 2.0), theme.accent);
         painter.line_segment([from, bend_a], stroke);
         painter.line_segment([bend_a, bend_b], stroke);
         painter.line_segment([bend_b, to], stroke);
+
+        // Directional arrowhead at the destination connection point
+        let arrow_len = (6.0 * zoom).clamp(4.0, 8.0);
+        let arrow_half_w = arrow_len * 0.55;
+        let (p1, p2) = if source_on_right {
+            (
+                egui::pos2(to.x - arrow_len, to.y - arrow_half_w),
+                egui::pos2(to.x - arrow_len, to.y + arrow_half_w),
+            )
+        } else {
+            (
+                egui::pos2(to.x + arrow_len, to.y - arrow_half_w),
+                egui::pos2(to.x + arrow_len, to.y + arrow_half_w),
+            )
+        };
+        painter.add(egui::Shape::convex_polygon(
+            vec![to, p1, p2],
+            theme.accent,
+            egui::Stroke::NONE,
+        ));
 
         if scene.lod.shows_edge_labels() {
             let label = diagram_foreign_key_label(&edge.foreign_key);
@@ -806,8 +827,13 @@ fn paint_scene_edges(
             let label_position = egui::pos2(bend_x, (from.y + to.y) / 2.0);
             let label_galley =
                 painter.layout_no_wrap(display_label.clone(), FontId::proportional(10.0), theme.text_secondary);
-            let label_rect = egui::Rect::from_center_size(label_position, label_galley.size() + egui::vec2(8.0, 4.0));
-            painter.rect_filled(label_rect, egui::Rounding::same(3.0), theme.surface_panel);
+            let label_rect = egui::Rect::from_center_size(label_position, label_galley.size() + egui::vec2(10.0, 6.0));
+            painter.rect_filled(label_rect, egui::Rounding::same(4.0), theme.surface_panel);
+            painter.rect_stroke(
+                label_rect,
+                egui::Rounding::same(4.0),
+                egui::Stroke::new(1.0, theme.border_subtle),
+            );
             painter.text(
                 label_position,
                 egui::Align2::CENTER_CENTER,
@@ -838,10 +864,15 @@ fn paint_er_node_lod(
                 egui::Stroke::new(1.0, theme.border_default),
             );
             painter.rect_filled(screen_rect, egui::Rounding::same(6.0), theme.surface_hover);
+            let title = if node.table.name.len() > 22 {
+                format!("{}…", &node.table.name[..20])
+            } else {
+                node.table.name.clone()
+            };
             painter.text(
                 screen_rect.center_top() + egui::vec2(0.0, 14.0 * zoom),
                 egui::Align2::CENTER_CENTER,
-                &node.table.name,
+                title,
                 FontId::proportional((12.0 * zoom).clamp(8.0, 14.0)),
                 theme.text_primary,
             );
@@ -859,11 +890,13 @@ fn paint_er_node_lod(
         _ => {
             // Header:
             painter.rect_filled(screen_rect, egui::Rounding::same(8.0), theme.surface_panel);
-            painter.rect_stroke(
-                screen_rect,
-                egui::Rounding::same(8.0),
-                egui::Stroke::new(1.0, if selected { theme.accent } else { theme.border_default }),
-            );
+            let border_stroke = if selected {
+                egui::Stroke::new(1.5, theme.accent)
+            } else {
+                egui::Stroke::new(1.0, theme.border_default)
+            };
+            painter.rect_stroke(screen_rect, egui::Rounding::same(8.0), border_stroke);
+
             let header_height = ER_HEADER_HEIGHT * zoom;
             let header_rect = egui::Rect::from_min_max(
                 screen_rect.min,
@@ -883,10 +916,22 @@ fn paint_er_node_lod(
                 egui::Rounding::ZERO,
                 header_fill,
             );
+
+            let full_table_name = if node.table.schema.is_empty() {
+                node.table.name.clone()
+            } else {
+                format!("{}.{}", node.table.schema, node.table.name)
+            };
+            let max_title_chars = if zoom > 1.0 { 26 } else { 20 };
+            let display_title = if full_table_name.len() > max_title_chars {
+                format!("{}…", &full_table_name[..max_title_chars.saturating_sub(2)])
+            } else {
+                full_table_name
+            };
             painter.text(
                 screen_rect.min + egui::vec2(14.0 * zoom, 20.0 * zoom),
                 egui::Align2::LEFT_CENTER,
-                format!("{}.{}", node.table.schema, node.table.name),
+                display_title,
                 FontId::proportional(13.0 * zoom),
                 theme.text_primary,
             );
@@ -895,7 +940,7 @@ fn paint_er_node_lod(
                 egui::Align2::RIGHT_CENTER,
                 "TABLE",
                 FontId::proportional(9.0 * zoom),
-                theme.text_muted,
+                if selected { theme.accent } else { theme.text_muted },
             );
 
             // Columns:
@@ -927,23 +972,45 @@ fn paint_er_node_lod(
                 };
                 painter.circle_filled(
                     egui::pos2(row_rect.min.x + 13.0 * zoom, row_rect.center().y),
-                    3.0 * zoom,
+                    2.5 * zoom,
                     marker_color,
                 );
+
+                let col_name_max = if lod.shows_data_types() { 16 } else { 24 };
+                let col_name = if column.name.len() > col_name_max {
+                    format!("{}…", &column.name[..col_name_max.saturating_sub(1)])
+                } else {
+                    column.name.clone()
+                };
                 painter.text(
                     egui::pos2(row_rect.min.x + 23.0 * zoom, row_rect.center().y),
                     egui::Align2::LEFT_CENTER,
-                    &column.name,
+                    col_name,
                     FontId::proportional(11.0 * zoom),
                     theme.text_primary,
                 );
                 if lod.shows_data_types() {
+                    let type_display = if column.is_primary_key {
+                        format!("PK · {}", column.data_type)
+                    } else if is_foreign_key {
+                        format!("FK · {}", column.data_type)
+                    } else if !column.nullable {
+                        format!("{} · NN", column.data_type)
+                    } else {
+                        column.data_type.clone()
+                    };
                     painter.text(
                         egui::pos2(row_rect.max.x - 12.0 * zoom, row_rect.center().y),
                         egui::Align2::RIGHT_CENTER,
-                        &column.data_type,
-                        FontId::monospace(10.0 * zoom),
-                        theme.text_secondary,
+                        type_display,
+                        FontId::monospace(9.5 * zoom),
+                        if column.is_primary_key {
+                            theme.warning
+                        } else if is_foreign_key {
+                            theme.accent
+                        } else {
+                            theme.text_secondary
+                        },
                     );
                 }
             }
@@ -973,8 +1040,8 @@ fn draw_diagram_zoom_controls(
     theme: DbProTheme,
 ) {
     let controls_rect = egui::Rect::from_min_size(
-        egui::pos2(canvas_rect.right() - 142.0, canvas_rect.top() + 12.0),
-        egui::vec2(130.0, 32.0),
+        egui::pos2(canvas_rect.right() - 176.0, canvas_rect.top() + 12.0),
+        egui::vec2(164.0, 32.0),
     );
     ui.allocate_new_ui(egui::UiBuilder::new().max_rect(controls_rect), |ui| {
         egui::Frame {
@@ -992,19 +1059,35 @@ fn draw_diagram_zoom_controls(
                 {
                     *zoom = (*zoom - 0.1).clamp(0.5, 2.0);
                 }
-                ui.label(
-                    RichText::new(format!("{:.0}%", *zoom * 100.0))
-                        .small()
-                        .color(theme.text_secondary),
-                );
+                if ui
+                    .add(
+                        egui::Label::new(
+                            RichText::new(format!("{:.0}%", *zoom * 100.0))
+                                .small()
+                                .color(theme.text_secondary),
+                        )
+                        .sense(Sense::click()),
+                    )
+                    .on_hover_text("Click to reset zoom to 100%")
+                    .clicked()
+                {
+                    *zoom = 1.0;
+                }
                 if compact_icon_button(ui, Icon::Plus, theme)
                     .on_hover_text("Zoom in")
                     .clicked()
                 {
                     *zoom = (*zoom + 0.1).clamp(0.5, 2.0);
                 }
-                if compact_icon_button(ui, Icon::Square, theme)
-                    .on_hover_text("Fit diagram")
+                if compact_icon_button(ui, Icon::RotateCcw, theme)
+                    .on_hover_text("Reset zoom (100%)")
+                    .clicked()
+                {
+                    *zoom = 1.0;
+                    *pan = egui::Vec2::ZERO;
+                }
+                if compact_icon_button(ui, Icon::Maximize2, theme)
+                    .on_hover_text("Fit diagram to viewport")
                     .clicked()
                 {
                     let target_bounds = if let Some(filter) = active_filter {
