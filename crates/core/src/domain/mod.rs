@@ -17,6 +17,7 @@ pub mod query;
 pub mod rls;
 pub mod run_config;
 pub mod safety;
+pub mod saved_task;
 pub mod schema;
 pub mod secret;
 pub mod transfer;

@@ -39,6 +39,7 @@ impl DbProApp {
                         (Some(Activity::Diagram), Icon::ArrowRightLeft, "ER diagram"),
                         (Some(Activity::Schema), Icon::Boxes, "Schema workbench"),
                         (Some(Activity::Compare), Icon::GitCompare, "Schema compare"),
+                        (Some(Activity::Tasks), Icon::ListTodo, "Saved tasks"),
                         (None, Icon::Bot, "Agent (Copilot)"),
                     ] {
                         let active = activity.is_some_and(|value| self.activity == value)

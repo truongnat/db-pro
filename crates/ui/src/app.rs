@@ -117,6 +117,8 @@ pub(crate) mod result_grid_view;
 mod sidebar_activities_view;
 #[path = "sidebar_view.rs"]
 mod sidebar_view;
+#[path = "tasks_view.rs"]
+mod tasks_view;
 #[path = "workspace_actions.rs"]
 mod workspace_actions;
 pub(crate) use result_grid_view::GridSelectionCache;
@@ -336,6 +338,11 @@ pub struct DbProApp {
     pending_explain_analyze: bool,
     explain_analyze_confirmed: bool,
     explain_show_raw_json: bool,
+    saved_task_store: db_pro_core::domain::saved_task::SavedTaskStore,
+    saved_task_draft: Option<db_pro_core::domain::saved_task::SavedTask>,
+    saved_tasks_dirty: bool,
+    saved_task_confirm_destructive: bool,
+    pending_destructive_task_id: Option<uuid::Uuid>,
     migration_fingerprint_at_preview: String,
     data_diff_target_id: String,
     data_diff_schema: String,
@@ -444,6 +451,7 @@ impl eframe::App for DbProApp {
         if let Ok(settings) = serde_json::to_string(&self.settings) {
             storage.set_string(SETTINGS_STORAGE_KEY, settings);
         }
+        self.persist_saved_tasks(storage);
         if let Ok(layouts) = serde_json::to_string(&self.grid_layout_preferences) {
             storage.set_string("dbpro.native.grid-layouts", layouts);
         }

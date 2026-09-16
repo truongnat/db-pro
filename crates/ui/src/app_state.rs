@@ -43,6 +43,7 @@ impl DbProApp {
             } else {
                 app.sync_settings_from_runtime();
             }
+            app.load_saved_tasks_from_storage(storage);
             if let Some(width) = storage
                 .get_string("dbpro.native.sidebar-width")
                 .and_then(|value| value.parse::<f32>().ok())
@@ -329,6 +330,11 @@ impl Default for DbProApp {
             pending_explain_analyze: false,
             explain_analyze_confirmed: false,
             explain_show_raw_json: false,
+            saved_task_store: db_pro_core::domain::saved_task::SavedTaskStore::new(),
+            saved_task_draft: None,
+            saved_tasks_dirty: false,
+            saved_task_confirm_destructive: false,
+            pending_destructive_task_id: None,
             migration_fingerprint_at_preview: String::new(),
             data_diff_target_id: String::new(),
             data_diff_schema: "public".into(),

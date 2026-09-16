@@ -5695,3 +5695,68 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
 
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn saved_task_persists_without_secrets_and_blocks_destructive_without_confirm() {
+    use db_pro_core::domain::saved_task::{SavedTask, SavedTaskPayload, SavedTaskStore};
+    let mut store = SavedTaskStore::new();
+    let id = uuid::Uuid::new_v4();
+    store
+        .upsert(SavedTask {
+            id,
+            name: "Wipe".into(),
+            description: String::new(),
+            connection_id: "conn-1".into(),
+            payload: SavedTaskPayload::Sql {
+                sql: "DELETE FROM t".into(),
+            },
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            last_run: None,
+        })
+        .unwrap();
+    assert!(store
+        .upsert(SavedTask {
+            id: uuid::Uuid::new_v4(),
+            name: "Bad".into(),
+            description: String::new(),
+            connection_id: "conn-1".into(),
+            payload: SavedTaskPayload::Sql {
+                sql: "SELECT 1 -- password=x".into(),
+            },
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            last_run: None,
+        })
+        .is_err());
+
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connections = vec![UiConnectionSummary {
+        id: "conn-1".to_owned(),
+        name: "Local".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "app".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
+        readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
+    }];
+    app.active_connection_id = Some("conn-1".to_owned());
+    app.connected = true;
+    app.settings.general.confirm_destructive_queries = true;
+    app.saved_task_store = store;
+    app.run_saved_task(id);
+    assert!(command_rx.try_recv().is_err());
+    assert_eq!(app.pending_destructive_task_id, Some(id));
+
+    app.saved_task_confirm_destructive = true;
+    app.run_saved_task(id);
+    assert!(command_rx.try_recv().is_ok());
+    assert!(app.saved_task_store.tasks.iter().any(|t| t.last_run.is_some()));
+}

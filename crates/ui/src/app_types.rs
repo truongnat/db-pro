@@ -48,6 +48,7 @@ pub(crate) enum Activity {
     Schema,
     Compare,
     Problems,
+    Tasks,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

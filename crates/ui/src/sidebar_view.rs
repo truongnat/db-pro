@@ -197,6 +197,24 @@ impl DbProApp {
                                     Activity::Diagram => self.draw_diagram_sidebar(ui),
                                     Activity::Schema => self.draw_schema_workbench_sidebar(ui),
                                     Activity::Compare => self.draw_schema_compare_sidebar(ui),
+                                    Activity::Tasks => {
+                                        if self.pending_destructive_task_id.is_some() {
+                                            ui.checkbox(
+                                                &mut self.saved_task_confirm_destructive,
+                                                "Confirm destructive task run",
+                                            );
+                                            if self.saved_task_confirm_destructive {
+                                                if let Some(id) = self.pending_destructive_task_id {
+                                                    if primary_button(ui, "Run destructive task", self.theme).clicked()
+                                                    {
+                                                        self.run_saved_task(id);
+                                                    }
+                                                }
+                                            }
+                                            ui.add_space(8.0);
+                                        }
+                                        self.draw_tasks_activity(ui);
+                                    }
                                     Activity::Explorer => unreachable!(),
                                 }
                             });
