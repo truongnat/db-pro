@@ -166,6 +166,8 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::MonitoringCancelBackend { .. }
         | UiCommand::MonitoringTerminateBackend { .. }
         | UiCommand::MonitoringMaintenance { .. }
+        | UiCommand::MonitoringStatStatements { .. }
+        | UiCommand::MonitoringResetStatStatements { .. }
         | UiCommand::ListUsers { .. }
         | UiCommand::CreateRole { .. }
         | UiCommand::DropRole { .. }
@@ -670,6 +672,26 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             schema,
             table,
             action,
+            confirmed,
+        }),
+        UiCommand::MonitoringStatStatements {
+            request_id,
+            connection_id,
+            sort,
+            limit,
+        } => Some(RuntimeCommand::MonitoringStatStatements {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            sort,
+            limit,
+        }),
+        UiCommand::MonitoringResetStatStatements {
+            request_id,
+            connection_id,
+            confirmed,
+        } => Some(RuntimeCommand::MonitoringResetStatStatements {
+            request_id: runtime_request_id(request_id),
+            connection_id,
             confirmed,
         }),
         UiCommand::ListUsers {

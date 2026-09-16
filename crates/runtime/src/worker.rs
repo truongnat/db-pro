@@ -224,6 +224,17 @@ pub enum RuntimeCommand {
         action: db_pro_core::domain::monitoring::MaintenanceAction,
         confirmed: bool,
     },
+    MonitoringStatStatements {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        sort: db_pro_core::domain::monitoring::StatStatementSort,
+        limit: usize,
+    },
+    MonitoringResetStatStatements {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        confirmed: bool,
+    },
     ListUsers {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -378,6 +389,10 @@ pub enum RuntimeEvent {
     MonitoringSnapshotLoaded {
         request_id: RuntimeRequestId,
         snapshot: db_pro_core::domain::monitoring::MonitoringSnapshot,
+    },
+    MonitoringWorkloadLoaded {
+        request_id: RuntimeRequestId,
+        workload: db_pro_core::domain::monitoring::StatStatementsSnapshot,
     },
     MonitoringActionCompleted {
         request_id: RuntimeRequestId,
@@ -1753,6 +1768,48 @@ pub fn spawn_worker(
                             Ok(()) => RuntimeEvent::MonitoringActionCompleted {
                                 request_id,
                                 action: "maintenance",
+                                backend_id: 0,
+                                succeeded: true,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::MonitoringStatStatements {
+                    request_id,
+                    connection_id,
+                    sort,
+                    limit,
+                } => {
+                    let monitoring_api = runtime.monitoring_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match monitoring_api.stat_statements(&connection_id, sort, limit).await {
+                            Ok(workload) => RuntimeEvent::MonitoringWorkloadLoaded { request_id, workload },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::MonitoringResetStatStatements {
+                    request_id,
+                    connection_id,
+                    confirmed,
+                } => {
+                    let monitoring_api = runtime.monitoring_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match monitoring_api.reset_stat_statements(&connection_id, confirmed).await {
+                            Ok(()) => RuntimeEvent::MonitoringActionCompleted {
+                                request_id,
+                                action: "reset_stat_statements",
                                 backend_id: 0,
                                 succeeded: true,
                             },

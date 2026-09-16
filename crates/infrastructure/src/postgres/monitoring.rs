@@ -6,7 +6,8 @@ use std::sync::Arc;
 use db_pro_core::domain::connection::ConnectionHandle;
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::monitoring::{
-    LocalMonitorState, MaintenanceAction, MonitorLock, MonitorSession, RelationSizeStat, ServerSummary,
+    LocalMonitorState, MaintenanceAction, MonitorLock, MonitorSession, RelationSizeStat, ServerSummary, StatStatement,
+    StatStatementSort, StatStatementsSnapshot,
 };
 use db_pro_core::domain::query::{CellValue, QueryParam};
 use db_pro_core::ports::{DbConnector, MonitoringPort};
@@ -325,6 +326,190 @@ impl MonitoringPort for PostgresMonitoringPort {
         };
         self.connector.execute(handle, &sql, &[]).await?;
         Ok(())
+    }
+
+    async fn stat_statements(
+        &self,
+        handle: &ConnectionHandle,
+        sort: StatStatementSort,
+        limit: usize,
+    ) -> Result<StatStatementsSnapshot, DbError> {
+        let fetched_at_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+
+        let ext = self
+            .connector
+            .query(
+                handle,
+                "SELECT extversion FROM pg_catalog.pg_extension WHERE extname = 'pg_stat_statements'",
+                &[],
+            )
+            .await?;
+        let extension_version = ext.rows.first().and_then(|row| row.0.first()).and_then(cell_text);
+        if extension_version.is_none() {
+            return Ok(StatStatementsSnapshot {
+                extension_present: false,
+                extension_version: None,
+                message: "Extension pg_stat_statements is not installed. Ask a DBA to CREATE EXTENSION \
+                    pg_stat_statements (never auto-installed by DB Pro)."
+                    .into(),
+                statements: Vec::new(),
+                sort,
+                fetched_at_ms,
+            });
+        }
+
+        let order = match sort {
+            StatStatementSort::TotalTime => "s.total_exec_time DESC NULLS LAST",
+            StatStatementSort::MeanTime => "s.mean_exec_time DESC NULLS LAST",
+            StatStatementSort::Calls => "s.calls DESC NULLS LAST",
+            StatStatementSort::Rows => "s.rows DESC NULLS LAST",
+        };
+        let limit = limit.clamp(1, 500);
+        let sql = format!(
+            r#"
+SELECT
+    s.queryid::bigint,
+    s.userid::bigint,
+    s.dbid::bigint,
+    d.datname::text,
+    r.rolname::text,
+    LEFT(s.query, 4000),
+    s.calls::bigint,
+    s.total_exec_time,
+    s.mean_exec_time,
+    s.min_exec_time,
+    s.max_exec_time,
+    s.rows::bigint,
+    s.shared_blks_hit::bigint,
+    s.shared_blks_read::bigint,
+    s.shared_blks_dirtied::bigint,
+    s.shared_blks_written::bigint,
+    s.local_blks_hit::bigint,
+    s.local_blks_read::bigint,
+    s.temp_blks_read::bigint,
+    s.temp_blks_written::bigint
+FROM pg_stat_statements s
+LEFT JOIN pg_catalog.pg_database d ON d.oid = s.dbid
+LEFT JOIN pg_catalog.pg_roles r ON r.oid = s.userid
+ORDER BY {order}
+LIMIT {limit}
+"#
+        );
+
+        let result = match self.connector.query(handle, &sql, &[]).await {
+            Ok(r) => r,
+            Err(err) => {
+                // PG < 13 used total_time / mean_time column names.
+                let legacy = format!(
+                    r#"
+SELECT
+    s.queryid::bigint,
+    s.userid::bigint,
+    s.dbid::bigint,
+    d.datname::text,
+    r.rolname::text,
+    LEFT(s.query, 4000),
+    s.calls::bigint,
+    s.total_time,
+    s.mean_time,
+    s.min_time,
+    s.max_time,
+    s.rows::bigint,
+    s.shared_blks_hit::bigint,
+    s.shared_blks_read::bigint,
+    s.shared_blks_dirtied::bigint,
+    s.shared_blks_written::bigint,
+    s.local_blks_hit::bigint,
+    s.local_blks_read::bigint,
+    s.temp_blks_read::bigint,
+    s.temp_blks_written::bigint
+FROM pg_stat_statements s
+LEFT JOIN pg_catalog.pg_database d ON d.oid = s.dbid
+LEFT JOIN pg_catalog.pg_roles r ON r.oid = s.userid
+ORDER BY {}
+LIMIT {limit}
+"#,
+                    match sort {
+                        StatStatementSort::TotalTime => "s.total_time DESC NULLS LAST",
+                        StatStatementSort::MeanTime => "s.mean_time DESC NULLS LAST",
+                        StatStatementSort::Calls => "s.calls DESC NULLS LAST",
+                        StatStatementSort::Rows => "s.rows DESC NULLS LAST",
+                    }
+                );
+                match self.connector.query(handle, &legacy, &[]).await {
+                    Ok(r) => r,
+                    Err(_) => {
+                        return Ok(StatStatementsSnapshot {
+                            extension_present: true,
+                            extension_version,
+                            message: format!("pg_stat_statements is installed but could not be queried: {err}"),
+                            statements: Vec::new(),
+                            sort,
+                            fetched_at_ms,
+                        });
+                    }
+                }
+            }
+        };
+
+        let mut statements = Vec::with_capacity(result.rows.len());
+        for row in result.rows {
+            let c = &row.0;
+            let query = c.get(5).and_then(cell_text).unwrap_or_default();
+            if query.is_empty() {
+                continue;
+            }
+            statements.push(StatStatement {
+                queryid: c.first().and_then(cell_i64),
+                userid: c.get(1).and_then(cell_i64),
+                dbid: c.get(2).and_then(cell_i64),
+                database: c.get(3).and_then(cell_text),
+                username: c.get(4).and_then(cell_text),
+                query,
+                calls: c.get(6).and_then(cell_i64).map(|v| v.max(0) as u64).unwrap_or(0),
+                total_time_ms: c.get(7).map(cell_f64).unwrap_or(0.0),
+                mean_time_ms: c.get(8).map(cell_f64).unwrap_or(0.0),
+                min_time_ms: c.get(9).map(cell_f64).unwrap_or(0.0),
+                max_time_ms: c.get(10).map(cell_f64).unwrap_or(0.0),
+                rows: c.get(11).and_then(cell_i64).map(|v| v.max(0) as u64).unwrap_or(0),
+                shared_blks_hit: c.get(12).and_then(cell_i64).map(|v| v.max(0) as u64).unwrap_or(0),
+                shared_blks_read: c.get(13).and_then(cell_i64).map(|v| v.max(0) as u64).unwrap_or(0),
+                shared_blks_dirtied: c.get(14).and_then(cell_i64).map(|v| v.max(0) as u64).unwrap_or(0),
+                shared_blks_written: c.get(15).and_then(cell_i64).map(|v| v.max(0) as u64).unwrap_or(0),
+                local_blks_hit: c.get(16).and_then(cell_i64).map(|v| v.max(0) as u64).unwrap_or(0),
+                local_blks_read: c.get(17).and_then(cell_i64).map(|v| v.max(0) as u64).unwrap_or(0),
+                temp_blks_read: c.get(18).and_then(cell_i64).map(|v| v.max(0) as u64).unwrap_or(0),
+                temp_blks_written: c.get(19).and_then(cell_i64).map(|v| v.max(0) as u64).unwrap_or(0),
+            });
+        }
+
+        Ok(StatStatementsSnapshot {
+            extension_present: true,
+            extension_version,
+            message: format!("{} statement(s) by {}", statements.len(), sort.as_label()),
+            statements,
+            sort,
+            fetched_at_ms,
+        })
+    }
+
+    async fn reset_stat_statements(&self, handle: &ConnectionHandle) -> Result<(), DbError> {
+        self.connector
+            .execute(handle, "SELECT pg_stat_statements_reset()", &[])
+            .await?;
+        Ok(())
+    }
+}
+
+fn cell_f64(cell: &CellValue) -> f64 {
+    match cell {
+        CellValue::Float64(v) => *v,
+        CellValue::Int64(v) => *v as f64,
+        CellValue::Text(s) => s.parse().unwrap_or(0.0),
+        _ => 0.0,
     }
 }
 

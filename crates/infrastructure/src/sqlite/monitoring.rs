@@ -7,6 +7,7 @@ use db_pro_core::domain::connection::ConnectionHandle;
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::monitoring::{
     LocalMonitorState, MaintenanceAction, MonitorLock, MonitorSession, RelationSizeStat, ServerSummary,
+    StatStatementSort, StatStatementsSnapshot,
 };
 use db_pro_core::domain::query::CellValue;
 use db_pro_core::ports::{DbConnector, MonitoringPort};
@@ -118,6 +119,28 @@ impl MonitoringPort for SqliteMonitoringPort {
         };
         self.connector.execute(handle, &sql, &[]).await?;
         Ok(())
+    }
+
+    async fn stat_statements(
+        &self,
+        _handle: &ConnectionHandle,
+        sort: StatStatementSort,
+        _limit: usize,
+    ) -> Result<StatStatementsSnapshot, DbError> {
+        Ok(StatStatementsSnapshot {
+            extension_present: false,
+            extension_version: None,
+            message: "pg_stat_statements is PostgreSQL-only".into(),
+            statements: Vec::new(),
+            sort,
+            fetched_at_ms: 0,
+        })
+    }
+
+    async fn reset_stat_statements(&self, _handle: &ConnectionHandle) -> Result<(), DbError> {
+        Err(DbError::Unsupported(
+            "pg_stat_statements_reset is PostgreSQL-only".into(),
+        ))
     }
 }
 

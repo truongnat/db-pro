@@ -79,12 +79,38 @@ impl MonitoringService {
             DriverType::Mysql => unreachable!("port_for rejects mysql"),
         };
 
+        let workload = match driver {
+            DriverType::Postgres => Some(
+                port.stat_statements(&handle, crate::domain::monitoring::StatStatementSort::TotalTime, 100)
+                    .await
+                    .unwrap_or_else(|err| crate::domain::monitoring::StatStatementsSnapshot {
+                        extension_present: false,
+                        extension_version: None,
+                        message: format!("Could not load pg_stat_statements: {err}"),
+                        statements: Vec::new(),
+                        sort: crate::domain::monitoring::StatStatementSort::TotalTime,
+                        fetched_at_ms: now_ms(),
+                    }),
+            ),
+            DriverType::SQLite | DriverType::Mysql => None,
+        };
+
         let message = match driver {
             DriverType::Postgres => format!(
-                "{} session(s) · {} lock row(s) · {} relation(s)",
+                "{} session(s) · {} lock row(s) · {} relation(s) · workload {}",
                 sessions.len(),
                 locks.len(),
-                relation_sizes.len()
+                relation_sizes.len(),
+                workload
+                    .as_ref()
+                    .map(|w| {
+                        if w.extension_present {
+                            format!("{} statement(s)", w.statements.len())
+                        } else {
+                            "extension missing".into()
+                        }
+                    })
+                    .unwrap_or_else(|| "n/a".into())
             ),
             DriverType::SQLite => "SQLite local file state (no server sessions)".into(),
             DriverType::Mysql => "MySQL session monitoring is not enabled yet".into(),
@@ -98,9 +124,45 @@ impl MonitoringService {
             relation_sizes,
             server,
             local,
+            workload,
             fetched_at_ms: now_ms(),
             message,
         })
+    }
+
+    /// Load a sorted/bounded `pg_stat_statements` slice (#251).
+    pub async fn stat_statements(
+        &self,
+        connection_id: &ConnectionId,
+        sort: crate::domain::monitoring::StatStatementSort,
+        limit: usize,
+    ) -> Result<crate::domain::monitoring::StatStatementsSnapshot, DbError> {
+        self.ensure_pg(connection_id).await?;
+        let handle = self.active_handle(connection_id)?;
+        let limit = limit.clamp(1, 500);
+        self.pg.stat_statements(&handle, sort, limit).await
+    }
+
+    /// Reset statement stats — requires explicit admin confirmation (#251).
+    pub async fn reset_stat_statements(&self, connection_id: &ConnectionId, confirmed: bool) -> Result<(), DbError> {
+        if !confirmed {
+            return Err(DbError::Validation(
+                "resetting pg_stat_statements requires administrative confirmation".into(),
+            ));
+        }
+        self.ensure_pg(connection_id).await?;
+        let config = self
+            .connections
+            .get_config(connection_id)
+            .await?
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
+        if config.readonly {
+            return Err(DbError::QueryFailed(
+                "connection is read-only — pg_stat_statements reset is not allowed".into(),
+            ));
+        }
+        let handle = self.active_handle(connection_id)?;
+        self.pg.reset_stat_statements(&handle).await
     }
 
     pub async fn run_maintenance(
@@ -250,6 +312,16 @@ mod tests {
         port.expect_list_locks().returning(|_| Ok(Vec::new()));
         port.expect_relation_sizes().returning(|_, _| Ok(Vec::new()));
         port.expect_server_summary().returning(|_| Ok(None));
+        port.expect_stat_statements().returning(|_, _, _| {
+            Ok(crate::domain::monitoring::StatStatementsSnapshot {
+                extension_present: true,
+                extension_version: Some("1.10".into()),
+                message: "ok".into(),
+                statements: Vec::new(),
+                sort: crate::domain::monitoring::StatStatementSort::TotalTime,
+                fetched_at_ms: 0,
+            })
+        });
 
         let registry = Arc::new(ConnectionRegistry::new());
         registry.register(id, handle);
@@ -264,6 +336,7 @@ mod tests {
         assert_eq!(snap.sessions.len(), 1);
         assert_eq!(snap.sessions[0].backend_id, 42);
         assert_eq!(snap.active_queries().len(), 1);
+        assert!(snap.workload.as_ref().is_some_and(|w| w.extension_present));
     }
 
     #[tokio::test]
@@ -299,6 +372,23 @@ mod tests {
         let snap = service.snapshot(&id).await.unwrap();
         assert!(snap.sessions.is_empty());
         assert_eq!(snap.local.as_ref().unwrap().journal_mode.as_deref(), Some("wal"));
+        assert!(snap.workload.is_none());
+    }
+
+    #[tokio::test]
+    async fn reset_stat_statements_requires_confirmation() {
+        let id = ConnectionId::new();
+        let mut repo = MockConnectionRepository::new();
+        let cfg = config(DriverType::Postgres);
+        repo.expect_get_config().returning(move |_| Ok(Some(cfg.clone())));
+        let service = MonitoringService::new(
+            Box::new(MockMonitoringPort::new()),
+            Box::new(MockMonitoringPort::new()),
+            Arc::new(ConnectionRegistry::new()),
+            Box::new(repo),
+        );
+        let err = service.reset_stat_statements(&id, false).await.unwrap_err();
+        assert!(err.to_string().contains("confirmation"));
     }
 
     #[tokio::test]

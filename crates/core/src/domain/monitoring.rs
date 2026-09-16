@@ -1,4 +1,4 @@
-//! Session / active-query / admin monitoring model (#196 / #197).
+//! Session / active-query / admin monitoring model (#196 / #197 / #251).
 
 use serde::{Deserialize, Serialize};
 
@@ -96,7 +96,68 @@ impl MaintenanceAction {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Sort key for `pg_stat_statements` workload rows (#251).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum StatStatementSort {
+    #[default]
+    TotalTime,
+    MeanTime,
+    Calls,
+    Rows,
+}
+
+impl StatStatementSort {
+    pub fn as_label(self) -> &'static str {
+        match self {
+            Self::TotalTime => "total time",
+            Self::MeanTime => "mean time",
+            Self::Calls => "calls",
+            Self::Rows => "rows",
+        }
+    }
+}
+
+/// One normalized statement from `pg_stat_statements` (#251).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct StatStatement {
+    pub queryid: Option<i64>,
+    pub userid: Option<i64>,
+    pub dbid: Option<i64>,
+    pub database: Option<String>,
+    pub username: Option<String>,
+    /// Normalized query text (no bind values — as exposed by the extension).
+    pub query: String,
+    pub calls: u64,
+    /// Total execution time in milliseconds.
+    pub total_time_ms: f64,
+    pub mean_time_ms: f64,
+    pub min_time_ms: f64,
+    pub max_time_ms: f64,
+    pub rows: u64,
+    pub shared_blks_hit: u64,
+    pub shared_blks_read: u64,
+    pub shared_blks_dirtied: u64,
+    pub shared_blks_written: u64,
+    pub local_blks_hit: u64,
+    pub local_blks_read: u64,
+    pub temp_blks_read: u64,
+    pub temp_blks_written: u64,
+}
+
+/// Workload snapshot from `pg_stat_statements` (#251).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct StatStatementsSnapshot {
+    pub extension_present: bool,
+    pub extension_version: Option<String>,
+    /// Actionable message when the extension is missing or unsupported.
+    pub message: String,
+    pub statements: Vec<StatStatement>,
+    pub sort: StatStatementSort,
+    pub fetched_at_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MonitoringSnapshot {
     pub connection_id: String,
     pub driver: String,
@@ -105,6 +166,8 @@ pub struct MonitoringSnapshot {
     pub relation_sizes: Vec<RelationSizeStat>,
     pub server: Option<ServerSummary>,
     pub local: Option<LocalMonitorState>,
+    /// PostgreSQL `pg_stat_statements` workload (#251). `None` for non-PG drivers.
+    pub workload: Option<StatStatementsSnapshot>,
     pub fetched_at_ms: u64,
     pub message: String,
 }
@@ -158,5 +221,11 @@ mod tests {
     fn format_bytes_keeps_exact_byte_count() {
         assert_eq!(format_bytes_exact(1536), "1.50 KiB (1536 B)");
         assert!(format_bytes_exact(u64::MAX).contains(&u64::MAX.to_string()));
+    }
+
+    #[test]
+    fn sort_labels_are_stable() {
+        assert_eq!(StatStatementSort::TotalTime.as_label(), "total time");
+        assert_eq!(StatStatementSort::Calls.as_label(), "calls");
     }
 }

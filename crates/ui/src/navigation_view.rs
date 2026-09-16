@@ -1078,6 +1078,129 @@ impl DbProApp {
                 }
             }
 
+            if let Some(workload) = &snapshot.workload {
+                ui.add_space(SPACE_MD);
+                section_label(ui, "TOP QUERIES (pg_stat_statements)", self.theme);
+                ui.add_space(SPACE_SM);
+                if !workload.extension_present {
+                    ui.colored_label(self.theme.warning, &workload.message);
+                } else {
+                    if let Some(ver) = &workload.extension_version {
+                        ui.label(
+                            RichText::new(format!("extension v{ver} · {}", workload.message))
+                                .small()
+                                .color(self.theme.text_muted),
+                        );
+                    }
+                    ui.horizontal_wrapped(|ui| {
+                        use db_pro_core::domain::monitoring::StatStatementSort;
+                        for sort in [
+                            StatStatementSort::TotalTime,
+                            StatStatementSort::MeanTime,
+                            StatStatementSort::Calls,
+                            StatStatementSort::Rows,
+                        ] {
+                            let selected = self.monitoring_stat_sort == sort;
+                            if ui.selectable_label(selected, sort.as_label()).clicked() {
+                                self.monitoring_stat_sort = sort;
+                                self.request_monitoring_workload();
+                            }
+                        }
+                        if danger_button(ui, "Reset stats…", self.theme).clicked() {
+                            self.monitoring_reset_stats_confirm = true;
+                        }
+                    });
+                    ui.add_space(SPACE_XS);
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Filter").small().color(self.theme.text_muted));
+                        ui.text_edit_singleline(&mut self.monitoring_workload_filter);
+                    });
+                    let filter = self.monitoring_workload_filter.to_ascii_lowercase();
+                    let prev_by_id: std::collections::HashMap<Option<i64>, f64> = self
+                        .monitoring_workload_prev
+                        .as_ref()
+                        .map(|prev| prev.statements.iter().map(|s| (s.queryid, s.total_time_ms)).collect())
+                        .unwrap_or_default();
+                    let rows: Vec<_> = workload
+                        .statements
+                        .iter()
+                        .filter(|s| {
+                            filter.is_empty()
+                                || s.query.to_ascii_lowercase().contains(&filter)
+                                || s.database
+                                    .as_deref()
+                                    .unwrap_or("")
+                                    .to_ascii_lowercase()
+                                    .contains(&filter)
+                                || s.username
+                                    .as_deref()
+                                    .unwrap_or("")
+                                    .to_ascii_lowercase()
+                                    .contains(&filter)
+                        })
+                        .take(40)
+                        .collect();
+                    if rows.is_empty() {
+                        ui.label(
+                            RichText::new("No statements match the current filter.")
+                                .small()
+                                .color(self.theme.text_muted),
+                        );
+                    }
+                    for stmt in rows {
+                        card_frame(self.theme).show(ui, |ui| {
+                            let delta = prev_by_id
+                                .get(&stmt.queryid)
+                                .map(|prev| stmt.total_time_ms - prev)
+                                .filter(|d| d.abs() > 0.01);
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    RichText::new(format!(
+                                        "calls {} · total {:.1} ms · mean {:.1} ms · rows {}",
+                                        stmt.calls, stmt.total_time_ms, stmt.mean_time_ms, stmt.rows
+                                    ))
+                                    .small()
+                                    .strong()
+                                    .color(self.theme.text_primary),
+                                );
+                                if let Some(delta) = delta {
+                                    ui.label(
+                                        RichText::new(format!("Δ total {delta:+.1} ms"))
+                                            .small()
+                                            .color(self.theme.accent),
+                                    );
+                                }
+                            });
+                            ui.label(
+                                RichText::new(format!(
+                                    "{} · {} · shared hit/read {}/{} · temp r/w {}/{}",
+                                    stmt.username.as_deref().unwrap_or("?"),
+                                    stmt.database.as_deref().unwrap_or("?"),
+                                    stmt.shared_blks_hit,
+                                    stmt.shared_blks_read,
+                                    stmt.temp_blks_read,
+                                    stmt.temp_blks_written
+                                ))
+                                .small()
+                                .color(self.theme.text_muted),
+                            );
+                            let short = if stmt.query.len() > 160 {
+                                format!("{}…", &stmt.query.chars().take(159).collect::<String>())
+                            } else {
+                                stmt.query.clone()
+                            };
+                            ui.label(RichText::new(short).monospace().small().color(self.theme.text_primary));
+                            if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
+                                self.set_active_query_text(stmt.query.clone());
+                                self.active_tab = WorkspaceTab::Query;
+                                self.activity = Activity::Explorer;
+                            }
+                        });
+                        ui.add_space(SPACE_SM);
+                    }
+                }
+            }
+
             ui.add_space(SPACE_MD);
             section_label(ui, "MAINTENANCE", self.theme);
             ui.add_space(SPACE_SM);
@@ -1165,6 +1288,48 @@ impl DbProApp {
                     });
                 });
         }
+
+        if self.monitoring_reset_stats_confirm {
+            egui::Window::new("Reset pg_stat_statements?")
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .show(ui.ctx(), |ui| {
+                    ui.label(
+                        "This clears all accumulated statement statistics on the server. \
+                         It is an administrative action and cannot be undone.",
+                    );
+                    ui.horizontal(|ui| {
+                        if danger_button(ui, "Reset statistics", self.theme).clicked() {
+                            if let Some(connection_id) = self.active_connection_id.clone() {
+                                let request_id = self.task_bridge.next_request_id();
+                                self.dispatch_command(UiCommand::MonitoringResetStatStatements {
+                                    request_id,
+                                    connection_id,
+                                    confirmed: true,
+                                });
+                            }
+                            self.monitoring_reset_stats_confirm = false;
+                        }
+                        if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                            self.monitoring_reset_stats_confirm = false;
+                        }
+                    });
+                });
+        }
+    }
+
+    fn request_monitoring_workload(&mut self) {
+        let Some(connection_id) = self.active_connection_id.clone() else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::MonitoringStatStatements {
+            request_id,
+            connection_id,
+            sort: self.monitoring_stat_sort,
+            limit: 100,
+        });
     }
 
     fn request_monitoring_snapshot(&mut self) {

@@ -33,6 +33,10 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             request_id: ui_request_id(request_id),
             snapshot,
         }),
+        RuntimeEvent::MonitoringWorkloadLoaded { request_id, workload } => Some(UiEvent::MonitoringWorkloadLoaded {
+            request_id: ui_request_id(request_id),
+            workload,
+        }),
         RuntimeEvent::MonitoringActionCompleted {
             request_id,
             action,

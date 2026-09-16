@@ -577,6 +577,17 @@ pub enum UiCommand {
         action: db_pro_core::domain::monitoring::MaintenanceAction,
         confirmed: bool,
     },
+    MonitoringStatStatements {
+        request_id: RequestId,
+        connection_id: String,
+        sort: db_pro_core::domain::monitoring::StatStatementSort,
+        limit: usize,
+    },
+    MonitoringResetStatStatements {
+        request_id: RequestId,
+        connection_id: String,
+        confirmed: bool,
+    },
     ListUsers {
         request_id: RequestId,
         connection_id: String,
@@ -807,6 +818,10 @@ pub enum UiEvent {
     MonitoringSnapshotLoaded {
         request_id: RequestId,
         snapshot: db_pro_core::domain::monitoring::MonitoringSnapshot,
+    },
+    MonitoringWorkloadLoaded {
+        request_id: RequestId,
+        workload: db_pro_core::domain::monitoring::StatStatementsSnapshot,
     },
     MonitoringActionCompleted {
         request_id: RequestId,

@@ -4,6 +4,7 @@ use crate::domain::connection::ConnectionHandle;
 use crate::domain::error::DbError;
 use crate::domain::monitoring::{
     LocalMonitorState, MaintenanceAction, MonitorLock, MonitorSession, RelationSizeStat, ServerSummary,
+    StatStatementSort, StatStatementsSnapshot,
 };
 
 #[cfg_attr(test, mockall::automock)]
@@ -38,4 +39,15 @@ pub trait MonitoringPort: Send + Sync {
         table: Option<String>,
         action: MaintenanceAction,
     ) -> Result<(), DbError>;
+
+    /// `pg_stat_statements` workload (#251). Non-PG adapters return a missing-extension snapshot.
+    async fn stat_statements(
+        &self,
+        handle: &ConnectionHandle,
+        sort: StatStatementSort,
+        limit: usize,
+    ) -> Result<StatStatementsSnapshot, DbError>;
+
+    /// Reset `pg_stat_statements` counters. Caller must enforce admin confirmation.
+    async fn reset_stat_statements(&self, handle: &ConnectionHandle) -> Result<(), DbError>;
 }

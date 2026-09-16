@@ -1040,6 +1040,27 @@ impl MonitoringApi {
             .await
             .map_err(Into::into)
     }
+
+    pub async fn stat_statements(
+        &self,
+        connection_id: &str,
+        sort: db_pro_core::domain::monitoring::StatStatementSort,
+        limit: usize,
+    ) -> Result<db_pro_core::domain::monitoring::StatStatementsSnapshot, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .stat_statements(&connection_id, sort, limit)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn reset_stat_statements(&self, connection_id: &str, confirmed: bool) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .reset_stat_statements(&connection_id, confirmed)
+            .await
+            .map_err(Into::into)
+    }
 }
 
 #[derive(Clone)]

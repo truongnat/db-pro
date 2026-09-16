@@ -77,9 +77,20 @@ impl DbProApp {
                 self.runtime_message = format!("Backup completed · {output_path} · {size_bytes} bytes");
             }
             UiEvent::MonitoringSnapshotLoaded { snapshot, .. } => {
+                if let Some(prev) = self.monitoring_snapshot.take() {
+                    self.monitoring_workload_prev = prev.workload;
+                }
                 self.monitoring_snapshot = Some(snapshot.clone());
                 self.monitoring_error = None;
                 self.runtime_message = format!("Monitor · {}", snapshot.message);
+            }
+            UiEvent::MonitoringWorkloadLoaded { workload, .. } => {
+                if let Some(snap) = self.monitoring_snapshot.as_mut() {
+                    self.monitoring_workload_prev = snap.workload.clone();
+                    snap.workload = Some(workload.clone());
+                }
+                self.monitoring_stat_sort = workload.sort;
+                self.runtime_message = format!("Workload · {}", workload.message);
             }
             UiEvent::MonitoringActionCompleted {
                 action,
@@ -92,6 +103,7 @@ impl DbProApp {
                     if succeeded { "ok" } else { "no-op" }
                 );
                 self.monitoring_terminate_confirm = None;
+                self.monitoring_reset_stats_confirm = false;
                 if let Some(connection_id) = self.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::MonitoringSnapshot {
