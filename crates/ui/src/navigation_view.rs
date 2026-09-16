@@ -1227,14 +1227,7 @@ impl DbProApp {
             ui.horizontal(|ui| {
                 if ui.selectable_label(selected, &user.name).clicked() {
                     self.security_selected_role = Some(user.name.clone());
-                    if let Some(connection_id) = self.active_connection_id.clone() {
-                        let request_id = self.task_bridge.next_request_id();
-                        self.dispatch_command(UiCommand::ListPrivileges {
-                            request_id,
-                            connection_id,
-                            role_name: user.name.clone(),
-                        });
-                    }
+                    self.request_security_role_details(&user.name);
                 }
                 if user.can_login {
                     badge(ui, "login", self.theme.surface_active, self.theme.text_secondary);
@@ -1276,22 +1269,219 @@ impl DbProApp {
 
         if let Some(role) = self.security_selected_role.clone() {
             ui.add_space(SPACE_MD);
-            section_label(ui, format!("PRIVILEGES · {role}"), self.theme);
+            section_label(ui, format!("ATTRIBUTES · {role}"), self.theme);
             ui.add_space(SPACE_SM);
-            if self.security_privileges.is_empty() {
+            ui.horizontal(|ui| {
+                if secondary_button_with_icon(ui, Icon::Check, "LOGIN", self.theme).clicked() {
+                    self.dispatch_alter_role(
+                        &role,
+                        db_pro_core::domain::user::RoleAttributes {
+                            login: Some(true),
+                            ..Default::default()
+                        },
+                    );
+                }
+                if secondary_button_with_icon(ui, Icon::X, "NOLOGIN", self.theme).clicked() {
+                    self.dispatch_alter_role(
+                        &role,
+                        db_pro_core::domain::user::RoleAttributes {
+                            login: Some(false),
+                            ..Default::default()
+                        },
+                    );
+                }
+                if secondary_button_with_icon(ui, Icon::Database, "CREATEDB", self.theme).clicked() {
+                    self.dispatch_alter_role(
+                        &role,
+                        db_pro_core::domain::user::RoleAttributes {
+                            createdb: Some(true),
+                            ..Default::default()
+                        },
+                    );
+                }
+                if secondary_button_with_icon(ui, Icon::Users, "CREATEROLE", self.theme).clicked() {
+                    self.dispatch_alter_role(
+                        &role,
+                        db_pro_core::domain::user::RoleAttributes {
+                            createrole: Some(true),
+                            ..Default::default()
+                        },
+                    );
+                }
+            });
+
+            ui.add_space(SPACE_MD);
+            section_label(ui, format!("PASSWORD · {role}"), self.theme);
+            ui.add_space(SPACE_SM);
+            ui.label(
+                RichText::new("Password is never logged or shown in runtime events.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            ui.add(
+                egui::TextEdit::singleline(&mut self.security_password)
+                    .password(true)
+                    .hint_text("new password")
+                    .desired_width(f32::INFINITY),
+            );
+            if primary_button_with_icon(ui, Icon::Key, "Update password", self.theme).clicked()
+                && !self.security_password.is_empty()
+            {
+                if let Some(connection_id) = self.active_connection_id.clone() {
+                    let password = std::mem::take(&mut self.security_password);
+                    let request_id = self.task_bridge.next_request_id();
+                    self.dispatch_command(UiCommand::UpdateRolePassword {
+                        request_id,
+                        connection_id,
+                        name: role.clone(),
+                        password,
+                    });
+                }
+            }
+
+            ui.add_space(SPACE_MD);
+            section_label(ui, format!("MEMBERSHIPS · {role}"), self.theme);
+            ui.add_space(SPACE_SM);
+            if self.security_memberships.is_empty() {
                 ui.label(
-                    RichText::new("No table privileges listed for this role.")
+                    RichText::new("No role memberships.")
                         .small()
                         .color(self.theme.text_muted),
                 );
             } else {
-                for privs in &self.security_privileges {
-                    ui.label(
-                        RichText::new(format!("{}.{} · {}", privs.schema, privs.table, privs.privilege_type))
+                for membership in self.security_memberships.clone() {
+                    ui.horizontal(|ui| {
+                        ui.label(
+                            RichText::new(format!("member of {}", membership.role))
+                                .small()
+                                .monospace()
+                                .color(self.theme.text_secondary),
+                        );
+                        if danger_button(ui, "Revoke", self.theme).clicked() {
+                            if let Some(connection_id) = self.active_connection_id.clone() {
+                                let request_id = self.task_bridge.next_request_id();
+                                self.dispatch_command(UiCommand::RevokeMembership {
+                                    request_id,
+                                    connection_id,
+                                    role: membership.role,
+                                    member: role.clone(),
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+            input_full_width(ui, &mut self.security_membership_role, "grant role name", self.theme);
+            if secondary_button_with_icon(ui, Icon::Plus, "Grant membership", self.theme).clicked()
+                && !self.security_membership_role.trim().is_empty()
+            {
+                if let Some(connection_id) = self.active_connection_id.clone() {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.dispatch_command(UiCommand::GrantMembership {
+                        request_id,
+                        connection_id,
+                        role: self.security_membership_role.trim().to_owned(),
+                        member: role.clone(),
+                    });
+                    self.security_membership_role.clear();
+                }
+            }
+
+            ui.add_space(SPACE_MD);
+            section_label(ui, format!("PRIVILEGES · {role}"), self.theme);
+            ui.add_space(SPACE_SM);
+            if self.security_privileges.is_empty() {
+                ui.label(
+                    RichText::new("No privileges listed for this role.")
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+            } else {
+                for privs in self.security_privileges.clone() {
+                    ui.horizontal(|ui| {
+                        let target = match privs.object_kind {
+                            db_pro_core::domain::user::PrivilegeObjectKind::Database => privs.object_name.clone(),
+                            db_pro_core::domain::user::PrivilegeObjectKind::Schema => privs.object_name.clone(),
+                            _ => format!("{}.{}", privs.schema, privs.object_name),
+                        };
+                        ui.label(
+                            RichText::new(format!(
+                                "{} · {} · {}",
+                                privs.object_kind.as_label(),
+                                target,
+                                privs.privilege_type
+                            ))
                             .small()
                             .monospace()
                             .color(self.theme.text_secondary),
-                    );
+                        );
+                        if danger_button(ui, "Revoke", self.theme).clicked() {
+                            if let Some(connection_id) = self.active_connection_id.clone() {
+                                let request_id = self.task_bridge.next_request_id();
+                                self.dispatch_command(UiCommand::RevokePrivilege {
+                                    request_id,
+                                    connection_id,
+                                    role_name: role.clone(),
+                                    object_kind: privs.object_kind,
+                                    schema: privs.schema,
+                                    object_name: privs.object_name,
+                                    privilege: privs.privilege_type,
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+
+            ui.add_space(SPACE_SM);
+            section_label(ui, "GRANT PRIVILEGE", self.theme);
+            ui.horizontal(|ui| {
+                for (label, kind) in [
+                    ("table", db_pro_core::domain::user::PrivilegeObjectKind::Table),
+                    ("schema", db_pro_core::domain::user::PrivilegeObjectKind::Schema),
+                    ("database", db_pro_core::domain::user::PrivilegeObjectKind::Database),
+                    ("sequence", db_pro_core::domain::user::PrivilegeObjectKind::Sequence),
+                ] {
+                    if ui.selectable_label(self.security_grant_kind == kind, label).clicked() {
+                        self.security_grant_kind = kind;
+                    }
+                }
+            });
+            if !matches!(
+                self.security_grant_kind,
+                db_pro_core::domain::user::PrivilegeObjectKind::Database
+                    | db_pro_core::domain::user::PrivilegeObjectKind::Schema
+            ) {
+                input_full_width(ui, &mut self.security_grant_schema, "schema", self.theme);
+            }
+            let object_hint = match self.security_grant_kind {
+                db_pro_core::domain::user::PrivilegeObjectKind::Table => "table",
+                db_pro_core::domain::user::PrivilegeObjectKind::Schema => "schema",
+                db_pro_core::domain::user::PrivilegeObjectKind::Database => "database",
+                db_pro_core::domain::user::PrivilegeObjectKind::Sequence => "sequence",
+            };
+            input_full_width(ui, &mut self.security_grant_object, object_hint, self.theme);
+            input_full_width(
+                ui,
+                &mut self.security_grant_privilege,
+                "privilege (SELECT/USAGE/CONNECT/…)",
+                self.theme,
+            );
+            if primary_button_with_icon(ui, Icon::Plus, "Grant privilege", self.theme).clicked()
+                && !self.security_grant_object.trim().is_empty()
+                && !self.security_grant_privilege.trim().is_empty()
+            {
+                if let Some(connection_id) = self.active_connection_id.clone() {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.dispatch_command(UiCommand::GrantPrivilege {
+                        request_id,
+                        connection_id,
+                        role_name: role,
+                        object_kind: self.security_grant_kind,
+                        schema: self.security_grant_schema.trim().to_owned(),
+                        object_name: self.security_grant_object.trim().to_owned(),
+                        privilege: self.security_grant_privilege.trim().to_owned(),
+                    });
                 }
             }
         }
@@ -1331,6 +1521,37 @@ impl DbProApp {
         self.dispatch_command(UiCommand::ListUsers {
             request_id,
             connection_id,
+        });
+    }
+
+    pub(crate) fn request_security_role_details(&mut self, role_name: &str) {
+        let Some(connection_id) = self.active_connection_id.clone() else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::ListPrivileges {
+            request_id,
+            connection_id: connection_id.clone(),
+            role_name: role_name.to_owned(),
+        });
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::ListMemberships {
+            request_id,
+            connection_id,
+            member: role_name.to_owned(),
+        });
+    }
+
+    fn dispatch_alter_role(&mut self, name: &str, attributes: db_pro_core::domain::user::RoleAttributes) {
+        let Some(connection_id) = self.active_connection_id.clone() else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::AlterRole {
+            request_id,
+            connection_id,
+            name: name.to_owned(),
+            attributes,
         });
     }
 

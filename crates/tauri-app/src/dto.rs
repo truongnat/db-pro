@@ -900,16 +900,18 @@ impl From<DatabaseUser> for DatabaseUserDto {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrivilegeDto {
+    pub object_kind: String,
     pub schema: String,
-    pub table: String,
+    pub object_name: String,
     pub privilege_type: String,
 }
 
 impl From<Privilege> for PrivilegeDto {
     fn from(p: Privilege) -> Self {
         Self {
+            object_kind: p.object_kind.as_label().to_owned(),
             schema: p.schema,
-            table: p.table,
+            object_name: p.object_name,
             privilege_type: p.privilege_type,
         }
     }

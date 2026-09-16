@@ -2,6 +2,7 @@ use serde::Deserialize;
 
 use tauri::State;
 
+use db_pro_core::domain::user::PrivilegeObjectKind;
 use db_pro_runtime::DbProRuntime;
 
 use crate::dto::{CommandError, DatabaseUserDto, PrivilegeDto};
@@ -39,9 +40,21 @@ pub struct RoleNameRequest {
 pub struct GrantRequest {
     pub connection_id: String,
     pub role_name: String,
+    #[serde(default)]
+    pub object_kind: Option<String>,
     pub schema: String,
-    pub table: String,
+    #[serde(alias = "table")]
+    pub object_name: String,
     pub privilege: String,
+}
+
+fn parse_object_kind(raw: Option<&str>) -> PrivilegeObjectKind {
+    match raw.map(str::to_ascii_lowercase).as_deref() {
+        Some("schema") => PrivilegeObjectKind::Schema,
+        Some("database") => PrivilegeObjectKind::Database,
+        Some("sequence") => PrivilegeObjectKind::Sequence,
+        _ => PrivilegeObjectKind::Table,
+    }
 }
 
 #[tauri::command]
@@ -96,8 +109,9 @@ pub async fn grant_privilege(
         .grant_privilege(
             &req.connection_id,
             &req.role_name,
+            parse_object_kind(req.object_kind.as_deref()),
             &req.schema,
-            &req.table,
+            &req.object_name,
             &req.privilege,
         )
         .await?;
@@ -114,8 +128,9 @@ pub async fn revoke_privilege(
         .revoke_privilege(
             &req.connection_id,
             &req.role_name,
+            parse_object_kind(req.object_kind.as_deref()),
             &req.schema,
-            &req.table,
+            &req.object_name,
             &req.privilege,
         )
         .await?;

@@ -119,6 +119,13 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::CreateRole { .. }
         | UiCommand::DropRole { .. }
         | UiCommand::ListPrivileges { .. }
+        | UiCommand::AlterRole { .. }
+        | UiCommand::UpdateRolePassword { .. }
+        | UiCommand::ListMemberships { .. }
+        | UiCommand::GrantMembership { .. }
+        | UiCommand::RevokeMembership { .. }
+        | UiCommand::GrantPrivilege { .. }
+        | UiCommand::RevokePrivilege { .. }
         | UiCommand::CancelQuery { .. }
         | UiCommand::RequestSqlPrediction { .. }
         | UiCommand::CancelSqlPrediction { .. } => translate_execution_command(command),
@@ -645,6 +652,93 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             request_id: runtime_request_id(request_id),
             connection_id,
             role_name,
+        }),
+        UiCommand::AlterRole {
+            request_id,
+            connection_id,
+            name,
+            attributes,
+        } => Some(RuntimeCommand::AlterRole {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
+            attributes,
+        }),
+        UiCommand::UpdateRolePassword {
+            request_id,
+            connection_id,
+            name,
+            password,
+        } => Some(RuntimeCommand::UpdateRolePassword {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
+            password,
+        }),
+        UiCommand::ListMemberships {
+            request_id,
+            connection_id,
+            member,
+        } => Some(RuntimeCommand::ListMemberships {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            member,
+        }),
+        UiCommand::GrantMembership {
+            request_id,
+            connection_id,
+            role,
+            member,
+        } => Some(RuntimeCommand::GrantMembership {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            role,
+            member,
+        }),
+        UiCommand::RevokeMembership {
+            request_id,
+            connection_id,
+            role,
+            member,
+        } => Some(RuntimeCommand::RevokeMembership {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            role,
+            member,
+        }),
+        UiCommand::GrantPrivilege {
+            request_id,
+            connection_id,
+            role_name,
+            object_kind,
+            schema,
+            object_name,
+            privilege,
+        } => Some(RuntimeCommand::GrantPrivilege {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            role_name,
+            object_kind,
+            schema,
+            object_name,
+            privilege,
+        }),
+        UiCommand::RevokePrivilege {
+            request_id,
+            connection_id,
+            role_name,
+            object_kind,
+            schema,
+            object_name,
+            privilege,
+        } => Some(RuntimeCommand::RevokePrivilege {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            role_name,
+            object_kind,
+            schema,
+            object_name,
+            privilege,
         }),
         UiCommand::CancelQuery { request_id } => Some(RuntimeCommand::CancelQuery {
             request_id: runtime_request_id(request_id),

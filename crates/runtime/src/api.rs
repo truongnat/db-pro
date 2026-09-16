@@ -14,7 +14,7 @@ use db_pro_core::domain::monitoring::MonitoringSnapshot;
 use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult};
 use db_pro_core::domain::run_config::RunConfig;
 use db_pro_core::domain::schema::IntrospectResult;
-use db_pro_core::domain::user::{DatabaseUser, Privilege};
+use db_pro_core::domain::user::{DatabaseUser, Privilege, PrivilegeObjectKind, RoleAttributes, RoleMembership};
 use db_pro_core::ports::ConnectionRepository;
 use db_pro_infrastructure::connector::CompositeConnector;
 use db_pro_infrastructure::meta::store::SQLiteMetaStore;
@@ -868,6 +868,51 @@ impl UserApi {
         self.service.drop_role(&connection_id, name).await.map_err(Into::into)
     }
 
+    pub async fn alter_role(
+        &self,
+        connection_id: &str,
+        name: &str,
+        attributes: RoleAttributes,
+    ) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .alter_role(&connection_id, name, attributes)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn update_password(&self, connection_id: &str, name: &str, password: &str) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .update_password(&connection_id, name, password)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn list_memberships(&self, connection_id: &str, member: &str) -> Result<Vec<RoleMembership>, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .list_memberships(&connection_id, member)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn grant_membership(&self, connection_id: &str, role: &str, member: &str) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .grant_membership(&connection_id, role, member)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn revoke_membership(&self, connection_id: &str, role: &str, member: &str) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .revoke_membership(&connection_id, role, member)
+            .await
+            .map_err(Into::into)
+    }
+
     pub async fn list_privileges(&self, connection_id: &str, role_name: &str) -> Result<Vec<Privilege>, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
         self.service
@@ -880,13 +925,14 @@ impl UserApi {
         &self,
         connection_id: &str,
         role_name: &str,
+        object_kind: PrivilegeObjectKind,
         schema: &str,
-        table: &str,
+        object_name: &str,
         privilege: &str,
     ) -> Result<(), DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
         self.service
-            .grant_privilege(&connection_id, role_name, schema, table, privilege)
+            .grant_privilege(&connection_id, role_name, object_kind, schema, object_name, privilege)
             .await
             .map_err(Into::into)
     }
@@ -895,13 +941,14 @@ impl UserApi {
         &self,
         connection_id: &str,
         role_name: &str,
+        object_kind: PrivilegeObjectKind,
         schema: &str,
-        table: &str,
+        object_name: &str,
         privilege: &str,
     ) -> Result<(), DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
         self.service
-            .revoke_privilege(&connection_id, role_name, schema, table, privilege)
+            .revoke_privilege(&connection_id, role_name, object_kind, schema, object_name, privilege)
             .await
             .map_err(Into::into)
     }

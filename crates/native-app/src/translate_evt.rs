@@ -57,6 +57,15 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             role_name,
             privileges,
         }),
+        RuntimeEvent::MembershipsLoaded {
+            request_id,
+            member,
+            memberships,
+        } => Some(UiEvent::MembershipsLoaded {
+            request_id: ui_request_id(request_id),
+            member,
+            memberships,
+        }),
         RuntimeEvent::OperationCompleted { request_id, operation } => {
             translate_operation_completed(request_id, operation)
         }

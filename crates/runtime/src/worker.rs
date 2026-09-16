@@ -243,6 +243,53 @@ pub enum RuntimeCommand {
         connection_id: String,
         role_name: String,
     },
+    AlterRole {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        attributes: db_pro_core::domain::user::RoleAttributes,
+    },
+    UpdateRolePassword {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        password: String,
+    },
+    ListMemberships {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        member: String,
+    },
+    GrantMembership {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        role: String,
+        member: String,
+    },
+    RevokeMembership {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        role: String,
+        member: String,
+    },
+    GrantPrivilege {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        role_name: String,
+        object_kind: db_pro_core::domain::user::PrivilegeObjectKind,
+        schema: String,
+        object_name: String,
+        privilege: String,
+    },
+    RevokePrivilege {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        role_name: String,
+        object_kind: db_pro_core::domain::user::PrivilegeObjectKind,
+        schema: String,
+        object_name: String,
+        privilege: String,
+    },
     CancelQuery {
         request_id: RuntimeRequestId,
     },
@@ -330,6 +377,11 @@ pub enum RuntimeEvent {
         request_id: RuntimeRequestId,
         role_name: String,
         privileges: Vec<db_pro_core::domain::user::Privilege>,
+    },
+    MembershipsLoaded {
+        request_id: RuntimeRequestId,
+        member: String,
+        memberships: Vec<db_pro_core::domain::user::RoleMembership>,
     },
     OperationCompleted {
         request_id: RuntimeRequestId,
@@ -1760,6 +1812,188 @@ pub fn spawn_worker(
                                 request_id,
                                 role_name,
                                 privileges,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::AlterRole {
+                    request_id,
+                    connection_id,
+                    name,
+                    attributes,
+                } => {
+                    let user_api = runtime.user_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match user_api.alter_role(&connection_id, &name, attributes).await {
+                            Ok(()) => RuntimeEvent::OperationCompleted {
+                                request_id,
+                                operation: "alter_role",
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::UpdateRolePassword {
+                    request_id,
+                    connection_id,
+                    name,
+                    password,
+                } => {
+                    let user_api = runtime.user_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        // Do not include password in any event/log payload.
+                        let event = match user_api.update_password(&connection_id, &name, &password).await {
+                            Ok(()) => RuntimeEvent::OperationCompleted {
+                                request_id,
+                                operation: "update_role_password",
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        drop(password);
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::ListMemberships {
+                    request_id,
+                    connection_id,
+                    member,
+                } => {
+                    let user_api = runtime.user_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match user_api.list_memberships(&connection_id, &member).await {
+                            Ok(memberships) => RuntimeEvent::MembershipsLoaded {
+                                request_id,
+                                member,
+                                memberships,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::GrantMembership {
+                    request_id,
+                    connection_id,
+                    role,
+                    member,
+                } => {
+                    let user_api = runtime.user_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match user_api.grant_membership(&connection_id, &role, &member).await {
+                            Ok(()) => RuntimeEvent::OperationCompleted {
+                                request_id,
+                                operation: "grant_membership",
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::RevokeMembership {
+                    request_id,
+                    connection_id,
+                    role,
+                    member,
+                } => {
+                    let user_api = runtime.user_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match user_api.revoke_membership(&connection_id, &role, &member).await {
+                            Ok(()) => RuntimeEvent::OperationCompleted {
+                                request_id,
+                                operation: "revoke_membership",
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::GrantPrivilege {
+                    request_id,
+                    connection_id,
+                    role_name,
+                    object_kind,
+                    schema,
+                    object_name,
+                    privilege,
+                } => {
+                    let user_api = runtime.user_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match user_api
+                            .grant_privilege(
+                                &connection_id,
+                                &role_name,
+                                object_kind,
+                                &schema,
+                                &object_name,
+                                &privilege,
+                            )
+                            .await
+                        {
+                            Ok(()) => RuntimeEvent::OperationCompleted {
+                                request_id,
+                                operation: "grant_privilege",
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::RevokePrivilege {
+                    request_id,
+                    connection_id,
+                    role_name,
+                    object_kind,
+                    schema,
+                    object_name,
+                    privilege,
+                } => {
+                    let user_api = runtime.user_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match user_api
+                            .revoke_privilege(
+                                &connection_id,
+                                &role_name,
+                                object_kind,
+                                &schema,
+                                &object_name,
+                                &privilege,
+                            )
+                            .await
+                        {
+                            Ok(()) => RuntimeEvent::OperationCompleted {
+                                request_id,
+                                operation: "revoke_privilege",
                             },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,

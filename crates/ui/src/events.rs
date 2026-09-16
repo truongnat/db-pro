@@ -111,6 +111,12 @@ impl DbProApp {
                 self.security_selected_role = Some(role_name);
                 self.security_privileges = privileges;
             }
+            UiEvent::MembershipsLoaded {
+                member, memberships, ..
+            } => {
+                self.security_selected_role = Some(member);
+                self.security_memberships = memberships;
+            }
             UiEvent::DdlCompleted {
                 request_id,
                 affected_rows,
@@ -526,9 +532,23 @@ impl DbProApp {
         if pending_connection_request {
             self.pending_connection_request = None;
         }
-        if matches!(operation.as_str(), "create_role" | "drop_role") {
+        if matches!(
+            operation.as_str(),
+            "create_role"
+                | "drop_role"
+                | "alter_role"
+                | "update_role_password"
+                | "grant_membership"
+                | "revoke_membership"
+                | "grant_privilege"
+                | "revoke_privilege"
+        ) {
             self.security_drop_confirm = None;
+            self.security_password.clear();
             self.request_security_users();
+            if let Some(role) = self.security_selected_role.clone() {
+                self.request_security_role_details(&role);
+            }
         }
         if matches!(
             operation.as_str(),

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::domain::connection::{ConnectionConfig, ConnectionId, DriverType};
 use crate::domain::error::DbError;
-use crate::domain::user::{DatabaseUser, Privilege};
+use crate::domain::user::{DatabaseUser, Privilege, PrivilegeObjectKind, RoleAttributes, RoleMembership};
 use crate::ports::{ConnectionRepository, UserManager};
 
 use super::registry::ConnectionRegistry;
@@ -50,31 +50,86 @@ impl UserService {
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))
     }
 
+    async fn active_handle(
+        &self,
+        connection_id: &ConnectionId,
+    ) -> Result<crate::domain::connection::ConnectionHandle, DbError> {
+        self.registry
+            .get(connection_id)
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))
+    }
+
     pub async fn list_users(&self, connection_id: &ConnectionId) -> Result<Vec<DatabaseUser>, DbError> {
         self.ensure_server_sessions(connection_id).await?;
-        let handle = self
-            .registry
-            .get(connection_id)
-            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
+        let handle = self.active_handle(connection_id).await?;
         self.manager.list_users(&handle).await
     }
 
     pub async fn create_role(&self, connection_id: &ConnectionId, name: &str, login: bool) -> Result<(), DbError> {
         self.ensure_writable(connection_id).await?;
-        let handle = self
-            .registry
-            .get(connection_id)
-            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
+        let handle = self.active_handle(connection_id).await?;
         self.manager.create_role(&handle, name, login).await
     }
 
     pub async fn drop_role(&self, connection_id: &ConnectionId, name: &str) -> Result<(), DbError> {
         self.ensure_writable(connection_id).await?;
-        let handle = self
-            .registry
-            .get(connection_id)
-            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
+        let handle = self.active_handle(connection_id).await?;
         self.manager.drop_role(&handle, name).await
+    }
+
+    pub async fn alter_role(
+        &self,
+        connection_id: &ConnectionId,
+        name: &str,
+        attributes: RoleAttributes,
+    ) -> Result<(), DbError> {
+        self.ensure_writable(connection_id).await?;
+        let handle = self.active_handle(connection_id).await?;
+        self.manager.alter_role(&handle, name, &attributes).await
+    }
+
+    /// Update a role password. The password value must never be logged by callers.
+    pub async fn update_password(
+        &self,
+        connection_id: &ConnectionId,
+        name: &str,
+        password: &str,
+    ) -> Result<(), DbError> {
+        self.ensure_writable(connection_id).await?;
+        let handle = self.active_handle(connection_id).await?;
+        self.manager.update_password(&handle, name, password).await
+    }
+
+    pub async fn list_memberships(
+        &self,
+        connection_id: &ConnectionId,
+        member: &str,
+    ) -> Result<Vec<RoleMembership>, DbError> {
+        self.ensure_server_sessions(connection_id).await?;
+        let handle = self.active_handle(connection_id).await?;
+        self.manager.list_memberships(&handle, member).await
+    }
+
+    pub async fn grant_membership(
+        &self,
+        connection_id: &ConnectionId,
+        role: &str,
+        member: &str,
+    ) -> Result<(), DbError> {
+        self.ensure_writable(connection_id).await?;
+        let handle = self.active_handle(connection_id).await?;
+        self.manager.grant_membership(&handle, role, member).await
+    }
+
+    pub async fn revoke_membership(
+        &self,
+        connection_id: &ConnectionId,
+        role: &str,
+        member: &str,
+    ) -> Result<(), DbError> {
+        self.ensure_writable(connection_id).await?;
+        let handle = self.active_handle(connection_id).await?;
+        self.manager.revoke_membership(&handle, role, member).await
     }
 
     pub async fn list_privileges(
@@ -83,10 +138,7 @@ impl UserService {
         role_name: &str,
     ) -> Result<Vec<Privilege>, DbError> {
         self.ensure_server_sessions(connection_id).await?;
-        let handle = self
-            .registry
-            .get(connection_id)
-            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
+        let handle = self.active_handle(connection_id).await?;
         self.manager.list_privileges(&handle, role_name).await
     }
 
@@ -94,17 +146,15 @@ impl UserService {
         &self,
         connection_id: &ConnectionId,
         role_name: &str,
+        object_kind: PrivilegeObjectKind,
         schema: &str,
-        table: &str,
+        object_name: &str,
         privilege: &str,
     ) -> Result<(), DbError> {
         self.ensure_writable(connection_id).await?;
-        let handle = self
-            .registry
-            .get(connection_id)
-            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
+        let handle = self.active_handle(connection_id).await?;
         self.manager
-            .grant_privilege(&handle, role_name, schema, table, privilege)
+            .grant_privilege(&handle, role_name, object_kind, schema, object_name, privilege)
             .await
     }
 
@@ -112,17 +162,15 @@ impl UserService {
         &self,
         connection_id: &ConnectionId,
         role_name: &str,
+        object_kind: PrivilegeObjectKind,
         schema: &str,
-        table: &str,
+        object_name: &str,
         privilege: &str,
     ) -> Result<(), DbError> {
         self.ensure_writable(connection_id).await?;
-        let handle = self
-            .registry
-            .get(connection_id)
-            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
+        let handle = self.active_handle(connection_id).await?;
         self.manager
-            .revoke_privilege(&handle, role_name, schema, table, privilege)
+            .revoke_privilege(&handle, role_name, object_kind, schema, object_name, privilege)
             .await
     }
 }
