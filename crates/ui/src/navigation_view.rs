@@ -433,6 +433,12 @@ impl DbProApp {
             if secondary_button_with_icon(ui, Icon::Ban, "Run then cancel", self.theme).clicked() {
                 self.run_synthetic_transfer_harness(true);
             }
+            if secondary_button_with_icon(ui, Icon::FileSpreadsheet, "CSV export harness", self.theme).clicked() {
+                self.run_csv_export_harness();
+            }
+            if secondary_button_with_icon(ui, Icon::Download, "CSV import preview", self.theme).clicked() {
+                self.run_csv_import_preview_harness();
+            }
             if ghost_button_with_icon(ui, Icon::Trash2, "Clear jobs", self.theme).clicked() {
                 self.transfer_jobs.clear();
             }
@@ -517,6 +523,102 @@ impl DbProApp {
             "Transfer {} · {:?} · wrote {}",
             job.id, job.status, job.progress.rows_written
         );
+        self.transfer_jobs.insert(0, job);
+        if self.transfer_jobs.len() > 20 {
+            self.transfer_jobs.truncate(20);
+        }
+    }
+
+    pub(crate) fn run_csv_export_harness(&mut self) {
+        use db_pro_core::application::{
+            DelimitedFileTarget, DelimitedFormat, SyntheticSource, TransferService,
+        };
+        use db_pro_core::domain::transfer::{
+            TransferCancellation, TransferJob, TransferSourceKind, TransferStatus, TransferTargetKind,
+        };
+
+        let mut path = std::env::temp_dir();
+        path.push(format!("dbpro-export-{}.csv", self.transfer_jobs.len() + 1));
+        let id = format!("csv-{}", self.transfer_jobs.len() + 1);
+        let mut job = TransferJob {
+            id,
+            label: format!("CSV export → {}", path.display()),
+            source: TransferSourceKind::Synthetic { rows: 1_000 },
+            target: TransferTargetKind::File {
+                path: path.to_string_lossy().into_owned(),
+                format: "csv".into(),
+            },
+            mapping: Default::default(),
+            batch_size: 100,
+            status: TransferStatus::Pending,
+            progress: Default::default(),
+            error: None,
+        };
+        let mut source = SyntheticSource::new(1_000);
+        let target = DelimitedFileTarget::create(&path, DelimitedFormat::Csv, vec!["id".into(), "name".into()]);
+        match target {
+            Ok(mut target) => {
+                let cancel = TransferCancellation::new();
+                let _ = TransferService::run(&mut job, &mut source, &mut target, &cancel);
+            }
+            Err(err) => {
+                job.status = TransferStatus::Failed;
+                job.error = Some(err.to_string());
+            }
+        }
+        self.runtime_message = format!("CSV transfer {} · {:?} · {}", job.id, job.status, path.display());
+        self.transfer_jobs.insert(0, job);
+        if self.transfer_jobs.len() > 20 {
+            self.transfer_jobs.truncate(20);
+        }
+    }
+
+    pub(crate) fn run_csv_import_preview_harness(&mut self) {
+        use db_pro_core::application::{DelimitedFileSource, DelimitedFileTarget, DelimitedFormat};
+        use db_pro_core::domain::transfer::{TransferJob, TransferStatus, TransferTargetKind};
+
+        let mut path = std::env::temp_dir();
+        path.push("dbpro-import-sample.csv");
+        let _ = DelimitedFileTarget::create(&path, DelimitedFormat::Csv, vec!["id".into(), "name".into()]).and_then(
+            |mut target| {
+                use db_pro_core::application::TransferTarget;
+                use db_pro_core::domain::transfer::TransferRow;
+                target.write_batch(&[
+                    TransferRow {
+                        cells: vec!["1".into(), "alpha".into()],
+                    },
+                    TransferRow {
+                        cells: vec!["2".into(), "beta".into()],
+                    },
+                ])?;
+                target.finish()
+            },
+        );
+
+        let mut job = TransferJob::new_synthetic(format!("csv-import-{}", self.transfer_jobs.len() + 1), 0, 50);
+        job.label = format!("CSV import preview ← {}", path.display());
+        job.target = TransferTargetKind::File {
+            path: path.to_string_lossy().into_owned(),
+            format: "csv".into(),
+        };
+        match DelimitedFileSource::open(&path, DelimitedFormat::Csv, true) {
+            Ok(mut source) => match source.preview_rows(20) {
+                Ok(rows) => {
+                    job.status = TransferStatus::Succeeded;
+                    job.progress.rows_read = rows.len() as u64;
+                    job.progress.message = format!("headers={:?}; preview {} row(s)", source.headers(), rows.len());
+                }
+                Err(err) => {
+                    job.status = TransferStatus::Failed;
+                    job.error = Some(err.to_string());
+                }
+            },
+            Err(err) => {
+                job.status = TransferStatus::Failed;
+                job.error = Some(err.to_string());
+            }
+        }
+        self.runtime_message = job.progress.message.clone();
         self.transfer_jobs.insert(0, job);
         if self.transfer_jobs.len() > 20 {
             self.transfer_jobs.truncate(20);
