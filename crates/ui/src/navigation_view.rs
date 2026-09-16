@@ -894,6 +894,26 @@ impl DbProApp {
             ui.checkbox(&mut self.monitoring_filter_active_only, "Active queries only");
             ui.add_space(SPACE_SM);
 
+            let idle_xacts = snapshot.idle_in_transaction_sessions();
+            if !idle_xacts.is_empty() {
+                section_label(ui, "IDLE IN TRANSACTION", self.theme);
+                ui.add_space(SPACE_SM);
+                for session in idle_xacts.into_iter().take(20) {
+                    ui.label(
+                        RichText::new(format!(
+                            "pid {} · xact_age={:?} ms · backend_age={:?} ms · {}",
+                            session.backend_id,
+                            session.xact_age_ms,
+                            session.backend_age_ms,
+                            session.username.as_deref().unwrap_or("?")
+                        ))
+                        .small()
+                        .color(self.theme.warning),
+                    );
+                }
+                ui.add_space(SPACE_MD);
+            }
+
             let sessions: Vec<_> = if self.monitoring_filter_active_only {
                 snapshot.active_queries().into_iter().cloned().collect()
             } else {
@@ -929,7 +949,21 @@ impl DbProApp {
                                     .color(self.theme.text_secondary),
                             );
                             if let Some(ms) = session.query_duration_ms {
-                                ui.label(RichText::new(format!("{ms} ms")).small().color(self.theme.text_muted));
+                                ui.label(
+                                    RichText::new(format!("query {ms} ms"))
+                                        .small()
+                                        .color(self.theme.text_muted),
+                                );
+                            }
+                            if let Some(ms) = session.xact_age_ms {
+                                ui.label(
+                                    RichText::new(format!("xact {ms} ms"))
+                                        .small()
+                                        .color(self.theme.text_muted),
+                                );
+                            }
+                            if session.idle_in_transaction {
+                                badge(ui, "idle-in-xact", self.theme.warning, self.theme.text_primary);
                             }
                         });
                         ui.label(

@@ -235,6 +235,9 @@ mod tests {
                 backend_start: None,
                 xact_start: None,
                 query_start: None,
+                xact_age_ms: None,
+                backend_age_ms: None,
+                idle_in_transaction: false,
                 is_current: false,
             }])
         });

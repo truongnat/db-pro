@@ -21,6 +21,12 @@ pub struct MonitorSession {
     pub backend_start: Option<String>,
     pub xact_start: Option<String>,
     pub query_start: Option<String>,
+    /// Age of the open transaction in milliseconds (PostgreSQL).
+    pub xact_age_ms: Option<u64>,
+    /// Age of the backend session in milliseconds (PostgreSQL).
+    pub backend_age_ms: Option<u64>,
+    /// True when `state` is idle in transaction (distinct from active).
+    pub idle_in_transaction: bool,
     /// True when this row is the monitoring connection itself.
     pub is_current: bool,
 }
@@ -109,9 +115,15 @@ impl MonitoringSnapshot {
             .iter()
             .filter(|s| {
                 let state = s.state.as_deref().unwrap_or("");
-                !state.eq_ignore_ascii_case("idle") && s.query_text.as_ref().is_some_and(|q| !q.is_empty())
+                !state.eq_ignore_ascii_case("idle")
+                    && !s.idle_in_transaction
+                    && s.query_text.as_ref().is_some_and(|q| !q.is_empty())
             })
             .collect()
+    }
+
+    pub fn idle_in_transaction_sessions(&self) -> Vec<&MonitorSession> {
+        self.sessions.iter().filter(|s| s.idle_in_transaction).collect()
     }
 
     pub fn blocking_locks(&self) -> Vec<&MonitorLock> {

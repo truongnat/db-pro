@@ -29,10 +29,23 @@ SELECT
     backend_start::text,
     xact_start::text,
     query_start::text,
+    CASE
+        WHEN xact_start IS NULL THEN NULL
+        ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - xact_start)) * 1000))::bigint
+    END AS xact_age_ms,
+    CASE
+        WHEN backend_start IS NULL THEN NULL
+        ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - backend_start)) * 1000))::bigint
+    END AS backend_age_ms,
+    (state IS NOT NULL AND state ILIKE 'idle in transaction%') AS idle_in_transaction,
     (pid = pg_backend_pid()) AS is_current
 FROM pg_catalog.pg_stat_activity
 WHERE backend_type = 'client backend'
-ORDER BY query_start NULLS LAST, pid
+ORDER BY
+    CASE WHEN state ILIKE 'idle in transaction%' THEN 0 ELSE 1 END,
+    xact_start NULLS LAST,
+    query_start NULLS LAST,
+    pid
 "#;
 
 pub struct PostgresMonitoringPort {
@@ -93,7 +106,10 @@ impl MonitoringPort for PostgresMonitoringPort {
                 backend_start: cells.get(10).and_then(cell_text),
                 xact_start: cells.get(11).and_then(cell_text),
                 query_start: cells.get(12).and_then(cell_text),
-                is_current: cells.get(13).map(cell_bool).unwrap_or(false),
+                xact_age_ms: cells.get(13).and_then(cell_i64).map(|v| v.max(0) as u64),
+                backend_age_ms: cells.get(14).and_then(cell_i64).map(|v| v.max(0) as u64),
+                idle_in_transaction: cells.get(15).map(cell_bool).unwrap_or(false),
+                is_current: cells.get(16).map(cell_bool).unwrap_or(false),
             });
         }
         Ok(sessions)
