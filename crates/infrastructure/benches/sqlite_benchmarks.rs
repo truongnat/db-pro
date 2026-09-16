@@ -282,7 +282,7 @@ fn bench_explain(c: &mut Criterion) {
             rt.block_on(async {
                 black_box(
                     connector
-                        .explain(&handle, "SELECT * FROM orders WHERE user_id = 42")
+                        .explain(&handle, "SELECT * FROM orders WHERE user_id = 42", false)
                         .await
                         .unwrap(),
                 )

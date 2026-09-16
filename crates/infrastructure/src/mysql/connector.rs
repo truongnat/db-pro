@@ -339,13 +339,17 @@ impl DbConnector for MySqlConnector {
         MySqlIntrospect::introspect(&pool).await
     }
 
-    async fn explain(&self, handle: &ConnectionHandle, sql: &str) -> Result<serde_json::Value, DbError> {
+    async fn explain(&self, handle: &ConnectionHandle, sql: &str, analyze: bool) -> Result<serde_json::Value, DbError> {
         let pool = self
             .get_pool(handle)
             .await
             .ok_or_else(|| DbError::ConnectionFailed("no MySQL pool for handle".into()))?;
 
-        let explain_sql = format!("EXPLAIN {}", sql);
+        let explain_sql = if analyze {
+            format!("EXPLAIN ANALYZE {}", sql)
+        } else {
+            format!("EXPLAIN {}", sql)
+        };
         let rows = sqlx::query(&explain_sql)
             .fetch_all(&pool)
             .await

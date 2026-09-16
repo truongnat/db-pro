@@ -185,11 +185,17 @@ impl DbConnector for SQLiteConnector {
         entry.handle.introspect(entry.query_timeout_ms).await
     }
 
-    async fn explain(&self, handle: &ConnectionHandle, sql: &str) -> Result<serde_json::Value, DbError> {
+    async fn explain(
+        &self,
+        handle: &ConnectionHandle,
+        sql: &str,
+        _analyze: bool,
+    ) -> Result<serde_json::Value, DbError> {
         let actors = self.actors.read().await;
         let entry = actors
             .get(&handle.0)
             .ok_or_else(|| DbError::ConnectionFailed("handle not found".into()))?;
+        // SQLite EXPLAIN QUERY PLAN has no ANALYZE equivalent that executes the query.
         entry.handle.explain(sql.into(), entry.query_timeout_ms).await
     }
 

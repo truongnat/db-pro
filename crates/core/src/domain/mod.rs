@@ -8,6 +8,7 @@ pub mod cross_connection;
 pub mod diagnostics;
 pub mod error;
 pub mod execution;
+pub mod explain_plan;
 pub mod history;
 pub mod migration;
 pub mod monitoring;

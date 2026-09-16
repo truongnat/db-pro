@@ -99,6 +99,14 @@ impl DbProApp {
     }
 
     pub(crate) fn explain_query(&mut self) {
+        self.dispatch_explain_query(false);
+    }
+
+    pub(crate) fn explain_query_analyze(&mut self) {
+        self.dispatch_explain_query(true);
+    }
+
+    fn dispatch_explain_query(&mut self, analyze: bool) {
         if self.active_explain_request().is_some() {
             return;
         }
@@ -120,6 +128,12 @@ impl DbProApp {
             self.runtime_message = "Enter a query before explaining it".to_owned();
             return;
         }
+        if analyze && !self.explain_analyze_confirmed {
+            self.pending_explain_analyze = true;
+            self.set_active_query_output_tab(OutputTab::Explain);
+            self.runtime_message = "EXPLAIN ANALYZE executes the statement — confirm in the Explain pane".to_owned();
+            return;
+        }
         let request_id = self.task_bridge.next_request_id();
         if self
             .task_bridge
@@ -127,6 +141,7 @@ impl DbProApp {
                 request_id,
                 connection_id,
                 sql,
+                analyze,
             })
             .is_ok()
         {
@@ -135,8 +150,14 @@ impl DbProApp {
                 doc.explain_request = Some(request_id);
                 doc.explain_plan = None;
             }
+            self.pending_explain_analyze = false;
+            self.explain_analyze_confirmed = false;
             self.set_active_query_output_tab(OutputTab::Explain);
-            self.runtime_message = "Explaining query…".to_owned();
+            self.runtime_message = if analyze {
+                "EXPLAIN ANALYZE running (query executes)…".to_owned()
+            } else {
+                "Explaining query…".to_owned()
+            };
         }
     }
 

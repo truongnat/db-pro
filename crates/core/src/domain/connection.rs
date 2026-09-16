@@ -574,11 +574,6 @@ mod tests {
         });
         let exported = ConnectionProfileExport::from_configs([config]);
         assert_eq!(exported.version, 1);
-        assert!(exported.connections[0]
-            .ssh_tunnel
-            .as_ref()
-            .unwrap()
-            .password
-            .is_none());
+        assert!(exported.connections[0].ssh_tunnel.as_ref().unwrap().password.is_none());
     }
 }

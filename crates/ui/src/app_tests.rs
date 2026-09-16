@@ -1110,14 +1110,53 @@ fn explain_query_uses_selected_connection_and_switches_output() {
         request_id,
         connection_id,
         sql,
+        analyze,
     } = command_rx.try_recv().expect("explain command expected")
     else {
         panic!("expected ExplainQuery");
     };
     assert_eq!(connection_id, "conn-1");
     assert_eq!(sql, "SELECT 1");
+    assert!(!analyze);
     assert_eq!(app.active_explain_request(), Some(request_id));
-    assert_eq!(app.output_tab, OutputTab::Explain);
+    assert_eq!(app.active_query_output_tab(), OutputTab::Explain);
+}
+
+#[test]
+fn explain_analyze_requires_explicit_confirm_before_dispatch() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connections = vec![UiConnectionSummary {
+        id: "conn-1".to_owned(),
+        name: "Local".to_owned(),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "app".to_owned(),
+        username: "postgres".to_owned(),
+        driver: "PostgreSQL".to_owned(),
+        ssl_mode: UiSslMode::Disable,
+        readonly: false,
+        tags: vec![],
+        group: None,
+        favorite: false,
+        environment: "Development".to_owned(),
+    }];
+    app.active_connection_id = Some("conn-1".to_owned());
+    app.connected = true;
+    app.set_active_query_text("SELECT 1");
+
+    app.explain_query_analyze();
+    assert!(command_rx.try_recv().is_err(), "ANALYZE must wait for confirm");
+    assert!(app.pending_explain_analyze);
+
+    app.explain_analyze_confirmed = true;
+    app.explain_query_analyze();
+    let UiCommand::ExplainQuery { analyze, sql, .. } = command_rx.try_recv().expect("analyze command") else {
+        panic!("expected ExplainQuery");
+    };
+    assert!(analyze);
+    assert_eq!(sql, "SELECT 1");
+    assert!(!app.pending_explain_analyze);
 }
 
 #[test]

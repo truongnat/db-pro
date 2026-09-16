@@ -414,7 +414,12 @@ impl QueryService {
         })
     }
 
-    pub async fn explain(&self, connection_id: &ConnectionId, sql: &str) -> Result<serde_json::Value, DbError> {
+    pub async fn explain(
+        &self,
+        connection_id: &ConnectionId,
+        sql: &str,
+        analyze: bool,
+    ) -> Result<serde_json::Value, DbError> {
         reject_multi_statement(sql)?;
 
         let handle = self
@@ -423,9 +428,15 @@ impl QueryService {
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
 
         let policy = self.safety_policy_for(connection_id).await?;
-        validate_against_policy(sql, &policy).map_err(DbError::QueryFailed)?;
+        // EXPLAIN ANALYZE executes the statement — classify through the wrapped form.
+        let policy_sql = if analyze {
+            format!("EXPLAIN ANALYZE {sql}")
+        } else {
+            sql.to_owned()
+        };
+        validate_against_policy(&policy_sql, &policy).map_err(DbError::QueryFailed)?;
 
-        self.connector.explain(&handle, sql).await
+        self.connector.explain(&handle, sql, analyze).await
     }
 
     pub async fn get_history(&self, connection_id: &ConnectionId, limit: u32) -> Result<Vec<QueryHistory>, DbError> {
@@ -892,7 +903,7 @@ mod tests {
         );
 
         let error = svc
-            .explain(&conn_id, "EXPLAIN ANALYZE DELETE FROM users WHERE id = 1")
+            .explain(&conn_id, "DELETE FROM users WHERE id = 1", true)
             .await
             .expect_err("mutating EXPLAIN ANALYZE must be rejected");
         assert!(matches!(error, DbError::QueryFailed(message) if message.contains("read-only")));

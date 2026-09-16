@@ -332,6 +332,10 @@ pub struct DbProApp {
     migration_plan: Option<db_pro_core::domain::migration::MigrationPlan>,
     migration_preview_sql: String,
     migration_confirm_destructive: bool,
+    /// EXPLAIN ANALYZE requires an explicit confirm in the Explain pane (#215).
+    pending_explain_analyze: bool,
+    explain_analyze_confirmed: bool,
+    explain_show_raw_json: bool,
     migration_fingerprint_at_preview: String,
     data_diff_target_id: String,
     data_diff_schema: String,

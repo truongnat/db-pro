@@ -192,6 +192,7 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         connection_id: String,
         sql: String,
+        analyze: bool,
     },
     Backup {
         request_id: RuntimeRequestId,
@@ -1547,11 +1548,12 @@ pub fn spawn_worker(
                     request_id,
                     connection_id,
                     sql,
+                    analyze,
                 } => {
                     let query_api = runtime.query_api();
                     let event_tx = event_tx.clone();
                     tokio::spawn(async move {
-                        let event = match query_api.explain(&connection_id, &sql).await {
+                        let event = match query_api.explain(&connection_id, &sql, analyze).await {
                             Ok(plan) => match serde_json::to_string_pretty(&plan) {
                                 Ok(plan) => RuntimeEvent::ExplainCompleted { request_id, plan },
                                 Err(error) => RuntimeEvent::Failed {

@@ -533,6 +533,7 @@ pub enum UiCommand {
         request_id: RequestId,
         connection_id: String,
         sql: String,
+        analyze: bool,
     },
     Backup {
         request_id: RequestId,

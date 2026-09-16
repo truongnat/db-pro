@@ -148,7 +148,7 @@ pub async fn explain_query(
     connection_id: String,
     sql: String,
 ) -> Result<serde_json::Value, CommandError> {
-    Ok(runtime.query_api().explain(&connection_id, &sql).await?)
+    Ok(runtime.query_api().explain(&connection_id, &sql, false).await?)
 }
 
 #[tauri::command]

@@ -770,7 +770,7 @@ async fn delete_row() {
 async fn explain_select() {
     let (connector, handle) = setup_fixture().await;
     let plan = connector
-        .explain(&handle, "SELECT * FROM categories WHERE id = 1")
+        .explain(&handle, "SELECT * FROM categories WHERE id = 1", false)
         .await
         .unwrap();
     // SQLite returns a JSON array of plan steps.

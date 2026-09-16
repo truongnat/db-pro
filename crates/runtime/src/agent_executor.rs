@@ -223,7 +223,7 @@ impl AgentToolExecutor {
         let plan = self
             .runtime
             .query_api()
-            .explain(connection_id, sql)
+            .explain(connection_id, sql, false)
             .await
             .map_err(query_error)?;
         let plan = serde_json::to_string_pretty(&plan).map_err(|error| AgentToolError::QueryFailed {

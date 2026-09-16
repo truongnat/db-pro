@@ -573,7 +573,7 @@ impl DbConnector for PostgresConnector {
         with_query_timeout(timeout, super::introspect::run_introspection(&pool)).await
     }
 
-    async fn explain(&self, handle: &ConnectionHandle, sql: &str) -> Result<serde_json::Value, DbError> {
+    async fn explain(&self, handle: &ConnectionHandle, sql: &str, analyze: bool) -> Result<serde_json::Value, DbError> {
         let pools = self.pools.read().await;
         let entry = pools
             .get(&handle.0)
@@ -586,7 +586,11 @@ impl DbConnector for PostgresConnector {
             return Err(DbError::QueryFailed("multi-statement execution is disabled".into()));
         }
 
-        let explain_sql = format!("EXPLAIN (FORMAT JSON) {sql}");
+        let explain_sql = if analyze {
+            format!("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {sql}")
+        } else {
+            format!("EXPLAIN (FORMAT JSON) {sql}")
+        };
         with_query_timeout(timeout, async {
             let row: (serde_json::Value,) = sqlx::query_as(&explain_sql)
                 .fetch_one(&pool)

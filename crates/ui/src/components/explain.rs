@@ -32,6 +32,28 @@ impl PlanNode {
         }
     }
 
+    pub fn from_query_plan(node: &db_pro_core::domain::explain_plan::QueryPlanNode) -> Self {
+        let is_bottleneck = node.findings.iter().any(|f| {
+            matches!(
+                f.severity,
+                db_pro_core::domain::explain_plan::PlanFindingSeverity::Hotspot
+            )
+        });
+        let mut ui_node = Self {
+            node_type: node.node_type.clone(),
+            relation: node.relation.clone().or_else(|| node.index_name.clone()),
+            cost_estimate: node.total_cost.unwrap_or(0.0) as f32,
+            actual_time_ms: node.actual_total_ms.unwrap_or(0.0) as f32,
+            rows_actual: node.actual_rows.or(node.plan_rows).unwrap_or(0.0).max(0.0) as usize,
+            is_bottleneck,
+            children: node.children.iter().map(Self::from_query_plan).collect(),
+        };
+        if ui_node.actual_time_ms == 0.0 {
+            ui_node.actual_time_ms = ui_node.cost_estimate;
+        }
+        ui_node
+    }
+
     pub fn relation(mut self, rel: impl Into<String>) -> Self {
         self.relation = Some(rel.into());
         self

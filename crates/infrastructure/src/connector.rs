@@ -351,9 +351,10 @@ impl DbConnector for CompositeConnector {
         &self,
         handle: &db_pro_core::domain::connection::ConnectionHandle,
         sql: &str,
+        analyze: bool,
     ) -> Result<serde_json::Value, DbError> {
         let (connector, inner) = self.clone_connection(handle)?;
-        connector.explain(&inner, sql).await
+        connector.explain(&inner, sql, analyze).await
     }
 
     fn dialect(

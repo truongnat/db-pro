@@ -336,9 +336,17 @@ impl QueryApi {
             .map_err(Into::into)
     }
 
-    pub async fn explain(&self, connection_id: &str, sql: &str) -> Result<serde_json::Value, DbErrorDto> {
+    pub async fn explain(
+        &self,
+        connection_id: &str,
+        sql: &str,
+        analyze: bool,
+    ) -> Result<serde_json::Value, DbErrorDto> {
         let connection_id = parse_connection_id(connection_id)?;
-        self.service.explain(&connection_id, sql).await.map_err(Into::into)
+        self.service
+            .explain(&connection_id, sql, analyze)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn history(&self, connection_id: &str, limit: u32) -> Result<Vec<QueryHistory>, DbErrorDto> {

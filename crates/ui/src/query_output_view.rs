@@ -342,16 +342,102 @@ impl DbProApp {
         let output_width = ui.available_width();
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width((output_width - 24.0).max(0.0));
-            if let Some(plan) = self.active_explain_plan() {
-                egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
-                    ui.label(RichText::new(plan).monospace().color(self.theme.text_secondary));
+            ui.horizontal(|ui| {
+                if compact_button(ui, "Explain", self.theme).clicked() {
+                    self.explain_query();
+                }
+                if compact_button(ui, "Explain ANALYZE…", self.theme).clicked() {
+                    self.explain_analyze_confirmed = false;
+                    self.explain_query_analyze();
+                }
+                ui.checkbox(&mut self.explain_show_raw_json, "Raw JSON");
+                if let Some(plan) = self.active_explain_plan() {
+                    if compact_button(ui, "Copy plan", self.theme).clicked() {
+                        ui.output_mut(|o| o.copied_text = plan.to_owned());
+                        self.runtime_message = "Query plan copied".to_owned();
+                    }
+                }
+            });
+            if self.pending_explain_analyze {
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(
+                        "WARNING: EXPLAIN ANALYZE executes the statement (including writes). Confirm only when you intend to run it.",
+                    )
+                    .color(self.theme.warning),
+                );
+                ui.checkbox(
+                    &mut self.explain_analyze_confirmed,
+                    "I understand this will execute the query",
+                );
+                ui.add_enabled_ui(self.explain_analyze_confirmed, |ui| {
+                    if primary_button(ui, "Run EXPLAIN ANALYZE", self.theme).clicked() {
+                        self.explain_query_analyze();
+                    }
                 });
+            }
+            ui.add_space(8.0);
+            if let Some(plan_json) = self.active_explain_plan() {
+                if self.explain_show_raw_json {
+                    egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
+                        ui.label(RichText::new(plan_json).monospace().color(self.theme.text_secondary));
+                    });
+                } else if let Some(plan) =
+                    db_pro_core::domain::explain_plan::parse_postgres_explain_str(plan_json)
+                {
+                    let mode = if plan.has_runtime_stats {
+                        "Runtime (EXPLAIN ANALYZE)"
+                    } else {
+                        "Estimate-only (EXPLAIN)"
+                    };
+                    ui.label(
+                        RichText::new(mode)
+                            .small()
+                            .strong()
+                            .color(if plan.has_runtime_stats {
+                                self.theme.warning
+                            } else {
+                                self.theme.text_muted
+                            }),
+                    );
+                    if !plan.findings.is_empty() {
+                        ui.add_space(4.0);
+                        for finding in plan.findings.iter().take(8) {
+                            let color = match finding.severity {
+                                db_pro_core::domain::explain_plan::PlanFindingSeverity::Hotspot => {
+                                    self.theme.danger
+                                }
+                                db_pro_core::domain::explain_plan::PlanFindingSeverity::Warning => {
+                                    self.theme.warning
+                                }
+                                db_pro_core::domain::explain_plan::PlanFindingSeverity::Info => {
+                                    self.theme.text_muted
+                                }
+                            };
+                            ui.label(RichText::new(format!("• {}", finding.message)).small().color(color));
+                        }
+                    }
+                    ui.add_space(6.0);
+                    let tree = crate::components::explain::PlanNode::from_query_plan(&plan.root);
+                    egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
+                        ExplainPlanTree::new(&tree, plan.display_total_ms() as f32, self.theme).show(ui);
+                    });
+                } else {
+                    ui.label(
+                        RichText::new("Could not parse plan tree — showing raw output")
+                            .small()
+                            .color(self.theme.text_muted),
+                    );
+                    egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
+                        ui.label(RichText::new(plan_json).monospace().color(self.theme.text_secondary));
+                    });
+                }
             } else {
                 empty_state(
                     ui,
                     Icon::ChartNoAxesCombined,
                     "No query plan yet",
-                    "Run Explain to inspect the query plan.",
+                    "Run Explain for an estimate, or Explain ANALYZE for measured runtime (executes the query).",
                     self.theme,
                 );
             }

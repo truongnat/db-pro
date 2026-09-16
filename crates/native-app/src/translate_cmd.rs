@@ -557,10 +557,12 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             request_id,
             connection_id,
             sql,
+            analyze,
         } => Some(RuntimeCommand::ExplainQuery {
             request_id: runtime_request_id(request_id),
             connection_id,
             sql,
+            analyze,
         }),
         UiCommand::Backup {
             request_id,

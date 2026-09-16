@@ -201,7 +201,7 @@ async fn mysql_explain_returns_json() {
         return;
     };
 
-    let plan = connector.explain(&handle, "SELECT 1").await.expect("explain");
+    let plan = connector.explain(&handle, "SELECT 1", false).await.expect("explain");
     assert!(plan.is_array());
 
     connector.disconnect(&handle).await.unwrap();
