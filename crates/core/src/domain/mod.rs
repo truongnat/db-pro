@@ -13,6 +13,7 @@ pub mod error;
 pub mod event_trigger;
 pub mod execution;
 pub mod explain_plan;
+pub mod extension;
 pub mod fdw;
 pub mod health_advisor;
 pub mod history;

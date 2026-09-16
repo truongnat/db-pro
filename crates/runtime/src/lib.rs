@@ -21,8 +21,9 @@ use std::sync::Arc;
 
 use db_pro_core::application::{
     AuditService, BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService,
-    MonitoringService, QueryService, RlsService, SchemaService, TableDataService, UserService,
+    ExtensionRegistry, MonitoringService, QueryService, RlsService, SchemaService, TableDataService, UserService,
 };
+use db_pro_core::domain::extension::example_diagnostics_extension;
 use db_pro_infrastructure::backup::pg_dump::PgDumpEngine;
 use db_pro_infrastructure::backup::sqlite_backup::SqliteBackupEngine;
 use db_pro_infrastructure::connector::CompositeConnector;
@@ -51,6 +52,7 @@ pub struct DbProRuntime {
     rls: Arc<RlsService>,
     monitoring: Arc<MonitoringService>,
     audit: Arc<AuditService>,
+    extensions: Arc<ExtensionRegistry>,
     data_diff: Arc<DataDiffService>,
     connector: Arc<CompositeConnector>,
     registry: Arc<ConnectionRegistry>,
@@ -266,6 +268,10 @@ impl DbProRuntime {
             Box::new(meta_store.clone()),
             Arc::clone(&connector) as Arc<dyn db_pro_core::ports::DbConnector>,
         ));
+        let mut extensions = ExtensionRegistry::new();
+        // Built-in example contribution; failures are isolated and must not abort boot.
+        let _ = extensions.load(example_diagnostics_extension());
+        let extensions = Arc::new(extensions);
         let data_diff = Arc::new(DataDiffService::new(
             Box::new(Arc::clone(&connector)),
             Arc::clone(&registry),
@@ -283,6 +289,7 @@ impl DbProRuntime {
             rls,
             monitoring,
             audit,
+            extensions,
             data_diff,
             connector,
             registry,
@@ -372,6 +379,10 @@ impl DbProRuntime {
 
     pub fn audit_api(&self) -> AuditApi {
         AuditApi::new(self.audit())
+    }
+
+    pub fn extensions(&self) -> Arc<ExtensionRegistry> {
+        Arc::clone(&self.extensions)
     }
 
     pub fn data_diff(&self) -> Arc<DataDiffService> {

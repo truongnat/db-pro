@@ -6,6 +6,7 @@ pub mod db_transfer;
 pub mod ddl_builder;
 pub mod delimited_transfer;
 pub mod export_service;
+pub mod extension_loader;
 pub mod json_excel_transfer;
 pub mod migration_planner;
 pub mod monitoring_service;
@@ -32,6 +33,7 @@ pub use db_transfer::{
 };
 pub use delimited_transfer::{csv_cell_from_display, DelimitedFileSource, DelimitedFileTarget, DelimitedFormat};
 pub use export_service::{ExportResult, ExportService};
+pub use extension_loader::ExtensionRegistry;
 pub use json_excel_transfer::{ExcelFileTarget, JsonlFileSource, JsonlFileTarget};
 pub use migration_planner::MigrationPlanner;
 pub use monitoring_service::MonitoringService;
