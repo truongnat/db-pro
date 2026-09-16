@@ -15,9 +15,17 @@ pub(super) const AI_PREDICTION_EGRESS_NOTE: &str =
 #[path = "query_helpers.rs"]
 mod query_helpers;
 pub(crate) use query_helpers::{
-    database_error_diagnostic, deduplicate_diagnostics, deduplicate_messages, format_query_document,
+    database_error_diagnostic, deduplicate_diagnostics, deduplicate_messages, elide_chars, format_query_document,
     prediction_replacement_range, write_file_atomically,
 };
+
+/// Fixed widths for the header connection/schema selectors. Bounding them keeps the
+/// Run/Builder/overflow actions reachable even with 60+ character names at 1280x800;
+/// full names stay on hover tooltips.
+const HEADER_CONN_COMBO_WIDTH: f32 = 170.0;
+const HEADER_SCHEMA_COMBO_WIDTH: f32 = 130.0;
+/// Character budget matching the fixed combo widths (caption font, ~5.5 px/char).
+const HEADER_COMBO_MAX_CHARS: usize = 28;
 
 impl DbProApp {
     pub(super) fn draw_query(&mut self, ui: &mut egui::Ui) {
@@ -150,7 +158,12 @@ impl DbProApp {
             }
 
             egui::ComboBox::from_id_salt(("query_header_conn", doc_idx))
-                .selected_text(RichText::new(&conn_label).font(font_caption()).color(self.theme.accent))
+                .width(HEADER_CONN_COMBO_WIDTH)
+                .selected_text(
+                    RichText::new(elide_chars(&conn_label, HEADER_COMBO_MAX_CHARS))
+                        .font(font_caption())
+                        .color(self.theme.accent),
+                )
                 .show_ui(ui, |ui| {
                     for conn in &self.connections {
                         let is_selected = current_conn_id.as_deref() == Some(conn.id.as_str());
@@ -158,7 +171,9 @@ impl DbProApp {
                             next_conn_id = Some(conn.id.clone());
                         }
                     }
-                });
+                })
+                .response
+                .on_hover_text(&conn_label);
 
             ui.label(icon_text(Icon::ChevronRight, "", self.theme.text_muted));
 
@@ -170,8 +185,9 @@ impl DbProApp {
                 vec!["public".to_string()]
             };
             egui::ComboBox::from_id_salt(("query_header_schema", doc_idx))
+                .width(HEADER_SCHEMA_COMBO_WIDTH)
                 .selected_text(
-                    RichText::new(&current_schema)
+                    RichText::new(elide_chars(&current_schema, HEADER_COMBO_MAX_CHARS))
                         .font(font_caption())
                         .color(self.theme.text_secondary),
                 )
@@ -182,7 +198,9 @@ impl DbProApp {
                             next_schema = Some(sch.clone());
                         }
                     }
-                });
+                })
+                .response
+                .on_hover_text(&current_schema);
 
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let active_doc_running = self

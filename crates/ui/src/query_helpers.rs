@@ -48,6 +48,20 @@ pub(crate) fn write_file_atomically(path: &std::path::Path, contents: &[u8]) -> 
     result
 }
 
+/// Collapse `text` to at most `max_chars` visible characters, ending in an ellipsis.
+///
+/// Used where a label has a fixed width contract (query header selectors, combo buttons)
+/// so a 60+ character connection or schema name cannot push the primary actions off-screen.
+/// Counting is by `char`, so Vietnamese/Japanese names elide the same as ASCII.
+pub(crate) fn elide_chars(text: &str, max_chars: usize) -> String {
+    if text.chars().count() <= max_chars {
+        return text.to_owned();
+    }
+    let mut elided: String = text.chars().take(max_chars.saturating_sub(1)).collect();
+    elided.push('…');
+    elided
+}
+
 pub(crate) fn deduplicate_messages(messages: Vec<String>) -> Vec<String> {
     let mut unique = Vec::with_capacity(messages.len());
     for message in messages {
@@ -183,4 +197,36 @@ pub(crate) fn prediction_replacement_range(
         .find(|(_, ch)| !ch.is_ascii_alphanumeric() && *ch != '_')
         .map_or(0, |(offset, ch)| offset + ch.len_utf8());
     (start, anchor)
+}
+
+#[cfg(test)]
+mod elide_tests {
+    use super::elide_chars;
+
+    #[test]
+    fn short_text_is_unchanged() {
+        assert_eq!(elide_chars("public", 24), "public");
+        assert_eq!(elide_chars("", 8), "");
+    }
+
+    #[test]
+    fn long_text_is_truncated_with_ellipsis() {
+        let long = "a".repeat(80);
+        let elided = elide_chars(&long, 24);
+        assert_eq!(elided.chars().count(), 24);
+        assert!(elided.ends_with('…'));
+    }
+
+    #[test]
+    fn unicode_characters_count_individually() {
+        let vietnamese = "Kết nối cơ sở dữ liệu chính của phòng kế toán".repeat(3);
+        let elided = elide_chars(&vietnamese, 12);
+        assert_eq!(elided.chars().count(), 12);
+        assert!(elided.ends_with('…'));
+
+        let japanese = "データベース接続設定".repeat(4);
+        let elided = elide_chars(&japanese, 8);
+        assert_eq!(elided.chars().count(), 8);
+        assert!(elided.ends_with('…'));
+    }
 }

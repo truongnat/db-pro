@@ -63,6 +63,8 @@ impl<'a> Dialog<'a> {
         let mut inner = None;
         let theme = self.theme;
         let width = self.width.min((screen.width() - 32.0).max(80.0));
+        // Leave room above and below for the vertical margins plus the title/close row.
+        let max_content_height = (screen.height() - 120.0).max(120.0);
         let title = self.title;
         let description = self.description;
         let open = self.open;
@@ -90,7 +92,18 @@ impl<'a> Dialog<'a> {
             .fixed_pos(origin)
             .show(ui.ctx(), |ui| {
                 ui.set_width(width);
-                let res = paint_dialog_card(ui, open, title, description, width, theme, add_contents);
+                let res = paint_dialog_card(
+                    DialogCardPaint {
+                        open,
+                        title,
+                        description,
+                        width,
+                        max_content_height,
+                        theme,
+                    },
+                    ui,
+                    add_contents,
+                );
                 let rect = ui.min_rect();
                 ui.ctx()
                     .data_mut(|d| d.insert_temp(id.with("prev_height"), rect.height()));
@@ -130,15 +143,24 @@ impl<'a> Dialog<'a> {
     }
 }
 
-fn paint_dialog_card<R>(
-    ui: &mut Ui,
-    open: &mut bool,
-    title: &str,
-    description: Option<&str>,
+struct DialogCardPaint<'a> {
+    open: &'a mut bool,
+    title: &'a str,
+    description: Option<&'a str>,
     width: f32,
+    max_content_height: f32,
     theme: DbProTheme,
-    add_contents: impl FnOnce(&mut Ui) -> R,
-) -> R {
+}
+
+fn paint_dialog_card<R>(card: DialogCardPaint<'_>, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
+    let DialogCardPaint {
+        open,
+        title,
+        description,
+        width,
+        max_content_height,
+        theme,
+    } = card;
     Frame {
         fill: theme.surface_floating,
         stroke: Stroke::new(1.0, theme.border_subtle),
@@ -165,7 +187,14 @@ fn paint_dialog_card<R>(
             });
         });
         ui.add_space(16.0);
-        add_contents(ui)
+        // Cap the card height and scroll the body so long errors, verbose validation text
+        // or large-font translations grow into a scroll instead of pushing the footer
+        // actions (and the close button's row) off-screen.
+        egui::ScrollArea::vertical()
+            .max_height(max_content_height)
+            .auto_shrink([true, true])
+            .show(ui, |ui| add_contents(ui))
+            .inner
     })
     .inner
 }
