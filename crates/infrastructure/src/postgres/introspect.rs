@@ -548,10 +548,7 @@ fn split_index_columns(col_str: &str) -> Vec<String> {
     columns
 }
 
-#[allow(clippy::type_complexity)]
-async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>, DbError> {
-    let rows = sqlx::query(
-        r#"
+const FOREIGN_KEY_SQL: &str = r#"
         SELECT
             con.conname AS constraint_name,
             nsp.nspname AS from_schema,
@@ -598,18 +595,23 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
         WHERE con.contype = 'f'
           AND nsp.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
         ORDER BY nsp.nspname, cls.relname, con.conname, src.ord
-        "#,
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(crate::error::from_sqlx)?;
+        "#;
 
-    // Group columns by constraint name to support composite foreign keys
-    let mut map: std::collections::HashMap<
-        (String, String, String, String, String),
-        (Vec<String>, Vec<String>, String, String, String, bool, bool),
-    > = std::collections::HashMap::new();
-    let mut order: Vec<(String, String, String, String, String)> = Vec::new();
+type ForeignKeyGroupKey = (String, String, String, String, String);
+type ForeignKeyGroupValue = (Vec<String>, Vec<String>, String, String, String, bool, bool);
+
+async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>, DbError> {
+    let rows = sqlx::query(FOREIGN_KEY_SQL)
+        .fetch_all(pool)
+        .await
+        .map_err(crate::error::from_sqlx)?;
+    Ok(group_foreign_key_rows(rows))
+}
+
+fn group_foreign_key_rows(rows: Vec<sqlx::postgres::PgRow>) -> Vec<ForeignKey> {
+    let mut map: std::collections::HashMap<ForeignKeyGroupKey, ForeignKeyGroupValue> =
+        std::collections::HashMap::new();
+    let mut order: Vec<ForeignKeyGroupKey> = Vec::new();
 
     for row in rows {
         let name: String = row.get("constraint_name");
@@ -649,7 +651,7 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
         to_cols.push(to_column);
     }
 
-    Ok(order
+    order
         .into_iter()
         .map(|(name, from_table, to_table, schema, to_schema)| {
             let (from_columns, to_columns, on_update, on_delete, match_option, deferrable, initially_deferred) = map
@@ -676,7 +678,7 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
                 initially_deferred,
             }
         })
-        .collect())
+        .collect()
 }
 
 async fn introspect_check_constraints(pool: &sqlx::PgPool) -> Result<Vec<CheckConstraint>, DbError> {

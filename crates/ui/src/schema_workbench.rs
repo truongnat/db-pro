@@ -154,313 +154,81 @@ impl DbProApp {
                 .small()
                 .color(self.theme.text_muted),
         );
-        ui.add_space(8.0);
-        for (mode, label) in [
-            (SchemaWorkbenchMode::Table, "Table / columns"),
-            (SchemaWorkbenchMode::Column, "Column alter"),
-            (SchemaWorkbenchMode::View, "Views"),
-            (SchemaWorkbenchMode::Index, "Indexes"),
-            (SchemaWorkbenchMode::Constraint, "Constraints"),
-            (SchemaWorkbenchMode::Trigger, "Triggers"),
-            (SchemaWorkbenchMode::Sequence, "Sequences"),
-            (SchemaWorkbenchMode::Type, "Types / enums"),
-            (SchemaWorkbenchMode::SchemaDb, "Schema / database"),
-            (SchemaWorkbenchMode::Extension, "Extensions"),
-            (SchemaWorkbenchMode::Comment, "Comments"),
-            (SchemaWorkbenchMode::Partition, "Partitions"),
-            (SchemaWorkbenchMode::Dependencies, "Dependencies"),
-            (SchemaWorkbenchMode::Docs, "Docs export"),
+        ui.add_space(10.0);
+        for (mode, icon, label) in [
+            (SchemaWorkbenchMode::Table, Icon::Table2, "Table / columns"),
+            (SchemaWorkbenchMode::Column, Icon::Columns3, "Column alter"),
+            (SchemaWorkbenchMode::View, Icon::Eye, "Views"),
+            (SchemaWorkbenchMode::Index, Icon::ListTree, "Indexes"),
+            (SchemaWorkbenchMode::Constraint, Icon::Link, "Constraints"),
+            (SchemaWorkbenchMode::Trigger, Icon::Zap, "Triggers"),
+            (SchemaWorkbenchMode::Sequence, Icon::Hash, "Sequences"),
+            (SchemaWorkbenchMode::Type, Icon::Shapes, "Types / enums"),
+            (SchemaWorkbenchMode::SchemaDb, Icon::Database, "Schema / database"),
+            (SchemaWorkbenchMode::Extension, Icon::Puzzle, "Extensions"),
+            (SchemaWorkbenchMode::Comment, Icon::MessageSquareText, "Comments"),
+            (SchemaWorkbenchMode::Partition, Icon::LayoutGrid, "Partitions"),
+            (SchemaWorkbenchMode::Dependencies, Icon::GitBranch, "Dependencies"),
+            (SchemaWorkbenchMode::Docs, Icon::FileText, "Docs export"),
         ] {
             let selected = self.schema_workbench.mode == mode;
-            if ui.selectable_label(selected, label).clicked() {
+            if sidebar_item(ui, icon, label, selected, self.theme).clicked() {
                 self.schema_workbench.mode = mode;
                 self.active_tab = WorkspaceTab::SchemaWorkbench;
             }
+            ui.add_space(2.0);
         }
     }
 
     pub(super) fn draw_schema_workbench(&mut self, ui: &mut egui::Ui) {
+        ui.set_min_width(ui.available_width());
         egui::ScrollArea::vertical()
             .id_salt("schema_workbench_scroll")
             .show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
+                ui.add_space(SPACE_SM);
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new("Schema Workbench")
+                            .font(font_subheading())
                             .strong()
                             .color(self.theme.text_primary),
                     );
-                    ui.label(
-                        RichText::new(format!("· {}", self.active_query_driver()))
-                            .small()
-                            .color(self.theme.text_muted),
+                    badge(
+                        ui,
+                        self.active_query_driver(),
+                        self.theme.accent_soft,
+                        self.theme.accent,
                     );
                 });
-                ui.add_space(8.0);
+                ui.add_space(SPACE_MD);
 
                 match self.schema_workbench.mode {
                     SchemaWorkbenchMode::Dependencies => self.draw_dependency_navigator(ui),
                     SchemaWorkbenchMode::Docs => self.draw_docs_export(ui),
                     _ => {
-                        self.draw_workbench_form(ui);
-                        ui.add_space(10.0);
-                        self.draw_workbench_preview(ui);
+                        // Cap form width so fields don't stretch across ultrawide canvases.
+                        let form_width = ui.available_width().min(720.0);
+                        ui.allocate_ui_with_layout(
+                            egui::vec2(form_width, ui.available_height()),
+                            egui::Layout::top_down(egui::Align::Min),
+                            |ui| {
+                                card_frame(self.theme).show(ui, |ui| {
+                                    ui.set_min_width(form_width - 8.0);
+                                    section_label(ui, "DEFINITION", self.theme);
+                                    ui.add_space(SPACE_SM);
+                                    self.draw_workbench_form(ui);
+                                });
+                                ui.add_space(SPACE_MD);
+                                self.draw_workbench_preview(ui);
+                            },
+                        );
                     }
                 }
             });
     }
 
-    fn draw_workbench_form(&mut self, ui: &mut egui::Ui) {
-        let mode = self.schema_workbench.mode;
-        ui.horizontal(|ui| {
-            ui.label("Schema");
-            ui.text_edit_singleline(&mut self.schema_workbench.schema);
-            ui.label("Name");
-            ui.text_edit_singleline(&mut self.schema_workbench.name);
-        });
-
-        match mode {
-            SchemaWorkbenchMode::Table => {
-                ui.label("Columns CSV (name:type[:pk|:nn]) e.g. id:INTEGER:pk,name:TEXT");
-                ui.text_edit_singleline(&mut self.schema_workbench.columns_csv);
-            }
-            SchemaWorkbenchMode::Column => {
-                ui.horizontal(|ui| {
-                    ui.label("Table");
-                    ui.text_edit_singleline(&mut self.schema_workbench.parent_table);
-                    ui.label("Type");
-                    ui.text_edit_singleline(&mut self.schema_workbench.data_type);
-                });
-                ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.schema_workbench.nullable, "Nullable");
-                    ui.checkbox(&mut self.schema_workbench.is_pk, "PK (create table only)");
-                    ui.label("Default");
-                    ui.text_edit_singleline(&mut self.schema_workbench.default_expr);
-                });
-                ui.horizontal(|ui| {
-                    ui.label("Rename to");
-                    ui.text_edit_singleline(&mut self.schema_workbench.new_name);
-                });
-            }
-            SchemaWorkbenchMode::View => {
-                ui.checkbox(&mut self.schema_workbench.materialized, "Materialized");
-                ui.label("SELECT body");
-                ui.add(
-                    egui::TextEdit::multiline(&mut self.schema_workbench.select_sql)
-                        .desired_rows(4)
-                        .desired_width(f32::INFINITY),
-                );
-            }
-            SchemaWorkbenchMode::Index => {
-                ui.horizontal(|ui| {
-                    ui.label("Table");
-                    ui.text_edit_singleline(&mut self.schema_workbench.parent_table);
-                    ui.checkbox(&mut self.schema_workbench.unique, "Unique");
-                });
-                ui.label("Columns CSV");
-                ui.text_edit_singleline(&mut self.schema_workbench.columns_csv);
-            }
-            SchemaWorkbenchMode::Constraint => {
-                ui.horizontal(|ui| {
-                    ui.label("Table");
-                    ui.text_edit_singleline(&mut self.schema_workbench.parent_table);
-                    egui::ComboBox::from_id_salt("constraint_kind")
-                        .selected_text(match self.schema_workbench.constraint_kind {
-                            ConstraintKindUi::PrimaryKey => "Primary key",
-                            ConstraintKindUi::Unique => "Unique",
-                            ConstraintKindUi::Check => "Check",
-                            ConstraintKindUi::ForeignKey => "Foreign key",
-                        })
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut self.schema_workbench.constraint_kind,
-                                ConstraintKindUi::PrimaryKey,
-                                "Primary key",
-                            );
-                            ui.selectable_value(
-                                &mut self.schema_workbench.constraint_kind,
-                                ConstraintKindUi::Unique,
-                                "Unique",
-                            );
-                            ui.selectable_value(
-                                &mut self.schema_workbench.constraint_kind,
-                                ConstraintKindUi::Check,
-                                "Check",
-                            );
-                            ui.selectable_value(
-                                &mut self.schema_workbench.constraint_kind,
-                                ConstraintKindUi::ForeignKey,
-                                "Foreign key",
-                            );
-                        });
-                });
-                ui.label("Columns CSV");
-                ui.text_edit_singleline(&mut self.schema_workbench.columns_csv);
-                if self.schema_workbench.constraint_kind == ConstraintKindUi::Check {
-                    ui.label("Expression");
-                    ui.text_edit_singleline(&mut self.schema_workbench.expression);
-                }
-                if self.schema_workbench.constraint_kind == ConstraintKindUi::ForeignKey {
-                    ui.horizontal(|ui| {
-                        ui.label("Ref schema");
-                        ui.text_edit_singleline(&mut self.schema_workbench.ref_schema);
-                        ui.label("Ref table");
-                        ui.text_edit_singleline(&mut self.schema_workbench.ref_table);
-                    });
-                    ui.label("Ref columns CSV");
-                    ui.text_edit_singleline(&mut self.schema_workbench.ref_columns_csv);
-                    ui.label("ON DELETE");
-                    ui.text_edit_singleline(&mut self.schema_workbench.on_delete);
-                }
-            }
-            SchemaWorkbenchMode::Trigger => {
-                ui.horizontal(|ui| {
-                    ui.label("Table");
-                    ui.text_edit_singleline(&mut self.schema_workbench.parent_table);
-                    ui.label("Timing");
-                    ui.text_edit_singleline(&mut self.schema_workbench.timing);
-                    ui.label("Event");
-                    ui.text_edit_singleline(&mut self.schema_workbench.event);
-                });
-                ui.label("Body");
-                ui.add(
-                    egui::TextEdit::multiline(&mut self.schema_workbench.body)
-                        .desired_rows(3)
-                        .desired_width(f32::INFINITY),
-                );
-            }
-            SchemaWorkbenchMode::Sequence => {
-                ui.horizontal(|ui| {
-                    ui.label("Start");
-                    ui.text_edit_singleline(&mut self.schema_workbench.start);
-                    ui.label("Increment");
-                    ui.text_edit_singleline(&mut self.schema_workbench.increment);
-                    ui.checkbox(&mut self.schema_workbench.cycle, "Cycle");
-                });
-            }
-            SchemaWorkbenchMode::Type => {
-                ui.label("Enum values CSV");
-                ui.text_edit_singleline(&mut self.schema_workbench.enum_values_csv);
-            }
-            SchemaWorkbenchMode::SchemaDb => {
-                ui.label("Schema name uses Name field; Database create/drop uses Name as DB name.");
-                ui.checkbox(&mut self.schema_workbench.cascade, "CASCADE on drop schema");
-            }
-            SchemaWorkbenchMode::Extension => {
-                ui.label("Extension schema (optional)");
-                ui.text_edit_singleline(&mut self.schema_workbench.extension_schema);
-                ui.checkbox(&mut self.schema_workbench.cascade, "CASCADE on drop");
-            }
-            SchemaWorkbenchMode::Comment => {
-                ui.horizontal(|ui| {
-                    ui.label("Parent (column comments)");
-                    ui.text_edit_singleline(&mut self.schema_workbench.parent_table);
-                });
-                ui.label("Comment text (empty clears)");
-                ui.text_edit_singleline(&mut self.schema_workbench.comment_text);
-            }
-            SchemaWorkbenchMode::Partition => {
-                ui.horizontal(|ui| {
-                    ui.label("Parent table");
-                    ui.text_edit_singleline(&mut self.schema_workbench.parent_table);
-                });
-                ui.label("FOR VALUES …");
-                ui.text_edit_singleline(&mut self.schema_workbench.partition_bound);
-            }
-            SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs => {}
-        }
-
-        ui.add_space(8.0);
-        ui.horizontal(|ui| {
-            if ui.button("Plan create").clicked() {
-                self.plan_workbench_action(ObjectAction::Create);
-            }
-            if ui.button("Plan drop").clicked() {
-                self.plan_workbench_action(ObjectAction::Drop);
-            }
-            if mode == SchemaWorkbenchMode::Column && ui.button("Plan rename").clicked() {
-                self.plan_workbench_action(ObjectAction::Rename);
-            }
-            if mode == SchemaWorkbenchMode::View
-                && self.schema_workbench.materialized
-                && ui.button("Plan refresh").clicked()
-            {
-                self.plan_workbench_action(ObjectAction::Refresh);
-            }
-            if mode == SchemaWorkbenchMode::Comment && ui.button("Plan comment").clicked() {
-                self.plan_workbench_action(ObjectAction::Comment);
-            }
-            if mode == SchemaWorkbenchMode::SchemaDb {
-                if ui.button("Plan create database").clicked() {
-                    self.plan_database_action(ObjectAction::Create);
-                }
-                if ui.button("Plan drop database").clicked() {
-                    self.plan_database_action(ObjectAction::Drop);
-                }
-            }
-        });
-    }
-
-    fn draw_workbench_preview(&mut self, ui: &mut egui::Ui) {
-        if let Some(err) = &self.schema_workbench.preview_error {
-            ui.colored_label(self.theme.danger, err);
-        }
-        if !self.schema_workbench.preview_safety.is_empty() {
-            ui.label(
-                RichText::new(format!(
-                    "Safety: {} · fingerprint {}",
-                    self.schema_workbench.preview_safety, self.schema_workbench.preview_fingerprint
-                ))
-                .small()
-                .color(self.theme.text_muted),
-            );
-        }
-        ui.add_space(4.0);
-        ui.label(RichText::new("Preview SQL").strong());
-        ui.add(
-            egui::TextEdit::multiline(&mut self.schema_workbench.preview_sql)
-                .desired_rows(8)
-                .desired_width(f32::INFINITY)
-                .code_editor(),
-        );
-        ui.add_space(6.0);
-        ui.horizontal(|ui| {
-            let can_apply = !self.schema_workbench.preview_sql.trim().is_empty()
-                && self.schema_workbench.preview_error.is_none()
-                && self.can_mutate_active_connection();
-            if ui.add_enabled(can_apply, egui::Button::new("Apply DDL…")).clicked() {
-                self.schema_workbench.apply_confirmation = true;
-            }
-            if ui.button("Open in SQL editor").clicked() && !self.schema_workbench.preview_sql.trim().is_empty() {
-                let sql = self.schema_workbench.preview_sql.clone();
-                self.new_query_document();
-                if let Some(doc) = self.query_documents.last_mut() {
-                    doc.set_text(sql);
-                }
-                self.active_tab = WorkspaceTab::Query;
-                self.activity = Activity::Queries;
-            }
-        });
-
-        if self.schema_workbench.apply_confirmation {
-            egui::Window::new("Confirm DDL apply")
-                .collapsible(false)
-                .resizable(false)
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .show(ui.ctx(), |ui| {
-                    ui.label("Apply the previewed DDL to the active connection?");
-                    ui.add_space(8.0);
-                    ui.horizontal(|ui| {
-                        if ui.button("Cancel").clicked() {
-                            self.schema_workbench.apply_confirmation = false;
-                        }
-                        if ui.button("Apply").clicked() {
-                            self.schema_workbench.apply_confirmation = false;
-                            self.apply_workbench_ddl();
-                        }
-                    });
-                });
-        }
-    }
+    // Form + preview: `schema_workbench_form.rs`.
 
     fn draw_dependency_navigator(&mut self, ui: &mut egui::Ui) {
         ui.label(RichText::new("Object dependencies").strong());
@@ -541,7 +309,7 @@ impl DbProApp {
         );
     }
 
-    fn collect_ui_dependency_edges(&self) -> Vec<ObjectDependencyEdge> {
+    pub(crate) fn collect_ui_dependency_edges(&self) -> Vec<ObjectDependencyEdge> {
         let mut edges = Vec::new();
         for table in &self.schema.table_details {
             for fk in &table.foreign_keys {
@@ -581,7 +349,7 @@ impl DbProApp {
         edges
     }
 
-    fn export_schema_docs_markdown(&self) -> String {
+    pub(crate) fn export_schema_docs_markdown(&self) -> String {
         let mut out = String::from("# Schema documentation\n\n");
         out.push_str(&format!("Connection driver: `{}`\n\n", self.active_query_driver()));
         out.push_str("## Tables\n\n");
@@ -608,7 +376,7 @@ impl DbProApp {
         out
     }
 
-    fn plan_workbench_action(&mut self, action: ObjectAction) {
+    pub(crate) fn plan_workbench_action(&mut self, action: ObjectAction) {
         match self.build_mutation_request(action) {
             Ok(request) => self.run_plan(request),
             Err(err) => {
@@ -618,7 +386,7 @@ impl DbProApp {
         }
     }
 
-    fn plan_database_action(&mut self, action: ObjectAction) {
+    pub(crate) fn plan_database_action(&mut self, action: ObjectAction) {
         let request = ObjectMutationRequest {
             action,
             target: Some(ObjectRef {
@@ -641,7 +409,7 @@ impl DbProApp {
         self.run_plan(request);
     }
 
-    fn run_plan(&mut self, request: ObjectMutationRequest) {
+    pub(crate) fn run_plan(&mut self, request: ObjectMutationRequest) {
         match ObjectMutationService::plan(&request, &QuoteDialect) {
             Ok(preview) => {
                 if let Some(reason) = preview.unsupported_reason {
@@ -664,7 +432,7 @@ impl DbProApp {
         }
     }
 
-    fn apply_workbench_ddl(&mut self) {
+    pub(crate) fn apply_workbench_ddl(&mut self) {
         if !self.can_mutate_active_connection() {
             self.runtime_message = "Connect with write access to apply DDL".into();
             return;
@@ -691,7 +459,7 @@ impl DbProApp {
         self.runtime_message = "Applying schema mutation…".into();
     }
 
-    fn build_mutation_request(&self, action: ObjectAction) -> Result<ObjectMutationRequest, String> {
+    pub(crate) fn build_mutation_request(&self, action: ObjectAction) -> Result<ObjectMutationRequest, String> {
         let driver = self.active_query_driver().to_owned();
         let schema = self.schema_workbench.schema.clone();
         let name = self.schema_workbench.name.clone();

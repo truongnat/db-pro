@@ -17,25 +17,32 @@ impl DbProApp {
     pub(super) fn draw_workspace_tabs(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
 
+        // Fill the CentralPanel width so the tab strip abuts the padded content box.
+        let tabs_width = ui.available_width();
+        ui.set_min_width(tabs_width);
         egui::Frame {
             fill: self.theme.surface_panel,
             inner_margin: egui::Margin {
-                left: 4.0,
-                right: 4.0,
-                top: 4.0,
+                left: SPACE_SM,
+                right: SPACE_SM,
+                top: SPACE_XS,
                 bottom: 0.0,
             },
             stroke: egui::Stroke::NONE,
             rounding: egui::Rounding::ZERO,
+            outer_margin: egui::Margin::ZERO,
             ..Default::default()
         }
         .show(ui, |ui| {
+            let inner = ui.max_rect();
+            ui.set_min_size(egui::vec2(inner.width(), ui.min_rect().height().max(28.0)));
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
 
                 egui::ScrollArea::horizontal()
                     .id_salt("workspace-tabs-scroll")
-                    .auto_shrink([false, false])
+                    // Take full width; shrink height to the tab row (not the whole panel).
+                    .auto_shrink([false, true])
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);

@@ -1,0 +1,307 @@
+//! Active query document / connection / result session helpers.
+use super::*;
+
+impl DbProApp {
+    pub(crate) fn active_query_text(&self) -> &str {
+        self.query_documents
+            .get(self.active_query_document)
+            .map(|doc| doc.text())
+            .unwrap_or("")
+    }
+
+    pub(crate) fn set_active_query_text(&mut self, text: impl Into<String>) {
+        self.cancel_prediction_for_document(self.active_query_document);
+        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            doc.set_text(text);
+        }
+    }
+
+    pub(crate) fn append_to_active_query(&mut self, text: &str) {
+        self.cancel_prediction_for_document(self.active_query_document);
+        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            let mut current = doc.text().to_owned();
+            if !current.trim().is_empty() {
+                current.push_str("\n\n");
+            }
+            current.push_str(text);
+            doc.set_text(current);
+        }
+    }
+
+    pub(crate) fn active_explain_plan(&self) -> Option<&str> {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|d| d.explain_plan.as_deref())
+    }
+
+    pub(crate) fn active_explain_request(&self) -> Option<crate::RequestId> {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|d| d.explain_request)
+    }
+
+    pub(crate) fn active_query_output_tab(&self) -> OutputTab {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|doc| self.query_output_tabs.get(&doc.id).copied())
+            .unwrap_or(OutputTab::Results)
+    }
+
+    pub(crate) fn set_active_query_output_tab(&mut self, tab: OutputTab) {
+        self.output_tab = tab;
+        if let Some(doc_id) = self
+            .query_documents
+            .get(self.active_query_document)
+            .map(|doc| doc.id.clone())
+        {
+            self.query_output_tabs.insert(doc_id, tab);
+        }
+    }
+
+    pub(crate) fn set_query_output_tab(&mut self, document_id: &str, tab: OutputTab) {
+        self.query_output_tabs.insert(document_id.to_owned(), tab);
+        if self
+            .query_documents
+            .get(self.active_query_document)
+            .is_some_and(|doc| doc.id == document_id)
+        {
+            self.output_tab = tab;
+        }
+    }
+
+    pub(crate) fn active_query_running_request(&self) -> Option<crate::RequestId> {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|doc| match doc.execution_state {
+                QueryExecutionState::Running(request_id) => Some(request_id),
+                _ => None,
+            })
+    }
+
+    pub(crate) fn switch_query_document(&mut self, index: usize) {
+        if index >= self.query_documents.len() || index == self.active_query_document {
+            return;
+        }
+        self.active_query_document = index;
+        let doc = &self.query_documents[index];
+        self.query_cursor_line = doc.cursor.line + 1;
+        self.query_cursor_column = doc.cursor.col + 1;
+        if !doc.selection.is_empty() {
+            let (start, end) = doc.selection.normalized();
+            self.selected_query = doc.buffer.slice(start, end).to_owned();
+        } else {
+            self.selected_query.clear();
+        }
+        self.runtime_message = format!("Opened {}", self.query_documents[index].title);
+    }
+
+    // Problems / diagnostics: `problems_view.rs`.
+
+    pub(crate) fn take_schema_snapshot(&mut self) {
+        let label = format!(
+            "{} @ {}",
+            self.active_connection_name(),
+            chrono::Utc::now().format("%H:%M:%S")
+        );
+        self.schema_snapshot = Some(schema_compare::UiSchemaSnapshot::from_summary(label, &self.schema));
+        self.runtime_message = "Schema snapshot captured".to_owned();
+    }
+
+    pub(crate) fn diff_against_schema_snapshot(&mut self) {
+        let Some(snapshot) = self.schema_snapshot.clone() else {
+            self.runtime_message = "Take a schema snapshot before comparing".to_owned();
+            return;
+        };
+        let current = schema_compare::UiSchemaSnapshot::from_summary("current", &self.schema);
+        self.schema_diff = Some(schema_compare::diff_snapshots(&snapshot, &current));
+        self.runtime_message = "Schema diff ready".to_owned();
+    }
+
+    pub(crate) fn handle_transaction_action(&mut self, action: crate::components::TransactionAction) {
+        match action {
+            crate::components::TransactionAction::ToggleAutoCommit(value) => {
+                if self.query_in_transaction && value {
+                    self.runtime_message = "Commit or rollback the open transaction before enabling auto-commit".into();
+                    return;
+                }
+                self.query_auto_commit = value;
+                if value {
+                    self.query_in_transaction = false;
+                    self.query_txn_pending = 0;
+                }
+            }
+            crate::components::TransactionAction::Begin => {
+                self.query_auto_commit = false;
+                self.dispatch_transaction_sql("BEGIN");
+                self.query_in_transaction = true;
+                self.query_txn_pending = 0;
+            }
+            crate::components::TransactionAction::Commit => {
+                self.dispatch_transaction_sql("COMMIT");
+                self.query_in_transaction = false;
+                self.query_txn_pending = 0;
+            }
+            crate::components::TransactionAction::Rollback => {
+                self.dispatch_transaction_sql("ROLLBACK");
+                self.query_in_transaction = false;
+                self.query_txn_pending = 0;
+            }
+        }
+    }
+
+    pub(super) fn dispatch_transaction_sql(&mut self, sql: &str) {
+        let Some(connection_id) = self.active_query_connection_id().map(str::to_owned) else {
+            self.runtime_message = "Connect before using transaction controls".into();
+            return;
+        };
+        // Reuse the normal run path so execution state / cancel / history stay consistent.
+        let version = self.active_query_buffer_version();
+        self.send_query_run(connection_id, sql.to_owned(), (0, sql.len()), version, false);
+    }
+
+    pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {
+        self.query_documents.get(self.active_query_document).and_then(|doc| {
+            doc.query_results
+                .get(doc.active_result_index)
+                .or(doc.query_result.as_ref())
+        })
+    }
+
+    pub(crate) fn active_query_result_count(&self) -> usize {
+        self.query_documents.get(self.active_query_document).map_or(0, |doc| {
+            doc.query_results
+                .len()
+                .max(if doc.query_result.is_some() { 1 } else { 0 })
+        })
+    }
+
+    pub(crate) fn set_active_query_result(&mut self, index: usize) {
+        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            if index < doc.query_results.len() && doc.active_result_index != index {
+                doc.active_result_index = index;
+                self.invalidate_grid_projection();
+            }
+        }
+    }
+
+    /// Advance the grid's projection epoch: the displayed rows are about to change.
+    ///
+    /// Called wherever the row data behind the grid is replaced or edited in place — loading query
+    /// results, loading table data, reloading one row, switching the active result set. Missing a
+    /// call does not corrupt data, but the grid would keep drawing the previous order and filter.
+    pub(crate) fn invalidate_grid_projection(&mut self) {
+        self.grid_projection_epoch = self.grid_projection_epoch.wrapping_add(1);
+    }
+
+    /// Drop the per-row identity cache and the projection built from those rows.
+    ///
+    /// The two are invalidated together on purpose: every site that changes row data needs both, and
+    /// keeping them in one call is what makes "no site was forgotten" checkable by grep.
+    pub(crate) fn invalidate_grid_row_caches(&mut self) {
+        self.grid_row_identity_cache.clear();
+        self.grid_row_identity_cache_ready = false;
+        self.invalidate_grid_projection();
+    }
+
+    /// The projection key for the result currently being drawn.
+    pub(super) fn grid_projection_key(&self, result: &UiQueryResult) -> GridProjectionKey {
+        GridProjectionKey {
+            epoch: self.grid_projection_epoch,
+            filter: self.grid_filter.clone(),
+            sort_column: self.grid_sort_column,
+            sort_desc: self.grid_sort_desc,
+            row_count: result.row_count,
+            column_count: result.columns.len(),
+        }
+    }
+
+    pub(crate) fn active_query_messages(&self) -> &[String] {
+        self.query_documents
+            .get(self.active_query_document)
+            .map(|doc| doc.query_messages.as_slice())
+            .unwrap_or(&[])
+    }
+
+    pub(crate) fn active_query_connection_id(&self) -> Option<&str> {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|doc| doc.connection_id.as_deref())
+            .or(self.active_connection_id.as_deref())
+    }
+
+    pub(crate) fn active_query_connection(&self) -> Option<&UiConnectionSummary> {
+        let conn_id = self.active_query_connection_id()?;
+        self.connections.iter().find(|c| c.id == conn_id)
+    }
+
+    /// Capabilities for the connection the active query document is bound to.
+    ///
+    /// Resolved from the bound connection, then from the active connection. It
+    /// deliberately does **not** go through `active_query_driver`, whose display fallback
+    /// is the literal `"PostgreSQL"`: answering with PostgreSQL's set while no connection
+    /// exists is the same silent-wrong-answer this lookup replaces with a named state.
+    pub(crate) fn query_capabilities(&self) -> CapabilityLookup {
+        match self.active_query_connection() {
+            Some(connection) => CapabilityLookup::for_driver_label(&connection.driver),
+            None => match self.active_connection() {
+                Some(connection) => CapabilityLookup::for_driver_label(&connection.driver),
+                None => CapabilityLookup::NoActiveConnection,
+            },
+        }
+    }
+
+    pub(crate) fn active_query_connection_name(&self) -> &str {
+        self.active_query_connection()
+            .map(|c| c.name.as_str())
+            .unwrap_or(self.connection_name.as_str())
+    }
+
+    #[allow(dead_code)] // exercised from app_tests; display helpers prefer capability lookup
+    pub(crate) fn active_query_driver(&self) -> &str {
+        self.active_query_connection()
+            .map(|c| c.driver.as_str())
+            .unwrap_or_else(|| self.active_driver())
+    }
+
+    pub(crate) fn active_query_schema(&self) -> &str {
+        self.query_documents
+            .get(self.active_query_document)
+            .and_then(|doc| doc.schema.as_deref())
+            .unwrap_or_else(|| self.active_schema())
+    }
+
+    pub(crate) fn set_document_connection(&mut self, doc_index: usize, connection_id: Option<String>) {
+        self.cancel_prediction_for_document(doc_index);
+        if let Some(doc) = self.query_documents.get_mut(doc_index) {
+            doc.connection_id = connection_id;
+            doc.completion.clear();
+        }
+    }
+
+    pub(crate) fn set_document_schema(&mut self, doc_index: usize, schema: Option<String>) {
+        self.cancel_prediction_for_document(doc_index);
+        if let Some(doc) = self.query_documents.get_mut(doc_index) {
+            doc.schema = schema;
+            doc.completion.clear();
+        }
+    }
+
+    pub(crate) fn cancel_prediction_for_document(&mut self, doc_index: usize) {
+        let request_id = self
+            .query_documents
+            .get(doc_index)
+            .and_then(|doc| doc.pending_prediction_request);
+        if let Some(request_id) = request_id {
+            self.dispatch_command(UiCommand::CancelSqlPrediction { request_id });
+        }
+        if let Some(doc) = self.query_documents.get_mut(doc_index) {
+            if request_id.is_some() {
+                doc.prediction_requests_cancelled = doc.prediction_requests_cancelled.saturating_add(1);
+            }
+            doc.invalidate_prediction();
+        }
+    }
+
+    // Query documents: `query_documents.rs`.
+    // Workspace actions: `workspace_actions.rs`.
+}

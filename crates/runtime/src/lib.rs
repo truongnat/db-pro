@@ -67,16 +67,60 @@ pub const KEYRING_SERVICE: &str = "com.dbpro.app";
 /// fallback is never enabled in a release build by default (#142).
 pub const ALLOW_FILE_SECRET_FALLBACK_ENV: &str = "DB_PRO_ALLOW_FILE_SECRET_FALLBACK";
 
+/// Skip the OS keyring entirely (session + encrypted-file stores only).
+///
+/// Local `cargo run` / debug iteration should not trigger macOS Keychain / Windows Credential
+/// Manager / Secret Service prompts. Set to `1`/`true`, or rely on debug builds / the native
+/// app's cargo-target auto-disable. Force the OS keyring back on with [`USE_KEYRING_ENV`].
+pub const DISABLE_KEYRING_ENV: &str = "DB_PRO_DISABLE_KEYRING";
+
+/// Force the OS keyring on even in debug / when [`DISABLE_KEYRING_ENV`] would otherwise apply.
+pub const USE_KEYRING_ENV: &str = "DB_PRO_USE_KEYRING";
+
 /// Whether the development encrypted-file secret fallback is enabled for this build.
 ///
 /// Debug builds keep it (development and CI have no OS keyring guarantee); a release build only
-/// enables it when [`ALLOW_FILE_SECRET_FALLBACK_ENV`] is set to `1` or `true`. The OS keyring and
-/// the in-memory session fallback are always used, in every build.
+/// enables it when [`ALLOW_FILE_SECRET_FALLBACK_ENV`] is set to `1` or `true`. When the OS
+/// keyring is disabled, the file fallback is also enabled so secrets still survive a restart
+/// during local development.
 pub fn file_secret_fallback_enabled() -> bool {
+    if !os_keyring_enabled() {
+        return true;
+    }
     file_secret_fallback_enabled_for(
         cfg!(debug_assertions),
         std::env::var(ALLOW_FILE_SECRET_FALLBACK_ENV).ok().as_deref(),
     )
+}
+
+/// Whether the OS keyring layer should be contacted for secrets.
+///
+/// Debug builds default to off (no Keychain prompts while iterating). Release builds default
+/// to on. Either side can be overridden with [`DISABLE_KEYRING_ENV`] / [`USE_KEYRING_ENV`].
+pub fn os_keyring_enabled() -> bool {
+    os_keyring_enabled_for(
+        cfg!(debug_assertions),
+        std::env::var(USE_KEYRING_ENV).ok().as_deref(),
+        std::env::var(DISABLE_KEYRING_ENV).ok().as_deref(),
+    )
+}
+
+fn env_flag_enabled(value: Option<&str>) -> bool {
+    matches!(
+        value.map(str::trim),
+        Some(v) if v == "1" || v.eq_ignore_ascii_case("true")
+    )
+}
+
+/// The decision behind [`os_keyring_enabled`], free of build/process-global state.
+fn os_keyring_enabled_for(debug_build: bool, use_keyring: Option<&str>, disable_keyring: Option<&str>) -> bool {
+    if env_flag_enabled(use_keyring) {
+        return true;
+    }
+    if env_flag_enabled(disable_keyring) {
+        return false;
+    }
+    !debug_build
 }
 
 /// The decision behind [`file_secret_fallback_enabled`], free of build/process-global state.
@@ -84,29 +128,39 @@ fn file_secret_fallback_enabled_for(debug_build: bool, opt_in: Option<&str>) -> 
     if debug_build {
         return true;
     }
-    match opt_in.map(str::trim) {
-        Some(value) => value == "1" || value.eq_ignore_ascii_case("true"),
-        None => false,
-    }
+    env_flag_enabled(opt_in)
 }
 
 /// Build the secret store used by the application.
 ///
-/// The OS keyring is the primary store in every build. The encrypted-file fallback is a
-/// development/CI affordance and is only wired in when [`file_secret_fallback_enabled`] allows it;
-/// the in-memory session fallback keeps a release build usable when the platform has no keyring
-/// item for a key (the password is then asked for again after a restart).
+/// The OS keyring is the primary store in shipping builds. Local development skips it (see
+/// [`os_keyring_enabled`]) and uses the encrypted-file + in-memory session fallbacks instead so
+/// macOS Keychain / platform credential prompts never interrupt `cargo run`.
 fn build_secret_store(secrets_dir: PathBuf) -> KeyringVault {
-    let vault = KeyringVault::new(KEYRING_SERVICE, secrets_dir).with_session_fallback();
-    if file_secret_fallback_enabled() {
-        tracing::warn!(
-            "encrypted-file secret fallback enabled (debug build or {ALLOW_FILE_SECRET_FALLBACK_ENV} set): \
-             its key is derived from the service name, so use the OS keyring outside development and CI"
-        );
-        vault.with_fallback()
+    let use_os_keyring = os_keyring_enabled();
+    let service_name = if use_os_keyring {
+        KEYRING_SERVICE.to_owned()
     } else {
-        vault
+        // Empty service name disables the keyring layer deterministically (see KeyringVault).
+        String::new()
+    };
+    let mut vault = KeyringVault::new(service_name, secrets_dir).with_session_fallback();
+    if !use_os_keyring {
+        tracing::info!(
+            "{DISABLE_KEYRING_ENV}: OS keyring disabled — secrets use the encrypted-file + session stores \
+             (set {USE_KEYRING_ENV}=1 to force the OS keyring)"
+        );
     }
+    if file_secret_fallback_enabled() {
+        if use_os_keyring {
+            tracing::warn!(
+                "encrypted-file secret fallback enabled (debug build or {ALLOW_FILE_SECRET_FALLBACK_ENV} set): \
+                 its key is derived from the service name, so use the OS keyring outside development and CI"
+            );
+        }
+        vault = vault.with_fallback();
+    }
+    vault
 }
 
 impl DbProRuntime {
@@ -332,15 +386,28 @@ mod tests {
         assert!(file_secret_fallback_enabled_for(false, Some("TRUE")));
     }
 
-    /// Regression guard for #142: the shipping wiring always selects the OS keyring and the
-    /// in-memory session fallback, and selects the encrypted-file fallback only when
-    /// [`file_secret_fallback_enabled`] allows it — so the weakly-keyed file can never be
-    /// consulted in a release build that did not opt in.
+    #[test]
+    fn os_keyring_defaults_off_in_debug_and_on_in_release() {
+        assert!(!os_keyring_enabled_for(true, None, None));
+        assert!(os_keyring_enabled_for(false, None, None));
+        assert!(!os_keyring_enabled_for(false, None, Some("1")));
+        assert!(!os_keyring_enabled_for(false, None, Some("true")));
+        assert!(os_keyring_enabled_for(true, Some("1"), None));
+        assert!(
+            os_keyring_enabled_for(true, Some("1"), Some("1")),
+            "USE_KEYRING wins over DISABLE"
+        );
+    }
+
+    /// Regression guard for #142: the shipping wiring selects the OS keyring when enabled, and
+    /// selects the encrypted-file fallback only when [`file_secret_fallback_enabled`] allows it.
     #[test]
     fn shipping_secret_store_follows_the_build_profile() {
         let secrets_dir = std::env::temp_dir().join(format!("db-pro-runtime-secrets-{}", std::process::id()));
         let vault = build_secret_store(secrets_dir);
+        let keyring_on = os_keyring_enabled();
         let opt_in = std::env::var(ALLOW_FILE_SECRET_FALLBACK_ENV).ok();
+        let expect_file = !keyring_on || file_secret_fallback_enabled_for(cfg!(debug_assertions), opt_in.as_deref());
 
         assert!(
             vault.session_fallback_enabled(),
@@ -348,18 +415,22 @@ mod tests {
         );
         assert_eq!(
             vault.file_fallback_enabled(),
-            file_secret_fallback_enabled_for(cfg!(debug_assertions), opt_in.as_deref()),
-            "the encrypted-file fallback must follow the build profile and the explicit opt-in only"
+            expect_file,
+            "the encrypted-file fallback must follow keyring-disable + build profile / opt-in"
         );
     }
 
     /// The release half of the guard above, compiled only when `debug_assertions` is off, so
     /// `cargo test -p db-pro-runtime --release` is what runs it. It fails deliberately when
-    /// [`ALLOW_FILE_SECRET_FALLBACK_ENV`] is set in the environment: the release default is what is
-    /// being pinned here, and the gate run does not set the opt-in.
+    /// [`ALLOW_FILE_SECRET_FALLBACK_ENV`] or [`DISABLE_KEYRING_ENV`] is set in the environment:
+    /// the release default is what is being pinned here, and the gate run does not set either.
     #[cfg(not(debug_assertions))]
     #[test]
     fn release_secret_store_never_selects_the_file_fallback_by_default() {
+        assert!(
+            os_keyring_enabled(),
+            "release tests must not set {DISABLE_KEYRING_ENV}; unset it to pin the shipping default"
+        );
         let secrets_dir = std::env::temp_dir().join(format!("db-pro-runtime-release-secrets-{}", std::process::id()));
         let vault = build_secret_store(secrets_dir);
 
@@ -369,7 +440,7 @@ mod tests {
         );
         assert!(
             !vault.file_fallback_enabled(),
-            "a release build without {ALLOW_FILE_SECRET_FALLBACK_ENV} must not select the encrypted-file fallback"
+            "a release build must not open secrets.json unless {ALLOW_FILE_SECRET_FALLBACK_ENV} is set"
         );
     }
 }

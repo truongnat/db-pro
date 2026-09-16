@@ -70,6 +70,34 @@ impl DbProApp {
                 action: PaletteAction::Diagram,
             },
             PaletteItem {
+                icon: Icon::Boxes,
+                title: "Schema workbench".to_owned(),
+                subtitle: "Create and alter schema objects".to_owned(),
+                shortcut: None,
+                action: PaletteAction::SchemaWorkbench,
+            },
+            PaletteItem {
+                icon: Icon::GitCompare,
+                title: "Schema compare".to_owned(),
+                subtitle: "Diff two schema snapshots".to_owned(),
+                shortcut: None,
+                action: PaletteAction::SchemaCompare,
+            },
+            PaletteItem {
+                icon: Icon::Upload,
+                title: "Transfers".to_owned(),
+                subtitle: "Import, export, and background copy jobs".to_owned(),
+                shortcut: None,
+                action: PaletteAction::Transfers,
+            },
+            PaletteItem {
+                icon: Icon::Gauge,
+                title: "Monitor".to_owned(),
+                subtitle: "Connection health and recent statements".to_owned(),
+                shortcut: None,
+                action: PaletteAction::Monitor,
+            },
+            PaletteItem {
                 icon: Icon::Settings2,
                 title: "Settings".to_owned(),
                 subtitle: "Connections, backups and restore".to_owned(),
@@ -388,6 +416,20 @@ impl DbProApp {
                 self.sidebar_open = true;
             }
             PaletteAction::Diagram => self.active_tab = WorkspaceTab::Diagram,
+            PaletteAction::SchemaWorkbench => self.open_schema_workbench(),
+            PaletteAction::SchemaCompare => {
+                self.activity = Activity::Compare;
+                self.active_tab = WorkspaceTab::SchemaCompare;
+                self.sidebar_open = true;
+            }
+            PaletteAction::Transfers => {
+                self.activity = Activity::Transfers;
+                self.sidebar_open = true;
+            }
+            PaletteAction::Monitor => {
+                self.activity = Activity::Monitor;
+                self.sidebar_open = true;
+            }
             PaletteAction::Settings => {
                 self.activity = Activity::Settings;
                 self.sidebar_open = true;

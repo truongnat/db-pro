@@ -56,7 +56,7 @@ pub(super) fn shorten_data_type(data_type: &str) -> String {
 }
 
 /// Properties for rendering an ultra-clean Codex-style tree row.
-pub(super) struct CodexTreeRow<'a> {
+pub(crate) struct CodexTreeRow<'a> {
     pub(super) depth: usize,
     pub(super) is_expandable: bool,
     pub(super) is_expanded: bool,
@@ -76,12 +76,14 @@ pub(super) struct CodexTreeRow<'a> {
 ///
 /// Returns the row response plus whether the *chevron* (not the label) was clicked,
 /// which callers use to distinguish "expand" from "activate".
-pub(super) fn draw_codex_tree_row(
+pub(crate) fn draw_codex_tree_row(
     ui: &mut egui::Ui,
     theme: &DbProTheme,
     row: CodexTreeRow<'_>,
 ) -> (egui::Response, bool) {
-    let width = ui.available_width();
+    // Prefer the full content width so hover/selection washes track sidebar resize
+    // even when ScrollArea briefly reports a content-sized available_width.
+    let width = ui.available_width().max(ui.max_rect().width());
     let (rect, response) = ui.allocate_exact_size(vec2(width, CODEX_ROW_HEIGHT), egui::Sense::click());
     let is_hovered = response.hovered();
 
@@ -233,10 +235,10 @@ fn paint_badge(
 }
 
 /// Paints the row label, followed by any inline detail text (e.g. data types),
-/// cleanly clipped so it can never overrun the trailing cluster.
+/// cleanly truncated with an ellipsis so long paths never shove the trailing badge.
 fn paint_row_label(
     painter: &egui::Painter,
-    rect: Rect,
+    _rect: Rect,
     center_y: f32,
     curr_x: f32,
     right_x: f32,
@@ -252,21 +254,23 @@ fn paint_row_label(
     };
 
     let clip_max_x = (right_x - 4.0).max(curr_x);
-    let clip_rect = Rect::from_min_max(pos2(curr_x, rect.min.y), pos2(clip_max_x, rect.max.y));
-    let label_galley = painter.layout_no_wrap(row.label.to_string(), FontId::proportional(12.5), label_color);
+    let available = (clip_max_x - curr_x).max(0.0);
+    let font = FontId::proportional(12.5);
+    let label_galley = layout_truncated_label(painter, row.label, font, label_color, available);
     let label_w = label_galley.size().x;
-    painter.with_clip_rect(clip_rect).galley(
+    painter.galley(
         pos2(curr_x, center_y - label_galley.size().y * 0.5),
         label_galley,
         label_color,
     );
 
-    // Detail text (e.g. data type: varchar, int4, timestamptz) painted inline right after label
     if let Some(detail) = row.detail_text {
         let detail_x = curr_x + label_w + 6.0;
-        if detail_x < clip_max_x {
-            let detail_galley = painter.layout_no_wrap(detail.to_string(), FontId::monospace(10.5), theme.text_muted);
-            painter.with_clip_rect(clip_rect).galley(
+        let detail_avail = (clip_max_x - detail_x).max(0.0);
+        if detail_avail > 8.0 {
+            let detail_galley =
+                layout_truncated_label(painter, detail, FontId::monospace(10.5), theme.text_muted, detail_avail);
+            painter.galley(
                 pos2(detail_x, center_y - detail_galley.size().y * 0.5),
                 detail_galley,
                 theme.text_muted,
@@ -275,10 +279,39 @@ fn paint_row_label(
     }
 }
 
+fn layout_truncated_label(
+    painter: &egui::Painter,
+    text: &str,
+    font: FontId,
+    color: Color32,
+    max_width: f32,
+) -> std::sync::Arc<egui::Galley> {
+    let full = painter.layout_no_wrap(text.to_owned(), font.clone(), color);
+    if full.size().x <= max_width || max_width <= 12.0 {
+        return full;
+    }
+
+    let chars: Vec<char> = text.chars().collect();
+    let mut lo = 0usize;
+    let mut hi = chars.len();
+    while lo < hi {
+        let mid = lo.saturating_add(hi).div_ceil(2);
+        let candidate: String = chars[..mid].iter().collect::<String>() + "…";
+        let galley = painter.layout_no_wrap(candidate, font.clone(), color);
+        if galley.size().x <= max_width {
+            lo = mid;
+        } else {
+            hi = mid.saturating_sub(1);
+        }
+    }
+    let truncated: String = chars[..lo].iter().collect::<String>() + "…";
+    painter.layout_no_wrap(truncated, font, color)
+}
+
 /// A dimmed, non-interactive hint row such as "No views in schema" or
 /// "Disconnected — click to connect". Returns the row response so callers can
 /// still make the hint clickable.
-pub(super) fn draw_hint_row(
+pub(crate) fn draw_hint_row(
     ui: &mut egui::Ui,
     theme: &DbProTheme,
     depth: usize,

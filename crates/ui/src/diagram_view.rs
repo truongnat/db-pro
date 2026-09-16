@@ -198,13 +198,13 @@ impl DbProApp {
             ui.add_space(8.0);
             badge(
                 ui,
-                &format!("{visible_tables} tables"),
+                &plural_count(visible_tables, "table", "tables"),
                 self.theme.accent_soft,
                 self.theme.accent,
             );
             badge(
                 ui,
-                &format!("{relationship_count} relationships"),
+                &plural_count(relationship_count, "relationship", "relationships"),
                 self.theme.surface_hover,
                 self.theme.text_secondary,
             );

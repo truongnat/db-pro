@@ -29,7 +29,31 @@ impl MySqlIntrospect {
             .map_err(|e| DbError::QueryFailed(format!("MySQL introspect failed: {}", e)))?;
 
         let schema = Schema { name: database.clone() };
+        let (tables, _table_names) = Self::fetch_tables(pool, &database).await?;
+        let columns = Self::fetch_columns(pool, &database).await?;
+        let primary_keys = Self::fetch_primary_keys(pool, &database).await?;
+        let indexes = Self::fetch_indexes(pool, &database).await?;
+        let foreign_keys = Self::fetch_foreign_keys(pool, &database).await?;
+        let views = Self::fetch_views(pool, &database).await?;
+        let triggers = Self::fetch_triggers(pool, &database).await?;
+        let functions = Self::fetch_functions(pool, &database).await?;
+        let check_constraints = Self::fetch_check_constraints(pool, &database).await?;
 
+        Ok(IntrospectResult {
+            schemas: vec![schema],
+            tables,
+            columns,
+            primary_keys,
+            indexes,
+            foreign_keys,
+            check_constraints,
+            views,
+            triggers,
+            functions,
+        })
+    }
+
+    async fn fetch_tables(pool: &MySqlPool, database: &str) -> Result<(Vec<Table>, Vec<String>), DbError> {
         // Tables
         //
         // `information_schema` reports its own column labels in upper case on MySQL 8, and
@@ -38,7 +62,7 @@ impl MySqlIntrospect {
         // with `ColumnNotFound("table_name")` and takes the whole introspection down.
         let table_rows =
             sqlx::query("SELECT TABLE_NAME AS table_name, TABLE_TYPE AS table_type FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?")
-                .bind(&database)
+                .bind(database)
                 .fetch_all(pool)
                 .await
                 .map_err(|e| DbError::QueryFailed(format!("MySQL introspect tables failed: {}", e)))?;
@@ -50,11 +74,15 @@ impl MySqlIntrospect {
             table_names.push(name.clone());
             tables.push(Table {
                 name,
-                schema: database.clone(),
+                schema: database.to_owned(),
                 row_count: None,
             });
         }
 
+        Ok((tables, table_names))
+    }
+
+    async fn fetch_columns(pool: &MySqlPool, database: &str) -> Result<Vec<Column>, DbError> {
         // Columns
         let column_rows = sqlx::query(
             "SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, DATA_TYPE AS data_type, \
@@ -64,7 +92,7 @@ impl MySqlIntrospect {
              WHERE TABLE_SCHEMA = ? 
              ORDER BY TABLE_NAME, ORDINAL_POSITION",
         )
-        .bind(&database)
+        .bind(database)
         .fetch_all(pool)
         .await
         .map_err(|e| DbError::QueryFailed(format!("MySQL introspect columns failed: {}", e)))?;
@@ -83,11 +111,15 @@ impl MySqlIntrospect {
                 is_generated: info::<String>(row, "extra").contains("GENERATED"),
                 collation: None,
                 table_name: info(row, "table_name"),
-                schema: database.clone(),
+                schema: database.to_owned(),
             };
             columns.push(col);
         }
 
+        Ok(columns)
+    }
+
+    async fn fetch_primary_keys(pool: &MySqlPool, database: &str) -> Result<Vec<PrimaryKey>, DbError> {
         // Primary keys
         let pk_rows = sqlx::query(
             "SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, CONSTRAINT_NAME AS constraint_name 
@@ -95,7 +127,7 @@ impl MySqlIntrospect {
              WHERE TABLE_SCHEMA = ? AND CONSTRAINT_NAME = 'PRIMARY' 
              ORDER BY TABLE_NAME, ORDINAL_POSITION",
         )
-        .bind(&database)
+        .bind(database)
         .fetch_all(pool)
         .await
         .map_err(|e| DbError::QueryFailed(format!("MySQL introspect PK failed: {}", e)))?;
@@ -112,10 +144,14 @@ impl MySqlIntrospect {
                 constraint_name: format!("{table_name}_pk"),
                 columns,
                 table_name,
-                schema: database.clone(),
+                schema: database.to_owned(),
             })
             .collect();
 
+        Ok(primary_keys)
+    }
+
+    async fn fetch_indexes(pool: &MySqlPool, database: &str) -> Result<Vec<Index>, DbError> {
         // Indexes
         let index_rows = sqlx::query(
             "SELECT TABLE_NAME AS table_name, INDEX_NAME AS index_name, COLUMN_NAME AS column_name, \
@@ -124,7 +160,7 @@ impl MySqlIntrospect {
              WHERE TABLE_SCHEMA = ? 
              ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX",
         )
-        .bind(&database)
+        .bind(database)
         .fetch_all(pool)
         .await
         .map_err(|e| DbError::QueryFailed(format!("MySQL introspect indexes failed: {}", e)))?;
@@ -160,11 +196,15 @@ impl MySqlIntrospect {
                     definition: String::new(),
                     origin: IndexOrigin::User,
                     table_name,
-                    schema: database.clone(),
+                    schema: database.to_owned(),
                 }
             })
             .collect();
 
+        Ok(indexes)
+    }
+
+    async fn fetch_foreign_keys(pool: &MySqlPool, database: &str) -> Result<Vec<ForeignKey>, DbError> {
         // Foreign keys
         let fk_rows = sqlx::query(
             "SELECT 
@@ -181,7 +221,7 @@ impl MySqlIntrospect {
              WHERE tc.TABLE_SCHEMA = ? AND tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
              ORDER BY tc.CONSTRAINT_NAME, kcu.ORDINAL_POSITION",
         )
-        .bind(&database)
+        .bind(database)
         .fetch_all(pool)
         .await
         .map_err(|e| DbError::QueryFailed(format!("MySQL introspect FK failed: {}", e)))?;
@@ -215,8 +255,8 @@ impl MySqlIntrospect {
                     from_columns: from_cols,
                     to_table,
                     to_columns: to_cols,
-                    schema: database.clone(),
-                    to_schema: database.clone(),
+                    schema: database.to_owned(),
+                    to_schema: database.to_owned(),
                     on_update,
                     on_delete,
                     match_option: String::new(),
@@ -226,11 +266,15 @@ impl MySqlIntrospect {
             )
             .collect();
 
+        Ok(foreign_keys)
+    }
+
+    async fn fetch_views(pool: &MySqlPool, database: &str) -> Result<Vec<View>, DbError> {
         // Views
         let view_rows = sqlx::query(
             "SELECT TABLE_NAME AS table_name, VIEW_DEFINITION AS view_definition FROM information_schema.VIEWS WHERE TABLE_SCHEMA = ?",
         )
-                .bind(&database)
+                .bind(database)
                 .fetch_all(pool)
                 .await
                 .map_err(|e| DbError::QueryFailed(format!("MySQL introspect views failed: {}", e)))?;
@@ -239,11 +283,15 @@ impl MySqlIntrospect {
             .iter()
             .map(|row| View {
                 name: info(row, "table_name"),
-                schema: database.clone(),
+                schema: database.to_owned(),
                 definition: info::<Option<String>>(row, "view_definition").unwrap_or_default(),
             })
             .collect();
 
+        Ok(views)
+    }
+
+    async fn fetch_triggers(pool: &MySqlPool, database: &str) -> Result<Vec<Trigger>, DbError> {
         // Triggers
         let trigger_rows = sqlx::query(
             "SELECT TRIGGER_NAME AS trigger_name, EVENT_MANIPULATION AS event_manipulation, \
@@ -252,7 +300,7 @@ impl MySqlIntrospect {
              FROM information_schema.TRIGGERS 
              WHERE TRIGGER_SCHEMA = ?",
         )
-        .bind(&database)
+        .bind(database)
         .fetch_all(pool)
         .await
         .map_err(|e| DbError::QueryFailed(format!("MySQL introspect triggers failed: {}", e)))?;
@@ -262,7 +310,7 @@ impl MySqlIntrospect {
             .map(|row| Trigger {
                 name: info(row, "trigger_name"),
                 table_name: info(row, "event_object_table"),
-                schema: database.clone(),
+                schema: database.to_owned(),
                 timing: info(row, "action_timing"),
                 event: info(row, "event_manipulation"),
                 definition: info::<Option<String>>(row, "action_statement").unwrap_or_default(),
@@ -271,6 +319,10 @@ impl MySqlIntrospect {
             })
             .collect();
 
+        Ok(triggers)
+    }
+
+    async fn fetch_functions(pool: &MySqlPool, database: &str) -> Result<Vec<Function>, DbError> {
         // Functions
         let routine_rows = sqlx::query(
             "SELECT ROUTINE_NAME AS routine_name, ROUTINE_TYPE AS routine_type, DATA_TYPE AS data_type, \
@@ -278,7 +330,7 @@ impl MySqlIntrospect {
              FROM information_schema.ROUTINES 
              WHERE ROUTINE_SCHEMA = ?",
         )
-        .bind(&database)
+        .bind(database)
         .fetch_all(pool)
         .await
         .map_err(|e| DbError::QueryFailed(format!("MySQL introspect routines failed: {}", e)))?;
@@ -287,7 +339,7 @@ impl MySqlIntrospect {
             .iter()
             .map(|row| Function {
                 name: info(row, "routine_name"),
-                schema: database.clone(),
+                schema: database.to_owned(),
                 routine_type: info(row, "routine_type"),
                 data_type: info::<Option<String>>(row, "data_type").unwrap_or_default(),
                 definition: info::<Option<String>>(row, "routine_definition").unwrap_or_default(),
@@ -298,6 +350,10 @@ impl MySqlIntrospect {
             })
             .collect();
 
+        Ok(functions)
+    }
+
+    async fn fetch_check_constraints(pool: &MySqlPool, database: &str) -> Result<Vec<CheckConstraint>, DbError> {
         // CHECK constraints (MySQL 8.0.16+)
         let check_rows = sqlx::query(
             "SELECT
@@ -312,7 +368,7 @@ impl MySqlIntrospect {
                AND tc.CONSTRAINT_TYPE = 'CHECK'
              ORDER BY tc.TABLE_NAME, tc.CONSTRAINT_NAME",
         )
-        .bind(&database)
+        .bind(database)
         .fetch_all(pool)
         .await
         .map_err(|e| DbError::QueryFailed(format!("MySQL introspect CHECK failed: {}", e)))?;
@@ -322,22 +378,12 @@ impl MySqlIntrospect {
             .map(|row| CheckConstraint {
                 name: info(row, "constraint_name"),
                 table_name: info(row, "table_name"),
-                schema: database.clone(),
+                schema: database.to_owned(),
                 definition: info::<Option<String>>(row, "check_clause").unwrap_or_default(),
             })
             .collect();
 
-        Ok(IntrospectResult {
-            schemas: vec![schema],
-            tables,
-            columns,
-            primary_keys,
-            indexes,
-            foreign_keys,
-            check_constraints,
-            views,
-            triggers,
-            functions,
-        })
+        Ok(check_constraints)
     }
+
 }

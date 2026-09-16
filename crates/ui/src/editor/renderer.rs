@@ -122,6 +122,9 @@ impl<'a> SqlEditor<'a> {
 
     pub fn show(mut self, ui: &mut Ui, available_size: Vec2) -> SqlEditorResponse {
         let mut response = SqlEditorResponse::default();
+        // Stable id tied to the interactive rect so focus survives across frames.
+        // Requesting focus on a bare `make_persistent_id` that never registers as a
+        // widget makes egui clear focus on the next pass (click → one-frame focus → dead).
         let editor_id = ui.make_persistent_id(self.id_salt);
 
         let font_id = FontId::monospace(self.font_size);
@@ -134,13 +137,13 @@ impl<'a> SqlEditor<'a> {
         let content_width = gutter_w + PADDING_LEFT + (max_line_chars as f32) * char_width + 80.0;
         let content_height = (line_count as f32) * line_height + 60.0;
 
-        let (rect, resp) = ui.allocate_exact_size(available_size, Sense::click_and_drag());
-        let focused = ui.memory(|m| m.has_focus(editor_id)) || resp.has_focus();
-        response.focused = focused;
-
+        let (rect, _) = ui.allocate_exact_size(available_size, Sense::hover());
+        let resp = ui.interact(rect, editor_id, Sense::click_and_drag());
         if resp.clicked() {
-            ui.memory_mut(|m| m.request_focus(editor_id));
+            resp.request_focus();
         }
+        let focused = resp.has_focus();
+        response.focused = focused;
 
         // Background Outer Frame
         ui.painter()
@@ -1081,105 +1084,5 @@ impl<'a> SqlEditor<'a> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_caret_geometry_calculation() {
-        let text = "SELECT 1;\nSELECT 2;\nSELECT 3;";
-        let buf = TextBuffer::from_string(text);
-        let mut buf_clone = buf.clone();
-        let mut cursor = CursorPosition::default();
-        let mut selection = SelectionRange::default();
-        let theme = DbProTheme::dark();
-        let editor = SqlEditor::new(
-            &mut buf_clone,
-            &mut cursor,
-            &mut selection,
-            SqlDialect::Postgres,
-            &theme,
-            &[],
-            None,
-            "test",
-        );
-
-        let origin = Pos2::new(100.0, 50.0);
-        let gutter_w = 40.0;
-        let line_height = 20.0;
-        let char_width = 8.0;
-
-        // Line 1 ("SELECT 2;"), col 3 ("E") -> offset = 10 + 3 = 13
-        let screen_pos = editor.offset_to_screen_pos(&buf, 13, origin, gutter_w, line_height, char_width);
-        assert_eq!(screen_pos.x, 100.0 + 40.0 + PADDING_LEFT + 3.0 * 8.0);
-        assert_eq!(screen_pos.y, 50.0 + PADDING_TOP + 1.0 * 20.0);
-
-        let resolved_offset = editor.screen_pos_to_offset(&buf, screen_pos, origin, gutter_w, line_height, char_width);
-        assert_eq!(resolved_offset, 13);
-    }
-
-    #[test]
-    fn test_ime_text_input_multilingual() {
-        let mut buf = TextBuffer::from_string("SELECT ");
-        let mut cursor = CursorPosition::from_offset(&buf, 7);
-        let mut selection = SelectionRange::default();
-        let theme = DbProTheme::dark();
-        let mut editor = SqlEditor::new(
-            &mut buf,
-            &mut cursor,
-            &mut selection,
-            SqlDialect::Postgres,
-            &theme,
-            &[],
-            None,
-            "test",
-        );
-
-        // Simulate IME committing Vietnamese text
-        editor.type_text("'tiếng Việt có dấu'");
-        assert_eq!(editor.buffer.text(), "SELECT 'tiếng Việt có dấu'");
-        assert_eq!(editor.cursor.offset, "SELECT 'tiếng Việt có dấu'".len());
-
-        // Test undo
-        assert!(editor.buffer.undo().is_some());
-        assert_eq!(editor.buffer.text(), "SELECT ");
-    }
-
-    #[test]
-    fn test_ime_commit_event_in_editor_widget() {
-        let ctx = egui::Context::default();
-        let mut buf = TextBuffer::from_string("SELECT ");
-        let mut cursor = CursorPosition::from_offset(&buf, 7);
-        let mut selection = SelectionRange::default();
-        let theme = DbProTheme::dark();
-
-        let raw_input = egui::RawInput {
-            focused: true,
-            events: vec![egui::Event::Ime(egui::ImeEvent::Commit("tên_cột".to_owned()))],
-            ..Default::default()
-        };
-
-        let _ = ctx.run(raw_input, |ctx| {
-            egui::CentralPanel::default().show(ctx, |ui| {
-                let editor_id = ui.make_persistent_id("test-ime");
-                ui.memory_mut(|m| m.request_focus(editor_id));
-
-                let editor = SqlEditor::new(
-                    &mut buf,
-                    &mut cursor,
-                    &mut selection,
-                    SqlDialect::Postgres,
-                    &theme,
-                    &[],
-                    None,
-                    "test-ime",
-                );
-                let resp = editor.show(ui, egui::vec2(600.0, 400.0));
-                assert!(resp.changed);
-                assert!(resp.wants_completion);
-            });
-        });
-
-        assert_eq!(buf.text(), "SELECT tên_cột");
-        assert_eq!(cursor.offset, "SELECT tên_cột".len());
-    }
-}
+#[path = "renderer_tests.rs"]
+mod tests;

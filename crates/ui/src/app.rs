@@ -2,23 +2,20 @@ use crate::components::*;
 use crate::editor::PredictionMode;
 use crate::tokens::*;
 use crate::{
-    activity_bar_frame, agent_message_frame, badge, card_frame, compact_button, compact_button_with_icon,
-    compact_icon_button, compact_icon_button_enabled, danger_button, editor_frame, empty_state, ghost_button_with_icon,
-    grid_frame, icon_button, icon_text, input, input_full_width, menu_button_with_icon, panel_frame,
-    primary_button_with_icon, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame,
-    toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock, ColumnWritePolicy,
-    DbProTheme, GridProjectionCache, GridProjectionKey, OfflineAgentProvider, TaskBridge, UiCell, UiCommand,
-    UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput,
+    agent_message_frame, badge, card_frame, compact_button, compact_button_with_icon, compact_icon_button,
+    compact_icon_button_enabled, danger_button, editor_frame, empty_state, ghost_button_with_icon, grid_frame,
+    icon_button, icon_text, input, input_full_width, menu_button_with_icon, panel_frame, primary_button,
+    primary_button_with_icon, secondary_button, secondary_button_with_icon, section_label, sidebar_frame, sidebar_item,
+    tab_frame, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock,
+    ColumnWritePolicy, DbProTheme, GridProjectionCache, GridProjectionKey, OfflineAgentProvider, TaskBridge, UiCell,
+    UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput,
     UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary,
     UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableDataFilter, UiTableDataSort,
     UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 use bigdecimal::BigDecimal;
-use db_pro_core::domain::capabilities::DatabaseCapabilities;
-use db_pro_core::domain::connection::DriverType;
-use eframe::egui::{self, Align, Color32, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
+use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
 use lucide_icons::Icon;
-use serde::{Deserialize, Serialize};
 use sqlparser::dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect};
 use sqlparser::parser::Parser;
 use std::collections::{BTreeSet, HashMap};
@@ -26,36 +23,6 @@ use std::time::{Duration, Instant};
 
 use agent_workflow_state::AgentUiSession;
 use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum PendingNavigationAction {
-    OpenTable(String),
-    ChangeSchema(String),
-    ChangeConnection(String),
-    CloseWorkspace(WorkspaceTab),
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct PersistedGridColumnLayout {
-    column_name: String,
-    width: f32,
-    order: usize,
-    hidden: bool,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-struct PersistedGridLayout {
-    /// Stable layout entries. The legacy fields below are read only for
-    /// migration and are intentionally not written after the next save.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    columns: Vec<PersistedGridColumnLayout>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    widths: Vec<f32>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    order: Vec<usize>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    hidden_columns: Vec<usize>,
-}
 
 #[path = "agent_state.rs"]
 mod agent_state;
@@ -65,6 +32,8 @@ mod agent_view;
 mod agent_workflow_state;
 #[path = "app_state.rs"]
 mod app_state;
+#[path = "app_types.rs"]
+mod app_types;
 #[path = "change_set.rs"]
 mod change_set;
 #[path = "component_gallery_view.rs"]
@@ -73,10 +42,18 @@ mod component_gallery_view;
 mod connection_view;
 
 pub use component_gallery_view::ComponentGalleryState;
+#[path = "capability_lookup.rs"]
+mod capability_lookup;
 #[path = "diagram_view.rs"]
 mod diagram_view;
 #[path = "events.rs"]
 mod events;
+#[path = "events_query.rs"]
+mod events_query;
+#[path = "events_query_dispatch.rs"]
+mod events_query_dispatch;
+#[path = "explorer_connections.rs"]
+mod explorer_connections;
 #[path = "explorer_details.rs"]
 mod explorer_details;
 #[path = "explorer_folders.rs"]
@@ -85,16 +62,55 @@ mod explorer_folders;
 mod explorer_tree;
 #[path = "explorer_view.rs"]
 mod explorer_view;
+#[path = "files_activity_view.rs"]
+mod files_activity_view;
 #[path = "ide_workspace.rs"]
 mod ide_workspace;
 #[path = "navigation_view.rs"]
 mod navigation_view;
+#[path = "settings_view.rs"]
+mod settings_view;
+pub(crate) use capability_lookup::CapabilityLookup;
+#[path = "activity_bar_view.rs"]
+mod activity_bar_view;
+#[path = "connection_status.rs"]
+mod connection_status;
+#[path = "grid_layout.rs"]
+mod grid_layout;
 #[path = "palette_view.rs"]
 mod palette_view;
+#[path = "problems_view.rs"]
+mod problems_view;
+#[path = "query_dialogs_view.rs"]
+mod query_dialogs_view;
+#[path = "query_documents.rs"]
+mod query_documents;
+#[path = "query_editor_panel.rs"]
+mod query_editor_panel;
+#[path = "query_output_view.rs"]
+mod query_output_view;
+#[path = "query_session.rs"]
+mod query_session;
 #[path = "query_view.rs"]
 mod query_view;
+#[path = "result_grid_cell.rs"]
+mod result_grid_cell;
+#[path = "result_grid_clipboard.rs"]
+mod result_grid_clipboard;
+#[path = "result_grid_edit.rs"]
+mod result_grid_edit;
+#[path = "result_grid_header.rs"]
+mod result_grid_header;
+#[path = "result_grid_selection.rs"]
+mod result_grid_selection;
 #[path = "result_grid_view.rs"]
 pub(crate) mod result_grid_view;
+#[path = "sidebar_activities_view.rs"]
+mod sidebar_activities_view;
+#[path = "sidebar_view.rs"]
+mod sidebar_view;
+#[path = "workspace_actions.rs"]
+mod workspace_actions;
 pub(crate) use result_grid_view::GridSelectionCache;
 #[path = "schema_compare.rs"]
 mod schema_compare;
@@ -102,6 +118,8 @@ mod schema_compare;
 mod schema_object_view;
 #[path = "schema_workbench.rs"]
 mod schema_workbench;
+#[path = "schema_workbench_form.rs"]
+mod schema_workbench_form;
 #[path = "table_ddl_view.rs"]
 mod table_ddl_view;
 #[path = "table_editor_view.rs"]
@@ -117,229 +135,8 @@ mod tests;
 mod workspace_view;
 
 pub use crate::query::{QueryDocument, QueryExecutionState};
+pub(crate) use app_types::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Activity {
-    Explorer,
-    Files,
-    Queries,
-    Data,
-    History,
-    Transfers,
-    Monitor,
-    Settings,
-    Diagram,
-    Schema,
-    Compare,
-    Problems,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-enum FilesPanelTab {
-    #[default]
-    Tree,
-    Search,
-    Migrations,
-    Tasks,
-    Graph,
-}
-
-/// Cap for MRU recent-table entries persisted for Data Activity (#212).
-const RECENT_TABLES_MAX: usize = 20;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-enum ProblemsSeverityFilter {
-    #[default]
-    All,
-    Errors,
-    Warnings,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-enum ProblemsSourceFilter {
-    #[default]
-    All,
-    Parser,
-    Lint,
-    Delimiter,
-    Database,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ProblemEntry {
-    document_index: usize,
-    document_id: String,
-    document_title: String,
-    diagnostic_index: usize,
-    severity: crate::editor::DiagnosticSeverity,
-    source: crate::editor::DiagnosticSource,
-    message: String,
-    line: usize,
-    column: usize,
-    range: (usize, usize),
-    has_fix: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum PaletteMode {
-    QuickOpen,
-    Commands,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum PaletteAction {
-    Welcome,
-    Query,
-    History,
-    Data,
-    Files,
-    Settings,
-    Diagram,
-    Agent,
-    Problems,
-    Diagnostics,
-    NewQuery,
-    NewConnection,
-    RefreshSchema,
-    ToggleExplorer,
-    OpenTable(String),
-    OpenSavedQuery(String),
-    OpenHistoryEntry(usize),
-    OpenWorkspaceFile(String),
-    OpenWorkspaceFolder,
-    CloseWorkspaceFolder,
-    InsertColumn(String),
-    InsertSnippet(usize),
-    ExplainQuery,
-    ExportResults,
-    RunQuery,
-    FormatSql,
-    SwitchConnection(String),
-    TogglePinTable(String),
-    ComponentGallery,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct PaletteItem {
-    icon: Icon,
-    title: String,
-    subtitle: String,
-    shortcut: Option<String>,
-    action: PaletteAction,
-}
-
-const AGENT_SIDEBAR_COLLAPSE_WIDTH: f32 = 1180.0;
-const SIDEBAR_MIN_WIDTH: f32 = 220.0;
-const SIDEBAR_MAX_WIDTH: f32 = 380.0;
-const AGENT_MIN_WIDTH: f32 = 300.0;
-const AGENT_MAX_WIDTH: f32 = 480.0;
-const OUTPUT_MIN_HEIGHT: f32 = 120.0;
-const OUTPUT_MAX_HEIGHT: f32 = 420.0;
-const TABLE_PAGE_SIZE: u64 = 100;
-const GRID_ROW_NUMBER_WIDTH: f32 = 48.0;
-pub use crate::diagram::{ErGraph, ErSpatialIndex};
-
-const EXPLORER_MAX_TABLES: usize = 100;
-
-fn matches_diagram_search(table: &UiTableSummary, query: &str) -> bool {
-    table.name.to_ascii_lowercase().contains(query)
-        || table.schema.to_ascii_lowercase().contains(query)
-        || table
-            .columns
-            .iter()
-            .any(|column| column.name.to_ascii_lowercase().contains(query))
-}
-
-fn ddl_impact_summary(sql: &str, target: &str) -> String {
-    let verb = sql.split_whitespace().next().unwrap_or_default().to_ascii_lowercase();
-    match verb.as_str() {
-        "drop" => format!("Drop {target}: removes the database object; recovery requires a backup."),
-        "truncate" => format!("Truncate {target}: removes its rows; recovery requires a backup."),
-        "alter" => format!("Alter {target}: changes its structure and may invalidate dependent queries."),
-        "create" => format!("Create {target}: adds or rebuilds a database object."),
-        _ => format!("This SQL changes {target}; review the preview and keep a backup before applying."),
-    }
-}
-
-fn matches_explorer_table(table: &str, query: &str) -> bool {
-    query.is_empty() || table.to_ascii_lowercase().contains(query)
-}
-
-fn filtered_explorer_tables(tables: &[String], query: &str) -> (usize, Vec<String>) {
-    let matching_count = tables
-        .iter()
-        .filter(|table| matches_explorer_table(table, query))
-        .count();
-    let visible_tables = tables
-        .iter()
-        .filter(|table| matches_explorer_table(table, query))
-        .take(EXPLORER_MAX_TABLES)
-        .cloned()
-        .collect();
-    (matching_count, visible_tables)
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum WorkspaceTab {
-    Welcome,
-    Query,
-    Table,
-    SchemaObject,
-    Diagram,
-    SchemaWorkbench,
-    SchemaCompare,
-    ComponentGallery,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TableView {
-    Structure,
-    Data,
-    Indexes,
-    Relations,
-    Constraints,
-    Dependencies,
-    Ddl,
-    Profile,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct ColumnProfile {
-    pub name: String,
-    pub data_type: String,
-    pub null_count: usize,
-    pub null_rate: f64,
-    pub distinct_count: usize,
-    pub distinct_rate: f64,
-    pub min: Option<String>,
-    pub max: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum OutputTab {
-    Results,
-    Chart,
-    Messages,
-    Explain,
-    History,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum SchemaObjectSelection {
-    View(String),
-    Trigger(String),
-    Function { name: String, identity_arguments: String },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SchemaObjectView {
-    Definition,
-    Data,
-}
-
-/// First native vertical slice: visual shell, navigation, workspace tabs and
-/// a functional query surface. The task bridge is backend-agnostic so the
-/// same UI can run with the native runtime adapter or in an isolated preview.
 pub struct DbProApp {
     theme: DbProTheme,
     dark_mode: bool,
@@ -566,7 +363,9 @@ pub struct DbProApp {
 
 impl eframe::App for DbProApp {
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-        self.theme.surface_app.to_normalized_gamma_f32()
+        // Match panel chrome so any sub-pixel seam between SidePanel and
+        // CentralPanel cannot flash as a white strip (surface_app).
+        self.theme.surface_panel.to_normalized_gamma_f32()
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
@@ -679,8 +478,18 @@ impl eframe::App for DbProApp {
         }
 
         egui::CentralPanel::default()
-            .frame(egui::Frame::none().fill(self.theme.surface_app))
+            .frame(egui::Frame {
+                // Match sidebar fill; inset content so the workspace isn't flush
+                // against the sidebar divider or the window/agent edge.
+                fill: self.theme.surface_panel,
+                inner_margin: egui::Margin::symmetric(SPACE_MD, 0.0),
+                outer_margin: egui::Margin::ZERO,
+                stroke: egui::Stroke::NONE,
+                ..Default::default()
+            })
             .show(ctx, |ui| {
+                ui.set_min_size(ui.available_size());
+                ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
                 self.draw_workspace(ui);
             });
 
@@ -707,152 +516,10 @@ impl eframe::App for DbProApp {
     }
 }
 
-/// The answer to "which capabilities apply to this connection?".
-///
-/// Deliberately not an `Option`: a lookup that cannot answer has to say *why*, so a
-/// driver the UI has no provider entry for is a named state instead of `None`. `None`
-/// conflated two different situations — "no connection is active" and "this driver has
-/// no capability entry" — and a consumer could not tell them apart from a genuine
-/// "the provider supports nothing".
-#[derive(Debug, Clone)]
-pub(crate) enum CapabilityLookup {
-    /// The driver is a provider this build ships; the set is authoritative.
-    Supported(DatabaseCapabilities),
-    /// Nothing is connected, so there is nothing to resolve.
-    NoActiveConnection,
-    /// The connection names a driver with no provider entry in this build.
-    UnsupportedDriver { driver: String },
-}
-
-impl CapabilityLookup {
-    /// Resolves a connection's driver label to the provider entry the UI dispatches on.
-    ///
-    /// The label is what the runtime stored on the connection summary (`PostgreSQL`,
-    /// `SQLite`, `MySQL`). A label with no entry resolves to
-    /// [`CapabilityLookup::UnsupportedDriver`] rather than to a default driver's set.
-    pub(crate) fn for_driver_label(label: &str) -> Self {
-        let driver = if label.eq_ignore_ascii_case("sqlite") {
-            Some(DriverType::SQLite)
-        } else if label.eq_ignore_ascii_case("postgresql") || label.eq_ignore_ascii_case("postgres") {
-            Some(DriverType::Postgres)
-        } else if label.eq_ignore_ascii_case("mysql") {
-            Some(DriverType::Mysql)
-        } else {
-            None
-        };
-        match driver {
-            Some(driver) => Self::Supported(DatabaseCapabilities::for_driver(driver)),
-            None => Self::UnsupportedDriver {
-                driver: label.to_owned(),
-            },
-        }
-    }
-
-    /// The resolved capability set, when one exists.
-    pub(crate) fn resolved(&self) -> Option<&DatabaseCapabilities> {
-        match self {
-            Self::Supported(capabilities) => Some(capabilities),
-            Self::NoActiveConnection | Self::UnsupportedDriver { .. } => None,
-        }
-    }
-
-    /// Whether the resolved set satisfies `predicate`.
-    ///
-    /// A lookup that could not answer never satisfies a capability predicate, so an
-    /// unresolved driver never enables a capability-gated action.
-    pub(crate) fn allows(&self, predicate: impl FnOnce(&DatabaseCapabilities) -> bool) -> bool {
-        self.resolved().is_some_and(predicate)
-    }
-
-    /// A user-facing reason this lookup has no capability set, if it has none.
-    pub(crate) fn unavailable_reason(&self) -> Option<String> {
-        match self {
-            Self::Supported(_) => None,
-            Self::NoActiveConnection => Some("no database connection is active".to_owned()),
-            Self::UnsupportedDriver { driver } => Some(format!("{driver} has no provider entry in this build")),
-        }
-    }
-
-    /// Capability-level reason a feature is unavailable for the resolved driver.
-    ///
-    /// Lookup-level failures (no connection / unknown driver) take precedence so
-    /// consumers can use one call site for gated actions.
-    pub(crate) fn feature_limitation(
-        &self,
-        feature: db_pro_core::domain::capabilities::CapabilityFeature,
-    ) -> Option<String> {
-        if let Some(reason) = self.unavailable_reason() {
-            return Some(reason);
-        }
-        self.resolved()
-            .and_then(|caps| caps.limitation(feature))
-            .map(str::to_owned)
-    }
-}
+// CapabilityLookup lives in `capability_lookup.rs`.
 
 impl DbProApp {
-    fn grid_layout_scope(&self) -> Option<String> {
-        Some(format!(
-            "{}|{}|{}",
-            self.active_connection_id.as_deref()?,
-            self.active_schema(),
-            self.selected_table.as_deref()?
-        ))
-    }
-
-    fn persist_current_grid_layout(&mut self) {
-        let Some(scope) = self.grid_layout_scope() else {
-            return;
-        };
-        let column_names = self.grid_layout_column_names.clone();
-        if column_names.len() != self.grid_column_order.len() {
-            return;
-        }
-        let columns = self
-            .grid_column_order
-            .iter()
-            .enumerate()
-            .filter_map(|(order, &column_index)| {
-                let column_name = column_names.get(column_index)?.clone();
-                Some(PersistedGridColumnLayout {
-                    column_name,
-                    width: self.grid_column_widths.get(column_index).copied().unwrap_or(180.0),
-                    order,
-                    hidden: self.grid_hidden_columns.contains(&column_index),
-                })
-            })
-            .collect();
-        self.grid_layout_preferences.insert(
-            scope,
-            PersistedGridLayout {
-                columns,
-                ..PersistedGridLayout::default()
-            },
-        );
-    }
-
-    pub(crate) fn restore_grid_layout_for_active_table(&mut self) {
-        let Some(scope) = self.grid_layout_scope() else {
-            return;
-        };
-        let Some(layout) = self.grid_layout_preferences.get(&scope).cloned() else {
-            self.grid_column_widths.clear();
-            self.grid_column_order.clear();
-            self.grid_hidden_columns.clear();
-            self.grid_pending_named_layout = None;
-            self.grid_legacy_layout_pending = false;
-            self.grid_columns_user_resized = false;
-            return;
-        };
-        self.grid_layout_column_names.clear();
-        self.grid_pending_named_layout = (!layout.columns.is_empty()).then_some(layout.columns);
-        self.grid_legacy_layout_pending = self.grid_pending_named_layout.is_none()
-            && (!layout.widths.is_empty() || !layout.order.is_empty() || !layout.hidden_columns.is_empty());
-        self.grid_column_widths = layout.widths;
-        self.grid_column_order = layout.order;
-        self.grid_hidden_columns = layout.hidden_columns.into_iter().collect();
-        self.grid_columns_user_resized = !self.grid_column_widths.is_empty();
-    }
+    // Grid layout: `grid_layout.rs`.
 
     pub(crate) fn show_toast_error(&mut self, message: impl Into<String>) {
         self.toasts
@@ -893,1220 +560,12 @@ impl DbProApp {
         let _ = self.task_bridge.send(command);
     }
 
-    fn active_connection(&self) -> Option<&UiConnectionSummary> {
-        self.connections
-            .iter()
-            .find(|connection| Some(connection.id.as_str()) == self.active_connection_id.as_deref())
-    }
+    // Connection/status: `connection_status.rs`.
 
-    fn active_connection_name(&self) -> &str {
-        self.active_connection()
-            .map(|connection| connection.name.as_str())
-            .unwrap_or(self.connection_name.as_str())
-    }
+    // Query session helpers: `query_session.rs`.
 
-    fn active_driver(&self) -> &str {
-        self.active_connection()
-            .map(|connection| connection.driver.as_str())
-            .unwrap_or("PostgreSQL")
-    }
-
-    pub(crate) fn active_capabilities(&self) -> CapabilityLookup {
-        match self.active_connection() {
-            Some(connection) => CapabilityLookup::for_driver_label(&connection.driver),
-            None => CapabilityLookup::NoActiveConnection,
-        }
-    }
-
-    fn active_schema(&self) -> &str {
-        self.selected_schema
-            .as_deref()
-            .or_else(|| self.schema.schemas.first().map(String::as_str))
-            .unwrap_or_else(|| {
-                if self.active_driver().eq_ignore_ascii_case("sqlite") {
-                    "main"
-                } else {
-                    "public"
-                }
-            })
-    }
-
-    fn active_schema_table_names(&self) -> Vec<String> {
-        if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
-            return self.schema.tables.clone();
-        }
-        self.schema
-            .table_details
-            .iter()
-            .filter(|table| table.schema == self.active_schema())
-            .map(|table| table.name.clone())
-            .collect()
-    }
-
-    fn active_schema_column_names(&self) -> Vec<String> {
-        if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
-            return self.schema.columns.clone();
-        }
-        self.schema
-            .table_details
-            .iter()
-            .filter(|table| table.schema == self.active_schema())
-            .flat_map(|table| table.columns.iter().map(|column| column.name.clone()))
-            .collect()
-    }
-
-    fn has_runtime_error(&self) -> bool {
-        self.runtime_message.contains("failed")
-            || self.runtime_message.contains("Failed")
-            || self.runtime_message.contains("error")
-            || self.runtime_message.contains("Error")
-    }
-
-    /// The status-bar message and the colour it is rendered in.
-    ///
-    /// Every `runtime_message` is user-facing: a refusal such as "Connect with write
-    /// access to delete rows" is the *only* feedback a blocked action produces, so the
-    /// bar shows any non-empty message and reserves the danger colour for errors.
-    /// Restricting the bar to strings containing "failed"/"error" hid every refusal,
-    /// gate and informational message the app sets.
-    fn runtime_status(&self) -> Option<(String, Color32)> {
-        if self.runtime_message.trim().is_empty() {
-            None
-        } else if self.has_runtime_error() {
-            Some((self.runtime_message.clone(), self.theme.danger))
-        } else {
-            Some((self.runtime_message.clone(), self.theme.text_secondary))
-        }
-    }
-
-    fn statusbar_state(&self) -> (Icon, Color32, &'static str) {
-        if self.connected && self.active_connection_id.is_some() {
-            return (Icon::CircleCheck, self.theme.success, "Connected");
-        }
-        if self.runtime_message.starts_with("Connecting") {
-            return (Icon::Circle, self.theme.accent, "Connecting…");
-        }
-        if self.has_runtime_error() {
-            return (Icon::TriangleAlert, self.theme.danger, "Runtime error");
-        }
-        (Icon::Circle, self.theme.warning, "Not connected")
-    }
-
-    pub(super) fn shows_editor_status(&self) -> bool {
-        self.active_tab == WorkspaceTab::Query
-    }
-
-    pub(super) fn statusbar_context_label(&self) -> &'static str {
-        match self.active_tab {
-            WorkspaceTab::Welcome => "Workspace",
-            WorkspaceTab::Query => "SQL Editor",
-            WorkspaceTab::Table => match self.table_view {
-                TableView::Structure => "Table Structure",
-                TableView::Data => "Data Editor",
-                TableView::Profile => "Column Profile",
-                TableView::Indexes => "Table Indexes",
-                TableView::Relations => "Table Relations",
-                TableView::Constraints => "Table Constraints",
-                TableView::Dependencies => "Table Dependencies",
-                TableView::Ddl => "Table DDL",
-            },
-            WorkspaceTab::SchemaObject => "Schema Object",
-            WorkspaceTab::Diagram => "ER Diagram",
-            WorkspaceTab::SchemaWorkbench => "Schema Workbench",
-            WorkspaceTab::SchemaCompare => "Schema Compare",
-            WorkspaceTab::ComponentGallery => "Component Gallery",
-        }
-    }
-
-    fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, Color32) {
-        let is_active = self.active_connection_id.as_deref() == Some(connection.id.as_str());
-        let is_connected = is_active && self.connected;
-        let is_failed = self.failed_connection_ids.contains(&connection.id);
-        let icon = if is_connected {
-            Icon::CircleCheck
-        } else if is_failed {
-            Icon::AlertCircle
-        } else {
-            Icon::Circle
-        };
-        let color = if is_connected && connection.readonly {
-            self.theme.warning
-        } else if is_connected {
-            self.theme.success
-        } else if is_failed {
-            self.theme.danger
-        } else if is_active {
-            self.theme.accent
-        } else {
-            self.theme.text_muted
-        };
-        (icon, color)
-    }
-
-    pub(crate) fn active_query_text(&self) -> &str {
-        self.query_documents
-            .get(self.active_query_document)
-            .map(|doc| doc.text())
-            .unwrap_or("")
-    }
-
-    pub(crate) fn set_active_query_text(&mut self, text: impl Into<String>) {
-        self.cancel_prediction_for_document(self.active_query_document);
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
-            doc.set_text(text);
-        }
-    }
-
-    pub(crate) fn append_to_active_query(&mut self, text: &str) {
-        self.cancel_prediction_for_document(self.active_query_document);
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
-            let mut current = doc.text().to_owned();
-            if !current.trim().is_empty() {
-                current.push_str("\n\n");
-            }
-            current.push_str(text);
-            doc.set_text(current);
-        }
-    }
-
-    pub(crate) fn active_explain_plan(&self) -> Option<&str> {
-        self.query_documents
-            .get(self.active_query_document)
-            .and_then(|d| d.explain_plan.as_deref())
-    }
-
-    pub(crate) fn active_explain_request(&self) -> Option<crate::RequestId> {
-        self.query_documents
-            .get(self.active_query_document)
-            .and_then(|d| d.explain_request)
-    }
-
-    pub(crate) fn active_query_output_tab(&self) -> OutputTab {
-        self.query_documents
-            .get(self.active_query_document)
-            .and_then(|doc| self.query_output_tabs.get(&doc.id).copied())
-            .unwrap_or(OutputTab::Results)
-    }
-
-    pub(crate) fn set_active_query_output_tab(&mut self, tab: OutputTab) {
-        self.output_tab = tab;
-        if let Some(doc_id) = self
-            .query_documents
-            .get(self.active_query_document)
-            .map(|doc| doc.id.clone())
-        {
-            self.query_output_tabs.insert(doc_id, tab);
-        }
-    }
-
-    pub(crate) fn set_query_output_tab(&mut self, document_id: &str, tab: OutputTab) {
-        self.query_output_tabs.insert(document_id.to_owned(), tab);
-        if self
-            .query_documents
-            .get(self.active_query_document)
-            .is_some_and(|doc| doc.id == document_id)
-        {
-            self.output_tab = tab;
-        }
-    }
-
-    pub(crate) fn active_query_running_request(&self) -> Option<crate::RequestId> {
-        self.query_documents
-            .get(self.active_query_document)
-            .and_then(|doc| match doc.execution_state {
-                QueryExecutionState::Running(request_id) => Some(request_id),
-                _ => None,
-            })
-    }
-
-    pub(crate) fn switch_query_document(&mut self, index: usize) {
-        if index >= self.query_documents.len() || index == self.active_query_document {
-            return;
-        }
-        self.active_query_document = index;
-        let doc = &self.query_documents[index];
-        self.query_cursor_line = doc.cursor.line + 1;
-        self.query_cursor_column = doc.cursor.col + 1;
-        if !doc.selection.is_empty() {
-            let (start, end) = doc.selection.normalized();
-            self.selected_query = doc.buffer.slice(start, end).to_owned();
-        } else {
-            self.selected_query.clear();
-        }
-        self.runtime_message = format!("Opened {}", self.query_documents[index].title);
-    }
-
-    pub(crate) fn collect_problem_entries(&self) -> Vec<ProblemEntry> {
-        let mut entries = Vec::new();
-        for (document_index, document) in self.query_documents.iter().enumerate() {
-            for (diagnostic_index, diagnostic) in document.diagnostics.iter().enumerate() {
-                let cursor = crate::editor::CursorPosition::from_offset(&document.buffer, diagnostic.range.0);
-                entries.push(ProblemEntry {
-                    document_index,
-                    document_id: document.id.clone(),
-                    document_title: document.title.clone(),
-                    diagnostic_index,
-                    severity: diagnostic.severity,
-                    source: diagnostic.source,
-                    message: diagnostic.message.clone(),
-                    line: cursor.line,
-                    column: cursor.col,
-                    range: diagnostic.range,
-                    has_fix: diagnostic.fix.is_some(),
-                });
-            }
-        }
-        for (index, diagnostic) in self.ide_workspace.workspace_diagnostics.iter().enumerate() {
-            let severity = match diagnostic.severity {
-                ide_workspace::WorkspaceDiagnosticSeverity::Error => crate::editor::DiagnosticSeverity::Error,
-                ide_workspace::WorkspaceDiagnosticSeverity::Warning => crate::editor::DiagnosticSeverity::Warning,
-            };
-            entries.push(ProblemEntry {
-                document_index: usize::MAX,
-                document_id: format!("{}::{}", diagnostic.root_id, diagnostic.relative_path),
-                document_title: diagnostic.relative_path.clone(),
-                diagnostic_index: index,
-                severity,
-                source: crate::editor::DiagnosticSource::Lint,
-                message: diagnostic.message.clone(),
-                line: diagnostic.line.saturating_sub(1),
-                column: 0,
-                range: (0, 0),
-                has_fix: false,
-            });
-        }
-        entries
-    }
-
-    fn problem_matches_filters(&self, entry: &ProblemEntry) -> bool {
-        let severity_ok = match self.problems_severity_filter {
-            ProblemsSeverityFilter::All => true,
-            ProblemsSeverityFilter::Errors => entry.severity == crate::editor::DiagnosticSeverity::Error,
-            ProblemsSeverityFilter::Warnings => entry.severity == crate::editor::DiagnosticSeverity::Warning,
-        };
-        let source_ok = match self.problems_source_filter {
-            ProblemsSourceFilter::All => true,
-            ProblemsSourceFilter::Parser => entry.source == crate::editor::DiagnosticSource::Parser,
-            ProblemsSourceFilter::Lint => entry.source == crate::editor::DiagnosticSource::Lint,
-            ProblemsSourceFilter::Delimiter => entry.source == crate::editor::DiagnosticSource::Delimiter,
-            ProblemsSourceFilter::Database => entry.source == crate::editor::DiagnosticSource::Database,
-        };
-        severity_ok && source_ok
-    }
-
-    pub(crate) fn navigate_to_problem(&mut self, document_index: usize, diagnostic_index: usize) {
-        let Some(document) = self.query_documents.get(document_index) else {
-            return;
-        };
-        let Some(diagnostic) = document.diagnostics.get(diagnostic_index).cloned() else {
-            return;
-        };
-        if document_index != self.active_query_document {
-            self.active_query_document = document_index;
-        }
-        let doc = &mut self.query_documents[document_index];
-        let start = diagnostic.range.0.min(doc.buffer.len_bytes());
-        let end = diagnostic.range.1.min(doc.buffer.len_bytes()).max(start);
-        doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, start);
-        doc.selection = crate::editor::SelectionRange::new(start, end);
-        self.query_cursor_line = doc.cursor.line + 1;
-        self.query_cursor_column = doc.cursor.col + 1;
-        if start != end {
-            self.selected_query = doc.buffer.slice(start, end).to_owned();
-        } else {
-            self.selected_query.clear();
-        }
-        self.activity = Activity::Problems;
-        self.sidebar_open = true;
-        self.active_tab = WorkspaceTab::Query;
-        self.problems_selected = Some((doc.id.clone(), diagnostic_index));
-        self.runtime_message = format!("Jumped to problem in {}", doc.title);
-    }
-
-    /// Apply a deterministic lint quick-fix as one undoable buffer replace (#257).
-    pub(crate) fn apply_problem_fix(&mut self, document_index: usize, diagnostic_index: usize) -> bool {
-        let Some(document) = self.query_documents.get(document_index) else {
-            return false;
-        };
-        let Some(diagnostic) = document.diagnostics.get(diagnostic_index).cloned() else {
-            return false;
-        };
-        let Some(fix) = diagnostic.fix.clone() else {
-            return false;
-        };
-        let (start, end) = diagnostic.range;
-        if start > end || end > document.buffer.len_bytes() {
-            return false;
-        }
-        if document_index != self.active_query_document {
-            self.active_query_document = document_index;
-        }
-        let doc = &mut self.query_documents[document_index];
-        doc.buffer.replace(start, end, &fix);
-        let new_end = start + fix.len();
-        doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, new_end);
-        doc.selection = crate::editor::SelectionRange::new(start, new_end);
-        doc.dirty = true;
-        self.query_cursor_line = doc.cursor.line + 1;
-        self.query_cursor_column = doc.cursor.col + 1;
-        let title = doc.title.clone();
-        self.active_tab = WorkspaceTab::Query;
-        self.refresh_diagnostics();
-        self.runtime_message = format!("Applied quick fix in {title}");
-        true
-    }
-
-    pub(crate) fn build_diagnostics_summary(&self) -> db_pro_core::domain::diagnostics::DiagnosticsSummary {
-        use db_pro_core::domain::diagnostics::{
-            redact_sensitive, ConnectionDiagnostic, DiagnosticsSummary, DriverDiagnostic, ErrorDiagnostic,
-        };
-
-        let mut summary = DiagnosticsSummary::placeholder();
-        summary.connections = self
-            .connections
-            .iter()
-            .map(|connection| ConnectionDiagnostic {
-                connection_id: connection.id.clone(),
-                driver: connection.driver.clone(),
-                host: redact_sensitive(&connection.host),
-                port: connection.port,
-                database: connection.database.clone(),
-                username: connection.username.clone(),
-                has_password: true,
-                has_ssh: false,
-                is_connected: self.active_connection_id.as_deref() == Some(connection.id.as_str()),
-            })
-            .collect();
-        summary.runtime.active_connections = usize::from(self.active_connection_id.is_some());
-        summary.runtime.active_executions = self
-            .query_documents
-            .iter()
-            .filter(|doc| {
-                matches!(
-                    doc.execution_state,
-                    crate::query::query_document::QueryExecutionState::Running(_)
-                )
-            })
-            .count();
-        if self.has_runtime_error() && !self.runtime_message.trim().is_empty() {
-            summary.recent_errors.push(ErrorDiagnostic {
-                timestamp: chrono::Utc::now().to_rfc3339(),
-                error_code: "UI_RUNTIME".to_owned(),
-                message: redact_sensitive(&self.runtime_message),
-                module: "ui".to_owned(),
-            });
-        }
-        // Ensure MySQL stays listed alongside PG/SQLite in the shipped driver set.
-        if !summary.drivers.iter().any(|d| d.driver == "mysql") {
-            summary.drivers.push(DriverDiagnostic {
-                driver: "mysql".into(),
-                available: true,
-            });
-        }
-        summary
-    }
-
-    /// Write a redacted diagnostics support bundle next to the backup path or temp (#214).
-    pub(crate) fn export_support_bundle(&self) -> Result<String, String> {
-        let summary = self.build_diagnostics_summary();
-        let json = serde_json::to_string_pretty(&summary).map_err(|e| e.to_string())?;
-        let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
-        let file_name = format!("db-pro-support-bundle-{stamp}.json");
-        let path = if !self.backup_output_path.trim().is_empty() {
-            let parent = std::path::Path::new(self.backup_output_path.trim())
-                .parent()
-                .unwrap_or_else(|| std::path::Path::new("."));
-            parent.join(&file_name)
-        } else {
-            std::env::temp_dir().join(&file_name)
-        };
-        std::fs::write(&path, json.as_bytes()).map_err(|e| e.to_string())?;
-        Ok(path.display().to_string())
-    }
-
-    pub(crate) fn take_schema_snapshot(&mut self) {
-        let label = format!(
-            "{} @ {}",
-            self.active_connection_name(),
-            chrono::Utc::now().format("%H:%M:%S")
-        );
-        self.schema_snapshot = Some(schema_compare::UiSchemaSnapshot::from_summary(label, &self.schema));
-        self.runtime_message = "Schema snapshot captured".to_owned();
-    }
-
-    pub(crate) fn diff_against_schema_snapshot(&mut self) {
-        let Some(snapshot) = self.schema_snapshot.clone() else {
-            self.runtime_message = "Take a schema snapshot before comparing".to_owned();
-            return;
-        };
-        let current = schema_compare::UiSchemaSnapshot::from_summary("current", &self.schema);
-        self.schema_diff = Some(schema_compare::diff_snapshots(&snapshot, &current));
-        self.runtime_message = "Schema diff ready".to_owned();
-    }
-
-    pub(crate) fn handle_transaction_action(&mut self, action: crate::components::TransactionAction) {
-        match action {
-            crate::components::TransactionAction::ToggleAutoCommit(value) => {
-                if self.query_in_transaction && value {
-                    self.runtime_message = "Commit or rollback the open transaction before enabling auto-commit".into();
-                    return;
-                }
-                self.query_auto_commit = value;
-                if value {
-                    self.query_in_transaction = false;
-                    self.query_txn_pending = 0;
-                }
-            }
-            crate::components::TransactionAction::Begin => {
-                self.query_auto_commit = false;
-                self.dispatch_transaction_sql("BEGIN");
-                self.query_in_transaction = true;
-                self.query_txn_pending = 0;
-            }
-            crate::components::TransactionAction::Commit => {
-                self.dispatch_transaction_sql("COMMIT");
-                self.query_in_transaction = false;
-                self.query_txn_pending = 0;
-            }
-            crate::components::TransactionAction::Rollback => {
-                self.dispatch_transaction_sql("ROLLBACK");
-                self.query_in_transaction = false;
-                self.query_txn_pending = 0;
-            }
-        }
-    }
-
-    fn dispatch_transaction_sql(&mut self, sql: &str) {
-        let Some(connection_id) = self.active_query_connection_id().map(str::to_owned) else {
-            self.runtime_message = "Connect before using transaction controls".into();
-            return;
-        };
-        // Reuse the normal run path so execution state / cancel / history stay consistent.
-        let version = self.active_query_buffer_version();
-        self.send_query_run(connection_id, sql.to_owned(), (0, sql.len()), version, false);
-    }
-
-    pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {
-        self.query_documents.get(self.active_query_document).and_then(|doc| {
-            doc.query_results
-                .get(doc.active_result_index)
-                .or(doc.query_result.as_ref())
-        })
-    }
-
-    pub(crate) fn active_query_result_count(&self) -> usize {
-        self.query_documents.get(self.active_query_document).map_or(0, |doc| {
-            doc.query_results
-                .len()
-                .max(if doc.query_result.is_some() { 1 } else { 0 })
-        })
-    }
-
-    pub(crate) fn set_active_query_result(&mut self, index: usize) {
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
-            if index < doc.query_results.len() && doc.active_result_index != index {
-                doc.active_result_index = index;
-                self.invalidate_grid_projection();
-            }
-        }
-    }
-
-    /// Advance the grid's projection epoch: the displayed rows are about to change.
-    ///
-    /// Called wherever the row data behind the grid is replaced or edited in place — loading query
-    /// results, loading table data, reloading one row, switching the active result set. Missing a
-    /// call does not corrupt data, but the grid would keep drawing the previous order and filter.
-    pub(crate) fn invalidate_grid_projection(&mut self) {
-        self.grid_projection_epoch = self.grid_projection_epoch.wrapping_add(1);
-    }
-
-    /// Drop the per-row identity cache and the projection built from those rows.
-    ///
-    /// The two are invalidated together on purpose: every site that changes row data needs both, and
-    /// keeping them in one call is what makes "no site was forgotten" checkable by grep.
-    pub(crate) fn invalidate_grid_row_caches(&mut self) {
-        self.grid_row_identity_cache.clear();
-        self.grid_row_identity_cache_ready = false;
-        self.invalidate_grid_projection();
-    }
-
-    /// The projection key for the result currently being drawn.
-    fn grid_projection_key(&self, result: &UiQueryResult) -> GridProjectionKey {
-        GridProjectionKey {
-            epoch: self.grid_projection_epoch,
-            filter: self.grid_filter.clone(),
-            sort_column: self.grid_sort_column,
-            sort_desc: self.grid_sort_desc,
-            row_count: result.row_count,
-            column_count: result.columns.len(),
-        }
-    }
-
-    pub(crate) fn active_query_messages(&self) -> &[String] {
-        self.query_documents
-            .get(self.active_query_document)
-            .map(|doc| doc.query_messages.as_slice())
-            .unwrap_or(&[])
-    }
-
-    pub(crate) fn active_query_connection_id(&self) -> Option<&str> {
-        self.query_documents
-            .get(self.active_query_document)
-            .and_then(|doc| doc.connection_id.as_deref())
-            .or(self.active_connection_id.as_deref())
-    }
-
-    pub(crate) fn active_query_connection(&self) -> Option<&UiConnectionSummary> {
-        let conn_id = self.active_query_connection_id()?;
-        self.connections.iter().find(|c| c.id == conn_id)
-    }
-
-    /// Capabilities for the connection the active query document is bound to.
-    ///
-    /// Resolved from the bound connection, then from the active connection. It
-    /// deliberately does **not** go through `active_query_driver`, whose display fallback
-    /// is the literal `"PostgreSQL"`: answering with PostgreSQL's set while no connection
-    /// exists is the same silent-wrong-answer this lookup replaces with a named state.
-    pub(crate) fn query_capabilities(&self) -> CapabilityLookup {
-        match self.active_query_connection() {
-            Some(connection) => CapabilityLookup::for_driver_label(&connection.driver),
-            None => match self.active_connection() {
-                Some(connection) => CapabilityLookup::for_driver_label(&connection.driver),
-                None => CapabilityLookup::NoActiveConnection,
-            },
-        }
-    }
-
-    pub(crate) fn active_query_connection_name(&self) -> &str {
-        self.active_query_connection()
-            .map(|c| c.name.as_str())
-            .unwrap_or(self.connection_name.as_str())
-    }
-
-    #[allow(dead_code)] // exercised from app_tests; display helpers prefer capability lookup
-    pub(crate) fn active_query_driver(&self) -> &str {
-        self.active_query_connection()
-            .map(|c| c.driver.as_str())
-            .unwrap_or_else(|| self.active_driver())
-    }
-
-    pub(crate) fn active_query_schema(&self) -> &str {
-        self.query_documents
-            .get(self.active_query_document)
-            .and_then(|doc| doc.schema.as_deref())
-            .unwrap_or_else(|| self.active_schema())
-    }
-
-    pub(crate) fn set_document_connection(&mut self, doc_index: usize, connection_id: Option<String>) {
-        self.cancel_prediction_for_document(doc_index);
-        if let Some(doc) = self.query_documents.get_mut(doc_index) {
-            doc.connection_id = connection_id;
-            doc.completion.clear();
-        }
-    }
-
-    pub(crate) fn set_document_schema(&mut self, doc_index: usize, schema: Option<String>) {
-        self.cancel_prediction_for_document(doc_index);
-        if let Some(doc) = self.query_documents.get_mut(doc_index) {
-            doc.schema = schema;
-            doc.completion.clear();
-        }
-    }
-
-    pub(crate) fn cancel_prediction_for_document(&mut self, doc_index: usize) {
-        let request_id = self
-            .query_documents
-            .get(doc_index)
-            .and_then(|doc| doc.pending_prediction_request);
-        if let Some(request_id) = request_id {
-            self.dispatch_command(UiCommand::CancelSqlPrediction { request_id });
-        }
-        if let Some(doc) = self.query_documents.get_mut(doc_index) {
-            if request_id.is_some() {
-                doc.prediction_requests_cancelled = doc.prediction_requests_cancelled.saturating_add(1);
-            }
-            doc.invalidate_prediction();
-        }
-    }
-
-    pub(crate) fn new_query_document(&mut self) {
-        let (document_id, index) = self.next_query_document_identity();
-        let mut doc = QueryDocument::new(document_id, format!("Query {index}"), String::new());
-        doc.connection_id = self.active_connection_id.clone();
-        doc.schema = Some(self.active_schema().to_owned());
-        self.query_documents.push(doc);
-        self.active_query_document = self.query_documents.len() - 1;
-        self.reset_query_cursor();
-        self.activity = Activity::Queries;
-        self.sidebar_open = true;
-        self.active_tab = WorkspaceTab::Query;
-    }
-
-    /// Disposable scratch tab for throwaway SQL (#211).
-    pub(crate) fn new_scratch_query_document(&mut self) {
-        let (document_id, index) = self.next_query_document_identity();
-        let mut doc = QueryDocument::new(document_id, format!("Scratch {index}"), String::new());
-        doc.connection_id = self.active_connection_id.clone();
-        doc.schema = Some(self.active_schema().to_owned());
-        self.query_documents.push(doc);
-        self.active_query_document = self.query_documents.len() - 1;
-        self.reset_query_cursor();
-        self.activity = Activity::Queries;
-        self.sidebar_open = true;
-        self.active_tab = WorkspaceTab::Query;
-        self.runtime_message = "Opened scratch SQL tab".to_owned();
-    }
-
-    /// Cycle a simple numbered rename for the open query tab (#211).
-    pub(crate) fn rename_query_document_inline(&mut self, index: usize) {
-        let Some(doc) = self.query_documents.get_mut(index) else {
-            return;
-        };
-        if doc.title.starts_with("Scratch ") {
-            let n = doc.title.trim_start_matches("Scratch ").parse::<u32>().unwrap_or(1);
-            doc.title = format!("Scratch {}", n + 1);
-        } else if let Some(rest) = doc.title.strip_prefix("Query ") {
-            let n = rest.parse::<u32>().unwrap_or(1);
-            doc.title = format!("Query {}", n + 1);
-        } else {
-            doc.title = format!("{} (renamed)", doc.title);
-        }
-        self.runtime_message = format!("Renamed tab to {}", doc.title);
-    }
-
-    pub(crate) fn open_history_entry(&mut self, entry: &UiQueryHistoryEntry, run: bool) {
-        let (document_id, document_number) = self.next_query_document_identity();
-        let mut document = QueryDocument::new(document_id, format!("History {document_number}"), entry.sql.clone());
-        document.connection_id = entry.connection_id.clone();
-        document.schema = entry.schema.clone();
-        self.query_documents.push(document);
-        self.active_query_document = self.query_documents.len() - 1;
-        self.activity = Activity::Queries;
-        self.active_tab = WorkspaceTab::Query;
-        self.reset_query_cursor();
-        if run {
-            self.dispatch_query();
-        }
-    }
-
-    pub(crate) fn close_query_document(&mut self, index: usize) {
-        if index >= self.query_documents.len() {
-            return;
-        }
-
-        self.cancel_prediction_for_document(index);
-        let closed_id = self.query_documents[index].id.clone();
-        let closed_title = self.query_documents[index].title.clone();
-        if let Some(run_id) = self
-            .agent_sessions
-            .get(&closed_id)
-            .and_then(|session| session.active_run_id)
-        {
-            let request_id = self.task_bridge.next_request_id();
-            let _ = self.task_bridge.send(UiCommand::CancelAgentRun { request_id, run_id });
-        }
-        self.agent_sessions.remove(&closed_id);
-        self.query_documents.remove(index);
-        self.query_output_tabs.remove(&closed_id);
-
-        if self.query_documents.is_empty() {
-            self.active_query_document = 0;
-            self.reset_query_cursor();
-            if self.active_tab == WorkspaceTab::Query {
-                self.activate_fallback_workspace_tab();
-            }
-            self.runtime_message = format!("Closed {closed_title}");
-            return;
-        }
-
-        if self.active_query_document > index {
-            self.active_query_document -= 1;
-        } else if self.active_query_document == index {
-            self.active_query_document = self.active_query_document.min(self.query_documents.len() - 1);
-        }
-        let doc = &self.query_documents[self.active_query_document];
-        self.query_cursor_line = doc.cursor.line + 1;
-        self.query_cursor_column = doc.cursor.col + 1;
-        if !doc.selection.is_empty() {
-            let (start, end) = doc.selection.normalized();
-            self.selected_query = doc.buffer.slice(start, end).to_owned();
-        } else {
-            self.selected_query.clear();
-        }
-        self.runtime_message = format!("Closed {}", self.query_documents[self.active_query_document].title);
-    }
-
-    fn next_query_document_identity(&self) -> (String, usize) {
-        let mut number = self.query_documents.len().saturating_add(1);
-        loop {
-            let id = format!("query-{number}");
-            if !self.query_documents.iter().any(|document| document.id == id) {
-                return (id, number);
-            }
-            number = number.saturating_add(1);
-        }
-    }
-
-    pub(crate) fn request_close_query_document(&mut self, index: usize) {
-        if self.query_documents.get(index).is_some_and(QueryDocument::is_dirty) {
-            self.pending_dirty_close = Some(index);
-        } else {
-            self.close_query_document(index);
-        }
-    }
-
-    fn reset_query_cursor(&mut self) {
-        self.query_cursor_line = 1;
-        self.query_cursor_column = 1;
-    }
-
-    pub(crate) fn duplicate_query_document(&mut self, index: usize) {
-        if index >= self.query_documents.len() {
-            return;
-        }
-        let src = &self.query_documents[index];
-        let title = format!("{} (Copy)", src.title);
-        let content = src.text().to_owned();
-        let (document_id, _) = self.next_query_document_identity();
-        let mut new_doc = QueryDocument::new(document_id, title, content);
-        new_doc.connection_id = src.connection_id.clone().or_else(|| self.active_connection_id.clone());
-        new_doc.schema = src.schema.clone().or_else(|| Some(self.active_schema().to_owned()));
-        self.query_documents.push(new_doc);
-        self.active_query_document = self.query_documents.len() - 1;
-        self.active_tab = WorkspaceTab::Query;
-        self.runtime_message = format!("Duplicated {}", self.query_documents[index].title);
-    }
-
-    pub(crate) fn close_other_query_documents(&mut self, keep_index: usize) {
-        if keep_index >= self.query_documents.len() {
-            return;
-        }
-        for index in 0..self.query_documents.len() {
-            if index != keep_index {
-                self.cancel_prediction_for_document(index);
-            }
-        }
-        let kept = self.query_documents[keep_index].clone();
-        self.query_documents = vec![kept];
-        self.active_query_document = 0;
-        self.runtime_message = "Closed other queries".to_owned();
-    }
-
-    pub(crate) fn close_query_documents_to_right(&mut self, index: usize) {
-        if index >= self.query_documents.len() {
-            return;
-        }
-        for query_index in index + 1..self.query_documents.len() {
-            self.cancel_prediction_for_document(query_index);
-        }
-        self.query_documents.truncate(index + 1);
-        if self.active_query_document > index {
-            self.active_query_document = index;
-        }
-        self.runtime_message = "Closed queries to the right".to_owned();
-    }
-
-    pub(crate) fn close_all_tabs(&mut self) {
-        for index in 0..self.query_documents.len() {
-            self.cancel_prediction_for_document(index);
-        }
-        self.welcome_open = true;
-        self.query_documents = vec![QueryDocument::new("query-1", "Query 1", String::new())];
-        self.active_query_document = 0;
-        self.selected_table = None;
-        self.selected_schema_object = None;
-        self.active_tab = WorkspaceTab::Welcome;
-        self.runtime_message = "Closed all tabs".to_owned();
-    }
-
-    pub(crate) fn close_welcome_tab(&mut self) {
-        self.welcome_open = false;
-        if self.active_tab == WorkspaceTab::Welcome {
-            self.activate_fallback_workspace_tab();
-        }
-        self.runtime_message = "Closed Welcome".to_owned();
-    }
-
-    fn activate_welcome_tab(&mut self) {
-        self.welcome_open = true;
-        self.active_tab = WorkspaceTab::Welcome;
-    }
-
-    fn activate_fallback_workspace_tab(&mut self) {
-        if !self.query_documents.is_empty() {
-            self.active_tab = WorkspaceTab::Query;
-        } else if self.selected_table.is_some() {
-            self.active_tab = WorkspaceTab::Table;
-        } else if self.selected_schema_object.is_some() {
-            self.active_tab = WorkspaceTab::SchemaObject;
-        } else {
-            self.activate_welcome_tab();
-        }
-    }
-
-    pub(crate) fn execute_pending_navigation(&mut self, action: PendingNavigationAction) {
-        match action {
-            PendingNavigationAction::OpenTable(table) => {
-                self.open_table(table);
-            }
-            PendingNavigationAction::ChangeSchema(schema) => {
-                self.activate_schema(&schema);
-            }
-            PendingNavigationAction::ChangeConnection(connection_id) => {
-                if let Some(conn) = self.connections.iter().find(|c| c.id == connection_id).cloned() {
-                    self.connect_to_connection(&conn);
-                }
-            }
-            PendingNavigationAction::CloseWorkspace(tab) => {
-                self.request_close_workspace_tab(tab);
-            }
-        }
-    }
-
-    pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
-        match tab {
-            WorkspaceTab::Table => {
-                if !self.staged_changes.is_empty() {
-                    self.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
-                    self.discard_changes_confirmation = true;
-                    self.runtime_message = "Apply or discard staged changes before closing the table".to_owned();
-                    return;
-                }
-                self.pending_navigation_action = None;
-                self.selected_table = None;
-                self.table_info = None;
-                self.table_ddl = None;
-                self.table_info_error = None;
-                self.table_ddl_error = None;
-                self.table_data_result = None;
-                self.table_data_total_rows = None;
-                self.table_data_request = None;
-                self.table_info_request = None;
-                self.table_ddl_request = None;
-                self.table_mutation_request = None;
-                self.staged_changes.clear();
-                self.staged_apply_request = None;
-                self.staged_apply_targets.clear();
-                self.table_mutation_retry_after_reload = false;
-                self.table_mutation_retry_target = None;
-                self.table_mutation_error = None;
-                self.selected_cell = None;
-                self.selected_row = None;
-                self.selected_rows.clear();
-                self.selection_anchor_row = None;
-                self.selection_anchor_cell = None;
-                self.data_editing_cell = None;
-                self.data_edit_error = None;
-                self.data_delete_confirmation = false;
-                self.discard_changes_confirmation = false;
-            }
-            WorkspaceTab::SchemaObject => {
-                self.selected_schema_object = None;
-                self.schema_object_view = SchemaObjectView::Definition;
-                self.table_data_result = None;
-                self.table_data_total_rows = None;
-                self.table_data_request = None;
-            }
-            WorkspaceTab::Diagram => {
-                self.diagram_search.clear();
-                self.diagram_show_all = false;
-                self.diagram_pan = egui::Vec2::ZERO;
-                self.diagram_pan_origin = None;
-            }
-            WorkspaceTab::SchemaWorkbench => {
-                self.schema_workbench.apply_confirmation = false;
-            }
-            WorkspaceTab::SchemaCompare => {
-                self.schema_diff = None;
-            }
-            WorkspaceTab::ComponentGallery => {}
-            WorkspaceTab::Welcome | WorkspaceTab::Query => return,
-        }
-        if self.active_tab == tab {
-            self.activate_welcome_tab();
-        }
-        self.runtime_message = "Workspace closed".to_owned();
-    }
-
-    pub(crate) fn open_table(&mut self, table: String) {
-        if self.selected_table.as_deref() == Some(&table) {
-            self.active_tab = WorkspaceTab::Table;
-            self.record_recent_table(&table);
-            return;
-        }
-        if !self.staged_changes.is_empty() {
-            self.pending_navigation_action = Some(PendingNavigationAction::OpenTable(table));
-            self.discard_changes_confirmation = true;
-            self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
-            return;
-        }
-        self.pending_navigation_action = None;
-        self.persist_current_grid_layout();
-        self.record_recent_table(&table);
-        self.selected_table = Some(table);
-        self.restore_grid_layout_for_active_table();
-        self.request_table_info();
-        self.request_table_data();
-        self.active_tab = WorkspaceTab::Table;
-    }
-
-    /// Push `table` to the front of the MRU recent list (#212).
-    pub(crate) fn record_recent_table(&mut self, table: &str) {
-        if table.is_empty() {
-            return;
-        }
-        self.recent_tables.retain(|item| item != table);
-        self.recent_tables.insert(0, table.to_owned());
-        if self.recent_tables.len() > RECENT_TABLES_MAX {
-            self.recent_tables.truncate(RECENT_TABLES_MAX);
-        }
-    }
-
-    pub(crate) fn remove_recent_table(&mut self, table: &str) {
-        self.recent_tables.retain(|item| item != table);
-    }
-
-    pub(crate) fn request_open_workspace_folder(&mut self) {
-        let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::PickWorkspaceFolder { request_id });
-        self.runtime_message = "Choose a workspace folder…".to_owned();
-    }
-
-    pub(crate) fn open_workspace_folder(&mut self, path: std::path::PathBuf) {
-        let result = if self.ide_workspace.roots.is_empty() {
-            self.ide_workspace.open_root(path)
-        } else {
-            self.ide_workspace.add_root(path)
-        };
-        match result {
-            Ok(()) => {
-                self.activity = Activity::Files;
-                self.sidebar_open = true;
-                self.workspace_search_hits.clear();
-                self.ide_workspace.scan_diagnostics();
-                self.runtime_message = format!(
-                    "Opened workspace {} · {} files · {} roots",
-                    self.ide_workspace.root_label(),
-                    self.ide_workspace.index().len(),
-                    self.ide_workspace.roots.len()
-                );
-            }
-            Err(error) => {
-                self.runtime_message = format!("Failed to open workspace: {error}");
-            }
-        }
-    }
-
-    pub(crate) fn close_workspace_folder(&mut self) {
-        self.ide_workspace.close();
-        self.workspace_search_hits.clear();
-        self.workspace_replace_previews.clear();
-        self.workspace_context_items.clear();
-        self.split_editor_secondary = None;
-        self.runtime_message = "Workspace closed".to_owned();
-    }
-
-    pub(crate) fn refresh_workspace_folder(&mut self) {
-        match self.ide_workspace.refresh() {
-            Ok(()) => {
-                self.ide_workspace.scan_diagnostics();
-                self.runtime_message = format!(
-                    "Workspace refreshed · {} files indexed",
-                    self.ide_workspace.index().len()
-                );
-            }
-            Err(error) => {
-                self.runtime_message = format!("Workspace refresh failed: {error}");
-            }
-        }
-    }
-
-    pub(crate) fn open_workspace_sql_file(&mut self, relative_path: String) {
-        let Some(absolute) = self.ide_workspace.absolute_for_relative(&relative_path) else {
-            self.runtime_message = "Open a workspace folder first".to_owned();
-            return;
-        };
-        let absolute_str = absolute.to_string_lossy().into_owned();
-        if let Some(index) = self
-            .query_documents
-            .iter()
-            .position(|doc| doc.file_path.as_deref() == Some(absolute_str.as_str()))
-        {
-            self.switch_query_document(index);
-            self.active_tab = WorkspaceTab::Query;
-            return;
-        }
-        let content = match std::fs::read_to_string(&absolute) {
-            Ok(text) => text,
-            Err(error) => {
-                self.runtime_message = format!("Failed to read {}: {error}", absolute.display());
-                return;
-            }
-        };
-        let title = absolute
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_else(|| relative_path.clone());
-        let id = format!("file-{absolute_str}");
-        let mut doc = QueryDocument::new(id, title, content);
-        doc.file_path = Some(absolute_str);
-        doc.connection_id = self.active_connection_id.clone();
-        doc.schema = Some(self.active_schema().to_owned());
-        doc.mark_saved();
-        self.query_documents.push(doc);
-        self.active_query_document = self.query_documents.len() - 1;
-        self.activity = Activity::Queries;
-        self.active_tab = WorkspaceTab::Query;
-        self.reset_query_cursor();
-        self.runtime_message = format!("Opened {relative_path}");
-    }
-
-    pub(crate) fn save_active_workspace_file(&mut self) -> bool {
-        let Some(doc) = self.query_documents.get_mut(self.active_query_document) else {
-            return false;
-        };
-        let Some(path) = doc.file_path.clone() else {
-            return false;
-        };
-        let contents = doc.text().as_bytes().to_vec();
-        match query_view::write_file_atomically(std::path::Path::new(&path), &contents) {
-            Ok(()) => {
-                doc.mark_saved();
-                self.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
-                true
-            }
-            Err(error) => {
-                self.runtime_message = format!("Save failed: {error}");
-                false
-            }
-        }
-    }
-
-    pub(crate) fn run_workspace_search(&mut self) {
-        if self.ide_workspace.roots.is_empty() {
-            self.workspace_search_hits.clear();
-            self.runtime_message = "Open a workspace folder before searching".to_owned();
-            return;
-        }
-        self.workspace_search_hits = self.ide_workspace.search(&self.workspace_search_query, 100);
-        self.runtime_message = format!("{} matches", self.workspace_search_hits.len());
-    }
-
-    pub(crate) fn preview_workspace_replace(&mut self) {
-        self.workspace_replace_previews = self
-            .ide_workspace
-            .preview_replace(&self.workspace_search_query, &self.workspace_replace_query);
-        self.runtime_message = format!("{} files would change", self.workspace_replace_previews.len());
-    }
-
-    pub(crate) fn apply_workspace_replace(&mut self) {
-        match self
-            .ide_workspace
-            .apply_replace(&self.workspace_search_query, &self.workspace_replace_query)
-        {
-            Ok(count) => {
-                self.preview_workspace_replace();
-                self.run_workspace_search();
-                self.runtime_message = format!("Replaced {count} occurrence(s)");
-            }
-            Err(error) => self.runtime_message = error,
-        }
-    }
-
-    pub(crate) fn add_workspace_context_item(&mut self, item: String) {
-        if !self.workspace_context_items.iter().any(|existing| existing == &item) {
-            self.workspace_context_items.push(item);
-        }
-    }
-
-    pub(crate) fn clear_workspace_context_items(&mut self) {
-        self.workspace_context_items.clear();
-    }
-
-    pub(crate) fn export_live_schema_snapshot(&mut self) {
-        let mut sql = String::from("-- DB Pro schema snapshot\n");
-        for table in &self.schema.table_details {
-            sql.push_str(&format!(
-                "-- table {}.{} ({} columns)\n",
-                table.schema,
-                table.name,
-                table.columns.len()
-            ));
-        }
-        match self.ide_workspace.export_schema_snapshot(&sql) {
-            Ok(path) => self.runtime_message = format!("Wrote schema snapshot {}", path.display()),
-            Err(error) => self.runtime_message = error,
-        }
-    }
-
-    pub(crate) fn run_workspace_task(&mut self) {
-        let command = self.workspace_task_command.clone();
-        match self.ide_workspace.run_task(&command) {
-            Ok(result) => {
-                self.runtime_message = format!("Task exit {:?} · {}ms", result.exit_code, result.duration_ms);
-            }
-            Err(error) => self.runtime_message = error,
-        }
-    }
-
-    pub(crate) fn apply_workspace_refactor(&mut self) {
-        let from = self.workspace_refactor_from.clone();
-        let to = self.workspace_refactor_to.clone();
-        match self.ide_workspace.rename_symbol_across_sql(&from, &to) {
-            Ok(count) => self.runtime_message = format!("Refactored {count} occurrence(s)"),
-            Err(error) => self.runtime_message = error,
-        }
-    }
-
-    pub(crate) fn toggle_split_editor(&mut self) {
-        if self.split_editor_secondary.is_some() {
-            self.split_editor_secondary = None;
-            self.runtime_message = "Split editor closed".to_owned();
-            return;
-        }
-        if self.query_documents.len() < 2 {
-            self.runtime_message = "Open a second document before splitting".to_owned();
-            return;
-        }
-        let secondary = if self.active_query_document + 1 < self.query_documents.len() {
-            self.active_query_document + 1
-        } else {
-            0
-        };
-        self.split_editor_secondary = Some(secondary);
-        self.runtime_message = "Split editor enabled".to_owned();
-    }
-
-    pub(crate) fn refresh_schema_drift_watch(&mut self) {
-        let names: Vec<String> = self
-            .schema
-            .table_details
-            .iter()
-            .map(|table| format!("{}.{}", table.schema, table.name))
-            .collect();
-        let fingerprint = ide_workspace::fingerprint_schema_names(&names);
-        self.ide_workspace.update_schema_fingerprint(fingerprint);
-        if let Some(message) = self.ide_workspace.schema_drift_message.clone() {
-            self.runtime_message = message;
-        }
-    }
-
-    fn open_palette(&mut self, mode: PaletteMode) {
-        self.palette_mode = Some(mode);
-        self.palette_query.clear();
-        self.palette_selected = 0;
-        self.palette_focus_requested = true;
-    }
-
-    fn open_new_connection(&mut self) {
-        self.editing_connection_id = None;
-        self.connection_draft = UiConnectionDraft::default();
-        self.connection_error.clear();
-        self.connection_test_valid = false;
-        self.connection_test_draft = None;
-        self.pending_connection_request = None;
-        self.connection_dialog_open = true;
-    }
+    // Schema snapshot / query result / txn: `query_session.rs`.
+    // Close workspace tab: `workspace_actions.rs`.
 
     pub(crate) fn set_agent_open(&mut self, open: bool, ctx: &egui::Context) {
         if open == self.agent_open {

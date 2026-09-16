@@ -5,6 +5,8 @@ use super::diagram_view::{
 use super::*;
 use crate::diagram::*;
 use crate::{UiCheckConstraint, UiDependencyDirection, UiDependencyKind, UiSchemaColumn, UiTableDependency};
+use db_pro_core::domain::capabilities::DatabaseCapabilities;
+use db_pro_core::domain::connection::DriverType;
 
 fn result() -> UiQueryResult {
     UiQueryResult {
@@ -2099,6 +2101,29 @@ fn command_palette_opens_problems_and_diagnostics() {
     app.execute_palette_action(PaletteAction::Diagnostics, &ctx);
     assert_eq!(app.activity, Activity::Settings);
     assert!(app.runtime_message.contains("Diagnostics"));
+}
+
+#[test]
+fn quick_open_finds_schema_workbench_and_compare() {
+    let mut app = DbProApp::default();
+    let ctx = egui::Context::default();
+
+    app.palette_query = "Schema workbench".to_owned();
+    let workbench = app.filtered_palette_items(PaletteMode::QuickOpen);
+    assert!(
+        workbench.iter().any(|item| item.title == "Schema workbench"),
+        "Quick Open must list Schema workbench; got {:?}",
+        workbench.iter().map(|item| &item.title).collect::<Vec<_>>()
+    );
+    app.execute_palette_action(PaletteAction::SchemaWorkbench, &ctx);
+    assert_eq!(app.active_tab, WorkspaceTab::SchemaWorkbench);
+
+    app.palette_query = "Schema compare".to_owned();
+    let compare = app.filtered_palette_items(PaletteMode::QuickOpen);
+    assert!(compare.iter().any(|item| item.title == "Schema compare"));
+    app.execute_palette_action(PaletteAction::SchemaCompare, &ctx);
+    assert_eq!(app.active_tab, WorkspaceTab::SchemaCompare);
+    assert_eq!(app.activity, Activity::Compare);
 }
 
 #[test]
@@ -5375,10 +5400,12 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
     std::fs::create_dir_all(dir.join("sql")).unwrap();
     std::fs::write(dir.join("sql/demo.sql"), "SELECT 42;").unwrap();
 
-    let mut app = DbProApp::default();
-    app.active_connection_id = Some("conn-1".to_owned());
-    app.connected = true;
-    app.selected_schema = Some("public".to_owned());
+    let mut app = DbProApp {
+        active_connection_id: Some("conn-1".to_owned()),
+        connected: true,
+        selected_schema: Some("public".to_owned()),
+        ..Default::default()
+    };
     app.open_workspace_folder(dir.clone());
     assert!(app.ide_workspace.root().is_some());
     assert!(app

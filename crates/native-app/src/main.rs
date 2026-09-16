@@ -26,9 +26,14 @@ use translate::{translate_command, translate_event};
 
 fn main() -> Result<(), Box<dyn Error>> {
     init_tracing();
-    // Seed the Groq API key from the OS keyring into the env var so that
-    // CodexProvider::from_env() picks it up during worker initialisation.
-    seed_groq_api_key_from_keyring();
+    // Local cargo binaries must not poke the OS keyring — every launch was prompting
+    // Keychain / Credential Manager. Packaged installs keep the default (keyring on).
+    configure_dev_secret_store();
+    if db_pro_runtime::os_keyring_enabled() {
+        // Seed the Groq API key from the OS keyring into the env var so that
+        // CodexProvider::from_env() picks it up during worker initialisation.
+        seed_groq_api_key_from_keyring();
+    }
     let tokio_runtime = Builder::new_multi_thread().enable_all().build()?;
     let data_dir = resolve_data_dir();
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
@@ -93,9 +98,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                     send_picked(request_id, "ssh-key", path);
                     continue;
                 }
-                // Store the API key in the OS keyring then forward to runtime.
+                // Persist the API key (OS keyring when enabled) then forward to runtime.
                 UiCommand::SaveAgentApiKey { request_id, api_key } => {
-                    persist_groq_api_key(&api_key);
+                    if db_pro_runtime::os_keyring_enabled() {
+                        persist_groq_api_key(&api_key);
+                    }
                     let rt_command = RuntimeCommand::ConfigureAgent {
                         request_id: RuntimeRequestId(request_id.0),
                         api_key,
@@ -200,6 +207,35 @@ fn platform_data_dir() -> Option<std::path::PathBuf> {
 /// Reads an environment variable, treating an empty value as unset.
 fn non_empty_env(key: &str) -> Option<std::ffi::OsString> {
     std::env::var_os(key).filter(|value| !value.is_empty())
+}
+
+/// For binaries launched from `target/debug` or `target/release`, disable the OS keyring
+/// unless the developer explicitly opted in. Packaged installs are unaffected.
+fn configure_dev_secret_store() {
+    use db_pro_runtime::{DISABLE_KEYRING_ENV, USE_KEYRING_ENV};
+
+    if non_empty_env(USE_KEYRING_ENV).is_some() || non_empty_env(DISABLE_KEYRING_ENV).is_some() {
+        return;
+    }
+    if !is_cargo_target_binary() {
+        return;
+    }
+    // SAFETY: single-threaded — called before the tokio runtime is built.
+    std::env::set_var(DISABLE_KEYRING_ENV, "1");
+    tracing::info!("cargo-target binary: OS keyring disabled (set {USE_KEYRING_ENV}=1 to enable Keychain prompts)");
+}
+
+fn is_cargo_target_binary() -> bool {
+    std::env::current_exe()
+        .ok()
+        .as_ref()
+        .and_then(|path| path.to_str())
+        .is_some_and(|path| {
+            path.contains("/target/debug/")
+                || path.contains("/target/release/")
+                || path.contains("\\target\\debug\\")
+                || path.contains("\\target\\release\\")
+        })
 }
 
 /// Service name used for all DB Pro keyring entries.

@@ -5,6 +5,15 @@ use egui::{
 };
 use lucide_icons::Icon;
 
+/// `"1 table"` / `"2 tables"` style labels for dense status chips.
+pub fn plural_count(count: usize, singular: &str, plural: &str) -> String {
+    if count == 1 {
+        format!("1 {singular}")
+    } else {
+        format!("{count} {plural}")
+    }
+}
+
 fn icon_layout(icon: Icon, label: &str, color: Color32) -> LayoutJob {
     let mut job = LayoutJob::default();
     job.append(
@@ -48,15 +57,19 @@ pub fn sidebar_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
         inner_margin: Margin::symmetric(10.0, 7.0),
+        outer_margin: Margin::ZERO,
         stroke: Stroke::NONE,
         ..Default::default()
     }
 }
 
 pub fn activity_bar_frame(theme: DbProTheme) -> Frame {
+    // Match the primary sidebar surface so the shell reads as one strip
+    // instead of a white activity rail beside a gray navigator.
     Frame {
-        fill: theme.surface_app,
+        fill: theme.surface_panel,
         inner_margin: Margin::symmetric(5.0, 8.0),
+        outer_margin: Margin::ZERO,
         stroke: Stroke::new(1.0, theme.border_subtle),
         ..Default::default()
     }

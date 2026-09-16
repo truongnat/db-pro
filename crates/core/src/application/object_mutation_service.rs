@@ -76,6 +76,36 @@ fn unsupported_reason(request: &ObjectMutationRequest) -> Option<String> {
 }
 
 fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -> Result<Vec<String>, MutationError> {
+    match &request.definition {
+        ObjectDefinition::Table(_) | ObjectDefinition::Column(_) => build_table_column_statements(request, dialect),
+        ObjectDefinition::View(_) | ObjectDefinition::MaterializedView(_) => build_view_statements(request, dialect),
+        ObjectDefinition::Index(_) => build_index_statements(request, dialect),
+        ObjectDefinition::PrimaryKey(_)
+        | ObjectDefinition::UniqueConstraint(_)
+        | ObjectDefinition::CheckConstraint(_)
+        | ObjectDefinition::ForeignKey(_) => build_constraint_statements(request, dialect),
+        ObjectDefinition::Trigger(_) => build_trigger_statements(request, dialect),
+        ObjectDefinition::Sequence(_) => build_sequence_statements(request, dialect),
+        ObjectDefinition::EnumType(_) => build_enum_statements(request, dialect),
+        ObjectDefinition::Schema(_) | ObjectDefinition::Database(_) => build_namespace_statements(request, dialect),
+        ObjectDefinition::Extension(_) => build_extension_statements(request, dialect),
+        ObjectDefinition::Comment(_) => build_comment_statements(request, dialect),
+        ObjectDefinition::Partition(_) => build_partition_statements(request, dialect),
+        ObjectDefinition::DomainType(_) | ObjectDefinition::Empty => Err(unsupported(request)),
+    }
+}
+
+fn unsupported(request: &ObjectMutationRequest) -> MutationError {
+    MutationError::Unsupported {
+        capability: format!("{:?}", request.action),
+        reason: format!("no DDL builder for {:?} + {:?}", request.definition, request.action),
+    }
+}
+
+fn build_table_column_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
     match (&request.definition, request.action) {
         (ObjectDefinition::Table(def), ObjectAction::Create) => {
             let cols: Vec<ColumnDef> = def
@@ -89,13 +119,8 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
                     is_pk: c.is_pk,
                 })
                 .collect();
-            Ok(vec![ddl_builder::build_create_table(
-                dialect,
-                &def.schema,
-                &def.name,
-                &cols,
-            )
-            .map_err(MutationError::Build)?])
+            Ok(vec![ddl_builder::build_create_table(dialect, &def.schema, &def.name, &cols)
+                .map_err(MutationError::Build)?])
         }
         (ObjectDefinition::Table(def), ObjectAction::Drop) => {
             Ok(vec![ddl_builder::build_drop_table(dialect, &def.schema, &def.name)])
@@ -129,17 +154,21 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
                 new_name,
             )])
         }
+        _ => Err(unsupported(request)),
+    }
+}
+
+fn build_view_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    match (&request.definition, request.action) {
         (ObjectDefinition::View(def), ObjectAction::Create)
         | (ObjectDefinition::MaterializedView(def), ObjectAction::Create)
             if !def.materialized =>
         {
-            Ok(vec![ddl_builder::build_create_view(
-                dialect,
-                &def.schema,
-                &def.name,
-                &def.select_sql,
-            )
-            .map_err(MutationError::Build)?])
+            Ok(vec![ddl_builder::build_create_view(dialect, &def.schema, &def.name, &def.select_sql)
+                .map_err(MutationError::Build)?])
         }
         (ObjectDefinition::MaterializedView(def), ObjectAction::Create)
         | (ObjectDefinition::View(def), ObjectAction::Create)
@@ -163,19 +192,20 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
         | (ObjectDefinition::View(def), ObjectAction::Drop)
             if def.materialized =>
         {
-            Ok(vec![ddl_builder::build_drop_materialized_view(
-                dialect,
-                &def.schema,
-                &def.name,
-            )])
+            Ok(vec![ddl_builder::build_drop_materialized_view(dialect, &def.schema, &def.name)])
         }
         (ObjectDefinition::MaterializedView(def), ObjectAction::Refresh) => {
-            Ok(vec![ddl_builder::build_refresh_materialized_view(
-                dialect,
-                &def.schema,
-                &def.name,
-            )])
+            Ok(vec![ddl_builder::build_refresh_materialized_view(dialect, &def.schema, &def.name)])
         }
+        _ => Err(unsupported(request)),
+    }
+}
+
+fn build_index_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    match (&request.definition, request.action) {
         (ObjectDefinition::Index(def), ObjectAction::Create) => Ok(vec![ddl_builder::build_create_index(
             dialect,
             &def.schema,
@@ -187,6 +217,15 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
         (ObjectDefinition::Index(def), ObjectAction::Drop) => {
             Ok(vec![ddl_builder::build_drop_index(dialect, &def.schema, &def.name)])
         }
+        _ => Err(unsupported(request)),
+    }
+}
+
+fn build_constraint_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    match (&request.definition, request.action) {
         (ObjectDefinition::PrimaryKey(def), ObjectAction::Create) => Ok(vec![ddl_builder::build_add_primary_key(
             dialect,
             &def.schema,
@@ -243,6 +282,15 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
             &def.table,
             &def.name,
         )]),
+        _ => Err(unsupported(request)),
+    }
+}
+
+fn build_trigger_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    match (&request.definition, request.action) {
         (ObjectDefinition::Trigger(def), ObjectAction::Create) => Ok(vec![ddl_builder::build_create_trigger(
             dialect,
             &def.schema,
@@ -259,6 +307,15 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
             &def.table,
             &def.name,
         )]),
+        _ => Err(unsupported(request)),
+    }
+}
+
+fn build_sequence_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    match (&request.definition, request.action) {
         (ObjectDefinition::Sequence(def), ObjectAction::Create) => Ok(vec![ddl_builder::build_create_sequence(
             dialect,
             &def.schema,
@@ -270,6 +327,15 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
         (ObjectDefinition::Sequence(def), ObjectAction::Drop) => {
             Ok(vec![ddl_builder::build_drop_sequence(dialect, &def.schema, &def.name)])
         }
+        _ => Err(unsupported(request)),
+    }
+}
+
+fn build_enum_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    match (&request.definition, request.action) {
         (ObjectDefinition::EnumType(def), ObjectAction::Create) => Ok(vec![ddl_builder::build_create_enum(
             dialect,
             &def.schema,
@@ -280,6 +346,15 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
         (ObjectDefinition::EnumType(def), ObjectAction::Drop) => {
             Ok(vec![ddl_builder::build_drop_type(dialect, &def.schema, &def.name)])
         }
+        _ => Err(unsupported(request)),
+    }
+}
+
+fn build_namespace_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    match (&request.definition, request.action) {
         (ObjectDefinition::Schema(def), ObjectAction::Create) => {
             Ok(vec![ddl_builder::build_create_schema(dialect, &def.name)])
         }
@@ -294,6 +369,15 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
         (ObjectDefinition::Database(def), ObjectAction::Drop) => {
             Ok(vec![ddl_builder::build_drop_database(dialect, &def.name)])
         }
+        _ => Err(unsupported(request)),
+    }
+}
+
+fn build_extension_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    match (&request.definition, request.action) {
         (ObjectDefinition::Extension(def), ObjectAction::Create) => Ok(vec![ddl_builder::build_create_extension(
             dialect,
             &def.name,
@@ -302,6 +386,15 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
         (ObjectDefinition::Extension(def), ObjectAction::Drop) => {
             Ok(vec![ddl_builder::build_drop_extension(dialect, &def.name, def.cascade)])
         }
+        _ => Err(unsupported(request)),
+    }
+}
+
+fn build_comment_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    match (&request.definition, request.action) {
         (ObjectDefinition::Comment(def), ObjectAction::Comment | ObjectAction::Create) => {
             let kind = object_kind_sql(def.object.kind);
             Ok(vec![ddl_builder::build_comment_on(
@@ -314,6 +407,15 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
             )
             .map_err(MutationError::Build)?])
         }
+        _ => Err(unsupported(request)),
+    }
+}
+
+fn build_partition_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    match (&request.definition, request.action) {
         (ObjectDefinition::Partition(def), ObjectAction::Create) => Ok(vec![ddl_builder::build_create_partition(
             dialect,
             &def.schema,
@@ -322,12 +424,10 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
             &def.bound_expression,
         )
         .map_err(MutationError::Build)?]),
-        _ => Err(MutationError::Unsupported {
-            capability: format!("{:?}", request.action),
-            reason: format!("no DDL builder for {:?} + {:?}", request.definition, request.action),
-        }),
+        _ => Err(unsupported(request)),
     }
 }
+
 
 fn object_kind_sql(kind: ObjectKind) -> &'static str {
     match kind {
