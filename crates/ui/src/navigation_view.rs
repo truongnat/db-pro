@@ -439,6 +439,12 @@ impl DbProApp {
             if secondary_button_with_icon(ui, Icon::Download, "CSV import preview", self.theme).clicked() {
                 self.run_csv_import_preview_harness();
             }
+            if secondary_button_with_icon(ui, Icon::Braces, "JSONL export harness", self.theme).clicked() {
+                self.run_jsonl_export_harness();
+            }
+            if secondary_button_with_icon(ui, Icon::Sheet, "Excel export harness", self.theme).clicked() {
+                self.run_excel_export_harness();
+            }
             if ghost_button_with_icon(ui, Icon::Trash2, "Clear jobs", self.theme).clicked() {
                 self.transfer_jobs.clear();
             }
@@ -530,9 +536,7 @@ impl DbProApp {
     }
 
     pub(crate) fn run_csv_export_harness(&mut self) {
-        use db_pro_core::application::{
-            DelimitedFileTarget, DelimitedFormat, SyntheticSource, TransferService,
-        };
+        use db_pro_core::application::{DelimitedFileTarget, DelimitedFormat, SyntheticSource, TransferService};
         use db_pro_core::domain::transfer::{
             TransferCancellation, TransferJob, TransferSourceKind, TransferStatus, TransferTargetKind,
         };
@@ -619,6 +623,66 @@ impl DbProApp {
             }
         }
         self.runtime_message = job.progress.message.clone();
+        self.transfer_jobs.insert(0, job);
+        if self.transfer_jobs.len() > 20 {
+            self.transfer_jobs.truncate(20);
+        }
+    }
+
+    pub(crate) fn run_jsonl_export_harness(&mut self) {
+        use db_pro_core::application::{JsonlFileTarget, SyntheticSource, TransferService};
+        use db_pro_core::domain::transfer::{TransferCancellation, TransferJob, TransferStatus, TransferTargetKind};
+
+        let mut path = std::env::temp_dir();
+        path.push(format!("dbpro-export-{}.jsonl", self.transfer_jobs.len() + 1));
+        let mut job = TransferJob::new_synthetic(format!("jsonl-{}", self.transfer_jobs.len() + 1), 400, 50);
+        job.label = format!("JSONL export → {}", path.display());
+        job.target = TransferTargetKind::File {
+            path: path.to_string_lossy().into_owned(),
+            format: "jsonl".into(),
+        };
+        match JsonlFileTarget::create(&path, vec!["id".into(), "name".into()]) {
+            Ok(mut target) => {
+                let mut source = SyntheticSource::new(400);
+                let cancel = TransferCancellation::new();
+                let _ = TransferService::run(&mut job, &mut source, &mut target, &cancel);
+            }
+            Err(err) => {
+                job.status = TransferStatus::Failed;
+                job.error = Some(err.to_string());
+            }
+        }
+        self.runtime_message = format!("JSONL {} · {:?}", job.id, job.status);
+        self.transfer_jobs.insert(0, job);
+        if self.transfer_jobs.len() > 20 {
+            self.transfer_jobs.truncate(20);
+        }
+    }
+
+    pub(crate) fn run_excel_export_harness(&mut self) {
+        use db_pro_core::application::{ExcelFileTarget, SyntheticSource, TransferService};
+        use db_pro_core::domain::transfer::{TransferCancellation, TransferJob, TransferStatus, TransferTargetKind};
+
+        let mut path = std::env::temp_dir();
+        path.push(format!("dbpro-export-{}.xlsx", self.transfer_jobs.len() + 1));
+        let mut job = TransferJob::new_synthetic(format!("xlsx-{}", self.transfer_jobs.len() + 1), 80, 20);
+        job.label = format!("Excel export → {}", path.display());
+        job.target = TransferTargetKind::File {
+            path: path.to_string_lossy().into_owned(),
+            format: "xlsx".into(),
+        };
+        match ExcelFileTarget::create(&path, "Sheet1", vec!["id".into(), "name".into()]) {
+            Ok(mut target) => {
+                let mut source = SyntheticSource::new(80);
+                let cancel = TransferCancellation::new();
+                let _ = TransferService::run(&mut job, &mut source, &mut target, &cancel);
+            }
+            Err(err) => {
+                job.status = TransferStatus::Failed;
+                job.error = Some(err.to_string());
+            }
+        }
+        self.runtime_message = format!("Excel {} · {:?}", job.id, job.status);
         self.transfer_jobs.insert(0, job);
         if self.transfer_jobs.len() > 20 {
             self.transfer_jobs.truncate(20);
