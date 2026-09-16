@@ -223,6 +223,26 @@ pub enum RuntimeCommand {
         action: db_pro_core::domain::monitoring::MaintenanceAction,
         confirmed: bool,
     },
+    ListUsers {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+    },
+    CreateRole {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        login: bool,
+    },
+    DropRole {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+    },
+    ListPrivileges {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        role_name: String,
+    },
     CancelQuery {
         request_id: RuntimeRequestId,
     },
@@ -301,6 +321,15 @@ pub enum RuntimeEvent {
         action: &'static str,
         backend_id: i64,
         succeeded: bool,
+    },
+    UsersLoaded {
+        request_id: RuntimeRequestId,
+        users: Vec<db_pro_core::domain::user::DatabaseUser>,
+    },
+    PrivilegesLoaded {
+        request_id: RuntimeRequestId,
+        role_name: String,
+        privileges: Vec<db_pro_core::domain::user::Privilege>,
     },
     OperationCompleted {
         request_id: RuntimeRequestId,
@@ -1649,6 +1678,88 @@ pub fn spawn_worker(
                                 action: "maintenance",
                                 backend_id: 0,
                                 succeeded: true,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::ListUsers {
+                    request_id,
+                    connection_id,
+                } => {
+                    let user_api = runtime.user_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match user_api.list_users(&connection_id).await {
+                            Ok(users) => RuntimeEvent::UsersLoaded { request_id, users },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::CreateRole {
+                    request_id,
+                    connection_id,
+                    name,
+                    login,
+                } => {
+                    let user_api = runtime.user_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match user_api.create_role(&connection_id, &name, login).await {
+                            Ok(()) => RuntimeEvent::OperationCompleted {
+                                request_id,
+                                operation: "create_role",
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::DropRole {
+                    request_id,
+                    connection_id,
+                    name,
+                } => {
+                    let user_api = runtime.user_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match user_api.drop_role(&connection_id, &name).await {
+                            Ok(()) => RuntimeEvent::OperationCompleted {
+                                request_id,
+                                operation: "drop_role",
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::ListPrivileges {
+                    request_id,
+                    connection_id,
+                    role_name,
+                } => {
+                    let user_api = runtime.user_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match user_api.list_privileges(&connection_id, &role_name).await {
+                            Ok(privileges) => RuntimeEvent::PrivilegesLoaded {
+                                request_id,
+                                role_name,
+                                privileges,
                             },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,

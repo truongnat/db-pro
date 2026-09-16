@@ -1,12 +1,11 @@
 use async_trait::async_trait;
-use sqlx::{FromRow, PgPool};
+use std::sync::Arc;
 
 use db_pro_core::domain::connection::ConnectionHandle;
 use db_pro_core::domain::error::DbError;
+use db_pro_core::domain::query::{CellValue, QueryParam};
 use db_pro_core::domain::user::{DatabaseUser, Privilege};
-use db_pro_core::ports::UserManager;
-
-use crate::postgres::connector::{with_query_timeout, PostgresConnector};
+use db_pro_core::ports::{DbConnector, UserManager};
 
 fn quote_identifier(value: &str, field: &str) -> Result<String, DbError> {
     if value.trim().is_empty() {
@@ -33,103 +32,88 @@ fn quote_privilege(value: &str) -> Result<&'static str, DbError> {
 }
 
 pub struct PostgresUserManager {
-    connector: std::sync::Arc<PostgresConnector>,
+    connector: Arc<dyn DbConnector>,
 }
 
 impl PostgresUserManager {
-    pub fn new(connector: std::sync::Arc<PostgresConnector>) -> Self {
+    pub fn new(connector: Arc<dyn DbConnector>) -> Self {
         Self { connector }
     }
 }
 
-#[derive(FromRow)]
-struct RoleRow {
-    rolname: String,
-    rolsuper: bool,
-    rolcreatedb: bool,
-    rolcreaterole: bool,
-    rolcanlogin: bool,
+fn cell_text(cell: &CellValue) -> Option<String> {
+    match cell {
+        CellValue::Text(s) => Some(s.clone()),
+        CellValue::Null => None,
+        other => Some(format!("{other:?}")),
+    }
 }
 
-async fn pool(connector: &PostgresConnector, handle: &ConnectionHandle) -> Result<PgPool, DbError> {
-    connector
-        .get_pool(handle)
-        .await
-        .ok_or_else(|| DbError::ConnectionFailed("no active pool for handle".into()))
+fn cell_bool(cell: &CellValue) -> bool {
+    matches!(cell, CellValue::Bool(true)) || matches!(cell, CellValue::Text(s) if s == "t" || s == "true")
 }
 
 #[async_trait]
 impl UserManager for PostgresUserManager {
     async fn list_users(&self, handle: &ConnectionHandle) -> Result<Vec<DatabaseUser>, DbError> {
-        let pool = pool(&self.connector, handle).await?;
-        let timeout = self.connector.query_timeout(handle).await?;
-        let rows: Vec<RoleRow> = with_query_timeout(timeout, async {
-            sqlx::query_as(
+        let result = self
+            .connector
+            .query(
+                handle,
                 "SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolcanlogin FROM pg_catalog.pg_roles ORDER BY rolname",
+                &[],
             )
-            .fetch_all(&pool)
-            .await
-            .map_err(crate::error::from_sqlx)
-        })
-        .await?;
-
-        Ok(rows
+            .await?;
+        Ok(result
+            .rows
             .into_iter()
-            .map(|r| DatabaseUser {
-                name: r.rolname,
-                is_super: r.rolsuper,
-                can_create_db: r.rolcreatedb,
-                can_create_role: r.rolcreaterole,
-                can_login: r.rolcanlogin,
+            .filter_map(|row| {
+                let cells = &row.0;
+                Some(DatabaseUser {
+                    name: cells.first().and_then(cell_text)?,
+                    is_super: cells.get(1).map(cell_bool).unwrap_or(false),
+                    can_create_db: cells.get(2).map(cell_bool).unwrap_or(false),
+                    can_create_role: cells.get(3).map(cell_bool).unwrap_or(false),
+                    can_login: cells.get(4).map(cell_bool).unwrap_or(false),
+                })
             })
             .collect())
     }
 
     async fn create_role(&self, handle: &ConnectionHandle, name: &str, login: bool) -> Result<(), DbError> {
-        let pool = pool(&self.connector, handle).await?;
         let role = quote_identifier(name, "role name")?;
         let login_clause = if login { "LOGIN" } else { "NOLOGIN" };
         let sql = format!("CREATE ROLE {role} {login_clause}");
-        let timeout = self.connector.query_timeout(handle).await?;
-        with_query_timeout(timeout, async {
-            sqlx::query(&sql).execute(&pool).await.map_err(crate::error::from_sqlx)
-        })
-        .await?;
+        self.connector.execute(handle, &sql, &[]).await?;
         Ok(())
     }
 
     async fn drop_role(&self, handle: &ConnectionHandle, name: &str) -> Result<(), DbError> {
-        let pool = pool(&self.connector, handle).await?;
         let role = quote_identifier(name, "role name")?;
         let sql = format!("DROP ROLE {role}");
-        let timeout = self.connector.query_timeout(handle).await?;
-        with_query_timeout(timeout, async {
-            sqlx::query(&sql).execute(&pool).await.map_err(crate::error::from_sqlx)
-        })
-        .await?;
+        self.connector.execute(handle, &sql, &[]).await?;
         Ok(())
     }
 
     async fn list_privileges(&self, handle: &ConnectionHandle, role_name: &str) -> Result<Vec<Privilege>, DbError> {
-        let pool = pool(&self.connector, handle).await?;
-        let timeout = self.connector.query_timeout(handle).await?;
-        let rows: Vec<(String, String, String)> = with_query_timeout(timeout, async {
-            sqlx::query_as(
+        let result = self
+            .connector
+            .query(
+                handle,
                 "SELECT table_schema, table_name, privilege_type FROM information_schema.role_table_grants WHERE grantee = $1 ORDER BY table_schema, table_name",
+                &[QueryParam::Text(role_name.to_owned())],
             )
-                .bind(role_name)
-                .fetch_all(&pool)
-                .await
-                .map_err(crate::error::from_sqlx)
-        })
-        .await?;
-
-        Ok(rows
+            .await?;
+        Ok(result
+            .rows
             .into_iter()
-            .map(|(schema, table, priv_type)| Privilege {
-                schema,
-                table,
-                privilege_type: priv_type,
+            .filter_map(|row| {
+                let cells = &row.0;
+                Some(Privilege {
+                    schema: cells.first().and_then(cell_text)?,
+                    table: cells.get(1).and_then(cell_text)?,
+                    privilege_type: cells.get(2).and_then(cell_text)?,
+                })
             })
             .collect())
     }
@@ -142,17 +126,12 @@ impl UserManager for PostgresUserManager {
         table: &str,
         privilege: &str,
     ) -> Result<(), DbError> {
-        let pool = pool(&self.connector, handle).await?;
         let privilege = quote_privilege(privilege)?;
         let schema = quote_identifier(schema, "schema")?;
         let table = quote_identifier(table, "table")?;
         let role = quote_identifier(role_name, "role name")?;
         let sql = format!("GRANT {privilege} ON {schema}.{table} TO {role}");
-        let timeout = self.connector.query_timeout(handle).await?;
-        with_query_timeout(timeout, async {
-            sqlx::query(&sql).execute(&pool).await.map_err(crate::error::from_sqlx)
-        })
-        .await?;
+        self.connector.execute(handle, &sql, &[]).await?;
         Ok(())
     }
 
@@ -164,17 +143,12 @@ impl UserManager for PostgresUserManager {
         table: &str,
         privilege: &str,
     ) -> Result<(), DbError> {
-        let pool = pool(&self.connector, handle).await?;
         let privilege = quote_privilege(privilege)?;
         let schema = quote_identifier(schema, "schema")?;
         let table = quote_identifier(table, "table")?;
         let role = quote_identifier(role_name, "role name")?;
         let sql = format!("REVOKE {privilege} ON {schema}.{table} FROM {role}");
-        let timeout = self.connector.query_timeout(handle).await?;
-        with_query_timeout(timeout, async {
-            sqlx::query(&sql).execute(&pool).await.map_err(crate::error::from_sqlx)
-        })
-        .await?;
+        self.connector.execute(handle, &sql, &[]).await?;
         Ok(())
     }
 }

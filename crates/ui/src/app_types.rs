@@ -42,6 +42,7 @@ pub(crate) enum Activity {
     History,
     Transfers,
     Monitor,
+    Security,
     Settings,
     Diagram,
     Schema,

@@ -556,6 +556,26 @@ pub enum UiCommand {
         action: db_pro_core::domain::monitoring::MaintenanceAction,
         confirmed: bool,
     },
+    ListUsers {
+        request_id: RequestId,
+        connection_id: String,
+    },
+    CreateRole {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+        login: bool,
+    },
+    DropRole {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+    },
+    ListPrivileges {
+        request_id: RequestId,
+        connection_id: String,
+        role_name: String,
+    },
     CancelQuery {
         request_id: RequestId,
     },
@@ -710,6 +730,15 @@ pub enum UiEvent {
         action: String,
         backend_id: i64,
         succeeded: bool,
+    },
+    UsersLoaded {
+        request_id: RequestId,
+        users: Vec<db_pro_core::domain::user::DatabaseUser>,
+    },
+    PrivilegesLoaded {
+        request_id: RequestId,
+        role_name: String,
+        privileges: Vec<db_pro_core::domain::user::Privilege>,
     },
     OperationCompleted {
         request_id: RequestId,

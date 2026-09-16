@@ -44,6 +44,19 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             backend_id,
             succeeded,
         }),
+        RuntimeEvent::UsersLoaded { request_id, users } => Some(UiEvent::UsersLoaded {
+            request_id: ui_request_id(request_id),
+            users,
+        }),
+        RuntimeEvent::PrivilegesLoaded {
+            request_id,
+            role_name,
+            privileges,
+        } => Some(UiEvent::PrivilegesLoaded {
+            request_id: ui_request_id(request_id),
+            role_name,
+            privileges,
+        }),
         RuntimeEvent::OperationCompleted { request_id, operation } => {
             translate_operation_completed(request_id, operation)
         }

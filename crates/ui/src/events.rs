@@ -100,6 +100,17 @@ impl DbProApp {
                     });
                 }
             }
+            UiEvent::UsersLoaded { users, .. } => {
+                self.security_users = users;
+                self.security_error = None;
+                self.runtime_message = format!("Security · {} role(s)", self.security_users.len());
+            }
+            UiEvent::PrivilegesLoaded {
+                role_name, privileges, ..
+            } => {
+                self.security_selected_role = Some(role_name);
+                self.security_privileges = privileges;
+            }
             UiEvent::DdlCompleted {
                 request_id,
                 affected_rows,
@@ -514,6 +525,10 @@ impl DbProApp {
         self.runtime_message = operation.clone();
         if pending_connection_request {
             self.pending_connection_request = None;
+        }
+        if matches!(operation.as_str(), "create_role" | "drop_role") {
+            self.security_drop_confirm = None;
+            self.request_security_users();
         }
         if matches!(
             operation.as_str(),

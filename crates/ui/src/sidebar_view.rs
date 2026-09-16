@@ -192,6 +192,7 @@ impl DbProApp {
                                     Activity::Problems => self.draw_problems(ui),
                                     Activity::Transfers => self.draw_transfers_activity(ui),
                                     Activity::Monitor => self.draw_monitor_activity(ui),
+                                    Activity::Security => self.draw_security_activity(ui),
                                     Activity::Settings => self.draw_settings(ui),
                                     Activity::Diagram => self.draw_diagram_sidebar(ui),
                                     Activity::Schema => self.draw_schema_workbench_sidebar(ui),

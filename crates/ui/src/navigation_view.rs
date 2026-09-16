@@ -1179,6 +1179,161 @@ impl DbProApp {
         });
     }
 
+    pub(super) fn draw_security_activity(&mut self, ui: &mut egui::Ui) {
+        section_label(ui, "SECURITY", self.theme);
+        ui.add_space(SPACE_SM);
+        let connected = self.connected && self.active_connection_id.is_some();
+        let is_pg = self.active_driver().eq_ignore_ascii_case("postgresql")
+            || self.active_driver().eq_ignore_ascii_case("postgres");
+
+        if !connected {
+            ui.label(
+                RichText::new("Connect a PostgreSQL database to manage roles and privileges.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            return;
+        }
+        if !is_pg {
+            ui.label(
+                RichText::new("User/role management is PostgreSQL-only (capability gated).")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            return;
+        }
+
+        ui.horizontal(|ui| {
+            if secondary_button_with_icon(ui, Icon::RefreshCw, "Refresh roles", self.theme).clicked() {
+                self.request_security_users();
+            }
+        });
+        if let Some(error) = &self.security_error {
+            ui.colored_label(self.theme.warning, error);
+        }
+
+        ui.add_space(SPACE_MD);
+        section_label(ui, "ROLES / USERS", self.theme);
+        ui.add_space(SPACE_SM);
+        if self.security_users.is_empty() {
+            ui.label(
+                RichText::new("No roles loaded yet — click Refresh.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+        }
+        for user in self.security_users.clone() {
+            let selected = self.security_selected_role.as_deref() == Some(user.name.as_str());
+            ui.horizontal(|ui| {
+                if ui.selectable_label(selected, &user.name).clicked() {
+                    self.security_selected_role = Some(user.name.clone());
+                    if let Some(connection_id) = self.active_connection_id.clone() {
+                        let request_id = self.task_bridge.next_request_id();
+                        self.dispatch_command(UiCommand::ListPrivileges {
+                            request_id,
+                            connection_id,
+                            role_name: user.name.clone(),
+                        });
+                    }
+                }
+                if user.can_login {
+                    badge(ui, "login", self.theme.surface_active, self.theme.text_secondary);
+                }
+                if user.is_super {
+                    badge(ui, "super", self.theme.warning, self.theme.text_primary);
+                }
+                if user.can_create_db {
+                    badge(ui, "createdb", self.theme.surface_active, self.theme.text_secondary);
+                }
+                if user.can_create_role {
+                    badge(ui, "createrole", self.theme.surface_active, self.theme.text_secondary);
+                }
+                if danger_button(ui, "Drop", self.theme).clicked() {
+                    self.security_drop_confirm = Some(user.name.clone());
+                }
+            });
+        }
+
+        ui.add_space(SPACE_MD);
+        section_label(ui, "CREATE ROLE", self.theme);
+        ui.add_space(SPACE_SM);
+        input_full_width(ui, &mut self.security_new_role, "role name", self.theme);
+        ui.checkbox(&mut self.security_new_role_login, "LOGIN");
+        if primary_button_with_icon(ui, Icon::Plus, "Create role", self.theme).clicked()
+            && !self.security_new_role.trim().is_empty()
+        {
+            if let Some(connection_id) = self.active_connection_id.clone() {
+                let request_id = self.task_bridge.next_request_id();
+                self.dispatch_command(UiCommand::CreateRole {
+                    request_id,
+                    connection_id,
+                    name: self.security_new_role.trim().to_owned(),
+                    login: self.security_new_role_login,
+                });
+                self.security_new_role.clear();
+            }
+        }
+
+        if let Some(role) = self.security_selected_role.clone() {
+            ui.add_space(SPACE_MD);
+            section_label(ui, format!("PRIVILEGES · {role}"), self.theme);
+            ui.add_space(SPACE_SM);
+            if self.security_privileges.is_empty() {
+                ui.label(
+                    RichText::new("No table privileges listed for this role.")
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+            } else {
+                for privs in &self.security_privileges {
+                    ui.label(
+                        RichText::new(format!("{}.{} · {}", privs.schema, privs.table, privs.privilege_type))
+                            .small()
+                            .monospace()
+                            .color(self.theme.text_secondary),
+                    );
+                }
+            }
+        }
+
+        if let Some(name) = self.security_drop_confirm.clone() {
+            egui::Window::new("Drop role?")
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .show(ui.ctx(), |ui| {
+                    ui.label(format!("Drop role `{name}`? This cannot be undone."));
+                    ui.horizontal(|ui| {
+                        if danger_button(ui, "Drop role", self.theme).clicked() {
+                            if let Some(connection_id) = self.active_connection_id.clone() {
+                                let request_id = self.task_bridge.next_request_id();
+                                self.dispatch_command(UiCommand::DropRole {
+                                    request_id,
+                                    connection_id,
+                                    name,
+                                });
+                            }
+                            self.security_drop_confirm = None;
+                        }
+                        if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                            self.security_drop_confirm = None;
+                        }
+                    });
+                });
+        }
+    }
+
+    pub(crate) fn request_security_users(&mut self) {
+        let Some(connection_id) = self.active_connection_id.clone() else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::ListUsers {
+            request_id,
+            connection_id,
+        });
+    }
+
     pub(super) fn draw_diagram_sidebar(&mut self, ui: &mut egui::Ui) {
         ui.vertical(|ui| {
             section_label(ui, "SCHEMA MAP", self.theme);

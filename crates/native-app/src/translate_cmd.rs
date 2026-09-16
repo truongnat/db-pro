@@ -115,6 +115,10 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::MonitoringCancelBackend { .. }
         | UiCommand::MonitoringTerminateBackend { .. }
         | UiCommand::MonitoringMaintenance { .. }
+        | UiCommand::ListUsers { .. }
+        | UiCommand::CreateRole { .. }
+        | UiCommand::DropRole { .. }
+        | UiCommand::ListPrivileges { .. }
         | UiCommand::CancelQuery { .. }
         | UiCommand::RequestSqlPrediction { .. }
         | UiCommand::CancelSqlPrediction { .. } => translate_execution_command(command),
@@ -605,6 +609,42 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             table,
             action,
             confirmed,
+        }),
+        UiCommand::ListUsers {
+            request_id,
+            connection_id,
+        } => Some(RuntimeCommand::ListUsers {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+        }),
+        UiCommand::CreateRole {
+            request_id,
+            connection_id,
+            name,
+            login,
+        } => Some(RuntimeCommand::CreateRole {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
+            login,
+        }),
+        UiCommand::DropRole {
+            request_id,
+            connection_id,
+            name,
+        } => Some(RuntimeCommand::DropRole {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
+        }),
+        UiCommand::ListPrivileges {
+            request_id,
+            connection_id,
+            role_name,
+        } => Some(RuntimeCommand::ListPrivileges {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            role_name,
         }),
         UiCommand::CancelQuery { request_id } => Some(RuntimeCommand::CancelQuery {
             request_id: runtime_request_id(request_id),

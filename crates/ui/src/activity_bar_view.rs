@@ -35,6 +35,7 @@ impl DbProApp {
                         (Some(Activity::Problems), Icon::TriangleAlert, "Problems"),
                         (Some(Activity::Transfers), Icon::Upload, "Transfers"),
                         (Some(Activity::Monitor), Icon::Gauge, "Monitor"),
+                        (Some(Activity::Security), Icon::Shield, "Security"),
                         (Some(Activity::Diagram), Icon::ArrowRightLeft, "ER diagram"),
                         (Some(Activity::Schema), Icon::Boxes, "Schema workbench"),
                         (Some(Activity::Compare), Icon::GitCompare, "Schema compare"),

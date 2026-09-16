@@ -238,7 +238,9 @@ impl DbProRuntime {
             }),
         ));
         let users = Arc::new(UserService::new(
-            Box::new(PostgresUserManager::new(connector.postgres_connector())),
+            Box::new(PostgresUserManager::new(
+                Arc::clone(&connector) as Arc<dyn db_pro_core::ports::DbConnector>
+            )),
             Arc::clone(&registry),
             Box::new(meta_store.clone()),
         ));
