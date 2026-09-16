@@ -58,6 +58,7 @@ impl DbProApp {
                 provider,
                 detail,
             } => self.on_agent_configured(request_id, provider, detail),
+            UiEvent::AgentForgotten { request_id } => self.on_agent_forgotten(request_id),
             UiEvent::TableInfoLoaded { request_id, table_info } => self.on_table_info_loaded(request_id, table_info),
             UiEvent::TableDdlLoaded { request_id, sql } => self.on_table_ddl_loaded(request_id, sql),
             UiEvent::TableDataLoaded {
@@ -428,6 +429,20 @@ impl DbProApp {
         self.agent_settings_open = false;
         self.agent_api_key_draft.clear();
         let message = format!("{provider} API key saved · provider active");
+        self.runtime_message = message.clone();
+        self.show_toast_success(message);
+    }
+
+    fn on_agent_forgotten(&mut self, request_id: RequestId) {
+        if self.agent_configure_request != Some(request_id) {
+            return;
+        }
+        self.agent_configure_request = None;
+        self.agent_provider_label = "Offline draft".to_owned();
+        self.agent_provider_detail = "AI provider not configured · local drafts stay unexecuted".to_owned();
+        self.agent_settings_open = false;
+        self.agent_api_key_draft.clear();
+        let message = "API key forgotten · provider inactive".to_owned();
         self.runtime_message = message.clone();
         self.show_toast_success(message);
     }

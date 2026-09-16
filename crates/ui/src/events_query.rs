@@ -384,7 +384,11 @@ impl DbProApp {
         position: Option<usize>,
         code: Option<String>,
     ) {
-        if self.pending_connection_request == Some(request_id) {
+        if self.agent_configure_request == Some(request_id) {
+            self.agent_configure_request = None;
+            self.runtime_message = format!("Agent key operation failed · {message}");
+            self.show_toast_error(self.runtime_message.clone());
+        } else if self.pending_connection_request == Some(request_id) {
             self.pending_connection_request = None;
             let conn_id = self
                 .pending_connection_id

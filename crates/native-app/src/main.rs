@@ -29,11 +29,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Local cargo binaries must not poke the OS keyring — every launch was prompting
     // Keychain / Credential Manager. Packaged installs keep the default (keyring on).
     configure_dev_secret_store();
-    if db_pro_runtime::os_keyring_enabled() {
-        // Seed the Groq API key from the OS keyring into the env var so that
-        // CodexProvider::from_env() picks it up during worker initialisation.
-        seed_groq_api_key_from_keyring();
-    }
     let tokio_runtime = Builder::new_multi_thread().enable_all().build()?;
     let data_dir = resolve_data_dir();
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
@@ -96,21 +91,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                         .pick_file()
                         .map(|path| path.to_string_lossy().into_owned());
                     send_picked(request_id, "ssh-key", path);
-                    continue;
-                }
-                // Persist the API key (OS keyring when enabled) then forward to runtime.
-                UiCommand::SaveAgentApiKey { request_id, api_key } => {
-                    if db_pro_runtime::os_keyring_enabled() {
-                        persist_groq_api_key(&api_key);
-                    }
-                    let rt_command = RuntimeCommand::ConfigureAgent {
-                        request_id: RuntimeRequestId(request_id.0),
-                        api_key,
-                    };
-                    let send_result = command_handle.block_on(command_runtime_tx.send(rt_command));
-                    if send_result.is_err() {
-                        break;
-                    }
                     continue;
                 }
                 command => {
@@ -236,45 +216,6 @@ fn is_cargo_target_binary() -> bool {
                 || path.contains("\\target\\debug\\")
                 || path.contains("\\target\\release\\")
         })
-}
-
-/// Service name used for all DB Pro keyring entries.
-const KEYRING_SERVICE: &str = "com.dbpro.app";
-/// Keyring key under which the Groq API key is stored.
-const KEYRING_GROQ_KEY: &str = "agent/groq_api_key";
-
-/// Try to load the Groq API key from the OS keyring and, if found, inject it
-/// into the current process environment so `CodexProvider::from_env()` picks
-/// it up without any additional configuration.
-fn seed_groq_api_key_from_keyring() {
-    // Only inject if the caller didn't already set the env var.
-    if std::env::var("GROQ_API_KEY").is_ok() {
-        return;
-    }
-    let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, KEYRING_GROQ_KEY) else {
-        return;
-    };
-    if let Ok(key) = entry.get_password() {
-        if !key.trim().is_empty() {
-            // SAFETY: single-threaded at this point (tokio runtime not yet started).
-            std::env::set_var("GROQ_API_KEY", key.trim());
-            tracing::info!("Groq API key loaded from OS keyring");
-        }
-    }
-}
-
-/// Persist the Groq API key in the OS keyring.
-/// Best-effort: logs a warning on failure rather than crashing.
-fn persist_groq_api_key(api_key: &str) {
-    let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, KEYRING_GROQ_KEY) else {
-        tracing::warn!("failed to create keyring entry for Groq API key");
-        return;
-    };
-    if let Err(error) = entry.set_password(api_key.trim()) {
-        tracing::warn!(%error, "failed to persist Groq API key in OS keyring");
-    } else {
-        tracing::info!("Groq API key persisted in OS keyring");
-    }
 }
 
 /// The developer-convenience connection seeded on first launch, if any.

@@ -42,6 +42,45 @@ fn prediction_command_keeps_document_routing_metadata() {
 }
 
 #[test]
+fn agent_key_commands_route_through_runtime_secret_lifecycle() {
+    let save = translate_command(UiCommand::SaveAgentApiKey {
+        request_id: RequestId(12),
+        api_key: "gsk_test".to_owned(),
+    })
+    .expect("save key must reach runtime");
+    match save {
+        RuntimeCommand::ConfigureAgent { request_id, api_key } => {
+            assert_eq!(request_id, RuntimeRequestId(12));
+            assert_eq!(api_key, "gsk_test");
+        }
+        _ => panic!("unexpected runtime command"),
+    }
+
+    let forget = translate_command(UiCommand::ForgetAgentApiKey {
+        request_id: RequestId(13),
+    })
+    .expect("forget key must reach runtime");
+    match forget {
+        RuntimeCommand::ForgetAgent { request_id } => assert_eq!(request_id, RuntimeRequestId(13)),
+        _ => panic!("unexpected runtime command"),
+    }
+}
+
+#[test]
+fn agent_forgotten_event_reaches_ui() {
+    let event = translate_event(RuntimeEvent::AgentForgotten {
+        request_id: RuntimeRequestId(14),
+    })
+    .expect("forgotten event must reach UI");
+    assert_eq!(
+        event,
+        UiEvent::AgentForgotten {
+            request_id: RequestId(14)
+        }
+    );
+}
+
+#[test]
 fn prediction_event_keeps_document_routing_metadata() {
     let event = RuntimeEvent::SqlPredictionReady {
         request_id: RuntimeRequestId(9),

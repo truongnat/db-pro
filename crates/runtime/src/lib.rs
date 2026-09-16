@@ -24,6 +24,7 @@ use db_pro_core::application::{
     ExtensionRegistry, MonitoringService, QueryService, RlsService, SchemaService, TableDataService, UserService,
 };
 use db_pro_core::domain::extension::example_diagnostics_extension;
+use db_pro_core::ports::SecretStore;
 use db_pro_infrastructure::backup::pg_dump::PgDumpEngine;
 use db_pro_infrastructure::backup::sqlite_backup::SqliteBackupEngine;
 use db_pro_infrastructure::connector::CompositeConnector;
@@ -57,6 +58,7 @@ pub struct DbProRuntime {
     connector: Arc<CompositeConnector>,
     registry: Arc<ConnectionRegistry>,
     meta_store: SQLiteMetaStore,
+    secrets: Arc<KeyringVault>,
 }
 
 #[derive(Debug, Error)]
@@ -69,6 +71,12 @@ pub enum RuntimeInitError {
 
 /// Keyring service name used for every DB Pro secret entry.
 pub const KEYRING_SERVICE: &str = "com.dbpro.app";
+
+/// Stable secret key for the Agent provider API key.
+///
+/// Keep the legacy key name so existing installations do not lose their saved
+/// key when ownership moves from the native adapter to the runtime vault.
+pub const AGENT_API_KEY_SECRET: &str = "agent/groq_api_key";
 
 /// Opt-in that enables the development encrypted-file secret fallback in a release build.
 ///
@@ -294,6 +302,7 @@ impl DbProRuntime {
             connector,
             registry,
             meta_store,
+            secrets: secret_store,
         }))
     }
 
@@ -407,6 +416,18 @@ impl DbProRuntime {
 
     pub fn meta_store(&self) -> Arc<SQLiteMetaStore> {
         Arc::new(self.meta_store.clone())
+    }
+
+    pub async fn load_agent_api_key(&self) -> Result<Option<String>, db_pro_core::domain::error::DbError> {
+        self.secrets.retrieve_secret(AGENT_API_KEY_SECRET).await
+    }
+
+    pub async fn store_agent_api_key(&self, api_key: &str) -> Result<(), db_pro_core::domain::error::DbError> {
+        self.secrets.store_secret(AGENT_API_KEY_SECRET, api_key).await
+    }
+
+    pub async fn delete_agent_api_key(&self) -> Result<(), db_pro_core::domain::error::DbError> {
+        self.secrets.delete_secret(AGENT_API_KEY_SECRET).await
     }
 }
 

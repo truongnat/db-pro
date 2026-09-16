@@ -791,6 +791,10 @@ pub enum UiCommand {
         request_id: RequestId,
         api_key: String,
     },
+    /// Delete the persisted AI provider key and deactivate the provider.
+    ForgetAgentApiKey {
+        request_id: RequestId,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1063,6 +1067,9 @@ pub enum UiEvent {
         request_id: RequestId,
         provider: String,
         detail: String,
+    },
+    AgentForgotten {
+        request_id: RequestId,
     },
     QueryFailed {
         request_id: RequestId,

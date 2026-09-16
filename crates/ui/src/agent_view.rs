@@ -147,7 +147,7 @@ impl DbProApp {
             });
             ui.add_space(4.0);
             ui.label(
-                RichText::new("Enter a Groq or OpenAI API key to enable the AI provider.\nThe key is stored in the OS keychain and never written to disk in plain text.")
+                RichText::new("Enter a Groq or OpenAI API key to enable the AI provider.\nThe key is stored in DB Pro's secure secret store and never written to disk in plain text.")
                     .font(font_caption())
                     .color(self.theme.text_secondary),
             );
@@ -214,6 +214,15 @@ impl DbProApp {
                         .font(font_caption())
                         .color(self.theme.text_muted),
                 );
+            }
+            let can_forget = self.agent_provider_label != "Offline draft" && !is_saving && !key_non_empty;
+            if can_forget {
+                let forget_button = compact_button_with_icon(ui, Icon::Trash2, "Forget key", self.theme);
+                if forget_button.clicked() {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.agent_configure_request = Some(request_id);
+                    let _ = self.task_bridge.send(UiCommand::ForgetAgentApiKey { request_id });
+                }
             }
         });
 
@@ -680,7 +689,9 @@ mod tests {
         );
         // The note must not replace the key-handling sentence the section already carried.
         assert!(
-            texts.iter().any(|text| text.contains("stored in the OS keychain")),
+            texts
+                .iter()
+                .any(|text| text.contains("stored in DB Pro's secure secret store")),
             "the API-key handling caption is still painted; painted texts: {texts:?}"
         );
     }

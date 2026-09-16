@@ -231,6 +231,9 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             provider,
             detail,
         }),
+        RuntimeEvent::AgentForgotten { request_id } => Some(UiEvent::AgentForgotten {
+            request_id: ui_request_id(request_id),
+        }),
         RuntimeEvent::SqlPredictionReady {
             request_id,
             document_id,

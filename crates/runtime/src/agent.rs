@@ -119,20 +119,37 @@ impl std::fmt::Debug for CodexProvider {
 
 impl CodexProvider {
     pub fn from_env() -> Option<Self> {
-        if let Some(api_key) = non_empty_env("GROQ_API_KEY") {
-            let endpoint = std::env::var("DB_PRO_GROQ_ENDPOINT")
-                .or_else(|_| std::env::var("DB_PRO_CODEX_ENDPOINT"))
-                .unwrap_or_else(|_| DEFAULT_GROQ_ENDPOINT.to_owned());
-            let model = std::env::var("DB_PRO_GROQ_MODEL")
-                .or_else(|_| std::env::var("DB_PRO_CODEX_MODEL"))
-                .unwrap_or_else(|_| DEFAULT_GROQ_MODEL.to_owned());
-            return Self::configured(api_key, endpoint, model, "Groq");
-        }
+        non_empty_env("GROQ_API_KEY")
+            .or_else(|| non_empty_env("OPENAI_API_KEY"))
+            .and_then(|api_key| Self::from_api_key(api_key).ok())
+    }
 
-        let api_key = non_empty_env("OPENAI_API_KEY")?;
-        let endpoint = std::env::var("DB_PRO_CODEX_ENDPOINT").unwrap_or_else(|_| DEFAULT_ENDPOINT.to_owned());
-        let model = std::env::var("DB_PRO_CODEX_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_owned());
-        Self::configured(api_key, endpoint, model, "OpenAI")
+    pub(crate) fn from_api_key(api_key: impl Into<String>) -> Result<Self, CodexProviderError> {
+        let api_key = api_key.into().trim().to_owned();
+        if api_key.is_empty() {
+            return Err(CodexProviderError::Request(
+                "AI provider API key cannot be empty".to_owned(),
+            ));
+        }
+        let is_groq = api_key.starts_with("gsk_");
+        let (endpoint, model, provider_name) = if is_groq {
+            (
+                std::env::var("DB_PRO_GROQ_ENDPOINT")
+                    .or_else(|_| std::env::var("DB_PRO_CODEX_ENDPOINT"))
+                    .unwrap_or_else(|_| DEFAULT_GROQ_ENDPOINT.to_owned()),
+                std::env::var("DB_PRO_GROQ_MODEL")
+                    .or_else(|_| std::env::var("DB_PRO_CODEX_MODEL"))
+                    .unwrap_or_else(|_| DEFAULT_GROQ_MODEL.to_owned()),
+                "Groq",
+            )
+        } else {
+            (
+                std::env::var("DB_PRO_CODEX_ENDPOINT").unwrap_or_else(|_| DEFAULT_ENDPOINT.to_owned()),
+                std::env::var("DB_PRO_CODEX_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_owned()),
+                "OpenAI",
+            )
+        };
+        Self::with_provider(api_key, endpoint, model, provider_name)
     }
 
     pub fn new(
@@ -168,26 +185,6 @@ impl CodexProvider {
 
     pub fn provider_name(&self) -> &str {
         &self.provider_name
-    }
-
-    fn configured(api_key: String, endpoint: String, model: String, provider_name: &str) -> Option<Self> {
-        match Self::with_provider(api_key, endpoint, model, provider_name) {
-            Ok(provider) => Some(provider),
-            Err(error) => {
-                tracing::warn!(provider = provider_name, error = %error, "AI provider configuration rejected");
-                None
-            }
-        }
-    }
-
-    /// Public-to-crate constructor used by the `ConfigureAgent` worker command.
-    pub(crate) fn with_provider_pub(
-        api_key: impl Into<String>,
-        endpoint: impl Into<String>,
-        model: impl Into<String>,
-        provider_name: impl Into<String>,
-    ) -> Result<Self, CodexProviderError> {
-        Self::with_provider(api_key, endpoint, model, provider_name)
     }
 
     pub async fn respond(&self, prompt: &str, context: &AgentContext) -> Result<AgentDraft, CodexProviderError> {
@@ -758,6 +755,21 @@ mod tests {
         let error = CodexProvider::new("secret", "http://localhost/responses", "model")
             .expect_err("HTTP endpoint must be rejected");
         assert!(error.to_string().contains("HTTPS"));
+    }
+
+    #[test]
+    fn provider_from_api_key_selects_provider_by_key_prefix() {
+        let groq = CodexProvider::from_api_key("gsk_test").expect("Groq key should configure");
+        assert_eq!(groq.provider_name(), "Groq");
+
+        let openai = CodexProvider::from_api_key("sk-test").expect("OpenAI key should configure");
+        assert_eq!(openai.provider_name(), "OpenAI");
+    }
+
+    #[test]
+    fn provider_from_api_key_rejects_blank_values() {
+        let error = CodexProvider::from_api_key("  ").expect_err("blank keys must not configure");
+        assert!(error.to_string().contains("cannot be empty"));
     }
 
     #[test]

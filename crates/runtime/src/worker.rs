@@ -418,6 +418,10 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         api_key: String,
     },
+    /// Delete the persisted AI provider key and deactivate the provider.
+    ForgetAgent {
+        request_id: RuntimeRequestId,
+    },
     RequestSqlPrediction {
         request_id: RuntimeRequestId,
         document_id: String,
@@ -626,6 +630,9 @@ pub enum RuntimeEvent {
         provider: String,
         detail: String,
     },
+    AgentForgotten {
+        request_id: RuntimeRequestId,
+    },
     SqlPredictionReady {
         request_id: RuntimeRequestId,
         document_id: String,
@@ -686,11 +693,26 @@ pub fn spawn_worker(
     let prediction_cooldown: PredictionCooldown = Arc::new(Mutex::new(None));
     let agent_runs: AgentRunMap = Arc::new(Mutex::new(HashMap::new()));
     let agent_cancellations: AgentCancellationMap = Arc::new(Mutex::new(HashMap::new()));
-    // Shared mutable cell: allows ConfigureAgent to hot-swap the provider key
+    // Shared mutable cell: allows Agent key commands to hot-swap the provider
     // while the worker is running (no restart required).
-    let codex_provider: Arc<Mutex<Option<CodexProvider>>> = Arc::new(Mutex::new(CodexProvider::from_env()));
+    let codex_provider: Arc<Mutex<Option<CodexProvider>>> = Arc::new(Mutex::new(None));
 
     tokio::spawn(async move {
+        let initial_provider = match runtime.load_agent_api_key().await {
+            Ok(Some(api_key)) => match CodexProvider::from_api_key(api_key) {
+                Ok(provider) => Some(provider),
+                Err(error) => {
+                    tracing::warn!(%error, "saved Agent API key was rejected");
+                    None
+                }
+            },
+            Ok(None) => CodexProvider::from_env(),
+            Err(error) => {
+                tracing::warn!(%error, "saved Agent API key could not be loaded");
+                CodexProvider::from_env()
+            }
+        };
+        *codex_provider.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = initial_provider;
         let (provider, detail) = {
             let guard = codex_provider.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             guard
@@ -2647,34 +2669,44 @@ pub fn spawn_worker(
                         let _ = sender.send(());
                     }
                 }
-                RuntimeCommand::ConfigureAgent { request_id, api_key } => {
-                    // Build the new provider (Groq if key looks like one, else OpenAI).
-                    let (endpoint, model, provider_name) = if api_key.trim_start().starts_with("gsk_") {
-                        (
-                            crate::agent::DEFAULT_GROQ_ENDPOINT,
-                            crate::agent::DEFAULT_GROQ_MODEL,
-                            "Groq",
-                        )
-                    } else {
-                        (crate::agent::DEFAULT_ENDPOINT, crate::agent::DEFAULT_MODEL, "OpenAI")
-                    };
-                    let event = match CodexProvider::with_provider_pub(
-                        api_key.trim().to_owned(),
-                        endpoint,
-                        model,
-                        provider_name,
-                    ) {
-                        Ok(new_provider) => {
-                            let detail = format!("{provider_name} Responses API · SQL drafts stay unexecuted");
-                            *codex_provider.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) =
-                                Some(new_provider);
-                            tracing::info!(provider = provider_name, "AI provider reconfigured");
-                            RuntimeEvent::AgentConfigured {
-                                request_id,
-                                provider: provider_name.to_owned(),
-                                detail,
-                            }
+                RuntimeCommand::ForgetAgent { request_id } => {
+                    let event = match runtime.delete_agent_api_key().await {
+                        Ok(()) => {
+                            *codex_provider.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+                            tracing::info!("AI provider key forgotten");
+                            RuntimeEvent::AgentForgotten { request_id }
                         }
+                        Err(error) => RuntimeEvent::Failed {
+                            request_id,
+                            message: format!("could not forget Agent API key: {error}"),
+                        },
+                    };
+                    if event_tx.send(event).await.is_err() {
+                        break;
+                    }
+                }
+                RuntimeCommand::ConfigureAgent { request_id, api_key } => {
+                    let api_key = api_key.trim().to_owned();
+                    // Build the new provider (Groq if key looks like one, else OpenAI).
+                    let event = match CodexProvider::from_api_key(api_key.clone()) {
+                        Ok(new_provider) => match runtime.store_agent_api_key(&api_key).await {
+                            Ok(()) => {
+                                let provider_name = new_provider.provider_name().to_owned();
+                                let detail = format!("{provider_name} Responses API · SQL drafts stay unexecuted");
+                                *codex_provider.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) =
+                                    Some(new_provider);
+                                tracing::info!(provider = provider_name, "AI provider reconfigured");
+                                RuntimeEvent::AgentConfigured {
+                                    request_id,
+                                    provider: provider_name,
+                                    detail,
+                                }
+                            }
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: format!("could not save Agent API key: {error}"),
+                            },
+                        },
                         Err(error) => RuntimeEvent::Failed {
                             request_id,
                             message: format!("AI provider configuration rejected: {error}"),

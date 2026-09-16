@@ -145,10 +145,8 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::PickSshPrivateKey { .. }
         | UiCommand::PickBackupFile { .. }
         | UiCommand::PickRestoreFile { .. }
-        | UiCommand::PickWorkspaceFolder { .. }
-        // Handled in the native command thread (keyring + ConfigureAgent):
-        | UiCommand::SaveAgentApiKey { .. }
-        => None,
+        | UiCommand::PickWorkspaceFolder { .. } => None,
+        UiCommand::SaveAgentApiKey { .. } | UiCommand::ForgetAgentApiKey { .. } => translate_agent_key_command(command),
         UiCommand::ListQueryFolders { .. }
         | UiCommand::ListSavedQueries { .. }
         | UiCommand::SaveQuery { .. }
@@ -218,6 +216,19 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::CancelQuery { .. }
         | UiCommand::RequestSqlPrediction { .. }
         | UiCommand::CancelSqlPrediction { .. } => translate_execution_command(command),
+    }
+}
+
+fn translate_agent_key_command(command: UiCommand) -> Option<RuntimeCommand> {
+    match command {
+        UiCommand::SaveAgentApiKey { request_id, api_key } => Some(RuntimeCommand::ConfigureAgent {
+            request_id: runtime_request_id(request_id),
+            api_key,
+        }),
+        UiCommand::ForgetAgentApiKey { request_id } => Some(RuntimeCommand::ForgetAgent {
+            request_id: runtime_request_id(request_id),
+        }),
+        _ => None,
     }
 }
 

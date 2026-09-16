@@ -1515,7 +1515,6 @@ dependencies = [
  "db-pro-runtime",
  "db-pro-ui",
  "eframe",
- "keyring",
  "rfd 0.15.4",
  "serde_json",
  "tokio",
