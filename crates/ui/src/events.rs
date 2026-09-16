@@ -124,6 +124,24 @@ impl DbProApp {
                     });
                 }
             }
+            UiEvent::ReplicationInventoryLoaded { inventory, .. } => {
+                self.replication_inventory = Some(inventory.clone());
+                self.replication_error = None;
+                self.runtime_message = format!("Replication · {}", inventory.message);
+            }
+            UiEvent::ReplicationActionCompleted { action, name, .. } => {
+                self.runtime_message = format!("Replication {action} `{name}` ok");
+                self.replication_drop_publication = None;
+                self.replication_drop_subscription = None;
+                self.replication_ddl_preview = None;
+                if let Some(connection_id) = self.active_connection_id.clone() {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.dispatch_command(UiCommand::ListReplicationInventory {
+                        request_id,
+                        connection_id,
+                    });
+                }
+            }
             UiEvent::MonitoringActionCompleted {
                 action,
                 backend_id,

@@ -271,6 +271,28 @@ pub enum RuntimeCommand {
         cascade: bool,
         confirmed: bool,
     },
+    ListReplicationInventory {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+    },
+    CreatePublicationAll {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        confirmed: bool,
+    },
+    DropPublication {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        confirmed: bool,
+    },
+    DropSubscription {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        confirmed: bool,
+    },
     ListUsers {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -444,6 +466,15 @@ pub enum RuntimeEvent {
         inventory: db_pro_core::domain::fdw::FdwInventory,
     },
     FdwActionCompleted {
+        request_id: RuntimeRequestId,
+        action: &'static str,
+        name: String,
+    },
+    ReplicationInventoryLoaded {
+        request_id: RuntimeRequestId,
+        inventory: db_pro_core::domain::replication::ReplicationInventory,
+    },
+    ReplicationActionCompleted {
         request_id: RuntimeRequestId,
         action: &'static str,
         name: String,
@@ -2001,6 +2032,95 @@ pub fn spawn_worker(
                             Ok(()) => RuntimeEvent::FdwActionCompleted {
                                 request_id,
                                 action: "drop_server",
+                                name,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::ListReplicationInventory {
+                    request_id,
+                    connection_id,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api.list_replication_inventory(&connection_id).await {
+                            Ok(inventory) => RuntimeEvent::ReplicationInventoryLoaded { request_id, inventory },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::CreatePublicationAll {
+                    request_id,
+                    connection_id,
+                    name,
+                    confirmed,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api
+                            .create_publication_all(&connection_id, &name, confirmed)
+                            .await
+                        {
+                            Ok(()) => RuntimeEvent::ReplicationActionCompleted {
+                                request_id,
+                                action: "create_publication",
+                                name,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::DropPublication {
+                    request_id,
+                    connection_id,
+                    name,
+                    confirmed,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api.drop_publication(&connection_id, &name, confirmed).await {
+                            Ok(()) => RuntimeEvent::ReplicationActionCompleted {
+                                request_id,
+                                action: "drop_publication",
+                                name,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::DropSubscription {
+                    request_id,
+                    connection_id,
+                    name,
+                    confirmed,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api.drop_subscription(&connection_id, &name, confirmed).await {
+                            Ok(()) => RuntimeEvent::ReplicationActionCompleted {
+                                request_id,
+                                action: "drop_subscription",
                                 name,
                             },
                             Err(error) => RuntimeEvent::Failed {

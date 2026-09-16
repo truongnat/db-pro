@@ -63,6 +63,21 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             action: action.to_owned(),
             name,
         }),
+        RuntimeEvent::ReplicationInventoryLoaded { request_id, inventory } => {
+            Some(UiEvent::ReplicationInventoryLoaded {
+                request_id: ui_request_id(request_id),
+                inventory,
+            })
+        }
+        RuntimeEvent::ReplicationActionCompleted {
+            request_id,
+            action,
+            name,
+        } => Some(UiEvent::ReplicationActionCompleted {
+            request_id: ui_request_id(request_id),
+            action: action.to_owned(),
+            name,
+        }),
         RuntimeEvent::MonitoringActionCompleted {
             request_id,
             action,

@@ -174,6 +174,10 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::ListFdwInventory { .. }
         | UiCommand::CreateFdwServer { .. }
         | UiCommand::DropFdwServer { .. }
+        | UiCommand::ListReplicationInventory { .. }
+        | UiCommand::CreatePublicationAll { .. }
+        | UiCommand::DropPublication { .. }
+        | UiCommand::DropSubscription { .. }
         | UiCommand::ListUsers { .. }
         | UiCommand::CreateRole { .. }
         | UiCommand::DropRole { .. }
@@ -764,6 +768,46 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             connection_id,
             name,
             cascade,
+            confirmed,
+        }),
+        UiCommand::ListReplicationInventory {
+            request_id,
+            connection_id,
+        } => Some(RuntimeCommand::ListReplicationInventory {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+        }),
+        UiCommand::CreatePublicationAll {
+            request_id,
+            connection_id,
+            name,
+            confirmed,
+        } => Some(RuntimeCommand::CreatePublicationAll {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
+            confirmed,
+        }),
+        UiCommand::DropPublication {
+            request_id,
+            connection_id,
+            name,
+            confirmed,
+        } => Some(RuntimeCommand::DropPublication {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
+            confirmed,
+        }),
+        UiCommand::DropSubscription {
+            request_id,
+            connection_id,
+            name,
+            confirmed,
+        } => Some(RuntimeCommand::DropSubscription {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
             confirmed,
         }),
         UiCommand::ListUsers {

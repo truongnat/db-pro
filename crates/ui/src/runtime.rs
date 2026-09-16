@@ -624,6 +624,28 @@ pub enum UiCommand {
         cascade: bool,
         confirmed: bool,
     },
+    ListReplicationInventory {
+        request_id: RequestId,
+        connection_id: String,
+    },
+    CreatePublicationAll {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+        confirmed: bool,
+    },
+    DropPublication {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+        confirmed: bool,
+    },
+    DropSubscription {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+        confirmed: bool,
+    },
     ListUsers {
         request_id: RequestId,
         connection_id: String,
@@ -873,6 +895,15 @@ pub enum UiEvent {
         inventory: db_pro_core::domain::fdw::FdwInventory,
     },
     FdwActionCompleted {
+        request_id: RequestId,
+        action: String,
+        name: String,
+    },
+    ReplicationInventoryLoaded {
+        request_id: RequestId,
+        inventory: db_pro_core::domain::replication::ReplicationInventory,
+    },
+    ReplicationActionCompleted {
         request_id: RequestId,
         action: String,
         name: String,

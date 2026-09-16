@@ -18,6 +18,7 @@ pub mod monitoring;
 pub mod object_mutation;
 pub mod pg_settings;
 pub mod query;
+pub mod replication;
 pub mod rls;
 pub mod run_config;
 pub mod safety;

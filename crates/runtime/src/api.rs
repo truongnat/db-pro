@@ -1281,6 +1281,50 @@ impl PostgresApi {
             .map_err(Into::into)
     }
 
+    pub async fn list_replication_inventory(
+        &self,
+        connection_id: &str,
+    ) -> Result<db_pro_core::domain::replication::ReplicationInventory, DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::replication::PostgresReplicationPort::new(connector)
+            .inventory(&handle, connection_id)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn create_publication_all(
+        &self,
+        connection_id: &str,
+        name: &str,
+        confirmed: bool,
+    ) -> Result<(), DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::replication::PostgresReplicationPort::new(connector)
+            .create_publication_all(&handle, name, confirmed)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn drop_publication(&self, connection_id: &str, name: &str, confirmed: bool) -> Result<(), DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::replication::PostgresReplicationPort::new(connector)
+            .drop_publication(&handle, name, confirmed)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn drop_subscription(&self, connection_id: &str, name: &str, confirmed: bool) -> Result<(), DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::replication::PostgresReplicationPort::new(connector)
+            .drop_subscription(&handle, name, confirmed)
+            .await
+            .map_err(Into::into)
+    }
+
     fn postgres_handle(
         &self,
         connection_id: &str,

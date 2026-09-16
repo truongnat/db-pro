@@ -5,6 +5,7 @@ pub mod fdw;
 pub mod introspect;
 pub mod monitoring;
 pub mod query_mapper;
+pub mod replication;
 pub mod rls_manager;
 pub mod settings;
 pub mod user_manager;
