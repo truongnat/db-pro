@@ -34,6 +34,8 @@ mod agent_workflow_state;
 mod app_state;
 #[path = "app_types.rs"]
 mod app_types;
+#[path = "cell_inspector.rs"]
+mod cell_inspector;
 #[path = "change_set.rs"]
 mod change_set;
 #[path = "component_gallery_view.rs"]
@@ -248,6 +250,9 @@ pub struct DbProApp {
     selection_anchor_cell: Option<(usize, usize)>,
     data_editing_cell: Option<(usize, usize)>,
     expanded_data_editor: Option<(usize, usize)>,
+    /// Value inspector mode for expanded cell / record panel (#228).
+    cell_inspector_mode: cell_inspector::CellInspectorMode,
+    record_inspector_open: bool,
     data_edit_value: String,
     data_edit_error: Option<String>,
     data_delete_confirmation: bool,

@@ -1637,6 +1637,8 @@ impl DbProApp {
             .and_then(|column| self.column_write_policy(&column.name))
             .and_then(|policy| policy.write_block())
         {
+            // Still allow the advanced inspector for binary / blocked columns (#228).
+            self.open_cell_inspector(result, row_index, column_index);
             self.runtime_message = block.reason().to_owned();
             return;
         }
@@ -1650,21 +1652,23 @@ impl DbProApp {
             self.clear_mutation_error_for_identity(&identity, Some(column_index));
         }
         self.data_editing_cell = Some((row_index, column_index));
-        self.expanded_data_editor = result
-            .columns
-            .get(column_index)
-            .is_some_and(|column| {
-                let data_type = column.data_type.to_ascii_lowercase();
-                data_type.contains("json")
-                    || matches!(cell, UiCell::Json(_))
-                    || matches!(cell, UiCell::Text(value) if value.chars().count() > 120)
-            })
-            .then_some((row_index, column_index));
-        self.data_edit_error = None;
-        self.data_edit_value = match cell {
-            UiCell::Null => "NULL".to_owned(),
-            _ => crate::cell_text(cell),
-        };
+        let should_expand = result.columns.get(column_index).is_some_and(|column| {
+            let data_type = column.data_type.to_ascii_lowercase();
+            data_type.contains("json")
+                || matches!(cell, UiCell::Json(_))
+                || matches!(cell, UiCell::Bytes(_))
+                || matches!(cell, UiCell::Text(value) if value.chars().count() > 120)
+        });
+        if should_expand {
+            self.open_cell_inspector(result, row_index, column_index);
+        } else {
+            self.expanded_data_editor = None;
+            self.data_edit_error = None;
+            self.data_edit_value = match cell {
+                UiCell::Null => "NULL".to_owned(),
+                _ => crate::cell_text(cell),
+            };
+        }
         self.copy_status.clear();
     }
 

@@ -255,6 +255,8 @@ impl Default for DbProApp {
             selection_anchor_cell: None,
             data_editing_cell: None,
             expanded_data_editor: None,
+            cell_inspector_mode: cell_inspector::CellInspectorMode::Raw,
+            record_inspector_open: false,
             data_edit_value: String::new(),
             data_edit_error: None,
             data_delete_confirmation: false,

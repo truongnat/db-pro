@@ -14,7 +14,7 @@ pub(crate) enum ColumnWriteBlock {
 impl ColumnWriteBlock {
     pub(crate) fn reason(self) -> &'static str {
         match self {
-            Self::Binary => "Binary values are read-only until a binary editor is available",
+            Self::Binary => "Binary values are read-only in the grid — use Inspect to preview/export",
             Self::Generated => "Generated columns are computed by the database and cannot be written",
         }
     }

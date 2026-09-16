@@ -159,6 +159,7 @@ impl DbProApp {
         if !is_table_data {
             self.draw_grid_toolbar(ui, result, editable, indexes.len(), &indexes);
         }
+        self.draw_record_inspector_panel(ui, result);
 
         let row_offset = if is_table_data { self.table_data_offset } else { 0 };
         self.draw_grid_body(ui, result, &indexes, &order, editable, row_offset, &selection_lookup);
@@ -553,6 +554,20 @@ impl DbProApp {
                     .clicked()
                 {
                     self.copy_all_as_json(ui, result, indexes);
+                }
+                if compact_button_with_icon(ui, Icon::PanelRight, "Record", self.theme)
+                    .on_hover_text("Toggle record / value inspector panel")
+                    .clicked()
+                {
+                    self.record_inspector_open = !self.record_inspector_open;
+                }
+                if let Some((row_index, column_index)) = self.selected_cell {
+                    if compact_button_with_icon(ui, Icon::ScanSearch, "Inspect", self.theme)
+                        .on_hover_text("Open advanced value inspector for the selected cell")
+                        .clicked()
+                    {
+                        self.open_cell_inspector(result, row_index, column_index);
+                    }
                 }
 
                 if !self.copy_status.is_empty() {

@@ -1,4 +1,4 @@
-//! In-cell editor for the result grid.
+//! In-cell editor + advanced value inspector for the result grid (#228).
 use super::*;
 use egui::Rect;
 
@@ -51,41 +51,191 @@ impl DbProApp {
             return;
         }
 
+        self.draw_advanced_cell_inspector(ui, result, row_index, column_index);
+    }
+
+    pub(super) fn draw_advanced_cell_inspector(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        row_index: usize,
+        column_index: usize,
+    ) {
         let ctx = ui.ctx().clone();
         let mut open = true;
         let mut commit = false;
         let mut cancel = false;
-        egui::Window::new("Expanded cell editor")
-            .id(egui::Id::new(("expanded-table-cell-editor", row_index, column_index)))
+        let column_name = result
+            .columns
+            .get(column_index)
+            .map(|c| c.name.clone())
+            .unwrap_or_else(|| format!("col{column_index}"));
+        let data_type = result
+            .columns
+            .get(column_index)
+            .map(|c| c.data_type.clone())
+            .unwrap_or_default();
+        let write_block = self
+            .column_write_policy(&column_name)
+            .and_then(|policy| policy.write_block());
+        let writable = write_block.is_none() && self.data_editing_cell.is_some();
+        let cell = result
+            .rows
+            .get(row_index)
+            .and_then(|row| row.get(column_index))
+            .cloned()
+            .unwrap_or(UiCell::Null);
+        let kind = cell_inspector::classify_cell(&cell, &data_type);
+        let title = format!("Value inspector · {column_name}");
+
+        egui::Window::new(title)
+            .id(egui::Id::new(("advanced-cell-inspector", row_index, column_index)))
             .open(&mut open)
             .resizable(true)
-            .default_width(520.0)
+            .default_width(560.0)
+            .default_height(420.0)
             .show(&ctx, |ui| {
                 ui.label(
-                    RichText::new("Edit value · Enter applies, Escape cancels")
-                        .small()
-                        .color(self.theme.text_muted),
+                    RichText::new(format!(
+                        "{data_type} · {} · {}",
+                        if matches!(cell, UiCell::Null) { "NULL" } else { "value" },
+                        write_block.map(|b| b.reason()).unwrap_or(if writable {
+                            "editable via ChangeSet"
+                        } else {
+                            "view only"
+                        })
+                    ))
+                    .small()
+                    .color(self.theme.text_muted),
                 );
-                let response = ui.add(
-                    TextEdit::multiline(&mut self.data_edit_value)
-                        .desired_width(ui.available_width())
-                        .desired_rows(14),
-                );
-                if response.changed() {
-                    self.data_edit_error = None;
+
+                let modes: &[cell_inspector::CellInspectorMode] = match kind {
+                    cell_inspector::CellInspectorKind::Json => &[
+                        cell_inspector::CellInspectorMode::Raw,
+                        cell_inspector::CellInspectorMode::Pretty,
+                        cell_inspector::CellInspectorMode::Tree,
+                    ],
+                    cell_inspector::CellInspectorKind::Bytes => &[
+                        cell_inspector::CellInspectorMode::Raw,
+                        cell_inspector::CellInspectorMode::Hex,
+                        cell_inspector::CellInspectorMode::Base64,
+                    ],
+                    _ => &[
+                        cell_inspector::CellInspectorMode::Raw,
+                        cell_inspector::CellInspectorMode::Pretty,
+                    ],
+                };
+                ui.horizontal(|ui| {
+                    for mode in modes {
+                        let selected = self.cell_inspector_mode == *mode;
+                        if ui.selectable_label(selected, mode.as_label()).clicked() {
+                            self.cell_inspector_mode = *mode;
+                        }
+                    }
+                    if ui.button("Copy raw").clicked() {
+                        ui.ctx().copy_text(self.data_edit_value.clone());
+                        self.runtime_message = "Copied raw value".into();
+                    }
+                    if kind == cell_inspector::CellInspectorKind::Bytes && ui.button("Export bytes…").clicked() {
+                        self.export_inspected_bytes();
+                    }
+                });
+
+                ui.add_space(6.0);
+                match self.cell_inspector_mode {
+                    cell_inspector::CellInspectorMode::Raw => {
+                        if writable {
+                            let response = ui.add(
+                                TextEdit::multiline(&mut self.data_edit_value)
+                                    .desired_width(ui.available_width())
+                                    .desired_rows(16),
+                            );
+                            if response.changed() {
+                                self.data_edit_error = None;
+                            }
+                        } else {
+                            ui.add(
+                                TextEdit::multiline(&mut self.data_edit_value)
+                                    .desired_width(ui.available_width())
+                                    .desired_rows(16)
+                                    .interactive(false),
+                            );
+                        }
+                    }
+                    cell_inspector::CellInspectorMode::Pretty => {
+                        let pretty = cell_inspector::pretty_json(&self.data_edit_value)
+                            .unwrap_or_else(|| self.data_edit_value.clone());
+                        ui.add(
+                            TextEdit::multiline(&mut pretty.clone())
+                                .desired_width(ui.available_width())
+                                .desired_rows(16)
+                                .interactive(false),
+                        );
+                        if writable && ui.button("Use pretty as edit buffer").clicked() {
+                            self.data_edit_value = pretty;
+                            self.cell_inspector_mode = cell_inspector::CellInspectorMode::Raw;
+                        }
+                    }
+                    cell_inspector::CellInspectorMode::Tree => {
+                        egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
+                            for line in cell_inspector::json_tree_lines(&self.data_edit_value, 400) {
+                                ui.label(RichText::new(line).monospace().small());
+                            }
+                        });
+                    }
+                    cell_inspector::CellInspectorMode::Hex => {
+                        let text = match cell_inspector::decode_bytes_payload(&self.data_edit_value) {
+                            Ok(bytes) => {
+                                ui.label(
+                                    RichText::new(cell_inspector::bytes_metadata(&self.data_edit_value))
+                                        .small()
+                                        .color(self.theme.text_secondary),
+                                );
+                                cell_inspector::encode_hex(&bytes)
+                            }
+                            Err(err) => format!("(hex unavailable: {err})"),
+                        };
+                        ui.add(
+                            TextEdit::multiline(&mut text.clone())
+                                .desired_width(ui.available_width())
+                                .desired_rows(14)
+                                .interactive(false),
+                        );
+                    }
+                    cell_inspector::CellInspectorMode::Base64 => {
+                        let text = match cell_inspector::decode_bytes_payload(&self.data_edit_value) {
+                            Ok(bytes) => {
+                                ui.label(
+                                    RichText::new(cell_inspector::bytes_metadata(&self.data_edit_value))
+                                        .small()
+                                        .color(self.theme.text_secondary),
+                                );
+                                cell_inspector::encode_base64(&bytes)
+                            }
+                            Err(err) => format!("(base64 unavailable: {err})"),
+                        };
+                        ui.add(
+                            TextEdit::multiline(&mut text.clone())
+                                .desired_width(ui.available_width())
+                                .desired_rows(10)
+                                .interactive(false),
+                        );
+                    }
                 }
+
                 if let Some(error) = self.data_edit_error.as_deref() {
                     ui.label(RichText::new(error).small().color(self.theme.danger));
                 }
                 ui.horizontal(|ui| {
-                    if ui.button("Apply").clicked() {
+                    if writable && ui.button("Apply to ChangeSet").clicked() {
                         commit = true;
                     }
-                    if ui.button("Cancel").clicked() {
+                    if ui.button("Close").clicked() {
                         cancel = true;
                     }
                 });
             });
+
         if commit {
             self.submit_data_cell_edit(result, row_index, column_index);
         } else if cancel || !open || ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
@@ -94,6 +244,111 @@ impl DbProApp {
             self.data_edit_value.clear();
             self.data_edit_error = None;
         }
+    }
+
+    pub(super) fn open_cell_inspector(&mut self, result: &UiQueryResult, row_index: usize, column_index: usize) {
+        let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) else {
+            return;
+        };
+        self.selected_cell = Some((row_index, column_index));
+        self.selected_row = Some(row_index);
+        let write_block = result
+            .columns
+            .get(column_index)
+            .and_then(|column| self.column_write_policy(&column.name))
+            .and_then(|policy| policy.write_block());
+        if write_block.is_none() && self.can_mutate_active_connection() {
+            self.data_editing_cell = Some((row_index, column_index));
+        } else {
+            self.data_editing_cell = None;
+        }
+        self.expanded_data_editor = Some((row_index, column_index));
+        self.cell_inspector_mode = match cell_inspector::classify_cell(
+            cell,
+            result
+                .columns
+                .get(column_index)
+                .map(|c| c.data_type.as_str())
+                .unwrap_or(""),
+        ) {
+            cell_inspector::CellInspectorKind::Json => cell_inspector::CellInspectorMode::Pretty,
+            cell_inspector::CellInspectorKind::Bytes => cell_inspector::CellInspectorMode::Hex,
+            _ => cell_inspector::CellInspectorMode::Raw,
+        };
+        self.data_edit_error = None;
+        self.data_edit_value = cell_inspector::cell_raw_text(cell);
+        if let Some(reason) = write_block {
+            self.runtime_message = reason.reason().to_owned();
+        }
+    }
+
+    fn export_inspected_bytes(&mut self) {
+        match cell_inspector::decode_bytes_payload(&self.data_edit_value) {
+            Ok(bytes) => {
+                let path = std::env::temp_dir().join(format!(
+                    "db-pro-cell-export-{}.bin",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis())
+                        .unwrap_or(0)
+                ));
+                match std::fs::write(&path, &bytes) {
+                    Ok(()) => {
+                        self.runtime_message = format!("Exported {} byte(s) → {}", bytes.len(), path.display());
+                    }
+                    Err(err) => self.runtime_message = format!("Export failed: {err}"),
+                }
+            }
+            Err(err) => self.runtime_message = format!("Cannot export bytes: {err}"),
+        }
+    }
+
+    pub(super) fn draw_record_inspector_panel(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
+        if !self.record_inspector_open {
+            return;
+        }
+        let Some(row_index) = self.selected_row.or_else(|| self.selected_cell.map(|(r, _)| r)) else {
+            ui.label(
+                RichText::new("Select a row to inspect the full record.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            return;
+        };
+        let Some(row) = result.rows.get(row_index) else {
+            return;
+        };
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(format!("Record · row {row_index}")).strong());
+            if ui.small_button("Close").clicked() {
+                self.record_inspector_open = false;
+            }
+        });
+        egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
+            for (column_index, column) in result.columns.iter().enumerate() {
+                let cell = row.get(column_index).unwrap_or(&UiCell::Null);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(format!("{}:", column.name))
+                            .small()
+                            .strong()
+                            .color(self.theme.text_secondary),
+                    );
+                    let preview = {
+                        let text = cell_inspector::cell_raw_text(cell);
+                        if text.chars().count() > 80 {
+                            format!("{}…", text.chars().take(79).collect::<String>())
+                        } else {
+                            text
+                        }
+                    };
+                    ui.label(RichText::new(preview).small().monospace());
+                    if ui.small_button("Inspect").clicked() {
+                        self.open_cell_inspector(result, row_index, column_index);
+                    }
+                });
+            }
+        });
     }
 
     pub(super) fn commit_active_data_edit(&mut self, result: &UiQueryResult) -> bool {
