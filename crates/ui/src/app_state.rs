@@ -44,6 +44,7 @@ impl DbProApp {
                 app.sync_settings_from_runtime();
             }
             app.load_saved_tasks_from_storage(storage);
+            app.load_named_sessions_from_storage(storage);
             if let Some(width) = storage
                 .get_string("dbpro.native.sidebar-width")
                 .and_then(|value| value.parse::<f32>().ok())
@@ -112,6 +113,8 @@ impl DbProApp {
                     app.pinned_tables = tables;
                 }
             }
+            // Shell/layout restore after documents + pins so tab refs resolve (#222).
+            app.restore_last_workspace_session_from_storage(storage);
             if let Some(recent) = storage.get_string("dbpro.native.recent-tables-v1") {
                 if let Ok(tables) = serde_json::from_str::<Vec<String>>(&recent) {
                     app.recent_tables = tables;
@@ -335,6 +338,10 @@ impl Default for DbProApp {
             saved_tasks_dirty: false,
             saved_task_confirm_destructive: false,
             pending_destructive_task_id: None,
+            named_session_store: workspace_session::NamedSessionStore::new(),
+            session_name_draft: String::new(),
+            selected_named_session_id: None,
+            last_session_restore_notes: Vec::new(),
             migration_fingerprint_at_preview: String::new(),
             data_diff_target_id: String::new(),
             data_diff_schema: "public".into(),

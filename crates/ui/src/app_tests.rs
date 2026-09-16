@@ -5818,3 +5818,36 @@ fn scheduled_task_tick_dispatches_once_while_app_active() {
     app.tick_saved_task_scheduler();
     assert!(command_rx.try_recv().is_err(), "no duplicate fire");
 }
+
+#[test]
+fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
+    let mut app = DbProApp::default();
+    app.query_documents.clear();
+    app.query_documents.push(QueryDocument::new("doc-a", "A", "SELECT 1"));
+    app.query_documents.push(QueryDocument::new("doc-b", "B", "SELECT 2"));
+    app.active_query_document = 1;
+    app.activity = Activity::Data;
+    app.active_tab = WorkspaceTab::Query;
+    app.active_connection_id = Some("gone-conn".to_owned());
+    app.pinned_tables = vec!["public.orders".to_owned()];
+    app.session_name_draft = "Focus pack".to_owned();
+    app.save_named_workspace_session();
+    assert_eq!(app.named_session_store.sessions.len(), 1);
+    let id = app.named_session_store.sessions[0].id.clone();
+
+    // Mutate live state, then restore.
+    app.activity = Activity::Explorer;
+    app.active_query_document = 0;
+    app.active_connection_id = Some("other".to_owned());
+    app.pinned_tables.clear();
+    app.restore_named_workspace_session(&id);
+
+    assert_eq!(app.activity, Activity::Data);
+    assert_eq!(app.active_query_document, 1);
+    assert_eq!(app.pinned_tables, vec!["public.orders".to_owned()]);
+    assert!(app.active_connection_id.is_none(), "missing connection must not crash");
+    assert!(!app.last_session_restore_notes.is_empty());
+
+    app.duplicate_named_workspace_session(&id);
+    assert_eq!(app.named_session_store.sessions.len(), 2);
+}

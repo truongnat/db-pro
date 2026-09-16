@@ -121,6 +121,8 @@ mod sidebar_view;
 mod tasks_view;
 #[path = "workspace_actions.rs"]
 mod workspace_actions;
+#[path = "workspace_session.rs"]
+mod workspace_session;
 pub(crate) use result_grid_view::GridSelectionCache;
 #[path = "schema_compare.rs"]
 mod schema_compare;
@@ -343,6 +345,10 @@ pub struct DbProApp {
     saved_tasks_dirty: bool,
     saved_task_confirm_destructive: bool,
     pending_destructive_task_id: Option<uuid::Uuid>,
+    named_session_store: workspace_session::NamedSessionStore,
+    session_name_draft: String,
+    selected_named_session_id: Option<String>,
+    last_session_restore_notes: Vec<String>,
     migration_fingerprint_at_preview: String,
     data_diff_target_id: String,
     data_diff_schema: String,
@@ -452,6 +458,7 @@ impl eframe::App for DbProApp {
             storage.set_string(SETTINGS_STORAGE_KEY, settings);
         }
         self.persist_saved_tasks(storage);
+        self.persist_workspace_sessions(storage);
         if let Ok(layouts) = serde_json::to_string(&self.grid_layout_preferences) {
             storage.set_string("dbpro.native.grid-layouts", layouts);
         }

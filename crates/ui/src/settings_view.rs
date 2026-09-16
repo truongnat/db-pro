@@ -77,6 +77,47 @@ impl DbProApp {
                 &mut self.settings.general.restore_tabs_on_startup,
                 "Restore query tabs on startup",
             );
+            ui.add_space(12.0);
+            section_label(ui, "WORKSPACE SESSIONS", self.theme);
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(
+                    "Named sessions store layout and tab references — not SQL text, secrets, or result grids.",
+                )
+                .small()
+                .color(self.theme.text_muted),
+            );
+            input_full_width(ui, &mut self.session_name_draft, "Session name", self.theme);
+            ui.horizontal(|ui| {
+                if primary_button(ui, "Save workspace", self.theme).clicked() {
+                    self.save_named_workspace_session();
+                }
+            });
+            ui.add_space(6.0);
+            let sessions = self.named_session_store.sessions.clone();
+            for session in sessions {
+                ui.horizontal(|ui| {
+                    let selected = self.selected_named_session_id.as_deref() == Some(session.id.as_str());
+                    if ui.selectable_label(selected, &session.name).clicked() {
+                        self.selected_named_session_id = Some(session.id.clone());
+                    }
+                    if compact_button(ui, "Restore", self.theme).clicked() {
+                        self.restore_named_workspace_session(&session.id);
+                    }
+                    if compact_button(ui, "Duplicate", self.theme).clicked() {
+                        self.duplicate_named_workspace_session(&session.id);
+                    }
+                    if compact_button(ui, "Delete", self.theme).clicked() {
+                        self.named_session_store.remove(&session.id);
+                    }
+                });
+            }
+            if !self.last_session_restore_notes.is_empty() {
+                ui.add_space(6.0);
+                for note in &self.last_session_restore_notes {
+                    ui.label(RichText::new(note).small().color(self.theme.warning));
+                }
+            }
         });
     }
 
