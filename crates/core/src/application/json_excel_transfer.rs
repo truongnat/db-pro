@@ -120,7 +120,7 @@ impl TransferSource for JsonlFileSource {
                         .as_object()
                         .ok_or_else(|| TransferError::Source("JSONL row must be an object".into()))?;
                     let cells = if self.headers.is_empty() {
-                        obj.values().map(|v| json_value_to_cell(v)).collect()
+                        obj.values().map(json_value_to_cell).collect()
                     } else {
                         self.headers
                             .iter()
