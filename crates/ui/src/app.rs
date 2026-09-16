@@ -9,10 +9,9 @@ use crate::{
     tab_frame, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock,
     ColumnWritePolicy, DbProTheme, GridProjectionCache, GridProjectionKey, OfflineAgentProvider, TaskBridge, UiCell,
     UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput,
-    UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult,
-    UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableDataFilter,
-    UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary,
-    UiViewSummary,
+    UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary,
+    UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableDataFilter, UiTableDataSort,
+    UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
@@ -291,6 +290,8 @@ pub struct DbProApp {
     routine_param_nulls: Vec<bool>,
     routine_ddl_preview: Option<String>,
     routine_drop_confirm: bool,
+    /// Recent transfer jobs for Transfers activity (#193).
+    transfer_jobs: Vec<db_pro_core::domain::transfer::TransferJob>,
     schema_workbench: schema_workbench::SchemaWorkbenchState,
     schema_snapshot: Option<schema_compare::UiSchemaSnapshot>,
     schema_diff: Option<schema_compare::UiSchemaDiffResult>,

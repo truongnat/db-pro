@@ -288,6 +288,7 @@ impl Default for DbProApp {
             routine_param_nulls: Vec::new(),
             routine_ddl_preview: None,
             routine_drop_confirm: false,
+            transfer_jobs: Vec::new(),
             schema_workbench: schema_workbench::SchemaWorkbenchState::default(),
             schema_snapshot: None,
             schema_diff: None,

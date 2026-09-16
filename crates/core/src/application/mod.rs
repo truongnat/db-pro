@@ -12,6 +12,7 @@ pub mod schema_service;
 pub mod sql_builder;
 mod sql_policy;
 pub mod table_data_service;
+pub mod transfer_service;
 pub mod user_service;
 
 pub use backup_service::BackupService;
@@ -23,4 +24,5 @@ pub use query_service::{MultiQueryError, MultiQueryResult, QueryService, Stateme
 pub use registry::ConnectionRegistry;
 pub use schema_service::SchemaService;
 pub use table_data_service::{TableDataMutation, TableDataService};
+pub use transfer_service::{CountingTarget, SyntheticSource, TransferService, TransferSource, TransferTarget};
 pub use user_service::UserService;

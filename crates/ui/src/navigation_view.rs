@@ -416,23 +416,111 @@ impl DbProApp {
             .clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
     }
 
-    /// Transfers activity: intentional empty surface until transfer jobs ship.
+    /// Transfers activity: streaming job list + synthetic harness (#193).
     pub(super) fn draw_transfers_activity(&mut self, ui: &mut egui::Ui) {
         section_label(ui, "TRANSFERS", self.theme);
         ui.add_space(SPACE_SM);
         ui.label(
-            RichText::new("Import / export and background copy jobs will land here.")
+            RichText::new("Streaming transfer engine · bounded batches · cancellable")
                 .small()
                 .color(self.theme.text_muted),
         );
-        ui.add_space(SPACE_XL);
-        empty_state(
-            ui,
-            Icon::Upload,
-            "No transfers yet",
-            "Run an export or import from Query / Data to see jobs in this list.",
-            self.theme,
+        ui.add_space(SPACE_MD);
+        ui.horizontal_wrapped(|ui| {
+            if primary_button_with_icon(ui, Icon::Play, "Run synthetic harness", self.theme).clicked() {
+                self.run_synthetic_transfer_harness(false);
+            }
+            if secondary_button_with_icon(ui, Icon::Ban, "Run then cancel", self.theme).clicked() {
+                self.run_synthetic_transfer_harness(true);
+            }
+            if ghost_button_with_icon(ui, Icon::Trash2, "Clear jobs", self.theme).clicked() {
+                self.transfer_jobs.clear();
+            }
+        });
+        ui.add_space(SPACE_MD);
+        if self.transfer_jobs.is_empty() {
+            empty_state(
+                ui,
+                Icon::Upload,
+                "No transfers yet",
+                "Run the synthetic harness to verify streaming progress, or import/export from Query once formats land.",
+                self.theme,
+            );
+            return;
+        }
+        for job in &self.transfer_jobs {
+            card_frame(self.theme).show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(&job.label).strong().color(self.theme.text_primary));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        badge(
+                            ui,
+                            match job.status {
+                                db_pro_core::domain::transfer::TransferStatus::Pending => "pending",
+                                db_pro_core::domain::transfer::TransferStatus::Running => "running",
+                                db_pro_core::domain::transfer::TransferStatus::Succeeded => "succeeded",
+                                db_pro_core::domain::transfer::TransferStatus::Failed => "failed",
+                                db_pro_core::domain::transfer::TransferStatus::Cancelled => "cancelled",
+                                db_pro_core::domain::transfer::TransferStatus::Partial => "partial",
+                            },
+                            self.theme.surface_active,
+                            self.theme.text_secondary,
+                        );
+                    });
+                });
+                ui.label(
+                    RichText::new(format!(
+                        "read {} · wrote {} · {} bytes · {}",
+                        job.progress.rows_read,
+                        job.progress.rows_written,
+                        job.progress.bytes_written,
+                        job.progress.message
+                    ))
+                    .small()
+                    .color(self.theme.text_secondary),
+                );
+                if let Some(error) = &job.error {
+                    ui.colored_label(self.theme.warning, error);
+                }
+            });
+            ui.add_space(SPACE_SM);
+        }
+    }
+
+    pub(crate) fn run_synthetic_transfer_harness(&mut self, cancel_midway: bool) {
+        use db_pro_core::application::TransferService;
+        use db_pro_core::domain::transfer::{TransferCancellation, TransferJob, TransferStatus};
+
+        let id = format!("xfer-{}", self.transfer_jobs.len() + 1);
+        let mut job = TransferJob::new_synthetic(id, if cancel_midway { 20_000 } else { 5_000 }, 128);
+        let cancel = TransferCancellation::new();
+        if cancel_midway {
+            // Prove cancel path: run a short first batch then cancel before continuing.
+            use db_pro_core::application::{CountingTarget, SyntheticSource, TransferSource, TransferTarget};
+            let mut source = SyntheticSource::new(20_000);
+            let mut target = CountingTarget::default();
+            job.status = TransferStatus::Running;
+            if let Ok(Some(batch)) = source.next_batch(job.batch_size) {
+                job.progress.rows_read += batch.len() as u64;
+                if let Ok(written) = target.write_batch(&batch) {
+                    job.progress.rows_written += written;
+                    job.progress.bytes_written = target.bytes_written;
+                }
+            }
+            cancel.cancel();
+            let _ = TransferService::run(&mut job, &mut source, &mut target, &cancel);
+            job.progress.bytes_written = target.bytes_written;
+        } else {
+            let _ = TransferService::run_synthetic(&mut job, &cancel);
+        }
+        self.runtime_message = format!(
+            "Transfer {} · {:?} · wrote {}",
+            job.id, job.status, job.progress.rows_written
         );
+        self.transfer_jobs.insert(0, job);
+        if self.transfer_jobs.len() > 20 {
+            self.transfer_jobs.truncate(20);
+        }
     }
 
     /// Monitor activity: lightweight connection pulse from live app state.
