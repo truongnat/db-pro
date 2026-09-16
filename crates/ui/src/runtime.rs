@@ -598,6 +598,12 @@ pub enum UiCommand {
         connection_id: String,
         confirmed: bool,
     },
+    AuditEventsLoad {
+        request_id: RequestId,
+        connection_id: String,
+        filter: db_pro_core::domain::audit::AuditFilter,
+        limit: Option<usize>,
+    },
     ListPgSettings {
         request_id: RequestId,
         connection_id: String,
@@ -916,6 +922,10 @@ pub enum UiEvent {
     MonitoringWorkloadLoaded {
         request_id: RequestId,
         workload: db_pro_core::domain::monitoring::StatStatementsSnapshot,
+    },
+    AuditPageLoaded {
+        request_id: RequestId,
+        page: db_pro_core::domain::audit::AuditPage,
     },
     PgSettingsLoaded {
         request_id: RequestId,

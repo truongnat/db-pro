@@ -235,6 +235,12 @@ pub enum RuntimeCommand {
         connection_id: String,
         confirmed: bool,
     },
+    AuditEventsLoad {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        filter: db_pro_core::domain::audit::AuditFilter,
+        limit: Option<usize>,
+    },
     ListPgSettings {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -477,6 +483,10 @@ pub enum RuntimeEvent {
     MonitoringWorkloadLoaded {
         request_id: RuntimeRequestId,
         workload: db_pro_core::domain::monitoring::StatStatementsSnapshot,
+    },
+    AuditPageLoaded {
+        request_id: RuntimeRequestId,
+        page: db_pro_core::domain::audit::AuditPage,
     },
     PgSettingsLoaded {
         request_id: RuntimeRequestId,
@@ -1933,6 +1943,25 @@ pub fn spawn_worker(
                                 backend_id: 0,
                                 succeeded: true,
                             },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::AuditEventsLoad {
+                    request_id,
+                    connection_id,
+                    filter,
+                    limit,
+                } => {
+                    let audit_api = runtime.audit_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match audit_api.load_page(&connection_id, filter, limit).await {
+                            Ok(page) => RuntimeEvent::AuditPageLoaded { request_id, page },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,

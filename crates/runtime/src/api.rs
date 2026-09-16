@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use db_pro_core::application::sql_builder::{SortClause, TableFilter};
 use db_pro_core::application::{
-    BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, MonitoringService,
-    QueryService, RlsService, SchemaService, TableDataMutation, TableDataService, UserService,
+    AuditService, BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService,
+    MonitoringService, QueryService, RlsService, SchemaService, TableDataMutation, TableDataService, UserService,
 };
 use db_pro_core::domain::backup::{BackupOptions, BackupResult, RestoreOptions};
 use db_pro_core::domain::connection::{Connection, ConnectionConfig, ConnectionId, DriverType};
@@ -1058,6 +1058,30 @@ impl MonitoringApi {
         let connection_id = parse_connection_id(connection_id)?;
         self.service
             .reset_stat_statements(&connection_id, confirmed)
+            .await
+            .map_err(Into::into)
+    }
+}
+
+#[derive(Clone)]
+pub struct AuditApi {
+    service: Arc<AuditService>,
+}
+
+impl AuditApi {
+    pub(crate) fn new(service: Arc<AuditService>) -> Self {
+        Self { service }
+    }
+
+    pub async fn load_page(
+        &self,
+        connection_id: &str,
+        filter: db_pro_core::domain::audit::AuditFilter,
+        limit: Option<usize>,
+    ) -> Result<db_pro_core::domain::audit::AuditPage, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .load_page(&connection_id, filter, limit)
             .await
             .map_err(Into::into)
     }

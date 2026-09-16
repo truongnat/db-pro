@@ -92,6 +92,15 @@ impl DbProApp {
                 self.monitoring_stat_sort = workload.sort;
                 self.runtime_message = format!("Workload · {}", workload.message);
             }
+            UiEvent::AuditPageLoaded { page, .. } => {
+                self.audit_page = Some(page.clone());
+                self.audit_error = None;
+                self.runtime_message = format!(
+                    "Audit · {} event(s) · {}",
+                    page.events.len(),
+                    page.source.guidance.chars().take(80).collect::<String>()
+                );
+            }
             UiEvent::PgSettingsLoaded { snapshot, .. } => {
                 self.pg_settings = Some(snapshot.clone());
                 self.pg_settings_error = None;

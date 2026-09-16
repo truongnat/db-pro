@@ -187,6 +187,7 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::MonitoringMaintenance { .. }
         | UiCommand::MonitoringStatStatements { .. }
         | UiCommand::MonitoringResetStatStatements { .. }
+        | UiCommand::AuditEventsLoad { .. }
         | UiCommand::ListPgSettings { .. }
         | UiCommand::SetPgSettingSession { .. }
         | UiCommand::ResetPgSettingSession { .. }
@@ -726,6 +727,17 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             request_id: runtime_request_id(request_id),
             connection_id,
             confirmed,
+        }),
+        UiCommand::AuditEventsLoad {
+            request_id,
+            connection_id,
+            filter,
+            limit,
+        } => Some(RuntimeCommand::AuditEventsLoad {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            filter,
+            limit,
         }),
         UiCommand::ListPgSettings {
             request_id,

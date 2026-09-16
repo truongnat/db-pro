@@ -8,10 +8,10 @@ pub use agent::{AgentContext, AgentDraft, CodexProvider, CodexProviderError, Sql
 pub use agent_executor::{AgentToolExecutor, AgentToolRunner};
 pub use agent_orchestrator::{AgentRunOrchestrator, AgentWorkflowEvent};
 pub use api::{
-    BackupApi, ColumnSummary, ConnectionApi, ConnectionSummary, DataDiffApi, DbErrorDto, ExportApi, ForeignKeySummary,
-    FunctionSummary, MonitoringApi, PostgresApi, QueryApi, QueryFolderSummary, RlsApi, RoutineParameterSummary,
-    SavedQuerySummary, SchemaApi, SchemaSummary, TableDataApi, TableMutationFailure, TableSummary, TriggerSummary,
-    UserApi, ViewSummary,
+    AuditApi, BackupApi, ColumnSummary, ConnectionApi, ConnectionSummary, DataDiffApi, DbErrorDto, ExportApi,
+    ForeignKeySummary, FunctionSummary, MonitoringApi, PostgresApi, QueryApi, QueryFolderSummary, RlsApi,
+    RoutineParameterSummary, SavedQuerySummary, SchemaApi, SchemaSummary, TableDataApi, TableMutationFailure,
+    TableSummary, TriggerSummary, UserApi, ViewSummary,
 };
 pub use db_pro_core::domain::agent_workflow::AgentExecutionContext;
 pub use worker::{spawn_worker, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
@@ -20,8 +20,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use db_pro_core::application::{
-    BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, MonitoringService,
-    QueryService, RlsService, SchemaService, TableDataService, UserService,
+    AuditService, BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService,
+    MonitoringService, QueryService, RlsService, SchemaService, TableDataService, UserService,
 };
 use db_pro_infrastructure::backup::pg_dump::PgDumpEngine;
 use db_pro_infrastructure::backup::sqlite_backup::SqliteBackupEngine;
@@ -50,6 +50,7 @@ pub struct DbProRuntime {
     users: Arc<UserService>,
     rls: Arc<RlsService>,
     monitoring: Arc<MonitoringService>,
+    audit: Arc<AuditService>,
     data_diff: Arc<DataDiffService>,
     connector: Arc<CompositeConnector>,
     registry: Arc<ConnectionRegistry>,
@@ -260,6 +261,11 @@ impl DbProRuntime {
             Arc::clone(&registry),
             Box::new(meta_store.clone()),
         ));
+        let audit = Arc::new(AuditService::new(
+            Arc::clone(&registry),
+            Box::new(meta_store.clone()),
+            Arc::clone(&connector) as Arc<dyn db_pro_core::ports::DbConnector>,
+        ));
         let data_diff = Arc::new(DataDiffService::new(
             Box::new(Arc::clone(&connector)),
             Arc::clone(&registry),
@@ -276,6 +282,7 @@ impl DbProRuntime {
             users,
             rls,
             monitoring,
+            audit,
             data_diff,
             connector,
             registry,
@@ -357,6 +364,14 @@ impl DbProRuntime {
 
     pub fn monitoring_api(&self) -> MonitoringApi {
         MonitoringApi::new(self.monitoring())
+    }
+
+    pub fn audit(&self) -> Arc<AuditService> {
+        Arc::clone(&self.audit)
+    }
+
+    pub fn audit_api(&self) -> AuditApi {
+        AuditApi::new(self.audit())
     }
 
     pub fn data_diff(&self) -> Arc<DataDiffService> {

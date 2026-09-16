@@ -37,6 +37,10 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             request_id: ui_request_id(request_id),
             workload,
         }),
+        RuntimeEvent::AuditPageLoaded { request_id, page } => Some(UiEvent::AuditPageLoaded {
+            request_id: ui_request_id(request_id),
+            page,
+        }),
         RuntimeEvent::PgSettingsLoaded { request_id, snapshot } => Some(UiEvent::PgSettingsLoaded {
             request_id: ui_request_id(request_id),
             snapshot,

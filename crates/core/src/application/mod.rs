@@ -1,3 +1,4 @@
+pub mod audit_service;
 pub mod backup_service;
 pub mod connection_service;
 pub mod data_diff;
@@ -21,6 +22,7 @@ pub mod table_data_service;
 pub mod transfer_service;
 pub mod user_service;
 
+pub use audit_service::AuditService;
 pub use backup_service::BackupService;
 pub use connection_service::ConnectionService;
 pub use data_diff::DataDiffService;

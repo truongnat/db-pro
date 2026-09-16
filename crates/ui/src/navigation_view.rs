@@ -1700,6 +1700,130 @@ impl DbProApp {
             }
 
             ui.add_space(SPACE_MD);
+            section_label(ui, "DATABASE AUDIT / ACTIVITY LOG", self.theme);
+            ui.add_space(SPACE_SM);
+            ui.label(
+                RichText::new(
+                    "Database audit (server CSV log) — distinct from application Diagnostics. \
+                     Configure tag audit:csvlog=/path/to/logfile.csv. Logging is never auto-enabled.",
+                )
+                .small()
+                .color(self.theme.text_muted),
+            );
+            ui.horizontal(|ui| {
+                if secondary_button_with_icon(ui, Icon::RefreshCw, "Load audit page", self.theme).clicked() {
+                    self.request_audit_page();
+                }
+                if secondary_button_with_icon(ui, Icon::Download, "Export selected", self.theme).clicked() {
+                    self.export_selected_audit_events();
+                }
+            });
+            ui.horizontal_wrapped(|ui| {
+                ui.label(RichText::new("Text").small().color(self.theme.text_muted));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.audit_filter_text)
+                        .desired_width(120.0)
+                        .hint_text("message/query"),
+                );
+                ui.label(RichText::new("DB").small().color(self.theme.text_muted));
+                ui.add(egui::TextEdit::singleline(&mut self.audit_filter_database).desired_width(80.0));
+                ui.label(RichText::new("User").small().color(self.theme.text_muted));
+                ui.add(egui::TextEdit::singleline(&mut self.audit_filter_username).desired_width(80.0));
+                ui.label(RichText::new("Severity").small().color(self.theme.text_muted));
+                ui.add(egui::TextEdit::singleline(&mut self.audit_filter_severity).desired_width(60.0));
+            });
+            if let Some(error) = &self.audit_error {
+                ui.colored_label(self.theme.danger, error);
+            }
+            if let Some(page) = self.audit_page.clone() {
+                ui.label(
+                    RichText::new(format!(
+                        "{} · scanned {} bytes · truncated={}",
+                        page.source.guidance, page.scanned_bytes, page.truncated
+                    ))
+                    .small()
+                    .color(self.theme.text_secondary),
+                );
+                if let Some(path) = &page.source.path {
+                    ui.label(RichText::new(format!("source: {path}")).small().monospace());
+                }
+                if page.source.kind == db_pro_core::domain::audit::AuditSourceKind::Unavailable {
+                    ui.colored_label(self.theme.warning, &page.source.guidance);
+                }
+                for event in page.events.iter().take(80) {
+                    let bookmarked = self.audit_bookmarks.contains(&event.id);
+                    let selected = self.audit_selected.contains(&event.id);
+                    card_frame(self.theme).show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            let mut sel = selected;
+                            if ui.checkbox(&mut sel, "").changed() {
+                                if sel {
+                                    self.audit_selected.insert(event.id.clone());
+                                } else {
+                                    self.audit_selected.remove(&event.id);
+                                }
+                            }
+                            ui.label(
+                                RichText::new(format!(
+                                    "{} · {} · {} · {}",
+                                    event.timestamp.as_deref().unwrap_or("-"),
+                                    event.severity.as_deref().unwrap_or("-"),
+                                    event.username.as_deref().unwrap_or("-"),
+                                    event.database.as_deref().unwrap_or("-"),
+                                ))
+                                .small()
+                                .strong(),
+                            );
+                            if event.redacted {
+                                ui.colored_label(self.theme.warning, "redacted");
+                            }
+                            if bookmarked {
+                                ui.colored_label(self.theme.accent, "★");
+                            }
+                        });
+                        ui.label(RichText::new(&event.message).small().color(self.theme.text_primary));
+                        if let Some(q) = &event.query {
+                            let short = if q.len() > 160 {
+                                format!("{}…", &q.chars().take(159).collect::<String>())
+                            } else {
+                                q.clone()
+                            };
+                            ui.label(RichText::new(short).monospace().small().color(self.theme.text_muted));
+                            if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
+                                self.set_active_query_text(q.clone());
+                                self.active_tab = WorkspaceTab::Query;
+                                self.activity = Activity::Explorer;
+                            }
+                        }
+                        ui.horizontal(|ui| {
+                            let label = if bookmarked { "Unbookmark" } else { "Bookmark" };
+                            if ghost_button_with_icon(ui, Icon::Bookmark, label, self.theme).clicked() {
+                                if bookmarked {
+                                    self.audit_bookmarks.remove(&event.id);
+                                } else {
+                                    self.audit_bookmarks.insert(event.id.clone());
+                                }
+                            }
+                        });
+                    });
+                    ui.add_space(SPACE_XS);
+                }
+                if let Some(preview) = &self.audit_export_preview {
+                    ui.label(
+                        RichText::new(page.export_warning.clone())
+                            .small()
+                            .color(self.theme.warning),
+                    );
+                    ui.label(
+                        RichText::new(preview.chars().take(400).collect::<String>())
+                            .monospace()
+                            .small()
+                            .color(self.theme.text_muted),
+                    );
+                }
+            }
+
+            ui.add_space(SPACE_MD);
             section_label(ui, "FOREIGN DATA (FDW)", self.theme);
             ui.add_space(SPACE_SM);
             ui.label(
@@ -2367,6 +2491,50 @@ impl DbProApp {
             sort: self.monitoring_stat_sort,
             limit: 100,
         });
+    }
+
+    fn request_audit_page(&mut self) {
+        let Some(connection_id) = self.active_connection_id.clone() else {
+            self.audit_error = Some("Connect a database first".into());
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::AuditEventsLoad {
+            request_id,
+            connection_id,
+            filter: db_pro_core::domain::audit::AuditFilter {
+                text: self.audit_filter_text.clone(),
+                database: self.audit_filter_database.clone(),
+                username: self.audit_filter_username.clone(),
+                severity: self.audit_filter_severity.clone(),
+                command_tag: String::new(),
+            },
+            limit: Some(100),
+        });
+    }
+
+    fn export_selected_audit_events(&mut self) {
+        let Some(page) = &self.audit_page else {
+            self.audit_error = Some("Load an audit page before exporting".into());
+            return;
+        };
+        let selected: Vec<_> = page
+            .events
+            .iter()
+            .filter(|e| self.audit_selected.contains(&e.id) || self.audit_bookmarks.contains(&e.id))
+            .cloned()
+            .collect();
+        if selected.is_empty() {
+            self.audit_error = Some("Select or bookmark events to export".into());
+            return;
+        }
+        self.audit_export_preview = Some(db_pro_core::application::AuditService::export_selected(&selected));
+        self.audit_error = None;
+        self.runtime_message = format!(
+            "Audit export preview · {} row(s) · {}",
+            selected.len(),
+            page.export_warning
+        );
     }
 
     fn request_pg_settings(&mut self) {
