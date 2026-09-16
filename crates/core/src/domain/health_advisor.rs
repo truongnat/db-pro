@@ -166,8 +166,7 @@ pub fn analyze_health(
 
     if let Some(server) = &snapshot.server {
         if let (Some(cur), Some(max)) = (server.current_connections, server.max_connections) {
-            if max > 0 {
-                let pct = cur.saturating_mul(100) / max;
+            if let Some(pct) = cur.saturating_mul(100).checked_div(max) {
                 if pct >= config.connection_saturation_pct {
                     findings.push(HealthFinding {
                         id: "connection_saturation".into(),
