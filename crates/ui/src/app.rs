@@ -433,6 +433,8 @@ pub struct DbProApp {
     connection_error: String,
     connection_test_valid: bool,
     connection_test_draft: Option<UiConnectionDraft>,
+    connection_diagnostics: Option<db_pro_core::domain::connection_diagnostics::ConnectionDiagnosticsReport>,
+    ssh_profiles: Vec<db_pro_core::domain::connection::SshProfile>,
     delete_confirmation_id: Option<String>,
     folder_delete_confirmation: Option<String>,
     /// Persisted height of the Connections sub-pane inside the Explorer sidebar.
@@ -459,6 +461,9 @@ impl eframe::App for DbProApp {
         }
         self.persist_saved_tasks(storage);
         self.persist_workspace_sessions(storage);
+        if let Ok(raw) = serde_json::to_string(&self.ssh_profiles) {
+            storage.set_string("dbpro.native.ssh-profiles-v1", raw);
+        }
         if let Ok(layouts) = serde_json::to_string(&self.grid_layout_preferences) {
             storage.set_string("dbpro.native.grid-layouts", layouts);
         }

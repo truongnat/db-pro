@@ -211,6 +211,10 @@ impl DbProApp {
             ssh_port: "22".to_owned(),
             ssh_user: String::new(),
             ssh_private_key: String::new(),
+            ssh_profile_id: String::new(),
+            ssl_root_cert_path: String::new(),
+            ssl_client_cert_path: String::new(),
+            ssl_client_key_path: String::new(),
         };
         self.connection_error.clear();
         self.connection_test_valid = false;
@@ -240,6 +244,10 @@ impl DbProApp {
             ssh_port: "22".to_owned(),
             ssh_user: String::new(),
             ssh_private_key: String::new(),
+            ssh_profile_id: String::new(),
+            ssl_root_cert_path: String::new(),
+            ssl_client_cert_path: String::new(),
+            ssl_client_key_path: String::new(),
         };
         self.connection_error.clear();
         self.connection_test_valid = false;
@@ -571,6 +579,23 @@ impl DbProApp {
             .variant(AlertVariant::Success)
             .show(ui);
         }
+        if let Some(report) = &self.connection_diagnostics {
+            ui.add_space(SPACE_XS);
+            for stage in &report.stages {
+                let mark = if stage.ok { "OK" } else { "FAIL" };
+                let color = if stage.ok {
+                    self.theme.success
+                } else {
+                    self.theme.danger
+                };
+                ui.label(
+                    RichText::new(format!("{mark} · {} · {}", stage.stage.label(), stage.message))
+                        .small()
+                        .monospace()
+                        .color(color),
+                );
+            }
+        }
 
         // ── 4. Action Footer ──────────────────────────────────────────
         ui.add_space(SPACE_SM);
@@ -714,6 +739,42 @@ impl DbProApp {
                 );
             });
         });
+        if matches!(
+            self.connection_draft.ssl_mode,
+            UiSslMode::VerifyCa | UiSslMode::VerifyFull
+        ) {
+            ui.add_space(SPACE_XS);
+            Input::new(
+                &mut self.connection_draft.ssl_root_cert_path,
+                "/path/to/ca.pem",
+                self.theme,
+            )
+            .label("SSL root CA path")
+            .show(ui);
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.set_width(half_w);
+                    Input::new(
+                        &mut self.connection_draft.ssl_client_cert_path,
+                        "/path/to/client.crt",
+                        self.theme,
+                    )
+                    .label("Client cert (optional)")
+                    .show(ui);
+                });
+                ui.add_space(SPACE_SM);
+                ui.vertical(|ui| {
+                    ui.set_width(half_w);
+                    Input::new(
+                        &mut self.connection_draft.ssl_client_key_path,
+                        "/path/to/client.key",
+                        self.theme,
+                    )
+                    .label("Client key (optional)")
+                    .show(ui);
+                });
+            });
+        }
         ui.add_space(SPACE_SM);
 
         // Row 3: Username (50%), Password (50%)
@@ -885,9 +946,68 @@ impl DbProApp {
                             });
                         });
                     });
+                    ui.add_space(SPACE_XS);
+                    ui.horizontal(|ui| {
+                        if compact_button(ui, "Save as SSH profile", self.theme).clicked() {
+                            self.save_draft_as_ssh_profile();
+                        }
+                        if !self.ssh_profiles.is_empty() {
+                            ui.label(RichText::new("Use profile").small().color(self.theme.text_muted));
+                            for profile in self.ssh_profiles.clone() {
+                                let selected = self.connection_draft.ssh_profile_id == profile.id;
+                                if ui.selectable_label(selected, &profile.name).clicked() {
+                                    self.apply_ssh_profile(&profile.id);
+                                }
+                            }
+                        }
+                    });
+                    if !self.connection_draft.ssh_profile_id.is_empty() {
+                        ui.label(
+                            RichText::new(format!(
+                                "Referenced SSH profile id `{}` (secrets stay in vault)",
+                                self.connection_draft.ssh_profile_id
+                            ))
+                            .small()
+                            .color(self.theme.text_muted),
+                        );
+                    }
                 }
             });
         }
+    }
+
+    pub(crate) fn save_draft_as_ssh_profile(&mut self) {
+        let draft = &self.connection_draft;
+        if draft.ssh_host.trim().is_empty() || draft.ssh_user.trim().is_empty() {
+            self.runtime_message = "SSH host and user are required to save a profile".to_owned();
+            return;
+        }
+        let id = uuid::Uuid::new_v4().to_string();
+        let profile = db_pro_core::domain::connection::SshProfile {
+            id: id.clone(),
+            name: format!("{}@{}", draft.ssh_user.trim(), draft.ssh_host.trim()),
+            host: draft.ssh_host.clone(),
+            port: draft.ssh_port.parse().unwrap_or(22),
+            user: draft.ssh_user.clone(),
+            private_key_path: draft.ssh_private_key.clone(),
+            password: None,
+        };
+        self.ssh_profiles.push(profile);
+        self.connection_draft.ssh_profile_id = id;
+        self.runtime_message = "SSH profile saved — reusable by other connections".to_owned();
+    }
+
+    pub(crate) fn apply_ssh_profile(&mut self, profile_id: &str) {
+        let Some(profile) = self.ssh_profiles.iter().find(|p| p.id == profile_id).cloned() else {
+            return;
+        };
+        self.connection_draft.ssh_tunnel_enabled = true;
+        self.connection_draft.ssh_host = profile.host;
+        self.connection_draft.ssh_port = profile.port.to_string();
+        self.connection_draft.ssh_user = profile.user;
+        self.connection_draft.ssh_private_key = profile.private_key_path;
+        self.connection_draft.ssh_profile_id = profile.id;
+        self.connection_test_valid = false;
     }
 
     fn draw_sqlite_connection_fields(&mut self, ui: &mut egui::Ui) {
@@ -1034,6 +1154,93 @@ impl DbProApp {
             "Testing connection…"
         }
         .to_owned();
+        if !save {
+            self.refresh_connection_diagnostics(false, "Authentication pending…");
+        }
+    }
+
+    pub(crate) fn refresh_connection_diagnostics(&mut self, auth_ok: bool, auth_message: &str) {
+        use db_pro_core::domain::connection::{
+            ConnectionConfig, ConnectionEnvironment, DriverType, SshTunnelConfig, SslMode,
+        };
+        use db_pro_core::domain::connection_diagnostics::{probe_network_stages, with_auth_result};
+
+        let draft = &self.connection_draft;
+        let driver = match draft.driver {
+            UiDriver::Postgres => DriverType::Postgres,
+            UiDriver::Mysql => DriverType::Mysql,
+            UiDriver::Sqlite => DriverType::SQLite,
+        };
+        let ssl_mode = match draft.ssl_mode {
+            UiSslMode::Disable => SslMode::Disable,
+            UiSslMode::Require => SslMode::Require,
+            UiSslMode::VerifyCa => SslMode::VerifyCa,
+            UiSslMode::VerifyFull => SslMode::VerifyFull,
+        };
+        let port = draft.port.parse().unwrap_or(5432);
+        let ssh_tunnel = if draft.ssh_tunnel_enabled {
+            Some(SshTunnelConfig {
+                host: draft.ssh_host.clone(),
+                port: draft.ssh_port.parse().unwrap_or(22),
+                user: draft.ssh_user.clone(),
+                private_key_path: draft.ssh_private_key.clone(),
+                password: None,
+            })
+        } else {
+            None
+        };
+        let config = ConnectionConfig {
+            name: draft.name.clone(),
+            host: draft.host.clone(),
+            port,
+            database: draft.database.clone(),
+            username: draft.username.clone(),
+            driver,
+            ssl_mode,
+            ssh_tunnel,
+            ssh_profile_id: {
+                let id = draft.ssh_profile_id.trim();
+                if id.is_empty() {
+                    None
+                } else {
+                    Some(id.to_owned())
+                }
+            },
+            ssl_root_cert_path: {
+                let p = draft.ssl_root_cert_path.trim();
+                if p.is_empty() {
+                    None
+                } else {
+                    Some(p.to_owned())
+                }
+            },
+            ssl_client_cert_path: {
+                let p = draft.ssl_client_cert_path.trim();
+                if p.is_empty() {
+                    None
+                } else {
+                    Some(p.to_owned())
+                }
+            },
+            ssl_client_key_path: {
+                let p = draft.ssl_client_key_path.trim();
+                if p.is_empty() {
+                    None
+                } else {
+                    Some(p.to_owned())
+                }
+            },
+            query_timeout_ms: 30_000,
+            max_rows: 500,
+            color: None,
+            tags: vec![],
+            group: None,
+            favorite: draft.favorite,
+            environment: ConnectionEnvironment::Development,
+            readonly: draft.readonly,
+        };
+        let report = probe_network_stages(&config);
+        self.connection_diagnostics = Some(with_auth_result(report, auth_ok, auth_message));
     }
 }
 

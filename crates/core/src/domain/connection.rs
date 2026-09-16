@@ -77,6 +77,46 @@ impl fmt::Debug for SshTunnelConfig {
     }
 }
 
+/// Reusable SSH tunnel profile referenced by connections (#223).
+/// Secrets (password) live in SecretStore under `ssh-profile:{id}:password`.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct SshProfile {
+    pub id: String,
+    pub name: String,
+    pub host: String,
+    pub port: u16,
+    pub user: String,
+    pub private_key_path: String,
+    #[serde(skip_serializing, default)]
+    pub password: Option<String>,
+}
+
+impl fmt::Debug for SshProfile {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SshProfile")
+            .field("id", &self.id)
+            .field("name", &self.name)
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("user", &self.user)
+            .field("private_key_path", &self.private_key_path)
+            .field("has_password", &self.password.is_some())
+            .finish()
+    }
+}
+
+impl SshProfile {
+    pub fn to_tunnel_config(&self) -> SshTunnelConfig {
+        SshTunnelConfig {
+            host: self.host.clone(),
+            port: self.port,
+            user: self.user.clone(),
+            private_key_path: self.private_key_path.clone(),
+            password: self.password.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectionConfig {
     pub name: String,
@@ -89,6 +129,16 @@ pub struct ConnectionConfig {
     pub ssl_mode: SslMode,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ssh_tunnel: Option<SshTunnelConfig>,
+    /// Reference to a reusable [`SshProfile`] id (preferred over inline tunnel copy).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh_profile_id: Option<String>,
+    /// Path to CA / root certificate (VerifyCa / VerifyFull).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssl_root_cert_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssl_client_cert_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssl_client_key_path: Option<String>,
     #[serde(default = "default_query_timeout")]
     pub query_timeout_ms: u64,
     #[serde(default = "default_max_rows")]
@@ -165,6 +215,10 @@ impl Default for ConnectionConfig {
             driver: DriverType::Postgres,
             ssl_mode: SslMode::Disable,
             ssh_tunnel: None,
+            ssh_profile_id: None,
+            ssl_root_cert_path: None,
+            ssl_client_cert_path: None,
+            ssl_client_key_path: None,
             query_timeout_ms: default_query_timeout(),
             max_rows: default_max_rows(),
             color: None,
@@ -356,6 +410,10 @@ mod tests {
             driver: DriverType::Postgres,
             ssl_mode: SslMode::Disable,
             ssh_tunnel: None,
+            ssh_profile_id: None,
+            ssl_root_cert_path: None,
+            ssl_client_cert_path: None,
+            ssl_client_key_path: None,
             query_timeout_ms: 30_000,
             max_rows: 500,
             color: None,
@@ -406,6 +464,10 @@ mod tests {
             driver: DriverType::Postgres,
             ssl_mode: SslMode::Disable,
             ssh_tunnel: None,
+            ssh_profile_id: None,
+            ssl_root_cert_path: None,
+            ssl_client_cert_path: None,
+            ssl_client_key_path: None,
             query_timeout_ms: 30_000,
             max_rows: 500,
             color: None,
@@ -430,6 +492,10 @@ mod tests {
             driver: DriverType::SQLite,
             ssl_mode: SslMode::Disable,
             ssh_tunnel: None,
+            ssh_profile_id: None,
+            ssl_root_cert_path: None,
+            ssl_client_cert_path: None,
+            ssl_client_key_path: None,
             query_timeout_ms: 30_000,
             max_rows: 500,
             color: None,
@@ -459,6 +525,10 @@ mod tests {
                 private_key_path: "/tmp/key".into(),
                 password: None,
             }),
+            ssh_profile_id: None,
+            ssl_root_cert_path: None,
+            ssl_client_cert_path: None,
+            ssl_client_key_path: None,
             query_timeout_ms: 30_000,
             max_rows: 500,
             color: None,

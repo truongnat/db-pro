@@ -42,6 +42,38 @@ pub(crate) fn draft_to_domain(
             driver,
             ssl_mode,
             ssh_tunnel,
+            ssh_profile_id: {
+                let id = draft.ssh_profile_id.trim();
+                if id.is_empty() {
+                    None
+                } else {
+                    Some(id.to_owned())
+                }
+            },
+            ssl_root_cert_path: {
+                let p = draft.ssl_root_cert_path.trim();
+                if p.is_empty() {
+                    None
+                } else {
+                    Some(p.to_owned())
+                }
+            },
+            ssl_client_cert_path: {
+                let p = draft.ssl_client_cert_path.trim();
+                if p.is_empty() {
+                    None
+                } else {
+                    Some(p.to_owned())
+                }
+            },
+            ssl_client_key_path: {
+                let p = draft.ssl_client_key_path.trim();
+                if p.is_empty() {
+                    None
+                } else {
+                    Some(p.to_owned())
+                }
+            },
             query_timeout_ms: 30_000,
             max_rows: 500,
             color: None,

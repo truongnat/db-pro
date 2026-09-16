@@ -45,6 +45,11 @@ impl DbProApp {
             }
             app.load_saved_tasks_from_storage(storage);
             app.load_named_sessions_from_storage(storage);
+            if let Some(raw) = storage.get_string("dbpro.native.ssh-profiles-v1") {
+                if let Ok(profiles) = serde_json::from_str(&raw) {
+                    app.ssh_profiles = profiles;
+                }
+            }
             if let Some(width) = storage
                 .get_string("dbpro.native.sidebar-width")
                 .and_then(|value| value.parse::<f32>().ok())
@@ -426,6 +431,8 @@ impl Default for DbProApp {
             connection_error: String::new(),
             connection_test_valid: false,
             connection_test_draft: None,
+            connection_diagnostics: None,
+            ssh_profiles: Vec::new(),
             delete_confirmation_id: None,
             folder_delete_confirmation: None,
             connections_pane_height: 160.0,

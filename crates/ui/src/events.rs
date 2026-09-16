@@ -572,9 +572,14 @@ impl DbProApp {
         }
         if operation == "connection.tested" && pending_connection_request {
             self.connection_error.clear();
+            self.refresh_connection_diagnostics(true, "Authentication succeeded");
             if self.connection_test_draft.as_ref() == Some(&self.connection_draft) {
                 self.connection_test_valid = true;
-                self.runtime_message = "Connection test succeeded".to_owned();
+                self.runtime_message = self
+                    .connection_diagnostics
+                    .as_ref()
+                    .map(|r| r.summary())
+                    .unwrap_or_else(|| "Connection test succeeded".to_owned());
             } else {
                 self.connection_test_valid = false;
                 self.runtime_message = "Connection changed · test again before saving".to_owned();

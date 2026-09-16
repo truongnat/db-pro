@@ -15,6 +15,10 @@ fn sqlite_config() -> ConnectionConfig {
         driver: DriverType::SQLite,
         ssl_mode: Default::default(),
         ssh_tunnel: None,
+        ssh_profile_id: None,
+        ssl_root_cert_path: None,
+        ssl_client_cert_path: None,
+        ssl_client_key_path: None,
         query_timeout_ms: 30_000,
         max_rows: 500,
         color: None,
@@ -72,12 +76,12 @@ fn mysql_advertisement_matches_the_shipping_code_paths() {
     assert!(caps.query.parameters);
     assert!(caps.query.positional_parameters);
     assert!(!caps.query.numbered_parameters);
-    // `UserService` / `BackupService` / `PostgresApi::partitions` reject MySQL;
-    // data-diff is still not a shipping MySQL path.
+    // `UserService` / `BackupService` / `PostgresApi::partitions` reject MySQL.
+    // Keyed data-diff shares the dialect-neutral path and is advertised.
     assert!(!caps.features.server_sessions);
     assert!(!caps.features.partitions);
     assert!(!caps.features.backup);
-    assert!(!caps.features.data_diff);
+    assert!(caps.features.data_diff);
 
     // Still served, so still advertised: query/execute/DDL through the generic
     // connector methods, EXPLAIN, and introspection-backed schema diff.
@@ -297,6 +301,10 @@ fn fixture_target() -> Option<FixtureTarget> {
             driver,
             ssl_mode: Default::default(),
             ssh_tunnel: None,
+            ssh_profile_id: None,
+            ssl_root_cert_path: None,
+            ssl_client_cert_path: None,
+            ssl_client_key_path: None,
             query_timeout_ms: 30_000,
             max_rows: 10_000,
             color: None,

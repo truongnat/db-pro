@@ -41,6 +41,10 @@ pub struct UiConnectionDraft {
     pub ssh_port: String,
     pub ssh_user: String,
     pub ssh_private_key: String,
+    pub ssh_profile_id: String,
+    pub ssl_root_cert_path: String,
+    pub ssl_client_cert_path: String,
+    pub ssl_client_key_path: String,
 }
 
 /// Developer-convenience identity for a new connection draft.
@@ -97,6 +101,10 @@ impl Default for UiConnectionDraft {
             ssh_port: "22".to_owned(),
             ssh_user: String::new(),
             ssh_private_key: String::new(),
+            ssh_profile_id: String::new(),
+            ssl_root_cert_path: String::new(),
+            ssl_client_cert_path: String::new(),
+            ssl_client_key_path: String::new(),
         }
     }
 }

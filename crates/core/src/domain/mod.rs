@@ -4,6 +4,7 @@ pub mod agent_workflow;
 pub mod backup;
 pub mod capabilities;
 pub mod connection;
+pub mod connection_diagnostics;
 pub mod cross_connection;
 pub mod diagnostics;
 pub mod error;
