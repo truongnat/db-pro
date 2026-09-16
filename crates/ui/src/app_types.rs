@@ -101,6 +101,86 @@ pub(crate) enum PaletteMode {
     Commands,
 }
 
+/// Scope chips for global search / command palette (#201).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum SearchScope {
+    #[default]
+    All,
+    Connections,
+    Schema,
+    Queries,
+    Commands,
+    Agent,
+}
+
+impl SearchScope {
+    pub(crate) fn all() -> &'static [SearchScope] {
+        &[
+            SearchScope::All,
+            SearchScope::Connections,
+            SearchScope::Schema,
+            SearchScope::Queries,
+            SearchScope::Commands,
+            SearchScope::Agent,
+        ]
+    }
+
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            SearchScope::All => "All",
+            SearchScope::Connections => "Connections",
+            SearchScope::Schema => "Schema",
+            SearchScope::Queries => "Queries",
+            SearchScope::Commands => "Commands",
+            SearchScope::Agent => "Agent",
+        }
+    }
+}
+
+/// Kind tags used by SearchService ranking (#201).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SearchKind {
+    Connection,
+    Table,
+    View,
+    Column,
+    Function,
+    SavedQuery,
+    History,
+    Command,
+    Agent,
+    WorkspaceFile,
+    Navigation,
+}
+
+impl SearchKind {
+    pub(crate) fn matches_scope(self, scope: SearchScope) -> bool {
+        match scope {
+            SearchScope::All => true,
+            SearchScope::Connections => matches!(self, SearchKind::Connection),
+            SearchScope::Schema => matches!(
+                self,
+                SearchKind::Table | SearchKind::View | SearchKind::Column | SearchKind::Function
+            ),
+            SearchScope::Queries => matches!(self, SearchKind::SavedQuery | SearchKind::History),
+            SearchScope::Commands => matches!(self, SearchKind::Command | SearchKind::Navigation),
+            SearchScope::Agent => matches!(self, SearchKind::Agent),
+        }
+    }
+
+    /// Small boost so tables outrank history noise on equal match class.
+    pub(crate) fn rank_boost(self) -> u32 {
+        match self {
+            SearchKind::Command | SearchKind::Navigation => 80,
+            SearchKind::Table | SearchKind::View | SearchKind::Function => 70,
+            SearchKind::Column | SearchKind::Connection => 60,
+            SearchKind::SavedQuery | SearchKind::Agent => 50,
+            SearchKind::WorkspaceFile => 40,
+            SearchKind::History => 30,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum PaletteAction {
     Welcome,
@@ -122,6 +202,8 @@ pub(crate) enum PaletteAction {
     RefreshSchema,
     ToggleExplorer,
     OpenTable(String),
+    OpenView(String),
+    OpenFunction { name: String, identity_arguments: String },
     OpenSavedQuery(String),
     OpenHistoryEntry(usize),
     OpenWorkspaceFile(String),

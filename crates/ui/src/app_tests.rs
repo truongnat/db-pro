@@ -2127,6 +2127,65 @@ fn quick_open_finds_schema_workbench_and_compare() {
 }
 
 #[test]
+fn global_search_scopes_and_indexes_functions_with_invalidation() {
+    let mut app = DbProApp {
+        selected_schema: Some("public".to_owned()),
+        schema: UiSchemaSummary {
+            schemas: vec!["public".to_owned()],
+            tables: vec!["orders".to_owned()],
+            columns: Vec::new(),
+            table_details: Vec::new(),
+            views: vec![UiViewSummary {
+                schema: "public".to_owned(),
+                name: "order_summary".to_owned(),
+                definition: "SELECT 1".to_owned(),
+            }],
+            triggers: Vec::new(),
+            functions: vec![UiFunctionSummary {
+                schema: "public".to_owned(),
+                name: "calc_total".to_owned(),
+                routine_type: "FUNCTION".to_owned(),
+                data_type: "numeric".to_owned(),
+                definition: "SELECT 1".to_owned(),
+                identity_arguments: "order_id integer".to_owned(),
+                language: "sql".to_owned(),
+                volatility: "volatile".to_owned(),
+                security_definer: false,
+            }],
+        },
+        ..Default::default()
+    };
+
+    app.palette_query = "calc_total".to_owned();
+    app.palette_scope = SearchScope::Schema;
+    let schema_hits = app.filtered_palette_items_fresh(PaletteMode::QuickOpen);
+    assert!(
+        schema_hits.iter().any(|item| item.title == "calc_total"),
+        "functions must be searchable; got {:?}",
+        schema_hits.iter().map(|i| &i.title).collect::<Vec<_>>()
+    );
+    assert!(schema_hits
+        .iter()
+        .any(|item| matches!(item.action, PaletteAction::OpenFunction { .. })));
+
+    app.palette_query.clear();
+    app.palette_scope = SearchScope::Agent;
+    let agent_hits = app.filtered_palette_items_fresh(PaletteMode::QuickOpen);
+    assert!(agent_hits.iter().all(|item| {
+        matches!(item.action, PaletteAction::Agent | PaletteAction::ExplainQuery)
+            || item.subtitle.to_ascii_lowercase().contains("agent")
+    }));
+    assert!(!agent_hits.iter().any(|item| item.title == "orders"));
+
+    let fp_before = app.search_index.fingerprint().to_owned();
+    assert!(!fp_before.is_empty());
+    app.search_index.invalidate();
+    assert!(app.search_index.is_empty());
+    let _ = app.filtered_palette_items_fresh(PaletteMode::QuickOpen);
+    assert_ne!(app.search_index.fingerprint(), "");
+}
+
+#[test]
 fn command_palette_opens_saved_query_into_editor() {
     let mut app = DbProApp::default();
     let ctx = egui::Context::default();

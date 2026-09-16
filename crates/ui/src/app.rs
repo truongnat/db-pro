@@ -79,6 +79,9 @@ mod connection_status;
 mod grid_layout;
 #[path = "palette_view.rs"]
 mod palette_view;
+#[path = "search_service.rs"]
+mod search_service;
+pub(crate) use search_service::{SearchFingerprintParts, SearchIndex, SearchService};
 #[path = "problems_view.rs"]
 mod problems_view;
 #[path = "query_dialogs_view.rs"]
@@ -176,8 +179,10 @@ pub struct DbProApp {
     connected: bool,
     palette_mode: Option<PaletteMode>,
     palette_query: String,
+    palette_scope: SearchScope,
     palette_selected: usize,
     palette_focus_requested: bool,
+    search_index: SearchIndex,
     agent_pending_prompt: Option<String>,
     agent_pending_context: Option<AgentContext>,
     agent_provider_label: String,

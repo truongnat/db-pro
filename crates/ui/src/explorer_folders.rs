@@ -305,7 +305,13 @@ impl DbProApp {
 
     /// Activates a schema object (view / function / trigger) in the workspace.
     /// `schema` is empty for objects that are not schema-qualified (triggers).
-    fn open_schema_object(&mut self, selection: SchemaObjectSelection, schema: &str, name: &str, kind: &str) {
+    pub(super) fn open_schema_object(
+        &mut self,
+        selection: SchemaObjectSelection,
+        schema: &str,
+        name: &str,
+        kind: &str,
+    ) {
         self.selected_schema_object = Some(selection);
         self.schema_object_view = SchemaObjectView::Definition;
         self.selected_table = None;

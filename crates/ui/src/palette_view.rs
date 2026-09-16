@@ -2,27 +2,74 @@ use super::*;
 use crate::components::{kbd_badge, Dialog};
 
 impl DbProApp {
-    /// Build the full palette item list for the given mode, including the
-    /// schema-table and connection shortcuts appended per mode.
-    fn palette_items(&self, mode: PaletteMode) -> Vec<PaletteItem> {
-        let mut items = match mode {
-            PaletteMode::QuickOpen => Self::quick_open_items(),
-            PaletteMode::Commands => Self::command_items(),
+    /// Build searchable entries for the given mode (schema objects + actions).
+    fn palette_entries(&self, mode: PaletteMode) -> Vec<(SearchKind, PaletteItem)> {
+        let mut items: Vec<(SearchKind, PaletteItem)> = match mode {
+            PaletteMode::QuickOpen => Self::quick_open_items()
+                .into_iter()
+                .map(|item| {
+                    let kind = if matches!(item.action, PaletteAction::Agent) {
+                        SearchKind::Agent
+                    } else {
+                        SearchKind::Navigation
+                    };
+                    (kind, item)
+                })
+                .collect(),
+            PaletteMode::Commands => Self::command_items()
+                .into_iter()
+                .map(|item| {
+                    let kind = match item.action {
+                        PaletteAction::Agent => SearchKind::Agent,
+                        _ => SearchKind::Command,
+                    };
+                    (kind, item)
+                })
+                .collect(),
         };
         if mode == PaletteMode::QuickOpen {
             items.extend(self.recent_table_items());
             items.extend(self.workspace_file_items());
             items.extend(self.schema_table_items());
+            items.extend(self.schema_view_items());
+            items.extend(self.schema_function_items());
             items.extend(self.pinned_table_items());
             items.extend(self.saved_query_items());
             items.extend(self.query_history_items());
             items.extend(self.schema_column_items());
             items.extend(self.snippet_items());
+            items.extend(self.agent_action_items());
         }
         if mode == PaletteMode::Commands {
             items.extend(self.connection_items());
+            items.extend(self.agent_action_items());
         }
         items
+    }
+
+    fn search_fingerprint(&self) -> String {
+        let workspace_files = self.ide_workspace.index().into_iter().filter(|e| e.is_sql).count();
+        SearchService::build_fingerprint(SearchFingerprintParts {
+            connection_id: self.active_connection_id.as_deref(),
+            schema: self.active_schema(),
+            tables: self.schema.tables.len(),
+            views: self.schema.views.len(),
+            functions: self.schema.functions.len(),
+            columns: self.active_schema_column_names().len(),
+            saved_queries: self.saved_queries.len(),
+            history: self.query_history_entries.len(),
+            connections: self.connections.len(),
+            workspace_files,
+        })
+    }
+
+    fn ensure_search_index(&mut self, mode: PaletteMode) {
+        let fingerprint = format!("{}|{:?}", self.search_fingerprint(), mode);
+        if self.search_index.fingerprint() == fingerprint && !self.search_index.is_empty() {
+            return;
+        }
+        let entries = self.palette_entries(mode);
+        self.search_index.replace(fingerprint, entries);
     }
 
     fn quick_open_items() -> Vec<PaletteItem> {
@@ -231,114 +278,200 @@ impl DbProApp {
         ]
     }
 
-    fn schema_table_items(&self) -> Vec<PaletteItem> {
+    fn schema_table_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         self.active_schema_table_names()
             .iter()
             .take(EXPLORER_MAX_TABLES)
             .cloned()
-            .map(|table| PaletteItem {
-                icon: Icon::Table2,
-                title: table.clone(),
-                subtitle: format!("Open table in {}", self.active_schema()),
-                shortcut: None,
-                action: PaletteAction::OpenTable(table),
+            .map(|table| {
+                (
+                    SearchKind::Table,
+                    PaletteItem {
+                        icon: Icon::Table2,
+                        title: table.clone(),
+                        subtitle: format!("Open table in {}", self.active_schema()),
+                        shortcut: None,
+                        action: PaletteAction::OpenTable(table),
+                    },
+                )
             })
             .collect()
     }
 
-    fn pinned_table_items(&self) -> Vec<PaletteItem> {
+    fn schema_view_items(&self) -> Vec<(SearchKind, PaletteItem)> {
+        let schema = self.active_schema().to_owned();
+        self.schema
+            .views
+            .iter()
+            .filter(|view| view.schema == schema)
+            .take(EXPLORER_MAX_TABLES)
+            .map(|view| {
+                (
+                    SearchKind::View,
+                    PaletteItem {
+                        icon: Icon::Eye,
+                        title: view.name.clone(),
+                        subtitle: format!("Open view in {schema}"),
+                        shortcut: None,
+                        action: PaletteAction::OpenView(view.name.clone()),
+                    },
+                )
+            })
+            .collect()
+    }
+
+    fn schema_function_items(&self) -> Vec<(SearchKind, PaletteItem)> {
+        let schema = self.active_schema().to_owned();
+        self.schema
+            .functions
+            .iter()
+            .filter(|function| function.schema == schema)
+            .take(EXPLORER_MAX_TABLES)
+            .map(|function| {
+                (
+                    SearchKind::Function,
+                    PaletteItem {
+                        icon: Icon::Code2,
+                        title: function.name.clone(),
+                        subtitle: if function.identity_arguments.is_empty() {
+                            format!("Open function in {schema}")
+                        } else {
+                            format!("Open function {}({})", schema, function.identity_arguments)
+                        },
+                        shortcut: None,
+                        action: PaletteAction::OpenFunction {
+                            name: function.name.clone(),
+                            identity_arguments: function.identity_arguments.clone(),
+                        },
+                    },
+                )
+            })
+            .collect()
+    }
+
+    fn pinned_table_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         self.pinned_tables
             .iter()
             .cloned()
-            .map(|table| PaletteItem {
-                icon: Icon::Pin,
-                title: table.clone(),
-                subtitle: "Pinned table · open".to_owned(),
-                shortcut: None,
-                action: PaletteAction::OpenTable(table),
+            .map(|table| {
+                (
+                    SearchKind::Table,
+                    PaletteItem {
+                        icon: Icon::Pin,
+                        title: table.clone(),
+                        subtitle: "Pinned table · open".to_owned(),
+                        shortcut: None,
+                        action: PaletteAction::OpenTable(table),
+                    },
+                )
             })
             .collect()
     }
 
-    fn recent_table_items(&self) -> Vec<PaletteItem> {
+    fn recent_table_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         self.recent_tables
             .iter()
             .cloned()
-            .map(|table| PaletteItem {
-                icon: Icon::History,
-                title: table.clone(),
-                subtitle: "Recent table · open".to_owned(),
-                shortcut: None,
-                action: PaletteAction::OpenTable(table),
+            .map(|table| {
+                (
+                    SearchKind::Table,
+                    PaletteItem {
+                        icon: Icon::History,
+                        title: table.clone(),
+                        subtitle: "Recent table · open".to_owned(),
+                        shortcut: None,
+                        action: PaletteAction::OpenTable(table),
+                    },
+                )
             })
             .collect()
     }
 
-    fn workspace_file_items(&self) -> Vec<PaletteItem> {
+    fn workspace_file_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         self.ide_workspace
             .index()
             .into_iter()
             .filter(|entry| entry.is_sql)
             .take(80)
-            .map(|entry| PaletteItem {
-                icon: Icon::FileCode2,
-                title: entry.relative_path.clone(),
-                subtitle: format!("Workspace SQL · {}", entry.root_id),
-                shortcut: None,
-                action: PaletteAction::OpenWorkspaceFile(format!("{}::{}", entry.root_id, entry.relative_path)),
+            .map(|entry| {
+                (
+                    SearchKind::WorkspaceFile,
+                    PaletteItem {
+                        icon: Icon::FileCode2,
+                        title: entry.relative_path.clone(),
+                        subtitle: format!("Workspace SQL · {}", entry.root_id),
+                        shortcut: None,
+                        action: PaletteAction::OpenWorkspaceFile(format!("{}::{}", entry.root_id, entry.relative_path)),
+                    },
+                )
             })
             .collect()
     }
 
-    fn connection_items(&self) -> Vec<PaletteItem> {
+    fn connection_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         self.connections
             .iter()
             .cloned()
-            .map(|connection| PaletteItem {
-                icon: Icon::Database,
-                title: format!("Switch to {}", connection.name),
-                subtitle: format!("{} · {}", connection.driver, connection.database),
-                shortcut: None,
-                action: PaletteAction::SwitchConnection(connection.id),
+            .map(|connection| {
+                (
+                    SearchKind::Connection,
+                    PaletteItem {
+                        icon: Icon::Database,
+                        title: format!("Switch to {}", connection.name),
+                        subtitle: format!("{} · {}", connection.driver, connection.database),
+                        shortcut: None,
+                        action: PaletteAction::SwitchConnection(connection.id),
+                    },
+                )
             })
             .collect()
     }
 
-    fn saved_query_items(&self) -> Vec<PaletteItem> {
+    fn saved_query_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         self.saved_queries
             .iter()
             .take(40)
-            .map(|query| PaletteItem {
-                icon: Icon::Bookmark,
-                title: query.name.clone(),
-                subtitle: query
-                    .folder
-                    .clone()
-                    .map(|folder| format!("Saved query · {folder}"))
-                    .unwrap_or_else(|| "Saved query".to_owned()),
-                shortcut: None,
-                action: PaletteAction::OpenSavedQuery(query.id.clone()),
+            .map(|query| {
+                (
+                    SearchKind::SavedQuery,
+                    PaletteItem {
+                        icon: Icon::Bookmark,
+                        title: query.name.clone(),
+                        subtitle: query
+                            .folder
+                            .clone()
+                            .map(|folder| format!("Saved query · {folder}"))
+                            .unwrap_or_else(|| "Saved query".to_owned()),
+                        shortcut: None,
+                        action: PaletteAction::OpenSavedQuery(query.id.clone()),
+                    },
+                )
             })
             .collect()
     }
 
-    fn schema_column_items(&self) -> Vec<PaletteItem> {
+    fn schema_column_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         let mut seen = std::collections::BTreeSet::new();
         self.active_schema_column_names()
             .into_iter()
             .filter(|column| seen.insert(column.clone()))
             .take(60)
-            .map(|column| PaletteItem {
-                icon: Icon::Columns3,
-                title: column.clone(),
-                subtitle: format!("Insert column · {}", self.active_schema()),
-                shortcut: None,
-                action: PaletteAction::InsertColumn(column),
+            .map(|column| {
+                (
+                    SearchKind::Column,
+                    PaletteItem {
+                        icon: Icon::Columns3,
+                        title: column.clone(),
+                        subtitle: format!("Insert column · {}", self.active_schema()),
+                        shortcut: None,
+                        action: PaletteAction::InsertColumn(column),
+                    },
+                )
             })
             .collect()
     }
 
-    fn query_history_items(&self) -> Vec<PaletteItem> {
+    fn query_history_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         self.query_history_entries
             .iter()
             .take(30)
@@ -350,50 +483,85 @@ impl DbProApp {
                     UiQueryHistoryStatus::Failed => "failed",
                     UiQueryHistoryStatus::Cancelled => "cancelled",
                 };
-                PaletteItem {
-                    icon: Icon::History,
-                    title: if preview.len() < entry.sql.len() {
-                        format!("{preview}…")
-                    } else {
-                        preview
+                (
+                    SearchKind::History,
+                    PaletteItem {
+                        icon: Icon::History,
+                        title: if preview.len() < entry.sql.len() {
+                            format!("{preview}…")
+                        } else {
+                            preview
+                        },
+                        subtitle: format!(
+                            "History · {} · {status}",
+                            entry.connection_id.clone().unwrap_or_else(|| "any".to_owned())
+                        ),
+                        shortcut: None,
+                        action: PaletteAction::OpenHistoryEntry(index),
                     },
-                    subtitle: format!(
-                        "History · {} · {status}",
-                        entry.connection_id.clone().unwrap_or_else(|| "any".to_owned())
-                    ),
-                    shortcut: None,
-                    action: PaletteAction::OpenHistoryEntry(index),
-                }
+                )
             })
             .collect()
     }
 
-    fn snippet_items(&self) -> Vec<PaletteItem> {
+    fn snippet_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         DbProApp::builtin_sql_snippets()
             .iter()
             .enumerate()
-            .map(|(index, (label, _))| PaletteItem {
-                icon: Icon::FileCode2,
-                title: (*label).to_owned(),
-                subtitle: "Insert SQL snippet at cursor".to_owned(),
-                shortcut: None,
-                action: PaletteAction::InsertSnippet(index),
+            .map(|(index, (label, _))| {
+                (
+                    SearchKind::Command,
+                    PaletteItem {
+                        icon: Icon::FileCode2,
+                        title: (*label).to_owned(),
+                        subtitle: "Insert SQL snippet at cursor".to_owned(),
+                        shortcut: None,
+                        action: PaletteAction::InsertSnippet(index),
+                    },
+                )
             })
             .collect()
     }
 
+    fn agent_action_items(&self) -> Vec<(SearchKind, PaletteItem)> {
+        vec![
+            (
+                SearchKind::Agent,
+                PaletteItem {
+                    icon: Icon::Bot,
+                    title: "Ask Agent".to_owned(),
+                    subtitle: "Open the database copilot".to_owned(),
+                    shortcut: None,
+                    action: PaletteAction::Agent,
+                },
+            ),
+            (
+                SearchKind::Agent,
+                PaletteItem {
+                    icon: Icon::Sparkles,
+                    title: "Explain current query".to_owned(),
+                    subtitle: "Agent action · explain plan".to_owned(),
+                    shortcut: None,
+                    action: PaletteAction::ExplainQuery,
+                },
+            ),
+        ]
+    }
+
     pub(crate) fn filtered_palette_items(&self, mode: PaletteMode) -> Vec<PaletteItem> {
-        let query = self.palette_query.trim().to_lowercase();
-        self.palette_items(mode)
-            .into_iter()
-            .filter(|item| {
-                if query.is_empty() {
-                    true
-                } else {
-                    item.title.to_lowercase().contains(&query) || item.subtitle.to_lowercase().contains(&query)
-                }
-            })
-            .collect()
+        let entries = if self.search_index.fingerprint().contains(&format!("{mode:?}")) && !self.search_index.is_empty()
+        {
+            self.search_index.entries().to_vec()
+        } else {
+            self.palette_entries(mode)
+        };
+        SearchService::filter_rank(&entries, &self.palette_query, self.palette_scope, 120)
+    }
+
+    /// Rebuild + rank for mutable callers (palette draw path).
+    pub(crate) fn filtered_palette_items_fresh(&mut self, mode: PaletteMode) -> Vec<PaletteItem> {
+        self.ensure_search_index(mode);
+        self.filtered_palette_items(mode)
     }
 
     pub(crate) fn execute_palette_action(&mut self, action: PaletteAction, _ctx: &egui::Context) {
@@ -457,6 +625,25 @@ impl DbProApp {
             PaletteAction::RefreshSchema => self.refresh_schema_palette(),
             PaletteAction::ToggleExplorer => self.sidebar_open = !self.sidebar_open,
             PaletteAction::OpenTable(table) => self.open_table_from_palette(table),
+            PaletteAction::OpenView(name) => {
+                let schema = self.active_schema().to_owned();
+                self.open_schema_object(SchemaObjectSelection::View(name.clone()), &schema, &name, "view");
+            }
+            PaletteAction::OpenFunction {
+                name,
+                identity_arguments,
+            } => {
+                let schema = self.active_schema().to_owned();
+                self.open_schema_object(
+                    SchemaObjectSelection::Function {
+                        name: name.clone(),
+                        identity_arguments,
+                    },
+                    &schema,
+                    &name,
+                    "function",
+                );
+            }
             PaletteAction::OpenWorkspaceFile(path) => self.open_workspace_sql_file(path),
             PaletteAction::OpenWorkspaceFolder => self.request_open_workspace_folder(),
             PaletteAction::CloseWorkspaceFolder => self.close_workspace_folder(),
@@ -592,7 +779,7 @@ impl DbProApp {
         let Some(mode) = self.palette_mode else {
             return;
         };
-        let items = self.filtered_palette_items(mode);
+        let items = self.filtered_palette_items_fresh(mode);
         self.clamp_palette_selection(&items);
         let mut activate = false;
         let mut open = true;
@@ -628,6 +815,17 @@ impl DbProApp {
                             response.request_focus();
                             self.palette_focus_requested = false;
                         }
+
+                        ui.add_space(6.0);
+                        ui.horizontal_wrapped(|ui| {
+                            for scope in SearchScope::all() {
+                                let selected = self.palette_scope == *scope;
+                                if ui.selectable_label(selected, scope.label()).clicked() {
+                                    self.palette_scope = *scope;
+                                    self.palette_selected = 0;
+                                }
+                            }
+                        });
 
                         if ui.input(|input| input.key_pressed(egui::Key::ArrowDown)) && !items.is_empty() {
                             self.palette_selected = (self.palette_selected + 1) % items.len();

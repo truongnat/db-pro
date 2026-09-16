@@ -268,8 +268,10 @@ impl DbProApp {
     pub(super) fn open_palette(&mut self, mode: PaletteMode) {
         self.palette_mode = Some(mode);
         self.palette_query.clear();
+        self.palette_scope = SearchScope::All;
         self.palette_selected = 0;
         self.palette_focus_requested = true;
+        self.search_index.invalidate();
     }
 
     pub(super) fn open_new_connection(&mut self) {
