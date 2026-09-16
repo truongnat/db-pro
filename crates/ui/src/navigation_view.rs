@@ -1511,6 +1511,131 @@ impl DbProApp {
                     });
                 });
         }
+
+        ui.add_space(SPACE_MD);
+        section_label(ui, "ROW-LEVEL SECURITY", self.theme);
+        ui.add_space(SPACE_SM);
+        ui.label(
+            RichText::new("Policy changes are administrative — preview SQL, then confirm apply.")
+                .small()
+                .color(self.theme.text_muted),
+        );
+        input_full_width(ui, &mut self.security_rls_schema, "schema", self.theme);
+        input_full_width(ui, &mut self.security_rls_table, "table", self.theme);
+        ui.horizontal(|ui| {
+            if secondary_button_with_icon(ui, Icon::RefreshCw, "Inspect RLS", self.theme).clicked() {
+                self.request_security_rls();
+            }
+            if secondary_button_with_icon(ui, Icon::Shield, "Enable RLS", self.theme).clicked() {
+                self.preview_table_rls(false, true);
+            }
+            if secondary_button_with_icon(ui, Icon::ShieldOff, "Disable RLS", self.theme).clicked() {
+                self.preview_table_rls(false, false);
+            }
+            if secondary_button_with_icon(ui, Icon::Lock, "Force RLS", self.theme).clicked() {
+                self.preview_table_rls(true, true);
+            }
+            if secondary_button_with_icon(ui, Icon::Unlock, "No Force", self.theme).clicked() {
+                self.preview_table_rls(true, false);
+            }
+        });
+        if let Some(state) = self.security_rls_state.clone() {
+            ui.label(
+                RichText::new(format!(
+                    "{}.{} · enabled={} · forced={} · {} policy(ies)",
+                    state.schema,
+                    state.table,
+                    state.rls_enabled,
+                    state.rls_forced,
+                    state.policies.len()
+                ))
+                .small()
+                .monospace()
+                .color(self.theme.text_secondary),
+            );
+            for policy in state.policies {
+                let roles = if policy.roles.is_empty() {
+                    "PUBLIC".to_owned()
+                } else {
+                    policy.roles.join(", ")
+                };
+                ui.label(
+                    RichText::new(format!(
+                        "{} · {} · {} · roles[{}] · USING({}) · CHECK({})",
+                        policy.name,
+                        policy.command,
+                        if policy.permissive { "PERMISSIVE" } else { "RESTRICTIVE" },
+                        roles,
+                        policy.using_expr.as_deref().unwrap_or("—"),
+                        policy.with_check_expr.as_deref().unwrap_or("—"),
+                    ))
+                    .small()
+                    .monospace()
+                    .color(self.theme.text_secondary),
+                );
+                ui.horizontal(|ui| {
+                    if danger_button(ui, "Drop policy", self.theme).clicked() {
+                        self.preview_drop_rls_policy(&policy.name);
+                    }
+                    if secondary_button_with_icon(ui, Icon::Pencil, "Load for edit", self.theme).clicked() {
+                        self.security_rls_policy_name = policy.name.clone();
+                        self.security_rls_command = policy.command.clone();
+                        self.security_rls_roles = policy.roles.join(", ");
+                        self.security_rls_using = policy.using_expr.clone().unwrap_or_default();
+                        self.security_rls_with_check = policy.with_check_expr.clone().unwrap_or_default();
+                    }
+                });
+            }
+        }
+        ui.add_space(SPACE_SM);
+        section_label(ui, "CREATE / ALTER POLICY", self.theme);
+        input_full_width(ui, &mut self.security_rls_policy_name, "policy name", self.theme);
+        input_full_width(
+            ui,
+            &mut self.security_rls_command,
+            "command (ALL/SELECT/INSERT/UPDATE/DELETE)",
+            self.theme,
+        );
+        input_full_width(
+            ui,
+            &mut self.security_rls_roles,
+            "roles (comma; empty=PUBLIC)",
+            self.theme,
+        );
+        input_full_width(ui, &mut self.security_rls_using, "USING expression", self.theme);
+        input_full_width(
+            ui,
+            &mut self.security_rls_with_check,
+            "WITH CHECK expression",
+            self.theme,
+        );
+        ui.horizontal(|ui| {
+            if primary_button_with_icon(ui, Icon::Eye, "Preview CREATE", self.theme).clicked() {
+                self.preview_rls_policy(db_pro_core::domain::object_mutation::ObjectAction::Create);
+            }
+            if secondary_button_with_icon(ui, Icon::Pencil, "Preview ALTER", self.theme).clicked() {
+                self.preview_rls_policy(db_pro_core::domain::object_mutation::ObjectAction::Alter);
+            }
+        });
+        if !self.security_rls_preview_sql.is_empty() {
+            ui.label(
+                RichText::new(&self.security_rls_preview_sql)
+                    .small()
+                    .monospace()
+                    .color(self.theme.text_primary),
+            );
+            ui.checkbox(
+                &mut self.security_rls_confirm_apply,
+                "I understand this changes data visibility immediately",
+            );
+            if primary_button_with_icon(ui, Icon::Play, "Apply preview SQL", self.theme).clicked() {
+                if !self.security_rls_confirm_apply {
+                    self.runtime_message = "Confirm RLS apply checkbox first".into();
+                } else {
+                    self.apply_security_rls_preview();
+                }
+            }
+        }
     }
 
     pub(crate) fn request_security_users(&mut self) {
@@ -1540,6 +1665,205 @@ impl DbProApp {
             connection_id,
             member: role_name.to_owned(),
         });
+    }
+
+    pub(crate) fn request_security_rls(&mut self) {
+        let Some(connection_id) = self.active_connection_id.clone() else {
+            return;
+        };
+        let schema = self.security_rls_schema.trim().to_owned();
+        let table = self.security_rls_table.trim().to_owned();
+        if schema.is_empty() || table.is_empty() {
+            self.runtime_message = "Schema and table are required for RLS inspect".into();
+            return;
+        }
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::ListTableRls {
+            request_id,
+            connection_id,
+            schema,
+            table,
+        });
+    }
+
+    fn preview_table_rls(&mut self, force: bool, enable: bool) {
+        use db_pro_core::application::ObjectMutationService;
+        use db_pro_core::domain::object_mutation::{
+            MutationOptions, ObjectAction, ObjectDefinition, ObjectMutationRequest, TableRlsDefinition,
+        };
+        use db_pro_core::ports::SqlDialect;
+
+        struct QuoteDialect;
+        impl SqlDialect for QuoteDialect {
+            fn placeholder(&self, index: usize) -> String {
+                format!("${index}")
+            }
+            fn quote_identifier(&self, name: &str) -> String {
+                format!("\"{}\"", name.replace('"', "\"\""))
+            }
+        }
+
+        let schema = self.security_rls_schema.trim().to_owned();
+        let table = self.security_rls_table.trim().to_owned();
+        if schema.is_empty() || table.is_empty() {
+            self.runtime_message = "Schema and table are required".into();
+            return;
+        }
+        let request = ObjectMutationRequest {
+            action: if enable {
+                ObjectAction::Enable
+            } else {
+                ObjectAction::Disable
+            },
+            target: None,
+            definition: ObjectDefinition::TableRls(TableRlsDefinition { schema, table, force }),
+            options: MutationOptions::default(),
+            driver: "postgresql".into(),
+        };
+        match ObjectMutationService::plan(&request, &QuoteDialect) {
+            Ok(preview) => {
+                self.security_rls_preview_sql = preview.statements.join(";\n");
+                if !self.security_rls_preview_sql.is_empty() {
+                    self.security_rls_preview_sql.push(';');
+                }
+                self.security_rls_confirm_apply = false;
+            }
+            Err(err) => self.runtime_message = err.to_string(),
+        }
+    }
+
+    fn preview_rls_policy(&mut self, action: db_pro_core::domain::object_mutation::ObjectAction) {
+        use db_pro_core::application::ObjectMutationService;
+        use db_pro_core::domain::object_mutation::{
+            MutationOptions, ObjectDefinition, ObjectMutationRequest, RlsPolicyDefinition,
+        };
+        use db_pro_core::ports::SqlDialect;
+
+        struct QuoteDialect;
+        impl SqlDialect for QuoteDialect {
+            fn placeholder(&self, index: usize) -> String {
+                format!("${index}")
+            }
+            fn quote_identifier(&self, name: &str) -> String {
+                format!("\"{}\"", name.replace('"', "\"\""))
+            }
+        }
+
+        let schema = self.security_rls_schema.trim().to_owned();
+        let table = self.security_rls_table.trim().to_owned();
+        let name = self.security_rls_policy_name.trim().to_owned();
+        if schema.is_empty() || table.is_empty() || name.is_empty() {
+            self.runtime_message = "Schema, table, and policy name are required".into();
+            return;
+        }
+        let roles = self
+            .security_rls_roles
+            .split(',')
+            .map(|s| s.trim().to_owned())
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>();
+        let request = ObjectMutationRequest {
+            action,
+            target: None,
+            definition: ObjectDefinition::RlsPolicy(RlsPolicyDefinition {
+                schema,
+                table,
+                name,
+                permissive: true,
+                command: self.security_rls_command.clone(),
+                roles,
+                using_expr: Some(self.security_rls_using.clone()).filter(|s| !s.trim().is_empty()),
+                with_check_expr: Some(self.security_rls_with_check.clone()).filter(|s| !s.trim().is_empty()),
+                new_name: None,
+            }),
+            options: MutationOptions::default(),
+            driver: "postgresql".into(),
+        };
+        match ObjectMutationService::plan(&request, &QuoteDialect) {
+            Ok(preview) => {
+                if let Some(reason) = preview.unsupported_reason {
+                    self.runtime_message = reason;
+                    self.security_rls_preview_sql.clear();
+                } else {
+                    self.security_rls_preview_sql = preview.statements.join(";\n");
+                    if !self.security_rls_preview_sql.is_empty() {
+                        self.security_rls_preview_sql.push(';');
+                    }
+                    self.security_rls_confirm_apply = false;
+                }
+            }
+            Err(err) => self.runtime_message = err.to_string(),
+        }
+    }
+
+    fn preview_drop_rls_policy(&mut self, policy_name: &str) {
+        use db_pro_core::application::ObjectMutationService;
+        use db_pro_core::domain::object_mutation::{
+            MutationOptions, ObjectAction, ObjectDefinition, ObjectMutationRequest, RlsPolicyDefinition,
+        };
+        use db_pro_core::ports::SqlDialect;
+
+        struct QuoteDialect;
+        impl SqlDialect for QuoteDialect {
+            fn placeholder(&self, index: usize) -> String {
+                format!("${index}")
+            }
+            fn quote_identifier(&self, name: &str) -> String {
+                format!("\"{}\"", name.replace('"', "\"\""))
+            }
+        }
+
+        let request = ObjectMutationRequest {
+            action: ObjectAction::Drop,
+            target: None,
+            definition: ObjectDefinition::RlsPolicy(RlsPolicyDefinition {
+                schema: self.security_rls_schema.trim().to_owned(),
+                table: self.security_rls_table.trim().to_owned(),
+                name: policy_name.to_owned(),
+                permissive: true,
+                command: "ALL".into(),
+                roles: vec![],
+                using_expr: None,
+                with_check_expr: None,
+                new_name: None,
+            }),
+            options: MutationOptions {
+                if_exists: true,
+                ..MutationOptions::default()
+            },
+            driver: "postgresql".into(),
+        };
+        match ObjectMutationService::plan(&request, &QuoteDialect) {
+            Ok(preview) => {
+                self.security_rls_preview_sql = preview.statements.join(";\n");
+                if !self.security_rls_preview_sql.is_empty() {
+                    self.security_rls_preview_sql.push(';');
+                }
+                self.security_rls_confirm_apply = false;
+            }
+            Err(err) => self.runtime_message = err.to_string(),
+        }
+    }
+
+    fn apply_security_rls_preview(&mut self) {
+        if self.ddl_execution_request.is_some() {
+            return;
+        }
+        let sql = self.security_rls_preview_sql.trim().to_owned();
+        if sql.is_empty() {
+            return;
+        }
+        let Some(connection_id) = self.active_connection_id.clone() else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::ExecuteDdl {
+            request_id,
+            connection_id,
+            sql,
+        });
+        self.ddl_execution_request = Some(request_id);
+        self.runtime_message = "Applying RLS mutation…".into();
     }
 
     fn dispatch_alter_role(&mut self, name: &str, attributes: db_pro_core::domain::user::RoleAttributes) {

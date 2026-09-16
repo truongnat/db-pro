@@ -117,6 +117,11 @@ impl DbProApp {
                 self.security_selected_role = Some(member);
                 self.security_memberships = memberships;
             }
+            UiEvent::TableRlsLoaded { state, .. } => {
+                self.security_rls_state = Some(state);
+                self.security_error = None;
+                self.runtime_message = "Security · RLS state loaded".into();
+            }
             UiEvent::DdlCompleted {
                 request_id,
                 affected_rows,
@@ -515,6 +520,10 @@ impl DbProApp {
             if let Some(connection_id) = self.active_connection_id.clone() {
                 self.request_schema_introspection(connection_id, true);
             }
+            if !self.security_rls_table.trim().is_empty() {
+                self.request_security_rls();
+            }
+            self.security_rls_confirm_apply = false;
         }
     }
 

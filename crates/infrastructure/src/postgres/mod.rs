@@ -4,4 +4,5 @@ pub mod cross_connection;
 pub mod introspect;
 pub mod monitoring;
 pub mod query_mapper;
+pub mod rls_manager;
 pub mod user_manager;

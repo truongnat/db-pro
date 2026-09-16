@@ -119,6 +119,7 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::CreateRole { .. }
         | UiCommand::DropRole { .. }
         | UiCommand::ListPrivileges { .. }
+        | UiCommand::ListTableRls { .. }
         | UiCommand::AlterRole { .. }
         | UiCommand::UpdateRolePassword { .. }
         | UiCommand::ListMemberships { .. }
@@ -652,6 +653,17 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             request_id: runtime_request_id(request_id),
             connection_id,
             role_name,
+        }),
+        UiCommand::ListTableRls {
+            request_id,
+            connection_id,
+            schema,
+            table,
+        } => Some(RuntimeCommand::ListTableRls {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            schema,
+            table,
         }),
         UiCommand::AlterRole {
             request_id,

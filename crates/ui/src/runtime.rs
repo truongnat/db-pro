@@ -576,6 +576,12 @@ pub enum UiCommand {
         connection_id: String,
         role_name: String,
     },
+    ListTableRls {
+        request_id: RequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+    },
     AlterRole {
         request_id: RequestId,
         connection_id: String,
@@ -791,6 +797,10 @@ pub enum UiEvent {
         request_id: RequestId,
         member: String,
         memberships: Vec<db_pro_core::domain::user::RoleMembership>,
+    },
+    TableRlsLoaded {
+        request_id: RequestId,
+        state: db_pro_core::domain::rls::TableRlsState,
     },
     OperationCompleted {
         request_id: RequestId,

@@ -3,7 +3,6 @@ use super::result_grid_view::{GridCell, GridSelectionLookup};
 use super::*;
 use egui::{Align2, Pos2, Rounding, Stroke};
 
-
 #[derive(Default)]
 struct GridCellMenuRequests {
     copy_cell: bool,
@@ -352,15 +351,13 @@ impl DbProApp {
                     *close_menu = true;
                 }
                 if write_block.is_none()
-                    && ctx_menu_item(ui, Some(Icon::Eraser), "Set to NULL", None, theme.text_secondary, theme)
-                        .clicked()
+                    && ctx_menu_item(ui, Some(Icon::Eraser), "Set to NULL", None, theme.text_secondary, theme).clicked()
                 {
                     req.set_null = true;
                     *close_menu = true;
                 }
                 if self.staged_cell_value(result, row_index, column_index).is_some()
-                    && ctx_menu_item(ui, Some(Icon::Undo2), "Revert Cell", None, theme.text_primary, theme)
-                        .clicked()
+                    && ctx_menu_item(ui, Some(Icon::Undo2), "Revert Cell", None, theme.text_primary, theme).clicked()
                 {
                     req.revert_cell = true;
                     *close_menu = true;
@@ -597,8 +594,5 @@ impl DbProApp {
         if req.sort_desc {
             self.set_table_or_grid_sort(result, column_index, Some(true));
         }
-
     }
-
-
 }

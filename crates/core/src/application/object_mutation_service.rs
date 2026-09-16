@@ -26,7 +26,7 @@ impl ObjectMutationService {
         }
 
         let statements = build_statements(request, dialect)?;
-        let safety = classify_safety(request.action);
+        let safety = classify_safety(request);
         let long_running = matches!(
             request.definition,
             ObjectDefinition::Table(_) | ObjectDefinition::Index(_) | ObjectDefinition::Partition(_)
@@ -66,6 +66,12 @@ fn unsupported_reason(request: &ObjectMutationRequest) -> Option<String> {
         (ObjectDefinition::Routine(_), _) if is_sqlite => {
             Some("SQLite does not support stored functions/procedures".into())
         }
+        (ObjectDefinition::RlsPolicy(_) | ObjectDefinition::TableRls(_), _) if is_sqlite => {
+            Some("SQLite does not support row-level security policies".into())
+        }
+        (ObjectDefinition::RlsPolicy(_) | ObjectDefinition::TableRls(_), _) if !is_pg => {
+            Some("row-level security policies require PostgreSQL".into())
+        }
         (ObjectDefinition::Schema(_), ObjectAction::Create | ObjectAction::Drop) if is_sqlite => {
             Some("SQLite has no CREATE/DROP SCHEMA".into())
         }
@@ -95,6 +101,7 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
         ObjectDefinition::Comment(_) => build_comment_statements(request, dialect),
         ObjectDefinition::Partition(_) => build_partition_statements(request, dialect),
         ObjectDefinition::Routine(_) => build_routine_statements(request, dialect),
+        ObjectDefinition::RlsPolicy(_) | ObjectDefinition::TableRls(_) => build_rls_statements(request, dialect),
         ObjectDefinition::DomainType(_) | ObjectDefinition::Empty => Err(unsupported(request)),
     }
 }
@@ -480,6 +487,122 @@ fn build_routine_statements(
     }
 }
 
+fn validate_rls_command(command: &str) -> Result<&'static str, MutationError> {
+    match command.trim().to_ascii_uppercase().as_str() {
+        "ALL" => Ok("ALL"),
+        "SELECT" => Ok("SELECT"),
+        "INSERT" => Ok("INSERT"),
+        "UPDATE" => Ok("UPDATE"),
+        "DELETE" => Ok("DELETE"),
+        other => Err(MutationError::Validation {
+            field: "command".into(),
+            message: format!("unsupported RLS policy command: {other}"),
+        }),
+    }
+}
+
+fn build_rls_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    match (&request.definition, request.action) {
+        (ObjectDefinition::TableRls(def), ObjectAction::Enable) => {
+            let schema = dialect.quote_identifier(&def.schema);
+            let table = dialect.quote_identifier(&def.table);
+            let sql = if def.force {
+                format!("ALTER TABLE {schema}.{table} FORCE ROW LEVEL SECURITY")
+            } else {
+                format!("ALTER TABLE {schema}.{table} ENABLE ROW LEVEL SECURITY")
+            };
+            Ok(vec![sql])
+        }
+        (ObjectDefinition::TableRls(def), ObjectAction::Disable) => {
+            let schema = dialect.quote_identifier(&def.schema);
+            let table = dialect.quote_identifier(&def.table);
+            let sql = if def.force {
+                format!("ALTER TABLE {schema}.{table} NO FORCE ROW LEVEL SECURITY")
+            } else {
+                format!("ALTER TABLE {schema}.{table} DISABLE ROW LEVEL SECURITY")
+            };
+            Ok(vec![sql])
+        }
+        (ObjectDefinition::RlsPolicy(def), ObjectAction::Create | ObjectAction::GenerateDdl) => {
+            let command = validate_rls_command(&def.command)?;
+            let schema = dialect.quote_identifier(&def.schema);
+            let table = dialect.quote_identifier(&def.table);
+            let name = dialect.quote_identifier(&def.name);
+            let permissive = if def.permissive { "PERMISSIVE" } else { "RESTRICTIVE" };
+            let roles = if def.roles.is_empty() {
+                "PUBLIC".to_owned()
+            } else {
+                def.roles
+                    .iter()
+                    .map(|role| dialect.quote_identifier(role))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            let mut sql = format!("CREATE POLICY {name} ON {schema}.{table} AS {permissive} FOR {command} TO {roles}");
+            if let Some(using_expr) = def.using_expr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                // Preserve expression text exactly — do not rewrite.
+                sql.push_str(" USING (");
+                sql.push_str(using_expr);
+                sql.push(')');
+            }
+            if let Some(check_expr) = def.with_check_expr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                sql.push_str(" WITH CHECK (");
+                sql.push_str(check_expr);
+                sql.push(')');
+            }
+            Ok(vec![sql])
+        }
+        (ObjectDefinition::RlsPolicy(def), ObjectAction::Alter) => {
+            let schema = dialect.quote_identifier(&def.schema);
+            let table = dialect.quote_identifier(&def.table);
+            let name = dialect.quote_identifier(&def.name);
+            let mut statements = Vec::new();
+            if let Some(new_name) = def.new_name.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                let new_name = dialect.quote_identifier(new_name);
+                statements.push(format!("ALTER POLICY {name} ON {schema}.{table} RENAME TO {new_name}"));
+            }
+            let roles = if def.roles.is_empty() {
+                "PUBLIC".to_owned()
+            } else {
+                def.roles
+                    .iter()
+                    .map(|role| dialect.quote_identifier(role))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            let mut alter = format!("ALTER POLICY {name} ON {schema}.{table} TO {roles}");
+            if let Some(using_expr) = def.using_expr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                alter.push_str(" USING (");
+                alter.push_str(using_expr);
+                alter.push(')');
+            }
+            if let Some(check_expr) = def.with_check_expr.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                alter.push_str(" WITH CHECK (");
+                alter.push_str(check_expr);
+                alter.push(')');
+            }
+            // Emit body alter when rename is absent, or when expressions/roles are being updated.
+            let has_expr = def.using_expr.as_ref().is_some_and(|s| !s.trim().is_empty())
+                || def.with_check_expr.as_ref().is_some_and(|s| !s.trim().is_empty());
+            if statements.is_empty() || has_expr || !def.roles.is_empty() {
+                statements.push(alter);
+            }
+            Ok(statements)
+        }
+        (ObjectDefinition::RlsPolicy(def), ObjectAction::Drop) => {
+            let schema = dialect.quote_identifier(&def.schema);
+            let table = dialect.quote_identifier(&def.table);
+            let name = dialect.quote_identifier(&def.name);
+            let if_exists = if request.options.if_exists { "IF EXISTS " } else { "" };
+            Ok(vec![format!("DROP POLICY {if_exists}{name} ON {schema}.{table}")])
+        }
+        _ => Err(unsupported(request)),
+    }
+}
+
 fn object_kind_sql(kind: ObjectKind) -> &'static str {
     match kind {
         ObjectKind::Table => "TABLE",
@@ -492,25 +615,39 @@ fn object_kind_sql(kind: ObjectKind) -> &'static str {
         ObjectKind::Database => "DATABASE",
         ObjectKind::EnumType | ObjectKind::DomainType | ObjectKind::CompositeType => "TYPE",
         ObjectKind::Routine => "FUNCTION",
+        ObjectKind::RlsPolicy => "POLICY",
         _ => "TABLE",
     }
 }
 
-fn classify_safety(action: ObjectAction) -> String {
-    match action {
-        ObjectAction::Drop => "destructive".into(),
-        ObjectAction::Alter | ObjectAction::Rename => "mutating".into(),
-        ObjectAction::Create | ObjectAction::Refresh | ObjectAction::Comment => "mutating".into(),
-        ObjectAction::Enable | ObjectAction::Disable | ObjectAction::GenerateDdl => "safe".into(),
+fn classify_safety(request: &ObjectMutationRequest) -> String {
+    match &request.definition {
+        ObjectDefinition::RlsPolicy(_) | ObjectDefinition::TableRls(_) => "administrative".into(),
+        _ => match request.action {
+            ObjectAction::Drop => "destructive".into(),
+            ObjectAction::Alter | ObjectAction::Rename => "mutating".into(),
+            ObjectAction::Create | ObjectAction::Refresh | ObjectAction::Comment => "mutating".into(),
+            ObjectAction::Enable | ObjectAction::Disable | ObjectAction::GenerateDdl => "safe".into(),
+        },
     }
 }
 
 fn describe_effects(request: &ObjectMutationRequest) -> Vec<String> {
-    vec![format!(
-        "{:?} on {:?}",
-        request.action,
-        request.target.as_ref().map(|t| t.name.as_str()).unwrap_or("<new>")
-    )]
+    match &request.definition {
+        ObjectDefinition::RlsPolicy(def) => vec![format!(
+            "{:?} RLS policy {}.{} · {}",
+            request.action, def.schema, def.table, def.name
+        )],
+        ObjectDefinition::TableRls(def) => vec![format!(
+            "{:?} row-level security on {}.{} (force={})",
+            request.action, def.schema, def.table, def.force
+        )],
+        _ => vec![format!(
+            "{:?} on {:?}",
+            request.action,
+            request.target.as_ref().map(|t| t.name.as_str()).unwrap_or("<new>")
+        )],
+    }
 }
 
 fn fingerprint(statements: &[String]) -> String {
@@ -646,5 +783,88 @@ mod tests {
         };
         let preview = ObjectMutationService::plan(&req, &PgDialect).unwrap();
         assert!(preview.unsupported_reason.is_some());
+    }
+
+    #[test]
+    fn plans_rls_policy_create_preserving_expressions() {
+        let req = ObjectMutationRequest {
+            action: ObjectAction::Create,
+            target: None,
+            definition: ObjectDefinition::RlsPolicy(RlsPolicyDefinition {
+                schema: "public".into(),
+                table: "orders".into(),
+                name: "tenant_select".into(),
+                permissive: true,
+                command: "SELECT".into(),
+                roles: vec!["app_reader".into()],
+                using_expr: Some("tenant_id = current_setting('app.tenant')::uuid".into()),
+                with_check_expr: None,
+                new_name: None,
+            }),
+            options: MutationOptions::default(),
+            driver: "postgresql".into(),
+        };
+        let preview = ObjectMutationService::plan(&req, &PgDialect).unwrap();
+        assert_eq!(preview.safety, "administrative");
+        assert!(preview.statements[0].contains("CREATE POLICY \"tenant_select\""));
+        assert!(preview.statements[0].contains("USING (tenant_id = current_setting('app.tenant')::uuid)"));
+        assert!(!preview.statements[0].contains("::UUID")); // no rewrite
+    }
+
+    #[test]
+    fn plans_table_rls_enable_and_force() {
+        let enable = ObjectMutationRequest {
+            action: ObjectAction::Enable,
+            target: None,
+            definition: ObjectDefinition::TableRls(TableRlsDefinition {
+                schema: "public".into(),
+                table: "orders".into(),
+                force: false,
+            }),
+            options: MutationOptions::default(),
+            driver: "postgresql".into(),
+        };
+        let preview = ObjectMutationService::plan(&enable, &PgDialect).unwrap();
+        assert_eq!(
+            preview.statements[0],
+            "ALTER TABLE \"public\".\"orders\" ENABLE ROW LEVEL SECURITY"
+        );
+
+        let force = ObjectMutationRequest {
+            action: ObjectAction::Enable,
+            target: None,
+            definition: ObjectDefinition::TableRls(TableRlsDefinition {
+                schema: "public".into(),
+                table: "orders".into(),
+                force: true,
+            }),
+            options: MutationOptions::default(),
+            driver: "postgresql".into(),
+        };
+        let preview = ObjectMutationService::plan(&force, &PgDialect).unwrap();
+        assert!(preview.statements[0].contains("FORCE ROW LEVEL SECURITY"));
+    }
+
+    #[test]
+    fn blocks_rls_on_sqlite() {
+        let req = ObjectMutationRequest {
+            action: ObjectAction::Create,
+            target: None,
+            definition: ObjectDefinition::RlsPolicy(RlsPolicyDefinition {
+                schema: "main".into(),
+                table: "t".into(),
+                name: "p".into(),
+                permissive: true,
+                command: "ALL".into(),
+                roles: vec![],
+                using_expr: Some("true".into()),
+                with_check_expr: None,
+                new_name: None,
+            }),
+            options: MutationOptions::default(),
+            driver: "sqlite".into(),
+        };
+        let preview = ObjectMutationService::plan(&req, &PgDialect).unwrap();
+        assert!(preview.unsupported_reason.unwrap().contains("SQLite"));
     }
 }

@@ -6,6 +6,7 @@ pub mod introspection_cache;
 pub mod monitoring;
 pub mod provider_factory;
 pub mod query_history_repository;
+pub mod rls_manager;
 pub mod run_config_repository;
 pub mod saved_query_repository;
 pub mod secret_store;
@@ -24,6 +25,7 @@ pub use introspection_cache::IntrospectionCache;
 pub use monitoring::MonitoringPort;
 pub use provider_factory::ProviderFactory;
 pub use query_history_repository::QueryHistoryRepository;
+pub use rls_manager::RlsManager;
 pub use run_config_repository::RunConfigRepository;
 pub use saved_query_repository::SavedQueryRepository;
 pub use secret_store::SecretStore;
@@ -43,6 +45,8 @@ pub use introspection_cache::MockIntrospectionCache;
 pub use monitoring::MockMonitoringPort;
 #[cfg(test)]
 pub use query_history_repository::MockQueryHistoryRepository;
+#[cfg(test)]
+pub use rls_manager::MockRlsManager;
 #[cfg(test)]
 pub use run_config_repository::MockRunConfigRepository;
 #[cfg(test)]

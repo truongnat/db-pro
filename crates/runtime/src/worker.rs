@@ -243,6 +243,12 @@ pub enum RuntimeCommand {
         connection_id: String,
         role_name: String,
     },
+    ListTableRls {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+    },
     AlterRole {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -382,6 +388,10 @@ pub enum RuntimeEvent {
         request_id: RuntimeRequestId,
         member: String,
         memberships: Vec<db_pro_core::domain::user::RoleMembership>,
+    },
+    TableRlsLoaded {
+        request_id: RuntimeRequestId,
+        state: db_pro_core::domain::rls::TableRlsState,
     },
     OperationCompleted {
         request_id: RuntimeRequestId,
@@ -1813,6 +1823,25 @@ pub fn spawn_worker(
                                 role_name,
                                 privileges,
                             },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::ListTableRls {
+                    request_id,
+                    connection_id,
+                    schema,
+                    table,
+                } => {
+                    let rls_api = runtime.rls_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match rls_api.table_rls_state(&connection_id, &schema, &table).await {
+                            Ok(state) => RuntimeEvent::TableRlsLoaded { request_id, state },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,
                                 message: error.message,

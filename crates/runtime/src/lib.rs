@@ -9,7 +9,7 @@ pub use agent_executor::{AgentToolExecutor, AgentToolRunner};
 pub use agent_orchestrator::{AgentRunOrchestrator, AgentWorkflowEvent};
 pub use api::{
     BackupApi, ColumnSummary, ConnectionApi, ConnectionSummary, DataDiffApi, DbErrorDto, ExportApi, ForeignKeySummary,
-    FunctionSummary, MonitoringApi, PostgresApi, QueryApi, QueryFolderSummary, RoutineParameterSummary,
+    FunctionSummary, MonitoringApi, PostgresApi, QueryApi, QueryFolderSummary, RlsApi, RoutineParameterSummary,
     SavedQuerySummary, SchemaApi, SchemaSummary, TableDataApi, TableMutationFailure, TableSummary, TriggerSummary,
     UserApi, ViewSummary,
 };
@@ -21,13 +21,14 @@ use std::sync::Arc;
 
 use db_pro_core::application::{
     BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, MonitoringService,
-    QueryService, SchemaService, TableDataService, UserService,
+    QueryService, RlsService, SchemaService, TableDataService, UserService,
 };
 use db_pro_infrastructure::backup::pg_dump::PgDumpEngine;
 use db_pro_infrastructure::backup::sqlite_backup::SqliteBackupEngine;
 use db_pro_infrastructure::connector::CompositeConnector;
 use db_pro_infrastructure::meta::store::SQLiteMetaStore;
 use db_pro_infrastructure::postgres::monitoring::PostgresMonitoringPort;
+use db_pro_infrastructure::postgres::rls_manager::PostgresRlsManager;
 use db_pro_infrastructure::postgres::user_manager::PostgresUserManager;
 use db_pro_infrastructure::secret::keyring_vault::KeyringVault;
 use db_pro_infrastructure::sqlite::monitoring::SqliteMonitoringPort;
@@ -47,6 +48,7 @@ pub struct DbProRuntime {
     export: Arc<ExportService>,
     backup: Arc<BackupService>,
     users: Arc<UserService>,
+    rls: Arc<RlsService>,
     monitoring: Arc<MonitoringService>,
     data_diff: Arc<DataDiffService>,
     connector: Arc<CompositeConnector>,
@@ -244,6 +246,13 @@ impl DbProRuntime {
             Arc::clone(&registry),
             Box::new(meta_store.clone()),
         ));
+        let rls = Arc::new(RlsService::new(
+            Box::new(PostgresRlsManager::new(
+                Arc::clone(&connector) as Arc<dyn db_pro_core::ports::DbConnector>
+            )),
+            Arc::clone(&registry),
+            Box::new(meta_store.clone()),
+        ));
         let connector_for_monitor: Arc<dyn db_pro_core::ports::DbConnector> = connector.clone();
         let monitoring = Arc::new(MonitoringService::new(
             Box::new(PostgresMonitoringPort::new(Arc::clone(&connector_for_monitor))),
@@ -265,6 +274,7 @@ impl DbProRuntime {
             export,
             backup,
             users,
+            rls,
             monitoring,
             data_diff,
             connector,
@@ -331,6 +341,14 @@ impl DbProRuntime {
 
     pub fn user_api(&self) -> UserApi {
         UserApi::new(self.users())
+    }
+
+    pub fn rls(&self) -> Arc<RlsService> {
+        Arc::clone(&self.rls)
+    }
+
+    pub fn rls_api(&self) -> RlsApi {
+        RlsApi::new(self.rls())
     }
 
     pub fn monitoring(&self) -> Arc<MonitoringService> {

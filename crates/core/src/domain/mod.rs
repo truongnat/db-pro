@@ -12,6 +12,7 @@ pub mod history;
 pub mod monitoring;
 pub mod object_mutation;
 pub mod query;
+pub mod rls;
 pub mod run_config;
 pub mod safety;
 pub mod schema;

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use db_pro_core::application::sql_builder::{SortClause, TableFilter};
 use db_pro_core::application::{
     BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, MonitoringService,
-    QueryService, SchemaService, TableDataMutation, TableDataService, UserService,
+    QueryService, RlsService, SchemaService, TableDataMutation, TableDataService, UserService,
 };
 use db_pro_core::domain::backup::{BackupOptions, BackupResult, RestoreOptions};
 use db_pro_core::domain::connection::{Connection, ConnectionConfig, ConnectionId, DriverType};
@@ -12,6 +12,7 @@ use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use db_pro_core::domain::monitoring::MonitoringSnapshot;
 use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult};
+use db_pro_core::domain::rls::TableRlsState;
 use db_pro_core::domain::run_config::RunConfig;
 use db_pro_core::domain::schema::IntrospectResult;
 use db_pro_core::domain::user::{DatabaseUser, Privilege, PrivilegeObjectKind, RoleAttributes, RoleMembership};
@@ -949,6 +950,30 @@ impl UserApi {
         let connection_id = parse_connection_id(connection_id)?;
         self.service
             .revoke_privilege(&connection_id, role_name, object_kind, schema, object_name, privilege)
+            .await
+            .map_err(Into::into)
+    }
+}
+
+#[derive(Clone)]
+pub struct RlsApi {
+    service: Arc<RlsService>,
+}
+
+impl RlsApi {
+    pub(crate) fn new(service: Arc<RlsService>) -> Self {
+        Self { service }
+    }
+
+    pub async fn table_rls_state(
+        &self,
+        connection_id: &str,
+        schema: &str,
+        table: &str,
+    ) -> Result<TableRlsState, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .table_rls_state(&connection_id, schema, table)
             .await
             .map_err(Into::into)
     }

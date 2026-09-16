@@ -21,6 +21,8 @@ pub enum ObjectKind {
     CompositeType,
     /// Stored function or procedure (#192).
     Routine,
+    /// Row-level security policy (#219).
+    RlsPolicy,
     Schema,
     Database,
     Extension,
@@ -80,6 +82,10 @@ pub enum ObjectDefinition {
     Comment(CommentDefinition),
     Partition(PartitionDefinition),
     Routine(RoutineDefinition),
+    /// Create/alter/drop a single RLS policy (#219).
+    RlsPolicy(RlsPolicyDefinition),
+    /// Enable/disable/force table RLS (#219).
+    TableRls(TableRlsDefinition),
     Empty,
 }
 
@@ -239,6 +245,32 @@ pub struct PartitionDefinition {
     pub name: String,
     pub strategy: String,
     pub bound_expression: String,
+}
+
+/// CREATE/ALTER/DROP POLICY payload. Expression strings are never rewritten.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RlsPolicyDefinition {
+    pub schema: String,
+    pub table: String,
+    pub name: String,
+    pub permissive: bool,
+    /// ALL / SELECT / INSERT / UPDATE / DELETE
+    pub command: String,
+    /// Empty → PUBLIC.
+    pub roles: Vec<String>,
+    pub using_expr: Option<String>,
+    pub with_check_expr: Option<String>,
+    /// Optional rename target for ALTER POLICY … RENAME TO.
+    pub new_name: Option<String>,
+}
+
+/// ALTER TABLE … [NO] [FORCE] ROW LEVEL SECURITY payload.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TableRlsDefinition {
+    pub schema: String,
+    pub table: String,
+    /// When true, toggles FORCE ROW LEVEL SECURITY; otherwise toggles RLS itself.
+    pub force: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

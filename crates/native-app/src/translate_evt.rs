@@ -66,6 +66,10 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             member,
             memberships,
         }),
+        RuntimeEvent::TableRlsLoaded { request_id, state } => Some(UiEvent::TableRlsLoaded {
+            request_id: ui_request_id(request_id),
+            state,
+        }),
         RuntimeEvent::OperationCompleted { request_id, operation } => {
             translate_operation_completed(request_id, operation)
         }
