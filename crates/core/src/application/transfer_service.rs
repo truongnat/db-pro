@@ -15,6 +15,21 @@ pub trait TransferTarget {
     fn write_batch(&mut self, rows: &[TransferRow]) -> Result<u64, TransferError>;
     fn finish(&mut self) -> Result<(), TransferError>;
     fn cleanup_partial(&mut self) -> Result<(), TransferError>;
+
+    /// Batches committed under the active transaction policy (DB targets).
+    fn committed_batches(&self) -> u64 {
+        0
+    }
+
+    /// Rows held in an open transaction that has not committed yet.
+    fn uncommitted_rows(&self) -> u64 {
+        0
+    }
+
+    /// Rows rejected by conflict policy (e.g. Skip) without failing the job.
+    fn error_rows(&self) -> u64 {
+        0
+    }
 }
 
 /// In-memory synthetic source used to prove the engine without provider I/O.
@@ -100,6 +115,9 @@ impl TransferService {
         loop {
             if cancel.is_cancelled() {
                 let _ = target.cleanup_partial();
+                job.progress.committed_batches = target.committed_batches();
+                job.progress.uncommitted_rows = target.uncommitted_rows();
+                job.progress.error_rows = target.error_rows();
                 job.status = TransferStatus::Cancelled;
                 job.progress.message = "Cancelled".into();
                 job.error = Some("cancelled by user".into());
@@ -115,6 +133,9 @@ impl TransferService {
                 Ok(None) => break,
                 Err(TransferError::Cancelled) => {
                     let _ = target.cleanup_partial();
+                    job.progress.committed_batches = target.committed_batches();
+                    job.progress.uncommitted_rows = target.uncommitted_rows();
+                    job.progress.error_rows = target.error_rows();
                     job.status = TransferStatus::Cancelled;
                     job.progress.message = "Cancelled".into();
                     job.error = Some("cancelled by user".into());
@@ -126,6 +147,9 @@ impl TransferService {
                 }
                 Err(err) => {
                     let _ = target.cleanup_partial();
+                    job.progress.committed_batches = target.committed_batches();
+                    job.progress.uncommitted_rows = target.uncommitted_rows();
+                    job.progress.error_rows = target.error_rows();
                     job.status = TransferStatus::Failed;
                     job.progress.message = "Failed".into();
                     job.error = Some(err.to_string());
@@ -141,12 +165,17 @@ impl TransferService {
             match target.write_batch(&batch) {
                 Ok(written) => {
                     job.progress.rows_written = job.progress.rows_written.saturating_add(written);
-                    // Approximate bytes from current counting if available via message.
+                    job.progress.committed_batches = target.committed_batches();
+                    job.progress.uncommitted_rows = target.uncommitted_rows();
+                    job.progress.error_rows = target.error_rows();
                     job.progress.message =
                         format!("Wrote {} / read {}", job.progress.rows_written, job.progress.rows_read);
                 }
                 Err(err) => {
                     let _ = target.cleanup_partial();
+                    job.progress.committed_batches = target.committed_batches();
+                    job.progress.uncommitted_rows = target.uncommitted_rows();
+                    job.progress.error_rows = target.error_rows();
                     job.status = TransferStatus::Failed;
                     job.progress.message = "Failed".into();
                     job.error = Some(err.to_string());
@@ -161,6 +190,9 @@ impl TransferService {
 
         if let Err(err) = target.finish() {
             let _ = target.cleanup_partial();
+            job.progress.committed_batches = target.committed_batches();
+            job.progress.uncommitted_rows = target.uncommitted_rows();
+            job.progress.error_rows = target.error_rows();
             job.status = TransferStatus::Failed;
             job.progress.message = "Failed".into();
             job.error = Some(err.to_string());
@@ -171,6 +203,9 @@ impl TransferService {
             };
         }
 
+        job.progress.committed_batches = target.committed_batches();
+        job.progress.uncommitted_rows = target.uncommitted_rows();
+        job.progress.error_rows = target.error_rows();
         job.status = if job.progress.error_rows > 0 {
             TransferStatus::Partial
         } else {

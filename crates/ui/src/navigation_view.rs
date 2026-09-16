@@ -460,6 +460,9 @@ impl DbProApp {
             if secondary_button_with_icon(ui, Icon::Sheet, "Excel export harness", self.theme).clicked() {
                 self.run_excel_export_harness();
             }
+            if secondary_button_with_icon(ui, Icon::DatabaseBackup, "DB→DB harness", self.theme).clicked() {
+                self.run_db_to_db_transfer_harness();
+            }
             if ghost_button_with_icon(ui, Icon::Trash2, "Clear jobs", self.theme).clicked() {
                 self.transfer_jobs.clear();
             }
@@ -497,10 +500,13 @@ impl DbProApp {
                 });
                 ui.label(
                     RichText::new(format!(
-                        "read {} · wrote {} · {} bytes · {}",
+                        "read {} · wrote {} · {} bytes · committed {} · uncommitted {} · err_rows {} · {}",
                         job.progress.rows_read,
                         job.progress.rows_written,
                         job.progress.bytes_written,
+                        job.progress.committed_batches,
+                        job.progress.uncommitted_rows,
+                        job.progress.error_rows,
                         job.progress.message
                     ))
                     .small()
@@ -569,6 +575,7 @@ impl DbProApp {
             },
             mapping: Default::default(),
             batch_size: 100,
+            options: Default::default(),
             status: TransferStatus::Pending,
             progress: Default::default(),
             error: None,
@@ -698,6 +705,105 @@ impl DbProApp {
             }
         }
         self.runtime_message = format!("Excel {} · {:?}", job.id, job.status);
+        self.transfer_jobs.insert(0, job);
+        if self.transfer_jobs.len() > 20 {
+            self.transfer_jobs.truncate(20);
+        }
+    }
+
+    pub(crate) fn run_db_to_db_transfer_harness(&mut self) {
+        use db_pro_core::application::{
+            assert_endpoint_capabilities, build_conversion_plan, DbColumnSpec, GeneratorTableSource, MemoryTableTarget,
+            TransferService,
+        };
+        use db_pro_core::domain::connection::DriverType;
+        use db_pro_core::domain::transfer::{
+            DbTableEndpoint, DbTransferOptions, TransferCancellation, TransferConflictPolicy, TransferJob,
+            TransferMapping, TransferStatus, TransferTransactionPolicy,
+        };
+
+        let source_cols = vec![
+            DbColumnSpec {
+                name: "id".into(),
+                type_name: "uuid".into(),
+            },
+            DbColumnSpec {
+                name: "payload".into(),
+                type_name: "jsonb".into(),
+            },
+        ];
+        let target_cols = vec![
+            DbColumnSpec {
+                name: "id".into(),
+                type_name: "text".into(),
+            },
+            DbColumnSpec {
+                name: "payload".into(),
+                type_name: "text".into(),
+            },
+        ];
+        let plan = match build_conversion_plan(
+            DriverType::Postgres,
+            DriverType::SQLite,
+            &source_cols,
+            &target_cols,
+            &TransferMapping::default(),
+        ) {
+            Ok(plan) => plan,
+            Err(err) => {
+                self.runtime_message = format!("DB→DB plan failed: {err}");
+                return;
+            }
+        };
+        if let Err(err) = plan.ensure_runnable() {
+            self.runtime_message = format!("DB→DB blocked: {err}");
+            return;
+        }
+        if let Err(err) = assert_endpoint_capabilities(true, true, false, false) {
+            self.runtime_message = format!("DB→DB capability gate: {err}");
+            return;
+        }
+
+        let mut job = TransferJob::new_db_table_copy(
+            format!("dbdb-{}", self.transfer_jobs.len() + 1),
+            DbTableEndpoint {
+                connection_id: "src-conn".into(),
+                schema: "public".into(),
+                table: "events".into(),
+            },
+            DbTableEndpoint {
+                connection_id: "dst-conn".into(),
+                schema: "main".into(),
+                table: "events".into(),
+            },
+            100,
+            DbTransferOptions {
+                conflict: TransferConflictPolicy::Skip,
+                transaction: TransferTransactionPolicy::PerBatch,
+                create_target_if_missing: false,
+            },
+        );
+        job.label = format!(
+            "DB→DB PG→SQLite preview ({} cols, {} warnings)",
+            plan.columns.len(),
+            plan.warnings.len()
+        );
+        let mut source = GeneratorTableSource::new(1_500);
+        let mut target = MemoryTableTarget::new(TransferConflictPolicy::Skip, TransferTransactionPolicy::PerBatch);
+        let cancel = TransferCancellation::new();
+        let result = TransferService::run(&mut job, &mut source, &mut target, &cancel);
+        job.progress.bytes_written = target.bytes_written;
+        if result.status == TransferStatus::Succeeded || result.status == TransferStatus::Partial {
+            self.runtime_message = format!(
+                "DB→DB {} · {:?} · committed_batches={} · warnings={}",
+                job.id,
+                result.status,
+                result.progress.committed_batches,
+                plan.warnings.len()
+            );
+        } else {
+            self.runtime_message = format!("DB→DB {} · {:?} · {:?}", job.id, result.status, job.error);
+        }
         self.transfer_jobs.insert(0, job);
         if self.transfer_jobs.len() > 20 {
             self.transfer_jobs.truncate(20);

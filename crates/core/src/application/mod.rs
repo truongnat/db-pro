@@ -1,6 +1,7 @@
 pub mod backup_service;
 pub mod connection_service;
 pub mod data_diff;
+pub mod db_transfer;
 pub mod ddl_builder;
 pub mod delimited_transfer;
 pub mod export_service;
@@ -20,6 +21,10 @@ pub mod user_service;
 pub use backup_service::BackupService;
 pub use connection_service::ConnectionService;
 pub use data_diff::DataDiffService;
+pub use db_transfer::{
+    assert_endpoint_capabilities, build_conversion_plan, ColumnConversion, ConversionKind, ConversionPlan,
+    DbColumnSpec, GeneratorTableSource, MemoryTableTarget,
+};
 pub use delimited_transfer::{csv_cell_from_display, DelimitedFileSource, DelimitedFileTarget, DelimitedFormat};
 pub use export_service::{ExportResult, ExportService};
 pub use json_excel_transfer::{ExcelFileTarget, JsonlFileSource, JsonlFileTarget};

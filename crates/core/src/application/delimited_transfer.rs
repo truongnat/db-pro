@@ -203,6 +203,7 @@ mod tests {
             },
             mapping: Default::default(),
             batch_size: 100,
+            options: Default::default(),
             status: TransferStatus::Pending,
             progress: Default::default(),
             error: None,
