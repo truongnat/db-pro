@@ -42,7 +42,13 @@ impl DbProApp {
                         self.theme.warning,
                         "Open transaction blocks disconnect — Commit or Rollback first.",
                     );
-                    if compact_button(ui, "Dismiss", self.theme).clicked() {
+                    if Button::new(self.theme)
+                        .text("Dismiss")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .show(ui)
+                        .clicked()
+                    {
                         self.disconnect_txn_guard = false;
                     }
                 }
@@ -185,13 +191,24 @@ impl DbProApp {
                     .feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Cancel);
                 let run_button = if running {
                     if cancel_supported {
-                        secondary_button_with_icon(ui, Icon::Square, "Stop", self.theme)
-                            .on_hover_text("Stop query (Esc)")
+                        Button::new(self.theme)
+                            .text("Stop")
+                            .icon(Icon::Square)
+                            .variant(ButtonVariant::Secondary)
+                            .size(ButtonSize::Sm)
+                            .tooltip("Stop query (Esc)")
+                            .show(ui)
                     } else {
                         let tip = cancel_reason
                             .as_deref()
                             .unwrap_or("Query running (cancellation is unsupported by this provider)");
-                        secondary_button_with_icon(ui, Icon::Loader, "Running…", self.theme).on_hover_text(tip)
+                        Button::new(self.theme)
+                            .text("Running…")
+                            .icon(Icon::Loader)
+                            .variant(ButtonVariant::Secondary)
+                            .size(ButtonSize::Sm)
+                            .tooltip(tip)
+                            .show(ui)
                     }
                 } else {
                     let tip = if !connected {
@@ -199,7 +216,13 @@ impl DbProApp {
                     } else {
                         format!("Run query ({modifier}↵)")
                     };
-                    primary_button_with_icon(ui, Icon::Play, "Run", self.theme).on_hover_text(tip)
+                    Button::new(self.theme)
+                        .text("Run")
+                        .icon(Icon::Play)
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .tooltip(tip)
+                        .show(ui)
                 };
                 if run_button.clicked() {
                     if let Some(request_id) = active_doc_running {
@@ -220,14 +243,22 @@ impl DbProApp {
                 } else {
                     "Builder"
                 };
-                if secondary_button(ui, builder_label, self.theme)
-                    .on_hover_text("Toggle visual SELECT builder (#247)")
+                if Button::new(self.theme)
+                    .text(builder_label)
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .tooltip("Toggle visual SELECT builder (#247)")
+                    .show(ui)
                     .clicked()
                 {
                     self.visual_query_builder_open = !self.visual_query_builder_open;
                 }
-                let more_response =
-                    compact_icon_button(ui, Icon::MoreHorizontal, self.theme).on_hover_text("More query actions");
+                let more_response = Button::new(self.theme)
+                    .icon(Icon::MoreHorizontal)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("More query actions")
+                    .show(ui);
                 if more_response.clicked() {
                     self.query_tools_open = !self.query_tools_open;
                 }
@@ -247,7 +278,7 @@ impl DbProApp {
 
     /// "Find in SQL" bar, shown while the editor search is open.
     fn draw_editor_search_bar(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(8.0);
+        ui.add_space(SPACE_SM);
         let mut goto_range = None;
         let mut close_search = false;
 
@@ -282,16 +313,24 @@ impl DbProApp {
                         self.theme.text_muted
                     }));
 
-                    if compact_icon_button(ui, Icon::ChevronUp, self.theme)
-                        .on_hover_text("Previous match (Shift+Enter)")
+                    if Button::new(self.theme)
+                        .icon(Icon::ChevronUp)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Previous match (Shift+Enter)")
+                        .show(ui)
                         .clicked()
                     {
                         if let Some(m) = doc.search.prev_match() {
                             goto_range = Some(m);
                         }
                     }
-                    if compact_icon_button(ui, Icon::ChevronDown, self.theme)
-                        .on_hover_text("Next match (Enter)")
+                    if Button::new(self.theme)
+                        .icon(Icon::ChevronDown)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Next match (Enter)")
+                        .show(ui)
                         .clicked()
                     {
                         if let Some(m) = doc.search.next_match() {
@@ -300,8 +339,12 @@ impl DbProApp {
                     }
                 }
 
-                if compact_icon_button(ui, Icon::X, self.theme)
-                    .on_hover_text("Close find bar (Esc)")
+                if Button::new(self.theme)
+                    .icon(Icon::X)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Close find bar (Esc)")
+                    .show(ui)
                     .clicked()
                 {
                     close_search = true;
@@ -365,7 +408,13 @@ impl DbProApp {
         card_frame(self.theme).show(ui, |ui| {
             ui.label(RichText::new("SQL snippets").strong());
             for (label, snippet) in Self::builtin_sql_snippets() {
-                if compact_button(ui, *label, self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text(*label)
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.insert_snippet(snippet);
                     self.snippets_open = false;
                 }
@@ -631,7 +680,13 @@ impl DbProApp {
         }
         ui.horizontal(|ui| {
             input(ui, &mut self.query_folder, "folder (optional)", 150.0, self.theme);
-            if compact_button(ui, "New folder", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("New folder")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.create_query_folder();
             }
         });
