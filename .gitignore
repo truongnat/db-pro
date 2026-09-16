@@ -40,3 +40,8 @@ _archive/frontend/test/fixtures/schemas/*.json
 !docs/
 !docs/**
 !AGENTS.md
+
+.omh
+.hermes
+.kilo
+.jules
