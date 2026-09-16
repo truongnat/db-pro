@@ -11,3 +11,15 @@ The repository already provides `SegmentedTabs`, `Button`, `SearchInput`, and
 This is a contained visual-consistency gap, not a data or provider defect. The
 minimal fix is to reuse those primitives on the two named surfaces and leave
 the broader #288 inventory for later focused slices.
+
+## P2 — Runtime screenshot provider is unavailable in this environment
+
+At follow-up implementation SHA `78eb8c34506f82c0e8e9221f6a028771e15c2fd7`,
+the release native binary launched and introspected a 977-table local fixture,
+but the desktop provider reported `screenshot=false`; Orca could not identify
+the native window for accessibility capture. This prevents the required
+1280×800, 1440×900 and 1920×1080 visual evidence.
+
+The clean-code scan also reports inherited long methods in
+`schema_workbench.rs`/`schema_workbench_form.rs`; the follow-up only changes
+button composition and does not claim those methods were refactored.

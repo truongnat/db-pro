@@ -14,22 +14,22 @@
 
 ## 2. Progress checkpoint
 
-- Current HEAD: `ae25aeff6c3e6a9f2edd5d8ac877d55c5db738a0`.
-- Completed acceptance rows: component inventory; value inspector migration; Explorer migration; Rust gates; native release build; clean-code scan.
-- Remaining acceptance rows: runtime evidence and broader #288 closure.
-- Findings / risks: P2 visual drift at the baseline surfaces named in `FINDINGS.md`.
-- Tests already run: `cargo test -p db-pro-ui` → 482 passed / 0 failed / 0 ignored; workspace → 1146 passed / 0 failed / 38 ignored; all exit 0.
+- Current HEAD: `78eb8c34506f82c0e8e9221f6a028771e15c2fd7`.
+- Completed acceptance rows: component inventory; value inspector migration; Explorer migration; Schema Workbench action migration; raw-button guard; Rust gates; native release build.
+- Remaining acceptance rows: clean-code scan clean, runtime evidence and broader #288 closure.
+- Findings / risks: P2 runtime screenshot blocker and inherited long Schema Workbench methods; see `FINDINGS.md`.
+- Tests already run: UI guard → 1 passed / 0 failed / 482 filtered; workspace → 1147 passed / 0 failed / 38 ignored; all exit 0.
 - Dependency / blocker changes: #287 runtime evidence remains blocked/skipped by explicit user direction.
 
 ## 3. Implementation handoff / review request
 
 | Field | Value |
 |---|---|
-| Exact SHA | `ae25aeff6c3e6a9f2edd5d8ac877d55c5db738a0` |
-| Commit list | `ae25aef refactor(ui): consolidate primary native controls` |
-| File / surface inventory | `result_grid_edit.rs` — SegmentedTabs and canonical Button actions; `explorer_view.rs` — SearchInput and canonical refresh context row |
-| Acceptance mapping | #288 control-language slice → the two files above; quality evidence → `VERIFICATION.md` |
-| Commands and counts | fmt/check/clippy pass; UI 482/0/0; workspace 1146/0/38; native release build pass; clean-code 16/0/0 |
+| Exact SHA | `78eb8c34506f82c0e8e9221f6a028771e15c2fd7` |
+| Commit list | `ae25aef refactor(ui): consolidate primary native controls`; `78eb8c3 refactor(ui): standardize schema workbench actions` |
+| File / surface inventory | `result_grid_edit.rs` — SegmentedTabs and canonical Button actions; `explorer_view.rs` — SearchInput and canonical refresh context row; `schema_workbench.rs`/`schema_workbench_form.rs` — canonical docs and DDL confirmation actions; `components/mod.rs` — raw-button regression guard |
+| Acceptance mapping | #288 control-language slice → four primary surfaces and guard; quality/runtime evidence → `VERIFICATION.md` |
+| Commands and counts | fmt/check/clippy pass; workspace 1147/0/38; native release build pass; clean-code 13/2/1 with inherited method warnings |
 | CI run IDs / status | not run |
 | Known limitations | runtime evidence and broader #288 inventory remain open |
 | Migrations / config implications | none expected |
@@ -39,10 +39,10 @@
 
 | Field | Value |
 |---|---|
-| Reviewed SHA | `ae25aeff6c3e6a9f2edd5d8ac877d55c5db738a0` |
-| Verdict | `ACCEPT WITH P2` — bounded implementation slice; #288 runtime/remaining-surface work stays open |
-| P0 / P1 / P2 counts | introduced-by-this-SHA: 0 / 0 / 0; inherited/open #288 P2: 1 |
-| Findings | no regression found; runtime evidence remains intentionally skipped |
+| Reviewed SHA | `78eb8c34506f82c0e8e9221f6a028771e15c2fd7` |
+| Verdict | `ACCEPT WITH P2` — implementation slice is green; #288 runtime/remaining-surface work stays open |
+| P0 / P1 / P2 counts | introduced-by-this-SHA: 0 / 0 / 0; inherited/open P2: 2 |
+| Findings | raw-button guard passes; runtime screenshot provider unavailable; inherited long methods remain |
 | CI disposition | CI not run; local gates recorded in `VERIFICATION.md` |
 | Next task(s) unblocked | none until runtime gate is addressed |
 
@@ -58,6 +58,7 @@
 
 ## 6. Tổng kết (Vietnamese summary)
 
-Đã hoàn tất slice nhỏ của #288: chuyển control trong Value Inspector và Explorer
-sang component native có sẵn; UI 482/0/0, workspace 1146/0/38, release build và
-clean-code đều pass. Runtime screenshot và phần cleanup rộng hơn vẫn mở vì #287.
+Đã hoàn tất thêm Schema Workbench vào slice #288 và thêm guard chống raw
+`ui.button`; workspace 1147/0/38 và release build pass. Runtime screenshot
+không lấy được do desktop provider thiếu screenshot/native-window accessibility,
+nên #288 chưa thể đóng; còn inherited long methods cần xử lý riêng.
