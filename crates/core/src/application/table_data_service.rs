@@ -886,7 +886,7 @@ mod tests {
         // exec 1: Update 1 (orig idx 1)
         // exec 2: Insert 1 (orig idx 0)
         // exec 3: Insert 2 (orig idx 3)
-        // Let exec 1 (Update 1) fail.
+        // Let exec 0 (Delete 1) fail, which corresponds to original input index 2.
         connector
             .expect_execute_parameterized_transaction()
             .returning(|_, statements| {
@@ -897,12 +897,9 @@ mod tests {
                 assert!(statements[3].sql.starts_with("INSERT INTO"));
                 Err(TransactionFailure {
                     phase: TransactionFailurePhase::Statement,
-                    statement_index: 1, // exec index 1 (Update 1)
+                    statement_index: 0, // exec index 0 (Delete 1)
                     outcome: TransactionFailureOutcome::RolledBack,
-                    results: vec![TransactionStatementResult::Affected {
-                        row_count: 1,
-                        duration_ms: 0,
-                    }],
+                    results: Vec::new(),
                     error: DbError::Conflict("row lock failure".into()),
                 })
             });
@@ -937,8 +934,8 @@ mod tests {
             .await
             .expect_err("failing transaction must map statement_index back to original input position");
 
-        // Exec index 1 corresponds to Update 1, which was original input index 1.
-        assert_eq!(failure.statement_index, 1);
+        // Exec index 0 corresponds to Delete 1, which was original input index 2.
+        assert_eq!(failure.statement_index, 2);
         assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
     }
 
