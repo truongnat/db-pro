@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn blocked_columns_explain_themselves() {
-        assert!(ColumnWriteBlock::Binary.reason().contains("binary editor"));
+        assert!(ColumnWriteBlock::Binary.reason().contains("Inspect"));
         assert!(ColumnWriteBlock::Generated
             .reason()
             .contains("computed by the database"));
