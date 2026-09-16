@@ -117,13 +117,14 @@ impl DbProApp {
         }
 
         ui.add_space(6.0);
-        let tab_labels = ["Tree", "Search", "Migrations", "Tasks", "Graph"];
+        let tab_labels = ["Tree", "Search", "Migrations", "Tasks", "Graph", "Git"];
         let selected_tab = match self.files_panel_tab {
             FilesPanelTab::Tree => 0,
             FilesPanelTab::Search => 1,
             FilesPanelTab::Migrations => 2,
             FilesPanelTab::Tasks => 3,
             FilesPanelTab::Graph => 4,
+            FilesPanelTab::Git => 5,
         };
         if let Some(next) = segmented_control(ui, &tab_labels, selected_tab, false, self.theme) {
             self.files_panel_tab = match next {
@@ -131,8 +132,12 @@ impl DbProApp {
                 2 => FilesPanelTab::Migrations,
                 3 => FilesPanelTab::Tasks,
                 4 => FilesPanelTab::Graph,
+                5 => FilesPanelTab::Git,
                 _ => FilesPanelTab::Tree,
             };
+            if self.files_panel_tab == FilesPanelTab::Git {
+                self.refresh_git_status();
+            }
         }
         ui.add_space(6.0);
 
@@ -142,6 +147,7 @@ impl DbProApp {
             FilesPanelTab::Migrations => self.draw_files_migrations_tab(ui),
             FilesPanelTab::Tasks => self.draw_files_tasks_tab(ui),
             FilesPanelTab::Graph => self.draw_files_graph_tab(ui),
+            FilesPanelTab::Git => self.draw_files_git_tab(ui),
         }
 
         ui.add_space(10.0);
@@ -449,6 +455,116 @@ impl DbProApp {
                     .monospace()
                     .color(self.theme.text_secondary),
             );
+        }
+    }
+
+    fn draw_files_git_tab(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            section_label(ui, "GIT", self.theme);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if compact_icon_button(ui, Icon::RefreshCw, self.theme)
+                    .on_hover_text("Refresh git status")
+                    .clicked()
+                {
+                    self.refresh_git_status();
+                }
+            });
+        });
+        ui.add_space(4.0);
+        self.check_external_file_changes();
+        if let Some(path) = self.workspace_external_change.clone() {
+            ui.colored_label(
+                self.theme.warning,
+                format!("Disk changed for {path} — unsaved editor buffer was kept."),
+            );
+            ui.horizontal(|ui| {
+                if secondary_button(ui, "Reload from disk", self.theme).clicked() {
+                    self.reload_workspace_file_from_disk(&path);
+                }
+                if ghost_button_with_icon(ui, Icon::X, "Dismiss", self.theme).clicked() {
+                    self.workspace_external_change = None;
+                }
+            });
+            ui.add_space(6.0);
+        }
+        if let Some(error) = self.git_last_error.clone() {
+            ui.colored_label(self.theme.danger, error);
+        }
+        let Some(status) = self.git_status.clone() else {
+            ui.label(
+                RichText::new("Refresh to probe Git for the active workspace root.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            return;
+        };
+        if !status.available {
+            ui.label(RichText::new(&status.message).small().color(self.theme.text_muted));
+            return;
+        }
+        ui.label(
+            RichText::new(format!(
+                "branch {} · {}",
+                status.branch.as_deref().unwrap_or("?"),
+                status.message
+            ))
+            .small()
+            .color(self.theme.text_secondary),
+        );
+        ui.add_space(6.0);
+        ui.add(
+            egui::TextEdit::singleline(&mut self.git_commit_message)
+                .hint_text("commit message (explicit only — never auto)")
+                .desired_width(ui.available_width()),
+        );
+        if danger_button(ui, "Commit staged", self.theme).clicked() {
+            self.commit_git_staged();
+        }
+        ui.add_space(8.0);
+        if status.entries.is_empty() {
+            ui.label(
+                RichText::new("Working tree clean.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+        }
+        for entry in status.entries.iter().take(80) {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(format!("[{}] {}", entry.code.trim(), entry.path))
+                        .small()
+                        .monospace()
+                        .color(self.theme.text_primary),
+                );
+            });
+            ui.horizontal(|ui| {
+                if ghost_button_with_icon(ui, Icon::Plus, "Stage", self.theme).clicked() {
+                    self.stage_git_path(&entry.path);
+                }
+                if ghost_button_with_icon(ui, Icon::Minus, "Unstage", self.theme).clicked() {
+                    self.unstage_git_path(&entry.path);
+                }
+                if ghost_button_with_icon(ui, Icon::GitCompare, "Diff", self.theme).clicked() {
+                    self.diff_git_path(&entry.path);
+                }
+                if ghost_button_with_icon(ui, Icon::FileCode2, "Open", self.theme).clicked() {
+                    self.open_workspace_sql_file(entry.path.clone());
+                }
+            });
+            ui.add_space(4.0);
+        }
+        if let Some(diff) = self.git_diff.clone() {
+            ui.add_space(8.0);
+            section_label(ui, format!("DIFF · {} vs {}", diff.path, diff.against), self.theme);
+            ui.add_space(4.0);
+            egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
+                ui.label(
+                    RichText::new(diff.text.chars().take(8_000).collect::<String>())
+                        .small()
+                        .monospace()
+                        .color(self.theme.text_muted),
+                );
+            });
         }
     }
 

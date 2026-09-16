@@ -59,6 +59,7 @@ pub(crate) enum FilesPanelTab {
     Migrations,
     Tasks,
     Graph,
+    Git,
 }
 
 /// Cap for MRU recent-table entries persisted for Data Activity (#212).

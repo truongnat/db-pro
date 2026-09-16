@@ -64,6 +64,8 @@ mod explorer_tree;
 mod explorer_view;
 #[path = "files_activity_view.rs"]
 mod files_activity_view;
+#[path = "git_workspace.rs"]
+mod git_workspace;
 #[path = "ide_workspace.rs"]
 mod ide_workspace;
 #[path = "navigation_view.rs"]
@@ -276,6 +278,14 @@ pub struct DbProApp {
     recent_tables: Vec<String>,
     /// Local IDE workspace folder / file tree (#261–#264).
     ide_workspace: ide_workspace::IdeWorkspaceState,
+    /// Optional Git status for the active workspace root (#255).
+    git_status: Option<git_workspace::GitWorkspaceStatus>,
+    git_diff: Option<git_workspace::GitDiffResult>,
+    git_commit_message: String,
+    git_last_error: Option<String>,
+    /// Absolute path → disk mtime when last loaded/saved (external change detection).
+    workspace_file_mtimes: std::collections::HashMap<String, u64>,
+    workspace_external_change: Option<String>,
     /// Find-in-Files / replace drafts for the Files activity (#267).
     workspace_search_query: String,
     workspace_replace_query: String,

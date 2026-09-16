@@ -123,10 +123,13 @@ impl DbProApp {
             .unwrap_or_else(|| relative_path.clone());
         let id = format!("file-{absolute_str}");
         let mut doc = QueryDocument::new(id, title, content);
-        doc.file_path = Some(absolute_str);
+        doc.file_path = Some(absolute_str.clone());
         doc.connection_id = self.active_connection_id.clone();
         doc.schema = Some(self.active_schema().to_owned());
         doc.mark_saved();
+        if let Some(mtime) = git_workspace::disk_mtime_secs(&absolute) {
+            self.workspace_file_mtimes.insert(absolute_str, mtime);
+        }
         self.query_documents.push(doc);
         self.active_query_document = self.query_documents.len() - 1;
         self.activity = Activity::Queries;
@@ -146,6 +149,10 @@ impl DbProApp {
         match query_view::write_file_atomically(std::path::Path::new(&path), &contents) {
             Ok(()) => {
                 doc.mark_saved();
+                if let Some(mtime) = git_workspace::disk_mtime_secs(std::path::Path::new(&path)) {
+                    self.workspace_file_mtimes.insert(path.clone(), mtime);
+                }
+                self.workspace_external_change = None;
                 self.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
                 true
             }
@@ -347,5 +354,121 @@ impl DbProApp {
             self.activate_welcome_tab();
         }
         self.runtime_message = "Workspace closed".to_owned();
+    }
+
+    pub(crate) fn refresh_git_status(&mut self) {
+        let Some(root) = self.ide_workspace.primary_path().map(std::path::PathBuf::from) else {
+            self.git_status = None;
+            self.git_last_error = Some("Open a workspace folder first".into());
+            return;
+        };
+        let status = git_workspace::probe_git_status(&root);
+        self.git_last_error = if status.available {
+            None
+        } else {
+            Some(status.message.clone())
+        };
+        self.git_status = Some(status);
+        self.runtime_message = "Git status refreshed".into();
+    }
+
+    pub(crate) fn stage_git_path(&mut self, relative: &str) {
+        let Some(root) = self.ide_workspace.primary_path() else {
+            return;
+        };
+        match git_workspace::stage_path(root, relative) {
+            Ok(()) => {
+                self.git_last_error = None;
+                self.refresh_git_status();
+            }
+            Err(err) => self.git_last_error = Some(err),
+        }
+    }
+
+    pub(crate) fn unstage_git_path(&mut self, relative: &str) {
+        let Some(root) = self.ide_workspace.primary_path() else {
+            return;
+        };
+        match git_workspace::unstage_path(root, relative) {
+            Ok(()) => {
+                self.git_last_error = None;
+                self.refresh_git_status();
+            }
+            Err(err) => self.git_last_error = Some(err),
+        }
+    }
+
+    pub(crate) fn diff_git_path(&mut self, relative: &str) {
+        let Some(root) = self.ide_workspace.primary_path() else {
+            return;
+        };
+        match git_workspace::diff_against_head(root, relative) {
+            Ok(diff) => {
+                self.git_diff = Some(diff);
+                self.git_last_error = None;
+            }
+            Err(err) => self.git_last_error = Some(err),
+        }
+    }
+
+    pub(crate) fn commit_git_staged(&mut self) {
+        let Some(root) = self.ide_workspace.primary_path() else {
+            return;
+        };
+        match git_workspace::commit_paths(root, &self.git_commit_message) {
+            Ok(out) => {
+                self.git_commit_message.clear();
+                self.git_last_error = None;
+                self.runtime_message = out.lines().next().unwrap_or("Committed").to_owned();
+                self.refresh_git_status();
+            }
+            Err(err) => self.git_last_error = Some(err),
+        }
+    }
+
+    pub(crate) fn check_external_file_changes(&mut self) {
+        let docs: Vec<(String, String, bool)> = self
+            .query_documents
+            .iter()
+            .filter_map(|doc| {
+                let path = doc.file_path.clone()?;
+                Some((path, doc.text().to_owned(), doc.dirty))
+            })
+            .collect();
+        for (path, buffer, dirty) in docs {
+            let path_buf = std::path::PathBuf::from(&path);
+            let Some(mtime) = git_workspace::disk_mtime_secs(&path_buf) else {
+                continue;
+            };
+            let known = self.workspace_file_mtimes.get(&path).copied();
+            if known == Some(mtime) {
+                continue;
+            }
+            if dirty && git_workspace::disk_diverged_from_buffer(&path_buf, &buffer) {
+                self.workspace_external_change = Some(path);
+            } else if !dirty {
+                self.workspace_file_mtimes.insert(path, mtime);
+            }
+        }
+    }
+
+    pub(crate) fn reload_workspace_file_from_disk(&mut self, path: &str) {
+        let Ok(content) = std::fs::read_to_string(path) else {
+            self.runtime_message = format!("Could not reload {path}");
+            return;
+        };
+        if let Some(doc) = self
+            .query_documents
+            .iter_mut()
+            .find(|doc| doc.file_path.as_deref() == Some(path))
+        {
+            doc.buffer.set_text(content);
+            doc.mark_saved();
+            if let Some(mtime) = git_workspace::disk_mtime_secs(std::path::Path::new(path)) {
+                self.workspace_file_mtimes.insert(path.to_owned(), mtime);
+            }
+            self.workspace_external_change = None;
+            self.runtime_message = format!("Reloaded {path}");
+        }
     }
 }
