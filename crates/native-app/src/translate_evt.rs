@@ -37,6 +37,19 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             request_id: ui_request_id(request_id),
             workload,
         }),
+        RuntimeEvent::PgSettingsLoaded { request_id, snapshot } => Some(UiEvent::PgSettingsLoaded {
+            request_id: ui_request_id(request_id),
+            snapshot,
+        }),
+        RuntimeEvent::PgSettingActionCompleted {
+            request_id,
+            action,
+            name,
+        } => Some(UiEvent::PgSettingActionCompleted {
+            request_id: ui_request_id(request_id),
+            action: action.to_owned(),
+            name,
+        }),
         RuntimeEvent::MonitoringActionCompleted {
             request_id,
             action,

@@ -1204,6 +1204,37 @@ impl PostgresApi {
             .map_err(Into::into)
     }
 
+    pub async fn list_pg_settings(
+        &self,
+        connection_id: &str,
+    ) -> Result<db_pro_core::domain::pg_settings::PgSettingsSnapshot, DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        let settings_port = db_pro_infrastructure::postgres::settings::PostgresSettingsPort::new(connector);
+        settings_port
+            .list_settings(&handle, connection_id)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn set_pg_setting_session(&self, connection_id: &str, name: &str, value: &str) -> Result<(), DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::settings::PostgresSettingsPort::new(connector)
+            .set_session(&handle, name, value)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn reset_pg_setting_session(&self, connection_id: &str, name: &str) -> Result<(), DbErrorDto> {
+        let handle = self.postgres_handle(connection_id)?;
+        let connector: Arc<dyn db_pro_core::ports::DbConnector> = self.connector.clone();
+        db_pro_infrastructure::postgres::settings::PostgresSettingsPort::new(connector)
+            .reset_session(&handle, name)
+            .await
+            .map_err(Into::into)
+    }
+
     fn postgres_handle(
         &self,
         connection_id: &str,

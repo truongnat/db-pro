@@ -92,6 +92,21 @@ impl DbProApp {
                 self.monitoring_stat_sort = workload.sort;
                 self.runtime_message = format!("Workload · {}", workload.message);
             }
+            UiEvent::PgSettingsLoaded { snapshot, .. } => {
+                self.pg_settings = Some(snapshot.clone());
+                self.pg_settings_error = None;
+                self.runtime_message = format!("pg_settings · {}", snapshot.message);
+            }
+            UiEvent::PgSettingActionCompleted { action, name, .. } => {
+                self.runtime_message = format!("pg_settings {action} `{name}` ok");
+                if let Some(connection_id) = self.active_connection_id.clone() {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.dispatch_command(UiCommand::ListPgSettings {
+                        request_id,
+                        connection_id,
+                    });
+                }
+            }
             UiEvent::MonitoringActionCompleted {
                 action,
                 backend_id,

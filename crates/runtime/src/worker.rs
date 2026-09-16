@@ -235,6 +235,21 @@ pub enum RuntimeCommand {
         connection_id: String,
         confirmed: bool,
     },
+    ListPgSettings {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+    },
+    SetPgSettingSession {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+        value: String,
+    },
+    ResetPgSettingSession {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        name: String,
+    },
     ListUsers {
         request_id: RuntimeRequestId,
         connection_id: String,
@@ -393,6 +408,15 @@ pub enum RuntimeEvent {
     MonitoringWorkloadLoaded {
         request_id: RuntimeRequestId,
         workload: db_pro_core::domain::monitoring::StatStatementsSnapshot,
+    },
+    PgSettingsLoaded {
+        request_id: RuntimeRequestId,
+        snapshot: db_pro_core::domain::pg_settings::PgSettingsSnapshot,
+    },
+    PgSettingActionCompleted {
+        request_id: RuntimeRequestId,
+        action: &'static str,
+        name: String,
     },
     MonitoringActionCompleted {
         request_id: RuntimeRequestId,
@@ -1812,6 +1836,68 @@ pub fn spawn_worker(
                                 action: "reset_stat_statements",
                                 backend_id: 0,
                                 succeeded: true,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::ListPgSettings {
+                    request_id,
+                    connection_id,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api.list_pg_settings(&connection_id).await {
+                            Ok(snapshot) => RuntimeEvent::PgSettingsLoaded { request_id, snapshot },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::SetPgSettingSession {
+                    request_id,
+                    connection_id,
+                    name,
+                    value,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api.set_pg_setting_session(&connection_id, &name, &value).await {
+                            Ok(()) => RuntimeEvent::PgSettingActionCompleted {
+                                request_id,
+                                action: "set",
+                                name,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::ResetPgSettingSession {
+                    request_id,
+                    connection_id,
+                    name,
+                } => {
+                    let postgres_api = runtime.postgres_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match postgres_api.reset_pg_setting_session(&connection_id, &name).await {
+                            Ok(()) => RuntimeEvent::PgSettingActionCompleted {
+                                request_id,
+                                action: "reset",
+                                name,
                             },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,

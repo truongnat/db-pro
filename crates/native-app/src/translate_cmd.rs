@@ -168,6 +168,9 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::MonitoringMaintenance { .. }
         | UiCommand::MonitoringStatStatements { .. }
         | UiCommand::MonitoringResetStatStatements { .. }
+        | UiCommand::ListPgSettings { .. }
+        | UiCommand::SetPgSettingSession { .. }
+        | UiCommand::ResetPgSettingSession { .. }
         | UiCommand::ListUsers { .. }
         | UiCommand::CreateRole { .. }
         | UiCommand::DropRole { .. }
@@ -693,6 +696,33 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             request_id: runtime_request_id(request_id),
             connection_id,
             confirmed,
+        }),
+        UiCommand::ListPgSettings {
+            request_id,
+            connection_id,
+        } => Some(RuntimeCommand::ListPgSettings {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+        }),
+        UiCommand::SetPgSettingSession {
+            request_id,
+            connection_id,
+            name,
+            value,
+        } => Some(RuntimeCommand::SetPgSettingSession {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
+            value,
+        }),
+        UiCommand::ResetPgSettingSession {
+            request_id,
+            connection_id,
+            name,
+        } => Some(RuntimeCommand::ResetPgSettingSession {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            name,
         }),
         UiCommand::ListUsers {
             request_id,

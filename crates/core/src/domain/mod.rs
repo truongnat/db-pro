@@ -15,6 +15,7 @@ pub mod history;
 pub mod migration;
 pub mod monitoring;
 pub mod object_mutation;
+pub mod pg_settings;
 pub mod query;
 pub mod rls;
 pub mod run_config;

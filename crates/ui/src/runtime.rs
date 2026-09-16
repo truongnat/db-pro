@@ -588,6 +588,21 @@ pub enum UiCommand {
         connection_id: String,
         confirmed: bool,
     },
+    ListPgSettings {
+        request_id: RequestId,
+        connection_id: String,
+    },
+    SetPgSettingSession {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+        value: String,
+    },
+    ResetPgSettingSession {
+        request_id: RequestId,
+        connection_id: String,
+        name: String,
+    },
     ListUsers {
         request_id: RequestId,
         connection_id: String,
@@ -822,6 +837,15 @@ pub enum UiEvent {
     MonitoringWorkloadLoaded {
         request_id: RequestId,
         workload: db_pro_core::domain::monitoring::StatStatementsSnapshot,
+    },
+    PgSettingsLoaded {
+        request_id: RequestId,
+        snapshot: db_pro_core::domain::pg_settings::PgSettingsSnapshot,
+    },
+    PgSettingActionCompleted {
+        request_id: RequestId,
+        action: String,
+        name: String,
     },
     MonitoringActionCompleted {
         request_id: RequestId,
