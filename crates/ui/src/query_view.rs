@@ -55,6 +55,14 @@ impl DbProApp {
                 if self.editor_search_open {
                     self.draw_editor_search_bar(ui);
                 }
+                if self.visual_query_builder_open {
+                    egui::CollapsingHeader::new("Visual query builder")
+                        .default_open(true)
+                        .show(ui, |ui| {
+                            self.draw_visual_query_builder(ui);
+                        });
+                    ui.add_space(SPACE_SM);
+                }
                 self.draw_query_editor(ui);
                 self.draw_floating_completion_popup(ui.ctx());
                 if self.completion_open {
@@ -206,6 +214,17 @@ impl DbProApp {
                     } else {
                         self.dispatch_query();
                     }
+                }
+                let builder_label = if self.visual_query_builder_open {
+                    "Builder ✓"
+                } else {
+                    "Builder"
+                };
+                if secondary_button(ui, builder_label, self.theme)
+                    .on_hover_text("Toggle visual SELECT builder (#247)")
+                    .clicked()
+                {
+                    self.visual_query_builder_open = !self.visual_query_builder_open;
                 }
                 let more_response =
                     compact_icon_button(ui, Icon::MoreHorizontal, self.theme).on_hover_text("More query actions");

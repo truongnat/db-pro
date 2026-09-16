@@ -123,6 +123,8 @@ mod sidebar_activities_view;
 mod sidebar_view;
 #[path = "tasks_view.rs"]
 mod tasks_view;
+#[path = "visual_query_builder_view.rs"]
+mod visual_query_builder_view;
 #[path = "workspace_actions.rs"]
 mod workspace_actions;
 #[path = "workspace_session.rs"]
@@ -186,6 +188,24 @@ pub struct DbProApp {
     query_tools_open: bool,
     completion_open: bool,
     snippets_open: bool,
+    visual_query_builder_open: bool,
+    visual_query_model: crate::query::visual_builder::VisualQueryModel,
+    visual_query_sql_preview: String,
+    visual_query_error: Option<String>,
+    visual_query_add_table: String,
+    visual_query_join_table: String,
+    visual_query_join_left: String,
+    visual_query_join_right: String,
+    visual_query_col_ref: String,
+    visual_query_col_alias: String,
+    visual_query_col_agg: String,
+    visual_query_where_left: String,
+    visual_query_where_op: String,
+    visual_query_where_value: String,
+    visual_query_order: String,
+    visual_query_order_desc: bool,
+    visual_query_limit: String,
+    visual_query_offset: String,
     diagnostics: Vec<String>,
     problems_severity_filter: ProblemsSeverityFilter,
     problems_source_filter: ProblemsSourceFilter,

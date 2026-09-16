@@ -2,6 +2,7 @@ pub mod query_document;
 pub mod schema_completion;
 pub mod sql_format;
 pub mod sql_parameters;
+pub mod visual_builder;
 
 pub use query_document::{QueryDocument, QueryExecutionState};
 pub use schema_completion::{CompletionContext, SchemaCompletionProvider};
