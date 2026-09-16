@@ -102,6 +102,15 @@ pub struct TriggerSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoutineParameterSummary {
+    pub name: String,
+    pub data_type: String,
+    pub mode: String,
+    pub has_default: bool,
+    pub default_expr: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionSummary {
     pub schema: String,
     pub name: String,
@@ -112,6 +121,7 @@ pub struct FunctionSummary {
     pub language: String,
     pub volatility: String,
     pub security_definer: bool,
+    pub parameters: Vec<RoutineParameterSummary>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -508,6 +518,17 @@ impl SchemaApi {
                     language: function.language,
                     volatility: function.volatility,
                     security_definer: function.security_definer,
+                    parameters: function
+                        .parameters
+                        .into_iter()
+                        .map(|p| RoutineParameterSummary {
+                            name: p.name,
+                            data_type: p.data_type,
+                            mode: p.mode,
+                            has_default: p.has_default,
+                            default_expr: p.default_expr,
+                        })
+                        .collect(),
                 })
                 .collect(),
         })

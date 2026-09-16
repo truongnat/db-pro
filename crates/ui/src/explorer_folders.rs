@@ -312,13 +312,30 @@ impl DbProApp {
         name: &str,
         kind: &str,
     ) {
-        self.selected_schema_object = Some(selection);
+        self.selected_schema_object = Some(selection.clone());
         self.schema_object_view = SchemaObjectView::Definition;
         self.selected_table = None;
         self.table_info = None;
         self.table_ddl = None;
         self.table_view = TableView::Ddl;
         self.active_tab = WorkspaceTab::SchemaObject;
+        self.routine_drop_confirm = false;
+        self.routine_ddl_preview = None;
+        if let SchemaObjectSelection::Function {
+            name: fn_name,
+            identity_arguments,
+        } = &selection
+        {
+            if let Some(function) = self
+                .schema
+                .functions
+                .iter()
+                .find(|f| &f.name == fn_name && &f.identity_arguments == identity_arguments)
+                .cloned()
+            {
+                self.sync_routine_workbench_from(&function);
+            }
+        }
         self.runtime_message = if schema.is_empty() {
             format!("Opened {kind} {name}")
         } else {

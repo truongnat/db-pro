@@ -609,8 +609,7 @@ async fn introspect_foreign_keys(pool: &sqlx::PgPool) -> Result<Vec<ForeignKey>,
 }
 
 fn group_foreign_key_rows(rows: Vec<sqlx::postgres::PgRow>) -> Vec<ForeignKey> {
-    let mut map: std::collections::HashMap<ForeignKeyGroupKey, ForeignKeyGroupValue> =
-        std::collections::HashMap::new();
+    let mut map: std::collections::HashMap<ForeignKeyGroupKey, ForeignKeyGroupValue> = std::collections::HashMap::new();
     let mut order: Vec<ForeignKeyGroupKey> = Vec::new();
 
     for row in rows {
@@ -822,6 +821,7 @@ async fn introspect_functions(pool: &sqlx::PgPool) -> Result<Vec<Function>, DbEr
             pg_get_function_result(p.oid) AS data_type,
             COALESCE(pg_get_functiondef(p.oid), '') AS definition,
             COALESCE(pg_get_function_identity_arguments(p.oid), '') AS identity_arguments,
+            COALESCE(pg_get_function_arguments(p.oid), '') AS argument_list,
             COALESCE(l.lanname, '') AS language,
             CASE p.provolatile
                 WHEN 'i' THEN 'IMMUTABLE'
@@ -849,6 +849,7 @@ async fn introspect_functions(pool: &sqlx::PgPool) -> Result<Vec<Function>, DbEr
             let data_type = optional_string(&row, "data_type")?.unwrap_or_default();
             let definition = required_string(&row, "definition")?;
             let identity_arguments = optional_string(&row, "identity_arguments")?.unwrap_or_default();
+            let argument_list = optional_string(&row, "argument_list")?.unwrap_or_default();
             let language = optional_string(&row, "language")?.unwrap_or_default();
             let volatility = optional_string(&row, "volatility")?.unwrap_or_default();
             let security_definer = row.try_get::<bool, _>("security_definer").unwrap_or(false);
@@ -862,9 +863,113 @@ async fn introspect_functions(pool: &sqlx::PgPool) -> Result<Vec<Function>, DbEr
                 language,
                 volatility,
                 security_definer,
+                parameters: parse_routine_parameters(&argument_list),
             })
         })
         .collect()
+}
+
+/// Parse `pg_get_function_arguments` text into structured parameters.
+///
+/// Examples:
+/// - `order_id integer, OUT total numeric`
+/// - `VARIADIC tags text[] DEFAULT '{}'::text[]`
+fn parse_routine_parameters(argument_list: &str) -> Vec<RoutineParameter> {
+    let trimmed = argument_list.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    let mut params = Vec::new();
+    for raw in split_routine_args(trimmed) {
+        let part = raw.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let mut mode = "IN".to_owned();
+        let mut rest = part;
+        for candidate in ["VARIADIC ", "INOUT ", "OUT ", "IN "] {
+            if rest.len() >= candidate.len() && rest[..candidate.len()].eq_ignore_ascii_case(candidate) {
+                mode = candidate.trim().to_ascii_uppercase();
+                rest = rest[candidate.len()..].trim_start();
+                break;
+            }
+        }
+        let (type_and_name, default_expr, has_default) = if let Some(idx) = find_default_kw(rest) {
+            (
+                rest[..idx].trim(),
+                rest[idx + "DEFAULT".len()..].trim().to_owned(),
+                true,
+            )
+        } else {
+            (rest, String::new(), false)
+        };
+        let (name, data_type) = split_name_and_type(type_and_name);
+        params.push(RoutineParameter {
+            name,
+            data_type,
+            mode,
+            has_default,
+            default_expr,
+        });
+    }
+    params
+}
+
+fn split_routine_args(input: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut depth = 0i32;
+    let mut current = String::new();
+    for ch in input.chars() {
+        match ch {
+            '(' | '[' => {
+                depth += 1;
+                current.push(ch);
+            }
+            ')' | ']' => {
+                depth = depth.saturating_sub(1);
+                current.push(ch);
+            }
+            ',' if depth == 0 => {
+                out.push(std::mem::take(&mut current));
+            }
+            _ => current.push(ch),
+        }
+    }
+    if !current.trim().is_empty() {
+        out.push(current);
+    }
+    out
+}
+
+fn find_default_kw(input: &str) -> Option<usize> {
+    let upper = input.to_ascii_uppercase();
+    upper.find(" DEFAULT ").map(|idx| idx + 1)
+}
+
+fn split_name_and_type(input: &str) -> (String, String) {
+    let parts: Vec<&str> = input.split_whitespace().collect();
+    if parts.is_empty() {
+        return (String::new(), String::new());
+    }
+    if parts.len() == 1 {
+        return (String::new(), parts[0].to_owned());
+    }
+    // name type...  OR  only type tokens when anonymous
+    let first = parts[0];
+    let looks_like_name = first
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && !first.contains('(')
+        && !first.eq_ignore_ascii_case("double")
+        && !first.eq_ignore_ascii_case("character")
+        && !first.eq_ignore_ascii_case("timestamp")
+        && !first.eq_ignore_ascii_case("time");
+    if looks_like_name {
+        (first.to_owned(), parts[1..].join(" "))
+    } else {
+        (String::new(), parts.join(" "))
+    }
 }
 
 #[cfg(test)]
@@ -918,6 +1023,17 @@ mod tests {
         let indexdef = "CREATE INDEX idx ON tbl USING btree (col1, lower(col2), (a * b + c))";
         let cols = parse_index_columns(indexdef);
         assert_eq!(cols, vec!["col1", "lower(col2)", "(a * b + c)"]);
+    }
+
+    #[test]
+    fn parse_routine_parameters_handles_modes_and_defaults() {
+        let params = parse_routine_parameters("order_id integer, OUT total numeric DEFAULT 0");
+        assert_eq!(params.len(), 2);
+        assert_eq!(params[0].name, "order_id");
+        assert_eq!(params[0].mode, "IN");
+        assert_eq!(params[1].mode, "OUT");
+        assert!(params[1].has_default);
+        assert_eq!(params[1].default_expr, "0");
     }
 
     #[test]

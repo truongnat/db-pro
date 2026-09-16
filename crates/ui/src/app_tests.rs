@@ -2151,6 +2151,7 @@ fn global_search_scopes_and_indexes_functions_with_invalidation() {
                 language: "sql".to_owned(),
                 volatility: "volatile".to_owned(),
                 security_definer: false,
+                parameters: Vec::new(),
             }],
         },
         ..Default::default()

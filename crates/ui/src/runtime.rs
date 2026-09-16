@@ -149,6 +149,15 @@ pub struct UiTriggerSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UiRoutineParameter {
+    pub name: String,
+    pub data_type: String,
+    pub mode: String,
+    pub has_default: bool,
+    pub default_expr: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiFunctionSummary {
     pub schema: String,
     pub name: String,
@@ -159,6 +168,7 @@ pub struct UiFunctionSummary {
     pub language: String,
     pub volatility: String,
     pub security_definer: bool,
+    pub parameters: Vec<UiRoutineParameter>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

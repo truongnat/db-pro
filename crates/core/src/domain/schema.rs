@@ -116,6 +116,19 @@ pub struct Trigger {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoutineParameter {
+    pub name: String,
+    pub data_type: String,
+    /// IN / OUT / INOUT / VARIADIC / TABLE
+    #[serde(default)]
+    pub mode: String,
+    #[serde(default)]
+    pub has_default: bool,
+    #[serde(default)]
+    pub default_expr: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Function {
     pub name: String,
     #[serde(default)]
@@ -133,6 +146,8 @@ pub struct Function {
     pub volatility: String,
     #[serde(default)]
     pub security_definer: bool,
+    #[serde(default)]
+    pub parameters: Vec<RoutineParameter>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

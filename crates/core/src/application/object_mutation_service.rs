@@ -63,6 +63,9 @@ fn unsupported_reason(request: &ObjectMutationRequest) -> Option<String> {
         (ObjectDefinition::DomainType(_), _) if is_sqlite => Some("SQLite does not support CREATE DOMAIN".into()),
         (ObjectDefinition::Extension(_), _) if is_sqlite => Some("SQLite does not support CREATE EXTENSION".into()),
         (ObjectDefinition::Partition(_), _) if is_sqlite => Some("SQLite does not support table partitions".into()),
+        (ObjectDefinition::Routine(_), _) if is_sqlite => {
+            Some("SQLite does not support stored functions/procedures".into())
+        }
         (ObjectDefinition::Schema(_), ObjectAction::Create | ObjectAction::Drop) if is_sqlite => {
             Some("SQLite has no CREATE/DROP SCHEMA".into())
         }
@@ -91,6 +94,7 @@ fn build_statements(request: &ObjectMutationRequest, dialect: &dyn SqlDialect) -
         ObjectDefinition::Extension(_) => build_extension_statements(request, dialect),
         ObjectDefinition::Comment(_) => build_comment_statements(request, dialect),
         ObjectDefinition::Partition(_) => build_partition_statements(request, dialect),
+        ObjectDefinition::Routine(_) => build_routine_statements(request, dialect),
         ObjectDefinition::DomainType(_) | ObjectDefinition::Empty => Err(unsupported(request)),
     }
 }
@@ -119,8 +123,13 @@ fn build_table_column_statements(
                     is_pk: c.is_pk,
                 })
                 .collect();
-            Ok(vec![ddl_builder::build_create_table(dialect, &def.schema, &def.name, &cols)
-                .map_err(MutationError::Build)?])
+            Ok(vec![ddl_builder::build_create_table(
+                dialect,
+                &def.schema,
+                &def.name,
+                &cols,
+            )
+            .map_err(MutationError::Build)?])
         }
         (ObjectDefinition::Table(def), ObjectAction::Drop) => {
             Ok(vec![ddl_builder::build_drop_table(dialect, &def.schema, &def.name)])
@@ -167,8 +176,13 @@ fn build_view_statements(
         | (ObjectDefinition::MaterializedView(def), ObjectAction::Create)
             if !def.materialized =>
         {
-            Ok(vec![ddl_builder::build_create_view(dialect, &def.schema, &def.name, &def.select_sql)
-                .map_err(MutationError::Build)?])
+            Ok(vec![ddl_builder::build_create_view(
+                dialect,
+                &def.schema,
+                &def.name,
+                &def.select_sql,
+            )
+            .map_err(MutationError::Build)?])
         }
         (ObjectDefinition::MaterializedView(def), ObjectAction::Create)
         | (ObjectDefinition::View(def), ObjectAction::Create)
@@ -192,10 +206,18 @@ fn build_view_statements(
         | (ObjectDefinition::View(def), ObjectAction::Drop)
             if def.materialized =>
         {
-            Ok(vec![ddl_builder::build_drop_materialized_view(dialect, &def.schema, &def.name)])
+            Ok(vec![ddl_builder::build_drop_materialized_view(
+                dialect,
+                &def.schema,
+                &def.name,
+            )])
         }
         (ObjectDefinition::MaterializedView(def), ObjectAction::Refresh) => {
-            Ok(vec![ddl_builder::build_refresh_materialized_view(dialect, &def.schema, &def.name)])
+            Ok(vec![ddl_builder::build_refresh_materialized_view(
+                dialect,
+                &def.schema,
+                &def.name,
+            )])
         }
         _ => Err(unsupported(request)),
     }
@@ -428,6 +450,35 @@ fn build_partition_statements(
     }
 }
 
+fn build_routine_statements(
+    request: &ObjectMutationRequest,
+    dialect: &dyn SqlDialect,
+) -> Result<Vec<String>, MutationError> {
+    match (&request.definition, request.action) {
+        (ObjectDefinition::Routine(def), ObjectAction::Create | ObjectAction::Alter) => {
+            Ok(vec![ddl_builder::build_create_routine(
+                &def.definition_sql,
+                def.replace || request.action == ObjectAction::Alter,
+            )
+            .map_err(MutationError::Build)?])
+        }
+        (ObjectDefinition::Routine(def), ObjectAction::Drop) => Ok(vec![ddl_builder::build_drop_routine(
+            dialect,
+            &def.schema,
+            &def.name,
+            &def.routine_type,
+            &def.identity_arguments,
+            request.options.cascade,
+            request.options.if_exists,
+        )]),
+        (ObjectDefinition::Routine(def), ObjectAction::GenerateDdl) => Ok(vec![ddl_builder::build_create_routine(
+            &def.definition_sql,
+            def.replace,
+        )
+        .map_err(MutationError::Build)?]),
+        _ => Err(unsupported(request)),
+    }
+}
 
 fn object_kind_sql(kind: ObjectKind) -> &'static str {
     match kind {
@@ -440,6 +491,7 @@ fn object_kind_sql(kind: ObjectKind) -> &'static str {
         ObjectKind::Schema => "SCHEMA",
         ObjectKind::Database => "DATABASE",
         ObjectKind::EnumType | ObjectKind::DomainType | ObjectKind::CompositeType => "TYPE",
+        ObjectKind::Routine => "FUNCTION",
         _ => "TABLE",
     }
 }
@@ -525,6 +577,69 @@ mod tests {
                 max_value: None,
                 cache: None,
                 cycle: false,
+            }),
+            options: MutationOptions::default(),
+            driver: "sqlite".into(),
+        };
+        let preview = ObjectMutationService::plan(&req, &PgDialect).unwrap();
+        assert!(preview.unsupported_reason.is_some());
+    }
+
+    #[test]
+    fn plans_create_or_replace_and_drop_routine() {
+        let create = ObjectMutationRequest {
+            action: ObjectAction::Alter,
+            target: None,
+            definition: ObjectDefinition::Routine(RoutineDefinition {
+                schema: "public".into(),
+                name: "calc".into(),
+                routine_type: "FUNCTION".into(),
+                identity_arguments: "x integer".into(),
+                definition_sql:
+                    "CREATE FUNCTION public.calc(x integer) RETURNS integer LANGUAGE sql AS $$ SELECT x; $$;".into(),
+                replace: true,
+            }),
+            options: MutationOptions::default(),
+            driver: "postgresql".into(),
+        };
+        let preview = ObjectMutationService::plan(&create, &PgDialect).unwrap();
+        assert!(preview.unsupported_reason.is_none());
+        assert!(preview.statements[0].contains("CREATE OR REPLACE FUNCTION"));
+
+        let drop = ObjectMutationRequest {
+            action: ObjectAction::Drop,
+            target: None,
+            definition: ObjectDefinition::Routine(RoutineDefinition {
+                schema: "public".into(),
+                name: "calc".into(),
+                routine_type: "FUNCTION".into(),
+                identity_arguments: "x integer".into(),
+                definition_sql: String::new(),
+                replace: false,
+            }),
+            options: MutationOptions {
+                if_exists: true,
+                ..MutationOptions::default()
+            },
+            driver: "postgresql".into(),
+        };
+        let preview = ObjectMutationService::plan(&drop, &PgDialect).unwrap();
+        assert!(preview.statements[0].contains("DROP FUNCTION IF EXISTS"));
+        assert!(preview.statements[0].contains("\"calc\"(x integer)"));
+    }
+
+    #[test]
+    fn blocks_routine_on_sqlite() {
+        let req = ObjectMutationRequest {
+            action: ObjectAction::Drop,
+            target: None,
+            definition: ObjectDefinition::Routine(RoutineDefinition {
+                schema: "main".into(),
+                name: "f".into(),
+                routine_type: "FUNCTION".into(),
+                identity_arguments: String::new(),
+                definition_sql: String::new(),
+                replace: false,
             }),
             options: MutationOptions::default(),
             driver: "sqlite".into(),

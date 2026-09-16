@@ -347,6 +347,7 @@ impl MySqlIntrospect {
                 language: String::new(),
                 volatility: String::new(),
                 security_definer: false,
+                parameters: Vec::new(),
             })
             .collect();
 
@@ -385,5 +386,4 @@ impl MySqlIntrospect {
 
         Ok(check_constraints)
     }
-
 }

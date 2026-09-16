@@ -19,6 +19,8 @@ pub enum ObjectKind {
     EnumType,
     DomainType,
     CompositeType,
+    /// Stored function or procedure (#192).
+    Routine,
     Schema,
     Database,
     Extension,
@@ -77,6 +79,7 @@ pub enum ObjectDefinition {
     Extension(ExtensionDefinition),
     Comment(CommentDefinition),
     Partition(PartitionDefinition),
+    Routine(RoutineDefinition),
     Empty,
 }
 
@@ -207,6 +210,20 @@ pub struct ExtensionDefinition {
     pub schema: Option<String>,
     pub version: Option<String>,
     pub cascade: bool,
+}
+
+/// Stored function / procedure create-or-replace / drop (#192).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoutineDefinition {
+    pub schema: String,
+    pub name: String,
+    /// FUNCTION or PROCEDURE
+    pub routine_type: String,
+    /// Overload identity arguments for DROP (from pg_get_function_identity_arguments).
+    pub identity_arguments: String,
+    /// Full CREATE [OR REPLACE] FUNCTION/PROCEDURE body for create/alter.
+    pub definition_sql: String,
+    pub replace: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

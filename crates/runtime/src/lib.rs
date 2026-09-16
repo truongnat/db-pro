@@ -9,8 +9,8 @@ pub use agent_executor::{AgentToolExecutor, AgentToolRunner};
 pub use agent_orchestrator::{AgentRunOrchestrator, AgentWorkflowEvent};
 pub use api::{
     BackupApi, ColumnSummary, ConnectionApi, ConnectionSummary, DataDiffApi, DbErrorDto, ExportApi, ForeignKeySummary,
-    FunctionSummary, PostgresApi, QueryApi, QueryFolderSummary, SavedQuerySummary, SchemaApi, SchemaSummary,
-    TableDataApi, TableMutationFailure, TableSummary, TriggerSummary, UserApi, ViewSummary,
+    FunctionSummary, PostgresApi, QueryApi, QueryFolderSummary, RoutineParameterSummary, SavedQuerySummary, SchemaApi,
+    SchemaSummary, TableDataApi, TableMutationFailure, TableSummary, TriggerSummary, UserApi, ViewSummary,
 };
 pub use db_pro_core::domain::agent_workflow::AgentExecutionContext;
 pub use worker::{spawn_worker, RuntimeCommand, RuntimeEvent, RuntimeRequestId};

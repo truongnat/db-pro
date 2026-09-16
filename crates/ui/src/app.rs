@@ -9,9 +9,10 @@ use crate::{
     tab_frame, toolbar_frame, AgentContext, AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock,
     ColumnWritePolicy, DbProTheme, GridProjectionCache, GridProjectionKey, OfflineAgentProvider, TaskBridge, UiCell,
     UiCommand, UiConnectionDraft, UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput,
-    UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary,
-    UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableDataFilter, UiTableDataSort,
-    UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
+    UiQueryFolderSummary, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult,
+    UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableDataFilter,
+    UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary,
+    UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
@@ -283,6 +284,13 @@ pub struct DbProApp {
     files_panel_tab: FilesPanelTab,
     selected_schema_object: Option<SchemaObjectSelection>,
     schema_object_view: SchemaObjectView,
+    /// Editable CREATE body for the selected routine (#192).
+    routine_source_draft: String,
+    /// Values for IN/INOUT parameters in the execute form.
+    routine_param_values: Vec<String>,
+    routine_param_nulls: Vec<bool>,
+    routine_ddl_preview: Option<String>,
+    routine_drop_confirm: bool,
     schema_workbench: schema_workbench::SchemaWorkbenchState,
     schema_snapshot: Option<schema_compare::UiSchemaSnapshot>,
     schema_diff: Option<schema_compare::UiSchemaDiffResult>,

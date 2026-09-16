@@ -441,6 +441,17 @@ fn map_function_summary(function: db_pro_runtime::FunctionSummary) -> UiFunction
         language: function.language,
         volatility: function.volatility,
         security_definer: function.security_definer,
+        parameters: function
+            .parameters
+            .into_iter()
+            .map(|p| db_pro_ui::UiRoutineParameter {
+                name: p.name,
+                data_type: p.data_type,
+                mode: p.mode,
+                has_default: p.has_default,
+                default_expr: p.default_expr,
+            })
+            .collect(),
     }
 }
 

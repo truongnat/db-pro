@@ -371,6 +371,54 @@ pub fn build_drop_extension(dialect: &dyn SqlDialect, name: &str, cascade: bool)
     format!("DROP EXTENSION {}{cascade_kw}", dialect.quote_identifier(name))
 }
 
+/// Emit CREATE [OR REPLACE] routine SQL. `definition_sql` must already be a full
+/// CREATE statement (typically from `pg_get_functiondef` or the workbench editor).
+pub fn build_create_routine(definition_sql: &str, replace: bool) -> Result<String, String> {
+    let trimmed = definition_sql.trim();
+    if trimmed.is_empty() {
+        return Err("routine definition SQL is empty".into());
+    }
+    if !replace {
+        return Ok(trimmed.to_owned());
+    }
+    let upper = trimmed.to_ascii_uppercase();
+    if upper.starts_with("CREATE OR REPLACE ") {
+        return Ok(trimmed.to_owned());
+    }
+    if let Some(rest) = trimmed
+        .strip_prefix("CREATE ")
+        .or_else(|| trimmed.strip_prefix("create "))
+    {
+        return Ok(format!("CREATE OR REPLACE {rest}"));
+    }
+    Ok(trimmed.to_owned())
+}
+
+pub fn build_drop_routine(
+    dialect: &dyn SqlDialect,
+    schema: &str,
+    name: &str,
+    routine_type: &str,
+    identity_arguments: &str,
+    cascade: bool,
+    if_exists: bool,
+) -> String {
+    let kind = if routine_type.eq_ignore_ascii_case("PROCEDURE") {
+        "PROCEDURE"
+    } else {
+        "FUNCTION"
+    };
+    let exists = if if_exists { "IF EXISTS " } else { "" };
+    let cascade_kw = if cascade { " CASCADE" } else { "" };
+    let qualified = format!(
+        "{}.{}({})",
+        dialect.quote_identifier(schema),
+        dialect.quote_identifier(name),
+        identity_arguments.trim()
+    );
+    format!("DROP {kind} {exists}{qualified}{cascade_kw}")
+}
+
 pub fn build_comment_on(
     dialect: &dyn SqlDialect,
     object_kind: &str,
