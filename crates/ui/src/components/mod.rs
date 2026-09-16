@@ -99,6 +99,8 @@ mod tests {
             include_str!("../tasks_view.rs"),
             include_str!("../query_output_view.rs"),
             include_str!("../query_view.rs"),
+            include_str!("../result_grid_view.rs"),
+            include_str!("../table_editor_view.rs"),
         ];
 
         for source in sources {

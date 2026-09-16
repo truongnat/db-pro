@@ -511,8 +511,12 @@ impl DbProApp {
             ui.horizontal(|ui| {
                 input(ui, &mut self.grid_filter, "Filter visible rows…", 200.0, self.theme);
                 if !self.grid_filter.is_empty()
-                    && compact_icon_button(ui, Icon::X, self.theme)
-                        .on_hover_text("Clear filter")
+                    && Button::new(self.theme)
+                        .icon(Icon::X)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Clear filter")
+                        .show(ui)
                         .clicked()
                 {
                     self.grid_filter.clear();
@@ -525,45 +529,75 @@ impl DbProApp {
 
                 ui.separator();
 
-                if compact_button_with_icon(ui, Icon::Copy, "Copy Cell", self.theme)
-                    .on_hover_text(format!(
+                if Button::new(self.theme)
+                    .text("Copy Cell")
+                    .icon(Icon::Copy)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .tooltip(format!(
                         "Copy selected cell value ({modifier}C)",
                         modifier = Self::primary_modifier_label()
                     ))
+                    .show(ui)
                     .clicked()
                 {
                     self.copy_selected_cell(ui, result);
                 }
-                if compact_button_with_icon(ui, Icon::Table2, "Copy Row", self.theme)
-                    .on_hover_text(format!(
+                if Button::new(self.theme)
+                    .text("Copy Row")
+                    .icon(Icon::Table2)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .tooltip(format!(
                         "Copy entire selected row as tab-separated text ({modifier}Shift+C)",
                         modifier = Self::primary_modifier_label()
                     ))
+                    .show(ui)
                     .clicked()
                 {
                     self.copy_selected_row(ui, result);
                 }
-                if compact_button_with_icon(ui, Icon::FileSpreadsheet, "CSV", self.theme)
-                    .on_hover_text("Copy visible rows as CSV")
+                if Button::new(self.theme)
+                    .text("CSV")
+                    .icon(Icon::FileSpreadsheet)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .tooltip("Copy visible rows as CSV")
+                    .show(ui)
                     .clicked()
                 {
                     self.copy_all_as_csv(ui, result, indexes);
                 }
-                if compact_button_with_icon(ui, Icon::Braces, "JSON", self.theme)
-                    .on_hover_text("Copy visible rows as JSON array")
+                if Button::new(self.theme)
+                    .text("JSON")
+                    .icon(Icon::Braces)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .tooltip("Copy visible rows as JSON array")
+                    .show(ui)
                     .clicked()
                 {
                     self.copy_all_as_json(ui, result, indexes);
                 }
-                if compact_button_with_icon(ui, Icon::PanelRight, "Record", self.theme)
-                    .on_hover_text("Toggle record / value inspector panel")
+                if Button::new(self.theme)
+                    .text("Record")
+                    .icon(Icon::PanelRight)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .tooltip("Toggle record / value inspector panel")
+                    .show(ui)
                     .clicked()
                 {
                     self.record_inspector_open = !self.record_inspector_open;
                 }
                 if let Some((row_index, column_index)) = self.selected_cell {
-                    if compact_button_with_icon(ui, Icon::ScanSearch, "Inspect", self.theme)
-                        .on_hover_text("Open advanced value inspector for the selected cell")
+                    if Button::new(self.theme)
+                        .text("Inspect")
+                        .icon(Icon::ScanSearch)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .tooltip("Open advanced value inspector for the selected cell")
+                        .show(ui)
                         .clicked()
                     {
                         self.open_cell_inspector(result, row_index, column_index);

@@ -147,8 +147,13 @@ impl DbProApp {
 
                 if can_mutate {
                     ui.separator();
-                    if compact_button_with_icon(ui, Icon::Plus, "Add Row", self.theme)
-                        .on_hover_text("Insert new row")
+                    if Button::new(self.theme)
+                        .text("Add Row")
+                        .icon(Icon::Plus)
+                        .variant(ButtonVariant::Secondary)
+                        .size(ButtonSize::Sm)
+                        .tooltip("Insert new row")
+                        .show(ui)
                         .clicked()
                     {
                         self.open_insert_row();
@@ -182,20 +187,31 @@ impl DbProApp {
                             self.pending_changes_open = true;
                         }
                         let apply_enabled = self.staged_apply_request.is_none() && self.data_edit_error.is_none();
-                        if compact_button_with_icon_enabled(ui, Icon::Check, "Apply", apply_enabled, self.theme)
-                            .on_hover_text(format!(
+                        if Button::new(self.theme)
+                            .text("Apply")
+                            .icon(Icon::Check)
+                            .variant(ButtonVariant::Default)
+                            .size(ButtonSize::Sm)
+                            .enabled(apply_enabled)
+                            .tooltip(format!(
                                 "Apply all staged changes ({}S)",
                                 Self::primary_modifier_label()
                             ))
+                            .show(ui)
                             .clicked()
                         {
                             self.apply_staged_changes();
                         }
-                        if compact_button_with_icon(ui, Icon::Undo2, "Discard", self.theme)
-                            .on_hover_text(format!(
+                        if Button::new(self.theme)
+                            .text("Discard")
+                            .icon(Icon::Undo2)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::Sm)
+                            .tooltip(format!(
                                 "Discard all staged changes ({}Z)",
                                 Self::primary_modifier_label()
                             ))
+                            .show(ui)
                             .clicked()
                         {
                             if self.staged_changes.counts().total() > 1 {
@@ -239,27 +255,47 @@ impl DbProApp {
                     )
                     .on_hover_text(failure.message.as_str());
                     if failure.target.is_some() {
-                        if compact_button_with_icon(ui, Icon::RotateCcw, "Reload Row", self.theme)
-                            .on_hover_text("Reload database values while keeping the local staged mutation")
+                        if Button::new(self.theme)
+                            .text("Reload Row")
+                            .icon(Icon::RotateCcw)
+                            .variant(ButtonVariant::Secondary)
+                            .size(ButtonSize::Sm)
+                            .tooltip("Reload database values while keeping the local staged mutation")
+                            .show(ui)
                             .clicked()
                         {
                             self.reload_failed_mutation();
                         }
-                        if compact_button_with_icon(ui, Icon::Undo2, "Discard Local Change", self.theme)
-                            .on_hover_text("Revert only the failed staged mutation")
+                        if Button::new(self.theme)
+                            .text("Discard Local Change")
+                            .icon(Icon::Undo2)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::Sm)
+                            .tooltip("Revert only the failed staged mutation")
+                            .show(ui)
                             .clicked()
                         {
                             self.discard_failed_mutation(false);
                         }
                         if is_conflict {
-                            if compact_button_with_icon(ui, Icon::GitCompare, "Resolve Conflict", self.theme)
-                                .on_hover_text("Open 3-way conflict resolution panel")
+                            if Button::new(self.theme)
+                                .text("Resolve Conflict")
+                                .icon(Icon::GitCompare)
+                                .variant(ButtonVariant::Secondary)
+                                .size(ButtonSize::Sm)
+                                .tooltip("Open 3-way conflict resolution panel")
+                                .show(ui)
                                 .clicked()
                             {
                                 self.conflict_dialog_open = true;
                             }
-                            if compact_button_with_icon(ui, Icon::RotateCcw, "Retry", self.theme)
-                                .on_hover_text("Reload the row, then retry the staged mutation")
+                            if Button::new(self.theme)
+                                .text("Retry")
+                                .icon(Icon::RotateCcw)
+                                .variant(ButtonVariant::Default)
+                                .size(ButtonSize::Sm)
+                                .tooltip("Reload the row, then retry the staged mutation")
+                                .show(ui)
                                 .clicked()
                             {
                                 self.retry_failed_mutation_after_reload();
@@ -593,8 +629,14 @@ impl DbProApp {
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if paging.total_known
                         && paging.total_rows > 0
-                        && compact_button_with_icon(ui, Icon::ChevronsRight, "Last", self.theme)
-                            .on_hover_text("Last page")
+                        && Button::new(self.theme)
+                            .text("Last")
+                            .icon(Icon::ChevronsRight)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::Sm)
+                            .enabled(paging.has_next && self.staged_changes.is_empty())
+                            .tooltip("Last page")
+                            .show(ui)
                             .clicked()
                         && paging.has_next
                         && self.staged_changes.is_empty()
@@ -604,8 +646,13 @@ impl DbProApp {
                         self.request_table_data();
                     }
 
-                    if compact_icon_button_enabled(ui, Icon::ChevronRight, paging.has_next, self.theme)
-                        .on_hover_text("Next page")
+                    if Button::new(self.theme)
+                        .icon(Icon::ChevronRight)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .enabled(paging.has_next && self.staged_changes.is_empty())
+                        .tooltip("Next page")
+                        .show(ui)
                         .clicked()
                         && self.staged_changes.is_empty()
                     {
@@ -619,8 +666,13 @@ impl DbProApp {
                             .color(self.theme.text_secondary),
                     );
 
-                    if compact_icon_button_enabled(ui, Icon::ChevronLeft, paging.has_previous, self.theme)
-                        .on_hover_text("Previous page")
+                    if Button::new(self.theme)
+                        .icon(Icon::ChevronLeft)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .enabled(paging.has_previous && self.staged_changes.is_empty())
+                        .tooltip("Previous page")
+                        .show(ui)
                         .clicked()
                         && self.staged_changes.is_empty()
                     {
@@ -630,8 +682,14 @@ impl DbProApp {
 
                     if paging.total_known
                         && paging.total_rows > 0
-                        && compact_button_with_icon(ui, Icon::ChevronsLeft, "First", self.theme)
-                            .on_hover_text("First page")
+                        && Button::new(self.theme)
+                            .text("First")
+                            .icon(Icon::ChevronsLeft)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::Sm)
+                            .enabled(self.table_data_offset > 0 && self.staged_changes.is_empty())
+                            .tooltip("First page")
+                            .show(ui)
                             .clicked()
                         && self.table_data_offset > 0
                         && self.staged_changes.is_empty()
