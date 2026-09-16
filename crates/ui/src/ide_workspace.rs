@@ -912,8 +912,10 @@ mod tests {
     use super::*;
 
     fn temp_dir() -> PathBuf {
+        static CTR: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let count = CTR.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let nanos = SystemTime::now().duration_since(UNIX_EPOCH).expect("time").as_nanos();
-        let dir = std::env::temp_dir().join(format!("dbpro-workspace-{nanos}"));
+        let dir = std::env::temp_dir().join(format!("dbpro-workspace-{nanos}-{count}"));
         std::fs::create_dir_all(&dir).expect("mkdir");
         dir
     }
