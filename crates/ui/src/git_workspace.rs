@@ -121,11 +121,12 @@ pub fn diff_against_head(root: &Path, relative: &str) -> Result<GitDiffResult, S
             Ok(t) if !t.trim().is_empty() => t,
             _ => {
                 let path = root.join(relative);
-                let body = std::fs::read_to_string(&path).unwrap_or_default();
-                if body.is_empty() {
-                    "(no diff — file matches HEAD or is empty)".into()
-                } else {
-                    format!("--- /dev/null\n+++ b/{relative}\n{body}")
+                // File read errors must be displayed differently from "no diff": combining them
+                // would cause I/O errors to be misunderstood as matching HEAD.
+                match std::fs::read_to_string(&path) {
+                    Ok(body) if !body.is_empty() => format!("--- /dev/null\n+++ b/{relative}\n{body}"),
+                    Ok(_) => "(no diff — file matches HEAD or is empty)".into(),
+                    Err(error) => format!("(could not read file: {error})"),
                 }
             }
         },

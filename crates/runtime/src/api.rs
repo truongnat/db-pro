@@ -621,6 +621,8 @@ impl TableDataApi {
         Self { service }
     }
 
+    // allow: typed facade mirrors the fetch_rows signature of core service (filtering/sorting/pagination)
+    // — bundling into a struct would require synchronized changes across core without reducing underlying parameters.
     #[allow(clippy::too_many_arguments)]
     pub async fn fetch_rows(
         &self,
@@ -654,6 +656,8 @@ impl TableDataApi {
             .map_err(Into::into)
     }
 
+    // allow: columns/values and pk_columns/pk_values are positional parallel arrays,
+    // mapping directly to UPDATE SET/WHERE — kept flat for direct readability of positional mapping.
     #[allow(clippy::too_many_arguments)]
     pub async fn update_row(
         &self,
@@ -672,6 +676,8 @@ impl TableDataApi {
             .map_err(Into::into)
     }
 
+    // allow: convenience wrapper for single-text-cell edit — 7 parameters represent the full payload of a single UPDATE;
+    // an options wrapper would add indirection without grouping reusable structures.
     #[allow(clippy::too_many_arguments)]
     pub async fn update_text_row(
         &self,
@@ -1271,6 +1277,8 @@ impl PostgresApi {
             .map_err(Into::into)
     }
 
+    // allow: parameters mirror CREATE SERVER clause order (name, fdw, host, dbname, port)
+    // + confirmation flag — kept flat for direct comparison with preview SQL.
     #[allow(clippy::too_many_arguments)]
     pub async fn create_fdw_server(
         &self,

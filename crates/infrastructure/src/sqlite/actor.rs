@@ -259,6 +259,8 @@ impl SqliteHandle {
         }
     }
 
+    // allow: TransactionFailure carries phase/statement_index/results and is large; this is
+    // the public error contract of sqlite actor — boxing would alter the API signature just to appease the lint.
     #[allow(clippy::result_large_err)]
     pub async fn execute_transaction(
         &self,
@@ -321,6 +323,8 @@ impl SqliteHandle {
         }
     }
 
+    // allow: TransactionFailure returns full per-statement context (phase, index,
+    // results) — the large error type is part of the public actor contract, not accidental design.
     #[allow(clippy::result_large_err)]
     pub async fn execute_parameterized_transaction(
         &self,
@@ -477,6 +481,8 @@ impl SqliteActor {
 
     // -- handlers -----------------------------------------------------------
 
+    // allow: actor handler returns TransactionFailure with results collected before the failure;
+    // preserving Result by value allows callers to read directly without an extra Box indirection.
     #[allow(clippy::result_large_err)]
     fn handle_execute_parameterized_transaction(
         &self,
@@ -572,6 +578,8 @@ impl SqliteActor {
         Ok(results)
     }
 
+    // allow: TransactionFailure must carry per-statement results + outcome; moving the large
+    // error struct occurs only on the error path and is outside the execution hot path.
     #[allow(clippy::result_large_err)]
     fn handle_execute_transaction(
         &self,

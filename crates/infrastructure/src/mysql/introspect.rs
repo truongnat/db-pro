@@ -226,6 +226,8 @@ impl MySqlIntrospect {
         .await
         .map_err(|e| DbError::QueryFailed(format!("MySQL introspect FK failed: {}", e)))?;
 
+        // allow: temporary map grouping information_schema rows by constraint_name before
+        // building FK models; the internal tuple is local to this function, creating a struct would just appease the lint.
         #[allow(clippy::type_complexity)]
         let mut fk_groups: std::collections::HashMap<
             String,

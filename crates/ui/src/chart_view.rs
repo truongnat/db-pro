@@ -487,6 +487,9 @@ impl ChartRenderer {
             .into_iter()
             .collect();
         let x_ticks = unique_labels.len().min(8);
+        // allow: `x_ticks > 0` above guards against division by zero; checked_div would make
+        // the step calculation harder to read. #[allow(unknown_lints)] below is a compatibility marker.
+        #[allow(unknown_lints)]
         #[allow(clippy::manual_checked_ops)]
         if x_ticks > 0 {
             let step = unique_labels.len() / x_ticks;
@@ -646,14 +649,16 @@ impl ChartRenderer {
                 .collect();
 
             if fill_area {
-                let mut fill_points = points_pos.clone();
-                fill_points.push(Pos2::new(points_pos.last().unwrap().x, rect.bottom()));
-                fill_points.push(Pos2::new(points_pos.first().unwrap().x, rect.bottom()));
-                painter.add(egui::Shape::convex_polygon(
-                    fill_points,
-                    color.gamma_multiply(0.15),
-                    Stroke::NONE,
-                ));
+                if let (Some(first), Some(last)) = (points_pos.first(), points_pos.last()) {
+                    let mut fill_points = points_pos.clone();
+                    fill_points.push(Pos2::new(last.x, rect.bottom()));
+                    fill_points.push(Pos2::new(first.x, rect.bottom()));
+                    painter.add(egui::Shape::convex_polygon(
+                        fill_points,
+                        color.gamma_multiply(0.15),
+                        Stroke::NONE,
+                    ));
+                }
             }
 
             painter.add(egui::Shape::line(points_pos.clone(), Stroke::new(2.0_f32, color)));

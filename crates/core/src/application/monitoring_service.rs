@@ -70,11 +70,27 @@ impl MonitoringService {
             DriverType::Mysql => None,
         };
         let (locks, relation_sizes, server) = match driver {
-            DriverType::Postgres => (
-                port.list_locks(&handle).await.unwrap_or_default(),
-                port.relation_sizes(&handle, 40).await.unwrap_or_default(),
-                port.server_summary(&handle).await.unwrap_or(None),
-            ),
+            DriverType::Postgres => {
+                // The monitoring panel must still render when a section query fails, so
+                // each section falls back to empty values; the error is logged with the connection
+                // instead of being silently swallowed (error-handling.md §3).
+                let locks = match port.list_locks(&handle).await {
+                    Ok(locks) => locks,
+                    Err(error) => {
+                        tracing::warn!(connection_id = %connection_id, %error, "monitoring: list_locks failed — panel renders without lock data");
+                        Vec::new()
+                    }
+                };
+                let relation_sizes = match port.relation_sizes(&handle, 40).await {
+                    Ok(sizes) => sizes,
+                    Err(error) => {
+                        tracing::warn!(connection_id = %connection_id, %error, "monitoring: relation_sizes failed — panel renders without size data");
+                        Vec::new()
+                    }
+                };
+                let server = port.server_summary(&handle).await.unwrap_or(None);
+                (locks, relation_sizes, server)
+            }
             DriverType::SQLite => (Vec::new(), Vec::new(), None),
             DriverType::Mysql => unreachable!("port_for rejects mysql"),
         };

@@ -253,6 +253,8 @@ pub fn build_add_check(
     ))
 }
 
+// allow: columns and ref_columns are parallel arrays by positional index (column ↔ referenced column),
+// matching the SQL clause order — bundling into an options struct would obscure that positional contract.
 #[allow(clippy::too_many_arguments)]
 pub fn build_add_foreign_key(
     dialect: &dyn SqlDialect,

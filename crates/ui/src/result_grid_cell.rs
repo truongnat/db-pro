@@ -203,6 +203,8 @@ impl DbProApp {
         }
     }
 
+    // allow: grid cell context menu requires full context (result, selection, row/col, editable)
+    // to paint and dispatch; kept flat for direct readability at render call site.
     #[allow(clippy::too_many_arguments)]
     fn run_grid_cell_context_menu(
         &mut self,
@@ -493,6 +495,8 @@ impl DbProApp {
         is_ctx
     }
 
+    // allow: applier handles menu selections with the exact same context as menu rendering —
+    // flat parameters enable 1:1 comparison with run_grid_cell_context_menu.
     #[allow(clippy::too_many_arguments)]
     fn apply_grid_cell_menu_requests(
         &mut self,

@@ -3,6 +3,9 @@
 //! Multi-root folders, file ops, search/replace, migrations, trust, env
 //! profiles, diagnostics scan, rename refs, benchmarks, and sandbox helpers.
 
+// allow: IDE workspace module is integrated incrementally into shell (state/search/replace
+// are used); remaining parts of persisted/migration contract don't have callers yet — scoped
+// at module level rather than sprinkling #[allow(dead_code)] across individual items.
 #![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
@@ -57,6 +60,8 @@ pub struct MigrationEntry {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// allow: migration status of workspace root — not yet read by current shell but part of
+// module's persisted state contract.
 #[allow(dead_code)]
 pub enum MigrationStatus {
     Pending,
@@ -163,6 +168,8 @@ pub struct WorkspaceRoot {
 }
 
 #[derive(Debug, Clone, Default)]
+// allow: several fields (migration, environment) are not yet read by shell; struct is
+// initial state contract in app_state so full payload is preserved.
 #[allow(dead_code)]
 pub struct IdeWorkspaceState {
     pub roots: Vec<WorkspaceRoot>,

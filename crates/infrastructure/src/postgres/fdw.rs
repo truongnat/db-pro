@@ -234,6 +234,8 @@ ORDER BY n.nspname, c.relname
         self.execute_admin_sql(handle, &sql).await
     }
 
+    // allow: parameters mirror the exact clause order of CREATE SERVER (name, fdw, host, dbname,
+    // port…) — kept flat for direct comparison with generated SQL.
     #[allow(clippy::too_many_arguments)]
     pub async fn create_server(
         &self,

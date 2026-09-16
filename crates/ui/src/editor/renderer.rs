@@ -58,6 +58,8 @@ pub struct SqlEditor<'a> {
 }
 
 impl<'a> SqlEditor<'a> {
+    // allow: constructor borrows buffer/cursor/selection simultaneously (&mut for each
+    // distinct field) from egui's paint pass — an options struct would not reduce borrows, only move them.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         buffer: &'a mut TextBuffer,
@@ -857,6 +859,8 @@ impl<'a> SqlEditor<'a> {
         buffer.line_col_to_offset(target_line, target_col)
     }
 
+    // allow: parameters are current layout dimensions (origin, gutter, line height,
+    // char width) for pure geometric calculation — order mirrors viewport transformation.
     #[allow(clippy::too_many_arguments)]
     pub fn range_to_screen_rects(
         &self,

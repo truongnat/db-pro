@@ -67,7 +67,15 @@ ORDER BY p.pubname
                 Some(n) => n,
                 None => continue,
             };
-            let tables = self.publication_tables(handle, &name).await.unwrap_or_default();
+            // Replication inventory must not drop the entire publication if querying its tables
+            // fails: keep the publication with an empty table list and log a warning for investigation.
+            let tables = match self.publication_tables(handle, &name).await {
+                Ok(tables) => tables,
+                Err(error) => {
+                    tracing::warn!(publication = %name, %error, "failed to list tables of publication — showing it without tables");
+                    Vec::new()
+                }
+            };
             out.push(PublicationInfo {
                 name,
                 owner: cell_text(row.0.get(1)),

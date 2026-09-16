@@ -51,6 +51,9 @@ pub struct TransactionFailure {
 }
 
 #[cfg_attr(test, mockall::automock)]
+// allow: DbError (carrying detailed String messages) exceeds clippy's result_large_err threshold,
+// but this is the common trait port for all connectors — boxing the error would alter the port signature
+// across the entire workspace just to appease a lint on a cold error path.
 #[allow(clippy::result_large_err)]
 #[async_trait]
 pub trait DbConnector: Send + Sync {

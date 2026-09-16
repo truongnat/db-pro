@@ -59,6 +59,8 @@ impl TableDataService {
         }
     }
 
+    // allow: parameters are distinct components of the grid request (table, filter, sort, pagination)
+    // — kept flat so call sites map directly to the underlying data query port.
     #[allow(clippy::too_many_arguments)]
     pub async fn fetch_rows(
         &self,
@@ -139,6 +141,8 @@ impl TableDataService {
         Ok(affected_rows)
     }
 
+    // allow: columns/values and pk_columns/pk_values are positional parallel arrays,
+    // mapping directly to the SET/WHERE clauses of UPDATE — an options struct would obscure that positional contract.
     #[allow(clippy::too_many_arguments)]
     pub async fn update_row(
         &self,

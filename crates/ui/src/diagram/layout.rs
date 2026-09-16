@@ -98,7 +98,7 @@ impl ErLayoutWorker {
         // poll_result never returns a result, and is_alive() returns false.
         // The UI retains the last valid graph.
         let request_tx = if worker_result.is_err() {
-            eprintln!("[db-pro] Failed to spawn ER layout worker thread — degraded mode");
+            tracing::warn!("failed to spawn ER layout worker thread — degraded mode: layout requests are dropped and the UI keeps the last valid graph");
             drop(request_tx); // close the sending half so the receiver also sees disconnect
             None
         } else {

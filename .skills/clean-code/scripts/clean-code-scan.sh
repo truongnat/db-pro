@@ -92,7 +92,11 @@ prod_only() { # loại file test
   # (vd crates/ui/src/app_tests.rs — 50 #[test], 1223 dòng). Trước đây chỉ loại
   # thư mục /tests?/ nên file này bị tính là "production" và làm gate "file dài"
   # báo FAIL oan. Không dùng `/tests?/` cho trường hợp này vì tên file là hậu tố.
-  grep -vE '(__tests__/|\.test\.tsx?$|\.spec\.tsx?$|/tests?/|/benches/|/fixtures/|routeTree\.gen\.ts$|^frontend/src/dev/|_tests?\.rs$|_bench\.rs$)'
+  # `(^|/)tests?\.rs$`: module test khai báo `mod tests;` trong parent (toàn bộ file
+  # là test, awk không thấy `#[cfg(test)]` để tự bỏ qua) — vd crates/ui/src/diagram/
+  # tests.rs, crates/core/src/application/connection_service/tests.rs; trước đây
+  # vẫn bị tính là production và báo nhầm println/unwrap của benchmark/test.
+  grep -vE '(__tests__/|\.test\.tsx?$|\.spec\.tsx?$|/tests?/|/benches/|/fixtures/|routeTree\.gen\.ts$|^frontend/src/dev/|_tests?\.rs$|(^|/)tests?\.rs$|_bench\.rs$)'
 }
 
 TS_FILES="$(list_files ts)"
@@ -333,8 +337,24 @@ scan_rust() {
       /^[[:space:]]*let _ = / && prev !~ /^[[:space:]]*\/\// { printf "%s:%d: %s\n", FILENAME, FNR, $0 }
       { prev = $0 }' 2>/dev/null)" warn \
     "thêm comment lý do + tracing::debug, hoặc xử lý lỗi (error-handling.md §3)"
-  report_list ".ok(); bỏ qua Result" \
-    "$(echo "$NONTEST" | grep -E '\.ok\(\);\s*$')" warn
+  report_list ".ok(); bỏ qua Result không comment lý do" \
+    "$(echo "$NONTEST" | tr '\n' '\0' | xargs -0 awk '
+      FNR == 1 { allow_seen = 0; prev_ok = 0 }
+      {
+        is_ok = ($0 ~ /\.ok\(\);\s*$/)
+        exempted = 0
+        if (is_ok) {
+          if (allow_seen || prev_ok) exempted = 1
+          else printf "%s:%d: %s\n", FILENAME, FNR, $0
+        }
+        # Comment `// allow: <lý do>` có hiệu lực trong phạm vi statement hiện thời
+        # (đến dòng kết thúc bằng ;); các dòng .ok() liền kề sau một site đã được
+        # giải thích thuộc cùng nhóm (vd gán limit/offset cạnh nhau).
+        if ($0 ~ /\/\/ allow:/) { allow_seen = 1 }
+        else if ($0 ~ /;\s*$/) { allow_seen = 0 }
+        prev_ok = exempted
+      }' 2>/dev/null)" warn \
+    "thêm comment '// allow: <lý do>' ngay trên site (error-handling.md §3) hoặc xử lý lỗi"
   report_list "unwrap_or_default() trên Result (heuristic)" \
     "$(echo "$NONTEST" | grep -E ':[0-9]+:.*\.unwrap_or_default\(\)' | grep -E ':[0-9]+:.*((try_get|parse|from_str|read[a-z_]*|open|fetch[a-z_]*|execute[a-z_]*|query[a-z_]*|connect|introspect[a-z_]*|load[a-z_]*)\([^)]*\)\s*\.unwrap_or_default|\.await\s*\.unwrap_or_default)')" warn \
     "lỗi IO/DB thành giá trị rỗng là nuốt lỗi"
@@ -345,10 +365,13 @@ scan_rust() {
     "LSP: capability-gate với lý do rõ (design-principles.md)"
 
   # 9. allow không lý do
+  # `#[allow(unknown_lints)]` được bỏ qua: đó là marker tương thích toolchain cho lint
+  # chưa được đăng ký (không chặn lint thật nào), và là "vỏ bọc" cho allow kế tiếp
+  # (lý do comment đặt trên cả cặp).
   report_list "#[allow(...)] không có comment lý do ngay trên" \
     "$(echo "$RS_PROD" | tr '\n' '\0' | xargs -0 awk '
       FNR == 1 { prev = "" }
-      /^[[:space:]]*#!?\[allow\(/ && prev !~ /^[[:space:]]*\/\// { printf "%s:%d: %s\n", FILENAME, FNR, $0 }
+      /^[[:space:]]*#!?\[allow\(/ && $0 !~ /allow\(unknown_lints\)/ && prev !~ /^[[:space:]]*\/\// && prev !~ /allow\(unknown_lints\)/ { printf "%s:%d: %s\n", FILENAME, FNR, $0 }
       { prev = $0 }' 2>/dev/null)" warn
 
   # 6. unsafe không SAFETY

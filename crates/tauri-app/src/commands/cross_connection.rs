@@ -62,6 +62,8 @@ pub async fn list_tablespaces(
 }
 
 #[tauri::command]
+// allow: Tauri command receives each parameter by name from frontend invoke(); bundling into a struct
+// changes the IPC contract — unnecessary when tauri-app is a transitional host pending removal.
 #[allow(clippy::too_many_arguments)]
 pub async fn rename_schema_object(
     runtime: State<'_, Arc<DbProRuntime>>,

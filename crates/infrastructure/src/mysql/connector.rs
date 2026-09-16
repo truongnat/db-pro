@@ -183,7 +183,12 @@ impl DbConnector for MySqlConnector {
                     });
                 }
                 Err(e) => {
-                    tx.rollback().await.ok();
+                    // Rollback on the error path is best-effort: if rollback itself fails
+                    // (e.g. broken connection), return the original statement error with a warning log,
+                    // without swallowing the rollback failure.
+                    if let Err(rollback_error) = tx.rollback().await {
+                        tracing::warn!(statement_index = idx, error = %rollback_error, "MySQL rollback after failed statement also failed — transaction may still be open on the connection");
+                    }
                     return Err(db_pro_core::ports::TransactionFailure {
                         phase: db_pro_core::ports::TransactionFailurePhase::Statement,
                         statement_index: idx,

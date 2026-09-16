@@ -317,7 +317,8 @@ impl DbProApp {
             .unwrap_or(self.connection_name.as_str())
     }
 
-    #[allow(dead_code)] // exercised from app_tests; display helpers prefer capability lookup
+    // allow: exercised from app_tests; display helpers prefer capability lookup
+    #[allow(dead_code)]
     pub(crate) fn active_query_driver(&self) -> &str {
         self.active_query_connection()
             .map(|c| c.driver.as_str())

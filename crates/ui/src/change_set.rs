@@ -83,6 +83,8 @@ impl ChangeSet {
         self.target_table.as_deref()
     }
 
+    // allow: no active caller currently; keeps public setter symmetric with the ChangeSet API
+    // rather than deleting and re-adding when diff targeting is used.
     #[allow(dead_code)]
     pub fn set_target_table(&mut self, table: Option<String>) {
         self.target_table = table;

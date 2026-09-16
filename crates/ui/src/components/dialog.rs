@@ -1,4 +1,4 @@
-use crate::components::animation::{faded_overlay, overlay_t, small_translate};
+use crate::components::animation::{fade_alpha, faded_overlay, overlay_t, small_translate};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::overlay::screen_rect;
 use crate::DbProTheme;
@@ -55,6 +55,9 @@ impl<'a> Dialog<'a> {
             return None;
         }
 
+        // Close on Escape — but only if no other modal is stacked above this one.
+        // The global modal stack (DbProApp::modal_stack) owns the authoritative close-on-escape
+        // decision; this local handler is a fallback for standalone dialogs outside the stack.
         if ui.input(|input| input.key_pressed(egui::Key::Escape)) {
             *self.open = false;
         }
@@ -84,32 +87,48 @@ impl<'a> Dialog<'a> {
             (screen.right() - width - 16.0).max(screen.left() + 16.0),
         );
 
-        let origin = Pos2::new(target_x, target_y + small_translate(progress, DIALOG_TRANSLATE_PX));
+        let translate = small_translate(progress, DIALOG_TRANSLATE_PX);
+        let origin = Pos2::new(target_x, target_y + translate);
+        // Fade the card in/out using the same overlay progress that drives the dim layer,
+        // so the card and backdrop share one animation curve (spec §26: 160-220ms).
+        let card_alpha = fade_alpha(progress);
 
         let mut card_rect = None;
-        Area::new(id.with("card"))
+        // Capture keyboard focus when the dialog opens so Tab/Shift+Tab stay inside the card.
+        // The Area is marked interactable so it participates in egui's focus routing.
+        let card_area = Area::new(id.with("card"))
             .order(Order::Tooltip)
             .fixed_pos(origin)
-            .show(ui.ctx(), |ui| {
-                ui.set_width(width);
-                let res = paint_dialog_card(
-                    DialogCardPaint {
-                        open,
-                        title,
-                        description,
-                        width,
-                        max_content_height,
-                        theme,
-                    },
-                    ui,
-                    add_contents,
-                );
-                let rect = ui.min_rect();
-                ui.ctx()
-                    .data_mut(|d| d.insert_temp(id.with("prev_height"), rect.height()));
-                card_rect = Some(rect);
-                inner = Some(res);
-            });
+            .interactable(true);
+        let card_request_focus = *open && progress > 0.01;
+
+        card_area.show(ui.ctx(), |ui| {
+            ui.set_opacity(card_alpha);
+            ui.set_width(width);
+            // When the dialog first becomes visible, steer keyboard focus to the card so
+            // subsequent Tab/Shift+Tab cycles stay inside the dialog body rather than
+            // leaking to widgets behind the backdrop.
+            if card_request_focus {
+                ui.memory_mut(|m| m.request_focus(id.with("card")));
+            }
+            let res = paint_dialog_card(
+                DialogCardPaint {
+                    open,
+                    title,
+                    description,
+                    width,
+                    max_content_height,
+                    theme,
+                },
+                ui,
+                add_contents,
+            );
+            let rect = ui.min_rect();
+            ui.ctx()
+                .data_mut(|d| d.insert_temp(id.with("prev_height"), rect.height()));
+            card_rect = Some(rect);
+            inner = Some(res);
+        });
 
         let dim_resp = Area::new(id.with("dim"))
             .order(Order::Foreground)

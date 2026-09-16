@@ -1072,6 +1072,8 @@ mod tests {
     }
 
     #[test]
+    // allow: test simulates composite FK grouping logic; tuple map deliberately mirrors
+    // production data structure for direct comparison.
     #[allow(clippy::type_complexity)]
     fn test_composite_fk_grouping() {
         // Simulate the grouping logic from introspect_foreign_keys
@@ -1126,6 +1128,8 @@ mod tests {
     }
 
     #[test]
+    // allow: test covers multiple separate FKs; retains exact production tuple shape
+    // rather than introducing a test-only struct that would require proving equivalence.
     #[allow(clippy::type_complexity)]
     fn test_multiple_separate_fks() {
         let mut map: std::collections::HashMap<(String, String, String, String, String), (Vec<String>, Vec<String>)> =

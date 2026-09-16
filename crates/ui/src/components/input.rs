@@ -6,6 +6,20 @@ use egui::{
 };
 use lucide_icons::Icon;
 
+/// Smallest usable text field width. Fields inside narrow containers (clamped dialogs,
+/// sheets, split panes) may shrink to this but no further.
+pub(crate) const INPUT_MIN_WIDTH: f32 = 120.0;
+
+/// Explicit min/max width contract for form fields: a field fills its container by
+/// default, a requested width never exceeds the container (long labels or values cannot
+/// spill out of dialogs, sheets or split panes), and the result never drops below
+/// [`INPUT_MIN_WIDTH`] so a field stays editable even in a very narrow parent.
+pub(crate) fn resolve_field_width(requested: Option<f32>, available: f32) -> f32 {
+    requested
+        .unwrap_or(available)
+        .clamp(INPUT_MIN_WIDTH, available.max(INPUT_MIN_WIDTH))
+}
+
 pub struct Input<'a> {
     label: Option<&'a str>,
     value: &'a mut String,
@@ -71,7 +85,7 @@ impl<'a> Input<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let width = self.width.unwrap_or_else(|| ui.available_width());
+        let width = resolve_field_width(self.width, ui.available_width());
 
         ui.vertical(|ui| {
             if let Some(label) = self.label {
@@ -250,7 +264,7 @@ impl<'a> PasswordInput<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let width = self.width.unwrap_or_else(|| ui.available_width());
+        let width = resolve_field_width(self.width, ui.available_width());
 
         ui.vertical(|ui| {
             if let Some(label) = self.label {
@@ -389,7 +403,7 @@ impl<'a> SearchInput<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let width = self.width.unwrap_or_else(|| ui.available_width());
+        let width = resolve_field_width(self.width, ui.available_width());
 
         let frame_output = Frame {
             fill: self.theme.surface_editor,
@@ -583,4 +597,30 @@ fn paint_field_chrome(ui: &Ui, id: Id, rect: Rect, focused: bool, hovered: bool,
     let border = lerp_color(theme.border_default, theme.border_strong, hover);
     ui.painter()
         .rect_stroke(rect, Rounding::same(6.0), Stroke::new(1.0, border));
+}
+
+#[cfg(test)]
+mod field_width_tests {
+    use super::{resolve_field_width, INPUT_MIN_WIDTH};
+
+    #[test]
+    fn fills_available_width_when_unrequested() {
+        assert_eq!(resolve_field_width(None, 320.0), 320.0);
+    }
+
+    #[test]
+    fn requested_width_never_exceeds_the_container() {
+        assert_eq!(resolve_field_width(Some(420.0), 260.0), 260.0);
+    }
+
+    #[test]
+    fn narrow_containers_keep_a_usable_floor() {
+        assert_eq!(resolve_field_width(None, 40.0), INPUT_MIN_WIDTH);
+        assert_eq!(resolve_field_width(Some(200.0), 40.0), INPUT_MIN_WIDTH);
+    }
+
+    #[test]
+    fn requested_width_below_floor_is_raised() {
+        assert_eq!(resolve_field_width(Some(60.0), 320.0), INPUT_MIN_WIDTH);
+    }
 }

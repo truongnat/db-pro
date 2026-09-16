@@ -1865,6 +1865,7 @@ impl DbProApp {
                         }
                         ui.horizontal(|ui| {
                             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
+                                // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Drop
                                 self.fdw_ddl_preview =
                                     db_pro_core::domain::fdw::preview_drop_server(&s.name, true).ok();
                             }
@@ -1911,6 +1912,7 @@ impl DbProApp {
             });
             ui.horizontal(|ui| {
                 if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
+                    // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Create
                     self.fdw_ddl_preview = db_pro_core::domain::fdw::preview_create_server(
                         &self.fdw_create_name,
                         &self.fdw_create_wrapper,
@@ -1993,6 +1995,7 @@ impl DbProApp {
                         }
                         ui.horizontal(|ui| {
                             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
+                                // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Drop
                                 self.replication_ddl_preview =
                                     db_pro_core::domain::replication::preview_drop_publication(&pub_info.name).ok();
                             }
@@ -2024,6 +2027,7 @@ impl DbProApp {
                         );
                         ui.horizontal(|ui| {
                             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
+                                // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Drop
                                 self.replication_ddl_preview =
                                     db_pro_core::domain::replication::preview_drop_subscription(&sub.name).ok();
                             }
@@ -2052,6 +2056,7 @@ impl DbProApp {
             ui.horizontal(|ui| {
                 ui.add(egui::TextEdit::singleline(&mut self.replication_create_name).hint_text("publication name"));
                 if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
+                    // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Create
                     self.replication_ddl_preview =
                         db_pro_core::domain::replication::preview_create_publication_all(&self.replication_create_name)
                             .ok();
@@ -2145,6 +2150,7 @@ impl DbProApp {
                         }
                         ui.horizontal(|ui| {
                             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
+                                // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Drop
                                 self.event_trigger_ddl_preview =
                                     db_pro_core::domain::event_trigger::preview_drop_event_trigger(&trig.name).ok();
                             }
@@ -2175,6 +2181,7 @@ impl DbProApp {
             });
             ui.horizontal(|ui| {
                 if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
+                    // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Create
                     self.event_trigger_ddl_preview = db_pro_core::domain::event_trigger::preview_create_event_trigger(
                         &self.event_trigger_create_name,
                         &self.event_trigger_create_event,
@@ -2312,6 +2319,7 @@ impl DbProApp {
                                 && ghost_button_with_icon(ui, Icon::FileCode2, "Preview ALTER SYSTEM", self.theme)
                                     .clicked()
                             {
+                                // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking ALTER SYSTEM
                                 self.pg_settings_preview = db_pro_core::domain::pg_settings::preview_alter_system(
                                     &setting.name,
                                     &setting.setting,

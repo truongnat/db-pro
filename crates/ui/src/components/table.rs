@@ -148,6 +148,8 @@ impl<'a> Table<'a> {
         }
     }
 
+    // allow: table widget receives distinct generic callbacks for each interaction (row selection,
+    // sort, toggle) — bundling into an options struct would complicate generic lifetimes across all egui call sites.
     #[allow(clippy::too_many_arguments)]
     pub fn show<F>(
         self,

@@ -5,6 +5,8 @@ use crate::runtime::{UiSchemaSummary, UiTableSummary};
 #[derive(Debug, Clone, Default)]
 pub(crate) struct UiSchemaSnapshot {
     pub label: String,
+    // allow: field is captured from schema introspection snapshot; not yet rendered in current
+    // compare view but preserved in payload so diff maintains schema context.
     #[allow(dead_code)]
     pub schemas: Vec<String>,
     pub tables: Vec<UiTableSummary>,

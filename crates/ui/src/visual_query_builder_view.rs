@@ -204,6 +204,8 @@ impl DbProApp {
             ui.label("OFFSET");
             ui.add(egui::TextEdit::singleline(&mut self.visual_query_offset).desired_width(60.0));
             if ghost_button(ui, "Apply limit", self.theme).clicked() {
+                // allow: parse error means limit/offset is not a valid integer — model retains None (no
+                // LIMIT/OFFSET clause) and SQL preview updates immediately for user correction.
                 self.visual_query_model.limit = self.visual_query_limit.parse().ok();
                 self.visual_query_model.offset = self.visual_query_offset.parse().ok();
                 self.refresh_visual_builder_preview();
