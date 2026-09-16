@@ -824,6 +824,7 @@ fn summary_from_connection(connection: db_pro_core::domain::connection::Connecti
             DriverType::Postgres => "PostgreSQL".to_owned(),
             DriverType::SQLite => "SQLite".to_owned(),
             DriverType::Mysql => "MySQL".to_owned(),
+            DriverType::SqlServer => "SQL Server".to_owned(),
         },
         ssl_mode: connection.config.ssl_mode,
         readonly: connection.config.readonly,

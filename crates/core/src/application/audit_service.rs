@@ -74,6 +74,7 @@ impl AuditService {
             DriverType::Postgres => "PostgreSQL",
             DriverType::SQLite => "SQLite",
             DriverType::Mysql => "MySQL",
+            DriverType::SqlServer => "SQL Server",
         };
         if driver != DriverType::Postgres {
             return Ok(AuditSourceStatus::unavailable(format!(

@@ -150,6 +150,7 @@ fn driver_label(driver: DriverType) -> &'static str {
         DriverType::Postgres => "PostgreSQL",
         DriverType::Mysql => "MySQL",
         DriverType::SQLite => "SQLite",
+        DriverType::SqlServer => "SQL Server",
     }
 }
 
@@ -202,10 +203,11 @@ pub fn parse_connection_snippet(raw: &str) -> Result<ParsedConnectionSnippet, St
     let s = trimmed.strip_prefix("jdbc:").unwrap_or(trimmed);
     let (scheme, rest) = s
         .split_once("://")
-        .ok_or_else(|| "expected scheme://host form (postgres://, mysql://, …)".to_owned())?;
+        .ok_or_else(|| "expected scheme://host form (postgres://, mysql://, sqlserver://, …)".to_owned())?;
     let driver = match scheme.to_ascii_lowercase().as_str() {
         "postgres" | "postgresql" => DriverType::Postgres,
         "mysql" | "mysql2" => DriverType::Mysql,
+        "sqlserver" | "mssql" => DriverType::SqlServer,
         other => return Err(format!("unsupported scheme `{other}`")),
     };
     let (auth_host, path_query) = rest.split_once('/').unwrap_or((rest, ""));
@@ -230,6 +232,7 @@ pub fn parse_connection_snippet(raw: &str) -> Result<ParsedConnectionSnippet, St
     } else {
         let default = match driver {
             DriverType::Mysql => 3306,
+            DriverType::SqlServer => 1433,
             _ => 5432,
         };
         (hostport.to_owned(), default)
@@ -321,6 +324,14 @@ mod tests {
         assert_eq!(p.username, "ada");
         assert_eq!(p.password.as_deref(), Some("s3cret"));
         assert_eq!(p.ssl_mode, Some(SslMode::VerifyFull));
+    }
+
+    #[test]
+    fn parse_sql_server_uri() {
+        let p = parse_connection_snippet("sqlserver://sa:p%40ss@localhost/inventory").unwrap();
+        assert_eq!(p.driver, DriverType::SqlServer);
+        assert_eq!(p.port, 1433);
+        assert_eq!(p.password.as_deref(), Some("p@ss"));
     }
 
     #[test]

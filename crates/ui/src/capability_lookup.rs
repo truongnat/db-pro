@@ -32,6 +32,8 @@ impl CapabilityLookup {
             Some(DriverType::Postgres)
         } else if label.eq_ignore_ascii_case("mysql") {
             Some(DriverType::Mysql)
+        } else if label.eq_ignore_ascii_case("sql server") || label.eq_ignore_ascii_case("sqlserver") {
+            Some(DriverType::SqlServer)
         } else {
             None
         };

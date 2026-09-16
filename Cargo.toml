@@ -25,6 +25,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 async-trait = "0.1"
 sqlx = { version = "0.8", features = ["postgres", "mysql", "runtime-tokio-rustls", "chrono", "uuid", "json", "bigdecimal", "ipnetwork"] }
+tiberius = { version = "0.12", default-features = false, features = ["tds73", "rustls", "chrono", "bigdecimal"] }
+tokio-util = { version = "0.7", features = ["compat"] }
 ipnetwork = "0.20"
 rusqlite = { version = "0.32", features = ["bundled", "column_decltype"] }
 keyring = { version = "3", features = [

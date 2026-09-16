@@ -11,6 +11,7 @@ pub enum UiDriver {
     Postgres,
     Sqlite,
     Mysql,
+    SqlServer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

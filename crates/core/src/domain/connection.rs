@@ -41,6 +41,8 @@ pub enum DriverType {
     Postgres,
     SQLite,
     Mysql,
+    #[serde(rename = "sqlserver")]
+    SqlServer,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -268,7 +270,7 @@ impl ConnectionConfig {
         }
 
         match self.driver {
-            DriverType::Postgres | DriverType::Mysql => {
+            DriverType::Postgres | DriverType::Mysql | DriverType::SqlServer => {
                 if self.host.trim().is_empty() {
                     errors.push(ValidationError {
                         field: "host".into(),
@@ -295,6 +297,12 @@ impl ConnectionConfig {
             errors.push(ValidationError {
                 field: "ssh_tunnel".into(),
                 message: "SSH tunnels are supported only for PostgreSQL".into(),
+            });
+        }
+        if self.driver == DriverType::SqlServer && self.ssh_tunnel.is_some() {
+            errors.push(ValidationError {
+                field: "ssh_tunnel".into(),
+                message: "SQL Server SSH tunneling is not implemented by the provider yet".into(),
             });
         }
 

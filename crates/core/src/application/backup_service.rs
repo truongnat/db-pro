@@ -49,6 +49,11 @@ impl BackupService {
             DriverType::Postgres => (self.pg_engine_factory)(&config),
             DriverType::SQLite => (self.sqlite_engine_factory)(&config.database),
             DriverType::Mysql => return Err(DbError::Validation("MySQL backup is not yet supported".into())),
+            DriverType::SqlServer => {
+                return Err(DbError::Unsupported(
+                    "SQL Server backup is not available through the shared backup service yet".into(),
+                ))
+            }
         };
 
         engine.backup(options, &password).await
@@ -81,6 +86,11 @@ impl BackupService {
             DriverType::Postgres => (self.pg_engine_factory)(&config),
             DriverType::SQLite => (self.sqlite_engine_factory)(&config.database),
             DriverType::Mysql => return Err(DbError::Validation("MySQL backup is not yet supported".into())),
+            DriverType::SqlServer => {
+                return Err(DbError::Unsupported(
+                    "SQL Server backup is not available through the shared backup service yet".into(),
+                ))
+            }
         };
 
         engine.restore(options, &password).await?;

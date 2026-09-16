@@ -164,14 +164,29 @@ impl DbProApp {
             match driver {
                 UiDriver::Postgres => {
                     self.connection_draft.ssl_mode = UiSslMode::Require;
-                    if self.connection_draft.port == "3306" || self.connection_draft.port.is_empty() {
+                    if self.connection_draft.port == "3306"
+                        || self.connection_draft.port == "1433"
+                        || self.connection_draft.port.is_empty()
+                    {
                         self.connection_draft.port = "5432".to_owned();
                     }
                 }
                 UiDriver::Mysql => {
                     self.connection_draft.ssl_mode = UiSslMode::Require;
-                    if self.connection_draft.port == "5432" || self.connection_draft.port.is_empty() {
+                    if self.connection_draft.port == "5432"
+                        || self.connection_draft.port == "1433"
+                        || self.connection_draft.port.is_empty()
+                    {
                         self.connection_draft.port = "3306".to_owned();
+                    }
+                }
+                UiDriver::SqlServer => {
+                    self.connection_draft.ssl_mode = UiSslMode::Require;
+                    if self.connection_draft.port == "5432"
+                        || self.connection_draft.port == "3306"
+                        || self.connection_draft.port.is_empty()
+                    {
+                        self.connection_draft.port = "1433".to_owned();
                     }
                 }
                 UiDriver::Sqlite => {}
@@ -185,6 +200,8 @@ impl DbProApp {
             UiDriver::Sqlite
         } else if driver.eq_ignore_ascii_case("mysql") {
             UiDriver::Mysql
+        } else if driver.eq_ignore_ascii_case("sql server") || driver.eq_ignore_ascii_case("sqlserver") {
+            UiDriver::SqlServer
         } else {
             UiDriver::Postgres
         }
@@ -446,7 +463,7 @@ impl DbProApp {
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(
-                    RichText::new("3 active · 5 coming soon")
+                    RichText::new("4 active · 4 coming soon")
                         .font(font_caption())
                         .color(self.theme.text_muted),
                 );
@@ -457,7 +474,7 @@ impl DbProApp {
         let gap = 8.0;
         let card_w = (ui.available_width() - 3.0 * gap) / 4.0;
 
-        // Row 1: PostgreSQL, SQLite, MySQL, MariaDB
+        // Row 1: PostgreSQL, SQLite, MySQL, SQL Server
         ui.horizontal(|ui| {
             let is_pg = self.connection_draft.driver == UiDriver::Postgres;
             if draw_driver_card(
@@ -522,19 +539,23 @@ impl DbProApp {
 
             ui.add_space(gap);
 
-            draw_driver_card(
+            if draw_driver_card(
                 ui,
                 DriverCardProps {
                     icon: Icon::Database,
-                    name: "MariaDB",
-                    subtitle: "Port 3306 · SQL",
-                    badge: "Soon",
-                    is_selected: false,
-                    is_disabled: true,
+                    name: "SQL Server",
+                    subtitle: "Port 1433 · TDS",
+                    badge: "Active",
+                    is_selected: self.connection_draft.driver == UiDriver::SqlServer,
+                    is_disabled: false,
                     width: card_w,
                 },
                 &self.theme,
-            );
+            )
+            .clicked()
+            {
+                self.select_connection_driver(UiDriver::SqlServer);
+            }
         });
 
         ui.add_space(gap);
@@ -608,7 +629,7 @@ impl DbProApp {
 
         // ── 2. Engine-specific Fields ─────────────────────────────────
         match self.connection_draft.driver {
-            UiDriver::Postgres | UiDriver::Mysql => self.draw_postgres_connection_fields(ui),
+            UiDriver::Postgres | UiDriver::Mysql | UiDriver::SqlServer => self.draw_postgres_connection_fields(ui),
             UiDriver::Sqlite => self.draw_sqlite_connection_fields(ui),
         }
 
@@ -798,6 +819,7 @@ impl DbProApp {
                                 DriverType::Postgres => UiDriver::Postgres,
                                 DriverType::Mysql => UiDriver::Mysql,
                                 DriverType::SQLite => UiDriver::Sqlite,
+                                DriverType::SqlServer => UiDriver::SqlServer,
                             };
                             self.connection_error.clear();
                         }
@@ -1234,6 +1256,7 @@ impl DbProApp {
             DriverType::Postgres => UiDriver::Postgres,
             DriverType::Mysql => UiDriver::Mysql,
             DriverType::SQLite => UiDriver::Sqlite,
+            DriverType::SqlServer => UiDriver::SqlServer,
         };
         self.connection_draft.port = cfg.port.to_string();
         self.connection_draft.ssl_mode = match cfg.ssl_mode {
@@ -1375,8 +1398,10 @@ impl DbProApp {
             self.connection_error = "Name and database are required".to_owned();
             return;
         }
-        if matches!(self.connection_draft.driver, UiDriver::Postgres | UiDriver::Mysql)
-            && self.connection_draft.port.parse::<u16>().is_err()
+        if matches!(
+            self.connection_draft.driver,
+            UiDriver::Postgres | UiDriver::Mysql | UiDriver::SqlServer
+        ) && self.connection_draft.port.parse::<u16>().is_err()
         {
             self.connection_error = "Port must be a number between 1 and 65535".to_owned();
             return;
@@ -1439,6 +1464,7 @@ impl DbProApp {
             UiDriver::Postgres => DriverType::Postgres,
             UiDriver::Mysql => DriverType::Mysql,
             UiDriver::Sqlite => DriverType::SQLite,
+            UiDriver::SqlServer => DriverType::SqlServer,
         };
         let ssl_mode = match draft.ssl_mode {
             UiSslMode::Disable => SslMode::Disable,
@@ -1446,7 +1472,12 @@ impl DbProApp {
             UiSslMode::VerifyCa => SslMode::VerifyCa,
             UiSslMode::VerifyFull => SslMode::VerifyFull,
         };
-        let port = draft.port.parse().unwrap_or(5432);
+        let default_port = if draft.driver == UiDriver::SqlServer {
+            1433
+        } else {
+            5432
+        };
+        let port = draft.port.parse().unwrap_or(default_port);
         let ssh_tunnel = if draft.ssh_tunnel_enabled {
             Some(SshTunnelConfig {
                 host: draft.ssh_host.clone(),

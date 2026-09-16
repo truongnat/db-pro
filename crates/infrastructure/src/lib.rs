@@ -6,4 +6,5 @@ pub mod mysql;
 pub mod postgres;
 pub mod secret;
 pub mod sqlite;
+pub mod sqlserver;
 pub mod ssh;

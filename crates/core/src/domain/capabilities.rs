@@ -235,6 +235,29 @@ impl DatabaseCapabilities {
                 "MySQL has no native UUID type in the shipped capability set"
             }
             (DriverType::Mysql, CapabilityFeature::TransactionalDdl) => "MySQL DDL statements cause an implicit commit",
+            (DriverType::SqlServer, CapabilityFeature::Cancel) => {
+                "SQL Server cancellation requires a separate attention channel that the TDS adapter does not expose yet"
+            }
+            (DriverType::SqlServer, CapabilityFeature::NumberedParameters) => {
+                "SQL Server parameters use named @pN placeholders, not PostgreSQL-style $n"
+            }
+            (DriverType::SqlServer, CapabilityFeature::PositionalParameters) => {
+                "SQL Server parameters use named @pN placeholders, not positional ?"
+            }
+            (DriverType::SqlServer, CapabilityFeature::EnumTypes) => "SQL Server has no native ENUM type",
+            (DriverType::SqlServer, CapabilityFeature::ArrayTypes) => "SQL Server array columns are not supported",
+            (DriverType::SqlServer, CapabilityFeature::ServerSessions) => {
+                "SQL Server session administration is not exposed by the shared monitoring service yet"
+            }
+            (DriverType::SqlServer, CapabilityFeature::Tablespaces) => {
+                "SQL Server tablespace administration is not a supported provider operation"
+            }
+            (DriverType::SqlServer, CapabilityFeature::SshTunnel) => {
+                "SQL Server SSH tunneling is not implemented by the provider yet"
+            }
+            (DriverType::SqlServer, CapabilityFeature::Backup) => {
+                "SQL Server backup/restore is not implemented by the shared backup service yet"
+            }
             (DriverType::Mysql, CapabilityFeature::RenameObjects)
             | (DriverType::SQLite, CapabilityFeature::RenameObjects) => {
                 "renaming arbitrary schema objects is limited for this driver"
@@ -258,6 +281,7 @@ impl DatabaseCapabilities {
             DriverType::Postgres => Self::postgres(),
             DriverType::SQLite => Self::sqlite(),
             DriverType::Mysql => Self::mysql(),
+            DriverType::SqlServer => Self::sql_server(),
         }
     }
 
@@ -449,6 +473,63 @@ impl DatabaseCapabilities {
             },
         }
     }
+
+    /// SQL Server capabilities. The adapter deliberately advertises only paths
+    /// implemented by the TDS provider; PostgreSQL-only services stay gated.
+    pub fn sql_server() -> Self {
+        Self {
+            driver: DriverType::SqlServer,
+            query: QueryCapabilities {
+                multi_statement: true,
+                explain: true,
+                cancel: false,
+                parameters: true,
+                numbered_parameters: false,
+                positional_parameters: false,
+                ilike: false,
+                glob: false,
+                max_rows_limit: None,
+            },
+            schema: SchemaCapabilities {
+                schemas: true,
+                alter_column_type: true,
+                add_column: true,
+                drop_column: true,
+                rename_column: true,
+                transactional_ddl: true,
+                foreign_keys: true,
+                indexes: true,
+                triggers: true,
+                views: true,
+                functions: true,
+                sequences: true,
+                enum_types: false,
+                rename_objects: true,
+            },
+            data: DataCapabilities {
+                insert: true,
+                update: true,
+                delete: true,
+                composite_pk: true,
+                no_pk_tables: true,
+                json_type: true,
+                uuid_type: true,
+                blob_type: true,
+                array_types: false,
+                generated_columns: true,
+            },
+            features: FeatureCapabilities {
+                server_sessions: false,
+                partitions: true,
+                tablespaces: false,
+                object_dependencies: true,
+                ssh_tunnel: false,
+                backup: false,
+                schema_diff: true,
+                data_diff: true,
+            },
+        }
+    }
 }
 
 #[cfg(test)]
@@ -511,6 +592,21 @@ mod tests {
     }
 
     #[test]
+    fn sql_server_capabilities_match_tds_provider_boundary() {
+        let caps = DatabaseCapabilities::sql_server();
+        assert!(caps.query.parameters);
+        assert!(!caps.query.numbered_parameters);
+        assert!(!caps.query.positional_parameters);
+        assert!(caps.schema.schemas);
+        assert!(caps.schema.indexes);
+        assert!(caps.data.uuid_type);
+        assert!(!caps.data.array_types);
+        assert!(!caps.features.server_sessions);
+        assert!(!caps.features.ssh_tunnel);
+        assert!(!caps.features.backup);
+    }
+
+    #[test]
     fn mysql_capabilities_do_not_advertise_postgres_only_features() {
         // Each of these features has exactly one product path, and that path rejects MySQL:
         // user management (`application/user_service.rs`), partitions
@@ -545,6 +641,16 @@ mod tests {
             Some("user/role management is PostgreSQL-only in this build")
         );
         assert!(mysql.limitation(CapabilityFeature::Parameters).is_none());
+
+        let sql_server = DatabaseCapabilities::sql_server();
+        assert_eq!(
+            sql_server.limitation(CapabilityFeature::Cancel),
+            Some("SQL Server cancellation requires a separate attention channel that the TDS adapter does not expose yet")
+        );
+        assert_eq!(
+            sql_server.limitation(CapabilityFeature::Backup),
+            Some("SQL Server backup/restore is not implemented by the shared backup service yet")
+        );
     }
 
     #[test]

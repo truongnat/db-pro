@@ -202,6 +202,7 @@ pub enum DriverTypeDto {
     Postgres,
     Sqlite,
     Mysql,
+    Sqlserver,
 }
 
 impl From<DriverType> for DriverTypeDto {
@@ -210,6 +211,7 @@ impl From<DriverType> for DriverTypeDto {
             DriverType::Postgres => Self::Postgres,
             DriverType::SQLite => Self::Sqlite,
             DriverType::Mysql => Self::Mysql,
+            DriverType::SqlServer => Self::Sqlserver,
         }
     }
 }
@@ -220,6 +222,7 @@ impl From<DriverTypeDto> for DriverType {
             DriverTypeDto::Postgres => Self::Postgres,
             DriverTypeDto::Sqlite => Self::SQLite,
             DriverTypeDto::Mysql => Self::Mysql,
+            DriverTypeDto::Sqlserver => Self::SqlServer,
         }
     }
 }

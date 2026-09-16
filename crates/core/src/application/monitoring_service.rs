@@ -39,6 +39,9 @@ impl MonitoringService {
             DriverType::Mysql => Err(DbError::Unsupported(
                 "MySQL session monitoring is not enabled yet".into(),
             )),
+            DriverType::SqlServer => Err(DbError::Unsupported(
+                "SQL Server session monitoring is not enabled yet".into(),
+            )),
         }
     }
 
@@ -63,11 +66,13 @@ impl MonitoringService {
             DriverType::Postgres => port.list_sessions(&handle).await?,
             DriverType::SQLite => Vec::new(),
             DriverType::Mysql => unreachable!("port_for rejects mysql"),
+            DriverType::SqlServer => unreachable!("port_for rejects sql server"),
         };
         let local = match driver {
             DriverType::SQLite => port.local_state(&handle).await?,
             DriverType::Postgres => None,
             DriverType::Mysql => None,
+            DriverType::SqlServer => None,
         };
         let (locks, relation_sizes, server) = match driver {
             DriverType::Postgres => {
@@ -93,6 +98,7 @@ impl MonitoringService {
             }
             DriverType::SQLite => (Vec::new(), Vec::new(), None),
             DriverType::Mysql => unreachable!("port_for rejects mysql"),
+            DriverType::SqlServer => unreachable!("port_for rejects sql server"),
         };
 
         let workload = match driver {
@@ -109,6 +115,7 @@ impl MonitoringService {
                     }),
             ),
             DriverType::SQLite | DriverType::Mysql => None,
+            DriverType::SqlServer => None,
         };
 
         let message = match driver {
@@ -130,6 +137,7 @@ impl MonitoringService {
             ),
             DriverType::SQLite => "SQLite local file state (no server sessions)".into(),
             DriverType::Mysql => "MySQL session monitoring is not enabled yet".into(),
+            DriverType::SqlServer => "SQL Server session monitoring is not enabled yet".into(),
         };
 
         Ok(MonitoringSnapshot {

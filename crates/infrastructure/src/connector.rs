@@ -9,6 +9,7 @@ use std::sync::Arc;
 use crate::mysql::connector::MySqlConnector;
 use crate::postgres::connector::PostgresConnector;
 use crate::sqlite::connector::SQLiteConnector;
+use crate::sqlserver::connector::{SqlServerConnector, SqlServerDialect};
 
 // ---------------------------------------------------------------------------
 // Provider factories — one per driver, registered at startup
@@ -71,6 +72,26 @@ impl ProviderFactory for MySqlFactory {
 
     async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
         MySqlConnector::new().test_connection(config, password).await
+    }
+}
+
+struct SqlServerFactory;
+#[async_trait]
+impl ProviderFactory for SqlServerFactory {
+    fn driver(&self) -> db_pro_core::domain::connection::DriverType {
+        db_pro_core::domain::connection::DriverType::SqlServer
+    }
+
+    fn capabilities(&self, _config: &ConnectionConfig) -> DatabaseCapabilities {
+        DatabaseCapabilities::sql_server()
+    }
+
+    fn build(&self) -> Box<dyn DbConnector> {
+        Box::new(SqlServerConnector::new())
+    }
+
+    async fn test_connection(&self, config: &ConnectionConfig, password: &str) -> Result<(), DbError> {
+        SqlServerConnector::new().test_connection(config, password).await
     }
 }
 
@@ -144,6 +165,10 @@ impl CompositeConnector {
         factories.insert(
             db_pro_core::domain::connection::DriverType::Mysql,
             Box::new(MySqlFactory),
+        );
+        factories.insert(
+            db_pro_core::domain::connection::DriverType::SqlServer,
+            Box::new(SqlServerFactory),
         );
 
         Self {
@@ -369,6 +394,7 @@ impl DbConnector for CompositeConnector {
             db_pro_core::domain::connection::DriverType::Postgres => Box::new(PostgresDialect),
             db_pro_core::domain::connection::DriverType::SQLite => Box::new(SqliteDialect),
             db_pro_core::domain::connection::DriverType::Mysql => Box::new(MySqlDialect),
+            db_pro_core::domain::connection::DriverType::SqlServer => Box::new(SqlServerDialect),
         })
     }
 }

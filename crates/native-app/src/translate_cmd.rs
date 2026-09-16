@@ -7,6 +7,7 @@ pub(crate) fn driver_from_ui(ui_driver: UiDriver) -> db_pro_core::domain::connec
         UiDriver::Postgres => db_pro_core::domain::connection::DriverType::Postgres,
         UiDriver::Sqlite => db_pro_core::domain::connection::DriverType::SQLite,
         UiDriver::Mysql => db_pro_core::domain::connection::DriverType::Mysql,
+        UiDriver::SqlServer => db_pro_core::domain::connection::DriverType::SqlServer,
     }
 }
 

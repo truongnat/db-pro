@@ -282,7 +282,7 @@ fn fixture_target() -> Option<FixtureTarget> {
     let (binary_column, binary_hex) = match driver {
         DriverType::Postgres => ("blob", "deadbeef"),
         DriverType::Mysql => ("blob_data", "ff00fe01"),
-        DriverType::SQLite => return None,
+        DriverType::SQLite | DriverType::SqlServer => return None,
     };
 
     let (without_query, _query) = rest.split_once('?').unwrap_or((rest, ""));
