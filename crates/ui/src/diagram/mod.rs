@@ -1,3 +1,4 @@
+pub mod design_mode;
 pub mod layout;
 pub mod lod;
 pub mod model;

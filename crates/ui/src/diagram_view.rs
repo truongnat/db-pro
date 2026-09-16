@@ -79,6 +79,7 @@ impl DbProApp {
         };
 
         self.draw_diagram_toolbar(ui, large_schema, all_table_count, &tables, render_limit);
+        self.draw_er_design_panel(ui);
         ui.add_space(10.0);
 
         self.draw_diagram_canvas(ui, active_node_indices.as_deref());
@@ -255,9 +256,263 @@ impl DbProApp {
                     }
                 }
             }
+            ui.separator();
+            let design_label = if self.er_design.enabled {
+                "Design Mode ✓"
+            } else {
+                "Design Mode"
+            };
+            if secondary_button(ui, design_label, self.theme)
+                .on_hover_text("Draft schema edits — never mutates DB until Apply")
+                .clicked()
+            {
+                self.er_design.enabled = !self.er_design.enabled;
+                if self.er_design.enabled {
+                    let names: Vec<String> = self
+                        .schema
+                        .table_details
+                        .iter()
+                        .map(|t| format!("{}.{}", t.schema, t.name))
+                        .collect();
+                    self.er_design
+                        .set_schema_fingerprint(crate::diagram::design_mode::schema_fingerprint_from_names(&names));
+                }
+            }
         });
     }
 
+    pub(super) fn draw_er_design_panel(&mut self, ui: &mut egui::Ui) {
+        if !self.er_design.enabled {
+            return;
+        }
+        ui.add_space(SPACE_SM);
+        card_frame(self.theme).show(ui, |ui| {
+            section_label(ui, "DESIGN DRAFT", self.theme);
+            ui.label(
+                RichText::new("Draft only · ObjectMutationService plan · fingerprint-gated apply")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            let live_fp = {
+                let names: Vec<String> = self
+                    .schema
+                    .table_details
+                    .iter()
+                    .map(|t| format!("{}.{}", t.schema, t.name))
+                    .collect();
+                crate::diagram::design_mode::schema_fingerprint_from_names(&names)
+            };
+            if self.er_design.fingerprint_stale(&live_fp) {
+                ui.colored_label(
+                    self.theme.warning,
+                    "Live schema changed — re-open Design Mode or discard before apply",
+                );
+            }
+            ui.horizontal(|ui| {
+                ui.add(egui::TextEdit::singleline(&mut self.er_design_new_schema).hint_text("schema"));
+                ui.add(egui::TextEdit::singleline(&mut self.er_design_new_table).hint_text("table"));
+                if secondary_button(ui, "Add draft table", self.theme).clicked() {
+                    self.er_design
+                        .add_draft_table(&self.er_design_new_schema, &self.er_design_new_table);
+                    self.er_design_new_table.clear();
+                }
+                if ghost_button(ui, "Undo", self.theme).clicked() {
+                    self.er_design.undo();
+                }
+                if ghost_button(ui, "Redo", self.theme).clicked() {
+                    self.er_design.redo();
+                }
+                if danger_button(ui, "Discard", self.theme).clicked() {
+                    self.er_design.discard();
+                }
+            });
+            for (idx, table) in self.er_design.draft.tables.clone().into_iter().enumerate() {
+                ui.label(
+                    RichText::new(format!(
+                        "draft {}.{} · {} cols",
+                        table.schema,
+                        table.name,
+                        table.columns.len()
+                    ))
+                    .strong()
+                    .monospace(),
+                );
+                for col in &table.columns {
+                    ui.label(
+                        RichText::new(format!(
+                            "  {} {}{}{}",
+                            col.name,
+                            col.data_type,
+                            if col.is_pk { " PK" } else { "" },
+                            if col.is_unique { " UNIQUE" } else { "" }
+                        ))
+                        .small()
+                        .monospace(),
+                    );
+                }
+                ui.horizontal(|ui| {
+                    ui.add(egui::TextEdit::singleline(&mut self.er_design_col_name).hint_text("col"));
+                    ui.add(egui::TextEdit::singleline(&mut self.er_design_col_type).hint_text("type"));
+                    if ghost_button(ui, "Add col", self.theme).clicked() {
+                        self.er_design.add_column(
+                            idx,
+                            crate::diagram::design_mode::DraftColumn {
+                                name: self.er_design_col_name.clone(),
+                                data_type: self.er_design_col_type.clone(),
+                                nullable: true,
+                                is_pk: false,
+                                is_unique: false,
+                            },
+                        );
+                        self.er_design_col_name.clear();
+                    }
+                });
+            }
+            ui.add_space(SPACE_XS);
+            ui.horizontal(|ui| {
+                ui.add(egui::TextEdit::singleline(&mut self.er_design_fk_name).hint_text("fk name"));
+                ui.add(egui::TextEdit::singleline(&mut self.er_design_fk_from).hint_text("from schema.table.col"));
+                ui.add(egui::TextEdit::singleline(&mut self.er_design_fk_to).hint_text("to schema.table.col"));
+                if secondary_button(ui, "Add FK", self.theme).clicked() {
+                    self.er_design_add_fk();
+                }
+            });
+            for fk in &self.er_design.draft.foreign_keys {
+                ui.label(
+                    RichText::new(format!(
+                        "FK {} · {}.{}({}) → {}.{}({})",
+                        fk.name,
+                        fk.from_schema,
+                        fk.from_table,
+                        fk.from_columns.join(","),
+                        fk.to_schema,
+                        fk.to_table,
+                        fk.to_columns.join(",")
+                    ))
+                    .small()
+                    .monospace(),
+                );
+            }
+            ui.horizontal(|ui| {
+                if secondary_button(ui, "Preview mutation plan", self.theme).clicked() {
+                    self.er_design_preview_plan();
+                }
+                if primary_button(ui, "Apply (confirm)", self.theme).clicked() {
+                    self.er_design_apply_plan();
+                }
+            });
+            if let Some(error) = &self.er_design.error {
+                ui.colored_label(self.theme.danger, error);
+            }
+            if !self.er_design.preview_sql.is_empty() {
+                ui.label(
+                    RichText::new(format!("fingerprint {}", self.er_design.preview_fingerprint))
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+                for effect in &self.er_design.preview_effects {
+                    ui.label(RichText::new(effect).small().color(self.theme.text_secondary));
+                }
+                egui::ScrollArea::vertical().max_height(140.0).show(ui, |ui| {
+                    ui.label(RichText::new(&self.er_design.preview_sql).monospace());
+                });
+            }
+        });
+    }
+
+    fn er_design_add_fk(&mut self) {
+        let Some((from_schema, from_table, from_col)) = split_three(&self.er_design_fk_from) else {
+            self.er_design.error = Some("FK from must be schema.table.column".into());
+            return;
+        };
+        let Some((to_schema, to_table, to_col)) = split_three(&self.er_design_fk_to) else {
+            self.er_design.error = Some("FK to must be schema.table.column".into());
+            return;
+        };
+        let name = if self.er_design_fk_name.trim().is_empty() {
+            format!("fk_{from_table}_{to_table}")
+        } else {
+            self.er_design_fk_name.trim().to_owned()
+        };
+        self.er_design.add_fk(crate::diagram::design_mode::DraftForeignKey {
+            name,
+            from_schema,
+            from_table,
+            from_columns: vec![from_col],
+            to_schema,
+            to_table,
+            to_columns: vec![to_col],
+        });
+    }
+
+    fn er_design_preview_plan(&mut self) {
+        struct QuoteDialect;
+        impl db_pro_core::ports::SqlDialect for QuoteDialect {
+            fn placeholder(&self, index: usize) -> String {
+                format!("${index}")
+            }
+            fn quote_identifier(&self, name: &str) -> String {
+                format!("\"{}\"", name.replace('"', "\"\""))
+            }
+        }
+        let driver = self.active_driver().to_owned();
+        match crate::diagram::design_mode::plan_design_draft(&self.er_design.draft, &driver, &QuoteDialect) {
+            Ok(previews) => {
+                let (sql, fp, effects) = crate::diagram::design_mode::merge_preview_sql(&previews);
+                self.er_design.preview_sql = sql;
+                self.er_design.preview_fingerprint = fp;
+                self.er_design.preview_effects = effects;
+                self.er_design.error = None;
+                self.er_design.apply_confirm = true;
+            }
+            Err(err) => {
+                self.er_design.error = Some(err);
+                self.er_design.clear_preview();
+            }
+        }
+    }
+
+    fn er_design_apply_plan(&mut self) {
+        let live_fp = {
+            let names: Vec<String> = self
+                .schema
+                .table_details
+                .iter()
+                .map(|t| format!("{}.{}", t.schema, t.name))
+                .collect();
+            crate::diagram::design_mode::schema_fingerprint_from_names(&names)
+        };
+        if self.er_design.fingerprint_stale(&live_fp) {
+            self.er_design.error = Some("schema fingerprint stale — refresh Design Mode".into());
+            return;
+        }
+        if self.er_design.preview_sql.is_empty() || !self.er_design.apply_confirm {
+            self.er_design_preview_plan();
+            if self.er_design.preview_sql.is_empty() {
+                return;
+            }
+        }
+        if self.active_connection_id.is_none() || !self.connected {
+            self.er_design.error = Some("connect before applying design plan".into());
+            return;
+        }
+        self.set_active_query_text(self.er_design.preview_sql.clone());
+        self.active_tab = WorkspaceTab::Query;
+        self.dispatch_query();
+        self.runtime_message = "Design Mode mutation plan applied via query runtime".into();
+        self.er_design.discard();
+    }
+}
+
+fn split_three(raw: &str) -> Option<(String, String, String)> {
+    let parts: Vec<&str> = raw.split('.').collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    Some((parts[0].to_owned(), parts[1].to_owned(), parts[2].to_owned()))
+}
+
+impl DbProApp {
     fn draw_diagram_empty_state(
         &mut self,
         ui: &mut egui::Ui,
