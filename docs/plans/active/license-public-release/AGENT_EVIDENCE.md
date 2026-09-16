@@ -14,7 +14,7 @@
 
 ## 2. Progress checkpoint
 
-- Current HEAD: `11ff3534ab059748e449a0ab8791f4b60e95ee72`.
+- Current HEAD: `573494dc8d0478538187c6e0c0e75ef306c1b3a6`; implementation claims below refer to `11ff3534ab059748e449a0ab8791f4b60e95ee72`.
 - Completed acceptance rows: MIT policy selected; source files added; metadata/doc reconciliation complete; required gates passed.
 - Remaining acceptance rows: final binary notice bundle before public binary distribution.
 - Findings / risks: P2 notice bundle remains before public binary distribution.
