@@ -2,14 +2,15 @@ use std::sync::Arc;
 
 use db_pro_core::application::sql_builder::{SortClause, TableFilter};
 use db_pro_core::application::{
-    BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, QueryService, SchemaService,
-    TableDataMutation, TableDataService, UserService,
+    BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, MonitoringService,
+    QueryService, SchemaService, TableDataMutation, TableDataService, UserService,
 };
 use db_pro_core::domain::backup::{BackupOptions, BackupResult, RestoreOptions};
 use db_pro_core::domain::connection::{Connection, ConnectionConfig, ConnectionId, DriverType};
 use db_pro_core::domain::cross_connection::{DataDiff, SchemaDiff};
 use db_pro_core::domain::error::DbError;
 use db_pro_core::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
+use db_pro_core::domain::monitoring::MonitoringSnapshot;
 use db_pro_core::domain::query::{CellValue, QueryParam, QueryResult};
 use db_pro_core::domain::run_config::RunConfig;
 use db_pro_core::domain::schema::IntrospectResult;
@@ -901,6 +902,38 @@ impl UserApi {
         let connection_id = parse_connection_id(connection_id)?;
         self.service
             .revoke_privilege(&connection_id, role_name, schema, table, privilege)
+            .await
+            .map_err(Into::into)
+    }
+}
+
+#[derive(Clone)]
+pub struct MonitoringApi {
+    service: Arc<MonitoringService>,
+}
+
+impl MonitoringApi {
+    pub(crate) fn new(service: Arc<MonitoringService>) -> Self {
+        Self { service }
+    }
+
+    pub async fn snapshot(&self, connection_id: &str) -> Result<MonitoringSnapshot, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service.snapshot(&connection_id).await.map_err(Into::into)
+    }
+
+    pub async fn cancel_backend(&self, connection_id: &str, backend_id: i64) -> Result<bool, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .cancel_backend(&connection_id, backend_id)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn terminate_backend(&self, connection_id: &str, backend_id: i64) -> Result<bool, DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .terminate_backend(&connection_id, backend_id)
             .await
             .map_err(Into::into)
     }

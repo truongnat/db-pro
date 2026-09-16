@@ -9,8 +9,9 @@ pub use agent_executor::{AgentToolExecutor, AgentToolRunner};
 pub use agent_orchestrator::{AgentRunOrchestrator, AgentWorkflowEvent};
 pub use api::{
     BackupApi, ColumnSummary, ConnectionApi, ConnectionSummary, DataDiffApi, DbErrorDto, ExportApi, ForeignKeySummary,
-    FunctionSummary, PostgresApi, QueryApi, QueryFolderSummary, RoutineParameterSummary, SavedQuerySummary, SchemaApi,
-    SchemaSummary, TableDataApi, TableMutationFailure, TableSummary, TriggerSummary, UserApi, ViewSummary,
+    FunctionSummary, MonitoringApi, PostgresApi, QueryApi, QueryFolderSummary, RoutineParameterSummary,
+    SavedQuerySummary, SchemaApi, SchemaSummary, TableDataApi, TableMutationFailure, TableSummary, TriggerSummary,
+    UserApi, ViewSummary,
 };
 pub use db_pro_core::domain::agent_workflow::AgentExecutionContext;
 pub use worker::{spawn_worker, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
@@ -19,15 +20,17 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use db_pro_core::application::{
-    BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, QueryService, SchemaService,
-    TableDataService, UserService,
+    BackupService, ConnectionRegistry, ConnectionService, DataDiffService, ExportService, MonitoringService,
+    QueryService, SchemaService, TableDataService, UserService,
 };
 use db_pro_infrastructure::backup::pg_dump::PgDumpEngine;
 use db_pro_infrastructure::backup::sqlite_backup::SqliteBackupEngine;
 use db_pro_infrastructure::connector::CompositeConnector;
 use db_pro_infrastructure::meta::store::SQLiteMetaStore;
+use db_pro_infrastructure::postgres::monitoring::PostgresMonitoringPort;
 use db_pro_infrastructure::postgres::user_manager::PostgresUserManager;
 use db_pro_infrastructure::secret::keyring_vault::KeyringVault;
+use db_pro_infrastructure::sqlite::monitoring::SqliteMonitoringPort;
 use thiserror::Error;
 
 /// The application-owned runtime shared by native UI frontends.
@@ -44,6 +47,7 @@ pub struct DbProRuntime {
     export: Arc<ExportService>,
     backup: Arc<BackupService>,
     users: Arc<UserService>,
+    monitoring: Arc<MonitoringService>,
     data_diff: Arc<DataDiffService>,
     connector: Arc<CompositeConnector>,
     registry: Arc<ConnectionRegistry>,
@@ -238,6 +242,13 @@ impl DbProRuntime {
             Arc::clone(&registry),
             Box::new(meta_store.clone()),
         ));
+        let connector_for_monitor: Arc<dyn db_pro_core::ports::DbConnector> = connector.clone();
+        let monitoring = Arc::new(MonitoringService::new(
+            Box::new(PostgresMonitoringPort::new(Arc::clone(&connector_for_monitor))),
+            Box::new(SqliteMonitoringPort::new(connector_for_monitor)),
+            Arc::clone(&registry),
+            Box::new(meta_store.clone()),
+        ));
         let data_diff = Arc::new(DataDiffService::new(
             Box::new(Arc::clone(&connector)),
             Arc::clone(&registry),
@@ -252,6 +263,7 @@ impl DbProRuntime {
             export,
             backup,
             users,
+            monitoring,
             data_diff,
             connector,
             registry,
@@ -317,6 +329,14 @@ impl DbProRuntime {
 
     pub fn user_api(&self) -> UserApi {
         UserApi::new(self.users())
+    }
+
+    pub fn monitoring(&self) -> Arc<MonitoringService> {
+        Arc::clone(&self.monitoring)
+    }
+
+    pub fn monitoring_api(&self) -> MonitoringApi {
+        MonitoringApi::new(self.monitoring())
     }
 
     pub fn data_diff(&self) -> Arc<DataDiffService> {

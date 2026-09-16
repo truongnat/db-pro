@@ -292,6 +292,13 @@ pub struct DbProApp {
     routine_drop_confirm: bool,
     /// Recent transfer jobs for Transfers activity (#193).
     transfer_jobs: Vec<db_pro_core::domain::transfer::TransferJob>,
+    /// Latest monitoring snapshot for Monitor activity (#196).
+    monitoring_snapshot: Option<db_pro_core::domain::monitoring::MonitoringSnapshot>,
+    monitoring_error: Option<String>,
+    monitoring_poll: bool,
+    monitoring_last_poll: Option<std::time::Instant>,
+    monitoring_terminate_confirm: Option<i64>,
+    monitoring_filter_active_only: bool,
     schema_workbench: schema_workbench::SchemaWorkbenchState,
     schema_snapshot: Option<schema_compare::UiSchemaSnapshot>,
     schema_diff: Option<schema_compare::UiSchemaDiffResult>,

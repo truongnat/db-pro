@@ -76,6 +76,30 @@ impl DbProApp {
             } => {
                 self.runtime_message = format!("Backup completed · {output_path} · {size_bytes} bytes");
             }
+            UiEvent::MonitoringSnapshotLoaded { snapshot, .. } => {
+                self.monitoring_snapshot = Some(snapshot.clone());
+                self.monitoring_error = None;
+                self.runtime_message = format!("Monitor · {}", snapshot.message);
+            }
+            UiEvent::MonitoringActionCompleted {
+                action,
+                backend_id,
+                succeeded,
+                ..
+            } => {
+                self.runtime_message = format!(
+                    "Monitor {action} pid={backend_id} · {}",
+                    if succeeded { "ok" } else { "no-op" }
+                );
+                self.monitoring_terminate_confirm = None;
+                if let Some(connection_id) = self.active_connection_id.clone() {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.dispatch_command(UiCommand::MonitoringSnapshot {
+                        request_id,
+                        connection_id,
+                    });
+                }
+            }
             UiEvent::DdlCompleted {
                 request_id,
                 affected_rows,

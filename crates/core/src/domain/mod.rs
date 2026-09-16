@@ -9,6 +9,7 @@ pub mod diagnostics;
 pub mod error;
 pub mod execution;
 pub mod history;
+pub mod monitoring;
 pub mod object_mutation;
 pub mod query;
 pub mod run_config;

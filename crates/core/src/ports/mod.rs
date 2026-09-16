@@ -3,6 +3,7 @@ pub mod connection_repository;
 pub mod db_connector;
 pub mod dialect;
 pub mod introspection_cache;
+pub mod monitoring;
 pub mod provider_factory;
 pub mod query_history_repository;
 pub mod run_config_repository;
@@ -20,6 +21,7 @@ pub use db_connector::{
 };
 pub use dialect::SqlDialect;
 pub use introspection_cache::IntrospectionCache;
+pub use monitoring::MonitoringPort;
 pub use provider_factory::ProviderFactory;
 pub use query_history_repository::QueryHistoryRepository;
 pub use run_config_repository::RunConfigRepository;
@@ -37,6 +39,8 @@ pub use connection_repository::MockConnectionRepository;
 pub use db_connector::MockDbConnector;
 #[cfg(test)]
 pub use introspection_cache::MockIntrospectionCache;
+#[cfg(test)]
+pub use monitoring::MockMonitoringPort;
 #[cfg(test)]
 pub use query_history_repository::MockQueryHistoryRepository;
 #[cfg(test)]

@@ -835,6 +835,12 @@ impl DbProApp {
                 };
                 status_dot(ui, dot, connected, false, self.theme);
                 ui.label(RichText::new(label).strong().color(self.theme.text_primary));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if connected && secondary_button_with_icon(ui, Icon::RefreshCw, "Refresh", self.theme).clicked() {
+                        self.request_monitoring_snapshot();
+                    }
+                    ui.checkbox(&mut self.monitoring_poll, "Auto-refresh");
+                });
             });
             ui.add_space(SPACE_SM);
             if connected {
@@ -843,48 +849,180 @@ impl DbProApp {
                         .small()
                         .color(self.theme.text_secondary),
                 );
-                if !self.runtime_message.is_empty() {
-                    ui.add_space(SPACE_XS);
-                    ui.label(
-                        RichText::new(&self.runtime_message)
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                }
             } else {
                 ui.label(
-                    RichText::new("Connect from Explorer to see live health here.")
+                    RichText::new("Connect from Explorer to monitor sessions.")
                         .small()
                         .color(self.theme.text_muted),
                 );
             }
         });
 
-        ui.add_space(SPACE_LG);
-        section_label(ui, "QUERY ACTIVITY", self.theme);
-        ui.add_space(SPACE_SM);
-        if self.query_history.is_empty() {
+        if connected && self.monitoring_poll {
+            let due = self
+                .monitoring_last_poll
+                .map(|t| t.elapsed() >= std::time::Duration::from_secs(5))
+                .unwrap_or(true);
+            if due {
+                self.request_monitoring_snapshot();
+            }
+        }
+
+        ui.add_space(SPACE_MD);
+        if let Some(error) = &self.monitoring_error {
+            ui.colored_label(self.theme.warning, error);
+            ui.add_space(SPACE_SM);
+        }
+
+        if let Some(snapshot) = self.monitoring_snapshot.clone() {
+            if let Some(local) = &snapshot.local {
+                section_label(ui, "LOCAL STATE", self.theme);
+                ui.add_space(SPACE_SM);
+                ui.label(RichText::new(&local.note).small().color(self.theme.text_muted));
+                ui.label(format!(
+                    "journal={} · pages={:?} · page_size={:?} · freelist={:?} · ~bytes={:?}",
+                    local.journal_mode.as_deref().unwrap_or("?"),
+                    local.page_count,
+                    local.page_size,
+                    local.freelist_count,
+                    local.file_size_bytes
+                ));
+            }
+
+            section_label(ui, "SESSIONS", self.theme);
+            ui.add_space(SPACE_SM);
+            ui.checkbox(&mut self.monitoring_filter_active_only, "Active queries only");
+            ui.add_space(SPACE_SM);
+
+            let sessions: Vec<_> = if self.monitoring_filter_active_only {
+                snapshot.active_queries().into_iter().cloned().collect()
+            } else {
+                snapshot.sessions.clone()
+            };
+
+            if sessions.is_empty() {
+                ui.label(
+                    RichText::new(if snapshot.sessions.is_empty() {
+                        snapshot.message.as_str()
+                    } else {
+                        "No active queries right now."
+                    })
+                    .small()
+                    .color(self.theme.text_muted),
+                );
+            } else {
+                for session in sessions {
+                    card_frame(self.theme).show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new(format!("pid {}", session.backend_id))
+                                    .strong()
+                                    .monospace()
+                                    .color(self.theme.text_primary),
+                            );
+                            if session.is_current {
+                                badge(ui, "current", self.theme.surface_active, self.theme.text_secondary);
+                            }
+                            ui.label(
+                                RichText::new(session.state.clone().unwrap_or_else(|| "—".into()))
+                                    .small()
+                                    .color(self.theme.text_secondary),
+                            );
+                            if let Some(ms) = session.query_duration_ms {
+                                ui.label(RichText::new(format!("{ms} ms")).small().color(self.theme.text_muted));
+                            }
+                        });
+                        ui.label(
+                            RichText::new(format!(
+                                "{} · {} · {}",
+                                session.username.as_deref().unwrap_or("?"),
+                                session.database.as_deref().unwrap_or("?"),
+                                session.application_name.as_deref().unwrap_or("-")
+                            ))
+                            .small()
+                            .color(self.theme.text_secondary),
+                        );
+                        if let Some(query) = &session.query_text {
+                            let short = if query.len() > 120 {
+                                format!("{}…", &query.chars().take(119).collect::<String>())
+                            } else {
+                                query.clone()
+                            };
+                            ui.label(RichText::new(short).monospace().small().color(self.theme.text_primary));
+                            ui.horizontal(|ui| {
+                                if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
+                                    self.set_active_query_text(query.clone());
+                                    self.active_tab = WorkspaceTab::Query;
+                                    self.activity = Activity::Explorer;
+                                }
+                                if !session.is_current
+                                    && secondary_button_with_icon(ui, Icon::Ban, "Cancel", self.theme).clicked()
+                                {
+                                    if let Some(connection_id) = self.active_connection_id.clone() {
+                                        let request_id = self.task_bridge.next_request_id();
+                                        self.dispatch_command(UiCommand::MonitoringCancelBackend {
+                                            request_id,
+                                            connection_id,
+                                            backend_id: session.backend_id,
+                                        });
+                                    }
+                                }
+                                if !session.is_current && danger_button(ui, "Terminate", self.theme).clicked() {
+                                    self.monitoring_terminate_confirm = Some(session.backend_id);
+                                }
+                            });
+                        }
+                    });
+                    ui.add_space(SPACE_SM);
+                }
+            }
+        } else if connected {
             ui.label(
-                RichText::new("Recent statements will appear after you run a query.")
+                RichText::new("Refresh to load sessions (or wait for auto-refresh).")
                     .small()
                     .color(self.theme.text_muted),
             );
-        } else {
-            for query in self.query_history.iter().rev().take(6) {
-                let short = if query.len() > 64 {
-                    format!("{}…", &query.chars().take(63).collect::<String>())
-                } else {
-                    query.clone()
-                };
-                ui.label(
-                    RichText::new(short)
-                        .monospace()
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
-                ui.add_space(2.0);
-            }
         }
+
+        if let Some(backend_id) = self.monitoring_terminate_confirm {
+            egui::Window::new("Terminate session?")
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .show(ui.ctx(), |ui| {
+                    ui.label(format!(
+                        "Terminate PostgreSQL backend pid {backend_id}? This disconnects the client."
+                    ));
+                    ui.horizontal(|ui| {
+                        if danger_button(ui, "Terminate", self.theme).clicked() {
+                            if let Some(connection_id) = self.active_connection_id.clone() {
+                                let request_id = self.task_bridge.next_request_id();
+                                self.dispatch_command(UiCommand::MonitoringTerminateBackend {
+                                    request_id,
+                                    connection_id,
+                                    backend_id,
+                                });
+                            }
+                            self.monitoring_terminate_confirm = None;
+                        }
+                        if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                            self.monitoring_terminate_confirm = None;
+                        }
+                    });
+                });
+        }
+    }
+
+    fn request_monitoring_snapshot(&mut self) {
+        let Some(connection_id) = self.active_connection_id.clone() else {
+            return;
+        };
+        self.monitoring_last_poll = Some(std::time::Instant::now());
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::MonitoringSnapshot {
+            request_id,
+            connection_id,
+        });
     }
 
     pub(super) fn draw_diagram_sidebar(&mut self, ui: &mut egui::Ui) {

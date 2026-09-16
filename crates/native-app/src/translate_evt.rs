@@ -29,6 +29,21 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             output_path,
             size_bytes,
         } => translate_backup_completed(request_id, output_path, size_bytes),
+        RuntimeEvent::MonitoringSnapshotLoaded { request_id, snapshot } => Some(UiEvent::MonitoringSnapshotLoaded {
+            request_id: ui_request_id(request_id),
+            snapshot,
+        }),
+        RuntimeEvent::MonitoringActionCompleted {
+            request_id,
+            action,
+            backend_id,
+            succeeded,
+        } => Some(UiEvent::MonitoringActionCompleted {
+            request_id: ui_request_id(request_id),
+            action: action.to_owned(),
+            backend_id,
+            succeeded,
+        }),
         RuntimeEvent::OperationCompleted { request_id, operation } => {
             translate_operation_completed(request_id, operation)
         }

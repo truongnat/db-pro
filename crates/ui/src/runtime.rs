@@ -534,6 +534,20 @@ pub enum UiCommand {
         input_path: String,
         custom_format: bool,
     },
+    MonitoringSnapshot {
+        request_id: RequestId,
+        connection_id: String,
+    },
+    MonitoringCancelBackend {
+        request_id: RequestId,
+        connection_id: String,
+        backend_id: i64,
+    },
+    MonitoringTerminateBackend {
+        request_id: RequestId,
+        connection_id: String,
+        backend_id: i64,
+    },
     CancelQuery {
         request_id: RequestId,
     },
@@ -678,6 +692,16 @@ pub enum UiEvent {
         request_id: RequestId,
         output_path: String,
         size_bytes: u64,
+    },
+    MonitoringSnapshotLoaded {
+        request_id: RequestId,
+        snapshot: db_pro_core::domain::monitoring::MonitoringSnapshot,
+    },
+    MonitoringActionCompleted {
+        request_id: RequestId,
+        action: String,
+        backend_id: i64,
+        succeeded: bool,
     },
     OperationCompleted {
         request_id: RequestId,

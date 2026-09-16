@@ -111,6 +111,9 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::ExplainQuery { .. }
         | UiCommand::Backup { .. }
         | UiCommand::Restore { .. }
+        | UiCommand::MonitoringSnapshot { .. }
+        | UiCommand::MonitoringCancelBackend { .. }
+        | UiCommand::MonitoringTerminateBackend { .. }
         | UiCommand::CancelQuery { .. }
         | UiCommand::RequestSqlPrediction { .. }
         | UiCommand::CancelSqlPrediction { .. } => translate_execution_command(command),
@@ -561,6 +564,31 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
                     db_pro_core::domain::backup::BackupFormat::Plain
                 },
             },
+        }),
+        UiCommand::MonitoringSnapshot {
+            request_id,
+            connection_id,
+        } => Some(RuntimeCommand::MonitoringSnapshot {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+        }),
+        UiCommand::MonitoringCancelBackend {
+            request_id,
+            connection_id,
+            backend_id,
+        } => Some(RuntimeCommand::MonitoringCancelBackend {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            backend_id,
+        }),
+        UiCommand::MonitoringTerminateBackend {
+            request_id,
+            connection_id,
+            backend_id,
+        } => Some(RuntimeCommand::MonitoringTerminateBackend {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            backend_id,
         }),
         UiCommand::CancelQuery { request_id } => Some(RuntimeCommand::CancelQuery {
             request_id: runtime_request_id(request_id),

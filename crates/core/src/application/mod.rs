@@ -6,6 +6,7 @@ pub mod ddl_builder;
 pub mod delimited_transfer;
 pub mod export_service;
 pub mod json_excel_transfer;
+pub mod monitoring_service;
 pub mod object_mutation_service;
 pub mod query_service;
 pub mod registry;
@@ -28,6 +29,7 @@ pub use db_transfer::{
 pub use delimited_transfer::{csv_cell_from_display, DelimitedFileSource, DelimitedFileTarget, DelimitedFormat};
 pub use export_service::{ExportResult, ExportService};
 pub use json_excel_transfer::{ExcelFileTarget, JsonlFileSource, JsonlFileTarget};
+pub use monitoring_service::MonitoringService;
 pub use object_mutation_service::ObjectMutationService;
 pub use query_service::{MultiQueryError, MultiQueryResult, QueryService, StatementResultKind};
 pub use registry::ConnectionRegistry;

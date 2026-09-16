@@ -201,6 +201,20 @@ pub enum RuntimeCommand {
         request_id: RuntimeRequestId,
         options: RestoreOptions,
     },
+    MonitoringSnapshot {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+    },
+    MonitoringCancelBackend {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        backend_id: i64,
+    },
+    MonitoringTerminateBackend {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        backend_id: i64,
+    },
     CancelQuery {
         request_id: RuntimeRequestId,
     },
@@ -269,6 +283,16 @@ pub enum RuntimeEvent {
         request_id: RuntimeRequestId,
         output_path: String,
         size_bytes: u64,
+    },
+    MonitoringSnapshotLoaded {
+        request_id: RuntimeRequestId,
+        snapshot: db_pro_core::domain::monitoring::MonitoringSnapshot,
+    },
+    MonitoringActionCompleted {
+        request_id: RuntimeRequestId,
+        action: &'static str,
+        backend_id: i64,
+        succeeded: bool,
     },
     OperationCompleted {
         request_id: RuntimeRequestId,
@@ -1532,6 +1556,69 @@ pub fn spawn_worker(
                                 status,
                             })
                             .await;
+                    });
+                }
+                RuntimeCommand::MonitoringSnapshot {
+                    request_id,
+                    connection_id,
+                } => {
+                    let monitoring_api = runtime.monitoring_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match monitoring_api.snapshot(&connection_id).await {
+                            Ok(snapshot) => RuntimeEvent::MonitoringSnapshotLoaded { request_id, snapshot },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::MonitoringCancelBackend {
+                    request_id,
+                    connection_id,
+                    backend_id,
+                } => {
+                    let monitoring_api = runtime.monitoring_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match monitoring_api.cancel_backend(&connection_id, backend_id).await {
+                            Ok(succeeded) => RuntimeEvent::MonitoringActionCompleted {
+                                request_id,
+                                action: "cancel",
+                                backend_id,
+                                succeeded,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::MonitoringTerminateBackend {
+                    request_id,
+                    connection_id,
+                    backend_id,
+                } => {
+                    let monitoring_api = runtime.monitoring_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match monitoring_api.terminate_backend(&connection_id, backend_id).await {
+                            Ok(succeeded) => RuntimeEvent::MonitoringActionCompleted {
+                                request_id,
+                                action: "terminate",
+                                backend_id,
+                                succeeded,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
                     });
                 }
                 RuntimeCommand::CancelQuery { request_id } => {
