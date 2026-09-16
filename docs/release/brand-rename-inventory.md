@@ -5,10 +5,11 @@
   and **#121** ([RC1][Brand Prep] Inventory persisted storage/config identifiers for rename
   compatibility) — both children of workstream **#30** (resolve public identity and complete
   controlled product rename)
-- Decision note: **the selected identity is an owner decision and is NOT made here** (see #30, #101,
-  `docs/release/0.1.0-human-decisions.md`, `docs/release/risk-register.md` R-BRAND). This document is
-  the occurrence inventory + classification + checklist that #102/#121 ask for; every
-  "must rename / keep / migrate" row below is *what happens under each option*, not the decision.
+- Decision note: **the owner chose to retain `DB Pro` for v0.1.0** on 2026-09-16 (HD-009).
+  No replacement rename is authorized in this release. This document remains the occurrence
+  inventory + classification + compatibility checklist that #102/#121 ask for; every
+  "must rename / keep / migrate" row below describes the work that would be required only if a
+  future release authorizes a replacement identity.
 
 ## 1. Search patterns used (repository-wide, excluding `target/`)
 

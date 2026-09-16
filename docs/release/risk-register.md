@@ -87,7 +87,7 @@ blocks.
 | ID | `R001` (legacy `R001`) |
 | Description | The product ships as "DB Pro" (`with_title("DB Pro")` in `crates/native-app/src/main.rs`; three literals total) and the name collides with an existing dbpro.app product. Related naming facts from the metadata audit: `crates/native-app/` contains **no** icon resource (the only icons belong to the retired Tauri host), there is **no `Info.plist` in-repo** (the packaging script generates a minimal one at build time), and the version is duplicated across six manifests. |
 | Severity | `P2` (legal/branding if published) |
-| Owner / Decision | **Deferred to the owner's brand decision.** Per project policy the application is **not renamed** in this pass, and no artifact name was tied to a new brand; the `db-pro-*` artifact names match the current internal name and are the correct holding pattern. |
+| Owner / Decision | **Owner decision HD-009 (2026-09-16): retain DB Pro for v0.1.0.** No source, storage, bundle, or artifact rename is authorized in this release. The known dbpro.app collision and trademark status remain unresolved and must not be presented as cleared. |
 | Status | `DEFERRED` |
 | Release disposition | `DEFERRED` — blocks any *public* marketing/naming claims; does not block the internal RC. |
 
