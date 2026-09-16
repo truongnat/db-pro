@@ -333,6 +333,13 @@ pub struct DbProApp {
     routine_drop_confirm: bool,
     /// Recent transfer jobs for Transfers activity (#193).
     transfer_jobs: Vec<db_pro_core::domain::transfer::TransferJob>,
+    synthetic_table: String,
+    synthetic_row_count: String,
+    synthetic_seed: String,
+    synthetic_null_pct: String,
+    synthetic_preview: Option<db_pro_core::domain::synthetic_data::SyntheticPreview>,
+    synthetic_error: Option<String>,
+    synthetic_production_confirm: bool,
     /// Latest monitoring snapshot for Monitor activity (#196).
     monitoring_snapshot: Option<db_pro_core::domain::monitoring::MonitoringSnapshot>,
     monitoring_error: Option<String>,

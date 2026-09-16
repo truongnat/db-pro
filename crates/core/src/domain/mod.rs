@@ -26,5 +26,6 @@ pub mod safety;
 pub mod saved_task;
 pub mod schema;
 pub mod secret;
+pub mod synthetic_data;
 pub mod transfer;
 pub mod user;

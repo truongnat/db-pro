@@ -441,6 +441,82 @@ impl DbProApp {
             }
         });
         ui.add_space(SPACE_MD);
+        card_frame(self.theme).show(ui, |ui| {
+            section_label(ui, "SYNTHETIC TABLE SEED", self.theme);
+            ui.label(
+                RichText::new(
+                    "Dev/test only · deterministic seed · preview before insert · Production requires confirmation",
+                )
+                .small()
+                .color(self.theme.text_muted),
+            );
+            ui.add_space(SPACE_XS);
+            let tables: Vec<(String, String)> = self
+                .schema
+                .table_details
+                .iter()
+                .map(|t| (t.schema.clone(), t.name.clone()))
+                .collect();
+            ui.horizontal(|ui| {
+                egui::ComboBox::from_id_salt("synth_table")
+                    .selected_text(if self.synthetic_table.is_empty() {
+                        "Select table…"
+                    } else {
+                        &self.synthetic_table
+                    })
+                    .show_ui(ui, |ui| {
+                        for (schema, name) in &tables {
+                            let key = if schema.is_empty() {
+                                name.clone()
+                            } else {
+                                format!("{schema}.{name}")
+                            };
+                            ui.selectable_value(&mut self.synthetic_table, key.clone(), key);
+                        }
+                    });
+                ui.label("rows");
+                ui.add(egui::TextEdit::singleline(&mut self.synthetic_row_count).desired_width(48.0));
+                ui.label("seed");
+                ui.add(egui::TextEdit::singleline(&mut self.synthetic_seed).desired_width(64.0));
+                ui.label("null%");
+                ui.add(egui::TextEdit::singleline(&mut self.synthetic_null_pct).desired_width(36.0));
+            });
+            let is_production = self
+                .active_connection()
+                .map(|c| c.environment.eq_ignore_ascii_case("Production"))
+                .unwrap_or(false);
+            if is_production {
+                ui.colored_label(
+                    self.theme.warning,
+                    "Production connection — confirm before applying INSERT SQL",
+                );
+                ui.checkbox(
+                    &mut self.synthetic_production_confirm,
+                    "I confirm seeding this Production database",
+                );
+            }
+            ui.horizontal(|ui| {
+                if secondary_button(ui, "Preview", self.theme).clicked() {
+                    self.preview_synthetic_seed();
+                }
+                if secondary_button(ui, "Export SQL → Query", self.theme).clicked() {
+                    self.export_synthetic_seed_sql();
+                }
+                if primary_button(ui, "Apply INSERT (run)", self.theme).clicked() {
+                    self.apply_synthetic_seed();
+                }
+            });
+            if let Some(error) = &self.synthetic_error {
+                ui.colored_label(self.theme.danger, error);
+            }
+            if let Some(preview) = &self.synthetic_preview {
+                ui.label(RichText::new(&preview.message).small().color(self.theme.text_secondary));
+                for (i, row) in preview.rows.iter().take(8).enumerate() {
+                    ui.label(RichText::new(format!("#{i}: {}", row.join(" | "))).monospace().small());
+                }
+            }
+        });
+        ui.add_space(SPACE_MD);
         ui.horizontal_wrapped(|ui| {
             if primary_button_with_icon(ui, Icon::Play, "Run synthetic harness", self.theme).clicked() {
                 self.run_synthetic_transfer_harness(false);
@@ -518,6 +594,130 @@ impl DbProApp {
             });
             ui.add_space(SPACE_SM);
         }
+    }
+
+    fn build_synthetic_plan(&self) -> Result<db_pro_core::domain::synthetic_data::SyntheticPlan, String> {
+        use db_pro_core::domain::synthetic_data::{infer_generator, ColumnSpec, SyntheticPlan};
+        if self.synthetic_table.is_empty() {
+            return Err("select a table".into());
+        }
+        let (schema, name) = if let Some((s, t)) = self.synthetic_table.split_once('.') {
+            (s.to_owned(), t.to_owned())
+        } else {
+            (String::new(), self.synthetic_table.clone())
+        };
+        let detail = self
+            .schema
+            .table_details
+            .iter()
+            .find(|t| t.name == name && (schema.is_empty() || t.schema == schema))
+            .ok_or_else(|| "table metadata not loaded".to_owned())?;
+        let row_count: u64 = self
+            .synthetic_row_count
+            .parse()
+            .map_err(|_| "invalid row count".to_owned())?;
+        let seed: u64 = self.synthetic_seed.parse().map_err(|_| "invalid seed".to_owned())?;
+        let null_rate_pct: u8 = self
+            .synthetic_null_pct
+            .parse()
+            .map_err(|_| "invalid null %".to_owned())?;
+        let mut columns: Vec<ColumnSpec> = detail
+            .columns
+            .iter()
+            .map(|c| ColumnSpec {
+                name: c.name.clone(),
+                data_type: c.data_type.clone(),
+                nullable: c.nullable,
+                is_primary_key: c.is_primary_key,
+                generator: infer_generator(&c.data_type),
+                fk_values: Vec::new(),
+            })
+            .collect();
+        // FK-aware: cycle deterministic keys 1..=N for each FK column when possible.
+        for fk in &detail.foreign_keys {
+            for (from_col, _to_col) in fk.from_columns.iter().zip(fk.to_columns.iter()) {
+                if let Some(col) = columns.iter_mut().find(|c| c.name == *from_col) {
+                    let pool_len = row_count.clamp(1, 50) as usize;
+                    let pool: Vec<String> = (1..=pool_len).map(|i| i.to_string()).collect();
+                    col.fk_values = pool;
+                }
+            }
+        }
+        Ok(SyntheticPlan {
+            schema: detail.schema.clone(),
+            table: detail.name.clone(),
+            columns,
+            row_count,
+            seed,
+            null_rate_pct,
+        })
+    }
+
+    pub(crate) fn preview_synthetic_seed(&mut self) {
+        match self.build_synthetic_plan() {
+            Ok(plan) => match db_pro_core::domain::synthetic_data::generate_preview(&plan, 20) {
+                Ok(preview) => {
+                    self.synthetic_preview = Some(preview);
+                    self.synthetic_error = None;
+                }
+                Err(err) => {
+                    self.synthetic_error = Some(err);
+                    self.synthetic_preview = None;
+                }
+            },
+            Err(err) => {
+                self.synthetic_error = Some(err);
+                self.synthetic_preview = None;
+            }
+        }
+    }
+
+    pub(crate) fn export_synthetic_seed_sql(&mut self) {
+        let plan = match self.build_synthetic_plan() {
+            Ok(p) => p,
+            Err(err) => {
+                self.synthetic_error = Some(err);
+                return;
+            }
+        };
+        let count = plan.row_count.min(500) as usize;
+        let rows = match db_pro_core::domain::synthetic_data::generate_rows(&plan, count) {
+            Ok(r) => r,
+            Err(err) => {
+                self.synthetic_error = Some(err);
+                return;
+            }
+        };
+        match db_pro_core::domain::synthetic_data::render_insert_sql(&plan, &rows) {
+            Ok(sql) => {
+                self.set_active_query_text(sql);
+                self.active_tab = WorkspaceTab::Query;
+                self.synthetic_error = None;
+                self.runtime_message = format!("Synthetic INSERT SQL ({count} rows) exported to Query editor");
+            }
+            Err(err) => self.synthetic_error = Some(err),
+        }
+    }
+
+    pub(crate) fn apply_synthetic_seed(&mut self) {
+        let is_production = self
+            .active_connection()
+            .map(|c| c.environment.eq_ignore_ascii_case("Production"))
+            .unwrap_or(false);
+        if is_production && !self.synthetic_production_confirm {
+            self.synthetic_error = Some("Production confirmation required before applying seed INSERT".into());
+            return;
+        }
+        self.export_synthetic_seed_sql();
+        if self.synthetic_error.is_some() {
+            return;
+        }
+        if self.active_connection_id.is_none() || !self.connected {
+            self.synthetic_error = Some("Connect to a database before applying seed".into());
+            return;
+        }
+        self.dispatch_query();
+        self.runtime_message = "Synthetic seed INSERT dispatched via query runtime".into();
     }
 
     pub(crate) fn run_synthetic_transfer_harness(&mut self, cancel_midway: bool) {
