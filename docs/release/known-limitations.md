@@ -172,19 +172,19 @@ enabled UI driver card, and the service-level features that remain PostgreSQL-on
 | Must not contradict | Download page, installation docs |
 | Evidence | Measured on the release binary: `Signature=adhoc`, `flags=0x20002(adhoc,linker-signed)`, `TeamIdentifier=not set`, `Info.plist=not bound`; `spctl -a -vvv -t execute` → **rejected** (exit 3). No `notarytool`/`stapler`/`signtool` step exists; no signing secrets exist and none were added. Register: `R003` (`ACCEPTED`) |
 
-## LIM-010: License policy unresolved
+## LIM-010: Final binary third-party notice bundle pending
 
 | Field | Value |
 |---|---|
 | Category | brand |
-| Actual behavior | No LICENSE file in repository; redistribution policy not decided |
+| Actual behavior | The repository and workspace packages use MIT. The bundled Inter fonts retain SIL OFL 1.1, and the exact resolved dependency graph has been inventoried; a final binary notice bundle is not yet generated |
 | User-visible impact | Legal ambiguity for public release |
-| Reason | License decision pending (#119) |
-| Status | Blocked decision |
+| Reason | Exact-artifact dependency notices must be preserved before public binary distribution (#119) |
+| Status | Accepted v0.1 |
 | Target issue | #119 |
-| Safe release-note wording | Do not claim any license |
+| Safe release-note wording | Source and artifacts use MIT; third-party components retain their own licenses and the final notice bundle is pending |
 | Must not contradict | Repository, distribution metadata |
-| Evidence | No LICENSE file at repo root |
+| Evidence | `LICENSE`, `THIRD_PARTY_NOTICES.md`, `Cargo.lock`, `crates/ui/assets/fonts/OFL.txt` |
 
 ## LIM-011: CHECK constraints kept with residual SQLite parser risk
 

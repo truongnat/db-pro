@@ -48,7 +48,7 @@
 | MCP / external agent ecosystem | `BACKLOG` | LIM-008, #32 | — | **do not market** |
 | Packaging: macOS ARM64, unsigned, no installer, no auto-update | `IMPLEMENTED BUT NOT RELEASE-QUALIFIED` | LIM-017/018, `0.1.0-packaging.md`, runbook Steps 1/18/19 | a single `.app` archive that launches and persists state | disclose |
 | Windows / Linux runtime | `BACKLOG` | `R-WINLINUX`, #92/#93, `platform-prerequisites.md` (build vs run prerequisites) | — | **do not claim support** |
-| Public name / licence | unresolved **owner decision** | LIM-001, LIM-010, #30/#101/#119 | — | **do not state a product name as final** |
+| Public name / licence | Auren selected; MIT decided; rename and trademark diligence remain separate | LIM-001, LIM-010, #30/#101/#119 | — | **do not claim rename complete or trademark cleared** |
 
 ## 2. Positioning table for #97 — can say / cannot say yet
 

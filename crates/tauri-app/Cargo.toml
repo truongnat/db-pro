@@ -2,6 +2,7 @@
 name = "db-pro-tauri"
 version = "0.1.0"
 edition.workspace = true
+license.workspace = true
 
 [lib]
 name = "db_pro_tauri_lib"

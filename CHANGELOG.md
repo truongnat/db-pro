@@ -111,8 +111,8 @@ been created — the recommended sequence is `v0.1.0-rc.1` first, then the host-
 - `pg_dump`/`pg_restore` and `ssh` are not bundled and must be on `PATH`.
 - CHECK/Unique constraint introspection is unqualified; SSH tunnels are not end-to-end qualified.
 - Release artifacts are unsigned: macOS Gatekeeper and Windows SmartScreen will warn.
-- The project license is not defined (`R-LICENSE`) — public distribution is blocked until that
-  decision is made.
+- The project source and v0.1.0 artifacts now use MIT (`R-LICENSE` resolved); third-party notices
+  retain their own terms and the exact binary notice bundle remains a pre-public-release task.
 - The Agent panel is Preview and has no recorded live-provider verification run.
 
 ---

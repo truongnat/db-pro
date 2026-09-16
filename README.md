@@ -12,8 +12,9 @@ SQL, inspect results, edit table data safely, and keep workspace context across 
 **0.1.0 Release Candidate — not yet release-signed-off.**
 
 - Internal / private release-candidate qualification: **YES**
-- Public distribution: **NO** — the project license is undecided (see
-  [Governance](#governance--license))
+- Public distribution: **NO** — MIT is selected, but packaged GUI/runtime and
+  cross-platform evidence are still incomplete (see [Governance](#governance--license)
+  and [release readiness](#release-readiness))
 
 Candidate SHA `85a7fa3cc0a84c56ac2a5049ce08130db06e0a20`. Exact-HEAD quality
 gates are green on the pinned toolchain (rustc 1.95.0) with `cargo test --workspace` = 815 passed /
@@ -234,11 +235,15 @@ for parity comparison. It is not built by CI and is not shipped.
 
 ## Governance / license
 
-The project license is **not defined**: there is no `LICENSE` file and no `license`/`license-file`
-key in any `Cargo.toml`. This is an open governance item that blocks public distribution — the
-0.1.0 artifacts may be built and evaluated internally, but must not be presented as licensed for
-public use, and the release archives deliberately contain no `LICENSE` file. See `R-LICENSE` in
-[`docs/release/risk-register.md`](docs/release/risk-register.md).
+The project source and future v0.1.0 artifacts are governed by the [MIT License](LICENSE). All
+workspace packages declare `license = "MIT"` through the root `Cargo.toml`. The existing internal
+candidate archives predate this policy and must be rebuilt before public distribution. Third-party
+material keeps its own terms; see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and the
+bundled [Inter font license](crates/ui/assets/fonts/OFL.txt).
+
+The public product identity is **Auren**. The Auren name and logos are not granted by the MIT
+license and remain subject to separate trademark rights. The source/binary rename is tracked
+separately from this license policy.
 
 ## Release readiness
 
@@ -254,7 +259,7 @@ Do not tag `v0.1.0` until:
    CI-produced artifact of the final run); the interactive GUI
    steps are `NOT VERIFIED` (§7.7, runbook §8);
 4. the runtime evidence gaps (V01-01…V01-05) are closed or explicitly accepted;
-5. the license decision is made.
+5. the MIT license and required third-party notice bundle are present for the exact release.
 
 Steps, rollback and install-smoke procedure: [`docs/release/0.1.0-handoff.md`](docs/release/0.1.0-handoff.md).
 

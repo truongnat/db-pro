@@ -58,16 +58,16 @@ blocks.
 
 ## 1. v0.1 release register
 
-### R-LICENSE — no license selected
+### R-LICENSE — MIT license selected
 
 | Field | Value |
 |---|---|
 | ID | `R-LICENSE` |
-| Description | There is no `LICENSE` file anywhere in the tree and no `license`/`license-file` key in `Cargo.toml` or any `crates/*/Cargo.toml`. No license has been chosen. Confirmed 2026-09-14 by `git ls-files \| grep -iE '(^\|/)(LICENSE\|COPYING\|NOTICE\|UNLICENSE)'` (no matches) and by grep over every manifest. The only license text in the repo is `crates/ui/assets/fonts/OFL.txt` (SIL OFL for the bundled Inter font — a third-party asset license, not a project license). |
+| Description | MIT is selected for the project and future v0.1.0 artifacts. `LICENSE` and workspace/package metadata are present. Existing candidate archives predate this policy and must be rebuilt. The bundled Inter font remains under SIL OFL 1.1, and resolved Rust dependency notices remain separately inventoried in `THIRD_PARTY_NOTICES.md`. |
 | Severity | `P1` (governance) |
-| Owner / Decision | **User/project owner decision required.** Not chosen, not added, not implied by this pass. |
-| Status | `OPEN` |
-| Release disposition | **`BLOCKING`** — blocks **public distribution only**. The internal/private release candidate may be built and evaluated; the artifacts must not be represented as licensed for public use, and the archives deliberately contain no `LICENSE` file. |
+| Owner / Decision | **Project owner selected MIT on 2026-09-16.** The Auren name and logos remain outside the code license. |
+| Status | `RESOLVED` |
+| Release disposition | **`RESOLVED`** for the source-license decision. A complete exact-artifact third-party notice bundle remains required before public binary distribution. |
 
 ### R003 — code signing / notarization not configured
 
@@ -260,7 +260,7 @@ blocks.
 
 | ID | Description | Severity | Disposition |
 |---|---|---|---|
-| `B-1` | `R-LICENSE`: no LICENSE file / no manifest metadata | governance | `BLOCKING` (public distribution) — see `R-LICENSE` |
+| `B-1` | `R-LICENSE`: project license policy and manifest metadata | governance | **`FIXED`** by MIT policy, root `LICENSE`, workspace/package metadata and notice inventory — see `R-LICENSE` |
 | `B-2` | All artifacts `UNSIGNED`; macOS `spctl` rejects | P2 | `ACCEPTED` if stated — see `R003` |
 | `B-3` | macOS x64 not built; runner architecture historically implicit, now pinned to `macos-14` | P2 | `DEFERRED` — see `R-PKG-DEFER`; the pin is fixed, the x64 slice is not offered |
 | `B-4` | No `.app` bundle originally → no bundle ID, capture harness cannot see the app | P2 | **`FIXED`** — `scripts/release/package-macos.sh` builds a minimal `DB Pro.app` with a generated `Info.plist` |
@@ -352,7 +352,7 @@ blocks.
 
 | ID | Severity | Status | Release disposition | Blocks |
 |---|---|---|---|---|
-| `R-LICENSE` | P1 | OPEN | **BLOCKING** | public distribution |
+| `R-LICENSE` | P1 | RESOLVED | **RESOLVED** | source/artifact license policy |
 | `R-WINLINUX` | P1 | OPEN (build+package verified in CI, run `34860902181`) | `ACCEPTED` (internal RC) / **`BLOCKING`** | cross-platform *runtime* claims |
 | `R-GUI-SMOKE` | P1 | OPEN | `ACCEPTED` (internal RC, disclosed) / **`BLOCKING`** | interactive/visual runtime claims |
 | `R-015` | P1 | ACCEPTED | `ACCEPTED` | tab-restore claim |
@@ -379,8 +379,7 @@ blocks.
 | `R-KEYRING-FALLBACK` | P2 | FIXED | **`FIXED`** | — (was: dev-only file fallback wired into release builds; fixed in `78fb39b8`) |
 | `R-STATE-MIGRATION` | P2 | ACCEPTED | `ACCEPTED` | — |
 
-**Blockers to public release:** `R-LICENSE` (no license chosen — the binding reason), the
-interactive GUI install-smoke gap (`R-GUI-SMOKE`), unsigned artifacts (accepted with disclosure),
+**Blockers to public release:** the interactive GUI install-smoke gap (`R-GUI-SMOKE`), unsigned artifacts (accepted with disclosure),
 the open V01-01…V01-05 runtime evidence gaps, and Windows/Linux runtime being unverified.
 **Not** a blocker any more: the packaging/build pipeline and the final artifacts — run
 `34860902181` produced, packaged and checksum-verified all three platforms for the candidate
@@ -423,6 +422,21 @@ DECISION D006  (2026-09-14)
 Question: Does 0.1.0 ship the Agent?
 Decision: the Agent **panel** ships, labelled Preview; production/autonomous execution does not.
 Rationale: the preview is useful and confirmation-gated; autonomy is unverified and out of scope.
+```
+
+```
+DECISION D007 (2026-09-16)
+Question: Which license governs the Auren source repository and v0.1.0 artifacts?
+Source issues: #119, #136
+Decision: MIT License. Add root LICENSE and declare MIT in the workspace and every package.
+         Preserve third-party licenses and notices; Auren names and logos are not licensed as
+         trademarks by MIT.
+Rationale: permissive redistribution is the lowest-friction policy for a public desktop tool;
+           no copyleft obligations are introduced.
+Effective from SHA/date: `a81757aadcb97062c74259b83b304ede051ca5ed` decision baseline / 2026-09-16
+Impacts: LICENSE, Cargo manifests, README, release notes, readiness and notice inventory.
+Follow-up issues: final exact-artifact third-party notice bundle before public binary release.
+Supersedes: R-LICENSE OPEN / HD-001 PENDING.
 ```
 
 ## 4. Candidate invalidation log
