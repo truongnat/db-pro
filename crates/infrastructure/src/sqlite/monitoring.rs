@@ -5,7 +5,9 @@ use std::sync::Arc;
 
 use db_pro_core::domain::connection::ConnectionHandle;
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::monitoring::{LocalMonitorState, MonitorSession};
+use db_pro_core::domain::monitoring::{
+    LocalMonitorState, MaintenanceAction, MonitorLock, MonitorSession, RelationSizeStat, ServerSummary,
+};
 use db_pro_core::domain::query::CellValue;
 use db_pro_core::ports::{DbConnector, MonitoringPort};
 
@@ -78,4 +80,50 @@ impl MonitoringPort for SqliteMonitoringPort {
             "SQLite has no backend sessions to terminate".into(),
         ))
     }
+
+    async fn list_locks(&self, _handle: &ConnectionHandle) -> Result<Vec<MonitorLock>, DbError> {
+        Ok(Vec::new())
+    }
+
+    async fn relation_sizes(
+        &self,
+        _handle: &ConnectionHandle,
+        _limit: usize,
+    ) -> Result<Vec<RelationSizeStat>, DbError> {
+        Ok(Vec::new())
+    }
+
+    async fn server_summary(&self, _handle: &ConnectionHandle) -> Result<Option<ServerSummary>, DbError> {
+        Ok(None)
+    }
+
+    async fn run_maintenance(
+        &self,
+        handle: &ConnectionHandle,
+        _schema: Option<String>,
+        table: Option<String>,
+        action: MaintenanceAction,
+    ) -> Result<(), DbError> {
+        let sql = match (action, table.as_deref()) {
+            (MaintenanceAction::Vacuum | MaintenanceAction::VacuumAnalyze, Some(table)) => {
+                let table = quote_ident(table)?;
+                format!("VACUUM {table}")
+            }
+            (MaintenanceAction::Vacuum | MaintenanceAction::VacuumAnalyze, None) => "VACUUM".into(),
+            (MaintenanceAction::Analyze, Some(table)) => {
+                let table = quote_ident(table)?;
+                format!("ANALYZE {table}")
+            }
+            (MaintenanceAction::Analyze, None) => "ANALYZE".into(),
+        };
+        self.connector.execute(handle, &sql, &[]).await?;
+        Ok(())
+    }
+}
+
+fn quote_ident(value: &str) -> Result<String, DbError> {
+    if value.trim().is_empty() || value.contains('\0') {
+        return Err(DbError::Validation("invalid identifier for maintenance".into()));
+    }
+    Ok(format!("\"{}\"", value.replace('"', "\"\"")))
 }

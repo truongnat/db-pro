@@ -299,6 +299,7 @@ pub struct DbProApp {
     monitoring_last_poll: Option<std::time::Instant>,
     monitoring_terminate_confirm: Option<i64>,
     monitoring_filter_active_only: bool,
+    monitoring_maintenance_confirm: Option<db_pro_core::domain::monitoring::MaintenanceAction>,
     schema_workbench: schema_workbench::SchemaWorkbenchState,
     schema_snapshot: Option<schema_compare::UiSchemaSnapshot>,
     schema_diff: Option<schema_compare::UiSchemaDiffResult>,

@@ -69,9 +69,23 @@ impl MonitoringService {
             DriverType::Postgres => None,
             DriverType::Mysql => None,
         };
+        let (locks, relation_sizes, server) = match driver {
+            DriverType::Postgres => (
+                port.list_locks(&handle).await.unwrap_or_default(),
+                port.relation_sizes(&handle, 40).await.unwrap_or_default(),
+                port.server_summary(&handle).await.unwrap_or(None),
+            ),
+            DriverType::SQLite => (Vec::new(), Vec::new(), None),
+            DriverType::Mysql => unreachable!("port_for rejects mysql"),
+        };
 
         let message = match driver {
-            DriverType::Postgres => format!("{} session(s)", sessions.len()),
+            DriverType::Postgres => format!(
+                "{} session(s) · {} lock row(s) · {} relation(s)",
+                sessions.len(),
+                locks.len(),
+                relation_sizes.len()
+            ),
             DriverType::SQLite => "SQLite local file state (no server sessions)".into(),
             DriverType::Mysql => "MySQL session monitoring is not enabled yet".into(),
         };
@@ -80,10 +94,44 @@ impl MonitoringService {
             connection_id: connection_id.to_string(),
             driver: format!("{driver:?}"),
             sessions,
+            locks,
+            relation_sizes,
+            server,
             local,
             fetched_at_ms: now_ms(),
             message,
         })
+    }
+
+    pub async fn run_maintenance(
+        &self,
+        connection_id: &ConnectionId,
+        schema: Option<&str>,
+        table: Option<&str>,
+        action: crate::domain::monitoring::MaintenanceAction,
+        confirmed: bool,
+    ) -> Result<(), DbError> {
+        if !confirmed {
+            return Err(DbError::Validation(format!(
+                "maintenance action {} requires explicit confirmation",
+                action.as_label()
+            )));
+        }
+        let driver = self.driver(connection_id).await?;
+        let config = self
+            .connections
+            .get_config(connection_id)
+            .await?
+            .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} not found")))?;
+        if config.readonly {
+            return Err(DbError::QueryFailed(
+                "connection is read-only — maintenance actions are not allowed".into(),
+            ));
+        }
+        let port = self.port_for(driver)?;
+        let handle = self.active_handle(connection_id)?;
+        port.run_maintenance(&handle, schema.map(str::to_owned), table.map(str::to_owned), action)
+            .await
     }
 
     pub async fn cancel_backend(&self, connection_id: &ConnectionId, backend_id: i64) -> Result<bool, DbError> {
@@ -190,6 +238,9 @@ mod tests {
                 is_current: false,
             }])
         });
+        port.expect_list_locks().returning(|_| Ok(Vec::new()));
+        port.expect_relation_sizes().returning(|_, _| Ok(Vec::new()));
+        port.expect_server_summary().returning(|_| Ok(None));
 
         let registry = Arc::new(ConnectionRegistry::new());
         registry.register(id, handle);
@@ -281,5 +332,30 @@ mod tests {
             Box::new(repo),
         );
         assert!(service.cancel_backend(&id, 99).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn maintenance_requires_confirmation() {
+        let id = ConnectionId::new();
+        let mut repo = MockConnectionRepository::new();
+        let cfg = config(DriverType::Postgres);
+        repo.expect_get_config().returning(move |_| Ok(Some(cfg.clone())));
+        let service = MonitoringService::new(
+            Box::new(MockMonitoringPort::new()),
+            Box::new(MockMonitoringPort::new()),
+            Arc::new(ConnectionRegistry::new()),
+            Box::new(repo),
+        );
+        let err = service
+            .run_maintenance(
+                &id,
+                Some("public"),
+                Some("t"),
+                crate::domain::monitoring::MaintenanceAction::Analyze,
+                false,
+            )
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("confirmation"));
     }
 }

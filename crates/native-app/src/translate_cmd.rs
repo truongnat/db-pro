@@ -114,6 +114,7 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::MonitoringSnapshot { .. }
         | UiCommand::MonitoringCancelBackend { .. }
         | UiCommand::MonitoringTerminateBackend { .. }
+        | UiCommand::MonitoringMaintenance { .. }
         | UiCommand::CancelQuery { .. }
         | UiCommand::RequestSqlPrediction { .. }
         | UiCommand::CancelSqlPrediction { .. } => translate_execution_command(command),
@@ -589,6 +590,21 @@ pub(crate) fn translate_execution_command(command: UiCommand) -> Option<RuntimeC
             request_id: runtime_request_id(request_id),
             connection_id,
             backend_id,
+        }),
+        UiCommand::MonitoringMaintenance {
+            request_id,
+            connection_id,
+            schema,
+            table,
+            action,
+            confirmed,
+        } => Some(RuntimeCommand::MonitoringMaintenance {
+            request_id: runtime_request_id(request_id),
+            connection_id,
+            schema,
+            table,
+            action,
+            confirmed,
         }),
         UiCommand::CancelQuery { request_id } => Some(RuntimeCommand::CancelQuery {
             request_id: runtime_request_id(request_id),

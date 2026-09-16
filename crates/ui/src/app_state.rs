@@ -295,6 +295,7 @@ impl Default for DbProApp {
             monitoring_last_poll: None,
             monitoring_terminate_confirm: None,
             monitoring_filter_active_only: true,
+            monitoring_maintenance_confirm: None,
             schema_workbench: schema_workbench::SchemaWorkbenchState::default(),
             schema_snapshot: None,
             schema_diff: None,

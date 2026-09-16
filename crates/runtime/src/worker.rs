@@ -215,6 +215,14 @@ pub enum RuntimeCommand {
         connection_id: String,
         backend_id: i64,
     },
+    MonitoringMaintenance {
+        request_id: RuntimeRequestId,
+        connection_id: String,
+        schema: Option<String>,
+        table: Option<String>,
+        action: db_pro_core::domain::monitoring::MaintenanceAction,
+        confirmed: bool,
+    },
     CancelQuery {
         request_id: RuntimeRequestId,
     },
@@ -1612,6 +1620,35 @@ pub fn spawn_worker(
                                 action: "terminate",
                                 backend_id,
                                 succeeded,
+                            },
+                            Err(error) => RuntimeEvent::Failed {
+                                request_id,
+                                message: error.message,
+                            },
+                        };
+                        let _ = event_tx.send(event).await;
+                    });
+                }
+                RuntimeCommand::MonitoringMaintenance {
+                    request_id,
+                    connection_id,
+                    schema,
+                    table,
+                    action,
+                    confirmed,
+                } => {
+                    let monitoring_api = runtime.monitoring_api();
+                    let event_tx = event_tx.clone();
+                    tokio::spawn(async move {
+                        let event = match monitoring_api
+                            .run_maintenance(&connection_id, schema.as_deref(), table.as_deref(), action, confirmed)
+                            .await
+                        {
+                            Ok(()) => RuntimeEvent::MonitoringActionCompleted {
+                                request_id,
+                                action: "maintenance",
+                                backend_id: 0,
+                                succeeded: true,
                             },
                             Err(error) => RuntimeEvent::Failed {
                                 request_id,

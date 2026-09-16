@@ -548,6 +548,14 @@ pub enum UiCommand {
         connection_id: String,
         backend_id: i64,
     },
+    MonitoringMaintenance {
+        request_id: RequestId,
+        connection_id: String,
+        schema: Option<String>,
+        table: Option<String>,
+        action: db_pro_core::domain::monitoring::MaintenanceAction,
+        confirmed: bool,
+    },
     CancelQuery {
         request_id: RequestId,
     },

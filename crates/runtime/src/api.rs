@@ -937,6 +937,21 @@ impl MonitoringApi {
             .await
             .map_err(Into::into)
     }
+
+    pub async fn run_maintenance(
+        &self,
+        connection_id: &str,
+        schema: Option<&str>,
+        table: Option<&str>,
+        action: db_pro_core::domain::monitoring::MaintenanceAction,
+        confirmed: bool,
+    ) -> Result<(), DbErrorDto> {
+        let connection_id = parse_connection_id(connection_id)?;
+        self.service
+            .run_maintenance(&connection_id, schema, table, action, confirmed)
+            .await
+            .map_err(Into::into)
+    }
 }
 
 #[derive(Clone)]

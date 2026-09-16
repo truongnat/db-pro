@@ -976,6 +976,94 @@ impl DbProApp {
                     ui.add_space(SPACE_SM);
                 }
             }
+
+            if let Some(server) = &snapshot.server {
+                ui.add_space(SPACE_MD);
+                section_label(ui, "SERVER", self.theme);
+                ui.add_space(SPACE_SM);
+                if let Some(version) = &server.version {
+                    ui.label(RichText::new(version).small().color(self.theme.text_secondary));
+                }
+                ui.label(
+                    RichText::new(format!(
+                        "db={} · connections={:?}/{:?} · size={}",
+                        server.current_database.as_deref().unwrap_or("?"),
+                        server.current_connections,
+                        server.max_connections,
+                        server
+                            .database_size_bytes
+                            .map(db_pro_core::domain::monitoring::format_bytes_exact)
+                            .unwrap_or_else(|| "—".into())
+                    ))
+                    .small()
+                    .color(self.theme.text_muted),
+                );
+            }
+
+            let blocking = snapshot.blocking_locks();
+            if !blocking.is_empty() {
+                ui.add_space(SPACE_MD);
+                section_label(ui, "LOCKS / BLOCKERS", self.theme);
+                ui.add_space(SPACE_SM);
+                for lock in blocking.into_iter().take(30) {
+                    ui.label(
+                        RichText::new(format!(
+                            "pid {} {} · blocker={:?} · {} · {}",
+                            lock.locked_pid,
+                            if lock.granted { "granted" } else { "waiting" },
+                            lock.blocker_pid,
+                            lock.mode.as_deref().unwrap_or("?"),
+                            lock.relation.as_deref().unwrap_or("?")
+                        ))
+                        .small()
+                        .monospace()
+                        .color(self.theme.text_secondary),
+                    );
+                }
+            }
+
+            if !snapshot.relation_sizes.is_empty() {
+                ui.add_space(SPACE_MD);
+                section_label(ui, "SIZE / STATS", self.theme);
+                ui.add_space(SPACE_SM);
+                for rel in snapshot.relation_sizes.iter().take(20) {
+                    ui.label(
+                        RichText::new(format!(
+                            "{}.{} ({}) · {} · seq={:?} idx={:?} dead={:?}",
+                            rel.schema,
+                            rel.name,
+                            rel.kind,
+                            db_pro_core::domain::monitoring::format_bytes_exact(rel.total_bytes),
+                            rel.seq_scan,
+                            rel.idx_scan,
+                            rel.n_dead_tup
+                        ))
+                        .small()
+                        .color(self.theme.text_secondary),
+                    );
+                }
+            }
+
+            ui.add_space(SPACE_MD);
+            section_label(ui, "MAINTENANCE", self.theme);
+            ui.add_space(SPACE_SM);
+            ui.label(
+                RichText::new("Actions run through MonitoringService — SQL is never built in the UI.")
+                    .small()
+                    .color(self.theme.text_muted),
+            );
+            ui.horizontal_wrapped(|ui| {
+                use db_pro_core::domain::monitoring::MaintenanceAction;
+                for action in [
+                    MaintenanceAction::Analyze,
+                    MaintenanceAction::Vacuum,
+                    MaintenanceAction::VacuumAnalyze,
+                ] {
+                    if secondary_button(ui, action.as_label(), self.theme).clicked() {
+                        self.monitoring_maintenance_confirm = Some(action);
+                    }
+                }
+            });
         } else if connected {
             ui.label(
                 RichText::new("Refresh to load sessions (or wait for auto-refresh).")
@@ -1007,6 +1095,38 @@ impl DbProApp {
                         }
                         if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
                             self.monitoring_terminate_confirm = None;
+                        }
+                    });
+                });
+        }
+
+        if let Some(action) = self.monitoring_maintenance_confirm {
+            egui::Window::new("Run maintenance?")
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .show(ui.ctx(), |ui| {
+                    ui.label(format!(
+                        "Run {} on the active database? Long-running VACUUM can take locks.",
+                        action.as_label()
+                    ));
+                    ui.horizontal(|ui| {
+                        if danger_button(ui, action.as_label(), self.theme).clicked() {
+                            if let Some(connection_id) = self.active_connection_id.clone() {
+                                let request_id = self.task_bridge.next_request_id();
+                                self.dispatch_command(UiCommand::MonitoringMaintenance {
+                                    request_id,
+                                    connection_id,
+                                    schema: None,
+                                    table: None,
+                                    action,
+                                    confirmed: true,
+                                });
+                            }
+                            self.monitoring_maintenance_confirm = None;
+                        }
+                        if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                            self.monitoring_maintenance_confirm = None;
                         }
                     });
                 });

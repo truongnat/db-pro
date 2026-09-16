@@ -5,7 +5,9 @@ use std::sync::Arc;
 
 use db_pro_core::domain::connection::ConnectionHandle;
 use db_pro_core::domain::error::DbError;
-use db_pro_core::domain::monitoring::{LocalMonitorState, MonitorSession};
+use db_pro_core::domain::monitoring::{
+    LocalMonitorState, MaintenanceAction, MonitorLock, MonitorSession, RelationSizeStat, ServerSummary,
+};
 use db_pro_core::domain::query::{CellValue, QueryParam};
 use db_pro_core::ports::{DbConnector, MonitoringPort};
 
@@ -130,4 +132,189 @@ impl MonitoringPort for PostgresMonitoringPort {
             .map(cell_bool)
             .unwrap_or(false))
     }
+
+    async fn list_locks(&self, handle: &ConnectionHandle) -> Result<Vec<MonitorLock>, DbError> {
+        let result = self
+            .connector
+            .query(
+                handle,
+                r#"
+                SELECT
+                    a.pid AS locked_pid,
+                    blocked.pid AS blocker_pid,
+                    COALESCE(c.relname, l.locktype::text) AS relation,
+                    l.locktype::text,
+                    l.mode::text,
+                    l.granted,
+                    CASE
+                        WHEN a.state = 'active' AND a.wait_event_type = 'Lock' AND a.query_start IS NOT NULL
+                        THEN GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - a.query_start)) * 1000))::bigint
+                        ELSE NULL
+                    END AS waiting_ms
+                FROM pg_catalog.pg_locks l
+                JOIN pg_catalog.pg_stat_activity a ON a.pid = l.pid
+                LEFT JOIN pg_catalog.pg_class c ON c.oid = l.relation
+                LEFT JOIN LATERAL (
+                    SELECT DISTINCT blocking.pid
+                    FROM pg_catalog.pg_locks waiting
+                    JOIN pg_catalog.pg_locks blocking
+                      ON waiting.locktype = blocking.locktype
+                     AND waiting.database IS NOT DISTINCT FROM blocking.database
+                     AND waiting.relation IS NOT DISTINCT FROM blocking.relation
+                     AND waiting.page IS NOT DISTINCT FROM blocking.page
+                     AND waiting.tuple IS NOT DISTINCT FROM blocking.tuple
+                     AND waiting.virtualxid IS NOT DISTINCT FROM blocking.virtualxid
+                     AND waiting.transactionid IS NOT DISTINCT FROM blocking.transactionid
+                     AND waiting.classid IS NOT DISTINCT FROM blocking.classid
+                     AND waiting.objid IS NOT DISTINCT FROM blocking.objid
+                     AND waiting.objsubid IS NOT DISTINCT FROM blocking.objsubid
+                     AND waiting.pid <> blocking.pid
+                     AND waiting.granted = false
+                     AND blocking.granted = true
+                    WHERE waiting.pid = a.pid
+                    LIMIT 1
+                ) blocked ON true
+                WHERE a.backend_type = 'client backend'
+                ORDER BY l.granted, a.pid
+                LIMIT 200
+                "#,
+                &[],
+            )
+            .await?;
+        let mut locks = Vec::with_capacity(result.rows.len());
+        for row in result.rows {
+            let cells = &row.0;
+            let locked_pid = cells
+                .first()
+                .and_then(cell_i64)
+                .ok_or_else(|| DbError::Internal("lock row missing pid".into()))?;
+            locks.push(MonitorLock {
+                locked_pid,
+                blocker_pid: cells.get(1).and_then(cell_i64),
+                relation: cells.get(2).and_then(cell_text),
+                lock_type: cells.get(3).and_then(cell_text),
+                mode: cells.get(4).and_then(cell_text),
+                granted: cells.get(5).map(cell_bool).unwrap_or(false),
+                waiting_ms: cells.get(6).and_then(cell_i64).map(|v| v as u64),
+            });
+        }
+        Ok(locks)
+    }
+
+    async fn relation_sizes(&self, handle: &ConnectionHandle, limit: usize) -> Result<Vec<RelationSizeStat>, DbError> {
+        let limit = limit.clamp(1, 200) as i64;
+        let result = self
+            .connector
+            .query(
+                handle,
+                r#"
+                SELECT
+                    n.nspname AS schema,
+                    c.relname AS name,
+                    CASE c.relkind
+                        WHEN 'r' THEN 'table'
+                        WHEN 'i' THEN 'index'
+                        WHEN 'm' THEN 'matview'
+                        ELSE c.relkind::text
+                    END AS kind,
+                    pg_total_relation_size(c.oid)::bigint AS total_bytes,
+                    pg_relation_size(c.oid)::bigint AS table_bytes,
+                    GREATEST(0, pg_total_relation_size(c.oid) - pg_relation_size(c.oid))::bigint AS index_bytes,
+                    s.seq_scan,
+                    s.idx_scan,
+                    s.n_live_tup,
+                    s.n_dead_tup
+                FROM pg_catalog.pg_class c
+                JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                LEFT JOIN pg_catalog.pg_stat_all_tables s
+                  ON s.relid = c.oid
+                WHERE c.relkind IN ('r', 'm', 'i')
+                  AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+                ORDER BY pg_total_relation_size(c.oid) DESC
+                LIMIT $1
+                "#,
+                &[QueryParam::Int64(limit)],
+            )
+            .await?;
+        let mut out = Vec::with_capacity(result.rows.len());
+        for row in result.rows {
+            let cells = &row.0;
+            out.push(RelationSizeStat {
+                schema: cells.first().and_then(cell_text).unwrap_or_default(),
+                name: cells.get(1).and_then(cell_text).unwrap_or_default(),
+                kind: cells.get(2).and_then(cell_text).unwrap_or_else(|| "table".into()),
+                total_bytes: cells.get(3).and_then(cell_i64).unwrap_or(0).max(0) as u64,
+                table_bytes: cells.get(4).and_then(cell_i64).unwrap_or(0).max(0) as u64,
+                index_bytes: cells.get(5).and_then(cell_i64).unwrap_or(0).max(0) as u64,
+                seq_scan: cells.get(6).and_then(cell_i64).map(|v| v.max(0) as u64),
+                idx_scan: cells.get(7).and_then(cell_i64).map(|v| v.max(0) as u64),
+                n_live_tup: cells.get(8).and_then(cell_i64).map(|v| v.max(0) as u64),
+                n_dead_tup: cells.get(9).and_then(cell_i64).map(|v| v.max(0) as u64),
+            });
+        }
+        Ok(out)
+    }
+
+    async fn server_summary(&self, handle: &ConnectionHandle) -> Result<Option<ServerSummary>, DbError> {
+        let result = self
+            .connector
+            .query(
+                handle,
+                r#"
+                SELECT
+                    version(),
+                    current_database(),
+                    (SELECT setting::bigint FROM pg_catalog.pg_settings WHERE name = 'max_connections'),
+                    (SELECT count(*)::bigint FROM pg_catalog.pg_stat_activity WHERE backend_type = 'client backend'),
+                    pg_database_size(current_database())::bigint
+                "#,
+                &[],
+            )
+            .await?;
+        let Some(row) = result.rows.first() else {
+            return Ok(None);
+        };
+        let cells = &row.0;
+        Ok(Some(ServerSummary {
+            version: cells.first().and_then(cell_text),
+            current_database: cells.get(1).and_then(cell_text),
+            max_connections: cells.get(2).and_then(cell_i64).map(|v| v.max(0) as u64),
+            current_connections: cells.get(3).and_then(cell_i64).map(|v| v.max(0) as u64),
+            database_size_bytes: cells.get(4).and_then(cell_i64).map(|v| v.max(0) as u64),
+        }))
+    }
+
+    async fn run_maintenance(
+        &self,
+        handle: &ConnectionHandle,
+        schema: Option<String>,
+        table: Option<String>,
+        action: MaintenanceAction,
+    ) -> Result<(), DbError> {
+        let sql = match (schema.as_deref(), table.as_deref()) {
+            (Some(schema), Some(table)) => {
+                let schema = quote_ident(schema)?;
+                let table = quote_ident(table)?;
+                match action {
+                    MaintenanceAction::Vacuum => format!("VACUUM {schema}.{table}"),
+                    MaintenanceAction::Analyze => format!("ANALYZE {schema}.{table}"),
+                    MaintenanceAction::VacuumAnalyze => format!("VACUUM ANALYZE {schema}.{table}"),
+                }
+            }
+            _ => match action {
+                MaintenanceAction::Vacuum => "VACUUM".into(),
+                MaintenanceAction::Analyze => "ANALYZE".into(),
+                MaintenanceAction::VacuumAnalyze => "VACUUM ANALYZE".into(),
+            },
+        };
+        self.connector.execute(handle, &sql, &[]).await?;
+        Ok(())
+    }
+}
+
+fn quote_ident(value: &str) -> Result<String, DbError> {
+    if value.trim().is_empty() || value.contains('\0') {
+        return Err(DbError::Validation("invalid identifier for maintenance".into()));
+    }
+    Ok(format!("\"{}\"", value.replace('"', "\"\"")))
 }
