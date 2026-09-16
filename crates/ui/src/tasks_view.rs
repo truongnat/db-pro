@@ -1,5 +1,6 @@
 //! Saved database tasks activity (#206).
 use super::*;
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use db_pro_core::domain::saved_task::{
     SavedTask, SavedTaskPayload, SavedTaskRun, SavedTaskRunStatus, SavedTaskRunTrigger, SavedTaskStore, TaskSchedule,
 };
@@ -37,10 +38,22 @@ impl DbProApp {
         ui.add_space(8.0);
 
         ui.horizontal(|ui| {
-            if compact_button(ui, "New SQL task", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("New SQL task")
+                .variant(ButtonVariant::Default)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.begin_new_sql_task();
             }
-            if compact_button(ui, "New backup task", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("New backup task")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.begin_new_backup_task();
             }
         });

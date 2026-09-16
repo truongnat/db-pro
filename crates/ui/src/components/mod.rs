@@ -107,6 +107,7 @@ mod tests {
             include_str!("../table_view.rs"),
             include_str!("../connection_view.rs"),
             include_str!("../query_dialogs_view.rs"),
+            include_str!("../files_activity_view.rs"),
         ];
 
         for source in sources {

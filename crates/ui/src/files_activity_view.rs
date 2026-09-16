@@ -1,5 +1,6 @@
 //! Files / workspace activity sidebar: tree, search, migrations, tasks, graph.
 use super::*;
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::segmented_control;
 use egui::{vec2, Align, Layout, RichText};
 use lucide_icons::Icon;
@@ -9,15 +10,23 @@ impl DbProApp {
         ui.horizontal(|ui| {
             section_label(ui, "WORKSPACE", self.theme);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if compact_icon_button(ui, Icon::FolderOpen, self.theme)
-                    .on_hover_text("Add / open folder")
+                if Button::new(self.theme)
+                    .icon(Icon::FolderOpen)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Add / open folder")
+                    .show(ui)
                     .clicked()
                 {
                     self.request_open_workspace_folder();
                 }
                 if !self.ide_workspace.roots.is_empty()
-                    && compact_icon_button(ui, Icon::RefreshCw, self.theme)
-                        .on_hover_text("Refresh tree")
+                    && Button::new(self.theme)
+                        .icon(Icon::RefreshCw)
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::IconSm)
+                        .tooltip("Refresh tree")
+                        .show(ui)
                         .clicked()
                 {
                     self.refresh_workspace_folder();
@@ -33,7 +42,14 @@ impl DbProApp {
                     .color(self.theme.text_muted),
             );
             ui.add_space(8.0);
-            if secondary_button_with_icon(ui, Icon::FolderOpen, "Open Folder", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::FolderOpen)
+                .text("Open Folder")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.request_open_workspace_folder();
             }
             if !self.ide_workspace.recent_roots.is_empty() {
@@ -70,10 +86,22 @@ impl DbProApp {
                     self.ide_workspace.active_root = index;
                 }
             }
-            if compact_button(ui, "+ Root", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("+ Root")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.request_open_workspace_folder();
             }
-            if compact_button(ui, "Remove", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Remove")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.ide_workspace.remove_active_root();
             }
         });
@@ -95,7 +123,14 @@ impl DbProApp {
             if ui.selectable_label(!trusted, "Untrusted").clicked() {
                 self.ide_workspace.set_trusted(false);
             }
-            if ghost_button_with_icon(ui, Icon::X, "Close", self.theme).clicked() {
+            if Button::new(self.theme)
+                .icon(Icon::X)
+                .text("Close")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.close_workspace_folder();
             }
         });
@@ -159,26 +194,42 @@ impl DbProApp {
         ui.horizontal(|ui| {
             section_label(ui, "AGENT CONTEXT", self.theme);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if compact_icon_button(ui, Icon::Trash2, self.theme)
-                    .on_hover_text("Clear context")
+                if Button::new(self.theme)
+                    .icon(Icon::Trash2)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Clear context")
+                    .show(ui)
                     .clicked()
                 {
                     self.clear_workspace_context_items();
                 }
-                if compact_icon_button(ui, Icon::GitCompare, self.theme)
-                    .on_hover_text("Check schema drift")
+                if Button::new(self.theme)
+                    .icon(Icon::GitCompare)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Check schema drift")
+                    .show(ui)
                     .clicked()
                 {
                     self.refresh_schema_drift_watch();
                 }
-                if compact_icon_button(ui, Icon::Camera, self.theme)
-                    .on_hover_text("Export schema snapshot")
+                if Button::new(self.theme)
+                    .icon(Icon::Camera)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Export schema snapshot")
+                    .show(ui)
                     .clicked()
                 {
                     self.export_live_schema_snapshot();
                 }
-                if compact_icon_button(ui, Icon::Columns2, self.theme)
-                    .on_hover_text("Toggle split editor")
+                if Button::new(self.theme)
+                    .icon(Icon::Columns2)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Toggle split editor")
+                    .show(ui)
                     .clicked()
                 {
                     self.toggle_split_editor();
@@ -187,8 +238,12 @@ impl DbProApp {
         });
         ui.add_space(4.0);
         ui.horizontal(|ui| {
-            if compact_button(ui, "+ File", self.theme)
-                .on_hover_text("Add active file to agent context")
+            if Button::new(self.theme)
+                .text("+ File")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .tooltip("Add active file to agent context")
+                .show(ui)
                 .clicked()
             {
                 if let Some(doc) = self.query_documents.get(self.active_query_document) {
@@ -199,8 +254,12 @@ impl DbProApp {
                     }
                 }
             }
-            if compact_button(ui, "+ Selection", self.theme)
-                .on_hover_text("Add current SQL selection")
+            if Button::new(self.theme)
+                .text("+ Selection")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .tooltip("Add current SQL selection")
+                .show(ui)
                 .clicked()
             {
                 let selected = self.selected_query.clone();
@@ -211,8 +270,12 @@ impl DbProApp {
                     ));
                 }
             }
-            if compact_button(ui, "+ Table", self.theme)
-                .on_hover_text("Add selected table")
+            if Button::new(self.theme)
+                .text("+ Table")
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .tooltip("Add selected table")
+                .show(ui)
                 .clicked()
             {
                 if let Some(table) = self.selected_table.clone() {
@@ -246,7 +309,13 @@ impl DbProApp {
 
     fn draw_files_tree_tab(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            if compact_button(ui, "New SQL", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("New SQL")
+                .variant(ButtonVariant::Default)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 match self
                     .ide_workspace
                     .create_file("", "untitled.sql", "-- new query\nSELECT 1;\n")
@@ -261,7 +330,13 @@ impl DbProApp {
                     Err(error) => self.runtime_message = error,
                 }
             }
-            if compact_button(ui, "New folder", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("New folder")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 if let Err(error) = self.ide_workspace.create_folder("", "new-folder") {
                     self.runtime_message = error;
                 }
@@ -299,13 +374,31 @@ impl DbProApp {
         );
         ui.add_space(4.0);
         ui.horizontal(|ui| {
-            if compact_button(ui, "Find", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Find")
+                .variant(ButtonVariant::Default)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.run_workspace_search();
             }
-            if compact_button(ui, "Preview", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Preview")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.preview_workspace_replace();
             }
-            if compact_button(ui, "Replace all", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Replace all")
+                .variant(ButtonVariant::Destructive)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.apply_workspace_replace();
             }
         });
@@ -321,7 +414,13 @@ impl DbProApp {
                     .hint_text("to")
                     .desired_width(90.0),
             );
-            if compact_button(ui, "Refactor", self.theme).clicked() {
+            if Button::new(self.theme)
+                .text("Refactor")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
                 self.apply_workspace_refactor();
             }
         });
@@ -385,7 +484,13 @@ impl DbProApp {
                 .desired_width(ui.available_width()),
         );
         ui.add_space(4.0);
-        if compact_button(ui, "Run", self.theme).clicked() {
+        if Button::new(self.theme)
+            .text("Run")
+            .variant(ButtonVariant::Secondary)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
             self.run_workspace_task();
         }
         if let Some(result) = self.ide_workspace.last_task.clone() {
@@ -418,7 +523,13 @@ impl DbProApp {
         }
         ui.add_space(8.0);
         section_label(ui, "BENCHMARK (local timing)", self.theme);
-        if compact_button(ui, "Run sample suite", self.theme).clicked() {
+        if Button::new(self.theme)
+            .text("Run sample suite")
+            .variant(ButtonVariant::Secondary)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
             let cases = vec![
                 ide_workspace::BenchmarkCase {
                     name: "select-1".to_owned(),
@@ -462,8 +573,12 @@ impl DbProApp {
         ui.horizontal(|ui| {
             section_label(ui, "GIT", self.theme);
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if compact_icon_button(ui, Icon::RefreshCw, self.theme)
-                    .on_hover_text("Refresh git status")
+                if Button::new(self.theme)
+                    .icon(Icon::RefreshCw)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Refresh git status")
+                    .show(ui)
                     .clicked()
                 {
                     self.refresh_git_status();
@@ -478,10 +593,23 @@ impl DbProApp {
                 format!("Disk changed for {path} — unsaved editor buffer was kept."),
             );
             ui.horizontal(|ui| {
-                if secondary_button(ui, "Reload from disk", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .text("Reload from disk")
+                    .variant(ButtonVariant::Secondary)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.reload_workspace_file_from_disk(&path);
                 }
-                if ghost_button_with_icon(ui, Icon::X, "Dismiss", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::X)
+                    .text("Dismiss")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.workspace_external_change = None;
                 }
             });
@@ -517,7 +645,13 @@ impl DbProApp {
                 .hint_text("commit message (explicit only — never auto)")
                 .desired_width(ui.available_width()),
         );
-        if danger_button(ui, "Commit staged", self.theme).clicked() {
+        if Button::new(self.theme)
+            .text("Commit staged")
+            .variant(ButtonVariant::Destructive)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
             self.commit_git_staged();
         }
         ui.add_space(8.0);
@@ -538,16 +672,44 @@ impl DbProApp {
                 );
             });
             ui.horizontal(|ui| {
-                if ghost_button_with_icon(ui, Icon::Plus, "Stage", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::Plus)
+                    .text("Stage")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.stage_git_path(&entry.path);
                 }
-                if ghost_button_with_icon(ui, Icon::Minus, "Unstage", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::Minus)
+                    .text("Unstage")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.unstage_git_path(&entry.path);
                 }
-                if ghost_button_with_icon(ui, Icon::GitCompare, "Diff", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::GitCompare)
+                    .text("Diff")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.diff_git_path(&entry.path);
                 }
-                if ghost_button_with_icon(ui, Icon::FileCode2, "Open", self.theme).clicked() {
+                if Button::new(self.theme)
+                    .icon(Icon::FileCode2)
+                    .text("Open")
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
                     self.open_workspace_sql_file(entry.path.clone());
                 }
             });
