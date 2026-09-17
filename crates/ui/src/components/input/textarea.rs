@@ -65,7 +65,7 @@ impl<'a> Textarea<'a> {
 
             let frame_output = Frame {
                 fill: self.theme.surface_editor,
-                stroke: Stroke::new(1.0, self.theme.border_default),
+                stroke: Stroke::NONE,
                 inner_margin: Margin::symmetric(8.0, 6.0),
                 rounding: Rounding::same(INPUT_ROUNDING),
                 ..Default::default()

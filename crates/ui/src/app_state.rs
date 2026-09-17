@@ -173,7 +173,7 @@ impl Default for DbProApp {
             keybinding_edit_draft: String::new(),
             activity: Activity::Explorer,
             welcome_open: true,
-            active_tab: WorkspaceTab::ComponentGallery,
+            active_tab: WorkspaceTab::Welcome,
             sidebar_open: true,
             sidebar_width: 260.0,
             agent_open: false,

@@ -1,6 +1,5 @@
 use super::config::{INPUT_MIN_WIDTH, INPUT_ROUNDING};
 use crate::components::animation::{hover_t, lerp_color};
-use crate::components::interact::paint_focus_ring;
 use crate::DbProTheme;
 use egui::{Id, Rect, Rounding, Stroke, Ui};
 
@@ -15,8 +14,14 @@ pub fn resolve_field_width(requested: Option<f32>, available: f32) -> f32 {
 }
 
 pub fn paint_field_chrome(ui: &Ui, id: Id, rect: Rect, focused: bool, hovered: bool, enabled: bool, theme: DbProTheme) {
+    // Stroke on the field rect (not expand) so sidebar/toolbars cannot clip a
+    // halo, and so we do not stack a gray Frame border under a blue outline.
     if focused {
-        paint_focus_ring(ui, rect, INPUT_ROUNDING, theme);
+        ui.painter().rect_stroke(
+            rect,
+            Rounding::same(INPUT_ROUNDING),
+            Stroke::new(1.5, theme.accent),
+        );
         return;
     }
     if !enabled {

@@ -86,16 +86,14 @@ impl<'a> PasswordInput<'a> {
             }
 
             let has_error = self.error_text.is_some();
-            let border_stroke = if has_error {
-                Stroke::new(1.5, self.theme.danger)
-            } else {
-                Stroke::new(1.0, self.theme.border_default)
-            };
-
             let frame_w = (width - 16.0).max(60.0);
             let frame_output = Frame {
                 fill: self.theme.surface_editor,
-                stroke: border_stroke,
+                stroke: if has_error {
+                    Stroke::new(1.5, self.theme.danger)
+                } else {
+                    Stroke::NONE
+                },
                 inner_margin: Margin::symmetric(8.0, 4.0),
                 rounding: Rounding::same(INPUT_ROUNDING),
                 ..Default::default()
