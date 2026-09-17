@@ -1,8 +1,8 @@
 //! Pill-style segmented tab track.
 
 use super::config::{
-    SEGMENTED_ITEM_GAP, SEGMENTED_ITEM_HEIGHT, SEGMENTED_ITEM_MIN_WIDTH, SEGMENTED_LABEL_PAD_X,
-    SEGMENTED_PILL_RADIUS, SEGMENTED_TRACK_PAD, SEGMENTED_TRACK_RADIUS,
+    SEGMENTED_ITEM_GAP, SEGMENTED_ITEM_HEIGHT, SEGMENTED_ITEM_MIN_WIDTH, SEGMENTED_LABEL_PAD_X, SEGMENTED_PILL_RADIUS,
+    SEGMENTED_TRACK_PAD, SEGMENTED_TRACK_RADIUS,
 };
 use super::layout::{apply_selection, collect_tab_row, track_id, TabHit};
 use super::style::{TabItemStyle, TabKind};
@@ -18,11 +18,7 @@ pub struct SegmentedTabs<'a> {
 
 impl<'a> SegmentedTabs<'a> {
     pub fn new(selected: &'a mut usize, tabs: &'a [&'a str], theme: DbProTheme) -> Self {
-        Self {
-            selected,
-            tabs,
-            theme,
-        }
+        Self { selected, tabs, theme }
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -49,8 +45,7 @@ impl<'a> SegmentedTabs<'a> {
             apply_selection(self.selected, clicked_idx);
 
             if let Some(target) = tab_rects.get(*self.selected).copied() {
-                let pill =
-                    TabTrackerAnimation::animate_pill(ui.ctx(), track_id, track_origin_x, target);
+                let pill = TabTrackerAnimation::animate_pill(ui.ctx(), track_id, track_origin_x, target);
                 self.paint_active_pill(ui, pill, pill_shape_idx);
             }
         });
@@ -66,8 +61,7 @@ impl<'a> SegmentedTabs<'a> {
         });
 
         let item_width = (text_width + SEGMENTED_LABEL_PAD_X).max(SEGMENTED_ITEM_MIN_WIDTH);
-        let (rect, resp) =
-            ui.allocate_exact_size(Vec2::new(item_width, SEGMENTED_ITEM_HEIGHT), Sense::click());
+        let (rect, resp) = ui.allocate_exact_size(Vec2::new(item_width, SEGMENTED_ITEM_HEIGHT), Sense::click());
         let resp = resp.on_hover_cursor(CursorIcon::PointingHand);
 
         let style = TabItemStyle::new(TabKind::Segmented, is_active, resp.hovered(), &self.theme);
@@ -87,11 +81,7 @@ impl<'a> SegmentedTabs<'a> {
 
     fn paint_active_pill(&self, ui: &Ui, pill: Rect, shape_idx: egui::layers::ShapeIdx) {
         let pill_shapes = vec![
-            egui::Shape::rect_filled(
-                pill,
-                Rounding::same(SEGMENTED_PILL_RADIUS),
-                self.theme.surface_elevated,
-            ),
+            egui::Shape::rect_filled(pill, Rounding::same(SEGMENTED_PILL_RADIUS), self.theme.surface_elevated),
             egui::Shape::rect_stroke(
                 pill,
                 Rounding::same(SEGMENTED_PILL_RADIUS),

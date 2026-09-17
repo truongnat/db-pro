@@ -378,10 +378,7 @@ impl DbProApp {
     fn cached_explorer_tables(&mut self, schema: &str, search_query: &str) -> (usize, usize, Vec<String>) {
         let connection_id = self.active_connection_id.clone().unwrap_or_default();
         if let Some(cache) = self.explorer_nav_cache.as_ref() {
-            if cache.connection_id == connection_id
-                && cache.schema == schema
-                && cache.search == search_query
-            {
+            if cache.connection_id == connection_id && cache.schema == schema && cache.search == search_query {
                 return (cache.total_count, cache.matching_count, cache.visible.clone());
             }
         }

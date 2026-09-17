@@ -31,12 +31,7 @@ impl DbProApp {
     }
 
     /// Functions folder — deferred filter until the folder is open.
-    pub(super) fn draw_dbeaver_functions_folder_lazy(
-        &mut self,
-        ui: &mut egui::Ui,
-        schema: &str,
-        count: usize,
-    ) {
+    pub(super) fn draw_dbeaver_functions_folder_lazy(&mut self, ui: &mut egui::Ui, schema: &str, count: usize) {
         let theme = self.theme;
         let folder_id = ui.make_persistent_id(("codex_functions_folder", schema));
         draw_category_folder(
@@ -61,12 +56,7 @@ impl DbProApp {
     }
 
     /// Triggers folder — deferred filter until the folder is open.
-    pub(super) fn draw_dbeaver_triggers_folder_lazy(
-        &mut self,
-        ui: &mut egui::Ui,
-        schema: &str,
-        count: usize,
-    ) {
+    pub(super) fn draw_dbeaver_triggers_folder_lazy(&mut self, ui: &mut egui::Ui, schema: &str, count: usize) {
         let theme = self.theme;
         let folder_id = ui.make_persistent_id(("codex_triggers_folder", schema));
         draw_category_folder(

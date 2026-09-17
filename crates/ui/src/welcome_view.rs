@@ -35,30 +35,26 @@ impl DbProApp {
 
         ui.horizontal(|ui| {
             ui.add_space(inset);
-            ui.allocate_ui_with_layout(
-                Vec2::new(column_w, available.y),
-                Layout::top_down(Align::Min),
-                |ui| {
-                    ui.add_space(SPACE_3XL);
-                    self.draw_welcome_identity(ui);
+            ui.allocate_ui_with_layout(Vec2::new(column_w, available.y), Layout::top_down(Align::Min), |ui| {
+                ui.add_space(SPACE_3XL);
+                self.draw_welcome_identity(ui);
+                ui.add_space(SPACE_2XL);
+                self.draw_welcome_hairline(ui);
+                ui.add_space(SPACE_XL);
+
+                if column_w >= NARROW_BREAKPOINT {
+                    self.draw_welcome_two_column(ui, &mut intent);
+                } else {
+                    self.draw_welcome_start_actions(ui, &mut intent);
                     ui.add_space(SPACE_2XL);
-                    self.draw_welcome_hairline(ui);
+                    self.draw_welcome_connections(ui, &mut intent);
+                }
+
+                if !self.welcome_prompt.trim().is_empty() {
                     ui.add_space(SPACE_XL);
-
-                    if column_w >= NARROW_BREAKPOINT {
-                        self.draw_welcome_two_column(ui, &mut intent);
-                    } else {
-                        self.draw_welcome_start_actions(ui, &mut intent);
-                        ui.add_space(SPACE_2XL);
-                        self.draw_welcome_connections(ui, &mut intent);
-                    }
-
-                    if !self.welcome_prompt.trim().is_empty() {
-                        ui.add_space(SPACE_XL);
-                        self.draw_welcome_draft(ui, &mut intent);
-                    }
-                },
-            );
+                    self.draw_welcome_draft(ui, &mut intent);
+                }
+            });
         });
 
         self.apply_welcome_intent(intent);
@@ -128,12 +124,12 @@ impl DbProApp {
     }
 
     fn draw_welcome_hairline(&self, ui: &mut egui::Ui) {
-        let (rect, _) = ui.allocate_exact_size(
-            Vec2::new(ui.available_width(), 1.0),
-            Sense::hover(),
+        let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 1.0), Sense::hover());
+        ui.painter().hline(
+            rect.x_range(),
+            rect.center().y,
+            egui::Stroke::new(1.0, self.theme.border_subtle),
         );
-        ui.painter()
-            .hline(rect.x_range(), rect.center().y, egui::Stroke::new(1.0, self.theme.border_subtle));
     }
 
     fn draw_welcome_two_column(&self, ui: &mut egui::Ui, intent: &mut WelcomeIntent) {
@@ -161,23 +157,11 @@ impl DbProApp {
         self.welcome_section_label(ui, "Start");
         ui.add_space(SPACE_SM);
 
-        if self.welcome_action_row(
-            ui,
-            Icon::PlugZap,
-            "New connection",
-            &Self::shortcut_parts(&["N"]),
-            true,
-        ) {
+        if self.welcome_action_row(ui, Icon::PlugZap, "New connection", &Self::shortcut_parts(&["N"]), true) {
             intent.new_connection = true;
         }
         ui.add_space(SPACE_XXS);
-        if self.welcome_action_row(
-            ui,
-            Icon::SquarePen,
-            "New query",
-            &Self::shortcut_parts(&["T"]),
-            false,
-        ) {
+        if self.welcome_action_row(ui, Icon::SquarePen, "New query", &Self::shortcut_parts(&["T"]), false) {
             intent.new_query = true;
         }
         ui.add_space(SPACE_XXS);
@@ -210,18 +194,14 @@ impl DbProApp {
         primary: bool,
     ) -> bool {
         let width = ui.available_width();
-        let (rect, resp) =
-            ui.allocate_exact_size(Vec2::new(width, ACTION_ROW_HEIGHT), Sense::click());
+        let (rect, resp) = ui.allocate_exact_size(Vec2::new(width, ACTION_ROW_HEIGHT), Sense::click());
         let resp = resp.on_hover_cursor(CursorIcon::PointingHand);
         let hovered = resp.hovered();
         let focused = resp.has_focus();
 
         if hovered || focused {
-            ui.painter().rect_filled(
-                rect,
-                egui::Rounding::same(RADIUS_SM),
-                self.theme.surface_hover,
-            );
+            ui.painter()
+                .rect_filled(rect, egui::Rounding::same(RADIUS_SM), self.theme.surface_hover);
         }
         if focused {
             paint_focus_ring(ui, rect, RADIUS_SM, self.theme);
@@ -251,33 +231,24 @@ impl DbProApp {
             egui::pos2(rect.left() + SPACE_SM + 24.0, rect.center().y),
             egui::Align2::LEFT_CENTER,
             label,
-            if primary {
-                font_ui_label()
-            } else {
-                font_body()
-            },
+            if primary { font_ui_label() } else { font_body() },
             label_color,
         );
 
         // Trailing shortcut chips (discoverability without competing with the label).
         let mut x = rect.right() - SPACE_SM;
         for (i, part) in shortcut.iter().rev().enumerate() {
-            let galley = ui.painter().layout_no_wrap(
-                part.clone(),
-                egui::FontId::monospace(10.0),
-                self.theme.text_muted,
-            );
+            let galley =
+                ui.painter()
+                    .layout_no_wrap(part.clone(), egui::FontId::monospace(10.0), self.theme.text_muted);
             let chip_w = galley.size().x + 10.0;
             x -= chip_w;
             let chip = egui::Rect::from_min_size(
                 egui::pos2(x, rect.center().y - (galley.size().y + 4.0) * 0.5),
                 Vec2::new(chip_w, galley.size().y + 4.0),
             );
-            ui.painter().rect_filled(
-                chip,
-                egui::Rounding::same(RADIUS_XS),
-                self.theme.surface_elevated,
-            );
+            ui.painter()
+                .rect_filled(chip, egui::Rounding::same(RADIUS_XS), self.theme.surface_elevated);
             ui.painter().rect_stroke(
                 chip,
                 egui::Rounding::same(RADIUS_XS),
@@ -354,12 +325,7 @@ impl DbProApp {
             }
 
             let active_id = self.active_connection_id.clone();
-            let rows: Vec<_> = self
-                .connections
-                .iter()
-                .take(CONNECTION_ROW_LIMIT)
-                .cloned()
-                .collect();
+            let rows: Vec<_> = self.connections.iter().take(CONNECTION_ROW_LIMIT).cloned().collect();
 
             for connection in &rows {
                 let is_active = active_id.as_deref() == Some(connection.id.as_str());
@@ -367,24 +333,16 @@ impl DbProApp {
                     "{} · {}:{}/{}",
                     connection.driver, connection.host, connection.port, connection.database
                 );
-                if self.welcome_connection_row(ui, &connection.name, &meta, is_active) && !is_active
-                {
+                if self.welcome_connection_row(ui, &connection.name, &meta, is_active) && !is_active {
                     intent.connect_id = Some(connection.id.clone());
                 }
             }
         });
     }
 
-    fn welcome_connection_row(
-        &self,
-        ui: &mut egui::Ui,
-        name: &str,
-        meta: &str,
-        is_active: bool,
-    ) -> bool {
+    fn welcome_connection_row(&self, ui: &mut egui::Ui, name: &str, meta: &str, is_active: bool) -> bool {
         let width = ui.available_width();
-        let (rect, resp) =
-            ui.allocate_exact_size(Vec2::new(width, CONNECTION_ROW_HEIGHT), Sense::click());
+        let (rect, resp) = ui.allocate_exact_size(Vec2::new(width, CONNECTION_ROW_HEIGHT), Sense::click());
         let resp = resp.on_hover_cursor(CursorIcon::PointingHand);
         let hovered = resp.hovered();
         let focused = resp.has_focus();

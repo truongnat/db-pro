@@ -2195,11 +2195,7 @@ fn schema_matching_table_count_filters_without_materialising_names() {
     app.schema.schemas = vec!["public".into(), "other".into()];
     app.schema.table_details = (0..250)
         .map(|index| UiTableSummary {
-            schema: if index < 200 {
-                "public".into()
-            } else {
-                "other".into()
-            },
+            schema: if index < 200 { "public".into() } else { "other".into() },
             name: format!("orders_{index}"),
             row_count: None,
             columns: Vec::new(),
