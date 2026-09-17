@@ -394,10 +394,7 @@ impl DbProApp {
                 .pending_connection_id
                 .take()
                 .or_else(|| self.active_connection_id.clone());
-            let is_delete = self
-                .runtime_message
-                .to_ascii_lowercase()
-                .contains("delet");
+            let is_delete = self.runtime_message.to_ascii_lowercase().contains("delet");
             if is_delete {
                 let formatted = format!("Delete failed · {message}");
                 self.runtime_message = formatted.clone();

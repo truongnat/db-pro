@@ -156,11 +156,11 @@ mod table_editor_view;
 mod table_metadata_view;
 #[path = "table_view.rs"]
 mod table_view;
-#[path = "welcome_view.rs"]
-mod welcome_view;
 #[cfg(test)]
 #[path = "app_tests.rs"]
 mod tests;
+#[path = "welcome_view.rs"]
+mod welcome_view;
 #[path = "workspace_view.rs"]
 mod workspace_view;
 

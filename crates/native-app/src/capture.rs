@@ -116,10 +116,7 @@ impl eframe::App for CaptureApp {
         // documents the password input + eye toggle (the affected surface for the
         // input click-steal fix) instead of the default window. Gated by an env var
         // so a normal launch is unaffected.
-        if !self.opened_dialog
-            && std::env::var_os(NEW_CONNECTION_ENV).is_some()
-            && self.frames >= 2
-        {
+        if !self.opened_dialog && std::env::var_os(NEW_CONNECTION_ENV).is_some() && self.frames >= 2 {
             self.inner.open_new_connection();
             self.opened_dialog = true;
         }
