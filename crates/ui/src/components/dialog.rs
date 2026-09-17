@@ -216,36 +216,28 @@ fn paint_dialog_card<R>(
         ui.set_width(inner_w);
         ui.set_max_width(inner_w);
 
-        // Header: Title & Description on left, Close button on right (vertically centered with header block)
+        // Header: Title & Description on left, Close button on top right
         ui.horizontal(|ui| {
-            let close_w = 32.0;
-            let title_w = (inner_w - close_w - 12.0).max(40.0);
-            ui.allocate_ui_with_layout(
-                egui::vec2(title_w, 0.0),
-                egui::Layout::top_down(egui::Align::LEFT),
-                |ui| {
-                    ui.set_width(title_w);
-                    ui.set_max_width(title_w);
-                    ui.add(
-                        egui::Label::new(
-                            RichText::new(title)
-                                .font(DbProTheme::ui_medium_font(16.0))
-                                .color(theme.text_primary),
-                        )
-                        .truncate(),
+            ui.vertical(|ui| {
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(title)
+                            .font(DbProTheme::ui_medium_font(16.0))
+                            .color(theme.text_primary),
                     )
-                    .on_hover_text(title);
-                    if let Some(description) = description {
-                        ui.add_space(2.0);
-                        ui.label(
-                            RichText::new(description)
-                                .font(FontId::proportional(12.5))
-                                .color(theme.text_muted),
-                        );
-                    }
-                },
-            );
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    .truncate(),
+                )
+                .on_hover_text(title);
+                if let Some(description) = description {
+                    ui.add_space(2.0);
+                    ui.label(
+                        RichText::new(description)
+                            .font(FontId::proportional(12.5))
+                            .color(theme.text_muted),
+                    );
+                }
+            });
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                 if close_icon_button(ui, theme).clicked() {
                     *open = false;
                 }
