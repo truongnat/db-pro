@@ -126,3 +126,50 @@ fn test_mapper_snippet_parsing() {
     assert_eq!(draft.database, "mydb");
     assert_eq!(draft.ssl_mode, UiSslMode::VerifyFull);
 }
+
+#[test]
+fn test_connection_config_mappings() {
+    use super::config::*;
+    assert_eq!(default_port_for_driver(UiDriver::Postgres), "5432");
+    assert_eq!(default_port_for_driver(UiDriver::Mysql), "3306");
+    assert_eq!(default_port_for_driver(UiDriver::SqlServer), "1433");
+    assert_eq!(default_database_for_driver(UiDriver::SqlServer), "master");
+
+    assert_eq!(environment_to_index("Development"), 0);
+    assert_eq!(environment_to_index("Staging"), 1);
+    assert_eq!(environment_to_index("Production"), 2);
+    assert_eq!(environment_to_index("Custom"), 3);
+    assert_eq!(index_to_environment(2), "Production");
+
+    assert_eq!(ssl_mode_to_index(UiSslMode::Disable), 0);
+    assert_eq!(ssl_mode_to_index(UiSslMode::Require), 1);
+    assert_eq!(ssl_mode_to_index(UiSslMode::VerifyCa), 2);
+    assert_eq!(ssl_mode_to_index(UiSslMode::VerifyFull), 3);
+    assert_eq!(index_to_ssl_mode(3), UiSslMode::VerifyFull);
+}
+
+#[test]
+fn test_connection_layout_calculations() {
+    use super::layout::*;
+    let card_w = calculate_engine_card_width(800.0, 8.0);
+    assert!((card_w - (800.0 - 24.0) / 4.0).abs() < 0.001);
+
+    let prof = calculate_profile_row_widths(800.0, 8.0);
+    let total_prof = prof.name_w + prof.group_w + prof.fav_w;
+    assert!((total_prof - (800.0 - 16.0)).abs() < 0.01);
+
+    let env = calculate_env_row_widths(800.0, 8.0);
+    let total_env = env.env_w + env.ro_w;
+    assert!((total_env - (800.0 - 8.0)).abs() < 0.01);
+
+    let srv = calculate_server_row_widths(800.0, 8.0);
+    let total_srv = srv.host_w + srv.port_w;
+    assert!((total_srv - (800.0 - 8.0)).abs() < 0.01);
+
+    let half = calculate_half_row_width(800.0, 8.0);
+    assert_eq!(half, (800.0 - 8.0) * 0.5);
+
+    let ssh = calculate_ssh_row_widths(800.0, 8.0);
+    let total_ssh = ssh.host_w + ssh.port_w + ssh.user_w + ssh.key_w;
+    assert!((total_ssh - (800.0 - 24.0)).abs() < 0.01);
+}

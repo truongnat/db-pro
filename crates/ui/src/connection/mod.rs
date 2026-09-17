@@ -1,3 +1,8 @@
+pub mod advanced_panels;
+pub mod config;
+pub mod confirm_dialogs;
+pub mod form_fields;
+pub mod layout;
 pub mod logic;
 pub mod mapper;
 pub mod view;
