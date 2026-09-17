@@ -169,9 +169,11 @@ impl<'a> Input<'a> {
             let info_label = self.label.as_deref().unwrap_or(self.placeholder.as_ref());
             edit_response.widget_info(|| text_input_info(self.enabled, info_label));
 
-            if frame_output.response.interact(egui::Sense::click()).clicked() && self.enabled {
-                edit_response.request_focus();
-            }
+            // NOTE: do NOT register `frame.interact(Sense::click())` here. That call lands on
+            // top of the `TextEdit` added inside the frame, so egui reports the click as
+            // consumed by the frame and the text field never receives it — double-click never
+            // selects text and the caret never lands where you click. The `TextEdit` already
+            // focuses itself on its own click, so removing this block restores that.
 
             paint_field_chrome(
                 ui,

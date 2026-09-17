@@ -245,6 +245,12 @@ impl SecretStore for KeyringVault {
 
         let entry = match self.keyring_entry(key) {
             Ok(e) => e,
+            // Empty service name ⇒ keyring deterministically disabled (see `build_secret_store`):
+            // treat like "unavailable" and fall through to the fallback instead of fatal erroring.
+            Err(e) if self.service_name.is_empty() => {
+                tracing::debug!("OS keyring disabled (empty service name): {e}");
+                return self.retrieve_unavailable_secret(key);
+            }
             Err(e) if is_keyring_unavailable(&e) => {
                 tracing::warn!("OS keyring unavailable: {e}");
                 return self.retrieve_unavailable_secret(key);
@@ -571,24 +577,45 @@ mod tests {
         assert!(orphan.contains("OS keyring"), "must name the store: {orphan}");
     }
 
-    /// One deterministic half of the pair that used to be a single accept-either assertion
-    /// (`missing_os_keyring_secret_returns_none_without_fallback` accepted `Ok(None)` **or** an
-    /// "OS keyring unavailable" error, so it could not fail on either branch). This case pins the
-    /// branch where the keyring entry cannot even be created: it is a hard error, not a silent
-    /// `None`, because "I cannot reach the store" and "the store says there is no such key" are
-    /// different answers and only one of them is safe to treat as absent.
+    /// An empty service name disables the keyring layer deterministically (see `keyring_entry`
+    /// and `build_secret_store`). With no fallback store attached, retrieval must report the
+    /// unreachable-store condition — *not* pretend the key is present and *not* crash with a
+    /// fatal "keyring entry creation failed: Attribute service name is empty". This pins the
+    /// corrected behaviour: the disabled keyring is treated like an unavailable one.
     #[tokio::test]
-    async fn retrieve_secret_reports_a_keyring_entry_that_cannot_be_created() {
+    async fn retrieve_secret_with_disabled_keyring_and_no_fallback_reports_unavailable() {
         let vault = KeyringVault::new("", std::env::temp_dir().join("db-pro-entry-error"));
 
         let error = vault
             .retrieve_secret("entry-error/probe")
             .await
-            .expect_err("an unreachable keyring must not be reported as a missing key");
+            .expect_err("a disabled keyring with no fallback must not be reported as a missing key");
 
         assert!(
-            error.to_string().contains("keyring entry creation failed"),
+            error
+                .to_string()
+                .contains("OS keyring unavailable and fallback is disabled"),
             "the error has to distinguish an unreachable store from an absent key: {error}"
+        );
+    }
+
+    /// With the keyring disabled (empty service name) and a fallback store attached, a missing
+    /// secret returns `Ok(None)` instead of the fatal "keyring entry creation failed". Callers
+    /// (e.g. `ConnectionService::connect`) then map it to the correct "password not found in
+    /// secret store" rather than blocking connection creation. This is the regression guard for
+    /// the new-connection Configuration Error.
+    #[tokio::test]
+    async fn retrieve_secret_with_disabled_keyring_falls_back_to_session_store() {
+        let vault = KeyringVault::new("", std::env::temp_dir().join("db-pro-entry-fallback")).with_session_fallback();
+
+        let value = vault
+            .retrieve_secret("missing/probe")
+            .await
+            .expect("a disabled keyring must fall through to the fallback, not error");
+
+        assert_eq!(
+            value, None,
+            "a secret absent from the fallback is genuinely absent, not a fatal error"
         );
     }
 }

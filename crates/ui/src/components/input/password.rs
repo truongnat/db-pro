@@ -146,9 +146,12 @@ impl<'a> PasswordInput<'a> {
             let info_label = self.label.as_deref().unwrap_or("Password");
             edit_response.widget_info(|| text_input_info(true, info_label));
 
-            if frame_output.response.interact(egui::Sense::click()).clicked() {
-                edit_response.request_focus();
-            }
+            // NOTE: do NOT register `frame.interact(Sense::click())` here. That call lands on
+            // top of the children added inside the frame (the `TextEdit` and the eye button),
+            // so egui reports the click as consumed by the frame and the inner widgets never
+            // receive it — the eye toggle never fires and the text field never gets the
+            // double-click that selects text. The `TextEdit` already focuses itself on its own
+            // click, so removing this block restores both behaviours.
 
             paint_field_chrome(
                 ui,
