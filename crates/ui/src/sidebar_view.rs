@@ -33,7 +33,7 @@ impl DbProApp {
                 // IDE-style: breathe on the activity-rail side, sit nearly flush
                 // against the resize edge so navigator content fills the panel.
                 let pad_left = SPACE_SM;
-                let pad_right = SPACE_XXS;
+                let pad_right = SPACE_SM;
                 let pad_y = SPACE_SM;
                 // Derive content width from the clamped sidebar width, not from
                 // egui's panel response rect — that rect can disagree with the
@@ -128,8 +128,8 @@ impl DbProApp {
                             .variant(ButtonVariant::Ghost)
                             .size(ButtonSize::IconSm)
                             .tooltip(format!(
-                                "Search / Command Palette ({}⇧P)",
-                                Self::primary_modifier_label()
+                                "Search / Command Palette ({})",
+                                Self::format_shortcut(&["Shift", "P"])
                             ))
                             .show(ui)
                             .clicked()
@@ -194,12 +194,13 @@ impl DbProApp {
                         font_caption(),
                         self.theme.text_primary,
                     );
-                    ui.painter().text(
-                        Pos2::new(btn_rect.right() - SPACE_MD, left_center.y),
-                        Align2::RIGHT_CENTER,
-                        format!("{}N", Self::primary_modifier_label()),
-                        font_caption(),
-                        self.theme.text_muted,
+                    // Shortcut hint as separate kbd chips: Ctrl + N (not "CtrlN").
+                    paint_shortcut_chips(
+                        ui,
+                        btn_rect.right() - SPACE_MD,
+                        left_center.y,
+                        &Self::shortcut_parts(&["N"]),
+                        self.theme,
                     );
 
                     if new_query_resp.clicked() {
@@ -314,5 +315,64 @@ impl DbProApp {
         let painter = ctx.layer_painter(egui::LayerId::background());
         let line_x = painter.round_to_pixel_center(edge_x - 1.0);
         painter.vline(line_x, y_range, stroke);
+    }
+}
+
+/// Paints right-aligned kbd chips (`Ctrl` + `N`) ending at `right_x`.
+fn paint_shortcut_chips(
+    ui: &egui::Ui,
+    right_x: f32,
+    center_y: f32,
+    parts: &[String],
+    theme: DbProTheme,
+) {
+    if parts.is_empty() {
+        return;
+    }
+    let painter = ui.painter();
+    let font = egui::FontId::monospace(10.5);
+    let chip_pad_x = 5.0;
+    let chip_pad_y = 2.0;
+    let plus_gap = 2.0;
+
+    let galleys: Vec<_> = parts
+        .iter()
+        .map(|part| painter.layout_no_wrap(part.clone(), font.clone(), theme.text_muted))
+        .collect();
+    let plus_galley = painter.layout_no_wrap("+".to_owned(), font, theme.text_muted);
+
+    let mut total_w = galleys
+        .iter()
+        .map(|galley| chip_pad_x * 2.0 + galley.size().x)
+        .sum::<f32>();
+    if galleys.len() > 1 {
+        total_w += (galleys.len() - 1) as f32 * (plus_gap * 2.0 + plus_galley.size().x);
+    }
+
+    let mut x = right_x - total_w;
+    for (i, galley) in galleys.iter().enumerate() {
+        if i > 0 {
+            x += plus_gap;
+            painter.galley(
+                Pos2::new(x, center_y - plus_galley.size().y * 0.5),
+                plus_galley.clone(),
+                theme.text_muted,
+            );
+            x += plus_galley.size().x + plus_gap;
+        }
+        let chip_w = galley.size().x + chip_pad_x * 2.0;
+        let chip_h = galley.size().y + chip_pad_y * 2.0;
+        let chip = Rect::from_min_size(
+            Pos2::new(x, center_y - chip_h * 0.5),
+            vec2(chip_w, chip_h),
+        );
+        painter.rect_filled(chip, Rounding::same(4.0), theme.surface_elevated);
+        painter.rect_stroke(chip, Rounding::same(4.0), Stroke::new(1.0, theme.border_subtle));
+        painter.galley(
+            Pos2::new(chip.left() + chip_pad_x, center_y - galley.size().y * 0.5),
+            std::sync::Arc::clone(galley),
+            theme.text_muted,
+        );
+        x += chip_w;
     }
 }

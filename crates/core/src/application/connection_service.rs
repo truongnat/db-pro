@@ -281,42 +281,64 @@ impl ConnectionService {
         }
 
         let connection = self.repo.get(id).await?;
-        let secret = if let Some(conn) = connection.as_ref() {
+
+        // Collect secret keys. Retrieve is best-effort so a broken OS keyring
+        // cannot block deleting the connection row itself.
+        let mut secrets_to_clean: Vec<(String, Option<String>)> = Vec::new();
+        if let Some(conn) = connection.as_ref() {
             if Self::requires_database_secret(&conn.config) || conn.secret_ref.is_some() {
                 let key = conn.secret_ref.clone().unwrap_or_else(|| Self::secret_key(id));
-                Some((key.clone(), self.secrets.retrieve_secret(&key).await?))
-            } else {
-                None
+                let previous = match self.secrets.retrieve_secret(&key).await {
+                    Ok(value) => value,
+                    Err(error) => {
+                        tracing::warn!(
+                            connection_id = %id,
+                            secret_key = %key,
+                            %error,
+                            "could not retrieve database secret before delete; continuing"
+                        );
+                        None
+                    }
+                };
+                secrets_to_clean.push((key, previous));
             }
-        } else {
-            None
-        };
-        let ssh_secret = if connection.as_ref().is_some_and(|conn| conn.config.ssh_tunnel.is_some()) {
-            Some((
-                Self::ssh_secret_key(id),
-                self.secrets.retrieve_secret(&Self::ssh_secret_key(id)).await?,
-            ))
-        } else {
-            None
-        };
-
-        if let Some((key, _)) = secret.as_ref() {
-            self.secrets.delete_secret(key).await?;
+            if conn.config.ssh_tunnel.is_some() {
+                let key = Self::ssh_secret_key(id);
+                let previous = match self.secrets.retrieve_secret(&key).await {
+                    Ok(value) => value,
+                    Err(error) => {
+                        tracing::warn!(
+                            connection_id = %id,
+                            secret_key = %key,
+                            %error,
+                            "could not retrieve SSH secret before delete; continuing"
+                        );
+                        None
+                    }
+                };
+                secrets_to_clean.push((key, previous));
+            }
         }
-        if let Some((key, _)) = ssh_secret.as_ref() {
-            if let Err(error) = self.secrets.delete_secret(key).await {
-                if let Some((db_key, previous_password)) = secret.as_ref() {
-                    self.restore_secret(db_key, previous_password.as_deref()).await;
+
+        // Best-effort secret deletes. Failures are logged; orphaned credentials
+        // must not leave the connection stuck in the navigator.
+        let mut deleted_secrets: Vec<(String, Option<String>)> = Vec::new();
+        for (key, previous) in secrets_to_clean {
+            match self.secrets.delete_secret(&key).await {
+                Ok(()) => deleted_secrets.push((key, previous)),
+                Err(error) => {
+                    tracing::warn!(
+                        connection_id = %id,
+                        secret_key = %key,
+                        %error,
+                        "could not delete secret; continuing with connection delete"
+                    );
                 }
-                return Err(error);
             }
         }
 
         if let Err(error) = self.repo.delete(id).await {
-            if let Some((key, previous_password)) = secret {
-                self.restore_secret(&key, previous_password.as_deref()).await;
-            }
-            if let Some((key, previous_password)) = ssh_secret {
+            for (key, previous_password) in deleted_secrets {
                 self.restore_secret(&key, previous_password.as_deref()).await;
             }
             return Err(error);

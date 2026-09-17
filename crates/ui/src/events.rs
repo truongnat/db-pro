@@ -701,6 +701,9 @@ impl DbProApp {
         if operation == "connection.deleted" {
             self.active_connection_id = None;
             self.connected = false;
+            self.pending_connection_id = None;
+            self.failed_connection_ids.clear();
+            self.connection_errors.clear();
         }
     }
 

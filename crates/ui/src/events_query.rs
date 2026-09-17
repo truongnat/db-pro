@@ -394,17 +394,27 @@ impl DbProApp {
                 .pending_connection_id
                 .take()
                 .or_else(|| self.active_connection_id.clone());
-            if let Some(cid) = conn_id {
-                self.failed_connection_ids.insert(cid.clone());
-                self.connection_errors.insert(cid, message.clone());
+            let is_delete = self
+                .runtime_message
+                .to_ascii_lowercase()
+                .contains("delet");
+            if is_delete {
+                let formatted = format!("Delete failed · {message}");
+                self.runtime_message = formatted.clone();
+                self.show_toast_error(formatted);
+            } else {
+                if let Some(cid) = conn_id {
+                    self.failed_connection_ids.insert(cid.clone());
+                    self.connection_errors.insert(cid, message.clone());
+                }
+                if !self.connection_dialog_open {
+                    self.connected = false;
+                    self.schema_request = None;
+                    self.schema_error = None;
+                }
+                self.connection_error = message.clone();
+                self.runtime_message = format!("Connection failed · {message}");
             }
-            if !self.connection_dialog_open {
-                self.connected = false;
-                self.schema_request = None;
-                self.schema_error = None;
-            }
-            self.connection_error = message.clone();
-            self.runtime_message = format!("Connection failed · {message}");
         } else if self.schema_request == Some(request_id) {
             self.schema_request = None;
             self.schema_error = Some(message.clone());

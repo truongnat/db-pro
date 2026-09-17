@@ -758,6 +758,30 @@ impl DbProApp {
         }
     }
 
+    /// Platform-aware shortcut parts for kbd chips, e.g. `["Ctrl", "N"]` / `["⌘", "N"]`.
+    fn shortcut_parts(keys: &[&str]) -> Vec<String> {
+        let mut parts = Vec::with_capacity(keys.len() + 1);
+        parts.push(Self::primary_modifier_label().to_owned());
+        for key in keys {
+            let mapped = match *key {
+                "Shift" if cfg!(target_os = "macos") => "⇧",
+                other => other,
+            };
+            parts.push(mapped.to_owned());
+        }
+        parts
+    }
+
+    /// Human-readable shortcut for tooltips: `Ctrl+N` on Linux/Windows, `⌘N` on macOS.
+    fn format_shortcut(keys: &[&str]) -> String {
+        let parts = Self::shortcut_parts(keys);
+        if cfg!(target_os = "macos") {
+            parts.concat()
+        } else {
+            parts.join("+")
+        }
+    }
+
     /// Queues a command for the runtime worker, ignoring transport failures.
     ///
     /// The UI is fire-and-forget: a send only fails once the worker channel is
