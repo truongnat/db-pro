@@ -332,6 +332,7 @@ impl DbProApp {
         let card_w = (ui.available_width() - 3.0 * gap) / 4.0;
 
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
             let is_pg = self.connection_draft.driver == UiDriver::Postgres;
             if draw_driver_card(
                 ui,
@@ -350,8 +351,6 @@ impl DbProApp {
             {
                 select_driver(&mut self.connection_draft, UiDriver::Postgres);
             }
-
-            ui.add_space(gap);
 
             let is_sqlite = self.connection_draft.driver == UiDriver::Sqlite;
             if draw_driver_card(
@@ -372,8 +371,6 @@ impl DbProApp {
                 select_driver(&mut self.connection_draft, UiDriver::Sqlite);
             }
 
-            ui.add_space(gap);
-
             let is_mysql = self.connection_draft.driver == UiDriver::Mysql;
             if draw_driver_card(
                 ui,
@@ -392,8 +389,6 @@ impl DbProApp {
             {
                 select_driver(&mut self.connection_draft, UiDriver::Mysql);
             }
-
-            ui.add_space(gap);
 
             if draw_driver_card(
                 ui,
@@ -518,6 +513,7 @@ impl DbProApp {
         let fav_w = (avail - 2.0 * gap) * 0.12;
 
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
             ui.vertical(|ui| {
                 ui.set_width(name_w);
                 ui.set_max_width(name_w);
@@ -532,7 +528,6 @@ impl DbProApp {
                 .clearable(true)
                 .show(ui);
             });
-            ui.add_space(gap);
             ui.vertical(|ui| {
                 ui.set_width(group_w);
                 ui.set_max_width(group_w);
@@ -543,7 +538,6 @@ impl DbProApp {
                     .clearable(true)
                     .show(ui);
             });
-            ui.add_space(gap);
             ui.vertical(|ui| {
                 ui.set_width(fav_w);
                 ui.set_max_width(fav_w);
@@ -579,6 +573,7 @@ impl DbProApp {
 
         // Row 2: Environment Selector & Read-only mode
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
             let env_w = (avail - gap) * 0.55;
             let ro_w = (avail - gap) * 0.45;
 
@@ -611,7 +606,6 @@ impl DbProApp {
                     _ => "Development".to_owned(),
                 };
             });
-            ui.add_space(gap);
             ui.vertical(|ui| {
                 ui.set_width(ro_w);
                 ui.set_max_width(ro_w);
@@ -648,6 +642,7 @@ impl DbProApp {
         let host_w = (avail - gap) * 0.68;
         let port_w = (avail - gap) * 0.32;
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
             ui.vertical(|ui| {
                 ui.set_width(host_w);
                 ui.set_max_width(host_w);
@@ -657,7 +652,6 @@ impl DbProApp {
                     .leading_icon(Icon::Server)
                     .show(ui);
             });
-            ui.add_space(gap);
             ui.vertical(|ui| {
                 ui.set_width(port_w);
                 ui.set_max_width(port_w);
@@ -678,6 +672,7 @@ impl DbProApp {
         // Row 2: Database Name (50%) + Username (50%)
         let half_w = (avail - gap) * 0.5;
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
             ui.vertical(|ui| {
                 ui.set_width(half_w);
                 ui.set_max_width(half_w);
@@ -693,7 +688,6 @@ impl DbProApp {
                     .clearable(true)
                     .show(ui);
             });
-            ui.add_space(gap);
             ui.vertical(|ui| {
                 ui.set_width(half_w);
                 ui.set_max_width(half_w);
@@ -713,6 +707,7 @@ impl DbProApp {
 
         // Row 3: Password/Auth Token (50%) + SSL Mode (50%)
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
             ui.vertical(|ui| {
                 ui.set_width(half_w);
                 ui.set_max_width(half_w);
@@ -737,7 +732,6 @@ impl DbProApp {
                 .width(half_w)
                 .show(ui);
             });
-            ui.add_space(gap);
             ui.vertical(|ui| {
                 ui.set_width(half_w);
                 ui.set_max_width(half_w);
@@ -935,29 +929,31 @@ impl DbProApp {
                 .show(ui);
                 ui.add_space(SPACE_XS);
                 ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = gap;
                     ui.vertical(|ui| {
-                        ui.set_width(half_w);
-                        ui.set_max_width(half_w);
+                        let panel_half_w = (ui.available_width() - gap) * 0.5;
+                        ui.set_width(panel_half_w);
+                        ui.set_max_width(panel_half_w);
                         Input::new(
                             &mut self.connection_draft.ssl_client_cert_path,
                             "/path/to/client.crt",
                             self.theme,
                         )
                         .label("Client Certificate (optional)")
-                        .width(half_w)
+                        .width(panel_half_w)
                         .show(ui);
                     });
-                    ui.add_space(gap);
                     ui.vertical(|ui| {
-                        ui.set_width(half_w);
-                        ui.set_max_width(half_w);
+                        let panel_half_w = ui.available_width();
+                        ui.set_width(panel_half_w);
+                        ui.set_max_width(panel_half_w);
                         Input::new(
                             &mut self.connection_draft.ssl_client_key_path,
                             "/path/to/client.key",
                             self.theme,
                         )
                         .label("Client Key (optional)")
-                        .width(half_w)
+                        .width(panel_half_w)
                         .show(ui);
                     });
                 });
@@ -1000,6 +996,7 @@ impl DbProApp {
                 ui.add_space(SPACE_SM);
 
                 ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = gap;
                     let total = ui.available_width() - 3.0 * gap;
                     let ssh_host_w = total * 0.38;
                     let ssh_port_w = total * 0.14;
@@ -1015,7 +1012,6 @@ impl DbProApp {
                             .leading_icon(Icon::Server)
                             .show(ui);
                     });
-                    ui.add_space(gap);
                     ui.vertical(|ui| {
                         ui.set_width(ssh_port_w);
                         ui.set_max_width(ssh_port_w);
@@ -1025,7 +1021,6 @@ impl DbProApp {
                             .leading_icon(Icon::Hash)
                             .show(ui);
                     });
-                    ui.add_space(gap);
                     ui.vertical(|ui| {
                         ui.set_width(ssh_user_w);
                         ui.set_max_width(ssh_user_w);
@@ -1035,7 +1030,6 @@ impl DbProApp {
                             .leading_icon(Icon::User)
                             .show(ui);
                     });
-                    ui.add_space(gap);
                     ui.vertical(|ui| {
                         ui.set_width(ssh_key_w);
                         ui.set_max_width(ssh_key_w);
@@ -1154,6 +1148,7 @@ impl DbProApp {
         let fav_w = (avail - 2.0 * gap) * 0.12;
 
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
             ui.vertical(|ui| {
                 ui.set_width(name_w);
                 ui.set_max_width(name_w);
@@ -1164,7 +1159,6 @@ impl DbProApp {
                     .clearable(true)
                     .show(ui);
             });
-            ui.add_space(gap);
             ui.vertical(|ui| {
                 ui.set_width(group_w);
                 ui.set_max_width(group_w);
@@ -1175,7 +1169,6 @@ impl DbProApp {
                     .clearable(true)
                     .show(ui);
             });
-            ui.add_space(gap);
             ui.vertical(|ui| {
                 ui.set_width(fav_w);
                 ui.set_max_width(fav_w);
@@ -1211,6 +1204,7 @@ impl DbProApp {
 
         // Row 2: Environment Selector & Read-only mode
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
             let env_w = (avail - gap) * 0.55;
             let ro_w = (avail - gap) * 0.45;
 
@@ -1243,7 +1237,6 @@ impl DbProApp {
                     _ => "Development".to_owned(),
                 };
             });
-            ui.add_space(gap);
             ui.vertical(|ui| {
                 ui.set_width(ro_w);
                 ui.set_max_width(ro_w);
@@ -1270,6 +1263,7 @@ impl DbProApp {
         let btn_w = 110.0;
         let input_w = (avail - btn_w - gap).max(120.0);
         ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
             ui.vertical(|ui| {
                 ui.set_width(input_w);
                 ui.set_max_width(input_w);
@@ -1280,7 +1274,6 @@ impl DbProApp {
                     .clearable(true)
                     .show(ui);
             });
-            ui.add_space(gap);
             ui.vertical(|ui| {
                 ui.set_width(btn_w);
                 ui.set_max_width(btn_w);
