@@ -7,6 +7,7 @@ use egui::{
     Color32, FontFamily, FontId, Pos2, Rect, Response, Rounding, Sense, Stroke, Ui, Vec2,
 };
 use lucide_icons::Icon;
+use std::borrow::Cow;
 
 const BUTTON_ROUNDING: f32 = 6.0;
 const ICON_TEXT_GAP: f32 = 8.0;
@@ -30,16 +31,16 @@ pub enum ButtonSize {
     IconSm,
 }
 
-pub struct Button {
-    pub(crate) label: Option<String>,
+pub struct Button<'a> {
+    pub(crate) label: Option<Cow<'a, str>>,
     pub(crate) icon: Option<Icon>,
     pub(crate) variant: ButtonVariant,
     pub(crate) size: ButtonSize,
     pub(crate) enabled: bool,
     pub(crate) loading: bool,
     pub(crate) full_width: bool,
-    pub(crate) access_label: Option<String>,
-    pub(crate) tooltip: Option<String>,
+    pub(crate) access_label: Option<Cow<'a, str>>,
+    pub(crate) tooltip: Option<Cow<'a, str>>,
     pub(crate) theme: DbProTheme,
 }
 
@@ -51,29 +52,126 @@ struct SizeTokens {
     default_width: f32,
 }
 
-impl Button {
+impl SizeTokens {
+    pub fn calculate_width(&self, content_width: f32, full_width: bool, available_width: f32) -> f32 {
+        if full_width {
+            available_width
+        } else {
+            self.default_width.max(content_width + self.padding.x * 2.0)
+        }
+    }
+}
+
+struct LoadingLayout {
+    rect: Rect,
+    fill_color: Color32,
+    border_stroke: Stroke,
+    content_w: f32,
+    text_galley: Option<std::sync::Arc<egui::Galley>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ButtonPalette {
+    pub fill_rest: Color32,
+    pub fill_hover: Color32,
+    pub stroke_rest: Stroke,
+    pub stroke_hover: Stroke,
+    pub text_color: Color32,
+}
+
+impl ButtonPalette {
+    pub fn from_variant(variant: ButtonVariant, theme: DbProTheme) -> Self {
+        match variant {
+            ButtonVariant::Default => Self {
+                fill_rest: theme.accent,
+                fill_hover: theme.accent_hover,
+                stroke_rest: Stroke::NONE,
+                stroke_hover: Stroke::NONE,
+                text_color: theme.accent_foreground,
+            },
+            ButtonVariant::Secondary => Self {
+                fill_rest: theme.surface_hover,
+                fill_hover: theme.surface_active,
+                stroke_rest: Stroke::NONE,
+                stroke_hover: Stroke::NONE,
+                text_color: theme.text_primary,
+            },
+            ButtonVariant::Outline => Self {
+                fill_rest: Color32::TRANSPARENT,
+                fill_hover: theme.surface_hover,
+                stroke_rest: Stroke::new(1.0, theme.border_default),
+                stroke_hover: Stroke::new(1.0, theme.border_strong),
+                text_color: theme.text_primary,
+            },
+            ButtonVariant::Ghost => Self {
+                fill_rest: Color32::TRANSPARENT,
+                fill_hover: theme.surface_hover,
+                stroke_rest: Stroke::NONE,
+                stroke_hover: Stroke::new(1.0, theme.border_subtle),
+                text_color: theme.text_secondary,
+            },
+            ButtonVariant::Destructive => Self {
+                fill_rest: theme.danger,
+                fill_hover: theme.danger.linear_multiply(0.85),
+                stroke_rest: Stroke::NONE,
+                stroke_hover: Stroke::NONE,
+                text_color: theme.text_inverse,
+            },
+            ButtonVariant::Link => Self {
+                fill_rest: Color32::TRANSPARENT,
+                fill_hover: Color32::TRANSPARENT,
+                stroke_rest: Stroke::NONE,
+                stroke_hover: Stroke::NONE,
+                text_color: theme.accent,
+            },
+        }
+    }
+
+    pub fn resolve_state(&self, hover: f32) -> (Color32, Stroke) {
+        let fill = lerp_color(self.fill_rest, self.fill_hover, hover);
+        let stroke_color = lerp_color(self.stroke_rest.color, self.stroke_hover.color, hover);
+        let stroke = if self.stroke_rest == Stroke::NONE && self.stroke_hover == Stroke::NONE {
+            Stroke::NONE
+        } else {
+            Stroke::new(1.0, stroke_color)
+        };
+        (fill, stroke)
+    }
+
+    pub fn loading_colors(&self, variant: ButtonVariant, theme: DbProTheme) -> (Color32, Color32, Stroke) {
+        match variant {
+            ButtonVariant::Default => (theme.accent_foreground, theme.accent, Stroke::NONE),
+            ButtonVariant::Secondary => (theme.text_primary, theme.surface_hover, Stroke::NONE),
+            ButtonVariant::Outline => (
+                theme.text_primary,
+                Color32::TRANSPARENT,
+                Stroke::new(1.0, theme.border_default),
+            ),
+            ButtonVariant::Ghost => (theme.text_secondary, Color32::TRANSPARENT, Stroke::NONE),
+            ButtonVariant::Destructive => (theme.text_inverse, theme.danger, Stroke::NONE),
+            ButtonVariant::Link => (theme.accent, Color32::TRANSPARENT, Stroke::NONE),
+        }
+    }
+}
+
+impl<'a> Button<'a> {
     pub fn new(theme: DbProTheme) -> Self {
         Self {
             label: None,
             icon: None,
             variant: ButtonVariant::Default,
             size: ButtonSize::Default,
+            theme,
             enabled: true,
+            tooltip: None,
             loading: false,
             full_width: false,
             access_label: None,
-            tooltip: None,
-            theme,
         }
     }
 
-    pub fn text(mut self, text: impl Into<String>) -> Self {
+    pub fn text(mut self, text: impl Into<Cow<'a, str>>) -> Self {
         self.label = Some(text.into());
-        self
-    }
-
-    pub fn tooltip(mut self, tooltip: impl Into<String>) -> Self {
-        self.tooltip = Some(tooltip.into());
         self
     }
 
@@ -97,6 +195,11 @@ impl Button {
         self
     }
 
+    pub fn tooltip(mut self, tooltip: impl Into<Cow<'a, str>>) -> Self {
+        self.tooltip = Some(tooltip.into());
+        self
+    }
+
     pub fn loading(mut self, loading: bool) -> Self {
         self.loading = loading;
         self
@@ -107,7 +210,7 @@ impl Button {
         self
     }
 
-    pub fn access_label(mut self, label: impl Into<String>) -> Self {
+    pub fn access_label(mut self, label: impl Into<Cow<'a, str>>) -> Self {
         self.access_label = Some(label.into());
         self
     }
@@ -152,15 +255,13 @@ impl Button {
         }
     }
 
-    fn accessible_name(&self) -> String {
+    fn accessible_name(&self) -> Cow<'_, str> {
         self.access_label
-            .clone()
-            .or_else(|| self.label.clone())
-            // An icon-only control carries no visible text, so its tooltip is the only
-            // name a screen reader could be given; without this the button would be
-            // announced as the literal string "Button".
-            .or_else(|| self.tooltip.clone())
-            .unwrap_or_else(|| "Button".to_owned())
+            .as_deref()
+            .or(self.label.as_deref())
+            .or(self.tooltip.as_deref())
+            .map(Cow::Borrowed)
+            .unwrap_or(Cow::Borrowed("Button"))
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
@@ -172,55 +273,73 @@ impl Button {
     }
 
     fn show_loading(self, ui: &mut Ui, tokens: &SizeTokens) -> Response {
-        let (text_color, fill_color, border_stroke) = rest_colors(self.variant, self.theme);
-        let rounding = Rounding::same(BUTTON_ROUNDING);
+        let palette = ButtonPalette::from_variant(self.variant, self.theme);
+        let (text_color, fill_color, border_stroke) = palette.loading_colors(self.variant, self.theme);
+
         let text_galley = self.label.as_ref().map(|txt| {
-            ui.painter()
-                .layout_no_wrap(txt.clone(), FontId::proportional(tokens.font_size), text_color)
+            ui.painter().layout_no_wrap(
+                txt.as_ref().to_owned(),
+                FontId::proportional(tokens.font_size),
+                text_color,
+            )
         });
+
         let gap = if text_galley.is_some() { ICON_TEXT_GAP } else { 0.0 };
         let text_w = text_galley.as_ref().map_or(0.0, |g| g.size().x);
         let content_w = tokens.icon_size + gap + text_w;
-        let width = if self.full_width {
-            ui.available_width()
-        } else {
-            tokens.default_width.max(content_w + tokens.padding.x * 2.0)
-        };
+        let width = tokens.calculate_width(content_w, self.full_width, ui.available_width());
+
         let (rect, response) = ui.allocate_exact_size(Vec2::new(width, tokens.min_height), Sense::hover());
         response.widget_info(|| button_info(false, &self.accessible_name()));
-        ui.painter().rect_filled(rect, rounding, fill_color);
-        if border_stroke != Stroke::NONE {
-            ui.painter().rect_stroke(rect, rounding, border_stroke);
+
+        let layout = LoadingLayout {
+            rect,
+            fill_color,
+            border_stroke,
+            content_w,
+            text_galley,
+        };
+        self.paint_loading(ui, &layout, tokens);
+
+        response.on_hover_cursor(egui::CursorIcon::Wait)
+    }
+
+    fn paint_loading(&self, ui: &mut Ui, layout: &LoadingLayout, tokens: &SizeTokens) {
+        let palette = ButtonPalette::from_variant(self.variant, self.theme);
+        let (text_color, _, _) = palette.loading_colors(self.variant, self.theme);
+        let rounding = Rounding::same(BUTTON_ROUNDING);
+        ui.painter().rect_filled(layout.rect, rounding, layout.fill_color);
+        if layout.border_stroke != Stroke::NONE {
+            ui.painter().rect_stroke(layout.rect, rounding, layout.border_stroke);
         }
-        let start_x = rect.center().x - content_w * 0.5;
+        let start_x = layout.rect.center().x - layout.content_w * 0.5;
         animation::paint_spinner(
             ui.painter(),
-            Pos2::new(start_x + tokens.icon_size * 0.5, rect.center().y),
+            Pos2::new(start_x + tokens.icon_size * 0.5, layout.rect.center().y),
             (tokens.icon_size - 2.0) * 0.5,
             1.8,
             text_color,
             text_color.linear_multiply(0.25),
             animation::spinner_angle(ui),
         );
-        if let Some(galley) = text_galley {
+        if let Some(galley) = &layout.text_galley {
+            let gap = ICON_TEXT_GAP;
             let text_pos = Pos2::new(
                 start_x + tokens.icon_size + gap,
-                rect.center().y - galley.size().y * 0.5,
+                layout.rect.center().y - galley.size().y * 0.5,
             );
-            ui.painter().galley(text_pos, galley, Color32::PLACEHOLDER);
+            ui.painter()
+                .galley(text_pos, std::sync::Arc::clone(galley), Color32::PLACEHOLDER);
         }
-        response.on_hover_cursor(egui::CursorIcon::Wait)
     }
 
     fn show_interactive(self, ui: &mut Ui, tokens: &SizeTokens) -> Response {
         let name = self.accessible_name();
-        let job = content_job(&self, tokens);
+        let palette = ButtonPalette::from_variant(self.variant, self.theme);
+        let job = content_job(&self, tokens, palette.text_color);
         let galley = ui.fonts(|fonts| fonts.layout_job(job));
-        let width = if self.full_width {
-            ui.available_width()
-        } else {
-            tokens.default_width.max(galley.size().x + tokens.padding.x * 2.0)
-        };
+        let width = tokens.calculate_width(galley.size().x, self.full_width, ui.available_width());
+
         let sense = if self.enabled { Sense::click() } else { Sense::hover() };
         let (rect, mut response) = ui.allocate_exact_size(Vec2::new(width, tokens.min_height), sense);
         response.widget_info(|| button_info(self.enabled, &name));
@@ -238,44 +357,47 @@ impl Button {
             response.id.with("press"),
             self.enabled && response.is_pointer_button_down_on(),
         );
-        let (rest_fill, hover_fill, rest_stroke, hover_stroke, text_color) =
-            interactive_colors(self.variant, self.theme);
-        let fill = lerp_color(rest_fill, hover_fill, hover);
-        let stroke_color = lerp_color(rest_stroke.color, hover_stroke.color, hover);
-        let stroke = if rest_stroke == Stroke::NONE && hover_stroke == Stroke::NONE {
-            Stroke::NONE
-        } else {
-            Stroke::new(1.0, stroke_color)
-        };
 
+        let (fill, stroke) = palette.resolve_state(hover);
         let scale = press_scale(press);
         let paint_rect = Rect::from_center_size(rect.center(), rect.size() * scale);
-        let rounding = Rounding::same(BUTTON_ROUNDING);
-        ui.painter().rect_filled(paint_rect, rounding, fill);
-        if stroke != Stroke::NONE {
-            ui.painter().rect_stroke(paint_rect, rounding, stroke);
-        }
 
-        let text_pos = Pos2::new(
-            paint_rect.center().x - galley.size().x * 0.5,
-            paint_rect.center().y - galley.size().y * 0.5,
-        );
-        ui.painter().galley(text_pos, galley, text_color);
+        paint_interactive_surface(ui, paint_rect, fill, stroke, &galley, palette.text_color);
 
         if response.has_focus() {
             paint_focus_ring(ui, rect, BUTTON_ROUNDING, self.theme);
         }
 
         if let Some(ref tooltip_text) = self.tooltip {
-            response = Tooltip::new(tooltip_text, self.theme).show(&response);
+            response = Tooltip::new(tooltip_text.as_ref(), self.theme).show(&response);
         }
 
         response
     }
 }
 
-fn content_job(button: &Button, tokens: &SizeTokens) -> LayoutJob {
-    let (_, _, _, _, text_color) = interactive_colors(button.variant, button.theme);
+fn paint_interactive_surface(
+    ui: &mut Ui,
+    paint_rect: Rect,
+    fill: Color32,
+    stroke: Stroke,
+    galley: &std::sync::Arc<egui::Galley>,
+    text_color: Color32,
+) {
+    let rounding = Rounding::same(BUTTON_ROUNDING);
+    ui.painter().rect_filled(paint_rect, rounding, fill);
+    if stroke != Stroke::NONE {
+        ui.painter().rect_stroke(paint_rect, rounding, stroke);
+    }
+
+    let text_pos = Pos2::new(
+        paint_rect.center().x - galley.size().x * 0.5,
+        paint_rect.center().y - galley.size().y * 0.5,
+    );
+    ui.painter().galley(text_pos, std::sync::Arc::clone(galley), text_color);
+}
+
+fn content_job(button: &Button<'_>, tokens: &SizeTokens, text_color: Color32) -> LayoutJob {
     let mut job = LayoutJob::default();
     if let Some(icon) = button.icon {
         job.append(
@@ -293,7 +415,7 @@ fn content_job(button: &Button, tokens: &SizeTokens) -> LayoutJob {
     }
     if let Some(ref text) = button.label {
         job.append(
-            text,
+            text.as_ref(),
             0.0,
             TextFormat {
                 font_id: FontId::proportional(tokens.font_size),
@@ -303,68 +425,6 @@ fn content_job(button: &Button, tokens: &SizeTokens) -> LayoutJob {
         );
     }
     job
-}
-
-fn rest_colors(variant: ButtonVariant, theme: DbProTheme) -> (Color32, Color32, Stroke) {
-    match variant {
-        ButtonVariant::Default => (theme.accent_foreground, theme.accent, Stroke::NONE),
-        ButtonVariant::Secondary => (theme.text_primary, theme.surface_hover, Stroke::NONE),
-        ButtonVariant::Outline => (
-            theme.text_primary,
-            Color32::TRANSPARENT,
-            Stroke::new(1.0, theme.border_default),
-        ),
-        ButtonVariant::Ghost => (theme.text_secondary, Color32::TRANSPARENT, Stroke::NONE),
-        ButtonVariant::Destructive => (theme.text_inverse, theme.danger, Stroke::NONE),
-        ButtonVariant::Link => (theme.accent, Color32::TRANSPARENT, Stroke::NONE),
-    }
-}
-
-fn interactive_colors(variant: ButtonVariant, theme: DbProTheme) -> (Color32, Color32, Stroke, Stroke, Color32) {
-    match variant {
-        ButtonVariant::Default => (
-            theme.accent,
-            theme.accent_hover,
-            Stroke::NONE,
-            Stroke::NONE,
-            theme.accent_foreground,
-        ),
-        ButtonVariant::Secondary => (
-            theme.surface_hover,
-            theme.surface_active,
-            Stroke::NONE,
-            Stroke::NONE,
-            theme.text_primary,
-        ),
-        ButtonVariant::Outline => (
-            Color32::TRANSPARENT,
-            theme.surface_hover,
-            Stroke::new(1.0, theme.border_default),
-            Stroke::new(1.0, theme.border_strong),
-            theme.text_primary,
-        ),
-        ButtonVariant::Ghost => (
-            Color32::TRANSPARENT,
-            theme.surface_hover,
-            Stroke::NONE,
-            Stroke::new(1.0, theme.border_subtle),
-            theme.text_secondary,
-        ),
-        ButtonVariant::Destructive => (
-            theme.danger,
-            theme.danger.linear_multiply(0.85),
-            Stroke::NONE,
-            Stroke::NONE,
-            theme.text_inverse,
-        ),
-        ButtonVariant::Link => (
-            Color32::TRANSPARENT,
-            Color32::TRANSPARENT,
-            Stroke::NONE,
-            Stroke::NONE,
-            theme.accent,
-        ),
-    }
 }
 
 #[cfg(test)]

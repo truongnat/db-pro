@@ -1,17 +1,15 @@
-use crate::components::animation::{fade_alpha, faded_overlay, overlay_t, small_translate};
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use crate::components::overlay::screen_rect;
-use crate::DbProTheme;
-use egui::{Area, FontId, Frame, Id, Margin, Order, Pos2, Rect, Response, RichText, Rounding, Stroke, Ui};
+use egui::{Area, FontId, Frame, Id, Margin, Order, Pos2, Response, RichText, Rounding, Stroke, Ui};
 use lucide_icons::Icon;
 use std::borrow::Cow;
 use std::hash::Hash;
 
-const DIALOG_RADIUS: f32 = 16.0;
-const DIALOG_WIDTH: f32 = 420.0;
-const SHEET_WIDTH: f32 = 360.0;
-const DIALOG_TRANSLATE_PX: f32 = 8.0;
-const SHEET_TRANSLATE_PX: f32 = 16.0;
+use crate::components::animation::{fade_alpha, overlay_t, small_translate};
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
+use crate::DbProTheme;
+
+use super::config::{DIALOG_RADIUS, DIALOG_TRANSLATE_PX, DIALOG_WIDTH};
+use super::frame::DialogFrame;
+use super::layout::{overlay_widget_id, paint_dim, screen_rect_fallback, OverlayPaint};
 
 pub struct Dialog<'a> {
     open: &'a mut bool,
@@ -82,21 +80,11 @@ impl<'a> Dialog<'a> {
             return None;
         }
 
-        // Close on Escape — but only if no other modal is stacked above this one.
-        // The global modal stack (DbProApp::modal_stack) owns the authoritative close-on-escape
-        // decision; this local handler is a fallback for standalone dialogs outside the stack.
         if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
             *self.open = false;
         }
 
-        let screen = {
-            let s = ctx.screen_rect();
-            if s.width() > 1.0 && s.height() > 1.0 {
-                s
-            } else {
-                Rect::from_min_size(Pos2::ZERO, egui::vec2(1280.0, 800.0))
-            }
-        };
+        let screen = screen_rect_fallback(ctx);
         let mut inner = None;
         let theme = self.theme;
         let title = self.title;
@@ -109,8 +97,6 @@ impl<'a> Dialog<'a> {
 
         let translate = small_translate(progress, DIALOG_TRANSLATE_PX);
         let origin = Pos2::new(layout.target_pos.x, layout.target_pos.y + translate);
-        // Fade the card in/out using the same overlay progress that drives the dim layer,
-        // so the card and backdrop share one animation curve (spec §26: 160-220ms).
         let card_alpha = fade_alpha(progress);
 
         // 1. Dim backdrop layer (rendered first in Foreground)
@@ -177,37 +163,6 @@ impl<'a> Dialog<'a> {
         }
 
         inner
-    }
-}
-
-pub struct DialogFrame<'a> {
-    pub ui: &'a mut Ui,
-    pub max_content_height: f32,
-    pub inner_width: f32,
-}
-
-impl<'a> DialogFrame<'a> {
-    /// Renders the scrollable body of the dialog.
-    pub fn body<R>(&mut self, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
-        let inner_w = self.inner_width;
-        let max_h = self.max_content_height;
-        egui::ScrollArea::vertical()
-            .max_width(inner_w)
-            .max_height(max_h)
-            .auto_shrink([false, true])
-            .show(self.ui, |body_ui| {
-                body_ui.set_max_width(inner_w);
-                add_contents(body_ui)
-            })
-            .inner
-    }
-
-    /// Renders a fixed sticky footer at the bottom of the card, outside the scroll area.
-    pub fn footer<F>(&mut self, add_footer: impl FnOnce(&mut Ui) -> F) -> F {
-        self.ui.add_space(8.0);
-        self.ui.separator();
-        self.ui.add_space(8.0);
-        add_footer(self.ui)
     }
 }
 
@@ -288,153 +243,7 @@ fn paint_dialog_card<R>(
     .inner
 }
 
-pub struct Sheet<'a> {
-    open: &'a mut bool,
-    title: &'a str,
-    width: f32,
-    id_salt: Option<Id>,
-    theme: DbProTheme,
-}
-
-impl<'a> Sheet<'a> {
-    pub fn new(open: &'a mut bool, title: &'a str, theme: DbProTheme) -> Self {
-        Self {
-            open,
-            title,
-            width: SHEET_WIDTH,
-            id_salt: None,
-            theme,
-        }
-    }
-
-    pub fn width(mut self, width: f32) -> Self {
-        self.width = width;
-        self
-    }
-
-    pub fn id_salt(mut self, salt: impl Hash) -> Self {
-        self.id_salt = Some(Id::new(salt));
-        self
-    }
-
-    pub fn show<R>(self, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> Option<R> {
-        let id = overlay_widget_id(ui, self.id_salt, "sheet");
-        let progress = overlay_t(ui.ctx(), id.with("motion"), *self.open);
-        if progress <= 0.0 {
-            return None;
-        }
-
-        if ui.input(|input| input.key_pressed(egui::Key::Escape)) {
-            *self.open = false;
-        }
-
-        let screen = screen_rect(ui);
-        let mut inner = None;
-        let theme = self.theme;
-        let title = self.title;
-        let open = self.open;
-        let (width, x) = crate::components::common_utils::calculate_sheet_layout(
-            screen,
-            self.width,
-            progress,
-            SHEET_TRANSLATE_PX,
-            16.0,
-        );
-
-        Area::new(id)
-            .order(Order::Foreground)
-            .fixed_pos(screen.min)
-            .interactable(true)
-            .show(ui.ctx(), |ui| {
-                ui.set_min_size(screen.size());
-                paint_dim(
-                    ui,
-                    OverlayPaint {
-                        screen,
-                        overlay: theme.overlay,
-                        progress,
-                    },
-                );
-                let sheet_rect = Rect::from_min_max(Pos2::new(x, screen.top()), screen.max);
-                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(sheet_rect), |ui| {
-                    ui.set_width(width);
-                    ui.set_min_height(screen.height());
-                    let rounding = Rounding {
-                        nw: 12.0,
-                        ne: 0.0,
-                        sw: 12.0,
-                        se: 0.0,
-                    };
-                    Frame {
-                        fill: theme.surface_floating,
-                        stroke: Stroke::new(1.0, theme.border_subtle),
-                        inner_margin: Margin::same(16.0),
-                        rounding,
-                        shadow: theme.floating_shadow(),
-                        ..Default::default()
-                    }
-                    .show(ui, |ui| {
-                        let inner_w = (width - 32.0).max(80.0);
-                        ui.set_width(inner_w);
-                        ui.set_max_width(inner_w);
-                        ui.set_min_height((screen.height() - 32.0).max(80.0));
-                        ui.horizontal(|ui| {
-                            let close_w = 28.0;
-                            let title_w = (inner_w - close_w - 8.0).max(40.0);
-                            ui.allocate_ui_with_layout(
-                                egui::vec2(title_w, 0.0),
-                                egui::Layout::top_down(egui::Align::LEFT),
-                                |ui| {
-                                    ui.set_width(title_w);
-                                    ui.set_max_width(title_w);
-                                    ui.add(
-                                        egui::Label::new(
-                                            RichText::new(title).size(16.0).strong().color(theme.text_primary),
-                                        )
-                                        .truncate(),
-                                    )
-                                    .on_hover_text(title);
-                                },
-                            );
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                if close_icon_button(ui, theme).clicked() {
-                                    *open = false;
-                                }
-                            });
-                        });
-                        ui.add_space(12.0);
-                        inner = Some(add_contents(ui));
-                    });
-                });
-            });
-        inner
-    }
-}
-
-fn overlay_widget_id(ui: &mut Ui, salt: Option<Id>, kind: &'static str) -> Id {
-    if let Some(salt) = salt {
-        return salt;
-    }
-    let id = ui.auto_id_with(kind);
-    ui.skip_ahead_auto_ids(1);
-    id
-}
-
-struct OverlayPaint {
-    screen: Rect,
-    overlay: egui::Color32,
-    progress: f32,
-}
-
-fn paint_dim(ui: &mut Ui, paint: OverlayPaint) {
-    ui.painter().rect_filled(
-        paint.screen,
-        Rounding::ZERO,
-        faded_overlay(paint.overlay, paint.progress),
-    );
-}
-
-fn close_icon_button(ui: &mut Ui, theme: DbProTheme) -> Response {
+pub fn close_icon_button(ui: &mut Ui, theme: DbProTheme) -> Response {
     Button::new(theme)
         .icon(Icon::X)
         .size(ButtonSize::Icon)

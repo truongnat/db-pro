@@ -524,7 +524,7 @@ impl DbProApp {
                     self.grid_filter.clear();
                 }
 
-                crate::components::badge::Badge::new(&format!("{matching_rows} rows"), self.theme)
+                crate::components::badge::Badge::new(format!("{matching_rows} rows"), self.theme)
                     .variant(crate::components::badge::BadgeVariant::Secondary)
                     .compact(true)
                     .show(ui);

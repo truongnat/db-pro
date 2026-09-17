@@ -32,38 +32,75 @@ impl Card {
     }
 }
 
-pub fn card_header(ui: &mut Ui, title: &str, description: Option<&str>, theme: DbProTheme) {
+use std::borrow::Cow;
+
+pub fn card_header<'a>(
+    ui: &mut Ui,
+    title: impl Into<Cow<'a, str>>,
+    description: Option<impl Into<Cow<'a, str>>>,
+    theme: DbProTheme,
+) {
+    let title = title.into();
+    let description = description.map(|d| d.into());
     ui.vertical(|ui| {
-        ui.label(RichText::new(title).size(15.0).strong().color(theme.text_primary));
+        ui.label(
+            RichText::new(title.as_ref())
+                .size(15.0)
+                .strong()
+                .color(theme.text_primary),
+        );
         if let Some(desc) = description {
             ui.add_space(2.0);
-            ui.label(RichText::new(desc).size(12.0).color(theme.text_secondary));
+            ui.label(RichText::new(desc.as_ref()).size(12.0).color(theme.text_secondary));
         }
     });
     ui.add_space(10.0);
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct MetricTrend<'a> {
+    pub text: Cow<'a, str>,
+    pub is_positive: bool,
+}
+
+impl<'a> MetricTrend<'a> {
+    pub fn new(text: impl Into<Cow<'a, str>>, is_positive: bool) -> Self {
+        Self {
+            text: text.into(),
+            is_positive,
+        }
+    }
+
+    pub fn style(&self, theme: &DbProTheme) -> (egui::Color32, Icon) {
+        if self.is_positive {
+            (theme.success, Icon::TrendingUp)
+        } else {
+            (theme.danger, Icon::TrendingDown)
+        }
+    }
+}
+
 pub struct MetricCard<'a> {
-    title: &'a str,
-    value: &'a str,
-    change: Option<(&'a str, bool)>, // (e.g. "+12.5%", is_positive)
+    title: Cow<'a, str>,
+    value: Cow<'a, str>,
+    trend: Option<MetricTrend<'a>>,
     icon: Option<Icon>,
     theme: DbProTheme,
 }
 
 impl<'a> MetricCard<'a> {
-    pub fn new(title: &'a str, value: &'a str, theme: DbProTheme) -> Self {
+    pub fn new(title: impl Into<Cow<'a, str>>, value: impl Into<Cow<'a, str>>, theme: DbProTheme) -> Self {
         Self {
-            title,
-            value,
-            change: None,
+            title: title.into(),
+            value: value.into(),
+            trend: None,
             icon: None,
             theme,
         }
     }
 
-    pub fn change(mut self, text: &'a str, is_positive: bool) -> Self {
-        self.change = Some((text, is_positive));
+    pub fn change(mut self, text: impl Into<Cow<'a, str>>, is_positive: bool) -> Self {
+        self.trend = Some(MetricTrend::new(text, is_positive));
         self
     }
 
@@ -75,57 +112,58 @@ impl<'a> MetricCard<'a> {
     pub fn show(self, ui: &mut Ui) {
         Card::new(self.theme).show(ui, |ui| {
             ui.set_min_height(96.0);
-            ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new(self.title)
-                        .font(crate::DbProTheme::ui_medium_font(12.5))
-                        .color(self.theme.text_tertiary),
-                );
-                if let Some(icon) = self.icon {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let (rect, _) = ui.allocate_exact_size(egui::vec2(28.0, 28.0), egui::Sense::hover());
-                        ui.painter()
-                            .rect_filled(rect, Rounding::same(8.0), self.theme.surface_2);
-                        ui.painter().text(
-                            rect.center(),
-                            egui::Align2::CENTER_CENTER,
-                            char::from(icon).to_string(),
-                            FontId::new(14.0, FontFamily::Name("lucide".into())),
-                            self.theme.text_secondary,
-                        );
-                    });
-                }
-            });
+            self.draw_metric_header(ui);
 
             ui.add_space(12.0);
             ui.label(
-                RichText::new(self.value)
+                RichText::new(self.value.as_ref())
                     .font(crate::DbProTheme::ui_medium_font(24.0))
                     .color(self.theme.text_primary),
             );
 
-            if let Some((change_text, is_positive)) = self.change {
-                ui.add_space(8.0);
-                let color = if is_positive {
-                    self.theme.success
-                } else {
-                    self.theme.danger
-                };
-                let icon = if is_positive {
-                    Icon::TrendingUp
-                } else {
-                    Icon::TrendingDown
-                };
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.label(
-                        RichText::new(char::from(icon).to_string())
-                            .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
-                            .color(color),
+            if let Some(trend) = &self.trend {
+                trend.draw(ui, &self.theme);
+            }
+        });
+    }
+
+    fn draw_metric_header(&self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.label(
+                RichText::new(self.title.as_ref())
+                    .font(crate::DbProTheme::ui_medium_font(12.5))
+                    .color(self.theme.text_tertiary),
+            );
+            if let Some(icon_glyph) = self.icon {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let (rect, _) = ui.allocate_exact_size(egui::vec2(28.0, 28.0), egui::Sense::hover());
+                    ui.painter()
+                        .rect_filled(rect, Rounding::same(8.0), self.theme.surface_2);
+                    ui.painter().text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        char::from(icon_glyph).to_string(),
+                        FontId::new(14.0, FontFamily::Name("lucide".into())),
+                        self.theme.text_secondary,
                     );
-                    ui.label(RichText::new(format!(" {}", change_text)).size(12.0).color(color));
                 });
             }
+        });
+    }
+}
+
+impl<'a> MetricTrend<'a> {
+    pub fn draw(&self, ui: &mut Ui, theme: &DbProTheme) {
+        ui.add_space(8.0);
+        let (color, icon) = self.style(theme);
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 0.0;
+            ui.label(
+                RichText::new(char::from(icon).to_string())
+                    .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
+                    .color(color),
+            );
+            ui.label(RichText::new(format!(" {}", self.text)).size(12.0).color(color));
         });
     }
 }

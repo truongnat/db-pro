@@ -300,7 +300,7 @@ impl DbProApp {
 
                 if self.selected_rows.len() > 1 {
                     crate::components::badge::Badge::new(
-                        &format!("{} rows selected", self.selected_rows.len()),
+                        format!("{} rows selected", self.selected_rows.len()),
                         self.theme,
                     )
                     .variant(crate::components::badge::BadgeVariant::Secondary)

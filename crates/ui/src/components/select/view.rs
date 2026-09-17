@@ -1,19 +1,19 @@
+use egui::{FontFamily, FontId, Frame, Id, Margin, Rect, Response, RichText, Rounding, Sense, Stroke, Ui};
+use lucide_icons::Icon;
+use std::borrow::Cow;
+
 use crate::components::animation::{hover_t, lerp_color};
 use crate::components::interact::{paint_focus_ring, text_input_info};
 use crate::components::overlay::{floating_surface, screen_rect};
 use crate::DbProTheme;
-use egui::{
-    Color32, FontFamily, FontId, Frame, Id, Margin, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2,
-};
-use lucide_icons::Icon;
 
-const ITEM_HEIGHT: f32 = 32.0;
-const MAX_VISIBLE_ITEMS: usize = 8;
-const MENU_PAD: f32 = 6.0;
+use super::config::MENU_PAD;
+use super::layout::calculate_menu_geometry;
+use super::option::{paint_option, SelectOption};
 
 pub struct Select<'a> {
     id_salt: &'a str,
-    label: Option<&'a str>,
+    label: Option<Cow<'a, str>>,
     selected: &'a mut usize,
     options: &'a [String],
     width: Option<f32>,
@@ -41,8 +41,8 @@ impl<'a> Select<'a> {
         self
     }
 
-    pub fn label(mut self, label: &'a str) -> Self {
-        self.label = Some(label);
+    pub fn label(mut self, label: impl Into<Cow<'a, str>>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
@@ -65,9 +65,9 @@ impl<'a> Select<'a> {
         let width = self.width.unwrap_or_else(|| ui.available_width());
 
         ui.vertical(|ui| {
-            if let Some(lbl) = self.label {
+            if let Some(ref lbl) = self.label {
                 ui.label(
-                    RichText::new(lbl)
+                    RichText::new(lbl.as_ref())
                         .font(DbProTheme::ui_medium_font(12.0))
                         .color(self.theme.text_secondary),
                 );
@@ -151,34 +151,19 @@ impl<'a> Select<'a> {
             ui.memory_mut(|mem| mem.close_popup());
         }
 
-        let extra = if self.has_more { 1 } else { 0 };
-        let visible = self.options.len().saturating_add(extra).min(MAX_VISIBLE_ITEMS);
-        let menu_h = visible as f32 * ITEM_HEIGHT + MENU_PAD * 2.0;
         let screen = screen_rect(ui);
-        let space_below = (screen.bottom() - parent_rect.bottom()).max(0.0);
-        let space_above = (parent_rect.top() - screen.top()).max(0.0);
-        let open_up = dropdown_should_open_above(space_below, space_above, menu_h);
-        let menu_width = parent_rect.width().max(160.0).min((screen.width() - 16.0).max(80.0));
-        let menu_left = parent_rect.left().clamp(
-            screen.left() + 8.0,
-            (screen.right() - menu_width - 8.0).max(screen.left() + 8.0),
-        );
-        let menu_pos = if open_up {
-            Pos2::new(menu_left, parent_rect.top() - 4.0 - menu_h)
-        } else {
-            Pos2::new(menu_left, parent_rect.bottom() + 4.0)
-        };
+        let geo = calculate_menu_geometry(screen, parent_rect, self.options.len(), self.has_more);
 
         let area_resp = egui::Area::new(popup_id)
-            .fixed_pos(menu_pos)
+            .fixed_pos(geo.menu_pos)
             .order(egui::Order::Foreground)
             .show(ui.ctx(), |ui| {
                 floating_surface(self.theme, 10.0, Margin::symmetric(4.0, MENU_PAD)).show(ui, |ui| {
-                    ui.set_min_width(menu_width - 8.0);
-                    ui.set_max_width(menu_width);
+                    ui.set_min_width(geo.menu_width - 8.0);
+                    ui.set_max_width(geo.menu_width);
                     egui::ScrollArea::vertical()
                         .id_salt(popup_id.with("scroll"))
-                        .max_height(MAX_VISIBLE_ITEMS as f32 * ITEM_HEIGHT)
+                        .max_height(geo.max_height)
                         .auto_shrink([false, true])
                         .show(ui, |ui| {
                             for (idx, opt) in self.options.iter().enumerate() {
@@ -222,62 +207,5 @@ impl<'a> Select<'a> {
                 }
             }
         }
-    }
-}
-
-pub fn dropdown_should_open_above(space_below: f32, space_above: f32, menu_h: f32) -> bool {
-    space_below < menu_h && space_above > space_below
-}
-
-struct SelectOption<'a> {
-    label: &'a str,
-    selected: bool,
-    theme: DbProTheme,
-}
-
-fn paint_option(ui: &mut Ui, option: SelectOption<'_>) -> Response {
-    let SelectOption { label, selected, theme } = option;
-    let (rect, response) = ui.allocate_exact_size(Vec2::new(ui.available_width(), ITEM_HEIGHT), Sense::click());
-    let hover = hover_t(ui.ctx(), response.id.with("opt"), response.hovered() && !selected);
-    let bg = if selected {
-        theme.accent_soft
-    } else {
-        lerp_color(Color32::TRANSPARENT, theme.surface_hover, hover)
-    };
-    ui.painter().rect_filled(rect, Rounding::same(6.0), bg);
-    let text_color = if selected { theme.accent } else { theme.text_primary };
-    let text_right = if selected {
-        rect.right() - 28.0
-    } else {
-        rect.right() - 8.0
-    };
-    ui.put(
-        Rect::from_min_max(
-            Pos2::new(rect.left() + 8.0, rect.top()),
-            Pos2::new(text_right, rect.bottom()),
-        ),
-        egui::Label::new(RichText::new(label).font(FontId::proportional(13.0)).color(text_color)).truncate(),
-    );
-    if selected {
-        ui.painter().text(
-            Pos2::new(rect.right() - 8.0, rect.center().y),
-            egui::Align2::RIGHT_CENTER,
-            char::from(Icon::Check).to_string(),
-            FontId::new(12.0, FontFamily::Name("lucide".into())),
-            theme.accent,
-        );
-    }
-    response
-}
-
-#[cfg(test)]
-mod tests {
-    use super::dropdown_should_open_above;
-
-    #[test]
-    fn dropdown_flips_above_when_there_is_no_room_below() {
-        assert!(dropdown_should_open_above(40.0, 280.0, 260.0));
-        assert!(!dropdown_should_open_above(300.0, 40.0, 260.0));
-        assert!(!dropdown_should_open_above(200.0, 200.0, 180.0));
     }
 }

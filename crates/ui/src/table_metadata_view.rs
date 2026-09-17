@@ -25,35 +25,35 @@ impl DbProApp {
         toolbar_frame(self.theme).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 section_label(ui, "METRICS", self.theme);
-                Badge::new(&format!("{} columns", info.columns.len()), self.theme)
+                Badge::new(format!("{} columns", info.columns.len()), self.theme)
                     .variant(BadgeVariant::Default)
                     .show(ui);
                 if let Some(pk) = &info.primary_key {
-                    Badge::new(&format!("PK: {}", pk.join(", ")), self.theme)
+                    Badge::new(format!("PK: {}", pk.join(", ")), self.theme)
                         .variant(BadgeVariant::Warning)
                         .show(ui);
                 }
-                Badge::new(&format!("{} indexes", info.indexes.len()), self.theme)
+                Badge::new(format!("{} indexes", info.indexes.len()), self.theme)
                     .variant(BadgeVariant::Secondary)
                     .show(ui);
-                Badge::new(&format!("{} foreign keys", info.foreign_keys.len()), self.theme)
+                Badge::new(format!("{} foreign keys", info.foreign_keys.len()), self.theme)
                     .variant(BadgeVariant::Secondary)
                     .show(ui);
                 if !info.check_constraints.is_empty() {
                     Badge::new(
-                        &format!("{} check constraints", info.check_constraints.len()),
+                        format!("{} check constraints", info.check_constraints.len()),
                         self.theme,
                     )
                     .variant(BadgeVariant::Outline)
                     .show(ui);
                 }
                 if !info.dependencies.is_empty() {
-                    Badge::new(&format!("{} dependencies", info.dependencies.len()), self.theme)
+                    Badge::new(format!("{} dependencies", info.dependencies.len()), self.theme)
                         .variant(BadgeVariant::Outline)
                         .show(ui);
                 }
                 if let Some(row_count) = info.row_count {
-                    Badge::new(&format!("{row_count} rows"), self.theme)
+                    Badge::new(format!("{row_count} rows"), self.theme)
                         .variant(BadgeVariant::Secondary)
                         .show(ui);
                 }
