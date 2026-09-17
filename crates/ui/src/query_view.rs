@@ -29,9 +29,14 @@ const HEADER_COMBO_MAX_CHARS: usize = 28;
 
 impl DbProApp {
     pub(super) fn draw_query(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(SPACE_SM);
+        // Shell owns horizontal inset (`SHELL_SPLIT_INSET`); keep the query surface flush.
         egui::Frame::none()
-            .inner_margin(egui::Margin::symmetric(SPACE_MD, 0.0))
+            .inner_margin(egui::Margin {
+                left: SPACE_XS,
+                right: SPACE_XS,
+                top: SPACE_XS,
+                bottom: 0.0,
+            })
             .show(ui, |ui| {
                 self.refresh_diagnostics();
                 let more_anchor = self.draw_query_header(ui);

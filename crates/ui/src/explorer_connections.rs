@@ -3,6 +3,25 @@ use super::explorer_tree::{draw_codex_tree_row, draw_hint_row, CodexTreeRow};
 use super::explorer_view::connection_context_menu;
 use super::*;
 
+/// Driver-aware URI suitable for "Copy Connection String" in the explorer.
+fn connection_display_uri(connection: &UiConnectionSummary) -> String {
+    let driver = connection.driver.to_ascii_lowercase();
+    if driver.contains("sqlite") {
+        return connection.database.clone();
+    }
+    let scheme = if driver.contains("mysql") {
+        "mysql"
+    } else if driver.contains("sqlserver") || driver.contains("mssql") {
+        "sqlserver"
+    } else {
+        "postgresql"
+    };
+    format!(
+        "{scheme}://{}@{}:{}/{}",
+        connection.username, connection.host, connection.port, connection.database
+    )
+}
+
 impl DbProApp {
     pub(super) fn draw_dbeaver_connections_tree(&mut self, ui: &mut egui::Ui) {
         let connection_count = self.connections.len();
@@ -149,14 +168,7 @@ impl DbProApp {
                 self.runtime_message = format!("Copied `{}` to clipboard", connection.name);
             }
             if actions.copy_conn_string {
-                let conn_str = if connection.driver == "SQLite" {
-                    connection.database.clone()
-                } else {
-                    format!(
-                        "postgresql://{}@{}:{}/{}",
-                        connection.username, connection.host, connection.port, connection.database
-                    )
-                };
+                let conn_str = connection_display_uri(&connection);
                 ui.output_mut(|o| o.copied_text = conn_str);
                 self.runtime_message = "Copied connection string to clipboard".to_owned();
             }
@@ -223,6 +235,9 @@ impl DbProApp {
                 // Nested Schemas (e.g. PostgreSQL: public, information_schema, etc.)
                 for index in 0..schema_count {
                     let schema = self.schema.schemas[index].clone();
+                    if !is_user_visible_schema(&schema) {
+                        continue;
+                    }
                     self.draw_dbeaver_schema_node(ui, &connection.id, &schema);
                 }
             }

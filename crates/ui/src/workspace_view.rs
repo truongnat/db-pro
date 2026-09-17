@@ -22,15 +22,15 @@ impl DbProApp {
     pub(super) fn draw_workspace_tabs(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
 
-        // Fill the CentralPanel width so the tab strip abuts the padded content box.
+        // Tab strip flush with CentralPanel; tiny top breath only.
         let tabs_width = ui.available_width();
         ui.set_min_width(tabs_width);
         egui::Frame {
             fill: self.theme.surface_panel,
             inner_margin: egui::Margin {
-                left: SPACE_SM,
-                right: SPACE_SM,
-                top: SPACE_XS,
+                left: SPACE_XS,
+                right: SPACE_XS,
+                top: SPACE_XXS,
                 bottom: 0.0,
             },
             stroke: egui::Stroke::NONE,

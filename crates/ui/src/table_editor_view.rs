@@ -57,7 +57,7 @@ impl DbProApp {
 
         let data_width = ui.max_rect().width();
         grid_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width((data_width - 24.0).max(0.0));
+            ui.set_min_width(data_width.max(0.0));
             self.draw_result_grid(ui, &result);
         });
         self.draw_pending_changes_dialog(ui);

@@ -1,3 +1,4 @@
+use crate::tokens::SPACE_XS;
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
@@ -78,7 +79,14 @@ pub fn activity_bar_frame(theme: DbProTheme) -> Frame {
 pub fn toolbar_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_panel,
-        inner_margin: Margin::symmetric(10.0, 4.0),
+        // Horizontal inset is owned by CentralPanel (`SHELL_SPLIT_INSET`) so the
+        // toolbar lines up with the sidebar content across the splitter.
+        inner_margin: Margin {
+            left: 0.0,
+            right: 0.0,
+            top: SPACE_XS,
+            bottom: SPACE_XS,
+        },
         stroke: Stroke::new(1.0, theme.border_subtle),
         rounding: Rounding::ZERO,
         ..Default::default()
@@ -140,8 +148,14 @@ pub fn agent_message_frame(theme: DbProTheme, user_message: bool) -> Frame {
 pub fn editor_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_editor,
-        inner_margin: Margin::same(10.0),
-        rounding: Rounding::same(8.0),
+        // Horizontal inset owned by the shell; keep a tight vertical breath only.
+        inner_margin: Margin {
+            left: 0.0,
+            right: 0.0,
+            top: SPACE_XS,
+            bottom: SPACE_XS,
+        },
+        rounding: Rounding::ZERO,
         stroke: Stroke::NONE,
         ..Default::default()
     }
@@ -150,8 +164,13 @@ pub fn editor_frame(theme: DbProTheme) -> Frame {
 pub fn grid_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_editor,
-        inner_margin: Margin::same(10.0),
-        rounding: Rounding::same(8.0),
+        inner_margin: Margin {
+            left: 0.0,
+            right: 0.0,
+            top: SPACE_XS,
+            bottom: SPACE_XS,
+        },
+        rounding: Rounding::ZERO,
         stroke: Stroke::NONE,
         ..Default::default()
     }

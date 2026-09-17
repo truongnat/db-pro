@@ -163,7 +163,12 @@ impl DbProApp {
             self.runtime_message = format!("Copied `{}` to clipboard", view.name);
         }
         if open_query {
-            self.set_active_query_text(format!("SELECT *\nFROM {}\nLIMIT 100;", view.name));
+            let from = if view.schema.is_empty() {
+                view.name.clone()
+            } else {
+                format!("{}.{}", view.schema, view.name)
+            };
+            self.set_active_query_text(format!("SELECT *\nFROM {from}\nLIMIT 100;"));
             self.active_tab = WorkspaceTab::Query;
         }
     }
@@ -293,13 +298,50 @@ impl DbProApp {
             },
         );
 
-        if response.clicked() {
+        let is_ctx = is_context_menu_triggered(&response, ui);
+        let mut open_trigger = false;
+        let mut copy_name = false;
+        let theme_copy = *theme;
+        context_action_menu(ui, &response, theme_copy, |ui, close_menu| {
+            if ctx_menu_item(
+                ui,
+                Some(Icon::Eye),
+                "View Trigger",
+                None,
+                theme_copy.text_primary,
+                theme_copy,
+            )
+            .clicked()
+            {
+                open_trigger = true;
+                *close_menu = true;
+            }
+            if ctx_menu_item(
+                ui,
+                Some(Icon::Copy),
+                "Copy Trigger Name",
+                None,
+                theme_copy.text_primary,
+                theme_copy,
+            )
+            .clicked()
+            {
+                copy_name = true;
+                *close_menu = true;
+            }
+        });
+
+        if (response.clicked() && !is_ctx) || open_trigger {
             self.open_schema_object(
                 SchemaObjectSelection::Trigger(trigger.name.clone()),
                 "",
                 &trigger.name,
                 "trigger",
             );
+        }
+        if copy_name {
+            ui.output_mut(|o| o.copied_text = trigger.name.clone());
+            self.runtime_message = format!("Copied `{}` to clipboard", trigger.name);
         }
     }
 

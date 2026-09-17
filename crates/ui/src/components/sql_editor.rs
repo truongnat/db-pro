@@ -48,7 +48,7 @@ impl<'a> SqlEditorToolbar<'a> {
                 sw: 0.0,
                 se: 0.0,
             })
-            .inner_margin(egui::Margin::symmetric(SPACE_MD, SPACE_SM));
+            .inner_margin(egui::Margin::symmetric(SPACE_XS, SPACE_SM));
 
         frame.show(ui, |ui| {
             ui.horizontal(|ui| {

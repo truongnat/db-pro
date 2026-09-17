@@ -35,6 +35,15 @@ impl DbProApp {
         if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "view.toggle_sidebar")) {
             self.sidebar_open = !self.sidebar_open;
         }
+        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "connection.new")) {
+            self.open_new_connection();
+            return;
+        }
+        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "query.new")) {
+            self.new_query_document();
+            self.active_tab = WorkspaceTab::Query;
+            return;
+        }
         if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "editor.find")) {
             self.editor_search_open = true;
         }

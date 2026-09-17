@@ -247,6 +247,14 @@ pub(crate) const EXPLORER_MAX_TABLES: usize = 100;
 /// Row height used by the Codex navigator for viewport culling.
 pub(crate) const EXPLORER_ROW_HEIGHT: f32 = 26.0;
 
+/// Schemas the explorer should show. Hides PostgreSQL catalog / session-temp
+/// namespaces (`pg_temp_*`, `pg_toast_temp_*`) even if a provider still returns them.
+pub(crate) fn is_user_visible_schema(name: &str) -> bool {
+    !matches!(name, "pg_catalog" | "information_schema" | "pg_toast")
+        && !name.starts_with("pg_temp")
+        && !name.starts_with("pg_toast_temp")
+}
+
 /// Cached explorer table listing for one `(connection, schema, search)` key.
 /// Rebuilt only when the key changes — avoids reallocating 1k+ name strings every frame.
 #[derive(Debug, Clone, Default)]

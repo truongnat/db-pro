@@ -44,7 +44,7 @@ impl DbProApp {
         };
 
         toolbar_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width((ui.available_width() - 24.0).max(0.0));
+            ui.set_min_width(ui.available_width().max(0.0));
             ui.horizontal_wrapped(|ui| {
                 self.draw_schema_object_breadcrumb(
                     ui,

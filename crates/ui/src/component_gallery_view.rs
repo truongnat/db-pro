@@ -203,7 +203,7 @@ impl DbProApp {
             .id_salt("component_gallery_scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                ui.add_space(16.0);
+                ui.add_space(SPACE_SM);
 
                 // ── Toolbar Header ──────────────────────────────────────────
                 ui.horizontal(|ui| {

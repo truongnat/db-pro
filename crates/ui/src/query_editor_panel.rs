@@ -38,7 +38,7 @@ impl DbProApp {
         let mut manual_completion = false;
         let mut completion_pos = egui::Pos2::ZERO;
 
-        let available_size = egui::vec2((editor_width - 24.0).max(280.0), editor_height);
+        let available_size = egui::vec2(editor_width.max(280.0), editor_height);
 
         let doc_index = self.active_query_document;
         let doc = &mut self.query_documents[doc_index];

@@ -97,7 +97,7 @@ impl DbProApp {
     pub(super) fn draw_results_pane(&mut self, ui: &mut egui::Ui, result: Option<&UiQueryResult>) {
         let results_width = ui.max_rect().width();
         grid_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width((results_width - 24.0).max(0.0));
+            ui.set_min_width(results_width.max(0.0));
             let result_count = self.active_query_result_count();
             if result_count > 1 {
                 ui.horizontal(|ui| {
@@ -150,7 +150,7 @@ impl DbProApp {
         let output_width = ui.available_width();
         let messages = self.active_query_messages();
         card_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width((output_width - 24.0).max(0.0));
+            ui.set_min_width(output_width.max(0.0));
             if messages.is_empty() {
                 empty_state(
                     ui,
@@ -172,7 +172,7 @@ impl DbProApp {
 
         let output_width = ui.available_width();
         card_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width((output_width - 24.0).max(0.0));
+            ui.set_min_width(output_width.max(0.0));
             let Some(result) = result else {
                 empty_state(
                     ui,
@@ -341,7 +341,7 @@ impl DbProApp {
     pub(super) fn draw_explain_pane(&mut self, ui: &mut egui::Ui) {
         let output_width = ui.available_width();
         card_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width((output_width - 24.0).max(0.0));
+            ui.set_min_width(output_width.max(0.0));
             ui.horizontal(|ui| {
                 if compact_button(ui, "Explain", self.theme).clicked() {
                     self.explain_query();
@@ -453,7 +453,7 @@ impl DbProApp {
     pub(super) fn draw_history_pane(&mut self, ui: &mut egui::Ui) {
         let output_width = ui.available_width();
         card_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width((output_width - 24.0).max(0.0));
+            ui.set_min_width(output_width.max(0.0));
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Search").small().color(self.theme.text_muted));
                 ui.add_sized(

@@ -689,10 +689,15 @@ impl eframe::App for DbProApp {
 
         egui::CentralPanel::default()
             .frame(egui::Frame {
-                // Match sidebar fill; inset content so the workspace isn't flush
-                // against the sidebar divider or the window/agent edge.
+                // Flush to the sidebar splitter; match `SHELL_SPLIT_INSET` / sidebar
+                // `pad_right` so the body lines up with the navigator across the divider.
                 fill: self.theme.surface_panel,
-                inner_margin: egui::Margin::symmetric(SPACE_MD, 0.0),
+                inner_margin: egui::Margin {
+                    left: SHELL_SPLIT_INSET,
+                    right: SHELL_SPLIT_INSET,
+                    top: 0.0,
+                    bottom: 0.0,
+                },
                 outer_margin: egui::Margin::ZERO,
                 stroke: egui::Stroke::NONE,
                 ..Default::default()

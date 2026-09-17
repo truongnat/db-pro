@@ -29,6 +29,9 @@ pub const SECTION_GAP_SM: f32 = 24.0;
 pub const SECTION_GAP_MD: f32 = 32.0;
 pub const SECTION_GAP_LG: f32 = 48.0;
 pub const CARD_INNER_PAD: f32 = 14.0;
+/// Shared inset on both sides of the sidebar↔workspace splitter.
+/// Matches sidebar `pad_left` (`SPACE_SM`) so navigator and body stay aligned.
+pub const SHELL_SPLIT_INSET: f32 = SPACE_SM;
 
 // ── 2. Corner Radius Tokens ──────────────────────────────────────────────────
 
