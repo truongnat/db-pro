@@ -53,9 +53,31 @@ impl<'a> Dialog<'a> {
         self.show_framed(ui, |frame| frame.body(add_contents))
     }
 
+    pub fn show_ctx<R>(self, ctx: &egui::Context, add_contents: impl FnOnce(&mut Ui) -> R) -> Option<R> {
+        self.show_framed_ctx(ctx, |frame| frame.body(add_contents))
+    }
+
     pub fn show_framed<R>(self, ui: &mut Ui, add_frame: impl FnOnce(&mut DialogFrame<'_>) -> R) -> Option<R> {
         let id = overlay_widget_id(ui, self.id_salt, "dialog");
-        let progress = overlay_t(ui.ctx(), id.with("motion"), *self.open);
+        self.show_framed_impl(ui.ctx(), id, add_frame)
+    }
+
+    pub fn show_framed_ctx<R>(
+        self,
+        ctx: &egui::Context,
+        add_frame: impl FnOnce(&mut DialogFrame<'_>) -> R,
+    ) -> Option<R> {
+        let id = self.id_salt.unwrap_or_else(|| Id::new("dbpro_dialog_overlay"));
+        self.show_framed_impl(ctx, id, add_frame)
+    }
+
+    fn show_framed_impl<R>(
+        self,
+        ctx: &egui::Context,
+        id: Id,
+        add_frame: impl FnOnce(&mut DialogFrame<'_>) -> R,
+    ) -> Option<R> {
+        let progress = overlay_t(ctx, id.with("motion"), *self.open);
         if progress <= 0.0 {
             return None;
         }
@@ -63,18 +85,25 @@ impl<'a> Dialog<'a> {
         // Close on Escape — but only if no other modal is stacked above this one.
         // The global modal stack (DbProApp::modal_stack) owns the authoritative close-on-escape
         // decision; this local handler is a fallback for standalone dialogs outside the stack.
-        if ui.input(|input| input.key_pressed(egui::Key::Escape)) {
+        if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
             *self.open = false;
         }
 
-        let screen = screen_rect(ui);
+        let screen = {
+            let s = ctx.screen_rect();
+            if s.width() > 1.0 && s.height() > 1.0 {
+                s
+            } else {
+                Rect::from_min_size(Pos2::ZERO, egui::vec2(1280.0, 800.0))
+            }
+        };
         let mut inner = None;
         let theme = self.theme;
         let title = self.title;
         let description = self.description;
         let open = self.open;
 
-        let prev_height = ui.ctx().data(|d| d.get_temp::<f32>(id.with("prev_height")));
+        let prev_height = ctx.data(|d| d.get_temp::<f32>(id.with("prev_height")));
         let layout =
             crate::components::common_utils::calculate_dialog_layout(screen, self.width, prev_height, 16.0, 24.0);
 
@@ -90,7 +119,7 @@ impl<'a> Dialog<'a> {
             .order(Order::Foreground)
             .fixed_pos(screen.min)
             .interactable(true)
-            .show(ui.ctx(), |dim_ui| {
+            .show(ctx, |dim_ui| {
                 dim_ui.set_min_size(screen.size());
                 paint_dim(
                     dim_ui,
@@ -113,7 +142,7 @@ impl<'a> Dialog<'a> {
             .fixed_pos(origin)
             .interactable(true);
 
-        card_area.show(ui.ctx(), |card_ui| {
+        card_area.show(ctx, |card_ui| {
             card_ui.set_opacity(card_alpha);
             card_ui.set_width(layout.width);
             card_ui.set_max_width(layout.width);
@@ -138,7 +167,7 @@ impl<'a> Dialog<'a> {
         });
 
         if backdrop_clicked {
-            if let Some(pos) = ui.input(|i| i.pointer.interact_pos()) {
+            if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
                 if !card_rect.is_some_and(|r| r.contains(pos)) {
                     *open = false;
                 }

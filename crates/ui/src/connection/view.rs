@@ -164,22 +164,17 @@ impl DbProApp {
         } else {
             t!("connection.new_desc")
         };
-        egui::Area::new(egui::Id::new("connection_dialog_area"))
-            .order(egui::Order::Foreground)
-            .fixed_pos(egui::Pos2::ZERO)
-            .show(ctx, |ui| {
-                Dialog::new(&mut open, title, self.theme)
-                    .description(desc)
-                    .width(820.0)
-                    .id_salt("connection_form_dialog")
-                    .show_framed(ui, |frame| {
-                        frame.body(|ui| {
-                            self.draw_connection_form(ui);
-                        });
-                        frame.footer(|ui| {
-                            self.draw_connection_footer(ui);
-                        });
-                    });
+        Dialog::new(&mut open, title, self.theme)
+            .description(desc)
+            .width(820.0)
+            .id_salt("connection_form_dialog")
+            .show_framed_ctx(ctx, |frame| {
+                frame.body(|ui| {
+                    self.draw_connection_form(ui);
+                });
+                frame.footer(|ui| {
+                    self.draw_connection_footer(ui);
+                });
             });
         self.connection_dialog_open = open && self.connection_dialog_open;
         if self.connection_draft != draft_before {
