@@ -83,17 +83,39 @@ impl<'a> Dialog<'a> {
         // so the card and backdrop share one animation curve (spec §26: 160-220ms).
         let card_alpha = fade_alpha(progress);
 
+        // 1. Dim backdrop layer (rendered first in Foreground)
+        let mut backdrop_clicked = false;
+        Area::new(id.with("dim"))
+            .order(Order::Foreground)
+            .fixed_pos(screen.min)
+            .interactable(true)
+            .show(ui.ctx(), |dim_ui| {
+                dim_ui.set_min_size(screen.size());
+                paint_dim(
+                    dim_ui,
+                    OverlayPaint {
+                        screen,
+                        overlay: theme.overlay,
+                        progress,
+                    },
+                );
+                let resp = dim_ui.allocate_response(screen.size(), egui::Sense::click());
+                if resp.clicked() {
+                    backdrop_clicked = true;
+                }
+            });
+
+        // 2. Dialog Card layer (rendered second in Foreground on top of dim)
         let mut card_rect = None;
-        // The Area is marked interactable so it participates in egui's focus routing.
         let card_area = Area::new(id.with("card"))
-            .order(Order::Tooltip)
+            .order(Order::Foreground)
             .fixed_pos(origin)
             .interactable(true);
 
-        card_area.show(ui.ctx(), |ui| {
-            ui.set_opacity(card_alpha);
-            ui.set_width(layout.width);
-            ui.set_max_width(layout.width);
+        card_area.show(ui.ctx(), |card_ui| {
+            card_ui.set_opacity(card_alpha);
+            card_ui.set_width(layout.width);
+            card_ui.set_max_width(layout.width);
             let res = paint_dialog_card(
                 DialogCardPaint {
                     open,
@@ -103,35 +125,18 @@ impl<'a> Dialog<'a> {
                     max_content_height: layout.max_content_height,
                     theme,
                 },
-                ui,
+                card_ui,
                 add_frame,
             );
-            let rect = ui.min_rect();
-            ui.ctx()
+            let rect = card_ui.min_rect();
+            card_ui
+                .ctx()
                 .data_mut(|d| d.insert_temp(id.with("prev_height"), rect.height()));
             card_rect = Some(rect);
             inner = Some(res);
         });
 
-        let dim_resp = Area::new(id.with("dim"))
-            .order(Order::Foreground)
-            .fixed_pos(screen.min)
-            .interactable(true)
-            .show(ui.ctx(), |ui| {
-                ui.set_min_size(screen.size());
-                let resp = ui.allocate_response(screen.size(), egui::Sense::click());
-                paint_dim(
-                    ui,
-                    OverlayPaint {
-                        screen,
-                        overlay: theme.overlay,
-                        progress,
-                    },
-                );
-                resp
-            });
-
-        if dim_resp.inner.clicked() {
+        if backdrop_clicked {
             if let Some(pos) = ui.input(|i| i.pointer.interact_pos()) {
                 if !card_rect.is_some_and(|r| r.contains(pos)) {
                     *open = false;
