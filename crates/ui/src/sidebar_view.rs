@@ -27,9 +27,9 @@ impl DbProApp {
                 ui.painter()
                     .rect_filled(full, egui::Rounding::ZERO, theme.surface_panel);
 
-                // Keep left/right padding equal so content breathes beside the
-                // activity rail and the resize edge (not flush on either side).
-                let pad_x = SPACE_MD;
+                // Keep padding balanced so content breathes beside the
+                // activity rail while not leaving excessive empty gutter near the resize edge.
+                let pad_x = SPACE_SM;
                 let pad_y = SPACE_SM;
                 let content_rect = Rect::from_min_max(
                     Pos2::new(full.left() + pad_x, full.top() + pad_y),

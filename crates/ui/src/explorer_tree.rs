@@ -16,9 +16,9 @@ const CODEX_ROW_INDENT: f32 = 10.0;
 /// Width of the leading chevron slot.
 const CODEX_CHEVRON_SLOT: f32 = 14.0;
 /// Horizontal padding applied at both row edges.
-const CODEX_ROW_PADDING: f32 = 8.0;
+const CODEX_ROW_PADDING: f32 = 4.0;
 /// Gap inserted before each trailing item.
-const CODEX_TRAILING_GAP: f32 = 5.0;
+const CODEX_TRAILING_GAP: f32 = 4.0;
 
 /// Shortens verbose database types into clean, compact identifiers (e.g. DBeaver style).
 pub(super) fn shorten_data_type(data_type: &str) -> String {
