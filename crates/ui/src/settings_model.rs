@@ -110,6 +110,8 @@ impl AppSettings {
 pub(crate) struct GeneralSettings {
     pub confirm_destructive_queries: bool,
     pub restore_tabs_on_startup: bool,
+    #[serde(default)]
+    pub language: crate::UiLanguage,
 }
 
 impl Default for GeneralSettings {
@@ -117,6 +119,7 @@ impl Default for GeneralSettings {
         Self {
             confirm_destructive_queries: true,
             restore_tabs_on_startup: true,
+            language: crate::UiLanguage::default(),
         }
     }
 }

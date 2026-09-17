@@ -21,7 +21,7 @@ impl DbProApp {
         }
         .show(ui, |ui| {
             egui::CollapsingHeader::new(
-                RichText::new("Cloud Presets & URI Importer")
+                RichText::new(t!("connection.cloud_presets_title"))
                     .font(DbProTheme::ui_medium_font(11.5))
                     .color(self.theme.text_primary),
             )
@@ -51,7 +51,7 @@ impl DbProApp {
                             }
                         });
                     if Button::new(self.theme)
-                        .text("Apply Preset")
+                        .text(t!("connection.apply_preset"))
                         .variant(ButtonVariant::Secondary)
                         .size(ButtonSize::Sm)
                         .show(ui)
@@ -74,10 +74,7 @@ impl DbProApp {
                         "password".into()
                     };
                     if self.connection_draft.auth_kind == "ephemeral_token" {
-                        ui.colored_label(
-                            self.theme.warning,
-                            "Token is session-only — never stored as a long-lived password",
-                        );
+                        ui.colored_label(self.theme.warning, t!("connection.token_session_warning"));
                     }
                 });
                 ui.add_space(SPACE_XS);
@@ -86,12 +83,12 @@ impl DbProApp {
                     "postgresql://user:secret@host:5432/db?sslmode=verify-full",
                     self.theme,
                 )
-                .label("Paste Connection URI")
+                .label(t!("connection.paste_uri"))
                 .show(ui);
                 ui.add_space(SPACE_XXS);
                 ui.horizontal(|ui| {
                     if Button::new(self.theme)
-                        .text("Import from URI")
+                        .text(t!("connection.import_uri"))
                         .variant(ButtonVariant::Secondary)
                         .size(ButtonSize::Sm)
                         .show(ui)
@@ -136,7 +133,7 @@ impl DbProApp {
         }
         .show(ui, |ui| {
             ui.label(
-                RichText::new("SSL Certificates")
+                RichText::new(t!("connection.ssl_certs_title"))
                     .font(DbProTheme::ui_medium_font(11.5))
                     .color(self.theme.text_primary),
             );
@@ -146,7 +143,7 @@ impl DbProApp {
                 "/path/to/ca.pem",
                 self.theme,
             )
-            .label("Root CA Certificate Path")
+            .label(t!("connection.root_ca_path"))
             .leading_icon(Icon::FileCode)
             .show(ui);
             ui.add_space(SPACE_XS);
@@ -161,7 +158,7 @@ impl DbProApp {
                         "/path/to/client.crt",
                         self.theme,
                     )
-                    .label("Client Certificate (optional)")
+                    .label(t!("connection.client_cert_path"))
                     .width(panel_half_w)
                     .show(ui);
                 });
@@ -174,7 +171,7 @@ impl DbProApp {
                         "/path/to/client.key",
                         self.theme,
                     )
-                    .label("Client Key (optional)")
+                    .label(t!("connection.client_key_path"))
                     .width(w)
                     .show(ui);
                 });
@@ -203,7 +200,7 @@ impl DbProApp {
                 ui.add_space(SPACE_XXS);
                 ui.checkbox(
                     &mut self.connection_draft.ssh_tunnel_enabled,
-                    RichText::new("Connect via SSH Bastion Tunnel")
+                    RichText::new(t!("connection.ssh_bastion_title"))
                         .strong()
                         .color(self.theme.text_primary),
                 );
@@ -233,7 +230,7 @@ impl DbProApp {
                         ui.set_width(host_w);
                         ui.set_max_width(host_w);
                         Input::new(&mut self.connection_draft.ssh_host, "bastion.example.com", self.theme)
-                            .label("SSH Host")
+                            .label(t!("connection.ssh_host"))
                             .width(host_w)
                             .leading_icon(Icon::Server)
                             .show(ui);
@@ -242,7 +239,7 @@ impl DbProApp {
                         ui.set_width(port_w);
                         ui.set_max_width(port_w);
                         Input::new(&mut self.connection_draft.ssh_port, "22", self.theme)
-                            .label("Port")
+                            .label(t!("connection.port"))
                             .width(port_w)
                             .leading_icon(Icon::Hash)
                             .show(ui);
@@ -251,7 +248,7 @@ impl DbProApp {
                         ui.set_width(user_w);
                         ui.set_max_width(user_w);
                         Input::new(&mut self.connection_draft.ssh_user, "ubuntu", self.theme)
-                            .label("SSH User")
+                            .label(t!("connection.ssh_user"))
                             .width(user_w)
                             .leading_icon(Icon::User)
                             .show(ui);
@@ -260,7 +257,7 @@ impl DbProApp {
                         ui.set_width(key_w);
                         ui.set_max_width(key_w);
                         ui.label(
-                            RichText::new("Private Key")
+                            RichText::new(t!("connection.ssh_private_key"))
                                 .size(12.0)
                                 .strong()
                                 .color(self.theme.text_secondary),
@@ -280,7 +277,7 @@ impl DbProApp {
                             ui.add_space(SPACE_XS);
                             if Button::new(self.theme)
                                 .icon(Icon::FolderOpen)
-                                .text("Browse")
+                                .text(t!("connection.browse"))
                                 .variant(ButtonVariant::Secondary)
                                 .size(ButtonSize::Sm)
                                 .show(ui)
@@ -295,7 +292,7 @@ impl DbProApp {
                 ui.add_space(SPACE_XS);
                 ui.horizontal(|ui| {
                     if Button::new(self.theme)
-                        .text("Save as SSH profile")
+                        .text(t!("connection.save_as_ssh_profile"))
                         .variant(ButtonVariant::Ghost)
                         .size(ButtonSize::Sm)
                         .show(ui)
@@ -304,7 +301,11 @@ impl DbProApp {
                         self.save_draft_as_ssh_profile();
                     }
                     if !self.ssh_profiles.is_empty() {
-                        ui.label(RichText::new("Use profile:").small().color(self.theme.text_muted));
+                        ui.label(
+                            RichText::new(t!("connection.use_profile"))
+                                .small()
+                                .color(self.theme.text_muted),
+                        );
                         for profile in self.ssh_profiles.clone() {
                             let selected = self.connection_draft.ssh_profile_id == profile.id;
                             if ui.selectable_label(selected, &profile.name).clicked() {
@@ -315,9 +316,9 @@ impl DbProApp {
                 });
                 if !self.connection_draft.ssh_profile_id.is_empty() {
                     ui.label(
-                        RichText::new(format!(
-                            "Referenced SSH profile id `{}` (secrets stay in vault)",
-                            self.connection_draft.ssh_profile_id
+                        RichText::new(t!(
+                            "status.referenced_ssh_profile",
+                            id = self.connection_draft.ssh_profile_id.as_str()
                         ))
                         .small()
                         .color(self.theme.text_muted),
@@ -328,12 +329,7 @@ impl DbProApp {
     }
 
     /// Panel 4: Tags & Metadata
-    pub(crate) fn draw_tags_metadata_panel(
-        &mut self,
-        ui: &mut egui::Ui,
-        id_salt: &'static str,
-        placeholder: &'static str,
-    ) {
+    pub(crate) fn draw_tags_metadata_panel(&mut self, ui: &mut egui::Ui, id_salt: &'static str, placeholder: &str) {
         ui.add_space(SPACE_SM);
         Frame {
             fill: self.theme.surface_panel,
@@ -344,7 +340,7 @@ impl DbProApp {
         }
         .show(ui, |ui| {
             egui::CollapsingHeader::new(
-                RichText::new("Tags & Metadata")
+                RichText::new(t!("connection.tags_metadata"))
                     .font(DbProTheme::ui_medium_font(11.5))
                     .color(self.theme.text_primary),
             )
@@ -352,7 +348,7 @@ impl DbProApp {
             .show(ui, |ui| {
                 ui.add_space(SPACE_XS);
                 Input::new(&mut self.connection_draft.tags, placeholder, self.theme)
-                    .label("Tags (comma separated)")
+                    .label(t!("connection.tags_label"))
                     .leading_icon(Icon::Tag)
                     .show(ui);
             });

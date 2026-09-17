@@ -3,6 +3,8 @@ use crate::DbProTheme;
 use egui::{FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
+use std::borrow::Cow;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AlertVariant {
     Default,
@@ -13,8 +15,8 @@ pub enum AlertVariant {
 }
 
 pub struct Alert<'a> {
-    pub(crate) title: &'a str,
-    pub(crate) description: &'a str,
+    pub(crate) title: Cow<'a, str>,
+    pub(crate) description: Option<Cow<'a, str>>,
     pub(crate) variant: AlertVariant,
     pub(crate) icon: Option<Icon>,
     pub(crate) dismissable: bool,
@@ -22,10 +24,21 @@ pub struct Alert<'a> {
 }
 
 impl<'a> Alert<'a> {
-    pub fn new(title: &'a str, description: &'a str, theme: DbProTheme) -> Self {
+    pub fn new(title: impl Into<Cow<'a, str>>, description: impl Into<Cow<'a, str>>, theme: DbProTheme) -> Self {
         Self {
-            title,
-            description,
+            title: title.into(),
+            description: Some(description.into()),
+            variant: AlertVariant::Default,
+            icon: None,
+            dismissable: false,
+            theme,
+        }
+    }
+
+    pub fn title_only(title: impl Into<Cow<'a, str>>, theme: DbProTheme) -> Self {
+        Self {
+            title: title.into(),
+            description: None,
             variant: AlertVariant::Default,
             icon: None,
             dismissable: false,
@@ -112,21 +125,21 @@ impl<'a> Alert<'a> {
                     |ui| {
                         ui.add(
                             egui::Label::new(
-                                RichText::new(self.title)
+                                RichText::new(self.title.as_ref())
                                     .font(DbProTheme::ui_medium_font(13.0))
                                     .color(self.theme.text_primary),
                             )
                             .wrap(),
                         );
-                        ui.add_space(3.0);
-                        ui.add(
-                            egui::Label::new(
-                                RichText::new(self.description)
-                                    .size(12.5)
-                                    .color(self.theme.text_secondary),
-                            )
-                            .wrap(),
-                        );
+                        if let Some(desc) = &self.description {
+                            ui.add_space(3.0);
+                            ui.add(
+                                egui::Label::new(
+                                    RichText::new(desc.as_ref()).size(12.5).color(self.theme.text_secondary),
+                                )
+                                .wrap(),
+                            );
+                        }
                     },
                 );
 

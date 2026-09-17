@@ -15,14 +15,12 @@ pub const SSH_QUALIFICATION_HINT: &str =
     "Unqualified in v0.1: the tunnel has not been end-to-end tested and may not work reliably.";
 
 /// Per-mode guidance for the SSL selector (#144 locked contract).
-pub fn ssl_mode_guidance(mode: UiSslMode) -> &'static str {
+pub fn ssl_mode_guidance(mode: UiSslMode) -> std::borrow::Cow<'static, str> {
     match mode {
-        UiSslMode::Disable => {
-            "Plaintext — credentials and query traffic travel without TLS. Use only for localhost/dev."
-        }
-        UiSslMode::Require => "TLS encryption enabled, but server identity is not verified against a CA.",
-        UiSslMode::VerifyCa => "CA validation enabled; hostname identity is weaker than Verify Full.",
-        UiSslMode::VerifyFull => "Strongest available mode — recommended for remote production.",
+        UiSslMode::Disable => t!("ssl_guidance.disable"),
+        UiSslMode::Require => t!("ssl_guidance.require"),
+        UiSslMode::VerifyCa => t!("ssl_guidance.verify_ca"),
+        UiSslMode::VerifyFull => t!("ssl_guidance.verify_full"),
     }
 }
 
@@ -157,14 +155,14 @@ impl DbProApp {
         let mut open = self.connection_dialog_open;
         let draft_before = self.connection_draft.clone();
         let title = if self.editing_connection_id.is_some() {
-            "Edit Connection"
+            t!("connection.edit_connection")
         } else {
-            "New Connection"
+            t!("connection.new_connection")
         };
         let desc = if self.editing_connection_id.is_some() {
-            "Update database credentials, TLS parameters, and connection options."
+            t!("connection.edit_desc")
         } else {
-            "Select a database engine and configure connection parameters."
+            t!("connection.new_desc")
         };
         egui::Area::new(egui::Id::new("connection_dialog_area"))
             .order(egui::Order::Foreground)
@@ -187,7 +185,7 @@ impl DbProApp {
         if self.connection_draft != draft_before {
             self.connection_test_valid = false;
             self.connection_error.clear();
-            self.runtime_message = "Connection changed · test again before saving".to_owned();
+            self.runtime_message = t!("status.connection_changed").to_string();
         }
         if !self.connection_dialog_open {
             self.pending_connection_request = None;
@@ -198,13 +196,13 @@ impl DbProApp {
         // ── 1. Database Engine Selection Cards (Grid: 4 cols) ─────────
         ui.horizontal(|ui| {
             ui.label(
-                RichText::new("DATABASE ENGINE")
+                RichText::new(t!("connection.database_engine"))
                     .font(DbProTheme::ui_medium_font(10.5))
                     .color(self.theme.text_muted),
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(
-                    RichText::new("PostgreSQL · SQLite · MySQL · SQL Server")
+                    RichText::new(t!("connection.engine_hint"))
                         .font(font_caption())
                         .color(self.theme.text_muted),
                 );
@@ -250,18 +248,14 @@ impl DbProApp {
         // ── 3. Feedback Alerts ─────────────────────────────────────────
         if !self.connection_error.is_empty() {
             ui.add_space(SPACE_XS);
-            Alert::new("Configuration Error", &self.connection_error, self.theme)
+            Alert::new(t!("alerts.config_error"), &self.connection_error, self.theme)
                 .variant(AlertVariant::Destructive)
                 .show(ui);
         } else if self.connection_test_valid {
             ui.add_space(SPACE_XS);
-            Alert::new(
-                "Connection Verified",
-                "Database server is reachable and validated.",
-                self.theme,
-            )
-            .variant(AlertVariant::Success)
-            .show(ui);
+            Alert::new(t!("alerts.verified"), t!("alerts.verified_desc"), self.theme)
+                .variant(AlertVariant::Success)
+                .show(ui);
         }
         if let Some(report) = &self.connection_diagnostics {
             ui.add_space(SPACE_XS);
@@ -286,7 +280,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             let is_testing = self.pending_connection_request.is_some();
             let test_btn = Button::new(self.theme)
-                .text("Test Connection")
+                .text(t!("connection.test_connection"))
                 .variant(ButtonVariant::Secondary)
                 .icon(Icon::Zap)
                 .loading(is_testing)
@@ -298,13 +292,13 @@ impl DbProApp {
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let save_label = if self.editing_connection_id.is_some() {
-                    "Update Connection"
+                    t!("connection.update_connection")
                 } else {
-                    "Save Connection"
+                    t!("connection.save_connection")
                 };
 
                 let save_btn = Button::new(self.theme)
-                    .text(save_label)
+                    .text(&*save_label)
                     .variant(ButtonVariant::Default)
                     .icon(Icon::Check)
                     .show(ui);
@@ -314,7 +308,7 @@ impl DbProApp {
                 }
 
                 if Button::new(self.theme)
-                    .text("Cancel")
+                    .text(t!("connection.cancel"))
                     .variant(ButtonVariant::Ghost)
                     .show(ui)
                     .clicked()
@@ -336,7 +330,7 @@ impl DbProApp {
         self.draw_cloud_presets_panel(ui);
         self.draw_ssl_certificates_panel(ui);
         self.draw_ssh_tunnel_panel(ui);
-        self.draw_tags_metadata_panel(ui, "conn_tags_panel", "e.g. prod, analytics, reporting");
+        self.draw_tags_metadata_panel(ui, "conn_tags_panel", t!("connection.tags_placeholder_pg").as_ref());
     }
 
     pub(crate) fn draw_sqlite_connection_fields(&mut self, ui: &mut egui::Ui) {
@@ -348,7 +342,7 @@ impl DbProApp {
 
         // Database File Path
         ui.label(
-            RichText::new("DATABASE FILE")
+            RichText::new(t!("connection.database_file"))
                 .font(DbProTheme::ui_medium_font(10.5))
                 .color(self.theme.text_muted),
         );
@@ -362,7 +356,7 @@ impl DbProApp {
                 ui.set_width(input_w);
                 ui.set_max_width(input_w);
                 Input::new(&mut self.connection_draft.database, "/path/to/database.db", self.theme)
-                    .label("Database File Path")
+                    .label(t!("connection.database_file_path"))
                     .width(input_w)
                     .leading_icon(Icon::FolderArchive)
                     .clearable(true)
@@ -374,7 +368,7 @@ impl DbProApp {
                 ui.add_space(20.0); // Align with input below label
                 if Button::new(self.theme)
                     .icon(Icon::FolderOpen)
-                    .text("Browse File…")
+                    .text(t!("connection.browse_file"))
                     .variant(ButtonVariant::Secondary)
                     .size(ButtonSize::Sm)
                     .show(ui)
@@ -404,16 +398,18 @@ impl DbProApp {
                 );
                 ui.add_space(SPACE_XS);
                 ui.label(
-                    RichText::new(
-                        "SQLite is embedded in-process. Tables, indexes, triggers, and foreign keys are introspected automatically.",
-                    )
-                    .size(11.5)
-                    .color(self.theme.text_muted),
+                    RichText::new(t!("connection.sqlite_info_hint"))
+                        .size(11.5)
+                        .color(self.theme.text_muted),
                 );
             });
         });
 
         // Panel: Tags & Metadata
-        self.draw_tags_metadata_panel(ui, "sqlite_tags_panel", "e.g. local, test, sqlite");
+        self.draw_tags_metadata_panel(
+            ui,
+            "sqlite_tags_panel",
+            t!("connection.tags_placeholder_sqlite").as_ref(),
+        );
     }
 }

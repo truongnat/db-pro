@@ -20,12 +20,14 @@ pub(crate) fn resolve_field_width(requested: Option<f32>, available: f32) -> f32
         .clamp(INPUT_MIN_WIDTH, available.max(INPUT_MIN_WIDTH))
 }
 
+use std::borrow::Cow;
+
 pub struct Input<'a> {
-    label: Option<&'a str>,
+    label: Option<Cow<'a, str>>,
     value: &'a mut String,
-    placeholder: &'a str,
-    helper_text: Option<&'a str>,
-    error_text: Option<&'a str>,
+    placeholder: Cow<'a, str>,
+    helper_text: Option<Cow<'a, str>>,
+    error_text: Option<Cow<'a, str>>,
     leading_icon: Option<Icon>,
     clearable: bool,
     width: Option<f32>,
@@ -34,11 +36,11 @@ pub struct Input<'a> {
 }
 
 impl<'a> Input<'a> {
-    pub fn new(value: &'a mut String, placeholder: &'a str, theme: DbProTheme) -> Self {
+    pub fn new(value: &'a mut String, placeholder: impl Into<Cow<'a, str>>, theme: DbProTheme) -> Self {
         Self {
             label: None,
             value,
-            placeholder,
+            placeholder: placeholder.into(),
             helper_text: None,
             error_text: None,
             leading_icon: None,
@@ -49,18 +51,18 @@ impl<'a> Input<'a> {
         }
     }
 
-    pub fn label(mut self, label: &'a str) -> Self {
-        self.label = Some(label);
+    pub fn label(mut self, label: impl Into<Cow<'a, str>>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
-    pub fn helper_text(mut self, text: &'a str) -> Self {
-        self.helper_text = Some(text);
+    pub fn helper_text(mut self, text: impl Into<Cow<'a, str>>) -> Self {
+        self.helper_text = Some(text.into());
         self
     }
 
-    pub fn error_text(mut self, text: &'a str) -> Self {
-        self.error_text = Some(text);
+    pub fn error_text(mut self, text: impl Into<Cow<'a, str>>) -> Self {
+        self.error_text = Some(text.into());
         self
     }
 
@@ -90,9 +92,9 @@ impl<'a> Input<'a> {
         ui.vertical(|ui| {
             ui.set_width(width);
             ui.set_max_width(width);
-            if let Some(label) = self.label {
+            if let Some(label) = &self.label {
                 ui.label(
-                    RichText::new(label)
+                    RichText::new(label.as_ref())
                         .size(12.0)
                         .strong()
                         .color(self.theme.text_secondary),
@@ -145,7 +147,7 @@ impl<'a> Input<'a> {
                     let edit_response = ui.add_enabled(
                         self.enabled,
                         TextEdit::singleline(self.value)
-                            .hint_text(RichText::new(self.placeholder).color(self.theme.text_muted))
+                            .hint_text(RichText::new(self.placeholder.as_ref()).color(self.theme.text_muted))
                             .desired_width(edit_w)
                             .margin(Margin::ZERO)
                             .frame(false)
@@ -181,7 +183,7 @@ impl<'a> Input<'a> {
 
             let edit_response = frame_output.inner;
             let frame_rect = frame_output.response.rect;
-            let info_label = self.label.unwrap_or(self.placeholder);
+            let info_label = self.label.as_deref().unwrap_or(self.placeholder.as_ref());
             edit_response.widget_info(|| text_input_info(self.enabled, info_label));
 
             if frame_output.response.interact(egui::Sense::click()).clicked() && self.enabled {
@@ -198,7 +200,7 @@ impl<'a> Input<'a> {
                 self.theme,
             );
 
-            if let Some(err) = self.error_text {
+            if let Some(err) = &self.error_text {
                 ui.add_space(2.0);
                 ui.horizontal(|ui| {
                     ui.label(
@@ -207,11 +209,11 @@ impl<'a> Input<'a> {
                             .color(self.theme.danger),
                     );
                     ui.add_space(2.0);
-                    ui.label(RichText::new(err).size(11.0).color(self.theme.danger));
+                    ui.label(RichText::new(err.as_ref()).size(11.0).color(self.theme.danger));
                 });
-            } else if let Some(helper) = self.helper_text {
+            } else if let Some(helper) = &self.helper_text {
                 ui.add_space(2.0);
-                ui.label(RichText::new(helper).size(11.0).color(self.theme.text_muted));
+                ui.label(RichText::new(helper.as_ref()).size(11.0).color(self.theme.text_muted));
             }
 
             edit_response
@@ -221,23 +223,28 @@ impl<'a> Input<'a> {
 }
 
 pub struct PasswordInput<'a> {
-    label: Option<&'a str>,
+    label: Option<Cow<'a, str>>,
     value: &'a mut String,
-    placeholder: &'a str,
+    placeholder: Cow<'a, str>,
     show_password: &'a mut bool,
-    helper_text: Option<&'a str>,
-    error_text: Option<&'a str>,
+    helper_text: Option<Cow<'a, str>>,
+    error_text: Option<Cow<'a, str>>,
     required: bool,
     width: Option<f32>,
     theme: DbProTheme,
 }
 
 impl<'a> PasswordInput<'a> {
-    pub fn new(value: &'a mut String, placeholder: &'a str, show_password: &'a mut bool, theme: DbProTheme) -> Self {
+    pub fn new(
+        value: &'a mut String,
+        placeholder: impl Into<Cow<'a, str>>,
+        show_password: &'a mut bool,
+        theme: DbProTheme,
+    ) -> Self {
         Self {
             label: None,
             value,
-            placeholder,
+            placeholder: placeholder.into(),
             show_password,
             helper_text: None,
             error_text: None,
@@ -247,18 +254,18 @@ impl<'a> PasswordInput<'a> {
         }
     }
 
-    pub fn label(mut self, label: &'a str) -> Self {
-        self.label = Some(label);
+    pub fn label(mut self, label: impl Into<Cow<'a, str>>) -> Self {
+        self.label = Some(label.into());
         self
     }
 
-    pub fn helper_text(mut self, text: &'a str) -> Self {
-        self.helper_text = Some(text);
+    pub fn helper_text(mut self, text: impl Into<Cow<'a, str>>) -> Self {
+        self.helper_text = Some(text.into());
         self
     }
 
-    pub fn error_text(mut self, text: &'a str) -> Self {
-        self.error_text = Some(text);
+    pub fn error_text(mut self, text: impl Into<Cow<'a, str>>) -> Self {
+        self.error_text = Some(text.into());
         self
     }
 
@@ -278,10 +285,10 @@ impl<'a> PasswordInput<'a> {
         ui.vertical(|ui| {
             ui.set_width(width);
             ui.set_max_width(width);
-            if let Some(label) = self.label {
+            if let Some(label) = &self.label {
                 ui.horizontal(|ui| {
                     ui.label(
-                        RichText::new(label)
+                        RichText::new(label.as_ref())
                             .size(12.0)
                             .strong()
                             .color(self.theme.text_secondary),
@@ -323,7 +330,7 @@ impl<'a> PasswordInput<'a> {
                     let edit_response = ui.add(
                         TextEdit::singleline(self.value)
                             .password(!*self.show_password)
-                            .hint_text(RichText::new(self.placeholder).color(self.theme.text_muted))
+                            .hint_text(RichText::new(self.placeholder.as_ref()).color(self.theme.text_muted))
                             .desired_width(edit_w)
                             .margin(Margin::ZERO)
                             .frame(false)
@@ -353,7 +360,8 @@ impl<'a> PasswordInput<'a> {
 
             let edit_response = frame_output.inner;
             let frame_rect = frame_output.response.rect;
-            edit_response.widget_info(|| text_input_info(true, self.label.unwrap_or("Password")));
+            let info_label = self.label.as_deref().unwrap_or("Password");
+            edit_response.widget_info(|| text_input_info(true, info_label));
 
             if frame_output.response.interact(egui::Sense::click()).clicked() {
                 edit_response.request_focus();
@@ -369,7 +377,7 @@ impl<'a> PasswordInput<'a> {
                 self.theme,
             );
 
-            if let Some(err) = self.error_text {
+            if let Some(err) = &self.error_text {
                 ui.add_space(2.0);
                 ui.horizontal(|ui| {
                     ui.label(
@@ -378,11 +386,11 @@ impl<'a> PasswordInput<'a> {
                             .color(self.theme.danger),
                     );
                     ui.add_space(2.0);
-                    ui.label(RichText::new(err).size(11.0).color(self.theme.danger));
+                    ui.label(RichText::new(err.as_ref()).size(11.0).color(self.theme.danger));
                 });
-            } else if let Some(helper) = self.helper_text {
+            } else if let Some(helper) = &self.helper_text {
                 ui.add_space(2.0);
-                ui.label(RichText::new(helper).size(11.0).color(self.theme.text_muted));
+                ui.label(RichText::new(helper.as_ref()).size(11.0).color(self.theme.text_muted));
             }
 
             edit_response

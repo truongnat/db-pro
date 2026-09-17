@@ -4,6 +4,7 @@ use crate::components::overlay::screen_rect;
 use crate::DbProTheme;
 use egui::{Area, FontId, Frame, Id, Margin, Order, Pos2, Rect, Response, RichText, Rounding, Stroke, Ui};
 use lucide_icons::Icon;
+use std::borrow::Cow;
 use std::hash::Hash;
 
 const DIALOG_RADIUS: f32 = 16.0;
@@ -14,18 +15,18 @@ const SHEET_TRANSLATE_PX: f32 = 16.0;
 
 pub struct Dialog<'a> {
     open: &'a mut bool,
-    title: &'a str,
-    description: Option<&'a str>,
+    title: Cow<'a, str>,
+    description: Option<Cow<'a, str>>,
     width: f32,
     id_salt: Option<Id>,
     theme: DbProTheme,
 }
 
 impl<'a> Dialog<'a> {
-    pub fn new(open: &'a mut bool, title: &'a str, theme: DbProTheme) -> Self {
+    pub fn new(open: &'a mut bool, title: impl Into<Cow<'a, str>>, theme: DbProTheme) -> Self {
         Self {
             open,
-            title,
+            title: title.into(),
             description: None,
             width: DIALOG_WIDTH,
             id_salt: None,
@@ -33,8 +34,8 @@ impl<'a> Dialog<'a> {
         }
     }
 
-    pub fn description(mut self, description: &'a str) -> Self {
-        self.description = Some(description);
+    pub fn description(mut self, description: impl Into<Cow<'a, str>>) -> Self {
+        self.description = Some(description.into());
         self
     }
 
@@ -119,8 +120,8 @@ impl<'a> Dialog<'a> {
             let res = paint_dialog_card(
                 DialogCardPaint {
                     open,
-                    title,
-                    description,
+                    title: title.as_ref(),
+                    description: description.as_deref(),
                     width: layout.width,
                     max_content_height: layout.max_content_height,
                     theme,

@@ -21,19 +21,19 @@ impl DbProApp {
             .order(egui::Order::Foreground)
             .fixed_pos(egui::Pos2::ZERO)
             .show(ctx, |ui| {
-                Dialog::new(&mut open, "Delete Connection", self.theme)
+                Dialog::new(&mut open, t!("connection.delete_connection"), self.theme)
                     .width(420.0)
                     .show(ui, |ui| {
                         ui.label(
-                            RichText::new(format!("Delete \"{name}\" and its saved credentials?"))
+                            RichText::new(t!("connection.delete_conn_confirm", name = name.as_str()))
                                 .color(self.theme.text_primary),
                         );
                         ui.add_space(SPACE_SM);
-                        ui.colored_label(self.theme.warning, "This action cannot be undone.");
+                        ui.colored_label(self.theme.warning, t!("connection.action_undone"));
                         ui.add_space(SPACE_MD);
                         ui.horizontal(|ui| {
                             if Button::new(self.theme)
-                                .text("Delete Connection")
+                                .text(t!("connection.delete_connection"))
                                 .variant(ButtonVariant::Destructive)
                                 .size(ButtonSize::Sm)
                                 .show(ui)
@@ -45,11 +45,11 @@ impl DbProApp {
                                     connection_id: connection_id.clone(),
                                 });
                                 self.pending_connection_request = Some(request_id);
-                                self.runtime_message = format!("Deleting {name}…");
+                                self.runtime_message = t!("status.deleting", name = name.as_str()).to_string();
                                 self.delete_confirmation_id = None;
                             }
                             if Button::new(self.theme)
-                                .text("Cancel")
+                                .text(t!("connection.cancel"))
                                 .variant(ButtonVariant::Ghost)
                                 .size(ButtonSize::Sm)
                                 .show(ui)
@@ -81,19 +81,19 @@ impl DbProApp {
             .order(egui::Order::Foreground)
             .fixed_pos(egui::Pos2::ZERO)
             .show(ctx, |ui| {
-                Dialog::new(&mut open, "Delete Query Folder", self.theme)
+                Dialog::new(&mut open, t!("connection.delete_folder"), self.theme)
                     .width(420.0)
                     .show(ui, |ui| {
                         ui.label(
-                            RichText::new(format!("Delete \"{folder_name}\" and its saved-query links?"))
+                            RichText::new(t!("connection.delete_folder_confirm", name = folder_name.as_str()))
                                 .color(self.theme.text_primary),
                         );
                         ui.add_space(SPACE_SM);
-                        ui.colored_label(self.theme.warning, "Saved queries in this folder will become unfiled.");
+                        ui.colored_label(self.theme.warning, t!("connection.delete_folder_warning"));
                         ui.add_space(SPACE_MD);
                         ui.horizontal(|ui| {
                             if Button::new(self.theme)
-                                .text("Delete Folder")
+                                .text(t!("connection.delete_folder"))
                                 .variant(ButtonVariant::Destructive)
                                 .size(ButtonSize::Sm)
                                 .show(ui)
@@ -107,7 +107,7 @@ impl DbProApp {
                                 self.folder_delete_confirmation = None;
                             }
                             if Button::new(self.theme)
-                                .text("Cancel")
+                                .text(t!("connection.cancel"))
                                 .variant(ButtonVariant::Ghost)
                                 .size(ButtonSize::Sm)
                                 .show(ui)

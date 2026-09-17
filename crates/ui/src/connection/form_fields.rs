@@ -15,7 +15,7 @@ impl DbProApp {
         let gap = SPACE_SM;
 
         ui.label(
-            RichText::new("GENERAL")
+            RichText::new(t!("connection.general"))
                 .font(DbProTheme::ui_medium_font(10.5))
                 .color(self.theme.text_muted),
         );
@@ -31,10 +31,10 @@ impl DbProApp {
                 ui.set_max_width(name_w);
                 Input::new(
                     &mut self.connection_draft.name,
-                    "e.g. Production PostgreSQL",
+                    t!("connection.connection_name_placeholder"),
                     self.theme,
                 )
-                .label("Connection Name")
+                .label(t!("connection.connection_name"))
                 .width(name_w)
                 .leading_icon(Icon::Tag)
                 .clearable(true)
@@ -43,27 +43,31 @@ impl DbProApp {
             ui.vertical(|ui| {
                 ui.set_width(group_w);
                 ui.set_max_width(group_w);
-                Input::new(&mut self.connection_draft.group, "e.g. Acme / Local", self.theme)
-                    .label("Folder / Group")
-                    .width(group_w)
-                    .leading_icon(Icon::Folder)
-                    .clearable(true)
-                    .show(ui);
+                Input::new(
+                    &mut self.connection_draft.group,
+                    t!("connection.folder_group_placeholder"),
+                    self.theme,
+                )
+                .label(t!("connection.folder_group"))
+                .width(group_w)
+                .leading_icon(Icon::Folder)
+                .clearable(true)
+                .show(ui);
             });
             ui.vertical(|ui| {
                 ui.set_width(fav_w);
                 ui.set_max_width(fav_w);
                 ui.label(
-                    RichText::new("Favorite")
+                    RichText::new(t!("connection.favorite"))
                         .size(12.0)
                         .strong()
                         .color(self.theme.text_secondary),
                 );
                 ui.add_space(3.0);
                 let (fav_icon, fav_text) = if self.connection_draft.favorite {
-                    (Icon::Star, "Saved")
+                    (Icon::Star, t!("connection.favorite_saved"))
                 } else {
-                    (Icon::Star, "Off")
+                    (Icon::Star, t!("connection.favorite_off"))
                 };
                 if Button::new(self.theme)
                     .icon(fav_icon)
@@ -92,7 +96,7 @@ impl DbProApp {
                 ui.set_width(env_w);
                 ui.set_max_width(env_w);
                 ui.label(
-                    RichText::new("Environment")
+                    RichText::new(t!("connection.environment"))
                         .size(12.0)
                         .strong()
                         .color(self.theme.text_secondary),
@@ -106,17 +110,17 @@ impl DbProApp {
                 ui.set_width(ro_w);
                 ui.set_max_width(ro_w);
                 ui.label(
-                    RichText::new("Safety Policy")
+                    RichText::new(t!("connection.safety_policy"))
                         .size(12.0)
                         .strong()
                         .color(self.theme.text_secondary),
                 );
                 ui.add_space(SPACE_XXS);
                 ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.connection_draft.readonly, "Read-only mode");
+                    ui.checkbox(&mut self.connection_draft.readonly, t!("connection.readonly_mode"));
                     if self.connection_draft.environment == "Production" {
                         ui.label(
-                            RichText::new("⚠ Production guard")
+                            RichText::new(t!("connection.production_guard"))
                                 .font(font_caption())
                                 .color(self.theme.warning),
                         );
@@ -133,7 +137,7 @@ impl DbProApp {
         let gap = SPACE_SM;
 
         ui.label(
-            RichText::new("SERVER & CREDENTIALS")
+            RichText::new(t!("connection.server_credentials"))
                 .font(DbProTheme::ui_medium_font(10.5))
                 .color(self.theme.text_muted),
         );
@@ -147,7 +151,7 @@ impl DbProApp {
                 ui.set_width(host_w);
                 ui.set_max_width(host_w);
                 Input::new(&mut self.connection_draft.host, "localhost", self.theme)
-                    .label("Host / Server Address")
+                    .label(t!("connection.host"))
                     .width(host_w)
                     .leading_icon(Icon::Server)
                     .show(ui);
@@ -157,7 +161,7 @@ impl DbProApp {
                 ui.set_max_width(port_w);
                 let default_port = default_port_for_driver(self.connection_draft.driver);
                 Input::new(&mut self.connection_draft.port, default_port, self.theme)
-                    .label("Port")
+                    .label(t!("connection.port"))
                     .width(port_w)
                     .leading_icon(Icon::Hash)
                     .show(ui);
@@ -174,7 +178,7 @@ impl DbProApp {
                 ui.set_max_width(half_w);
                 let default_db = default_database_for_driver(self.connection_draft.driver);
                 Input::new(&mut self.connection_draft.database, default_db, self.theme)
-                    .label("Database Name")
+                    .label(t!("connection.database"))
                     .width(half_w)
                     .leading_icon(Icon::Database)
                     .clearable(true)
@@ -185,7 +189,7 @@ impl DbProApp {
                 ui.set_max_width(half_w);
                 let default_user = default_username_for_driver(self.connection_draft.driver);
                 Input::new(&mut self.connection_draft.username, default_user, self.theme)
-                    .label("Username")
+                    .label(t!("connection.username"))
                     .width(half_w)
                     .leading_icon(Icon::User)
                     .show(ui);
@@ -200,11 +204,16 @@ impl DbProApp {
                 ui.set_width(half_w);
                 ui.set_max_width(half_w);
                 let pwd_placeholder = if self.connection_draft.auth_kind == "ephemeral_token" {
-                    "Paste short-lived IAM/access token (not stored)"
+                    t!("connection.password_token_placeholder")
                 } else if self.editing_connection_id.is_some() {
-                    "•••••••• (Leave blank to keep saved password)"
+                    t!("connection.password_blank_keep")
                 } else {
-                    "Optional (Leave blank if no password)"
+                    t!("connection.password_blank_optional")
+                };
+                let pwd_label = if self.connection_draft.auth_kind == "ephemeral_token" {
+                    t!("connection.access_token")
+                } else {
+                    t!("connection.password")
                 };
                 PasswordInput::new(
                     &mut self.connection_draft.password,
@@ -212,11 +221,7 @@ impl DbProApp {
                     &mut self.connection_show_password,
                     self.theme,
                 )
-                .label(if self.connection_draft.auth_kind == "ephemeral_token" {
-                    "Access Token"
-                } else {
-                    "Password"
-                })
+                .label(pwd_label)
                 .width(half_w)
                 .show(ui);
             });
@@ -224,7 +229,7 @@ impl DbProApp {
                 ui.set_width(half_w);
                 ui.set_max_width(half_w);
                 ui.label(
-                    RichText::new("SSL / TLS Mode")
+                    RichText::new(t!("connection.ssl_mode"))
                         .size(12.0)
                         .strong()
                         .color(self.theme.text_secondary),
@@ -255,7 +260,7 @@ impl DbProApp {
                     .color(self.theme.accent),
             );
             ui.label(
-                RichText::new("Credentials encrypted with AES-256-GCM in local vault.")
+                RichText::new(t!("connection.credentials_encrypted_hint"))
                     .size(11.0)
                     .color(self.theme.text_muted),
             );

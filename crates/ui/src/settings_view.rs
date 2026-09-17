@@ -6,6 +6,7 @@ use lucide_icons::Icon;
 
 impl DbProApp {
     pub(crate) fn apply_settings_to_runtime(&mut self) {
+        self.settings.general.language.apply();
         self.dark_mode = self.settings.appearance.dark_mode;
         self.reduce_motion = self.settings.appearance.reduce_motion;
         self.editor_font_size = self.settings.editor.font_size;
@@ -74,6 +75,19 @@ impl DbProApp {
         card_frame(self.theme).show(ui, |ui| {
             section_label(ui, "GENERAL", self.theme);
             ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("Language").color(self.theme.text_secondary));
+                for lang in crate::UiLanguage::ALL {
+                    if ui
+                        .selectable_label(self.settings.general.language == *lang, lang.label())
+                        .clicked()
+                    {
+                        self.settings.general.language = *lang;
+                        lang.apply();
+                    }
+                }
+            });
+            ui.add_space(8.0);
             ui.checkbox(
                 &mut self.settings.general.confirm_destructive_queries,
                 "Confirm destructive queries",

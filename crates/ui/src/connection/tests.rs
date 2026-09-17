@@ -69,6 +69,28 @@ fn ssh_caveat_wording_tracks_the_recorded_limitation() {
 }
 
 #[test]
+fn test_i18n_multilingual_locale_switch() {
+    use crate::UiLanguage;
+
+    for lang in UiLanguage::ALL {
+        lang.apply();
+        let code = rust_i18n::locale();
+        assert_eq!(&*code, lang.code());
+
+        // Verify key lookup in each language
+        let test_text = t!("connection.test_connection");
+        assert!(
+            !test_text.is_empty(),
+            "translation for connection.test_connection missing in {}",
+            lang.code()
+        );
+    }
+
+    // Reset back to English
+    UiLanguage::English.apply();
+}
+
+#[test]
 fn test_validate_connection_draft() {
     let mut draft = UiConnectionDraft {
         name: String::new(),
