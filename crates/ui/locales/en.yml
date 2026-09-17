@@ -84,6 +84,7 @@ status:
   deleting: "Deleting %{name}…"
   saving: "Saving connection…"
   testing: "Testing connection…"
+  connecting: "Connecting…"
   auth_pending: "Authentication pending…"
   ssh_profile_saved: "SSH profile saved — reusable by other connections"
   referenced_ssh_profile: "Referenced SSH profile id `%{id}` (secrets stay in vault)"

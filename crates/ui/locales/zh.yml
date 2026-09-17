@@ -84,6 +84,7 @@ status:
   deleting: "正在删除 %{name}…"
   saving: "正在保存连接…"
   testing: "正在测试连接…"
+  connecting: "正在连接…"
   auth_pending: "等待身份验证…"
   ssh_profile_saved: "SSH 配置已保存 — 可在其他连接中复用"
   referenced_ssh_profile: "正在引用 SSH 配置 ID `%{id}` (私钥安全保存在保险箱中)"

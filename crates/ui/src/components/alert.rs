@@ -106,6 +106,7 @@ impl<'a> Alert<'a> {
             ..Default::default()
         }
         .show(ui, |ui| {
+            ui.set_width(ui.available_width());
             ui.horizontal_top(|ui| {
                 ui.label(
                     RichText::new(char::from(icon).to_string())

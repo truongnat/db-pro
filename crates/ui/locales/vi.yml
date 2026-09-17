@@ -84,6 +84,7 @@ status:
   deleting: "Đang xóa %{name}…"
   saving: "Đang lưu kết nối…"
   testing: "Đang kiểm tra kết nối…"
+  connecting: "Đang kết nối…"
   auth_pending: "Đang chờ xác thực…"
   ssh_profile_saved: "Đã lưu hồ sơ SSH — có thể tái sử dụng cho các kết nối khác"
   referenced_ssh_profile: "Đang tham chiếu hồ sơ SSH id `%{id}` (bí mật lưu an toàn trong két)"

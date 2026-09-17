@@ -84,6 +84,7 @@ status:
   deleting: "%{name} を削除中…"
   saving: "接続を保存中…"
   testing: "接続をテスト中…"
+  connecting: "接続中…"
   auth_pending: "認証待機中…"
   ssh_profile_saved: "SSHプロファイルを保存しました — 他の接続で再利用可能"
   referenced_ssh_profile: "参照中 SSH プロファイル ID `%{id}` (秘密鍵は安全に保管)"

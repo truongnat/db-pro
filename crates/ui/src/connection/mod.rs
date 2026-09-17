@@ -80,6 +80,7 @@ impl DbProApp {
     /// Dispatch connection test or save command to runtime worker.
     pub fn dispatch_connection_command(&mut self, save: bool) {
         if let Err(err) = logic::validate_connection_draft(&self.connection_draft) {
+            self.show_toast_error(err.clone());
             self.connection_error = err;
             return;
         }
@@ -98,14 +99,13 @@ impl DbProApp {
         }
         self.connection_error.clear();
         self.runtime_message = if save {
-            "Saving connection…"
+            t!("status.saving").to_string()
         } else {
-            "Testing connection…"
-        }
-        .to_owned();
+            t!("status.testing").to_string()
+        };
 
         if !save {
-            self.refresh_connection_diagnostics(false, "Authentication pending…");
+            self.refresh_connection_diagnostics(false, &t!("status.auth_pending"));
         }
     }
 
