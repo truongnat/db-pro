@@ -2,6 +2,17 @@
 use super::*;
 use egui::{vec2, Align2, Pos2, Rect, Rounding, Sense, Stroke};
 
+/// Extra clip width granted around the sidebar content column, in pixels.
+///
+/// Layout still stays inside the column; this is only the room a border needs. epaint
+/// strokes a rect *entirely outside* its path (`StrokeKind::Outside`), so a 1px border on a
+/// widget that fills the column — the filter field, the primary action button, the
+/// connection selector — is otherwise cut off flush with the column: it loses both vertical
+/// edges while its horizontal ones survive, because those sit well inside the clip. One
+/// pixel is the least that lets such a border render, and far too little to hide a real
+/// layout overflow.
+const SIDEBAR_CLIP_BLEED: f32 = 1.0;
+
 impl DbProApp {
     pub(super) fn draw_sidebar(&mut self, ctx: &egui::Context) {
         // egui SidePanel advances CentralPanel from the *frame response* rect, not
@@ -60,7 +71,7 @@ impl DbProApp {
                 id,
                 egui::UiBuilder::new().max_rect(content_rect),
             );
-            ui.set_clip_rect(content_rect);
+            ui.set_clip_rect(content_rect.expand(SIDEBAR_CLIP_BLEED));
             ui.set_min_width(content_w);
             ui.set_max_width(content_w);
             ui.set_min_height(content_rect.height());

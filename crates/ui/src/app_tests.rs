@@ -5877,3 +5877,268 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     app.duplicate_named_workspace_session(&id);
     assert_eq!(app.named_session_store.sessions.len(), 2);
 }
+
+// ── Sidebar geometry ──────────────────────────────────────────────────────
+//
+// The sidebar paints into a fixed-width column and *clips* to that width, so anything laid
+// out wider than the column is silently cut off. Two defects lived here. The filter toolbar
+// overflowed the column — a hardcoded reservation for the refresh button under-counted its
+// real width — and because `set_max_width` unions with `min_rect`, that overflow inflated
+// `max_rect` for every width measured later in the same frame, so tree rows stretched past
+// the clip and lost their trailing driver badge. Separately the filter field's border was
+// painted with an *outside* stroke, so both its vertical edges were cut off where the field
+// met the clip boundary.
+
+/// A connection that carries a driver badge, so the tree paints a trailing cluster.
+fn badged_connection(index: usize) -> UiConnectionSummary {
+    UiConnectionSummary {
+        id: format!("native-test-{index}"),
+        name: format!("Native Test {index}"),
+        host: "localhost".to_owned(),
+        port: 5432,
+        database: "app".to_owned(),
+        username: String::new(),
+        driver: "sqlite".to_owned(),
+        ssl_mode: UiSslMode::Disable,
+        readonly: false,
+        tags: Vec::new(),
+        group: None,
+        favorite: false,
+        environment: String::new(),
+    }
+}
+
+/// Renders the sidebar at `sidebar_width` with `connections` connections and returns
+/// everything it painted.
+///
+/// Two frames, because egui measures before it settles: a scrollbar in particular only
+/// appears on the frame after the content was found to overflow.
+fn painted_sidebar(sidebar_width: f32, connections: usize) -> Vec<egui::epaint::ClippedShape> {
+    let mut app = DbProApp {
+        connections: (0..connections).map(badged_connection).collect(),
+        sidebar_width,
+        ..DbProApp::default()
+    };
+    let ctx = egui::Context::default();
+    DbProTheme::install_fonts(&ctx);
+    DbProTheme::light().apply(&ctx);
+    let input = || egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::Vec2::new(1440.0, 900.0),
+        )),
+        ..Default::default()
+    };
+    // The first frame only measures; only the second frame's shapes are asserted on.
+    let _ = ctx.run(input(), |ctx| app.draw_sidebar(ctx));
+    ctx.run(input(), |ctx| app.draw_sidebar(ctx)).shapes
+}
+
+/// The area a shape actually covers. `Shape::rect_stroke` paints *entirely outside* its
+/// path, so `visual_bounding_rect` under-reports a stroked rect by half the stroke width —
+/// using it would let a border that spills past the clip pass the assertions below.
+fn painted_extent(shape: &egui::Shape) -> egui::Rect {
+    match shape {
+        egui::Shape::Rect(rect) => rect.rect.expand(rect.stroke.width.max(0.0)),
+        other => other.visual_bounding_rect(),
+    }
+}
+
+/// Nothing the sidebar paints may be cut off horizontally. A shape that escapes the clip it
+/// was given is silently truncated on screen, which is the general form of both reported
+/// defects: the driver badge lost its right side, and every 1px border on a widget filling
+/// the column lost both vertical edges.
+///
+/// Only the horizontal axis is asserted. The sidebar is a fixed-width column and every
+/// defect here is a width overflow, whereas on the vertical axis a full-height rule
+/// legitimately ends half a stroke above and below the viewport.
+#[test]
+fn the_sidebar_paints_nothing_past_its_clip() {
+    for sidebar_width in [SIDEBAR_MIN_WIDTH, 260.0, 360.0] {
+        let mut escaped: Vec<String> = painted_sidebar(sidebar_width, 1)
+            .iter()
+            .filter_map(|clipped| {
+                let painted = painted_extent(&clipped.shape);
+                // Empty shapes (e.g. an empty mesh) report an inverted, infinite rect.
+                if !painted.is_finite() {
+                    return None;
+                }
+                let escapes =
+                    painted.min.x < clipped.clip_rect.min.x - 0.01 || painted.max.x > clipped.clip_rect.max.x + 0.01;
+                escapes.then(|| {
+                    format!(
+                        "  {:?} painted={painted:?} clip={:?}",
+                        clipped.shape.visual_bounding_rect(),
+                        clipped.clip_rect
+                    )
+                })
+            })
+            .collect();
+        escaped.sort();
+        assert!(
+            escaped.is_empty(),
+            "the sidebar paints {} shape(s) past their clip at sidebar_width={sidebar_width}:\n{}",
+            escaped.len(),
+            escaped.join("\n")
+        );
+    }
+}
+
+/// The driver badge text the fixture paints, and the first badge's geometry:
+/// `(label, label clip, pill, pill clip)`.
+fn driver_badge(shapes: &[egui::epaint::ClippedShape]) -> (egui::Rect, egui::Rect, egui::Rect, egui::Rect) {
+    let label = shapes
+        .iter()
+        .find(|clipped| matches!(&clipped.shape, egui::Shape::Text(text) if text.galley.text() == "SQLITE"))
+        .expect("no connection row painted its driver badge");
+    let label_bounds = label.shape.visual_bounding_rect();
+
+    // The innermost painted background around the label is the badge pill.
+    let pill = shapes
+        .iter()
+        .filter(|clipped| {
+            matches!(&clipped.shape, egui::Shape::Rect(_)) && painted_extent(&clipped.shape).contains_rect(label_bounds)
+        })
+        .min_by(|left, right| {
+            painted_extent(&left.shape)
+                .area()
+                .total_cmp(&painted_extent(&right.shape).area())
+        })
+        .expect("the driver badge has no painted background");
+    (
+        label_bounds,
+        label.clip_rect,
+        painted_extent(&pill.shape),
+        pill.clip_rect,
+    )
+}
+
+#[test]
+fn the_driver_badge_is_fully_visible_in_the_navigator_tree() {
+    // Every legal sidebar width, plus a tree long enough to show a scrollbar.
+    for (sidebar_width, connections) in [(SIDEBAR_MIN_WIDTH, 1), (260.0, 1), (360.0, 1), (260.0, 40)] {
+        let (label, label_clip, pill, pill_clip) = driver_badge(&painted_sidebar(sidebar_width, connections));
+        assert!(
+            label_clip.contains_rect(label),
+            "the driver badge label is cut off at sidebar_width={sidebar_width} with {connections} connection(s): \
+             {label:?} escapes its clip {label_clip:?}"
+        );
+        assert!(
+            pill_clip.contains_rect(pill),
+            "the driver badge background is cut off at sidebar_width={sidebar_width} with {connections} connection(s): \
+             {pill:?} escapes its clip {pill_clip:?}"
+        );
+
+        // The pill is sized from the measured label. A per-character estimate pads it with a
+        // phantom gap that widens the pill and shoves it out of the column.
+        let padding = (pill.width() - label.width()) * 0.5;
+        assert!(
+            (padding - explorer_tree::CODEX_BADGE_PAD_X).abs() < 0.5,
+            "the driver badge pads its label by {padding} instead of {}",
+            explorer_tree::CODEX_BADGE_PAD_X
+        );
+    }
+}
+
+/// The tree row spans the sidebar column, not whatever clip it happens to sit in.
+///
+/// Inside a ScrollArea the clip narrows by the scrollbar's width, so a row that sized itself
+/// from the clip would shift its trailing badge left as soon as the connection list grew long
+/// enough to scroll — and shift it back when it did not.
+#[test]
+fn the_tree_row_spans_its_layout_width_not_its_clip() {
+    let ctx = egui::Context::default();
+    DbProTheme::install_fonts(&ctx);
+    let theme = DbProTheme::light();
+    theme.apply(&ctx);
+    let input = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::Vec2::new(800.0, 200.0),
+        )),
+        ..Default::default()
+    };
+    let column_width = 240.0;
+    let mut painted = None;
+    let _ = ctx.run(input, |ctx| {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let column = egui::Rect::from_min_size(egui::Pos2::new(8.0, 8.0), egui::vec2(column_width, 160.0));
+            let mut row_ui = ui.new_child(egui::UiBuilder::new().max_rect(column));
+            // As if a scrollbar had just appeared and taken 10px of the viewport.
+            row_ui.set_clip_rect(column.with_max_x(column.max.x - 10.0));
+            painted = Some(
+                explorer_tree::draw_codex_tree_row(
+                    &mut row_ui,
+                    &theme,
+                    explorer_tree::CodexTreeRow {
+                        depth: 0,
+                        is_expandable: false,
+                        is_expanded: false,
+                        icon: Icon::Database,
+                        icon_color: theme.text_primary,
+                        label: "Native Test",
+                        is_selected: false,
+                        is_dimmed: false,
+                        status_dot: None,
+                        badge_text: Some("SQLITE"),
+                        badge_accent: false,
+                        count_text: None,
+                        detail_text: None,
+                    },
+                )
+                .0,
+            );
+        });
+    });
+    let row = painted.expect("the tree row was not painted");
+    assert_eq!(
+        row.rect.width(),
+        column_width,
+        "the tree row sized itself from its clip instead of the column"
+    );
+}
+
+#[test]
+fn the_filter_field_border_is_painted_inside_the_field() {
+    for sidebar_width in [SIDEBAR_MIN_WIDTH, 260.0, 360.0] {
+        let shapes = painted_sidebar(sidebar_width, 1);
+        let hint = shapes
+            .iter()
+            .find(
+                |clipped| matches!(&clipped.shape, egui::Shape::Text(text) if text.galley.text() == "Filter objects…"),
+            )
+            .unwrap_or_else(|| panic!("the filter field is not painted at sidebar_width={sidebar_width}"));
+        let hint_bounds = hint.shape.visual_bounding_rect();
+
+        // The field's own background: the innermost filled rect around its content.
+        let background = shapes
+            .iter()
+            .filter(|clipped| {
+                matches!(&clipped.shape, egui::Shape::Rect(rect) if rect.fill != egui::Color32::TRANSPARENT)
+                    && painted_extent(&clipped.shape).contains_rect(hint_bounds)
+            })
+            .min_by(|left, right| {
+                painted_extent(&left.shape)
+                    .area()
+                    .total_cmp(&painted_extent(&right.shape).area())
+            })
+            .unwrap_or_else(|| panic!("the filter field has no painted background at sidebar_width={sidebar_width}"));
+        let field = painted_extent(&background.shape);
+
+        // Its border: the stroked rect around the same content.
+        let border = shapes
+            .iter()
+            .find(|clipped| {
+                matches!(&clipped.shape, egui::Shape::Rect(rect) if !rect.stroke.is_empty())
+                    && painted_extent(&clipped.shape).contains_rect(hint_bounds)
+            })
+            .unwrap_or_else(|| panic!("the filter field border is not painted at sidebar_width={sidebar_width}"));
+
+        let painted = painted_extent(&border.shape);
+        assert!(
+            field.expand(0.01).contains_rect(painted),
+            "the filter field border is painted outside the field at sidebar_width={sidebar_width}: \
+             painted {painted:?} against field {field:?}"
+        );
+    }
+}

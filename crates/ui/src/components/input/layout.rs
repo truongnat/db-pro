@@ -14,21 +14,29 @@ pub fn resolve_field_width(requested: Option<f32>, available: f32) -> f32 {
 }
 
 pub fn paint_field_chrome(ui: &Ui, id: Id, rect: Rect, focused: bool, hovered: bool, enabled: bool, theme: DbProTheme) {
-    // Stroke on the field rect (not expand) so sidebar/toolbars cannot clip a
-    // halo, and so we do not stack a gray Frame border under a blue outline.
-    if focused {
-        ui.painter().rect_stroke(
-            rect,
-            Rounding::same(INPUT_ROUNDING),
-            Stroke::new(1.5, theme.accent),
-        );
+    // Keep the border inside the field's own rect (not on or around it) so no container
+    // can clip it, and so we do not stack a gray Frame border under a blue outline.
+    let stroke = if focused {
+        Stroke::new(1.5, theme.accent)
+    } else if !enabled {
         return;
-    }
-    if !enabled {
-        return;
-    }
-    let hover = hover_t(ui.ctx(), id.with("input_hover"), hovered);
-    let border = lerp_color(theme.border_default, theme.border_strong, hover);
-    ui.painter()
-        .rect_stroke(rect, Rounding::same(INPUT_ROUNDING), Stroke::new(1.0, border));
+    } else {
+        let hover = hover_t(ui.ctx(), id.with("input_hover"), hovered);
+        Stroke::new(1.0, lerp_color(theme.border_default, theme.border_strong, hover))
+    };
+
+    // `Shape::rect_stroke` paints *entirely outside* the path (`StrokeKind::Outside`,
+    // epaint `tessellator.rs`), so stroking `rect` directly spills half the border past
+    // the field. A container whose clip ends exactly at the field edge — the sidebar
+    // column, a flush toolbar — then discards that overflow, and the two vertical edges
+    // disappear while the horizontal ones survive (they sit well inside the clip).
+    //
+    // Stroking an inset path keeps every painted pixel within `rect` while preserving the
+    // outer silhouette: `rect.shrink(w)` grown by an outside stroke of width `w` is
+    // exactly `rect`, and `rounding - w` grown by the same stroke is `rounding`.
+    ui.painter().rect_stroke(
+        rect.shrink(stroke.width),
+        Rounding::same((INPUT_ROUNDING - stroke.width).max(0.0)),
+        stroke,
+    );
 }

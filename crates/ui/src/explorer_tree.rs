@@ -19,6 +19,13 @@ const CODEX_CHEVRON_SLOT: f32 = 14.0;
 const CODEX_ROW_PADDING: f32 = 4.0;
 /// Gap inserted before each trailing item.
 const CODEX_TRAILING_GAP: f32 = 4.0;
+/// Driver badge geometry. The width is measured from the label, never estimated per
+/// character: a fixed guess is wrong for any proportional face and either clips the
+/// text or reserves a phantom gap that shoves the cluster out of the row.
+const CODEX_BADGE_HEIGHT: f32 = 16.0;
+pub(super) const CODEX_BADGE_PAD_X: f32 = 4.0;
+const CODEX_BADGE_FONT_SIZE: f32 = 9.5;
+const CODEX_BADGE_ROUNDING: f32 = 3.0;
 
 /// Shortens verbose database types into clean, compact identifiers (e.g. DBeaver style).
 pub(super) fn shorten_data_type(data_type: &str) -> String {
@@ -218,18 +225,23 @@ fn paint_badge(
 ) -> f32 {
     let badge_color = if accent { theme.accent } else { theme.text_muted };
     let badge_bg = if accent { theme.accent_soft } else { theme.surface_hover };
-    let badge_w = (badge.len() as f32) * 6.5 + 8.0;
-    let badge_h = 16.0;
-    let badge_rect = Rect::from_min_size(
-        pos2(right_x - badge_w, center_y - badge_h * 0.5),
-        vec2(badge_w, badge_h),
+    let label = painter.layout_no_wrap(
+        badge.to_owned(),
+        FontId::proportional(CODEX_BADGE_FONT_SIZE),
+        badge_color,
     );
-    painter.rect_filled(badge_rect, Rounding::same(3.0), badge_bg);
-    painter.text(
-        badge_rect.center(),
-        Align2::CENTER_CENTER,
-        badge,
-        FontId::proportional(9.5),
+    let badge_w = label.size().x + CODEX_BADGE_PAD_X * 2.0;
+    let badge_rect = Rect::from_min_size(
+        pos2(right_x - badge_w, center_y - CODEX_BADGE_HEIGHT * 0.5),
+        vec2(badge_w, CODEX_BADGE_HEIGHT),
+    );
+    painter.rect_filled(badge_rect, Rounding::same(CODEX_BADGE_ROUNDING), badge_bg);
+    painter.galley(
+        pos2(
+            badge_rect.center().x - label.size().x * 0.5,
+            center_y - label.size().y * 0.5,
+        ),
+        label,
         badge_color,
     );
     badge_w + CODEX_TRAILING_GAP

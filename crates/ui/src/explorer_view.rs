@@ -209,7 +209,19 @@ impl DbProApp {
         // so tree rows / error hints truncate mid-panel while the drag line sits
         // much farther right — unlike VS Code / DBeaver where the tree fills the
         // sidebar.
-        let tree_width = ui.max_rect().width().max(ui.available_width());
+        //
+        // Bound it by the clip as well: `max_rect` is not a hard cap, because
+        // `set_max_width` unions with `min_rect`, so a sibling that overflowed earlier in
+        // the frame inflates it for the rest of the frame. A tree wider than the column
+        // paints its trailing driver badge past the clip and silently loses it. This has to
+        // happen here rather than inside the row: once the ScrollArea is running, its clip
+        // is narrowed by the scrollbar, so a row clamped to that would jitter narrower
+        // every time the connection list crosses the fold.
+        let tree_width = ui
+            .max_rect()
+            .width()
+            .max(ui.available_width())
+            .min(ui.clip_rect().width());
         egui::ScrollArea::vertical()
             .id_salt("codex_navigator_scroll")
             .auto_shrink([false, false])
@@ -231,38 +243,45 @@ impl DbProApp {
     /// Filter + refresh above the tree. New-connection lives in the sidebar header
     /// so we do not duplicate the Plus control here.
     pub(crate) fn draw_explorer_toolbar(&mut self, ui: &mut egui::Ui) {
-        let row_width = ui.available_width();
         ui.horizontal(|ui| {
-            ui.set_min_width(row_width);
-            let actions_width = 28.0;
-            let search_width = (row_width - actions_width).max(80.0);
-            SearchInput::new(&mut self.explorer_search, "Filter objects…", self.theme)
-                .width(search_width)
-                .show(ui);
+            // Lay the trailing action out first and hand the remainder to the filter
+            // field. Its width must be *measured*, never assumed: `compact_icon_button`
+            // is a `Button` sized by the style, so it ignores the 24×24 handed to
+            // `add_sized` and a hardcoded reservation under-counts. The row then
+            // overflows its column, and because `set_max_width` unions with `min_rect`
+            // that overflow inflates `max_rect` for every width measured later in the
+            // same frame — which is how tree rows ended up wider than the sidebar and
+            // lost their trailing badge to the clip.
+            ui.allocate_ui_with_layout(ui.available_size(), Layout::right_to_left(Align::Center), |ui| {
+                let mut refresh_schema = false;
+                let refresh_btn =
+                    compact_icon_button(ui, Icon::RotateCcw, self.theme).on_hover_text("Refresh active schema");
+                refresh_btn.context_menu(|ui| {
+                    if ctx_menu_item(
+                        ui,
+                        Some(Icon::RotateCcw),
+                        "Refresh Schema",
+                        Some("F5"),
+                        self.theme.text_primary,
+                        self.theme,
+                    )
+                    .clicked()
+                    {
+                        refresh_schema = true;
+                        ui.close_menu();
+                    }
+                });
+                if refresh_btn.clicked() || refresh_schema {
+                    if let Some(connection_id) = self.active_connection_id.clone() {
+                        self.request_schema_introspection(connection_id, true);
+                    }
+                }
 
-            let mut refresh_schema = false;
-            let refresh_btn =
-                compact_icon_button(ui, Icon::RotateCcw, self.theme).on_hover_text("Refresh active schema");
-            refresh_btn.context_menu(|ui| {
-                if ctx_menu_item(
-                    ui,
-                    Some(Icon::RotateCcw),
-                    "Refresh Schema",
-                    Some("F5"),
-                    self.theme.text_primary,
-                    self.theme,
-                )
-                .clicked()
-                {
-                    refresh_schema = true;
-                    ui.close_menu();
-                }
+                // The field reads left to right whatever the row direction is.
+                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                    SearchInput::new(&mut self.explorer_search, "Filter objects…", self.theme).show(ui);
+                });
             });
-            if refresh_btn.clicked() || refresh_schema {
-                if let Some(connection_id) = self.active_connection_id.clone() {
-                    self.request_schema_introspection(connection_id, true);
-                }
-            }
         });
     }
 
