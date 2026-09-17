@@ -281,7 +281,7 @@ impl DbProApp {
         self.search_index.invalidate();
     }
 
-    pub(super) fn open_new_connection(&mut self) {
+    pub fn open_new_connection(&mut self) {
         self.editing_connection_id = None;
         self.connection_draft = UiConnectionDraft::default();
         self.connection_error.clear();

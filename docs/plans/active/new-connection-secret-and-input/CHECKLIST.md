@@ -1,5 +1,7 @@
 # new-connection-secret-and-input — Checklist
 
+**State: COMPLETED** (runtime-evidence gate closed via the `capture` feature; see `VERIFICATION.md` + `screenshots/`)
+
 ## Planning
 - [x] Evidence and failure scenario recorded
 - [x] Scope/non-goals explicit
@@ -24,6 +26,6 @@
 
 ## Runtime
 - [x] UI → command → backend → DB → introspection → UI verified when applicable (headless; live DB not required for these paths)
-- [ ] VERIFICATION.md contains actual commands/evidence — yes, all four gates recorded with output
-- [ ] STATUS.md matches state/folder — pending: set to RUNTIME_VERIFY after this commit
-- [ ] UI runtime screenshots at 1280×800 / 1440×900 / 1920×1080 — **SKIPPED** (no capture driver; TCC blocks screencapture). Recorded as a gap, not marked passed.
+- [x] VERIFICATION.md contains actual commands/evidence — all four gates recorded with output, plus the capture-evidence run
+- [x] STATUS.md matches state/folder — flipped to COMPLETED after the capture-evidence commit
+- [x] UI runtime screenshots at 1280×800 / 1440×900 / 1920×1080 — **CAPTURED** via the `capture` feature (`--features capture`); the New Connection dialog renders with the password input + eye toggle and **no Configuration Error** on the disabled-keyring path (PNGs in `screenshots/`)

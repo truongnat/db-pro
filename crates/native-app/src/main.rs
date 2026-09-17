@@ -16,6 +16,8 @@ use db_pro_ui::{
 use eframe::egui;
 use tokio::runtime::Builder;
 
+#[cfg(feature = "capture")]
+mod capture;
 mod translate;
 #[cfg(test)]
 mod translate_tests;
@@ -300,31 +302,75 @@ fn spawn_event_pump(
     });
 }
 
+/// Pins the initial window size from `DB_PRO_WINDOW_SIZE` (`1280x800`), instead of
+/// maximizing.
+///
+/// UI acceptance evidence has to be captured at exact viewports
+/// (`docs/10-egui-native-migration-plan.md`), and a maximized window renders at
+/// whatever the monitor happens to be. Unset or malformed means "maximize as usual",
+/// so this is inert for a normal launch.
+fn capture_window_size() -> Option<[f32; 2]> {
+    let raw = non_empty_env("DB_PRO_WINDOW_SIZE")?;
+    parse_window_size(&raw.to_string_lossy())
+}
+
+/// The parsing half of [`capture_window_size`], free of process-global state.
+fn parse_window_size(raw: &str) -> Option<[f32; 2]> {
+    let (width, height) = raw.split_once(['x', 'X'])?;
+    let width: f32 = width.trim().parse().ok()?;
+    let height: f32 = height.trim().parse().ok()?;
+    if width.is_finite() && height.is_finite() && width > 0.0 && height > 0.0 {
+        Some([width, height])
+    } else {
+        None
+    }
+}
+
 fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
+    let pinned_size = capture_window_size();
+    tracing::info!(?pinned_size, "capture: resolved window size override");
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_title("DB Pro")
+        .with_min_inner_size([1024.0, 640.0]);
+    viewport = match pinned_size {
+        Some(size) => viewport.with_inner_size(size),
+        None => viewport.with_maximized(true),
+    };
+
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title("DB Pro")
-            .with_maximized(true)
-            .with_min_inner_size([1024.0, 640.0]),
+        viewport,
         ..Default::default()
     };
 
     eframe::run_native(
         "DB Pro",
         options,
-        Box::new(|creation_context| {
-            // Re-apply the product default after eframe restores its persisted window frame.
-            creation_context
-                .egui_ctx
-                .send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+        Box::new(move |creation_context| {
+            // Re-apply the product default after eframe restores its persisted window
+            // frame — unless a capture run pinned an exact viewport.
+            if pinned_size.is_none() {
+                creation_context
+                    .egui_ctx
+                    .send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+            }
             DbProTheme::install_fonts(&creation_context.egui_ctx);
-            Ok(Box::new(DbProApp::with_task_bridge_and_storage(
-                bridge,
-                creation_context.storage,
-            )))
+            let app = DbProApp::with_task_bridge_and_storage(bridge, creation_context.storage);
+            Ok(wrap_for_capture(app))
         }),
     )?;
     Ok(())
+}
+
+/// Wraps the app in the evidence capture driver when one was requested.
+#[cfg(feature = "capture")]
+fn wrap_for_capture(app: DbProApp) -> Box<dyn eframe::App> {
+    capture::CaptureApp::wrap(app)
+}
+
+/// Without the `capture` feature the app runs unwrapped.
+#[cfg(not(feature = "capture"))]
+fn wrap_for_capture(app: DbProApp) -> Box<dyn eframe::App> {
+    Box::new(app)
 }
 
 #[cfg(test)]
@@ -418,5 +464,37 @@ mod tests {
 
         assert!(password.is_empty());
         assert!(config.ssh_tunnel.is_none());
+    }
+
+    #[test]
+    fn window_size_override_parses_the_documented_gate_viewports() {
+        for (raw, expected) in [
+            ("1280x800", [1280.0, 800.0]),
+            ("1440x900", [1440.0, 900.0]),
+            ("1920x1080", [1920.0, 1080.0]),
+            ("1280X800", [1280.0, 800.0]),
+            (" 1280 x 800 ", [1280.0, 800.0]),
+        ] {
+            assert_eq!(parse_window_size(raw), Some(expected), "parsing {raw:?}");
+        }
+    }
+
+    /// A malformed override must fall back to the maximized default rather than
+    /// pinning a degenerate window (or panicking on the launch path).
+    #[test]
+    fn malformed_window_size_falls_back_to_maximized() {
+        for raw in [
+            "",
+            "1280",
+            "1280x",
+            "x800",
+            "0x800",
+            "1280x0",
+            "-5x800",
+            "widexhigh",
+            "1280x800x600",
+        ] {
+            assert_eq!(parse_window_size(raw), None, "expected {raw:?} to be rejected");
+        }
     }
 }
