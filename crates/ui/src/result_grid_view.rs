@@ -422,27 +422,29 @@ impl DbProApp {
             return;
         }
 
-        if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier && shift {
-            self.copy_selected_rows(ui, result);
-        } else if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier {
-            self.copy_selected_cell(ui, result);
-        }
-
-        if ui.input(|input| input.key_pressed(egui::Key::S) && Self::primary_modifier_pressed(input)) {
-            self.apply_staged_changes();
-        }
-        if ui.input(|input| input.key_pressed(egui::Key::Z) && Self::primary_modifier_pressed(input)) {
-            if self.staged_changes.counts().total() > 1 {
-                self.discard_changes_confirmation = true;
-            } else {
-                self.discard_staged_changes();
+        if !ui.ctx().wants_keyboard_input() && !self.connection_dialog_open {
+            if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier && shift {
+                self.copy_selected_rows(ui, result);
+            } else if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier {
+                self.copy_selected_cell(ui, result);
             }
-        }
-        if editable
-            && self.data_editing_cell.is_none()
-            && ui.input(|input| input.key_pressed(egui::Key::Delete) || input.key_pressed(egui::Key::Backspace))
-        {
-            self.request_delete_selected_data_rows(result);
+
+            if ui.input(|input| input.key_pressed(egui::Key::S) && Self::primary_modifier_pressed(input)) {
+                self.apply_staged_changes();
+            }
+            if ui.input(|input| input.key_pressed(egui::Key::Z) && Self::primary_modifier_pressed(input)) {
+                if self.staged_changes.counts().total() > 1 {
+                    self.discard_changes_confirmation = true;
+                } else {
+                    self.discard_staged_changes();
+                }
+            }
+            if editable
+                && self.data_editing_cell.is_none()
+                && ui.input(|input| input.key_pressed(egui::Key::Delete) || input.key_pressed(egui::Key::Backspace))
+            {
+                self.request_delete_selected_data_rows(result);
+            }
         }
         let pasted = ui.input(|input| {
             input.events.iter().find_map(|event| match event {

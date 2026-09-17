@@ -264,6 +264,46 @@ impl DbProTheme {
             }
         }
 
+        // CJK / Japanese / Asian font fallback
+        let cjk_font_paths = [
+            "/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf",
+            "/usr/share/fonts/opentype/ipafont-gothic/ipagp.ttf",
+            "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf",
+            "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+            "/System/Library/Fonts/PingFang.ttc",
+            "/System/Library/Fonts/Hiragino Sans GB.ttc",
+            "/Library/Fonts/Arial Unicode.ttf",
+            "C:\\Windows\\Fonts\\msgothic.ttc",
+            "C:\\Windows\\Fonts\\meiryo.ttc",
+            "C:\\Windows\\Fonts\\msyh.ttc",
+            "C:\\Windows\\Fonts\\yugothr.ttc",
+        ];
+        for path in cjk_font_paths {
+            if let Ok(bytes) = std::fs::read(path) {
+                fonts
+                    .font_data
+                    .insert("cjk_fallback".to_owned(), egui::FontData::from_owned(bytes));
+                fonts
+                    .families
+                    .entry(FontFamily::Proportional)
+                    .or_default()
+                    .push("cjk_fallback".to_owned());
+                fonts
+                    .families
+                    .entry(FontFamily::Name("ui_medium".into()))
+                    .or_default()
+                    .push("cjk_fallback".to_owned());
+                fonts
+                    .families
+                    .entry(FontFamily::Monospace)
+                    .or_default()
+                    .push("cjk_fallback".to_owned());
+                break;
+            }
+        }
+
         // Fallback for monospace: inter_ext, inter, and system_ui so full Unicode / Vietnamese diacritics / CJK render
         let monospace = fonts.families.entry(FontFamily::Monospace).or_default();
         monospace.push("inter_ext".to_owned());
