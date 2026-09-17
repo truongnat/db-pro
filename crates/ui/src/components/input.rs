@@ -88,6 +88,8 @@ impl<'a> Input<'a> {
         let width = resolve_field_width(self.width, ui.available_width());
 
         ui.vertical(|ui| {
+            ui.set_width(width);
+            ui.set_max_width(width);
             if let Some(label) = self.label {
                 ui.label(
                     RichText::new(label)
@@ -119,8 +121,10 @@ impl<'a> Input<'a> {
                 ..Default::default()
             };
 
+            let frame_w = (width - 16.0).max(60.0);
             let frame_output = frame.show(ui, |ui| {
-                ui.set_min_width(width.max(100.0) - 16.0);
+                ui.set_width(frame_w);
+                ui.set_max_width(frame_w);
                 ui.horizontal(|ui| {
                     if let Some(icon) = self.leading_icon {
                         ui.label(
@@ -137,11 +141,12 @@ impl<'a> Input<'a> {
 
                     let has_text = !self.value.is_empty();
                     let extra_width = if self.clearable && has_text { 24.0 } else { 0.0 };
+                    let edit_w = (ui.available_width() - extra_width).max(40.0);
                     let edit_response = ui.add_enabled(
                         self.enabled,
                         TextEdit::singleline(self.value)
                             .hint_text(RichText::new(self.placeholder).color(self.theme.text_muted))
-                            .desired_width(ui.available_width() - extra_width)
+                            .desired_width(edit_w)
                             .margin(Margin::ZERO)
                             .frame(false)
                             .text_color(if self.enabled {
@@ -178,6 +183,10 @@ impl<'a> Input<'a> {
             let frame_rect = frame_output.response.rect;
             let info_label = self.label.unwrap_or(self.placeholder);
             edit_response.widget_info(|| text_input_info(self.enabled, info_label));
+
+            if frame_output.response.interact(egui::Sense::click()).clicked() && self.enabled {
+                edit_response.request_focus();
+            }
 
             paint_field_chrome(
                 ui,
@@ -267,6 +276,8 @@ impl<'a> PasswordInput<'a> {
         let width = resolve_field_width(self.width, ui.available_width());
 
         ui.vertical(|ui| {
+            ui.set_width(width);
+            ui.set_max_width(width);
             if let Some(label) = self.label {
                 ui.horizontal(|ui| {
                     ui.label(
@@ -289,6 +300,7 @@ impl<'a> PasswordInput<'a> {
                 Stroke::new(1.0, self.theme.border_default)
             };
 
+            let frame_w = (width - 16.0).max(60.0);
             let frame_output = Frame {
                 fill: self.theme.surface_editor,
                 stroke: border_stroke,
@@ -297,7 +309,8 @@ impl<'a> PasswordInput<'a> {
                 ..Default::default()
             }
             .show(ui, |ui| {
-                ui.set_min_width(width.max(100.0) - 16.0);
+                ui.set_width(frame_w);
+                ui.set_max_width(frame_w);
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new(char::from(Icon::Lock).to_string())
@@ -306,11 +319,12 @@ impl<'a> PasswordInput<'a> {
                     );
                     ui.add_space(4.0);
 
+                    let edit_w = (ui.available_width() - 26.0).max(40.0);
                     let edit_response = ui.add(
                         TextEdit::singleline(self.value)
                             .password(!*self.show_password)
                             .hint_text(RichText::new(self.placeholder).color(self.theme.text_muted))
-                            .desired_width(ui.available_width() - 26.0)
+                            .desired_width(edit_w)
                             .margin(Margin::ZERO)
                             .frame(false)
                             .text_color(self.theme.text_primary),
@@ -340,6 +354,10 @@ impl<'a> PasswordInput<'a> {
             let edit_response = frame_output.inner;
             let frame_rect = frame_output.response.rect;
             edit_response.widget_info(|| text_input_info(true, self.label.unwrap_or("Password")));
+
+            if frame_output.response.interact(egui::Sense::click()).clicked() {
+                edit_response.request_focus();
+            }
 
             paint_field_chrome(
                 ui,

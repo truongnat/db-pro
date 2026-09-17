@@ -2,7 +2,7 @@ use crate::components::animation::{fade_alpha, faded_overlay, overlay_t, small_t
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::overlay::screen_rect;
 use crate::DbProTheme;
-use egui::{Area, Frame, Id, Margin, Order, Pos2, Rect, Response, RichText, Rounding, Stroke, Ui};
+use egui::{Area, FontId, Frame, Id, Margin, Order, Pos2, Rect, Response, RichText, Rounding, Stroke, Ui};
 use lucide_icons::Icon;
 use std::hash::Hash;
 
@@ -49,6 +49,10 @@ impl<'a> Dialog<'a> {
     }
 
     pub fn show<R>(self, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> Option<R> {
+        self.show_framed(ui, |frame| frame.body(add_contents))
+    }
+
+    pub fn show_framed<R>(self, ui: &mut Ui, add_frame: impl FnOnce(&mut DialogFrame<'_>) -> R) -> Option<R> {
         let id = overlay_widget_id(ui, self.id_salt, "dialog");
         let progress = overlay_t(ui.ctx(), id.with("motion"), *self.open);
         if progress <= 0.0 {
@@ -65,63 +69,42 @@ impl<'a> Dialog<'a> {
         let screen = screen_rect(ui);
         let mut inner = None;
         let theme = self.theme;
-        let width = self.width.min((screen.width() - 32.0).max(80.0));
-        // Leave room above and below for the vertical margins plus the title/close row.
-        let max_content_height = (screen.height() - 120.0).max(120.0);
         let title = self.title;
         let description = self.description;
         let open = self.open;
 
         let prev_height = ui.ctx().data(|d| d.get_temp::<f32>(id.with("prev_height")));
-        let target_y = if let Some(h) = prev_height {
-            (screen.center().y - h * 0.5).clamp(
-                screen.top() + 24.0,
-                (screen.bottom() - h - 24.0).max(screen.top() + 24.0),
-            )
-        } else {
-            (screen.center().y - 240.0).max(screen.top() + 32.0)
-        };
-
-        let target_x = (screen.center().x - width * 0.5).clamp(
-            screen.left() + 16.0,
-            (screen.right() - width - 16.0).max(screen.left() + 16.0),
-        );
+        let layout =
+            crate::components::common_utils::calculate_dialog_layout(screen, self.width, prev_height, 16.0, 24.0);
 
         let translate = small_translate(progress, DIALOG_TRANSLATE_PX);
-        let origin = Pos2::new(target_x, target_y + translate);
+        let origin = Pos2::new(layout.target_pos.x, layout.target_pos.y + translate);
         // Fade the card in/out using the same overlay progress that drives the dim layer,
         // so the card and backdrop share one animation curve (spec §26: 160-220ms).
         let card_alpha = fade_alpha(progress);
 
         let mut card_rect = None;
-        // Capture keyboard focus when the dialog opens so Tab/Shift+Tab stay inside the card.
         // The Area is marked interactable so it participates in egui's focus routing.
         let card_area = Area::new(id.with("card"))
             .order(Order::Tooltip)
             .fixed_pos(origin)
             .interactable(true);
-        let card_request_focus = *open && progress > 0.01;
 
         card_area.show(ui.ctx(), |ui| {
             ui.set_opacity(card_alpha);
-            ui.set_width(width);
-            // When the dialog first becomes visible, steer keyboard focus to the card so
-            // subsequent Tab/Shift+Tab cycles stay inside the dialog body rather than
-            // leaking to widgets behind the backdrop.
-            if card_request_focus {
-                ui.memory_mut(|m| m.request_focus(id.with("card")));
-            }
+            ui.set_width(layout.width);
+            ui.set_max_width(layout.width);
             let res = paint_dialog_card(
                 DialogCardPaint {
                     open,
                     title,
                     description,
-                    width,
-                    max_content_height,
+                    width: layout.width,
+                    max_content_height: layout.max_content_height,
                     theme,
                 },
                 ui,
-                add_contents,
+                add_frame,
             );
             let rect = ui.min_rect();
             ui.ctx()
@@ -162,6 +145,37 @@ impl<'a> Dialog<'a> {
     }
 }
 
+pub struct DialogFrame<'a> {
+    pub ui: &'a mut Ui,
+    pub max_content_height: f32,
+    pub inner_width: f32,
+}
+
+impl<'a> DialogFrame<'a> {
+    /// Renders the scrollable body of the dialog.
+    pub fn body<R>(&mut self, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
+        let inner_w = self.inner_width;
+        let max_h = self.max_content_height;
+        egui::ScrollArea::vertical()
+            .max_width(inner_w)
+            .max_height(max_h)
+            .auto_shrink([false, true])
+            .show(self.ui, |body_ui| {
+                body_ui.set_max_width(inner_w);
+                add_contents(body_ui)
+            })
+            .inner
+    }
+
+    /// Renders a fixed sticky footer at the bottom of the card, outside the scroll area.
+    pub fn footer<F>(&mut self, add_footer: impl FnOnce(&mut Ui) -> F) -> F {
+        self.ui.add_space(8.0);
+        self.ui.separator();
+        self.ui.add_space(8.0);
+        add_footer(self.ui)
+    }
+}
+
 struct DialogCardPaint<'a> {
     open: &'a mut bool,
     title: &'a str,
@@ -171,7 +185,11 @@ struct DialogCardPaint<'a> {
     theme: DbProTheme,
 }
 
-fn paint_dialog_card<R>(card: DialogCardPaint<'_>, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
+fn paint_dialog_card<R>(
+    card: DialogCardPaint<'_>,
+    ui: &mut Ui,
+    add_frame: impl FnOnce(&mut DialogFrame<'_>) -> R,
+) -> R {
     let DialogCardPaint {
         open,
         title,
@@ -183,37 +201,62 @@ fn paint_dialog_card<R>(card: DialogCardPaint<'_>, ui: &mut Ui, add_contents: im
     Frame {
         fill: theme.surface_floating,
         stroke: Stroke::new(1.0, theme.border_subtle),
-        inner_margin: Margin::same(20.0),
+        inner_margin: Margin::symmetric(24.0, 20.0),
         rounding: Rounding::same(DIALOG_RADIUS),
         shadow: theme.floating_shadow(),
         ..Default::default()
     }
     .show(ui, |ui| {
-        ui.set_width((width - 40.0).max(80.0));
+        let inner_w = (width - 48.0).max(80.0);
+        ui.set_width(inner_w);
+        ui.set_max_width(inner_w);
+
+        // Header: Title & Description on left, Close button on right (vertically centered with header block)
         ui.horizontal(|ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+            let close_w = 32.0;
+            let title_w = (inner_w - close_w - 12.0).max(40.0);
+            ui.allocate_ui_with_layout(
+                egui::vec2(title_w, 0.0),
+                egui::Layout::top_down(egui::Align::LEFT),
+                |ui| {
+                    ui.set_width(title_w);
+                    ui.set_max_width(title_w);
+                    ui.add(
+                        egui::Label::new(
+                            RichText::new(title)
+                                .font(DbProTheme::ui_medium_font(16.0))
+                                .color(theme.text_primary),
+                        )
+                        .truncate(),
+                    )
+                    .on_hover_text(title);
+                    if let Some(description) = description {
+                        ui.add_space(2.0);
+                        ui.label(
+                            RichText::new(description)
+                                .font(FontId::proportional(12.5))
+                                .color(theme.text_muted),
+                        );
+                    }
+                },
+            );
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if close_icon_button(ui, theme).clicked() {
                     *open = false;
                 }
             });
-            ui.vertical(|ui| {
-                ui.add(egui::Label::new(RichText::new(title).size(16.0).strong().color(theme.text_primary)).truncate())
-                    .on_hover_text(title);
-                if let Some(description) = description {
-                    ui.add_space(4.0);
-                    ui.add(egui::Label::new(RichText::new(description).size(13.0).color(theme.text_secondary)).wrap());
-                }
-            });
         });
-        ui.add_space(16.0);
-        // Cap the card height and scroll the body so long errors, verbose validation text
-        // or large-font translations grow into a scroll instead of pushing the footer
-        // actions (and the close button's row) off-screen.
-        egui::ScrollArea::vertical()
-            .max_height(max_content_height)
-            .auto_shrink([true, true])
-            .show(ui, |ui| add_contents(ui))
-            .inner
+
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(12.0);
+
+        let mut frame = DialogFrame {
+            ui,
+            max_content_height: (max_content_height - 64.0).max(80.0),
+            inner_width: inner_w,
+        };
+        add_frame(&mut frame)
     })
     .inner
 }
@@ -261,10 +304,15 @@ impl<'a> Sheet<'a> {
         let screen = screen_rect(ui);
         let mut inner = None;
         let theme = self.theme;
-        let width = self.width.min((screen.width() - 16.0).max(80.0));
         let title = self.title;
         let open = self.open;
-        let x = screen.right() - width + small_translate(progress, SHEET_TRANSLATE_PX);
+        let (width, x) = crate::components::common_utils::calculate_sheet_layout(
+            screen,
+            self.width,
+            progress,
+            SHEET_TRANSLATE_PX,
+            16.0,
+        );
 
         Area::new(id)
             .order(Order::Foreground)
@@ -299,19 +347,33 @@ impl<'a> Sheet<'a> {
                         ..Default::default()
                     }
                     .show(ui, |ui| {
-                        ui.set_width((width - 32.0).max(80.0));
+                        let inner_w = (width - 32.0).max(80.0);
+                        ui.set_width(inner_w);
+                        ui.set_max_width(inner_w);
                         ui.set_min_height((screen.height() - 32.0).max(80.0));
                         ui.horizontal(|ui| {
+                            let close_w = 28.0;
+                            let title_w = (inner_w - close_w - 8.0).max(40.0);
+                            ui.allocate_ui_with_layout(
+                                egui::vec2(title_w, 0.0),
+                                egui::Layout::top_down(egui::Align::LEFT),
+                                |ui| {
+                                    ui.set_width(title_w);
+                                    ui.set_max_width(title_w);
+                                    ui.add(
+                                        egui::Label::new(
+                                            RichText::new(title).size(16.0).strong().color(theme.text_primary),
+                                        )
+                                        .truncate(),
+                                    )
+                                    .on_hover_text(title);
+                                },
+                            );
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                 if close_icon_button(ui, theme).clicked() {
                                     *open = false;
                                 }
                             });
-                            ui.add(
-                                egui::Label::new(RichText::new(title).size(16.0).strong().color(theme.text_primary))
-                                    .truncate(),
-                            )
-                            .on_hover_text(title);
                         });
                         ui.add_space(12.0);
                         inner = Some(add_contents(ui));
@@ -348,8 +410,9 @@ fn paint_dim(ui: &mut Ui, paint: OverlayPaint) {
 fn close_icon_button(ui: &mut Ui, theme: DbProTheme) -> Response {
     Button::new(theme)
         .icon(Icon::X)
-        .size(ButtonSize::IconSm)
+        .size(ButtonSize::Icon)
         .variant(ButtonVariant::Ghost)
+        .tooltip("Close (Esc)")
         .show(ui)
 }
 

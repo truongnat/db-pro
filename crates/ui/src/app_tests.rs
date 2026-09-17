@@ -4,7 +4,9 @@ use super::diagram_view::{
 };
 use super::*;
 use crate::diagram::*;
-use crate::{UiCheckConstraint, UiDependencyDirection, UiDependencyKind, UiSchemaColumn, UiTableDependency};
+use crate::{
+    UiCheckConstraint, UiDependencyDirection, UiDependencyKind, UiDriver, UiSchemaColumn, UiSslMode, UiTableDependency,
+};
 use db_pro_core::domain::capabilities::DatabaseCapabilities;
 use db_pro_core::domain::connection::DriverType;
 
@@ -437,10 +439,10 @@ fn explicit_disable_selection_is_preserved_on_submit() {
 
 #[test]
 fn ssl_mode_guidance_names_the_plaintext_risk_for_disable() {
-    assert!(super::connection_view::ssl_mode_guidance(UiSslMode::Disable).contains("Plaintext"));
-    assert!(super::connection_view::ssl_mode_guidance(UiSslMode::Require).contains("TLS"));
-    assert!(super::connection_view::ssl_mode_guidance(UiSslMode::VerifyCa).contains("CA"));
-    assert!(super::connection_view::ssl_mode_guidance(UiSslMode::VerifyFull).contains("Strongest"));
+    assert!(super::connection::view::ssl_mode_guidance(UiSslMode::Disable).contains("Plaintext"));
+    assert!(super::connection::view::ssl_mode_guidance(UiSslMode::Require).contains("TLS"));
+    assert!(super::connection::view::ssl_mode_guidance(UiSslMode::VerifyCa).contains("CA"));
+    assert!(super::connection::view::ssl_mode_guidance(UiSslMode::VerifyFull).contains("Strongest"));
 }
 
 #[test]

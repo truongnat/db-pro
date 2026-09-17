@@ -45,3 +45,4 @@ _archive/frontend/test/fixtures/schemas/*.json
 .hermes
 .kilo
 .jules
+.claude/

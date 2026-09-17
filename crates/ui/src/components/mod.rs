@@ -107,7 +107,7 @@ mod tests {
             include_str!("../table_ddl_view.rs"),
             include_str!("../table_metadata_view.rs"),
             include_str!("../table_view.rs"),
-            include_str!("../connection_view.rs"),
+            include_str!("../connection/view.rs"),
             include_str!("../query_dialogs_view.rs"),
             include_str!("../files_activity_view.rs"),
             include_str!("../agent_view.rs"),

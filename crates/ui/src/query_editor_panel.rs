@@ -308,18 +308,13 @@ impl DbProApp {
             return;
         }
 
-        let screen_rect = ctx.screen_rect();
-        let mut popup_pos = doc.completion.popup_position;
         let popup_height = 220.0;
         let popup_width = 340.0;
-
-        // Auto-flip popup above cursor if near bottom of screen
-        if popup_pos.y + popup_height > screen_rect.max.y - 30.0 {
-            popup_pos.y = (popup_pos.y - popup_height - 24.0).max(screen_rect.min.y + 10.0);
-        }
-        popup_pos.x = popup_pos.x.clamp(
-            screen_rect.min.x + 10.0,
-            (screen_rect.max.x - popup_width - 20.0).max(screen_rect.min.x + 10.0),
+        let popup_pos = crate::components::clamp_popup_to_screen(
+            doc.completion.popup_position,
+            egui::vec2(popup_width, popup_height),
+            ctx.screen_rect(),
+            10.0,
         );
 
         let mut clicked_item = None;
