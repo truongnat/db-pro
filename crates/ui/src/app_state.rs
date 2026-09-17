@@ -294,6 +294,7 @@ impl Default for DbProApp {
             schema: UiSchemaSummary::default(),
             selected_schema: None,
             explorer_search: String::new(),
+            explorer_nav_cache: None,
             schema_error: None,
             schema_request: None,
             selected_table: None,

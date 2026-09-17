@@ -5,10 +5,10 @@ use super::*;
 use lucide_icons::Icon;
 
 impl DbProApp {
-    /// Views folder in Codex tree.
-    pub(super) fn draw_dbeaver_views_folder(&mut self, ui: &mut egui::Ui, views: &[UiViewSummary]) {
+    /// Views folder — only materialises the schema-scoped list when expanded.
+    pub(super) fn draw_dbeaver_views_folder_lazy(&mut self, ui: &mut egui::Ui, schema: &str, count: usize) {
         let theme = self.theme;
-        let folder_id = ui.make_persistent_id("codex_views_folder");
+        let folder_id = ui.make_persistent_id(("codex_views_folder", schema));
         draw_category_folder(
             ui,
             &theme,
@@ -18,21 +18,27 @@ impl DbProApp {
                 icon: Icon::Eye,
                 icon_color: theme.success,
                 label: "Views",
-                count: views.len(),
+                count,
                 empty_label: Some("No views in schema"),
             },
             |ui| {
-                for view in views {
+                let views = self.filter_by_schema(&self.schema.views, schema, |v| &v.schema);
+                for view in &views {
                     self.draw_view_row(ui, view, &theme);
                 }
             },
         );
     }
 
-    /// Functions folder in Codex tree.
-    pub(super) fn draw_dbeaver_functions_folder(&mut self, ui: &mut egui::Ui, functions: &[UiFunctionSummary]) {
+    /// Functions folder — deferred filter until the folder is open.
+    pub(super) fn draw_dbeaver_functions_folder_lazy(
+        &mut self,
+        ui: &mut egui::Ui,
+        schema: &str,
+        count: usize,
+    ) {
         let theme = self.theme;
-        let folder_id = ui.make_persistent_id("codex_functions_folder");
+        let folder_id = ui.make_persistent_id(("codex_functions_folder", schema));
         draw_category_folder(
             ui,
             &theme,
@@ -42,21 +48,27 @@ impl DbProApp {
                 icon: Icon::Code2,
                 icon_color: theme.code_type,
                 label: "Functions",
-                count: functions.len(),
+                count,
                 empty_label: Some("No functions in schema"),
             },
             |ui| {
-                for function in functions {
+                let functions = self.filter_by_schema(&self.schema.functions, schema, |f| &f.schema);
+                for function in &functions {
                     self.draw_function_row(ui, function, &theme);
                 }
             },
         );
     }
 
-    /// Triggers folder in Codex tree.
-    pub(super) fn draw_dbeaver_triggers_folder(&mut self, ui: &mut egui::Ui, triggers: &[UiTriggerSummary]) {
+    /// Triggers folder — deferred filter until the folder is open.
+    pub(super) fn draw_dbeaver_triggers_folder_lazy(
+        &mut self,
+        ui: &mut egui::Ui,
+        schema: &str,
+        count: usize,
+    ) {
         let theme = self.theme;
-        let folder_id = ui.make_persistent_id("codex_triggers_folder");
+        let folder_id = ui.make_persistent_id(("codex_triggers_folder", schema));
         draw_category_folder(
             ui,
             &theme,
@@ -66,11 +78,12 @@ impl DbProApp {
                 icon: Icon::Zap,
                 icon_color: theme.warning,
                 label: "Triggers",
-                count: triggers.len(),
+                count,
                 empty_label: Some("No triggers in schema"),
             },
             |ui| {
-                for trigger in triggers {
+                let triggers = self.filter_by_schema(&self.schema.triggers, schema, |t| &t.schema);
+                for trigger in &triggers {
                     self.draw_trigger_row(ui, trigger, &theme);
                 }
             },

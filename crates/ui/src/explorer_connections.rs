@@ -5,8 +5,9 @@ use super::*;
 
 impl DbProApp {
     pub(super) fn draw_dbeaver_connections_tree(&mut self, ui: &mut egui::Ui) {
-        let connections = self.connections.clone();
-        for connection in connections {
+        let connection_count = self.connections.len();
+        for index in 0..connection_count {
+            let connection = self.connections[index].clone();
             let is_active = self.active_connection_id.as_deref() == Some(&connection.id);
             let is_connected = self.connected && is_active;
             let is_connecting = self.pending_connection_request.is_some()
@@ -214,14 +215,15 @@ impl DbProApp {
         }
 
         if collapsing.is_open() {
-            let schemas = self.schema.schemas.clone();
-            if schemas.is_empty() {
+            let schema_count = self.schema.schemas.len();
+            if schema_count == 0 {
                 // Flat tables/views (e.g. SQLite)
                 self.draw_dbeaver_schema_objects(ui, "");
             } else {
                 // Nested Schemas (e.g. PostgreSQL: public, information_schema, etc.)
-                for schema in &schemas {
-                    self.draw_dbeaver_schema_node(ui, &connection.id, schema);
+                for index in 0..schema_count {
+                    let schema = self.schema.schemas[index].clone();
+                    self.draw_dbeaver_schema_node(ui, &connection.id, &schema);
                 }
             }
         }
@@ -231,7 +233,7 @@ impl DbProApp {
     pub(super) fn draw_dbeaver_schema_node(&mut self, ui: &mut egui::Ui, connection_id: &str, schema: &str) {
         let is_active_schema = self.active_schema() == schema;
         let schema_id = ui.make_persistent_id(("codex_schema_node", connection_id, schema));
-        let table_count = self.schema.table_details.iter().filter(|t| t.schema == schema).count();
+        let table_count = self.schema_table_count(schema);
 
         let mut collapsing =
             egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), schema_id, is_active_schema);
@@ -315,40 +317,72 @@ impl DbProApp {
         self.staged_changes.clear();
         self.staged_apply_targets.clear();
         self.table_mutation_error = None;
+        self.explorer_nav_cache = None;
         self.activate_welcome_tab();
     }
 
     /// Renders the folders for a schema: Tables, Views, Functions, Triggers.
     pub(super) fn draw_dbeaver_schema_objects(&mut self, ui: &mut egui::Ui, schema: &str) {
         let search_query = self.explorer_search.trim().to_ascii_lowercase();
-        let all_tables = self.active_schema_table_names();
-        let total_tables = all_tables.len();
-        let (matching_table_count, tables) = filtered_explorer_tables(&all_tables, &search_query);
+        // Counts are O(n) but allocate nothing; materialised lists are deferred until a
+        // folder is actually open (see folder bodies below / Tables drawer).
+        let total_tables = self.schema_table_count(schema);
+        self.draw_tables_folder(ui, schema, total_tables, &search_query);
 
-        self.draw_tables_folder(ui, schema, &tables, total_tables, matching_table_count, &search_query);
+        let view_count = self.count_by_schema(&self.schema.views, schema, |v| &v.schema);
+        self.draw_dbeaver_views_folder_lazy(ui, schema, view_count);
 
-        let views = self.filter_by_schema(&self.schema.views, schema, |v| &v.schema);
-        self.draw_dbeaver_views_folder(ui, &views);
-
-        // Capability-gated, not driver-gated: the folder appears when the
-        // provider reports routines (PostgreSQL and MySQL do, SQLite does not).
         if self.active_capabilities().allows(|c| c.schema.functions) {
-            let functions = self.filter_by_schema(&self.schema.functions, schema, |f| &f.schema);
-            self.draw_dbeaver_functions_folder(ui, &functions);
+            let function_count = self.count_by_schema(&self.schema.functions, schema, |f| &f.schema);
+            self.draw_dbeaver_functions_folder_lazy(ui, schema, function_count);
         }
 
-        let triggers = self.filter_by_schema(&self.schema.triggers, schema, |t| &t.schema);
-        self.draw_dbeaver_triggers_folder(ui, &triggers);
+        let trigger_count = self.count_by_schema(&self.schema.triggers, schema, |t| &t.schema);
+        self.draw_dbeaver_triggers_folder_lazy(ui, schema, trigger_count);
     }
 
     /// Narrows schema-scoped objects to `schema`. When the backend reports no schema
     /// list (e.g. SQLite) everything belongs to a single flat namespace.
     pub(super) fn filter_by_schema<T: Clone>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> Vec<T> {
-        if self.schema.schemas.is_empty() {
+        if self.schema.schemas.is_empty() || schema.is_empty() {
             all.to_vec()
         } else {
             all.iter().filter(|item| schema_of(item) == schema).cloned().collect()
         }
+    }
+
+    pub(super) fn count_by_schema<T>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> usize {
+        if self.schema.schemas.is_empty() || schema.is_empty() {
+            all.len()
+        } else {
+            all.iter().filter(|item| schema_of(item) == schema).count()
+        }
+    }
+
+    /// Returns cached visible table names for `schema` + current search.
+    fn cached_explorer_tables(&mut self, schema: &str, search_query: &str) -> (usize, usize, Vec<String>) {
+        let connection_id = self.active_connection_id.clone().unwrap_or_default();
+        if let Some(cache) = self.explorer_nav_cache.as_ref() {
+            if cache.connection_id == connection_id
+                && cache.schema == schema
+                && cache.search == search_query
+            {
+                return (cache.total_count, cache.matching_count, cache.visible.clone());
+            }
+        }
+
+        let all_tables = self.schema_table_names(schema);
+        let (matching_count, visible) = filtered_explorer_tables(&all_tables, search_query);
+        let total_count = all_tables.len();
+        self.explorer_nav_cache = Some(ExplorerNavCache {
+            connection_id,
+            schema: schema.to_owned(),
+            search: search_query.to_owned(),
+            total_count,
+            matching_count,
+            visible: visible.clone(),
+        });
+        (total_count, matching_count, visible)
     }
 
     /// Tables folder. Unlike the other folders it reflects the active filter in both
@@ -357,20 +391,35 @@ impl DbProApp {
         &mut self,
         ui: &mut egui::Ui,
         schema: &str,
-        tables: &[String],
         total_tables: usize,
-        matching_table_count: usize,
         search_query: &str,
     ) {
         let folder_id = ui.make_persistent_id(("codex_tbl_folder", schema));
+        let matching_table_count = if search_query.is_empty() {
+            total_tables
+        } else if let Some(cache) = self.explorer_nav_cache.as_ref().filter(|cache| {
+            cache.schema == schema
+                && cache.search == search_query
+                && cache.connection_id == self.active_connection_id.as_deref().unwrap_or_default()
+        }) {
+            cache.matching_count
+        } else {
+            self.schema_matching_table_count(schema, search_query)
+        };
         let count_str = if search_query.is_empty() {
             total_tables.to_string()
         } else {
             format!("{matching_table_count}/{total_tables}")
         };
 
+        // Default closed for large schemas; auto-open while the user is filtering.
+        let default_open = !search_query.is_empty();
         let mut collapsing =
-            egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), folder_id, true);
+            egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), folder_id, default_open);
+        if default_open && !collapsing.is_open() {
+            collapsing.set_open(true);
+            collapsing.store(ui.ctx());
+        }
         let is_open = collapsing.is_open();
 
         let (response, chevron_clicked) = draw_codex_tree_row(
@@ -401,6 +450,8 @@ impl DbProApp {
         if !collapsing.is_open() {
             return;
         }
+
+        let (_total, matching, tables) = self.cached_explorer_tables(schema, search_query);
         if tables.is_empty() {
             let empty_label = if total_tables == 0 {
                 "No tables in schema"
@@ -408,10 +459,32 @@ impl DbProApp {
                 "No matching tables"
             };
             draw_hint_row(ui, &self.theme, 4, Icon::Info, empty_label);
-        } else {
-            for table in tables {
-                self.draw_dbeaver_table_item(ui, table);
+            return;
+        }
+
+        let clip = ui.clip_rect();
+        for table in &tables {
+            let row_top = ui.cursor().min.y;
+            let row_bottom = row_top + EXPLORER_ROW_HEIGHT;
+            if row_bottom < clip.top() || row_top > clip.bottom() {
+                // Keep layout height without painting off-screen rows.
+                let _ = ui.allocate_exact_size(
+                    egui::vec2(ui.available_width(), EXPLORER_ROW_HEIGHT),
+                    egui::Sense::hover(),
+                );
+                continue;
             }
+            self.draw_dbeaver_table_item(ui, table);
+        }
+
+        if matching > tables.len() {
+            draw_hint_row(
+                ui,
+                &self.theme,
+                4,
+                Icon::Ellipsis,
+                &format!("Showing {} of {matching} — refine filter", tables.len()),
+            );
         }
     }
 }

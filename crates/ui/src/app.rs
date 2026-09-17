@@ -304,6 +304,8 @@ pub struct DbProApp {
     schema: UiSchemaSummary,
     selected_schema: Option<String>,
     explorer_search: String,
+    /// Cached filtered table names for the open explorer schema folder.
+    explorer_nav_cache: Option<ExplorerNavCache>,
     schema_error: Option<String>,
     schema_request: Option<crate::RequestId>,
     selected_table: Option<String>,

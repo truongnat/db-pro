@@ -244,6 +244,20 @@ pub(crate) const GRID_ROW_NUMBER_WIDTH: f32 = 48.0;
 pub use crate::diagram::{ErGraph, ErSpatialIndex};
 
 pub(crate) const EXPLORER_MAX_TABLES: usize = 100;
+/// Row height used by the Codex navigator for viewport culling.
+pub(crate) const EXPLORER_ROW_HEIGHT: f32 = 26.0;
+
+/// Cached explorer table listing for one `(connection, schema, search)` key.
+/// Rebuilt only when the key changes — avoids reallocating 1k+ name strings every frame.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ExplorerNavCache {
+    pub connection_id: String,
+    pub schema: String,
+    pub search: String,
+    pub total_count: usize,
+    pub matching_count: usize,
+    pub visible: Vec<String>,
+}
 
 pub(crate) fn matches_diagram_search(table: &UiTableSummary, query: &str) -> bool {
     table.name.to_ascii_lowercase().contains(query)

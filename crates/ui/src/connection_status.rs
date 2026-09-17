@@ -43,15 +43,63 @@ impl DbProApp {
     }
 
     pub(super) fn active_schema_table_names(&self) -> Vec<String> {
+        self.schema_table_names(self.active_schema())
+    }
+
+    /// Table names belonging to `schema`. Empty `schema` (SQLite flat tree) returns all tables.
+    pub(super) fn schema_table_names(&self, schema: &str) -> Vec<String> {
         if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
             return self.schema.tables.clone();
+        }
+        if schema.is_empty() {
+            return self
+                .schema
+                .table_details
+                .iter()
+                .map(|table| table.name.clone())
+                .collect();
         }
         self.schema
             .table_details
             .iter()
-            .filter(|table| table.schema == self.active_schema())
+            .filter(|table| table.schema == schema)
             .map(|table| table.name.clone())
             .collect()
+    }
+
+    pub(super) fn schema_table_count(&self, schema: &str) -> usize {
+        if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
+            return self.schema.tables.len();
+        }
+        if schema.is_empty() {
+            return self.schema.table_details.len();
+        }
+        self.schema
+            .table_details
+            .iter()
+            .filter(|table| table.schema == schema)
+            .count()
+    }
+
+    /// Count matching table names without allocating a name list.
+    pub(super) fn schema_matching_table_count(&self, schema: &str, query: &str) -> usize {
+        if query.is_empty() {
+            return self.schema_table_count(schema);
+        }
+        if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
+            return self
+                .schema
+                .tables
+                .iter()
+                .filter(|table| matches_explorer_table(table, query))
+                .count();
+        }
+        self.schema
+            .table_details
+            .iter()
+            .filter(|table| schema.is_empty() || table.schema == schema)
+            .filter(|table| matches_explorer_table(&table.name, query))
+            .count()
     }
 
     pub(super) fn active_schema_column_names(&self) -> Vec<String> {

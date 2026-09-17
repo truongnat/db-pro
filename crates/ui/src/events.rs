@@ -307,6 +307,7 @@ impl DbProApp {
         let refresh_selected_table = self.refresh_table_info_after_schema;
         self.refresh_table_info_after_schema = false;
         self.schema = schema;
+        self.explorer_nav_cache = None;
         self.search_index.invalidate();
         if self
             .selected_schema
