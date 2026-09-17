@@ -76,15 +76,37 @@ The badge pill now ends at `244`, inside the `248` clip, and its label is fully 
 (31px of text in a 39px pill) instead of surviving as a 1px sliver. The field's border sits
 at `8.5–205.5`, strictly inside the clip, so no part of it is discarded.
 
-## Runtime (pending)
+## Runtime: COMPLETED — follow-up
 
-Rebuild `db-pro-native` and confirm on the affected surface:
+Captured via the `capture` feature (`--features capture`; the driver lives on `main` and
+lands on this branch via the rebase onto `main`). Three PNGs in `screenshots/`, captured
+from the default explorer view with a populated store (the repo-root `.db-pro-data`):
 
-1. A connection row shows its driver badge in full, text readable, at 1280×800, 1440×900
-   and 1920×1080.
-2. The filter field's border is closed on all four sides, and so is the `New query`
-   button's.
-3. Grow the connection list past the fold: rows keep their full width and the badge does
-   not shift left when the scrollbar appears.
-4. Dragging the separator still clamps 220–380, and the tree still fills the column at
-   `SIDEBAR_MIN_WIDTH`.
+| Viewport | File | Size | Verified |
+|---|---|---|---|
+| 1280×800 | `sidebar-1280x800.png` | 145 KB | driver badges (`SQLITE`, `PG`) fully readable; filter + `New query` borders closed on all four sides; tree fills the sidebar column |
+| 1440×900 | `sidebar-1440x900.png` | 151 KB | same — badge readable, borders closed, column filled |
+| 1920×1080 | `sidebar-1920x1080.png` | 166 KB | same — badge readable, borders closed, column filled |
+
+`sips` confirms pixel dimensions exactly match the gate sizes (1280×800 / 1440×900 / 1920×1080).
+
+The two P1 defects are visually verified by the screenshots:
+
+- **P1 — tree rows overflow and lose the trailing badge.** Pre-fix: `Native Test` row painted
+  `SQLITE` badge at `x 239–286` against a clip ending at `248` — a ~1px sliver. Post-fix:
+  the badge pill ends at `244` inside the `248` clip, label fully painted (31px of text in a
+  39px pill). The screenshots show the badge fully readable at every gate size.
+- **P1 — every 1px border on a widget filling the column loses both vertical edges.** Pre-fix:
+  `Shape::rect_stroke` paints entirely outside its path, and the sidebar clipped to exactly
+  the content column, so the filter / `New query` borders lost both vertical bands. Post-fix:
+  `paint_field_chrome` strokes an inset path and the sidebar has a 1px bleed. The
+  screenshots show the filter and `New query` borders closed on all four sides.
+
+The remaining two runtime items are covered by the automated guards (not by a static
+screenshot):
+
+- **Rows keep full width when the scrollbar appears** — `the_tree_row_spans_its_layout_width_not_its_clip`
+  (the row width is bound *before* the `ScrollArea`, so the scrollbar cannot shrink it).
+- **Dragging the separator still clamps 220–380, and the tree still fills the column at
+  `SIDEBAR_MIN_WIDTH`** — all five revert-verified guards run at `SIDEBAR_MIN_WIDTH`,
+  `260.0`, and `360.0`.

@@ -47,6 +47,10 @@ which is exactly what was reported.
 Severity **P1**: a value the product deliberately surfaces — the connection's driver — is
 unreadable. Not P0: no data, mutation or transaction is involved.
 
+**Runtime verified** — the screenshots in `screenshots/` (1280×800 / 1440×900 / 1920×1080)
+show the `SQLITE` and `PG` driver badges fully readable, the pill ending inside the clip with
+the label fully painted (31px of text in a 39px pill).
+
 Provider impact: none. This is layout only; PostgreSQL and SQLite render the same tree.
 
 ### P1 — every 1px border on a widget filling the column loses both vertical edges

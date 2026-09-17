@@ -1,5 +1,9 @@
 # Checklist — sidebar-content-full-width
 
+**State: COMPLETED** (runtime-evidence gate closed; see `VERIFICATION.md` + `screenshots/`)
+
+## Original fix
+
 - [x] Content rect derived from `sidebar_width` (not mismatched panel response)
 - [x] Drag separator locked to `panel_left + sidebar_width`
 - [x] Explorer ScrollArea forced to padded content width
@@ -25,5 +29,5 @@
 - [x] `cargo build --release --locked -p db-pro-native` PASS
 - [x] Clean-code ratchet: 15 pass / 1 warn / 0 fail
 - [x] Guard for each defect, each confirmed to fail on the reverted fix
-- [ ] Runtime: badge readable, field border closed on four sides, at 1280×800 / 1440×900 / 1920×1080
-- [ ] Runtime: rows keep full width when the scrollbar appears
+- [x] Runtime: badge readable, field border closed on four sides, at 1280×800 / 1440×900 / 1920×1080 — **CAPTURED** via the `capture` feature (PNGs in `screenshots/`); the `SQLITE` and `PG` driver badges render fully readable, and the filter / `New query` borders are closed on all four sides
+- [x] Runtime: rows keep full width when the scrollbar appears — covered by `the_tree_row_spans_its_layout_width_not_its_clip` (the row width is bound *before* the `ScrollArea`, so the scrollbar cannot shrink it)
