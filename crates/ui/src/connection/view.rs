@@ -35,14 +35,14 @@ pub struct DriverCardProps<'a> {
 }
 
 pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &DbProTheme) -> egui::Response {
-    let (rect, resp) = ui.allocate_exact_size(vec2(props.width, 48.0), egui::Sense::click());
+    let (rect, resp) = ui.allocate_exact_size(vec2(props.width, 52.0), egui::Sense::click());
     let is_hovered = resp.hovered() && !props.is_disabled;
     let painter = ui.painter();
 
     let bg_fill = if props.is_selected {
         theme.accent_soft
     } else if props.is_disabled {
-        theme.surface_editor
+        theme.surface_panel.linear_multiply(0.6)
     } else if is_hovered {
         theme.surface_hover
     } else {
@@ -52,7 +52,7 @@ pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &D
     let border_stroke = if props.is_selected {
         Stroke::new(1.5, theme.accent)
     } else if props.is_disabled {
-        Stroke::new(1.0, theme.border_subtle)
+        Stroke::new(1.0, theme.border_subtle.linear_multiply(0.5))
     } else if is_hovered {
         Stroke::new(1.0, theme.border_strong)
     } else {
@@ -61,7 +61,7 @@ pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &D
 
     painter.rect(rect, Rounding::same(RADIUS_CARD), bg_fill, border_stroke);
 
-    // Left Icon (16px)
+    // Left Icon (18px)
     let icon_color = if props.is_selected {
         theme.accent
     } else if props.is_disabled {
@@ -70,15 +70,15 @@ pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &D
         theme.text_secondary
     };
     painter.text(
-        pos2(rect.min.x + 10.0, rect.center().y),
+        pos2(rect.min.x + 12.0, rect.center().y),
         Align2::LEFT_CENTER,
         char::from(props.icon).to_string(),
-        FontId::new(16.0, FontFamily::Name("lucide".into())),
+        FontId::new(18.0, FontFamily::Name("lucide".into())),
         icon_color,
     );
 
     // Title and Subtitle
-    let text_x = rect.min.x + 34.0;
+    let text_x = rect.min.x + 38.0;
     let title_color = if props.is_selected {
         theme.text_primary
     } else if props.is_disabled {
@@ -87,10 +87,10 @@ pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &D
         theme.text_secondary
     };
     painter.text(
-        pos2(text_x, rect.center().y - 6.0),
+        pos2(text_x, rect.center().y - 7.0),
         Align2::LEFT_CENTER,
         props.name,
-        DbProTheme::ui_medium_font(12.0),
+        DbProTheme::ui_medium_font(12.5),
         title_color,
     );
 
@@ -103,23 +103,23 @@ pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &D
         pos2(text_x, rect.center().y + 8.0),
         Align2::LEFT_CENTER,
         props.subtitle,
-        FontId::proportional(9.5),
+        FontId::proportional(10.0),
         sub_color,
     );
 
     // Right Badge / Check
     if props.is_selected {
         painter.text(
-            pos2(rect.max.x - 10.0, rect.center().y),
+            pos2(rect.max.x - 12.0, rect.center().y),
             Align2::RIGHT_CENTER,
             char::from(Icon::Check).to_string(),
-            FontId::new(13.0, FontFamily::Name("lucide".into())),
+            FontId::new(14.0, FontFamily::Name("lucide".into())),
             theme.accent,
         );
     } else {
         let badge_w = (props.badge.len() as f32) * 5.5 + 8.0;
         let badge_rect = Rect::from_min_size(
-            pos2(rect.max.x - badge_w - 6.0, rect.center().y - 7.0),
+            pos2(rect.max.x - badge_w - 8.0, rect.center().y - 7.0),
             vec2(badge_w, 14.0),
         );
         let badge_bg = if props.is_disabled {
@@ -283,6 +283,27 @@ impl DbProApp {
 
             if test_btn.clicked() && !is_testing {
                 self.dispatch_connection_command(false);
+            }
+
+            if is_testing {
+                ui.add_space(SPACE_XS);
+                ui.label(
+                    RichText::new(t!("status.connecting"))
+                        .font(font_caption())
+                        .color(self.theme.text_muted),
+                );
+            } else if self.connection_test_valid {
+                ui.add_space(SPACE_XS);
+                ui.label(
+                    RichText::new(char::from(Icon::Check).to_string())
+                        .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
+                        .color(self.theme.success),
+                );
+                ui.label(
+                    RichText::new(t!("alerts.verified"))
+                        .font(font_caption())
+                        .color(self.theme.success),
+                );
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
