@@ -1,6 +1,6 @@
 //! Primary left sidebar shell: exact-width panel, padded content, and resize grip.
 use super::*;
-use egui::{vec2, Align2, Color32, Margin, Pos2, Rect, Rounding, Sense, Stroke};
+use egui::{vec2, Align2, Pos2, Rect, Rounding, Sense, Stroke};
 
 impl DbProApp {
     pub(super) fn draw_sidebar(&mut self, ctx: &egui::Context) {
@@ -23,119 +23,149 @@ impl DbProApp {
                 shadow: egui::Shadow::NONE,
             })
             .show(ctx, |ui| {
-                let full = ui.max_rect();
+                // Anchor the panel to the width we own; do not trust a wider
+                // max_rect from egui panel state / frame response mismatch.
+                let panel_origin = ui.max_rect().min;
+                let full = Rect::from_min_size(panel_origin, vec2(sidebar_width, ui.max_rect().height()));
                 ui.painter()
                     .rect_filled(full, egui::Rounding::ZERO, theme.surface_panel);
 
-                // Keep padding balanced so content breathes beside the
-                // activity rail while not leaving excessive empty gutter near the resize edge.
-                let pad_x = SPACE_SM;
+                // IDE-style: breathe on the activity-rail side, sit nearly flush
+                // against the resize edge so navigator content fills the panel.
+                let pad_left = SPACE_SM;
+                let pad_right = SPACE_XXS;
                 let pad_y = SPACE_SM;
-                let content_rect = Rect::from_min_max(
-                    Pos2::new(full.left() + pad_x, full.top() + pad_y),
-                    Pos2::new(full.right() - pad_x, full.bottom() - pad_y),
+                // Derive content width from the clamped sidebar width, not from
+                // egui's panel response rect — that rect can disagree with the
+                // width we asked for and leave a dead gutter before the drag line.
+                let content_w = (sidebar_width - pad_left - pad_right).max(0.0);
+                let content_rect = Rect::from_min_size(
+                    Pos2::new(full.left() + pad_left, full.top() + pad_y),
+                    vec2(content_w, (full.height() - 2.0 * pad_y).max(0.0)),
                 );
                 ui.allocate_new_ui(egui::UiBuilder::new().max_rect(content_rect), |ui| {
                     // Keep the content ui as wide as the padded panel so tree rows
                     // and toolbars stretch when the sidebar is resized.
-                    let content_w = content_rect.width();
                     ui.set_min_width(content_w);
                     ui.set_max_width(content_w);
+                    ui.set_min_height(content_rect.height());
 
-                    // ── 1. Codex-style Header Row: Workspace Selector + Action Icons ──
+                    // ── 1. Header: connection selector + actions ───────────────
+                    // Paint order matters: allocate → hover wash → text/icons on top.
+                    // The previous path filled surface_hover *after* the label, which
+                    // wiped the name to a blank wash on hover.
                     ui.add_space(SPACE_SM);
                     ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing = vec2(SPACE_XS, 0.0);
                         let active_name = if self.active_connection_id.is_some() {
-                            self.active_connection_name()
+                            self.active_connection_name().to_owned()
                         } else {
-                            "DB Pro"
+                            "DB Pro".to_owned()
                         };
 
-                        // Workspace / Connection Dropdown Selector (e.g. "Codex ⌵")
-                        let selector_resp = egui::Frame {
-                            fill: Color32::TRANSPARENT,
-                            rounding: Rounding::same(RADIUS_SM),
-                            inner_margin: Margin::symmetric(SPACE_XS, 3.0),
-                            ..Default::default()
-                        }
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.spacing_mut().item_spacing = vec2(SPACE_XS, 0.0);
-                                ui.add(
-                                    egui::Label::new(
-                                        RichText::new(active_name)
-                                            .font(font_ui_label())
-                                            .strong()
-                                            .color(self.theme.text_primary),
-                                    )
-                                    .truncate(),
-                                )
-                                .on_hover_text(active_name);
-                                ui.label(
-                                    RichText::new(char::from(Icon::ChevronDown).to_string())
-                                        .font(font_icon(ICON_XS))
-                                        .color(self.theme.text_secondary),
-                                );
-                            });
-                        });
-                        let selector_interact = ui.interact(
-                            selector_resp.response.rect,
-                            ui.id().with("workspace_selector"),
-                            Sense::click(),
-                        );
-                        if selector_interact.hovered() {
+                        const HEADER_ACTIONS_W: f32 = 52.0;
+                        const SELECTOR_H: f32 = 24.0;
+                        let selector_w =
+                            (ui.available_width() - HEADER_ACTIONS_W - ui.spacing().item_spacing.x).max(72.0);
+                        let (sel_rect, sel_resp) =
+                            ui.allocate_exact_size(vec2(selector_w, SELECTOR_H), Sense::click());
+
+                        if sel_resp.hovered() {
                             ui.painter().rect_filled(
-                                selector_resp.response.rect,
+                                sel_rect,
                                 Rounding::same(RADIUS_SM),
                                 self.theme.surface_hover,
                             );
+                            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                         }
-                        if selector_interact.clicked() {
+
+                        let chevron = char::from(Icon::ChevronDown).to_string();
+                        let chevron_galley = ui.painter().layout_no_wrap(
+                            chevron,
+                            font_icon(ICON_XS),
+                            self.theme.text_secondary,
+                        );
+                        let name_max = (sel_rect.width()
+                            - SPACE_XS * 2.0
+                            - chevron_galley.size().x
+                            - SPACE_XS)
+                            .max(24.0);
+                        let name_galley = ui.painter().layout_job({
+                            let mut job = egui::text::LayoutJob::single_section(
+                                active_name.to_owned(),
+                                egui::TextFormat {
+                                    font_id: font_ui_label(),
+                                    color: self.theme.text_primary,
+                                    ..Default::default()
+                                },
+                            );
+                            job.wrap = egui::text::TextWrapping {
+                                max_width: name_max,
+                                max_rows: 1,
+                                break_anywhere: true,
+                                overflow_character: Some('…'),
+                            };
+                            job
+                        });
+                        let name_pos = Pos2::new(
+                            sel_rect.left() + SPACE_XS,
+                            sel_rect.center().y - name_galley.size().y * 0.5,
+                        );
+                        let chevron_pos = Pos2::new(
+                            name_pos.x + name_galley.size().x + SPACE_XS,
+                            sel_rect.center().y - chevron_galley.size().y * 0.5,
+                        );
+                        ui.painter().galley(name_pos, name_galley, self.theme.text_primary);
+                        ui.painter().galley(chevron_pos, chevron_galley, self.theme.text_secondary);
+
+                        if sel_resp.clicked() {
                             self.open_palette(PaletteMode::Commands);
                         }
-                        selector_interact.on_hover_text("Switch connection / workspace");
+                        sel_resp.on_hover_text(format!("{active_name}\nSwitch connection / workspace"));
 
-                        // Right header action buttons: Search & New Connection
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            if Button::new(self.theme)
-                                .icon(Icon::Plus)
-                                .variant(ButtonVariant::Ghost)
-                                .size(ButtonSize::IconSm)
-                                .tooltip("New Connection")
-                                .show(ui)
-                                .clicked()
-                            {
-                                self.open_new_connection();
-                            }
-                            if Button::new(self.theme)
-                                .icon(Icon::Search)
-                                .variant(ButtonVariant::Ghost)
-                                .size(ButtonSize::IconSm)
-                                .tooltip(format!(
-                                    "Search / Command Palette ({}⇧P)",
-                                    Self::primary_modifier_label()
-                                ))
-                                .show(ui)
-                                .clicked()
-                            {
-                                self.open_palette(PaletteMode::Commands);
-                            }
-                        });
+                        if Button::new(self.theme)
+                            .icon(Icon::Search)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip(format!(
+                                "Search / Command Palette ({}⇧P)",
+                                Self::primary_modifier_label()
+                            ))
+                            .show(ui)
+                            .clicked()
+                        {
+                            self.open_palette(PaletteMode::Commands);
+                        }
+                        if Button::new(self.theme)
+                            .icon(Icon::Plus)
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip("New Connection")
+                            .show(ui)
+                            .clicked()
+                        {
+                            self.open_new_connection();
+                        }
                     });
                     ui.add_space(SPACE_XS);
 
-                    // ── 2. Codex-style Primary Action: "+ New query" Button ──────
-                    let new_query_rect = ui.available_rect_before_wrap();
+                    // ── 2. Primary action: New query ───────────────────────────
                     let new_query_h = BUTTON_HEIGHT_SM;
-                    let btn_rect = Rect::from_min_size(new_query_rect.min, vec2(ui.available_width(), new_query_h));
+                    let btn_rect = Rect::from_min_size(
+                        ui.cursor().min,
+                        vec2(ui.available_width(), new_query_h),
+                    );
                     let new_query_resp = ui.allocate_rect(btn_rect, Sense::click());
                     let is_hovered = new_query_resp.hovered();
-                    let bg_color = if is_hovered {
-                        self.theme.surface_hover
-                    } else {
-                        self.theme.surface_panel
-                    };
-                    ui.painter().rect_filled(btn_rect, Rounding::same(RADIUS_SM), bg_color);
+                    ui.painter().rect_filled(
+                        btn_rect,
+                        Rounding::same(RADIUS_SM),
+                        if is_hovered {
+                            self.theme.surface_hover
+                        } else {
+                            self.theme.surface_panel
+                        },
+                    );
                     ui.painter().rect_stroke(
                         btn_rect,
                         Rounding::same(RADIUS_SM),
@@ -233,20 +263,25 @@ impl DbProApp {
                 ui.allocate_rect(full, Sense::hover());
             });
 
-        // Prefer the width we asked for; fall back to measured rect if egui clamped.
+        // Lock the drag handle to the width we requested (`sidebar_width`), not
+        // egui's frame response width — a wider response rect was painting the
+        // separator far past the actual navigator content.
         let painted = response.response.rect;
-        if (painted.width() - sidebar_width).abs() > 0.5 {
-            self.sidebar_width = painted.width().clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
-        }
-        self.draw_sidebar_resize_handle(ctx, painted);
+        self.draw_sidebar_resize_handle(ctx, painted.left(), painted.y_range());
     }
 
-    /// Drag grip + separator locked to the painted sidebar edge.
-    fn draw_sidebar_resize_handle(&mut self, ctx: &egui::Context, panel_rect: Rect) {
+    /// Drag grip + separator locked to `sidebar_width` from the panel's left edge.
+    fn draw_sidebar_resize_handle(
+        &mut self,
+        ctx: &egui::Context,
+        panel_left: f32,
+        y_range: egui::Rangef,
+    ) {
         let theme = self.theme;
+        let sidebar_width = self.sidebar_width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
         let grip = ctx.style().interaction.resize_grab_radius_side.max(5.0);
-        let edge_x = panel_rect.right();
-        let resize_rect = Rect::from_x_y_ranges((edge_x - grip)..=(edge_x + grip), panel_rect.y_range());
+        let edge_x = panel_left + sidebar_width;
+        let resize_rect = Rect::from_x_y_ranges((edge_x - grip)..=(edge_x + grip), y_range);
 
         let id = egui::Id::new("dbpro_sidebar_resize");
         let layer_id = egui::LayerId::new(egui::Order::Foreground, id);
@@ -264,7 +299,7 @@ impl DbProApp {
                 .pointer_interact_pos()
                 .or_else(|| drag_response.interact_pointer_pos())
             {
-                self.sidebar_width = (pointer.x - panel_rect.left()).clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
+                self.sidebar_width = (pointer.x - panel_left).clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
                 ctx.request_repaint();
             }
         }
@@ -278,6 +313,6 @@ impl DbProApp {
         };
         let painter = ctx.layer_painter(egui::LayerId::background());
         let line_x = painter.round_to_pixel_center(edge_x - 1.0);
-        painter.vline(line_x, panel_rect.y_range(), stroke);
+        painter.vline(line_x, y_range, stroke);
     }
 }

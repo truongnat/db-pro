@@ -81,9 +81,10 @@ pub(crate) fn draw_codex_tree_row(
     theme: &DbProTheme,
     row: CodexTreeRow<'_>,
 ) -> (egui::Response, bool) {
-    // Prefer the full content width so hover/selection washes track sidebar resize
-    // even when ScrollArea briefly reports a content-sized available_width.
-    let width = ui.available_width().max(ui.max_rect().width());
+    // Stretch to the scroll content / sidebar width. Prefer max_rect so short
+    // labels cannot shrink the hit-box; available_width alone sticks to content
+    // size after ScrollArea auto-measures the previous frame.
+    let width = ui.max_rect().width().max(ui.available_width());
     let (rect, response) = ui.allocate_exact_size(vec2(width, CODEX_ROW_HEIGHT), egui::Sense::click());
     let is_hovered = response.hovered();
 

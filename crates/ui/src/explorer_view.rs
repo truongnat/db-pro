@@ -204,16 +204,22 @@ impl DbProApp {
         self.draw_explorer_toolbar(ui);
         ui.add_space(6.0);
 
-        // Capture the padded sidebar width *before* ScrollArea; the scroll
-        // content ui can otherwise stick to a narrower previous-frame size and
-        // tree rows stop stretching when the panel is resized.
-        let tree_width = ui.available_width();
+        // Capture the padded sidebar width *before* ScrollArea. egui's scroll
+        // content ui otherwise settles on a content-sized width (short labels),
+        // so tree rows / error hints truncate mid-panel while the drag line sits
+        // much farther right — unlike VS Code / DBeaver where the tree fills the
+        // sidebar.
+        let tree_width = ui.max_rect().width().max(ui.available_width());
         egui::ScrollArea::vertical()
             .id_salt("codex_navigator_scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 ui.set_min_width(tree_width);
                 ui.set_max_width(tree_width);
+                ui.expand_to_include_x(ui.max_rect().left() + tree_width);
+                // Claim the full width up front so the first row inherits it
+                // instead of measuring against intrinsic label width.
+                ui.allocate_exact_size(egui::vec2(tree_width, 0.0), egui::Sense::hover());
                 if self.connections.is_empty() {
                     self.draw_dbeaver_empty_state(ui);
                 } else {
@@ -222,23 +228,17 @@ impl DbProApp {
             });
     }
 
-    /// Search bar plus new-connection / refresh actions above the tree.
+    /// Filter + refresh above the tree. New-connection lives in the sidebar header
+    /// so we do not duplicate the Plus control here.
     pub(crate) fn draw_explorer_toolbar(&mut self, ui: &mut egui::Ui) {
         let row_width = ui.available_width();
         ui.horizontal(|ui| {
             ui.set_min_width(row_width);
-            let actions_width = 56.0;
+            let actions_width = 28.0;
             let search_width = (row_width - actions_width).max(80.0);
             SearchInput::new(&mut self.explorer_search, "Filter objects…", self.theme)
                 .width(search_width)
                 .show(ui);
-
-            if compact_icon_button(ui, Icon::Plus, self.theme)
-                .on_hover_text("New connection")
-                .clicked()
-            {
-                self.open_new_connection();
-            }
 
             let mut refresh_schema = false;
             let refresh_btn =
