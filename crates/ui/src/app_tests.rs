@@ -3025,6 +3025,89 @@ fn connection_mutation_refreshes_the_explorer_without_waiting_for_another_frame(
 }
 
 #[test]
+fn sidebar_header_launcher_opens_full_command_palette() {
+    let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+
+    // Header name+search is one control → full palette (connections + commands).
+    app.open_palette(PaletteMode::Commands);
+
+    assert_eq!(app.palette_mode, Some(PaletteMode::Commands));
+    assert_eq!(app.palette_scope, SearchScope::All);
+}
+
+#[test]
+fn deleting_sibling_connection_does_not_auto_reconnect_active() {
+    let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
+    let mut app = DbProApp::with_task_bridge(bridge);
+    app.connections = vec![
+        UiConnectionSummary {
+            id: "conn-a".to_owned(),
+            name: "A".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "a".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        },
+        UiConnectionSummary {
+            id: "conn-b".to_owned(),
+            name: "B".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "b".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        },
+    ];
+    app.active_connection_id = Some("conn-a".to_owned());
+    app.connected = true;
+    app.pending_connection_request = Some(crate::RequestId(21));
+    app.pending_connection_id = Some("conn-b".to_owned());
+    app.connections_requested = true;
+
+    event_tx
+        .send(UiEvent::OperationCompleted {
+            request_id: crate::RequestId(21),
+            operation: "connection.deleted".to_owned(),
+        })
+        .expect("delete completion should queue");
+    app.apply_runtime_events();
+
+    assert_eq!(app.active_connection_id.as_deref(), Some("conn-a"));
+    assert!(app.connected);
+    assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ListConnections { .. })));
+
+    // List refresh must not force a Connect when the active session is still up.
+    event_tx
+        .send(UiEvent::ConnectionsLoaded {
+            request_id: crate::RequestId(22),
+            connections: vec![app.connections[0].clone()],
+        })
+        .expect("connections list should queue");
+    app.apply_runtime_events();
+
+    assert_eq!(app.active_connection_id.as_deref(), Some("conn-a"));
+    assert!(app.connected);
+    assert!(
+        !matches!(command_rx.try_recv(), Ok(UiCommand::Connect { .. })),
+        "active session must not reconnect after deleting a sibling"
+    );
+}
+
+#[test]
 fn sql_diagnostics_allow_expression_selects_without_from() {
     let diagnostics = DbProApp::parse_sql_diagnostics("SELECT 1 AS ok;", "PostgreSQL");
 

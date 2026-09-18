@@ -273,9 +273,13 @@ impl DbProApp {
     }
 
     pub(super) fn open_palette(&mut self, mode: PaletteMode) {
+        self.open_palette_with_scope(mode, SearchScope::All);
+    }
+
+    pub(super) fn open_palette_with_scope(&mut self, mode: PaletteMode, scope: SearchScope) {
         self.palette_mode = Some(mode);
         self.palette_query.clear();
-        self.palette_scope = SearchScope::All;
+        self.palette_scope = scope;
         self.palette_selected = 0;
         self.palette_focus_requested = true;
         self.search_index.invalidate();

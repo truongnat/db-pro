@@ -62,6 +62,10 @@ impl DbProApp {
             vec2(content_w, (full.height() - 2.0 * pad_y).max(0.0)),
         );
 
+        // Keep content on the Background-adjacent paint path (raw Ui), not an
+        // `Area(Order::Middle)` window — Middle windows compete with dialog
+        // hit-testing and can leave the palette card under its own dim overlay.
+        // Wheel scroll is fixed by bounding ScrollArea max_height below.
         {
             let id = egui::Id::new("dbpro_sidebar_content");
             let layer_id = egui::LayerId::new(egui::Order::Middle, id);
@@ -72,9 +76,10 @@ impl DbProApp {
                 egui::UiBuilder::new().max_rect(content_rect),
             );
             ui.set_clip_rect(content_rect.expand(SIDEBAR_CLIP_BLEED));
-            ui.set_min_width(content_w);
-            ui.set_max_width(content_w);
-            ui.set_min_height(content_rect.height());
+            ui.set_min_size(content_rect.size());
+            ui.set_max_size(content_rect.size());
+            // Claim the column so wheel hover hit-tests succeed on empty padding.
+            let _ = ui.interact(content_rect, id.with("bg"), Sense::hover());
             self.draw_sidebar_contents(&mut ui);
         }
 
@@ -82,8 +87,9 @@ impl DbProApp {
     }
 
     fn draw_sidebar_contents(&mut self, ui: &mut egui::Ui) {
-        // ── 1. Header: connection selector + actions ───────────────
-        // Paint order matters: allocate → hover wash → text/icons on top.
+        // ── 1. Header: one launcher pill + new-connection ───────────
+        // Name and search share a single hit target → Command Palette
+        // (connections + commands). Plus stays separate (create flow).
         ui.add_space(SPACE_SM);
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = vec2(SPACE_XS, 0.0);
@@ -93,10 +99,11 @@ impl DbProApp {
                 "DB Pro".to_owned()
             };
 
-            const HEADER_ACTIONS_W: f32 = 52.0;
+            const PLUS_SLOT_W: f32 = 28.0;
             const SELECTOR_H: f32 = 24.0;
+            const SEARCH_SLOT_W: f32 = 18.0;
             let selector_w =
-                (ui.available_width() - HEADER_ACTIONS_W - ui.spacing().item_spacing.x).max(72.0);
+                (ui.available_width() - PLUS_SLOT_W - ui.spacing().item_spacing.x).max(72.0);
             let (sel_rect, sel_resp) =
                 ui.allocate_exact_size(vec2(selector_w, SELECTOR_H), Sense::click());
 
@@ -109,15 +116,14 @@ impl DbProApp {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
 
-            let chevron = char::from(Icon::ChevronDown).to_string();
-            let chevron_galley = ui.painter().layout_no_wrap(
-                chevron,
+            let search_galley = ui.painter().layout_no_wrap(
+                char::from(Icon::Search).to_string(),
                 font_icon(ICON_XS),
                 self.theme.text_secondary,
             );
             let name_max = (sel_rect.width()
                 - SPACE_XS * 2.0
-                - chevron_galley.size().x
+                - SEARCH_SLOT_W
                 - SPACE_XS)
                 .max(24.0);
             let name_galley = ui.painter().layout_job({
@@ -141,33 +147,23 @@ impl DbProApp {
                 sel_rect.left() + SPACE_XS,
                 sel_rect.center().y - name_galley.size().y * 0.5,
             );
-            let chevron_pos = Pos2::new(
-                name_pos.x + name_galley.size().x + SPACE_XS,
-                sel_rect.center().y - chevron_galley.size().y * 0.5,
+            let search_pos = Pos2::new(
+                sel_rect.right() - SPACE_XS - search_galley.size().x,
+                sel_rect.center().y - search_galley.size().y * 0.5,
             );
             ui.painter()
                 .galley(name_pos, name_galley, self.theme.text_primary);
             ui.painter()
-                .galley(chevron_pos, chevron_galley, self.theme.text_secondary);
+                .galley(search_pos, search_galley, self.theme.text_secondary);
 
             if sel_resp.clicked() {
                 self.open_palette(PaletteMode::Commands);
             }
-            sel_resp.on_hover_text(format!("{active_name}\nSwitch connection / workspace"));
+            sel_resp.on_hover_text(format!(
+                "{active_name}\nCommand Palette ({})",
+                Self::format_shortcut(&["Shift", "P"])
+            ));
 
-            if Button::new(self.theme)
-                .icon(Icon::Search)
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::IconSm)
-                .tooltip(format!(
-                    "Search / Command Palette ({})",
-                    Self::format_shortcut(&["Shift", "P"])
-                ))
-                .show(ui)
-                .clicked()
-            {
-                self.open_palette(PaletteMode::Commands);
-            }
             if Button::new(self.theme)
                 .icon(Icon::Plus)
                 .variant(ButtonVariant::Ghost)
@@ -252,8 +248,11 @@ impl DbProApp {
         match self.activity {
             Activity::Explorer => self.draw_explorer_sub_panes(ui),
             _ => {
+                let scroll_h = ui.available_height();
                 egui::ScrollArea::vertical()
                     .id_salt("sidebar_scroll")
+                    .auto_shrink([false, false])
+                    .max_height(scroll_h)
                     .show(ui, |ui| {
                         ui.add_space(4.0);
                         match self.activity {
@@ -312,7 +311,9 @@ impl DbProApp {
         let resize_rect = Rect::from_x_y_ranges((edge_x - grip)..=(edge_x + grip), y_range);
 
         let id = egui::Id::new("dbpro_sidebar_resize");
-        let layer_id = egui::LayerId::new(egui::Order::Foreground, id);
+        // PanelResizeLine sits between panels and Middle windows — never above
+        // Foreground dialogs/overlays.
+        let layer_id = egui::LayerId::new(egui::Order::PanelResizeLine, id);
         let mut grip_ui = egui::Ui::new(
             ctx.clone(),
             layer_id,

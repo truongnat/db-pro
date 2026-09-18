@@ -222,9 +222,13 @@ impl DbProApp {
             .width()
             .max(ui.available_width())
             .min(ui.clip_rect().width());
+        // Bound height explicitly so the area scrolls with the wheel instead of
+        // growing with content (which leaves only drag-to-scroll working).
+        let scroll_h = ui.available_height();
         egui::ScrollArea::vertical()
             .id_salt("codex_navigator_scroll")
             .auto_shrink([false, false])
+            .max_height(scroll_h)
             .show(ui, |ui| {
                 ui.set_min_width(tree_width);
                 ui.set_max_width(tree_width);

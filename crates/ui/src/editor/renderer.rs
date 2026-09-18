@@ -12,10 +12,16 @@ use egui::{
     Event, FontId, Key, Pos2, Rect, Rounding, Sense, Stroke, Ui, Vec2,
 };
 
-const DEFAULT_LINE_HEIGHT: f32 = 22.0;
+const DEFAULT_LINE_HEIGHT: f32 = 20.0;
+const LINE_HEIGHT_MULT: f32 = 1.65;
 const FONT_SIZE: f32 = 13.5;
-const PADDING_LEFT: f32 = 10.0;
-const PADDING_TOP: f32 = 6.0;
+const PADDING_LEFT: f32 = 12.0;
+const PADDING_TOP: f32 = 8.0;
+const PADDING_BOTTOM: f32 = 72.0;
+const CARET_WIDTH: f32 = 1.5;
+const CARET_BLINK_PERIOD_SECS: f64 = 1.05;
+const CARET_SOLID_AFTER_INPUT_SECS: f64 = 0.45;
+const EDITOR_ROUNDING: f32 = 6.0;
 
 #[derive(Debug, Clone, Default)]
 pub struct SqlEditorResponse {
@@ -130,50 +136,83 @@ impl<'a> SqlEditor<'a> {
         let editor_id = ui.make_persistent_id(self.id_salt);
 
         let font_id = FontId::monospace(self.font_size);
-        let line_height = ui.fonts(|f| f.row_height(&font_id)).max(DEFAULT_LINE_HEIGHT);
-        let char_width = ui.fonts(|f| f.glyph_width(&font_id, 'M')).max(self.font_size * 0.6);
+        let glyph_row = ui.fonts(|f| f.row_height(&font_id));
+        let line_height = (self.font_size * LINE_HEIGHT_MULT)
+            .max(glyph_row)
+            .max(DEFAULT_LINE_HEIGHT);
+        let char_width = ui.fonts(|f| f.glyph_width(&font_id, 'M')).max(self.font_size * 0.55);
         let gutter_w = self.gutter_width(char_width);
         let line_count = self.buffer.line_count().max(1);
 
         let max_line_chars = self.buffer.max_line_len_chars().max(40);
-        let content_width = gutter_w + PADDING_LEFT + (max_line_chars as f32) * char_width + 80.0;
-        let content_height = (line_count as f32) * line_height + 60.0;
+        let content_width =
+            (gutter_w + PADDING_LEFT + (max_line_chars as f32) * char_width + 96.0).max(available_size.x);
+        let content_height = (line_count as f32) * line_height + PADDING_TOP + PADDING_BOTTOM;
 
-        let (rect, _) = ui.allocate_exact_size(available_size, Sense::hover());
-        let resp = ui.interact(rect, editor_id, Sense::click_and_drag());
+        let (viewport, _) = ui.allocate_exact_size(available_size, Sense::hover());
+        let resp = ui.interact(viewport, editor_id, Sense::click_and_drag());
         if resp.clicked() {
             resp.request_focus();
         }
         let focused = resp.has_focus();
         response.focused = focused;
 
-        // Background Outer Frame
+        let max_scroll = Vec2::new(
+            (content_width - viewport.width()).max(0.0),
+            (content_height - viewport.height()).max(0.0),
+        );
+        let mut scroll: Vec2 = ui
+            .ctx()
+            .data(|d| d.get_temp::<Vec2>(editor_id.with("scroll")))
+            .unwrap_or(Vec2::ZERO);
+        if resp.hovered() || focused {
+            let delta = ui.input(|i| i.smooth_scroll_delta);
+            scroll -= delta;
+        }
+        scroll = Vec2::new(
+            scroll.x.clamp(0.0, max_scroll.x),
+            scroll.y.clamp(0.0, max_scroll.y),
+        );
+
+        let cursor_before = self.cursor.offset;
+        let line_before = self.cursor.line;
+
+        // Soft Zed-like chrome: quiet border, accent only when focused.
         ui.painter()
-            .rect_filled(rect, Rounding::same(4.0), self.theme.surface_editor);
+            .rect_filled(viewport, Rounding::same(EDITOR_ROUNDING), self.theme.surface_editor);
         ui.painter().rect_stroke(
-            rect,
-            Rounding::same(4.0),
+            viewport,
+            Rounding::same(EDITOR_ROUNDING),
             Stroke::new(
                 1.0,
                 if focused {
-                    self.theme.accent.linear_multiply(0.6)
+                    self.theme.border_default
                 } else {
-                    self.theme.border_subtle
+                    self.theme.border_subtle.linear_multiply(0.85)
                 },
             ),
         );
 
-        // Gutter Outer background
+        ui.set_clip_rect(ui.clip_rect().intersect(viewport));
+
+        // Content coordinate space (scroll by translating origin).
+        let origin = viewport.min - scroll;
+        let rect = Rect::from_min_size(
+            origin,
+            Vec2::new(content_width.max(viewport.width()), content_height),
+        );
+
+        // Gutter strip (follows scroll so line numbers stay aligned with rows).
         let gutter_rect = Rect::from_min_size(rect.min, Vec2::new(gutter_w, rect.height()));
         ui.painter().rect_filled(
             gutter_rect,
             Rounding::ZERO,
-            self.theme.surface_panel.linear_multiply(0.4),
+            self.theme.surface_panel.linear_multiply(0.28),
         );
         ui.painter().vline(
-            gutter_rect.right(),
-            rect.y_range(),
-            Stroke::new(1.0, self.theme.border_subtle.linear_multiply(0.4)),
+            rect.min.x + gutter_w,
+            viewport.y_range(),
+            Stroke::new(1.0, self.theme.border_subtle.linear_multiply(0.28)),
         );
 
         // Handle Keyboard Events when focused
@@ -498,16 +537,16 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
-        // Current Line Highlight
+        // Current Line Highlight — soft full-row wash (Zed-like).
         let current_line_top = rect.min.y + PADDING_TOP + (self.cursor.line as f32) * line_height;
         let current_line_rect = Rect::from_min_size(
-            Pos2::new(rect.min.x + gutter_w, current_line_top),
-            Vec2::new((rect.width() - gutter_w).max(0.0), line_height),
+            Pos2::new(rect.min.x, current_line_top),
+            Vec2::new(rect.width().max(viewport.width()), line_height),
         );
         ui.painter().rect_filled(
             current_line_rect,
             Rounding::ZERO,
-            self.theme.surface_hover.linear_multiply(0.35),
+            self.theme.surface_hover.linear_multiply(0.22),
         );
 
         // Search Matches Highlights
@@ -571,8 +610,11 @@ impl<'a> SqlEditor<'a> {
                 char_width,
             );
             for s_rect in rects {
-                ui.painter()
-                    .rect_filled(s_rect, Rounding::same(2.0), self.theme.accent.linear_multiply(0.24));
+                ui.painter().rect_filled(
+                    s_rect,
+                    Rounding::same(2.0),
+                    self.theme.accent.linear_multiply(0.18),
+                );
             }
         }
 
@@ -630,13 +672,14 @@ impl<'a> SqlEditor<'a> {
             highlighter.tokenize(self.buffer.text())
         };
 
-        // Virtualized Visible Line Range
-        let view_top = rect.min.y;
-        let view_bottom = rect.max.y;
+        // Virtualized visible lines (viewport ∩ scrolled content).
         let first_visible_line =
-            (((view_top - rect.min.y - PADDING_TOP) / line_height).floor() as usize).saturating_sub(2);
-        let last_visible_line =
-            (((view_bottom - rect.min.y - PADDING_TOP) / line_height).ceil() as usize + 2).min(line_count);
+            (((scroll.y - PADDING_TOP) / line_height).floor() as isize).max(0) as usize;
+        let first_visible_line = first_visible_line.saturating_sub(2);
+        let last_visible_line = ((((scroll.y + viewport.height() - PADDING_TOP) / line_height).ceil()
+            as usize)
+            + 2)
+        .min(line_count);
 
         // Render Visible Text Lines & Gutter Numbers
         for line_idx in first_visible_line..last_visible_line {
@@ -651,9 +694,9 @@ impl<'a> SqlEditor<'a> {
                 line_num_str,
                 FontId::monospace(11.5),
                 if is_curr {
-                    self.theme.accent
+                    self.theme.text_primary
                 } else {
-                    self.theme.text_muted
+                    self.theme.text_muted.linear_multiply(0.85)
                 },
             );
 
@@ -811,20 +854,65 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
-        // Caret Line / Blinking Cursor & IME positioning
+        // Caret — thin bar, solid after input, then soft blink (Zed cadence).
         if focused {
-            let cursor_rect = Rect::from_min_size(cursor_screen, Vec2::new(2.0, line_height));
-            ui.painter()
-                .rect_filled(cursor_rect, Rounding::same(1.0), self.theme.accent);
-            ui.output_mut(|o| {
-                o.ime = Some(egui::output::IMEOutput {
-                    rect: cursor_rect,
-                    cursor_rect,
+            let now = ui.input(|i| i.time);
+            let cursor_moved = self.cursor.offset != cursor_before || self.cursor.line != line_before;
+            if response.changed || cursor_moved {
+                ui.ctx()
+                    .data_mut(|d| d.insert_temp(editor_id.with("last_input"), now));
+            }
+            let last_input = ui
+                .ctx()
+                .data(|d| d.get_temp::<f64>(editor_id.with("last_input")))
+                .unwrap_or(now);
+            let since = now - last_input;
+            let blink_on = since < CARET_SOLID_AFTER_INPUT_SECS
+                || ((now / CARET_BLINK_PERIOD_SECS).fract() as f32) < 0.58;
+            if blink_on {
+                let caret_h = (line_height - 2.0).max(line_height * 0.85);
+                let cursor_rect = Rect::from_min_size(
+                    Pos2::new(cursor_screen.x, cursor_screen.y + 1.0),
+                    Vec2::new(CARET_WIDTH, caret_h),
+                );
+                ui.painter()
+                    .rect_filled(cursor_rect, Rounding::same(0.5), self.theme.accent);
+                ui.output_mut(|o| {
+                    o.ime = Some(egui::output::IMEOutput {
+                        rect: cursor_rect,
+                        cursor_rect,
+                    });
                 });
-            });
+            }
+            ui.ctx().request_repaint();
         }
 
-        let _ = (content_width, content_height);
+        // Keep caret inside the viewport after edits / moves.
+        let caret_local = Pos2::new(
+            gutter_w + PADDING_LEFT + (self.cursor.col as f32) * char_width,
+            PADDING_TOP + (self.cursor.line as f32) * line_height,
+        );
+        let margin = 8.0;
+        if caret_local.y < scroll.y + margin {
+            scroll.y = (caret_local.y - margin).max(0.0);
+        } else if caret_local.y + line_height > scroll.y + viewport.height() - margin {
+            scroll.y = (caret_local.y + line_height - viewport.height() + margin).max(0.0);
+        }
+        if caret_local.x < scroll.x + gutter_w + margin {
+            scroll.x = (caret_local.x - gutter_w - margin).max(0.0);
+        } else if caret_local.x > scroll.x + viewport.width() - margin {
+            scroll.x = (caret_local.x - viewport.width() + margin).max(0.0);
+        }
+        scroll = Vec2::new(
+            scroll.x.clamp(0.0, max_scroll.x),
+            scroll.y.clamp(0.0, max_scroll.y),
+        );
+        ui.ctx()
+            .data_mut(|d| d.insert_temp(editor_id.with("scroll"), scroll));
+
+        // Minimal scrollbar thumbs (always-available affordance when content overflows).
+        paint_editor_scrollbars(ui, viewport, scroll, max_scroll, self.theme);
+
         response
     }
 
@@ -1084,6 +1172,50 @@ impl<'a> SqlEditor<'a> {
                 .set_offset(self.buffer, self.cursor.offset.saturating_sub(1));
             self.selection.collapse_to_active();
         }
+    }
+}
+
+fn paint_editor_scrollbars(
+    ui: &Ui,
+    viewport: Rect,
+    scroll: Vec2,
+    max_scroll: Vec2,
+    theme: &DbProTheme,
+) {
+    const THICK: f32 = 3.0;
+    const PAD: f32 = 3.0;
+    let painter = ui.painter();
+    if max_scroll.y > 1.0 {
+        let track_h = (viewport.height() - PAD * 2.0).max(12.0);
+        let thumb_h = ((viewport.height() / (viewport.height() + max_scroll.y)) * track_h)
+            .clamp(16.0, track_h);
+        let t = (scroll.y / max_scroll.y).clamp(0.0, 1.0);
+        let thumb_y = viewport.min.y + PAD + t * (track_h - thumb_h);
+        let thumb = Rect::from_min_size(
+            Pos2::new(viewport.max.x - PAD - THICK, thumb_y),
+            Vec2::new(THICK, thumb_h),
+        );
+        painter.rect_filled(
+            thumb,
+            Rounding::same(THICK * 0.5),
+            theme.text_muted.linear_multiply(0.45),
+        );
+    }
+    if max_scroll.x > 1.0 {
+        let track_w = (viewport.width() - PAD * 2.0).max(12.0);
+        let thumb_w = ((viewport.width() / (viewport.width() + max_scroll.x)) * track_w)
+            .clamp(16.0, track_w);
+        let t = (scroll.x / max_scroll.x).clamp(0.0, 1.0);
+        let thumb_x = viewport.min.x + PAD + t * (track_w - thumb_w);
+        let thumb = Rect::from_min_size(
+            Pos2::new(thumb_x, viewport.max.y - PAD - THICK),
+            Vec2::new(thumb_w, THICK),
+        );
+        painter.rect_filled(
+            thumb,
+            Rounding::same(THICK * 0.5),
+            theme.text_muted.linear_multiply(0.45),
+        );
     }
 }
 

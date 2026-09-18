@@ -702,11 +702,21 @@ impl DbProApp {
             self.request_saved_queries_refresh();
         }
         if operation == "connection.deleted" {
-            self.active_connection_id = None;
-            self.connected = false;
-            self.pending_connection_id = None;
-            self.failed_connection_ids.clear();
-            self.connection_errors.clear();
+            // `pending_connection_id` is the delete target (set by the confirm dialog).
+            let deleted_id = self.pending_connection_id.take();
+            if let Some(ref id) = deleted_id {
+                self.failed_connection_ids.remove(id);
+                self.connection_errors.remove(id);
+            }
+            let deleted_was_active = deleted_id
+                .as_ref()
+                .is_some_and(|id| self.active_connection_id.as_deref() == Some(id.as_str()));
+            // Only tear down the live session when the deleted connection was active.
+            // Deleting a sibling must not force a reconnect / schema reload of the open one.
+            if deleted_was_active {
+                self.active_connection_id = None;
+                self.connected = false;
+            }
         }
     }
 
@@ -876,5 +886,54 @@ mod row_reload_tests {
 
         assert_eq!(app.runtime_message, "Row was deleted");
         assert!(app.table_data_result.is_some());
+    }
+
+    #[test]
+    fn deleting_non_active_connection_preserves_active_session() {
+        let mut app = DbProApp {
+            active_connection_id: Some("conn-a".to_owned()),
+            connected: true,
+            pending_connection_request: Some(RequestId(11)),
+            pending_connection_id: Some("conn-b".to_owned()),
+            failed_connection_ids: ["conn-a".to_owned(), "conn-b".to_owned()]
+                .into_iter()
+                .collect(),
+            connection_errors: [
+                ("conn-a".to_owned(), "stale".to_owned()),
+                ("conn-b".to_owned(), "gone".to_owned()),
+            ]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        };
+
+        app.on_operation_completed(RequestId(11), "connection.deleted".to_owned());
+
+        assert_eq!(app.active_connection_id.as_deref(), Some("conn-a"));
+        assert!(app.connected);
+        assert!(app.pending_connection_id.is_none());
+        assert!(app.failed_connection_ids.contains("conn-a"));
+        assert!(!app.failed_connection_ids.contains("conn-b"));
+        assert_eq!(app.connection_errors.get("conn-a").map(String::as_str), Some("stale"));
+        assert!(!app.connection_errors.contains_key("conn-b"));
+    }
+
+    #[test]
+    fn deleting_active_connection_clears_session() {
+        let mut app = DbProApp {
+            active_connection_id: Some("conn-a".to_owned()),
+            connected: true,
+            pending_connection_request: Some(RequestId(12)),
+            pending_connection_id: Some("conn-a".to_owned()),
+            failed_connection_ids: ["conn-a".to_owned()].into_iter().collect(),
+            ..Default::default()
+        };
+
+        app.on_operation_completed(RequestId(12), "connection.deleted".to_owned());
+
+        assert!(app.active_connection_id.is_none());
+        assert!(!app.connected);
+        assert!(app.pending_connection_id.is_none());
+        assert!(app.failed_connection_ids.is_empty());
     }
 }

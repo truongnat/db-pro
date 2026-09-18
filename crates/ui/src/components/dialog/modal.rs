@@ -99,8 +99,9 @@ impl<'a> Dialog<'a> {
         let origin = Pos2::new(layout.target_pos.x, layout.target_pos.y + translate);
         let card_alpha = fade_alpha(progress);
 
-        // 1. Dim backdrop layer (rendered first in Foreground)
+        // 1. Dim backdrop layer (Foreground)
         let mut backdrop_clicked = false;
+        let dim_layer = egui::LayerId::new(Order::Foreground, id.with("dim"));
         Area::new(id.with("dim"))
             .order(Order::Foreground)
             .fixed_pos(screen.min)
@@ -121,35 +122,42 @@ impl<'a> Dialog<'a> {
                 }
             });
 
-        // 2. Dialog Card layer (rendered second in Foreground on top of dim)
+        // 2. Dialog card — same Foreground family, pinned as a sublayer of the
+        // dim so it always paints/hits directly above the overlay (never under it).
         let mut card_rect = None;
-        let card_area = Area::new(id.with("card"))
+        let card_layer = egui::LayerId::new(Order::Foreground, id.with("card"));
+        Area::new(id.with("card"))
             .order(Order::Foreground)
             .fixed_pos(origin)
-            .interactable(true);
+            .interactable(true)
+            .show(ctx, |card_ui| {
+                card_ui.set_opacity(card_alpha);
+                card_ui.set_width(layout.width);
+                card_ui.set_max_width(layout.width);
+                let res = paint_dialog_card(
+                    DialogCardPaint {
+                        open,
+                        title: title.as_ref(),
+                        description: description.as_deref(),
+                        width: layout.width,
+                        max_content_height: layout.max_content_height,
+                        theme,
+                    },
+                    card_ui,
+                    add_frame,
+                );
+                let rect = card_ui.min_rect();
+                card_ui
+                    .ctx()
+                    .data_mut(|d| d.insert_temp(id.with("prev_height"), rect.height()));
+                card_rect = Some(rect);
+                inner = Some(res);
+            });
 
-        card_area.show(ctx, |card_ui| {
-            card_ui.set_opacity(card_alpha);
-            card_ui.set_width(layout.width);
-            card_ui.set_max_width(layout.width);
-            let res = paint_dialog_card(
-                DialogCardPaint {
-                    open,
-                    title: title.as_ref(),
-                    description: description.as_deref(),
-                    width: layout.width,
-                    max_content_height: layout.max_content_height,
-                    theme,
-                },
-                card_ui,
-                add_frame,
-            );
-            let rect = card_ui.min_rect();
-            card_ui
-                .ctx()
-                .data_mut(|d| d.insert_temp(id.with("prev_height"), rect.height()));
-            card_rect = Some(rect);
-            inner = Some(res);
+        ctx.set_sublayer(dim_layer, card_layer);
+        ctx.memory_mut(|m| {
+            m.areas_mut().move_to_top(dim_layer);
+            m.areas_mut().move_to_top(card_layer);
         });
 
         if backdrop_clicked {

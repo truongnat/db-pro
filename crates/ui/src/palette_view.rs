@@ -785,11 +785,15 @@ impl DbProApp {
         let mut open = true;
         let title = if mode == PaletteMode::QuickOpen {
             "Quick Open"
+        } else if self.palette_scope == SearchScope::Connections {
+            "Switch Connection"
         } else {
             "Command Palette"
         };
         let description = if mode == PaletteMode::QuickOpen {
             "Switch workspaces, tabs, or open editors"
+        } else if self.palette_scope == SearchScope::Connections {
+            "Pick a saved connection to open"
         } else {
             "Search commands, actions, and database tools"
         };

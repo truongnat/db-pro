@@ -164,3 +164,50 @@ fn test_ime_commit_event_in_editor_widget() {
     assert_eq!(buf.text(), "SELECT tên_cột");
     assert_eq!(cursor.offset, "SELECT tên_cột".len());
 }
+
+#[test]
+fn long_buffer_scrolls_to_keep_end_caret_visible() {
+    let ctx = egui::Context::default();
+    let text = (0..80).map(|i| format!("SELECT {i};")).collect::<Vec<_>>().join("\n");
+    let mut buf = TextBuffer::from_string(&text);
+    let end = buf.len_bytes();
+    let mut cursor = CursorPosition::from_offset(&buf, end);
+    let mut selection = SelectionRange::new(end, end);
+    let theme = DbProTheme::dark();
+    let viewport = egui::vec2(420.0, 160.0);
+
+    assert!(cursor.line > 40, "fixture caret should sit far below the fold");
+
+    let _ = ctx.run(
+        egui::RawInput {
+            focused: true,
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let editor = SqlEditor::new(
+                    &mut buf,
+                    &mut cursor,
+                    &mut selection,
+                    SqlDialect::Postgres,
+                    &theme,
+                    &[],
+                    None,
+                    "scroll-long",
+                );
+                let _ = editor.show(ui, viewport);
+                let editor_id = ui.make_persistent_id("scroll-long");
+                let scroll = ui
+                    .ctx()
+                    .data(|d| d.get_temp::<egui::Vec2>(editor_id.with("scroll")))
+                    .unwrap_or(egui::Vec2::ZERO);
+                assert!(
+                    scroll.y > 0.0,
+                    "end caret must pull the viewport down, got scroll.y={}",
+                    scroll.y
+                );
+            });
+        },
+    );
+}
+
