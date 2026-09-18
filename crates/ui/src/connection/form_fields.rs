@@ -12,6 +12,7 @@ impl DbProApp {
     /// Draw general connection profile fields (Name, Group, Favorite, Environment, Safety).
     pub(crate) fn draw_general_profile_fields(&mut self, ui: &mut egui::Ui) {
         let avail = ui.available_width();
+        let focus_name = self.connection_focus_name_on_open;
         let gap = SPACE_SM;
 
         ui.label(
@@ -29,16 +30,23 @@ impl DbProApp {
             ui.vertical(|ui| {
                 ui.set_width(name_w);
                 ui.set_max_width(name_w);
-                Input::new(
+                let name_response = Input::new(
                     &mut self.connection_draft.name,
                     t!("connection.connection_name_placeholder"),
                     self.theme,
                 )
                 .label(t!("connection.connection_name"))
+                .id_salt(focus_id::NAME)
+                .auto_focus(focus_name)
                 .width(name_w)
                 .leading_icon(Icon::Tag)
                 .clearable(true)
                 .show(ui);
+                if name_response.has_focus()
+                    && ui.input(|input| input.key_pressed(egui::Key::Tab) && !input.modifiers.shift)
+                {
+                    self.connection_focus_group_on_tab = true;
+                }
             });
             ui.vertical(|ui| {
                 ui.set_width(group_w);
@@ -49,10 +57,15 @@ impl DbProApp {
                     self.theme,
                 )
                 .label(t!("connection.folder_group"))
+                .id_salt(focus_id::GROUP)
+                .auto_focus(self.connection_focus_group_on_tab)
                 .width(group_w)
                 .leading_icon(Icon::Folder)
                 .clearable(true)
                 .show(ui);
+                if self.connection_focus_group_on_tab {
+                    self.connection_focus_group_on_tab = false;
+                }
             });
             ui.vertical(|ui| {
                 ui.set_width(fav_w);
@@ -85,6 +98,9 @@ impl DbProApp {
                 }
             });
         });
+        if focus_name {
+            self.connection_focus_name_on_open = false;
+        }
         ui.add_space(SPACE_SM);
 
         // Row 2: Environment Selector & Read-only mode
@@ -152,6 +168,7 @@ impl DbProApp {
                 ui.set_max_width(host_w);
                 Input::new(&mut self.connection_draft.host, "localhost", self.theme)
                     .label(t!("connection.host"))
+                    .id_salt(focus_id::HOST)
                     .width(host_w)
                     .leading_icon(Icon::Server)
                     .show(ui);
@@ -162,6 +179,7 @@ impl DbProApp {
                 let default_port = default_port_for_driver(self.connection_draft.driver);
                 Input::new(&mut self.connection_draft.port, default_port, self.theme)
                     .label(t!("connection.port"))
+                    .id_salt(focus_id::PORT)
                     .width(port_w)
                     .leading_icon(Icon::Hash)
                     .show(ui);
@@ -179,6 +197,7 @@ impl DbProApp {
                 let default_db = default_database_for_driver(self.connection_draft.driver);
                 Input::new(&mut self.connection_draft.database, default_db, self.theme)
                     .label(t!("connection.database"))
+                    .id_salt(focus_id::DATABASE)
                     .width(half_w)
                     .leading_icon(Icon::Database)
                     .clearable(true)
@@ -190,6 +209,7 @@ impl DbProApp {
                 let default_user = default_username_for_driver(self.connection_draft.driver);
                 Input::new(&mut self.connection_draft.username, default_user, self.theme)
                     .label(t!("connection.username"))
+                    .id_salt(focus_id::USERNAME)
                     .width(half_w)
                     .leading_icon(Icon::User)
                     .show(ui);
@@ -222,6 +242,7 @@ impl DbProApp {
                     self.theme,
                 )
                 .label(pwd_label)
+                .id_salt(focus_id::PASSWORD)
                 .width(half_w)
                 .show(ui);
             });

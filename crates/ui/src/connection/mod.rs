@@ -26,6 +26,7 @@ impl DbProApp {
         self.connection_error.clear();
         self.connection_test_valid = false;
         self.connection_test_draft = None;
+        self.connection_focus_name_on_open = true;
         self.connection_dialog_open = true;
     }
 
@@ -37,6 +38,7 @@ impl DbProApp {
         self.connection_error.clear();
         self.connection_test_valid = false;
         self.connection_test_draft = None;
+        self.connection_focus_name_on_open = true;
         self.connection_dialog_open = true;
     }
 

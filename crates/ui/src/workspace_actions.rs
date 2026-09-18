@@ -292,6 +292,48 @@ impl DbProApp {
         self.connection_test_valid = false;
         self.connection_test_draft = None;
         self.pending_connection_request = None;
+        self.connection_focus_name_on_open = true;
+        self.connection_dialog_open = true;
+    }
+
+    /// Capture/evidence helper: open the Edit Connection dialog with a test draft so
+    /// the password input + eye toggle can be documented (the affected surface for the
+    /// input click-steal fix) without needing a real saved connection.
+    pub fn open_edit_connection_for_capture(&mut self) {
+        self.editing_connection_id = Some("capture-test".to_owned());
+        self.connection_draft = UiConnectionDraft {
+            name: "Test Connection".to_owned(),
+            host: "localhost".to_owned(),
+            port: "5432".to_owned(),
+            database: "testdb".to_owned(),
+            username: "testuser".to_owned(),
+            password: "testpassword123".to_owned(),
+            driver: crate::UiDriver::Postgres,
+            ssl_mode: crate::UiSslMode::Disable,
+            readonly: false,
+            group: String::new(),
+            tags: String::new(),
+            favorite: false,
+            environment: "Development".to_owned(),
+            ssh_tunnel_enabled: false,
+            ssh_host: String::new(),
+            ssh_port: "22".to_owned(),
+            ssh_user: String::new(),
+            ssh_private_key: String::new(),
+            ssh_profile_id: String::new(),
+            ssl_root_cert_path: String::new(),
+            ssl_client_cert_path: String::new(),
+            ssl_client_key_path: String::new(),
+            cloud_preset: String::new(),
+            auth_kind: "password".to_owned(),
+            cloud_snippet: String::new(),
+            cloud_guidance: String::new(),
+        };
+        self.connection_error.clear();
+        self.connection_test_valid = false;
+        self.connection_test_draft = None;
+        self.pending_connection_request = None;
+        self.connection_focus_name_on_open = true;
         self.connection_dialog_open = true;
     }
 

@@ -5,6 +5,7 @@ use crate::components::alert::{Alert, AlertVariant};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::dialog::Dialog;
 use crate::components::input::Input;
+use crate::components::interact::radio_info;
 use crate::tokens::*;
 use crate::{DbProApp, DbProTheme, UiCommand, UiDriver, UiSslMode};
 use egui::{pos2, vec2, Align2, FontFamily, FontId, Frame, Margin, Rect, RichText, Rounding, Stroke};
@@ -36,6 +37,7 @@ pub struct DriverCardProps<'a> {
 
 pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &DbProTheme) -> egui::Response {
     let (rect, resp) = ui.allocate_exact_size(vec2(props.width, 52.0), egui::Sense::click());
+    resp.widget_info(|| radio_info(!props.is_disabled, props.is_selected, props.name));
     let is_hovered = resp.hovered() && !props.is_disabled;
     let painter = ui.painter();
 
@@ -373,6 +375,7 @@ impl DbProApp {
                 ui.set_max_width(input_w);
                 Input::new(&mut self.connection_draft.database, "/path/to/database.db", self.theme)
                     .label(t!("connection.database_file_path"))
+                    .id_salt(focus_id::SQLITE_DATABASE_FILE)
                     .width(input_w)
                     .leading_icon(Icon::FolderArchive)
                     .clearable(true)

@@ -431,6 +431,7 @@ impl DbProApp {
         self.agent_provider_detail = detail;
         self.agent_settings_open = false;
         self.agent_api_key_draft.clear();
+        self.agent_api_key_show_password = false;
         let message = format!("{provider} API key saved · provider active");
         self.runtime_message = message.clone();
         self.show_toast_success(message);
@@ -445,6 +446,7 @@ impl DbProApp {
         self.agent_provider_detail = "AI provider not configured · local drafts stay unexecuted".to_owned();
         self.agent_settings_open = false;
         self.agent_api_key_draft.clear();
+        self.agent_api_key_show_password = false;
         let message = "API key forgotten · provider inactive".to_owned();
         self.runtime_message = message.clone();
         self.show_toast_success(message);

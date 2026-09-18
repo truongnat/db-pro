@@ -28,6 +28,11 @@ const SETTLE_ENV: &str = "DB_PRO_CAPTURE_SETTLE_FRAMES";
 /// default window. Inert for a normal launch.
 const NEW_CONNECTION_ENV: &str = "DB_PRO_CAPTURE_NEW_CONNECTION";
 
+/// Environment variable that, when set, asks the capture run to open the
+/// Edit Connection dialog with a test draft, so the password input + eye toggle
+/// on the edit surface can be documented. Inert for a normal launch.
+const EDIT_CONNECTION_ENV: &str = "DB_PRO_CAPTURE_EDIT_CONNECTION";
+
 /// When set, switch to the Query workspace before capturing (UI05 editor-first shots).
 const QUERY_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_QUERY";
 
@@ -124,6 +129,10 @@ impl eframe::App for CaptureApp {
         // so a normal launch is unaffected.
         if !self.opened_dialog && std::env::var_os(NEW_CONNECTION_ENV).is_some() && self.frames >= 2 {
             self.inner.open_new_connection();
+            self.opened_dialog = true;
+        }
+        if !self.opened_dialog && std::env::var_os(EDIT_CONNECTION_ENV).is_some() && self.frames >= 2 {
+            self.inner.open_edit_connection_for_capture();
             self.opened_dialog = true;
         }
         if !self.opened_dialog && std::env::var_os(QUERY_WORKSPACE_ENV).is_some() && self.frames >= 2 {

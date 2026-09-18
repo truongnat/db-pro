@@ -88,6 +88,21 @@ pub const ENVIRONMENT_OPTIONS: &[&str] = &["Development", "Staging", "Production
 pub const SSL_MODE_OPTIONS: &[&str] = &["Disable", "Require", "Verify CA", "Verify Full"];
 pub const AUTH_KIND_OPTIONS: &[&str] = &["Password", "Ephemeral token"];
 
+/// Stable focus IDs for the New Connection form.
+///
+/// Keep this order aligned with the form's visual and reading order. Decorative labels and
+/// validation output are intentionally excluded; driver cards are the first radio group.
+pub mod focus_id {
+    pub const NAME: &str = "connection.name";
+    pub const GROUP: &str = "connection.group";
+    pub const HOST: &str = "connection.host";
+    pub const PORT: &str = "connection.port";
+    pub const DATABASE: &str = "connection.database";
+    pub const USERNAME: &str = "connection.username";
+    pub const PASSWORD: &str = "connection.password";
+    pub const SQLITE_DATABASE_FILE: &str = "connection.sqlite_database_file";
+}
+
 /// Default ports by database driver.
 pub fn default_port_for_driver(driver: UiDriver) -> &'static str {
     match driver {

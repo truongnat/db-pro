@@ -1,4 +1,4 @@
-use egui::{Button, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
+use egui::{Button, FontFamily, FontId, Frame, Id, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
@@ -16,6 +16,7 @@ pub struct PasswordInput<'a> {
     error_text: Option<Cow<'a, str>>,
     required: bool,
     width: Option<f32>,
+    id_salt: Option<Id>,
     theme: DbProTheme,
 }
 
@@ -35,6 +36,7 @@ impl<'a> PasswordInput<'a> {
             error_text: None,
             required: false,
             width: None,
+            id_salt: None,
             theme,
         }
     }
@@ -61,6 +63,11 @@ impl<'a> PasswordInput<'a> {
 
     pub fn width(mut self, width: f32) -> Self {
         self.width = Some(width);
+        self
+    }
+
+    pub fn id_salt(mut self, id_salt: impl std::hash::Hash) -> Self {
+        self.id_salt = Some(Id::new(id_salt));
         self
     }
 
@@ -110,9 +117,12 @@ impl<'a> PasswordInput<'a> {
                     ui.add_space(4.0);
 
                     let edit_w = (ui.available_width() - 26.0).max(40.0);
+                    let mut text_edit = TextEdit::singleline(self.value).password(!*self.show_password);
+                    if let Some(id_salt) = self.id_salt {
+                        text_edit = text_edit.id_salt(id_salt);
+                    }
                     let edit_response = ui.add(
-                        TextEdit::singleline(self.value)
-                            .password(!*self.show_password)
+                        text_edit
                             .hint_text(RichText::new(self.placeholder.as_ref()).color(self.theme.text_muted))
                             .desired_width(edit_w)
                             .margin(Margin::ZERO)

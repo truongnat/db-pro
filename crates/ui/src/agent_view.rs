@@ -138,6 +138,7 @@ impl DbProApp {
                     self.agent_settings_open = !self.agent_settings_open;
                     if self.agent_settings_open {
                         self.agent_api_key_draft.clear();
+                        self.agent_api_key_show_password = false;
                     }
                 }
             });
@@ -160,6 +161,7 @@ impl DbProApp {
                     {
                         self.agent_settings_open = false;
                         self.agent_api_key_draft.clear();
+                        self.agent_api_key_show_password = false;
                     }
                 });
             });
@@ -194,14 +196,15 @@ impl DbProApp {
         });
         ui.add_space(6.0);
 
-        // API key input (password-style)
-        let response = ui.add(
-            TextEdit::singleline(&mut self.agent_api_key_draft)
-                .hint_text("gsk_… or sk-…")
-                .password(true)
-                .font(egui::FontSelection::Default)
-                .desired_width(f32::INFINITY),
-        );
+        let response = PasswordInput::new(
+            &mut self.agent_api_key_draft,
+            "gsk_… or sk-…",
+            &mut self.agent_api_key_show_password,
+            self.theme,
+        )
+        .id_salt("agent.api_key")
+        .width(ui.available_width())
+        .show(ui);
         // Allow Ctrl+Enter to save from the text field
         let save_shortcut = response.has_focus()
             && ui.input(|i| i.key_pressed(egui::Key::Enter) && DbProApp::primary_modifier_pressed(i));
