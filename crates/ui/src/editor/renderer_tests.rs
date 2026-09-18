@@ -210,4 +210,3 @@ fn long_buffer_scrolls_to_keep_end_caret_visible() {
         },
     );
 }
-

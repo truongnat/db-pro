@@ -47,12 +47,12 @@ mod egress_tests {
     }
 
     #[test]
-    fn prediction_default_stays_eager_with_the_note_visible() {
-        // #242 item 3: the decision is "keep Eager", so the note is the disclosure that makes the
-        // default an informed one. If the default ever changes, this test fails on purpose.
+    fn prediction_default_is_subtle_with_the_note_visible() {
+        // Idle Query must stay snappy: Subtle keeps ghost text opt-in until reveal,
+        // while the egress note still discloses the AI path when prediction runs.
         let app = DbProApp::default();
 
-        assert_eq!(app.prediction_mode, PredictionMode::Eager);
+        assert_eq!(app.prediction_mode, PredictionMode::Subtle);
         assert!(AI_PREDICTION_EGRESS_NOTE.contains("configured AI provider"));
     }
 }

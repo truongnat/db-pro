@@ -1,8 +1,8 @@
 //! Underline-style tab track with animated active indicator.
 
 use super::config::{
-    UNDERLINE_BASELINE_HEIGHT, UNDERLINE_HOVER_INSET_Y, UNDERLINE_HOVER_RADIUS,
-    UNDERLINE_ITEM_GAP, UNDERLINE_ITEM_HEIGHT, UNDERLINE_LABEL_PAD_X,
+    UNDERLINE_BASELINE_HEIGHT, UNDERLINE_HOVER_INSET_Y, UNDERLINE_HOVER_RADIUS, UNDERLINE_ITEM_GAP,
+    UNDERLINE_ITEM_HEIGHT, UNDERLINE_LABEL_PAD_X,
 };
 use super::layout::{apply_selection, track_id, TabHit};
 use super::style::{TabItemStyle, TabKind};
@@ -18,11 +18,7 @@ pub struct UnderlineTabs<'a> {
 
 impl<'a> UnderlineTabs<'a> {
     pub fn new(selected: &'a mut usize, tabs: &'a [&'a str], theme: DbProTheme) -> Self {
-        Self {
-            selected,
-            tabs,
-            theme,
-        }
+        Self { selected, tabs, theme }
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -61,8 +57,7 @@ impl<'a> UnderlineTabs<'a> {
         });
 
         let item_width = text_width + UNDERLINE_LABEL_PAD_X;
-        let (rect, resp) =
-            ui.allocate_exact_size(Vec2::new(item_width, UNDERLINE_ITEM_HEIGHT), Sense::click());
+        let (rect, resp) = ui.allocate_exact_size(Vec2::new(item_width, UNDERLINE_ITEM_HEIGHT), Sense::click());
         let resp = resp.on_hover_cursor(CursorIcon::PointingHand);
 
         if resp.hovered() && !is_active {
@@ -90,25 +85,15 @@ impl<'a> UnderlineTabs<'a> {
 
     fn paint_baseline(&self, ui: &Ui, row_rect: Rect) {
         let baseline = Rect::from_min_size(
-            Pos2::new(
-                row_rect.left(),
-                row_rect.bottom() - UNDERLINE_BASELINE_HEIGHT,
-            ),
+            Pos2::new(row_rect.left(), row_rect.bottom() - UNDERLINE_BASELINE_HEIGHT),
             Vec2::new(row_rect.width(), UNDERLINE_BASELINE_HEIGHT),
         );
         ui.painter()
             .rect_filled(baseline, Rounding::ZERO, self.theme.border_subtle);
     }
 
-    fn paint_active_underline(
-        &self,
-        ui: &Ui,
-        track_id: egui::Id,
-        track_origin_x: f32,
-        target: Rect,
-    ) {
-        let underline =
-            TabTrackerAnimation::animate_underline(ui.ctx(), track_id, track_origin_x, target);
+    fn paint_active_underline(&self, ui: &Ui, track_id: egui::Id, track_origin_x: f32, target: Rect) {
+        let underline = TabTrackerAnimation::animate_underline(ui.ctx(), track_id, track_origin_x, target);
         ui.painter()
             .rect_filled(underline, Rounding::same(1.0), self.theme.accent);
     }

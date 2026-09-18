@@ -28,6 +28,12 @@ const SETTLE_ENV: &str = "DB_PRO_CAPTURE_SETTLE_FRAMES";
 /// default window. Inert for a normal launch.
 const NEW_CONNECTION_ENV: &str = "DB_PRO_CAPTURE_NEW_CONNECTION";
 
+/// When set, switch to the Query workspace before capturing (UI05 editor-first shots).
+const QUERY_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_QUERY";
+
+/// When set with [`QUERY_WORKSPACE_ENV`], force light theme for the Query capture.
+const QUERY_LIGHT_ENV: &str = "DB_PRO_CAPTURE_QUERY_LIGHT";
+
 /// Environment variable pinning the viewport size for evidence runs (the same key
 /// `main.rs` reads for the initial window). The capture driver re-asserts it each
 /// frame so the window cannot maximize itself away from the requested size.
@@ -116,11 +122,16 @@ impl eframe::App for CaptureApp {
         // documents the password input + eye toggle (the affected surface for the
         // input click-steal fix) instead of the default window. Gated by an env var
         // so a normal launch is unaffected.
-        if !self.opened_dialog
-            && std::env::var_os(NEW_CONNECTION_ENV).is_some()
-            && self.frames >= 2
-        {
+        if !self.opened_dialog && std::env::var_os(NEW_CONNECTION_ENV).is_some() && self.frames >= 2 {
             self.inner.open_new_connection();
+            self.opened_dialog = true;
+        }
+        if !self.opened_dialog && std::env::var_os(QUERY_WORKSPACE_ENV).is_some() && self.frames >= 2 {
+            if std::env::var_os(QUERY_LIGHT_ENV).is_some() {
+                self.inner.open_query_workspace_for_capture_light();
+            } else {
+                self.inner.open_query_workspace_for_capture();
+            }
             self.opened_dialog = true;
         }
 

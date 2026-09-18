@@ -895,9 +895,7 @@ mod row_reload_tests {
             connected: true,
             pending_connection_request: Some(RequestId(11)),
             pending_connection_id: Some("conn-b".to_owned()),
-            failed_connection_ids: ["conn-a".to_owned(), "conn-b".to_owned()]
-                .into_iter()
-                .collect(),
+            failed_connection_ids: ["conn-a".to_owned(), "conn-b".to_owned()].into_iter().collect(),
             connection_errors: [
                 ("conn-a".to_owned(), "stale".to_owned()),
                 ("conn-b".to_owned(), "gone".to_owned()),

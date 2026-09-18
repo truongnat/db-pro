@@ -4,8 +4,8 @@ use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum PredictionMode {
-    #[default]
     Eager,
+    #[default]
     Subtle,
     Off,
 }

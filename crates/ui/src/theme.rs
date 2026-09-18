@@ -61,7 +61,7 @@ impl DbProTheme {
             surface_panel: Color32::from_rgb(247, 247, 247), // --surface: #f7f7f7
             surface_elevated: Color32::from_rgb(255, 255, 255), // card / white surface
             surface_floating: Color32::from_rgb(255, 255, 255), // dialog / popover
-            surface_editor: Color32::from_rgb(250, 250, 250), // --background-subtle: #fafafa
+            surface_editor: Color32::from_rgb(255, 255, 255), // flush with app — Zed/DBeaver blank buffer
             surface_hover: Color32::from_rgb(238, 238, 238), // --surface-hover: #eeeeee
             surface_active: Color32::from_rgb(232, 232, 232), // --surface-active: #e8e8e8
             surface_2: Color32::from_rgb(243, 243, 243),   // --surface-2: #f3f3f3
@@ -76,22 +76,23 @@ impl DbProTheme {
             text_inverse: Color32::from_rgb(255, 255, 255),
             accent: Color32::from_rgb(2, 133, 255), // --accent: #0285ff (Modern Blue)
             accent_hover: Color32::from_rgb(1, 105, 204),
-            accent_soft: Color32::from_rgb(238, 246, 255), // soft blue tint
+            accent_soft: Color32::from_rgb(230, 242, 255), // slightly stronger for completion selection
             accent_foreground: Color32::from_rgb(255, 255, 255), // #ffffff
             success: Color32::from_rgb(22, 163, 74),       // --success: #16a34a
             warning: Color32::from_rgb(217, 119, 6),       // --warning: #d97706
             danger: Color32::from_rgb(220, 38, 38),        // --danger: #dc2626
             info: Color32::from_rgb(37, 99, 235),          // --info: #2563eb
             overlay: Color32::from_black_alpha(38),        // scrim ~0.15 so the dialog stays the brightest surface
-            code_keyword: Color32::from_rgb(2, 133, 255),
-            code_string: Color32::from_rgb(22, 163, 74),
-            code_number: Color32::from_rgb(217, 119, 6),
-            code_comment: Color32::from_rgb(138, 138, 138),
-            code_type: Color32::from_rgb(147, 51, 234),
-            code_function: Color32::from_rgb(13, 148, 136),
-            code_operator: Color32::from_rgb(220, 38, 38),
+            // SQL syntax — restrained Zed-like light palette (not UI accent clones).
+            code_keyword: Color32::from_rgb(55, 65, 180),
+            code_string: Color32::from_rgb(15, 118, 70),
+            code_number: Color32::from_rgb(180, 83, 9),
+            code_comment: Color32::from_rgb(120, 120, 120),
+            code_type: Color32::from_rgb(126, 34, 206),
+            code_function: Color32::from_rgb(14, 116, 144),
+            code_operator: Color32::from_rgb(100, 100, 110),
             code_punctuation: Color32::from_rgb(95, 95, 95),
-            code_variable: Color32::from_rgb(13, 13, 13),
+            code_variable: Color32::from_rgb(24, 24, 27),
         }
     }
     pub fn dark() -> Self {
@@ -101,8 +102,8 @@ impl DbProTheme {
             surface_app: Color32::from_rgb(33, 33, 33), // --background: #212121
             surface_panel: Color32::from_rgb(42, 42, 42), // --surface: #2a2a2a
             surface_elevated: Color32::from_rgb(48, 48, 48), // --surface-2: #303030
-            surface_floating: Color32::from_rgb(42, 42, 42), // dialog / popover
-            surface_editor: Color32::from_rgb(28, 28, 28), // --background-subtle: #1c1c1c
+            surface_floating: Color32::from_rgb(38, 38, 38), // popover slightly above editor
+            surface_editor: Color32::from_rgb(24, 24, 24), // deeper buffer plane (Zed-like)
             surface_hover: Color32::from_rgb(54, 54, 54), // --surface-hover: #363636
             surface_active: Color32::from_rgb(61, 61, 61), // --surface-active: #3d3d3d
             surface_2: Color32::from_rgb(48, 48, 48),   // --surface-2: #303030
@@ -124,15 +125,15 @@ impl DbProTheme {
             danger: Color32::from_rgb(239, 68, 68),    // --danger: #ef4444
             info: Color32::from_rgb(59, 130, 246),     // --info: #3b82f6
             overlay: Color32::from_black_alpha(64),    // scrim ~0.25, card stays fully opaque on top
-            code_keyword: Color32::from_rgb(102, 181, 255),
-            code_string: Color32::from_rgb(34, 197, 94),
-            code_number: Color32::from_rgb(245, 158, 11),
-            code_comment: Color32::from_rgb(141, 141, 141),
-            code_type: Color32::from_rgb(192, 132, 252),
-            code_function: Color32::from_rgb(45, 212, 191),
-            code_operator: Color32::from_rgb(248, 113, 113),
-            code_punctuation: Color32::from_rgb(185, 185, 185),
-            code_variable: Color32::from_rgb(236, 236, 236),
+            code_keyword: Color32::from_rgb(130, 170, 255),
+            code_string: Color32::from_rgb(152, 195, 121),
+            code_number: Color32::from_rgb(229, 192, 123),
+            code_comment: Color32::from_rgb(110, 110, 110),
+            code_type: Color32::from_rgb(198, 146, 232),
+            code_function: Color32::from_rgb(97, 214, 214),
+            code_operator: Color32::from_rgb(171, 178, 191),
+            code_punctuation: Color32::from_rgb(171, 178, 191),
+            code_variable: Color32::from_rgb(224, 224, 224),
         }
     }
     /// Subtle tinted fill for badges, diff rows, and status cards (~10-12% opacity).
@@ -168,6 +169,43 @@ impl DbProTheme {
 
     pub fn info_soft(self) -> Color32 {
         self.soft_tint(self.info)
+    }
+
+    /// Quiet gutter wash behind line numbers (Zed/DBeaver density).
+    pub fn editor_gutter_fill(self) -> Color32 {
+        if self.dark_mode {
+            Color32::from_rgb(22, 22, 22)
+        } else {
+            Color32::from_rgb(248, 248, 248)
+        }
+    }
+
+    /// Soft current-line highlight — readable without shouting.
+    pub fn editor_current_line_fill(self) -> Color32 {
+        if self.dark_mode {
+            Color32::from_rgba_unmultiplied(255, 255, 255, 10)
+        } else {
+            Color32::from_rgba_unmultiplied(15, 23, 42, 8)
+        }
+    }
+
+    /// Selection wash over SQL text.
+    pub fn editor_selection_fill(self) -> Color32 {
+        if self.dark_mode {
+            Color32::from_rgba_unmultiplied(51, 156, 255, 55)
+        } else {
+            Color32::from_rgba_unmultiplied(2, 133, 255, 42)
+        }
+    }
+
+    pub fn editor_line_number(self, current: bool) -> Color32 {
+        if current {
+            self.text_secondary
+        } else if self.dark_mode {
+            Color32::from_rgb(90, 90, 90)
+        } else {
+            Color32::from_rgb(170, 170, 170)
+        }
     }
 
     /// UI labels, badges, and controls — Inter Medium (500), matching OpenAI Sans Medium.

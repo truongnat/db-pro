@@ -8,13 +8,8 @@ use egui::RichText;
 impl DbProApp {
     pub(super) fn draw_query_editor(&mut self, ui: &mut egui::Ui) {
         let editor_width = ui.max_rect().width();
-        // File-editor feel: grow into remaining space instead of capping at ~480px.
-        let reserved_for_output = if self.active_query_result().is_some() {
-            240.0
-        } else {
-            140.0
-        };
-        let editor_height = (ui.available_height() - reserved_for_output).max(220.0);
+        // Editor owns the allocated region from draw_query — no permanent output reserve.
+        let editor_height = ui.available_height().max(120.0);
 
         if self.active_query_document >= self.query_documents.len() {
             return;
@@ -66,6 +61,7 @@ impl DbProApp {
         editor.font_size = font_size;
 
         let response = editor.show(ui, available_size);
+        self.query_editor_rect = response.rect;
 
         let cursor_context_changed = previous_cursor != doc.cursor.offset || previous_selection != doc.selection;
         if cursor_context_changed {
@@ -308,8 +304,8 @@ impl DbProApp {
             return;
         }
 
-        let popup_height = 220.0;
-        let popup_width = 340.0;
+        let popup_height = 240.0;
+        let popup_width = 420.0;
         let popup_pos = crate::components::clamp_popup_to_screen(
             doc.completion.popup_position,
             egui::vec2(popup_width, popup_height),
@@ -324,34 +320,40 @@ impl DbProApp {
             .fixed_pos(popup_pos)
             .show(ctx, |ui| {
                 egui::Frame {
-                    fill: theme.surface_floating,
-                    rounding: egui::Rounding::same(6.0),
+                    // Panel tone contrasts against the flush editor buffer in both themes.
+                    fill: theme.surface_panel,
+                    rounding: egui::Rounding::same(8.0),
                     stroke: egui::Stroke::new(1.0, theme.border_default),
                     shadow: theme.floating_shadow(),
-                    inner_margin: egui::Margin::same(6.0),
+                    inner_margin: egui::Margin::same(4.0),
                     ..Default::default()
                 }
                 .show(ui, |ui| {
                     ui.set_max_width(popup_width);
                     ui.set_max_height(popup_height);
 
-                    egui::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
-                        let items = doc.completion.items.clone();
+                    egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
                         let sel_idx = doc.completion.selected_index;
+                        let mut hover_idx = None;
+                        let mut click_idx = None;
 
-                        for (idx, item) in items.iter().enumerate() {
+                        for idx in 0..doc.completion.items.len() {
+                            let item = &doc.completion.items[idx];
                             let is_selected = idx == sel_idx;
                             let bg = if is_selected {
-                                theme.surface_active
+                                theme.accent_soft
                             } else {
                                 egui::Color32::TRANSPARENT
                             };
 
                             let item_frame = egui::Frame::none()
                                 .fill(bg)
-                                .rounding(egui::Rounding::same(4.0))
-                                .inner_margin(egui::Margin::symmetric(6.0, 3.0))
+                                .rounding(egui::Rounding::same(5.0))
+                                .inner_margin(egui::Margin::symmetric(8.0, 4.0))
                                 .show(ui, |ui| {
+                                    // Fixed row width so label/detail never paint on top of each other.
+                                    let row_w = (popup_width - 20.0).max(200.0);
+                                    ui.set_width(row_w);
                                     ui.horizontal(|ui| {
                                         let (badge_text, badge_color) = match item.kind {
                                             CompletionItemKind::Keyword => ("KEY", theme.code_keyword),
@@ -364,26 +366,49 @@ impl DbProApp {
                                             CompletionItemKind::Cte => ("CTE", theme.code_type),
                                         };
 
-                                        ui.label(
-                                            RichText::new(badge_text)
-                                                .font(FontId::monospace(9.5))
-                                                .color(badge_color),
-                                        );
-                                        ui.add_space(4.0);
-
-                                        ui.label(
-                                            RichText::new(&item.label)
-                                                .font(FontId::monospace(12.5))
-                                                .strong()
-                                                .color(theme.text_primary),
-                                        );
-
-                                        if let Some(detail) = &item.detail {
-                                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                        egui::Frame::none()
+                                            .fill(theme.soft_tint(badge_color))
+                                            .rounding(egui::Rounding::same(3.0))
+                                            .inner_margin(egui::Margin::symmetric(4.0, 1.0))
+                                            .show(ui, |ui| {
                                                 ui.label(
-                                                    RichText::new(detail).font(font_caption()).color(theme.text_muted),
+                                                    RichText::new(badge_text)
+                                                        .font(FontId::monospace(9.0))
+                                                        .color(badge_color),
                                                 );
                                             });
+                                        ui.add_space(6.0);
+
+                                        let detail = item.detail.as_deref().unwrap_or("");
+                                        let detail_budget = if detail.is_empty() {
+                                            0.0
+                                        } else {
+                                            (ui.available_width() * 0.42).clamp(72.0, 150.0)
+                                        };
+                                        let label_budget = (ui.available_width() - detail_budget - 4.0).max(48.0);
+                                        let row_h = ui.spacing().interact_size.y.max(16.0);
+
+                                        ui.add_sized(
+                                            [label_budget, row_h],
+                                            egui::Label::new(
+                                                RichText::new(&item.label)
+                                                    .font(FontId::monospace(12.5))
+                                                    .strong()
+                                                    .color(theme.text_primary),
+                                            )
+                                            .truncate(),
+                                        )
+                                        .on_hover_text(&item.label);
+
+                                        if !detail.is_empty() {
+                                            ui.add_sized(
+                                                [detail_budget, row_h],
+                                                egui::Label::new(
+                                                    RichText::new(detail).font(font_caption()).color(theme.text_muted),
+                                                )
+                                                .truncate(),
+                                            )
+                                            .on_hover_text(detail);
                                         }
                                     });
                                 });
@@ -392,11 +417,18 @@ impl DbProApp {
                                 item_frame.response.scroll_to_me(Some(egui::Align::Center));
                             }
                             if item_frame.response.hovered() {
-                                doc.completion.selected_index = idx;
+                                hover_idx = Some(idx);
                             }
                             if item_frame.response.interact(egui::Sense::click()).clicked() {
-                                clicked_item = Some(item.clone());
+                                click_idx = Some(idx);
                             }
+                        }
+
+                        if let Some(idx) = hover_idx {
+                            doc.completion.selected_index = idx;
+                        }
+                        if let Some(idx) = click_idx {
+                            clicked_item = doc.completion.items.get(idx).cloned();
                         }
                     });
                 });
