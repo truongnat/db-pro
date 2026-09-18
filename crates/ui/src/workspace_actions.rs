@@ -295,6 +295,31 @@ impl DbProApp {
         self.connection_dialog_open = true;
     }
 
+    /// Capture/evidence helper: open a fresh untitled Query buffer (UI05 editor-first shots).
+    pub fn open_query_workspace_for_capture(&mut self) {
+        self.dark_mode = true;
+        self.theme = DbProTheme::dark();
+        self.new_query_document();
+        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            doc.set_text("SELECT u.id, u.email\nFROM users u\nWHERE u.active = true;\n");
+            doc.dirty = false;
+        }
+        self.bottom_panel_open = false;
+        self.query_output_dock_maximized = false;
+        self.query_params_panel_open = false;
+        self.visual_query_builder_open = false;
+        self.editor_search_open = false;
+        self.snippets_open = false;
+        self.query_txn_bar_open = false;
+    }
+
+    /// Capture helper: same as query workspace but force light theme.
+    pub fn open_query_workspace_for_capture_light(&mut self) {
+        self.open_query_workspace_for_capture();
+        self.dark_mode = false;
+        self.theme = DbProTheme::light();
+    }
+
     pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
         match tab {
             WorkspaceTab::Table => {

@@ -481,9 +481,7 @@ async fn delete_continues_when_secret_retrieve_fails() {
             "keyring entry creation failed: Attribute service name is empty".into(),
         ))
     });
-    secrets
-        .expect_delete_secret()
-        .returning(|_| Ok(()));
+    secrets.expect_delete_secret().returning(|_| Ok(()));
 
     let svc = build_service(MockDbConnector::new(), repo, secrets);
     svc.delete(&id)

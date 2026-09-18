@@ -75,6 +75,8 @@ impl DbProApp {
             if let Some(doc_id) = target_doc_id.as_deref() {
                 self.set_query_output_tab(doc_id, OutputTab::Results);
             }
+            self.bottom_panel_open = true;
+            self.query_output_dock_maximized = false;
         }
     }
 
@@ -198,6 +200,8 @@ impl DbProApp {
             self.selected_cell = None;
             self.selected_row = None;
             self.selected_rows.clear();
+            self.bottom_panel_open = true;
+            self.query_output_dock_maximized = false;
         }
     }
 
@@ -258,6 +262,8 @@ impl DbProApp {
         };
         let doc_id = self.query_documents[doc_index].id.clone();
         self.set_query_output_tab(&doc_id, OutputTab::Explain);
+        self.bottom_panel_open = true;
+        self.query_output_dock_maximized = false;
         if let Some(doc) = self.query_documents.get_mut(doc_index) {
             doc.explain_request = None;
             doc.explain_plan = Some(plan);
@@ -394,10 +400,7 @@ impl DbProApp {
                 .pending_connection_id
                 .take()
                 .or_else(|| self.active_connection_id.clone());
-            let is_delete = self
-                .runtime_message
-                .to_ascii_lowercase()
-                .contains("delet");
+            let is_delete = self.runtime_message.to_ascii_lowercase().contains("delet");
             if is_delete {
                 let formatted = format!("Delete failed · {message}");
                 self.runtime_message = formatted.clone();
@@ -526,6 +529,11 @@ impl DbProApp {
 
             if is_active_doc {
                 self.runtime_message = format!("Query failed · {message}");
+                self.bottom_panel_open = true;
+                self.query_output_dock_maximized = false;
+                if let Some(doc_id) = target_doc_id.as_deref() {
+                    self.set_query_output_tab(doc_id, OutputTab::Messages);
+                }
             }
         } else if let Some(doc_index) = self
             .query_documents
@@ -534,6 +542,8 @@ impl DbProApp {
         {
             let doc_id = self.query_documents[doc_index].id.clone();
             self.set_query_output_tab(&doc_id, OutputTab::Messages);
+            self.bottom_panel_open = true;
+            self.query_output_dock_maximized = false;
             let message = format!("Explain failed · {message}");
             self.runtime_message = message;
             if let Some(doc) = self.query_documents.get_mut(doc_index) {

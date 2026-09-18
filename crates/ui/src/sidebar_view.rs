@@ -36,8 +36,7 @@ impl DbProApp {
             })
             .show(ctx, |ui| {
                 let panel_origin = ui.max_rect().min;
-                let full =
-                    Rect::from_min_size(panel_origin, vec2(sidebar_width, ui.max_rect().height()));
+                let full = Rect::from_min_size(panel_origin, vec2(sidebar_width, ui.max_rect().height()));
                 ui.painter()
                     .rect_filled(full, egui::Rounding::ZERO, theme.surface_panel);
                 // Claim exactly `sidebar_width` — nothing else may allocate here.
@@ -69,12 +68,7 @@ impl DbProApp {
         {
             let id = egui::Id::new("dbpro_sidebar_content");
             let layer_id = egui::LayerId::new(egui::Order::Middle, id);
-            let mut ui = egui::Ui::new(
-                ctx.clone(),
-                layer_id,
-                id,
-                egui::UiBuilder::new().max_rect(content_rect),
-            );
+            let mut ui = egui::Ui::new(ctx.clone(), layer_id, id, egui::UiBuilder::new().max_rect(content_rect));
             ui.set_clip_rect(content_rect.expand(SIDEBAR_CLIP_BLEED));
             ui.set_min_size(content_rect.size());
             ui.set_max_size(content_rect.size());
@@ -102,17 +96,12 @@ impl DbProApp {
             const PLUS_SLOT_W: f32 = 28.0;
             const SELECTOR_H: f32 = 24.0;
             const SEARCH_SLOT_W: f32 = 18.0;
-            let selector_w =
-                (ui.available_width() - PLUS_SLOT_W - ui.spacing().item_spacing.x).max(72.0);
-            let (sel_rect, sel_resp) =
-                ui.allocate_exact_size(vec2(selector_w, SELECTOR_H), Sense::click());
+            let selector_w = (ui.available_width() - PLUS_SLOT_W - ui.spacing().item_spacing.x).max(72.0);
+            let (sel_rect, sel_resp) = ui.allocate_exact_size(vec2(selector_w, SELECTOR_H), Sense::click());
 
             if sel_resp.hovered() {
-                ui.painter().rect_filled(
-                    sel_rect,
-                    Rounding::same(RADIUS_SM),
-                    self.theme.surface_hover,
-                );
+                ui.painter()
+                    .rect_filled(sel_rect, Rounding::same(RADIUS_SM), self.theme.surface_hover);
                 ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
 
@@ -121,11 +110,7 @@ impl DbProApp {
                 font_icon(ICON_XS),
                 self.theme.text_secondary,
             );
-            let name_max = (sel_rect.width()
-                - SPACE_XS * 2.0
-                - SEARCH_SLOT_W
-                - SPACE_XS)
-                .max(24.0);
+            let name_max = (sel_rect.width() - SPACE_XS * 2.0 - SEARCH_SLOT_W - SPACE_XS).max(24.0);
             let name_galley = ui.painter().layout_job({
                 let mut job = egui::text::LayoutJob::single_section(
                     active_name.to_owned(),
@@ -151,8 +136,7 @@ impl DbProApp {
                 sel_rect.right() - SPACE_XS - search_galley.size().x,
                 sel_rect.center().y - search_galley.size().y * 0.5,
             );
-            ui.painter()
-                .galley(name_pos, name_galley, self.theme.text_primary);
+            ui.painter().galley(name_pos, name_galley, self.theme.text_primary);
             ui.painter()
                 .galley(search_pos, search_galley, self.theme.text_secondary);
 
@@ -168,10 +152,7 @@ impl DbProApp {
                 .icon(Icon::Plus)
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::IconSm)
-                .tooltip(format!(
-                    "New Connection ({})",
-                    Self::format_shortcut(&["N"])
-                ))
+                .tooltip(format!("New Connection ({})", Self::format_shortcut(&["N"])))
                 .show(ui)
                 .clicked()
             {
@@ -182,10 +163,7 @@ impl DbProApp {
 
         // ── 2. Primary action: New query ───────────────────────────
         let new_query_h = BUTTON_HEIGHT_SM;
-        let btn_rect = Rect::from_min_size(
-            ui.cursor().min,
-            vec2(ui.available_width(), new_query_h),
-        );
+        let btn_rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), new_query_h));
         let new_query_resp = ui.allocate_rect(btn_rect, Sense::click());
         let is_hovered = new_query_resp.hovered();
         ui.painter().rect_filled(
@@ -276,9 +254,7 @@ impl DbProApp {
                                     );
                                     if self.saved_task_confirm_destructive {
                                         if let Some(id) = self.pending_destructive_task_id {
-                                            if primary_button(ui, "Run destructive task", self.theme)
-                                                .clicked()
-                                            {
+                                            if primary_button(ui, "Run destructive task", self.theme).clicked() {
                                                 self.run_saved_task(
                                                     id,
                                                     db_pro_core::domain::saved_task::SavedTaskRunTrigger::Manual,
@@ -298,12 +274,7 @@ impl DbProApp {
     }
 
     /// Drag grip + separator locked to `sidebar_width` from the panel's left edge.
-    fn draw_sidebar_resize_handle(
-        &mut self,
-        ctx: &egui::Context,
-        panel_left: f32,
-        y_range: egui::Rangef,
-    ) {
+    fn draw_sidebar_resize_handle(&mut self, ctx: &egui::Context, panel_left: f32, y_range: egui::Rangef) {
         let theme = self.theme;
         let sidebar_width = self.sidebar_width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
         let grip = ctx.style().interaction.resize_grab_radius_side.max(5.0);
@@ -314,12 +285,7 @@ impl DbProApp {
         // PanelResizeLine sits between panels and Middle windows — never above
         // Foreground dialogs/overlays.
         let layer_id = egui::LayerId::new(egui::Order::PanelResizeLine, id);
-        let mut grip_ui = egui::Ui::new(
-            ctx.clone(),
-            layer_id,
-            id,
-            egui::UiBuilder::new().max_rect(resize_rect),
-        );
+        let mut grip_ui = egui::Ui::new(ctx.clone(), layer_id, id, egui::UiBuilder::new().max_rect(resize_rect));
         grip_ui.set_clip_rect(ctx.screen_rect());
         let drag_response = grip_ui.allocate_rect(resize_rect, Sense::drag());
 
@@ -333,8 +299,7 @@ impl DbProApp {
                 .pointer_interact_pos()
                 .or_else(|| drag_response.interact_pointer_pos())
             {
-                self.sidebar_width =
-                    (pointer.x - panel_left).clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
+                self.sidebar_width = (pointer.x - panel_left).clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
                 ctx.request_repaint();
             }
         }
@@ -353,13 +318,7 @@ impl DbProApp {
 }
 
 /// Paints right-aligned kbd chips (`Ctrl` + `N`) ending at `right_x`.
-fn paint_shortcut_chips(
-    ui: &egui::Ui,
-    right_x: f32,
-    center_y: f32,
-    parts: &[String],
-    theme: DbProTheme,
-) {
+fn paint_shortcut_chips(ui: &egui::Ui, right_x: f32, center_y: f32, parts: &[String], theme: DbProTheme) {
     if parts.is_empty() {
         return;
     }
@@ -396,16 +355,9 @@ fn paint_shortcut_chips(
         }
         let chip_w = galley.size().x + chip_pad_x * 2.0;
         let chip_h = galley.size().y + chip_pad_y * 2.0;
-        let chip = Rect::from_min_size(
-            Pos2::new(x, center_y - chip_h * 0.5),
-            vec2(chip_w, chip_h),
-        );
+        let chip = Rect::from_min_size(Pos2::new(x, center_y - chip_h * 0.5), vec2(chip_w, chip_h));
         painter.rect_filled(chip, Rounding::same(4.0), theme.surface_elevated);
-        painter.rect_stroke(
-            chip,
-            Rounding::same(4.0),
-            Stroke::new(1.0, theme.border_subtle),
-        );
+        painter.rect_stroke(chip, Rounding::same(4.0), Stroke::new(1.0, theme.border_subtle));
         painter.galley(
             Pos2::new(chip.left() + chip_pad_x, center_y - galley.size().y * 0.5),
             std::sync::Arc::clone(galley),

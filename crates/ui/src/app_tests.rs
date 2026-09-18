@@ -1241,12 +1241,13 @@ fn selected_connection_is_not_shown_as_connected() {
 }
 
 #[test]
-fn editor_status_is_scoped_to_the_query_workspace() {
+fn editor_status_lives_on_query_strip_not_shell_statusbar() {
     let mut app = DbProApp {
         active_tab: WorkspaceTab::Query,
         ..Default::default()
     };
-    assert!(app.shows_editor_status());
+    // Shell statusbar no longer mirrors Ln/Col — the query status strip owns it.
+    assert!(!app.shows_editor_status());
     assert_eq!(app.statusbar_context_label(), "SQL Editor");
 
     app.active_tab = WorkspaceTab::Table;
@@ -2195,11 +2196,7 @@ fn schema_matching_table_count_filters_without_materialising_names() {
     app.schema.schemas = vec!["public".into(), "other".into()];
     app.schema.table_details = (0..250)
         .map(|index| UiTableSummary {
-            schema: if index < 200 {
-                "public".into()
-            } else {
-                "other".into()
-            },
+            schema: if index < 200 { "public".into() } else { "other".into() },
             name: format!("orders_{index}"),
             row_count: None,
             columns: Vec::new(),
@@ -4613,7 +4610,7 @@ fn test_multi_tab_explain_plan_routing() {
 #[test]
 fn test_prediction_mode_defaults_and_options() {
     let app = DbProApp::default();
-    assert_eq!(app.prediction_mode, PredictionMode::Eager);
+    assert_eq!(app.prediction_mode, PredictionMode::Subtle);
 
     let eager = PredictionMode::Eager;
     let off = PredictionMode::Off;

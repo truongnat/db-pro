@@ -156,11 +156,11 @@ mod table_editor_view;
 mod table_metadata_view;
 #[path = "table_view.rs"]
 mod table_view;
-#[path = "welcome_view.rs"]
-mod welcome_view;
 #[cfg(test)]
 #[path = "app_tests.rs"]
 mod tests;
+#[path = "welcome_view.rs"]
+mod welcome_view;
 #[path = "workspace_view.rs"]
 mod workspace_view;
 
@@ -198,6 +198,14 @@ pub struct DbProApp {
     query_cursor_column: usize,
     editor_font_size: f32,
     query_tools_open: bool,
+    /// Connection/schema context chip picker (click-to-open).
+    query_context_picker_open: bool,
+    /// Parameters dock/popover — only when the user opens it from the status badge.
+    query_params_panel_open: bool,
+    /// Maximize the in-query output dock over the editor.
+    query_output_dock_maximized: bool,
+    /// Last editor rect — anchors the floating find overlay.
+    query_editor_rect: egui::Rect,
     completion_open: bool,
     snippets_open: bool,
     visual_query_builder_open: bool,
@@ -219,6 +227,18 @@ pub struct DbProApp {
     visual_query_limit: String,
     visual_query_offset: String,
     diagnostics: Vec<String>,
+    /// Skip sqlparser re-lint while the active buffer version is unchanged.
+    diagnostics_cache_key: Option<(usize, u64)>,
+    diagnostics_cache_driver: String,
+    diagnostics_lint_structured: Vec<crate::editor::Diagnostic>,
+    /// Debounce expensive lint while typing; flush after quiet period.
+    diagnostics_debounce_key: Option<(usize, u64)>,
+    diagnostics_debounce_at: Option<std::time::Instant>,
+    /// Fingerprint of `execution_diagnostic` last merged into `doc.diagnostics`.
+    diagnostics_exec_fp: Option<(usize, usize)>,
+    /// Cached `discover_sql_parameters(...).len()` for the status strip.
+    param_count_cache_key: Option<(usize, u64)>,
+    param_count_cache: usize,
     problems_severity_filter: ProblemsSeverityFilter,
     problems_source_filter: ProblemsSourceFilter,
     problems_selected: Option<(String, usize)>,
@@ -677,7 +697,10 @@ impl eframe::App for DbProApp {
         self.theme.apply(ctx);
         self.handle_shortcuts(ctx);
         self.draw_topbar(ctx);
-        self.draw_output_panel(ctx);
+        // Query owns its rich output dock; the shell panel is for other tabs.
+        if self.active_tab != WorkspaceTab::Query {
+            self.draw_output_panel(ctx);
+        }
         self.draw_statusbar(ctx);
         self.draw_activity_bar(ctx);
 

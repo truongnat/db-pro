@@ -153,6 +153,8 @@ pub struct TextBuffer {
     content: String,
     /// Byte offsets of line starts (line 0 starts at 0).
     line_starts: Vec<usize>,
+    /// Longest line in Unicode scalars — refreshed with the line index (not per frame).
+    max_line_chars: usize,
     pub undo_stack: UndoStack,
     version: u64,
 }
@@ -162,6 +164,7 @@ impl TextBuffer {
         let mut buffer = Self {
             content: String::new(),
             line_starts: vec![0],
+            max_line_chars: 0,
             undo_stack: UndoStack::new(),
             version: 0,
         };
@@ -173,6 +176,7 @@ impl TextBuffer {
         let mut buffer = Self {
             content: text.into(),
             line_starts: vec![0],
+            max_line_chars: 0,
             undo_stack: UndoStack::new(),
             version: 0,
         };
@@ -209,10 +213,7 @@ impl TextBuffer {
     }
 
     pub fn max_line_len_chars(&self) -> usize {
-        (0..self.line_count())
-            .map(|l| self.line_at(l).unwrap_or("").chars().count())
-            .max()
-            .unwrap_or(0)
+        self.max_line_chars
     }
 
     // --- UTF-8 Safety Helpers ---
@@ -592,6 +593,10 @@ impl TextBuffer {
                 self.line_starts.push(idx + 1);
             }
         }
+        self.max_line_chars = (0..self.line_count())
+            .map(|l| self.line_at(l).unwrap_or("").chars().count())
+            .max()
+            .unwrap_or(0);
     }
 }
 

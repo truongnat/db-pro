@@ -150,7 +150,7 @@ impl Default for EditorSettings {
             tab_width: 2,
             format_on_save: false,
             completion_enabled: true,
-            prediction_mode: "eager".to_owned(),
+            prediction_mode: "subtle".to_owned(),
             lint: SqlLintSettings::default(),
         }
     }

@@ -152,7 +152,8 @@ impl DbProApp {
     }
 
     pub(super) fn shows_editor_status(&self) -> bool {
-        self.active_tab == WorkspaceTab::Query
+        // Query status strip owns Ln/Col — keep the shell statusbar free of duplicate chrome.
+        false
     }
 
     pub(super) fn statusbar_context_label(&self) -> &'static str {

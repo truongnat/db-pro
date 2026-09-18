@@ -4,80 +4,115 @@ use egui::RichText;
 use lucide_icons::Icon;
 
 impl DbProApp {
-    pub(super) fn draw_output_tabs(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(SPACE_MD);
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
-            for (tab, icon, label) in [
-                (OutputTab::Results, Icon::Table2, "Results"),
-                (OutputTab::Chart, Icon::BarChart3, "Chart"),
-                (OutputTab::Messages, Icon::MessageSquareText, "Messages"),
-                (OutputTab::Explain, Icon::ChartNoAxesCombined, "Explain"),
-                (OutputTab::History, Icon::History, "History"),
-            ] {
-                let selected = self.active_query_output_tab() == tab;
-                let bg_color = if selected {
-                    self.theme.surface_active
+    /// Output tab strip. When `dock_chrome` is true, close/maximize sit on the same row.
+    pub(super) fn draw_output_tabs(&mut self, ui: &mut egui::Ui, dock_chrome: bool) {
+        ui.add_space(SPACE_XS);
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if dock_chrome {
+                if Button::new(self.theme)
+                    .icon(Icon::X)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip("Close output")
+                    .show(ui)
+                    .clicked()
+                {
+                    self.bottom_panel_open = false;
+                    self.query_output_dock_maximized = false;
+                }
+                let max_tip = if self.query_output_dock_maximized {
+                    "Restore output"
                 } else {
-                    egui::Color32::TRANSPARENT
+                    "Maximize output"
                 };
-                let text_color = if selected {
-                    self.theme.text_primary
+                let max_icon = if self.query_output_dock_maximized {
+                    Icon::Minimize2
                 } else {
-                    self.theme.text_secondary
+                    Icon::Maximize2
                 };
-                let icon_color = if selected {
-                    self.theme.accent
-                } else {
-                    self.theme.text_muted
-                };
-
-                let resp = egui::Frame::none()
-                    .fill(bg_color)
-                    .rounding(egui::Rounding::same(RADIUS_SM))
-                    .inner_margin(egui::Margin::symmetric(SPACE_SM, SPACE_XS))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(
-                                RichText::new(char::from(icon).to_string())
-                                    .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
-                                    .color(icon_color),
-                            );
-                            ui.add_space(2.0);
-                            ui.label(RichText::new(label).font(font_ui_label()).color(text_color));
-                            if tab == OutputTab::Results {
-                                if let Some(res) = self.active_query_result() {
-                                    badge(
-                                        ui,
-                                        &res.row_count.to_string(),
-                                        self.theme.accent_soft,
-                                        self.theme.accent,
-                                    );
-                                }
-                            } else if tab == OutputTab::Messages && !self.active_query_messages().is_empty() {
-                                badge(
-                                    ui,
-                                    &self.active_query_messages().len().to_string(),
-                                    self.theme.surface_hover,
-                                    self.theme.text_muted,
-                                );
-                            }
-                        });
-                    });
-
-                if resp.response.interact(egui::Sense::click()).clicked() {
-                    self.set_active_query_output_tab(tab);
+                if Button::new(self.theme)
+                    .icon(max_icon)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip(max_tip)
+                    .show(ui)
+                    .clicked()
+                {
+                    self.query_output_dock_maximized = !self.query_output_dock_maximized;
                 }
             }
             if let Some(request_id) = self.active_explain_request() {
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(
-                        RichText::new(format!("Explain request {}…", request_id.0))
-                            .font(font_caption())
-                            .color(self.theme.text_muted),
-                    );
-                });
+                ui.label(
+                    RichText::new(format!("Explain request {}…", request_id.0))
+                        .font(font_caption())
+                        .color(self.theme.text_muted),
+                );
             }
+
+            ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
+                for (tab, icon, label) in [
+                    (OutputTab::Results, Icon::Table2, "Results"),
+                    (OutputTab::Chart, Icon::BarChart3, "Chart"),
+                    (OutputTab::Messages, Icon::MessageSquareText, "Messages"),
+                    (OutputTab::Explain, Icon::ChartNoAxesCombined, "Explain"),
+                    (OutputTab::History, Icon::History, "History"),
+                ] {
+                    let selected = self.active_query_output_tab() == tab;
+                    let bg_color = if selected {
+                        self.theme.surface_active
+                    } else {
+                        egui::Color32::TRANSPARENT
+                    };
+                    let text_color = if selected {
+                        self.theme.text_primary
+                    } else {
+                        self.theme.text_secondary
+                    };
+                    let icon_color = if selected {
+                        self.theme.accent
+                    } else {
+                        self.theme.text_muted
+                    };
+
+                    let resp = egui::Frame::none()
+                        .fill(bg_color)
+                        .rounding(egui::Rounding::same(RADIUS_SM))
+                        .inner_margin(egui::Margin::symmetric(SPACE_SM, SPACE_XS))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    RichText::new(char::from(icon).to_string())
+                                        .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
+                                        .color(icon_color),
+                                );
+                                ui.add_space(2.0);
+                                ui.label(RichText::new(label).font(font_ui_label()).color(text_color));
+                                if tab == OutputTab::Results {
+                                    if let Some(res) = self.active_query_result() {
+                                        badge(
+                                            ui,
+                                            &res.row_count.to_string(),
+                                            self.theme.accent_soft,
+                                            self.theme.accent,
+                                        );
+                                    }
+                                } else if tab == OutputTab::Messages && !self.active_query_messages().is_empty() {
+                                    badge(
+                                        ui,
+                                        &self.active_query_messages().len().to_string(),
+                                        self.theme.surface_hover,
+                                        self.theme.text_muted,
+                                    );
+                                }
+                            });
+                        });
+
+                    if resp.response.interact(egui::Sense::click()).clicked() {
+                        self.set_active_query_output_tab(tab);
+                    }
+                }
+            });
         });
         ui.add_space(SPACE_XS);
     }

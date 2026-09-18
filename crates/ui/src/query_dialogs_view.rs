@@ -6,6 +6,7 @@ use crate::editor::{Diagnostic, SqlDialect};
 use egui::RichText;
 use lucide_icons::Icon;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 impl DbProApp {
     pub(super) fn draw_destructive_run_dialog(&mut self, ui: &mut egui::Ui) {
@@ -720,15 +721,64 @@ impl DbProApp {
 
     pub(crate) fn refresh_diagnostics(&mut self) {
         let driver = self.active_driver().to_owned();
-        let lint = self.settings.editor.lint.clone();
         let doc_index = self.active_query_document;
+        let version = self
+            .query_documents
+            .get(doc_index)
+            .map(|doc| doc.buffer.version())
+            .unwrap_or(0);
+        let cache_key = (doc_index, version);
+        let exec_fp = self
+            .query_documents
+            .get(doc_index)
+            .and_then(|doc| doc.execution_diagnostic.as_ref())
+            .map(|d| d.range);
+
+        if self.diagnostics_cache_key == Some(cache_key) && self.diagnostics_cache_driver == driver {
+            // Cheap path: only rematch when execution diagnostic identity changes.
+            if self.diagnostics_exec_fp == exec_fp {
+                return;
+            }
+            if let Some(doc) = self.query_documents.get_mut(doc_index) {
+                doc.diagnostics = deduplicate_diagnostics(
+                    self.diagnostics_lint_structured
+                        .iter()
+                        .cloned()
+                        .chain(doc.execution_diagnostic.clone())
+                        .collect(),
+                );
+            }
+            self.diagnostics_exec_fp = exec_fp;
+            return;
+        }
+
+        // While typing, defer sqlparser until a short quiet window so keystrokes stay snappy.
+        let now = Instant::now();
+        if self.diagnostics_debounce_key != Some(cache_key) {
+            self.diagnostics_debounce_key = Some(cache_key);
+            self.diagnostics_debounce_at = Some(now + Duration::from_millis(180));
+            return;
+        }
+        if let Some(deadline) = self.diagnostics_debounce_at {
+            if now < deadline {
+                return;
+            }
+        }
+
+        let lint = self.settings.editor.lint.clone();
         if let Some(doc) = self.query_documents.get_mut(doc_index) {
             let (raw_diags, structured) = Self::analyze_sql_diagnostics_with_lint(doc.text(), &driver, &lint);
             self.diagnostics = raw_diags;
+            self.diagnostics_lint_structured = structured.clone();
             doc.diagnostics =
                 deduplicate_diagnostics(structured.into_iter().chain(doc.execution_diagnostic.clone()).collect());
         } else {
             self.diagnostics = Self::analyze_sql_diagnostics_with_lint(self.active_query_text(), &driver, &lint).0;
+            self.diagnostics_lint_structured.clear();
         }
+        self.diagnostics_cache_key = Some(cache_key);
+        self.diagnostics_cache_driver = driver;
+        self.diagnostics_exec_fp = exec_fp;
+        self.diagnostics_debounce_at = None;
     }
 }

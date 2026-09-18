@@ -242,10 +242,14 @@ impl QueryDocument {
     }
 
     pub fn reanalyze(&mut self, dialect: SqlDialect) {
-        if self.analysis.version != self.buffer.version() {
-            self.analysis = SqlDocumentAnalysis::analyze(&self.buffer, dialect);
-            self.search.update_matches(self.buffer.text());
+        if self.analysis.version == self.buffer.version() {
+            return;
         }
+        // Reuse highlight tokens so typing does not tokenize the buffer twice.
+        let _ = self.cached_tokens.get_or_recompute(&self.buffer, dialect);
+        self.analysis =
+            SqlDocumentAnalysis::from_tokens(self.buffer.text(), self.cached_tokens.tokens(), self.buffer.version());
+        self.search.update_matches(self.buffer.text());
     }
 
     /// Resolves the executable SQL: selected text if non-empty, otherwise the current statement at cursor, otherwise full buffer.
