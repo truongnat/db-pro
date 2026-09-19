@@ -23,7 +23,8 @@
 - [x] Preferences, welcome and shared feedback aggregates.
 - [x] Diagram, workspace files, database operations, palette and query execution policy aggregates.
 - [x] Runtime event dispatch table isolated from feature handlers.
-- [ ] Feature-level runtime reducers split out of `events.rs`.
+- [x] Agent and table runtime handlers split into feature event modules.
+- [ ] Remaining connection/schema/operation reducers split out of `events.rs`.
 - [ ] `DbProApp` reduced to composition root (remaining: event pump and cross-feature orchestration).
 - [ ] Architecture boundary check in CI.
 

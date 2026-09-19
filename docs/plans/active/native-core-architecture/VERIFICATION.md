@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `5ce727ab8770c86859c3062a31d86781e093ba04`.
+Source checkpoint: `b881f1f4`.
 
 ## Current change
 
@@ -37,6 +37,9 @@ Source checkpoint: `5ce727ab8770c86859c3062a31d86781e093ba04`.
   `SchemaExplorerState` owns persisted explorer pane heights.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
+- Agent and table event handlers now live in `agent_events.rs` and
+  `table_events.rs`; the legacy module retains connection/schema/operation
+  reducers for the next split.
 - Unit tests for the extracted aggregates: 27 passed, 0 failed.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
