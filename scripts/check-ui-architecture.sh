@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+app_file="$repo_root/crates/ui/src/app.rs"
+events_file="$repo_root/crates/ui/src/events.rs"
+
+# DbProApp is deliberately an allowlisted composition root. A new field must
+# be a feature aggregate, an adapter, or shell composition state; otherwise it
+# belongs in the owning feature state module.
+expected_fields=$(cat <<'EOF'
+agent
+connection_catalog
+connection_dialog
+connection_lifecycle
+database_operations
+diagram
+feedback
+gallery_state
+initial_frames_count
+overlay
+palette
+preferences
+query_editor
+query_execution
+query_library
+query_output_state
+query_session_state
+saved_tasks
+schema_explorer
+table_data
+table_mutation
+table_state
+task_bridge
+theme
+welcome
+workspace
+workspace_files
+workspace_sessions
+EOF
+)
+
+actual_fields=$(awk '
+  /^pub struct DbProApp \{/ { inside=1; next }
+  inside && /^}/ { exit }
+  inside { print }
+' "$app_file" | grep -E '^[[:space:]]*(pub\([^)]*\)[[:space:]]+|pub[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*:' | sed -E 's/^[[:space:]]*(pub\([^)]*\)[[:space:]]+|pub[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*):.*/\2/' | sed '/^$/d' | sort)
+
+if ! diff -u <(printf '%s\n' "$expected_fields" | sed '/^$/d' | sort) <(printf '%s\n' "$actual_fields"); then
+  echo "UI architecture check failed: DbProApp fields changed outside the allowlist." >&2
+  exit 1
+fi
+
+if rg -n 'fn on_[A-Za-z0-9_]+\(' "$events_file"; then
+  echo "UI architecture check failed: feature event handlers leaked back into events.rs." >&2
+  exit 1
+fi
+
+for module in event_router agent_events connection_events operation_events schema_events table_events; do
+  test -f "$repo_root/crates/ui/src/${module}.rs" || {
+    echo "UI architecture check failed: missing event module ${module}.rs." >&2
+    exit 1
+  }
+done
+
+echo "UI architecture boundary: PASS"

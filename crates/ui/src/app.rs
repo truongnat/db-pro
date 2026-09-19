@@ -93,6 +93,8 @@ mod git_workspace;
 mod ide_workspace;
 #[path = "navigation_view.rs"]
 mod navigation_view;
+#[path = "operation_events.rs"]
+mod operation_events;
 #[path = "overlay_state.rs"]
 mod overlay_state;
 #[path = "palette_state.rs"]
@@ -125,6 +127,8 @@ pub(crate) use settings_model::{
 pub(crate) use workspace_shell::WorkspaceShellState;
 #[path = "activity_bar_view.rs"]
 mod activity_bar_view;
+#[path = "connection_events.rs"]
+mod connection_events;
 #[path = "connection_status.rs"]
 mod connection_status;
 #[path = "grid_layout.rs"]
@@ -208,6 +212,8 @@ pub(crate) use workspace_files_state::WorkspaceFilesState;
 pub(crate) use workspace_session_state::WorkspaceSessionState;
 #[path = "schema_compare.rs"]
 mod schema_compare;
+#[path = "schema_events.rs"]
+mod schema_events;
 #[path = "schema_explorer_state.rs"]
 mod schema_explorer_state;
 #[path = "schema_object_view.rs"]
