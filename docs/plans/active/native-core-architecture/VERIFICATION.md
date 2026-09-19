@@ -43,6 +43,9 @@ Source checkpoint: `9eab2115`.
   feature event modules; `events.rs` contains only the event pump and tests.
 - `scripts/check-ui-architecture.sh`: PASS; it allowlists the composition-root
   fields, rejects event handlers in `events.rs`, and verifies the event modules.
+- Release runtime smoke: PASS; `target/release/db-pro-native` launched from
+  the verified HEAD and rendered the Welcome/empty state in a `1440x870` DB Pro
+  window. Capture was inspected from the native window after startup settled.
 - Unit tests for the extracted aggregates: 27 passed, 0 failed.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
@@ -57,7 +60,9 @@ Source checkpoint: `9eab2115`.
 
 ## Not yet proven
 
-- Native screenshot/runtime evidence for all affected states.
+- Native screenshot/runtime evidence for all required viewport sizes and
+  loading/error/empty states is still pending; the smoke capture covers only
+  the normal empty Welcome surface at `1440x870`.
 - Feature-level event reducers still share the legacy handler module and are
   the next architectural slice.
 - Native screenshot/runtime evidence for all affected states.

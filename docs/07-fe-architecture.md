@@ -38,10 +38,12 @@ views.
 
 ## State boundary
 
-- `DbProApp` (`crates/ui/src/app.rs`) is the current egui composition root. Its display state is
-  being split into feature-owned aggregates: connection, explorer, workspace, query, schema,
-  grid, overlay, settings, agent and diagnostics. The migration is not complete yet; remaining
-  feature fields are tracked in `docs/plans/active/native-core-architecture/`.
+- `DbProApp` (`crates/ui/src/app.rs`) is the egui composition root. Its display state is owned by
+  feature aggregates for connection, explorer, workspace, query, schema, grid, overlay,
+  settings, agent, files, diagram, database operations and diagnostics. Runtime event routing is
+  isolated in feature event modules, and `scripts/check-ui-architecture.sh` prevents scalar
+  feature state or handlers from returning to the root. Remaining work is runtime evidence,
+  not a second state owner.
 - State changes are one-directional:
   `UserIntent → UiCommand → service → UiEvent → reducer → repaint`.
 - `UiCommand` leaves the UI thread through the task bridge; the runtime worker handles it
