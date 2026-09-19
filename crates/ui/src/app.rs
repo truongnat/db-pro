@@ -109,6 +109,8 @@ mod query_execution_state;
 mod query_library_events;
 #[path = "query_library_state.rs"]
 mod query_library_state;
+#[path = "query_prediction_events.rs"]
+mod query_prediction_events;
 #[path = "saved_task_state.rs"]
 mod saved_task_state;
 #[path = "settings_model.rs"]
@@ -518,6 +520,30 @@ impl DbProApp {
 
     pub(super) fn on_query_folders_loaded(&mut self, folders: Vec<UiQueryFolderSummary>) {
         query_library_events::on_query_folders_loaded(&mut self.query_library, folders);
+    }
+
+    pub(super) fn on_sql_prediction_ready(
+        &mut self,
+        request_id: RequestId,
+        document_id: String,
+        document_version: u64,
+        anchor: usize,
+        replacement_range: (usize, usize),
+        prediction_text: String,
+    ) {
+        query_prediction_events::on_sql_prediction_ready(
+            &mut self.query_session_state,
+            request_id,
+            document_id,
+            document_version,
+            anchor,
+            replacement_range,
+            prediction_text,
+        );
+    }
+
+    pub(super) fn on_sql_prediction_failed(&mut self, request_id: RequestId, document_id: String) {
+        query_prediction_events::on_sql_prediction_failed(&mut self.query_session_state, request_id, document_id);
     }
 
     pub(super) fn handle_schema_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {

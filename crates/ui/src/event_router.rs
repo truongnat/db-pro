@@ -112,18 +112,8 @@ impl DbProApp {
             UiEvent::SqlPredictionFailed {
                 request_id,
                 document_id,
-                document_version,
-                anchor,
-                replacement_range,
-                message,
-            } => self.on_sql_prediction_failed(
-                request_id,
-                document_id,
-                document_version,
-                anchor,
-                replacement_range,
-                message,
-            ),
+                ..
+            } => self.on_sql_prediction_failed(request_id, document_id),
         }
     }
 }
