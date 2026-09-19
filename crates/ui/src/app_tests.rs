@@ -293,7 +293,7 @@ fn editing_a_connection_preserves_its_stored_ssl_mode() {
 
     app.open_edit_connection(&connection);
 
-    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::Require);
+    assert_eq!(app.connection_dialog.draft.ssl_mode, UiSslMode::Require);
 
     app.dispatch_connection_command(true);
 
@@ -315,7 +315,7 @@ fn duplicating_a_connection_preserves_its_stored_ssl_mode() {
 
     app.open_duplicate_connection(&connection);
 
-    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::VerifyFull);
+    assert_eq!(app.connection_dialog.draft.ssl_mode, UiSslMode::VerifyFull);
 
     app.dispatch_connection_command(true);
 
@@ -333,8 +333,8 @@ fn new_postgresql_connection_defaults_to_tls_require() {
 
     app.open_new_connection();
 
-    assert_eq!(app.connection_draft.driver, UiDriver::Postgres);
-    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::Require);
+    assert_eq!(app.connection_dialog.draft.driver, UiDriver::Postgres);
+    assert_eq!(app.connection_dialog.draft.ssl_mode, UiSslMode::Require);
 
     app.dispatch_connection_command(true);
     let UiCommand::CreateConnection { draft, .. } = command_rx.try_recv().expect("create command expected") else {
@@ -350,7 +350,7 @@ fn editing_a_disable_connection_keeps_disable_until_the_user_changes_it() {
     let connection = connection_summary_with_ssl_mode(UiSslMode::Disable);
 
     app.open_edit_connection(&connection);
-    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::Disable);
+    assert_eq!(app.connection_dialog.draft.ssl_mode, UiSslMode::Disable);
 
     app.dispatch_connection_command(true);
     let UiCommand::UpdateConnection { draft, .. } = command_rx.try_recv().expect("update command expected") else {
@@ -364,13 +364,13 @@ fn switching_sqlite_to_postgresql_initializes_tls_require() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     app.open_new_connection();
-    app.connection_draft.driver = UiDriver::Sqlite;
-    app.connection_draft.ssl_mode = UiSslMode::Disable;
+    app.connection_dialog.draft.driver = UiDriver::Sqlite;
+    app.connection_dialog.draft.ssl_mode = UiSslMode::Disable;
 
     app.select_connection_driver(UiDriver::Postgres);
 
-    assert_eq!(app.connection_draft.driver, UiDriver::Postgres);
-    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::Require);
+    assert_eq!(app.connection_dialog.draft.driver, UiDriver::Postgres);
+    assert_eq!(app.connection_dialog.draft.ssl_mode, UiSslMode::Require);
 }
 
 #[test]
@@ -379,15 +379,15 @@ fn selecting_mysql_sets_port_and_tls_and_preserves_password_on_submit() {
     let mut app = DbProApp::with_task_bridge(bridge);
     app.open_new_connection();
     app.select_connection_driver(UiDriver::Mysql);
-    assert_eq!(app.connection_draft.driver, UiDriver::Mysql);
-    assert_eq!(app.connection_draft.port, "3306");
-    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::Require);
+    assert_eq!(app.connection_dialog.draft.driver, UiDriver::Mysql);
+    assert_eq!(app.connection_dialog.draft.port, "3306");
+    assert_eq!(app.connection_dialog.draft.ssl_mode, UiSslMode::Require);
 
-    app.connection_draft.name = "MySQL Local".to_owned();
-    app.connection_draft.host = "127.0.0.1".to_owned();
-    app.connection_draft.database = "app".to_owned();
-    app.connection_draft.username = "root".to_owned();
-    app.connection_draft.password = "secret".to_owned();
+    app.connection_dialog.draft.name = "MySQL Local".to_owned();
+    app.connection_dialog.draft.host = "127.0.0.1".to_owned();
+    app.connection_dialog.draft.database = "app".to_owned();
+    app.connection_dialog.draft.username = "root".to_owned();
+    app.connection_dialog.draft.password = "secret".to_owned();
     app.dispatch_connection_command(true);
 
     let UiCommand::CreateConnection { draft, .. } = command_rx.try_recv().expect("create") else {
@@ -418,7 +418,7 @@ fn editing_a_mysql_connection_keeps_the_mysql_driver() {
         environment: "Development".to_owned(),
     };
     app.open_edit_connection(&connection);
-    assert_eq!(app.connection_draft.driver, UiDriver::Mysql);
+    assert_eq!(app.connection_dialog.draft.driver, UiDriver::Mysql);
 }
 
 #[test]
@@ -426,9 +426,9 @@ fn explicit_disable_selection_is_preserved_on_submit() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     app.open_new_connection();
-    assert_eq!(app.connection_draft.ssl_mode, UiSslMode::Require);
+    assert_eq!(app.connection_dialog.draft.ssl_mode, UiSslMode::Require);
 
-    app.connection_draft.ssl_mode = UiSslMode::Disable;
+    app.connection_dialog.draft.ssl_mode = UiSslMode::Disable;
     app.dispatch_connection_command(true);
 
     let UiCommand::CreateConnection { draft, .. } = command_rx.try_recv().expect("create command expected") else {
@@ -2998,7 +2998,7 @@ fn failed_connection_request_clears_connecting_state_and_keeps_error() {
 
     assert!(!app.connected);
     assert_eq!(app.pending_connection_request, None);
-    assert_eq!(app.connection_error, "auth failed");
+    assert_eq!(app.connection_dialog.error, "auth failed");
     assert_eq!(app.runtime_message, "Connection failed · auth failed");
 }
 
@@ -3429,15 +3429,15 @@ fn stale_schema_event_cannot_replace_the_selected_connection_schema() {
 fn connection_test_success_is_invalidated_when_the_draft_changes() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_draft.name = "Local".to_owned();
-    app.connection_draft.database = "app".to_owned();
+    app.connection_dialog.draft.name = "Local".to_owned();
+    app.connection_dialog.draft.database = "app".to_owned();
     app.dispatch_connection_command(false);
 
     let request_id = match command_rx.try_recv().expect("test command expected") {
         UiCommand::TestConnection { request_id, .. } => request_id,
         _ => panic!("expected TestConnection command"),
     };
-    app.connection_draft.database = "other".to_owned();
+    app.connection_dialog.draft.database = "other".to_owned();
     event_tx
         .send(UiEvent::OperationCompleted {
             request_id,
@@ -3447,7 +3447,7 @@ fn connection_test_success_is_invalidated_when_the_draft_changes() {
 
     app.apply_runtime_events();
 
-    assert!(!app.connection_test_valid);
+    assert!(!app.connection_dialog.test_valid);
     assert_eq!(app.runtime_message, "Connection changed · test again before saving");
 }
 

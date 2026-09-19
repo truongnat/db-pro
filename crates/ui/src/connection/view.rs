@@ -154,14 +154,14 @@ pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &D
 
 impl DbProApp {
     pub(crate) fn draw_connection_dialog(&mut self, ctx: &egui::Context) {
-        let mut open = self.connection_dialog_open;
-        let draft_before = self.connection_draft.clone();
-        let title = if self.editing_connection_id.is_some() {
+        let mut open = self.connection_dialog.open;
+        let draft_before = self.connection_dialog.draft.clone();
+        let title = if self.connection_dialog.editing_connection_id.is_some() {
             t!("connection.edit_connection")
         } else {
             t!("connection.new_connection")
         };
-        let desc = if self.editing_connection_id.is_some() {
+        let desc = if self.connection_dialog.editing_connection_id.is_some() {
             t!("connection.edit_desc")
         } else {
             t!("connection.new_desc")
@@ -178,13 +178,13 @@ impl DbProApp {
                     self.draw_connection_footer(ui);
                 });
             });
-        self.connection_dialog_open = open && self.connection_dialog_open;
-        if self.connection_draft != draft_before {
-            self.connection_test_valid = false;
-            self.connection_error.clear();
+        self.connection_dialog.open = open && self.connection_dialog.open;
+        if self.connection_dialog.draft != draft_before {
+            self.connection_dialog
+                .transition(super::state::ConnectionDialogAction::DraftChanged);
             self.runtime_message = t!("status.connection_changed").to_string();
         }
-        if !self.connection_dialog_open {
+        if !self.connection_dialog.open {
             self.pending_connection_request = None;
         }
     }
@@ -213,7 +213,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
             for spec in DRIVER_CARD_SPECS {
-                let is_selected = self.connection_draft.driver == spec.driver;
+                let is_selected = self.connection_dialog.draft.driver == spec.driver;
                 if draw_driver_card(
                     ui,
                     DriverCardProps {
@@ -229,10 +229,10 @@ impl DbProApp {
                 )
                 .clicked()
                 {
-                    let driver_changed = self.connection_draft.driver != spec.driver;
-                    select_driver(&mut self.connection_draft, spec.driver);
+                    let driver_changed = self.connection_dialog.draft.driver != spec.driver;
+                    select_driver(&mut self.connection_dialog.draft, spec.driver);
                     if driver_changed {
-                        self.connection_focus_name_on_open = true;
+                        self.connection_dialog.focus_name_on_open = true;
                     }
                 }
             }
@@ -241,24 +241,24 @@ impl DbProApp {
         ui.add_space(SPACE_MD);
 
         // ── 2. Engine-specific Fields ─────────────────────────────────
-        match self.connection_draft.driver {
+        match self.connection_dialog.draft.driver {
             UiDriver::Postgres | UiDriver::Mysql | UiDriver::SqlServer => self.draw_postgres_connection_fields(ui),
             UiDriver::Sqlite => self.draw_sqlite_connection_fields(ui),
         }
 
         // ── 3. Feedback Alerts ─────────────────────────────────────────
-        if !self.connection_error.is_empty() {
+        if !self.connection_dialog.error.is_empty() {
             ui.add_space(SPACE_XS);
-            Alert::new(t!("alerts.config_error"), &self.connection_error, self.theme)
+            Alert::new(t!("alerts.config_error"), &self.connection_dialog.error, self.theme)
                 .variant(AlertVariant::Destructive)
                 .show(ui);
-        } else if self.connection_test_valid {
+        } else if self.connection_dialog.test_valid {
             ui.add_space(SPACE_XS);
             Alert::new(t!("alerts.verified"), t!("alerts.verified_desc"), self.theme)
                 .variant(AlertVariant::Success)
                 .show(ui);
         }
-        if let Some(report) = &self.connection_diagnostics {
+        if let Some(report) = &self.connection_dialog.diagnostics {
             ui.add_space(SPACE_XS);
             for stage in &report.stages {
                 let mark = if stage.ok { "OK" } else { "FAIL" };
@@ -298,7 +298,7 @@ impl DbProApp {
                         .font(font_caption())
                         .color(self.theme.text_muted),
                 );
-            } else if self.connection_test_valid {
+            } else if self.connection_dialog.test_valid {
                 ui.add_space(SPACE_XS);
                 ui.label(
                     RichText::new(char::from(Icon::Check).to_string())
@@ -313,7 +313,7 @@ impl DbProApp {
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let save_label = if self.editing_connection_id.is_some() {
+                let save_label = if self.connection_dialog.editing_connection_id.is_some() {
                     t!("connection.update_connection")
                 } else {
                     t!("connection.save_connection")
@@ -335,7 +335,8 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.connection_dialog_open = false;
+                    self.connection_dialog
+                        .transition(super::state::ConnectionDialogAction::Close);
                 }
             });
         });
@@ -377,13 +378,17 @@ impl DbProApp {
             ui.vertical(|ui| {
                 ui.set_width(input_w);
                 ui.set_max_width(input_w);
-                Input::new(&mut self.connection_draft.database, "/path/to/database.db", self.theme)
-                    .label(t!("connection.database_file_path"))
-                    .id_salt(focus_id::SQLITE_DATABASE_FILE)
-                    .width(input_w)
-                    .leading_icon(Icon::FolderArchive)
-                    .clearable(true)
-                    .show(ui);
+                Input::new(
+                    &mut self.connection_dialog.draft.database,
+                    "/path/to/database.db",
+                    self.theme,
+                )
+                .label(t!("connection.database_file_path"))
+                .id_salt(focus_id::SQLITE_DATABASE_FILE)
+                .width(input_w)
+                .leading_icon(Icon::FolderArchive)
+                .clearable(true)
+                .show(ui);
             });
             ui.vertical(|ui| {
                 ui.set_width(button_w);

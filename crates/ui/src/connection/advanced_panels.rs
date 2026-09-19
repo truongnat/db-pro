@@ -31,22 +31,22 @@ impl DbProApp {
                 |ui| {
                     ui.add_space(SPACE_XS);
                     ui.horizontal(|ui| {
-                        let selected = if self.connection_draft.cloud_preset.is_empty() {
+                        let selected = if self.connection_dialog.draft.cloud_preset.is_empty() {
                             "Select a cloud preset…".to_owned()
                         } else {
-                            self.connection_draft.cloud_preset.clone()
+                            self.connection_dialog.draft.cloud_preset.clone()
                         };
                         egui::ComboBox::from_id_salt("cloud_preset")
                             .selected_text(selected)
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(
-                                    &mut self.connection_draft.cloud_preset,
+                                    &mut self.connection_dialog.draft.cloud_preset,
                                     String::new(),
                                     "None (manual)",
                                 );
                                 for option in CLOUD_PRESET_OPTIONS {
                                     ui.selectable_value(
-                                        &mut self.connection_draft.cloud_preset,
+                                        &mut self.connection_dialog.draft.cloud_preset,
                                         option.key.to_owned(),
                                         option.label,
                                     );
@@ -64,24 +64,24 @@ impl DbProApp {
                     });
                     ui.add_space(SPACE_XS);
                     ui.horizontal(|ui| {
-                        let mut auth_idx = if self.connection_draft.auth_kind == "ephemeral_token" {
+                        let mut auth_idx = if self.connection_dialog.draft.auth_kind == "ephemeral_token" {
                             1
                         } else {
                             0
                         };
                         SegmentedTabs::new(&mut auth_idx, AUTH_KIND_OPTIONS, self.theme).show(ui);
-                        self.connection_draft.auth_kind = if auth_idx == 1 {
+                        self.connection_dialog.draft.auth_kind = if auth_idx == 1 {
                             "ephemeral_token".into()
                         } else {
                             "password".into()
                         };
-                        if self.connection_draft.auth_kind == "ephemeral_token" {
+                        if self.connection_dialog.draft.auth_kind == "ephemeral_token" {
                             ui.colored_label(self.theme.warning, t!("connection.token_session_warning"));
                         }
                     });
                     ui.add_space(SPACE_XS);
                     Input::new(
-                        &mut self.connection_draft.cloud_snippet,
+                        &mut self.connection_dialog.draft.cloud_snippet,
                         "postgresql://user:secret@host:5432/db?sslmode=verify-full",
                         self.theme,
                     )
@@ -96,17 +96,17 @@ impl DbProApp {
                             .show(ui)
                             .clicked()
                         {
-                            let snippet = self.connection_draft.cloud_snippet.clone();
-                            match apply_connection_snippet(&mut self.connection_draft, &snippet) {
-                                Ok(()) => self.connection_error.clear(),
-                                Err(err) => self.connection_error = err,
+                            let snippet = self.connection_dialog.draft.cloud_snippet.clone();
+                            match apply_connection_snippet(&mut self.connection_dialog.draft, &snippet) {
+                                Ok(()) => self.connection_dialog.error.clear(),
+                                Err(err) => self.connection_dialog.error = err,
                             }
                         }
                     });
-                    if !self.connection_draft.cloud_guidance.is_empty() {
+                    if !self.connection_dialog.draft.cloud_guidance.is_empty() {
                         ui.add_space(SPACE_XXS);
                         ui.label(
-                            RichText::new(&self.connection_draft.cloud_guidance)
+                            RichText::new(&self.connection_dialog.draft.cloud_guidance)
                                 .small()
                                 .color(self.theme.text_secondary),
                         );
@@ -119,7 +119,7 @@ impl DbProApp {
     /// Panel 2: SSL / TLS Custom Certificates
     pub(crate) fn draw_ssl_certificates_panel(&mut self, ui: &mut egui::Ui) {
         if !matches!(
-            self.connection_draft.ssl_mode,
+            self.connection_dialog.draft.ssl_mode,
             UiSslMode::VerifyCa | UiSslMode::VerifyFull
         ) {
             return;
@@ -142,7 +142,7 @@ impl DbProApp {
             );
             ui.add_space(SPACE_XS);
             Input::new(
-                &mut self.connection_draft.ssl_root_cert_path,
+                &mut self.connection_dialog.draft.ssl_root_cert_path,
                 "/path/to/ca.pem",
                 self.theme,
             )
@@ -157,7 +157,7 @@ impl DbProApp {
                     ui.set_width(panel_half_w);
                     ui.set_max_width(panel_half_w);
                     Input::new(
-                        &mut self.connection_draft.ssl_client_cert_path,
+                        &mut self.connection_dialog.draft.ssl_client_cert_path,
                         "/path/to/client.crt",
                         self.theme,
                     )
@@ -170,7 +170,7 @@ impl DbProApp {
                     ui.set_width(w);
                     ui.set_max_width(w);
                     Input::new(
-                        &mut self.connection_draft.ssl_client_key_path,
+                        &mut self.connection_dialog.draft.ssl_client_key_path,
                         "/path/to/client.key",
                         self.theme,
                     )
@@ -202,7 +202,7 @@ impl DbProApp {
                 );
                 ui.add_space(SPACE_XXS);
                 Checkbox::new(
-                    &mut self.connection_draft.ssh_tunnel_enabled,
+                    &mut self.connection_dialog.draft.ssh_tunnel_enabled,
                     t!("connection.ssh_bastion_title").as_ref(),
                     self.theme,
                 )
@@ -217,7 +217,7 @@ impl DbProApp {
                     .color(self.theme.text_muted),
             );
 
-            if self.connection_draft.ssh_tunnel_enabled {
+            if self.connection_dialog.draft.ssh_tunnel_enabled {
                 ui.add_space(SPACE_SM);
 
                 let SshRowWidths {
@@ -233,16 +233,20 @@ impl DbProApp {
                     ui.vertical(|ui| {
                         ui.set_width(host_w);
                         ui.set_max_width(host_w);
-                        Input::new(&mut self.connection_draft.ssh_host, "bastion.example.com", self.theme)
-                            .label(t!("connection.ssh_host"))
-                            .width(host_w)
-                            .leading_icon(Icon::Server)
-                            .show(ui);
+                        Input::new(
+                            &mut self.connection_dialog.draft.ssh_host,
+                            "bastion.example.com",
+                            self.theme,
+                        )
+                        .label(t!("connection.ssh_host"))
+                        .width(host_w)
+                        .leading_icon(Icon::Server)
+                        .show(ui);
                     });
                     ui.vertical(|ui| {
                         ui.set_width(port_w);
                         ui.set_max_width(port_w);
-                        Input::new(&mut self.connection_draft.ssh_port, "22", self.theme)
+                        Input::new(&mut self.connection_dialog.draft.ssh_port, "22", self.theme)
                             .label(t!("connection.port"))
                             .width(port_w)
                             .leading_icon(Icon::Hash)
@@ -251,7 +255,7 @@ impl DbProApp {
                     ui.vertical(|ui| {
                         ui.set_width(user_w);
                         ui.set_max_width(user_w);
-                        Input::new(&mut self.connection_draft.ssh_user, "ubuntu", self.theme)
+                        Input::new(&mut self.connection_dialog.draft.ssh_user, "ubuntu", self.theme)
                             .label(t!("connection.ssh_user"))
                             .width(user_w)
                             .leading_icon(Icon::User)
@@ -273,10 +277,14 @@ impl DbProApp {
                             ui.vertical(|ui| {
                                 ui.set_width(key_input_w);
                                 ui.set_max_width(key_input_w);
-                                Input::new(&mut self.connection_draft.ssh_private_key, "~/.ssh/id_rsa", self.theme)
-                                    .width(key_input_w)
-                                    .leading_icon(Icon::Key)
-                                    .show(ui);
+                                Input::new(
+                                    &mut self.connection_dialog.draft.ssh_private_key,
+                                    "~/.ssh/id_rsa",
+                                    self.theme,
+                                )
+                                .width(key_input_w)
+                                .leading_icon(Icon::Key)
+                                .show(ui);
                             });
                             ui.add_space(SPACE_XS);
                             if Button::new(self.theme)
@@ -304,25 +312,25 @@ impl DbProApp {
                     {
                         self.save_draft_as_ssh_profile();
                     }
-                    if !self.ssh_profiles.is_empty() {
+                    if !self.connection_dialog.ssh_profiles.is_empty() {
                         ui.label(
                             RichText::new(t!("connection.use_profile"))
                                 .small()
                                 .color(self.theme.text_muted),
                         );
-                        for profile in self.ssh_profiles.clone() {
-                            let selected = self.connection_draft.ssh_profile_id == profile.id;
+                        for profile in self.connection_dialog.ssh_profiles.clone() {
+                            let selected = self.connection_dialog.draft.ssh_profile_id == profile.id;
                             if ui.selectable_label(selected, &profile.name).clicked() {
                                 self.apply_ssh_profile(&profile.id);
                             }
                         }
                     }
                 });
-                if !self.connection_draft.ssh_profile_id.is_empty() {
+                if !self.connection_dialog.draft.ssh_profile_id.is_empty() {
                     ui.label(
                         RichText::new(t!(
                             "status.referenced_ssh_profile",
-                            id = self.connection_draft.ssh_profile_id.as_str()
+                            id = self.connection_dialog.draft.ssh_profile_id.as_str()
                         ))
                         .small()
                         .color(self.theme.text_muted),
@@ -350,7 +358,7 @@ impl DbProApp {
                 self.theme,
                 |ui| {
                     ui.add_space(SPACE_XS);
-                    Input::new(&mut self.connection_draft.tags, placeholder, self.theme)
+                    Input::new(&mut self.connection_dialog.draft.tags, placeholder, self.theme)
                         .label(t!("connection.tags_label"))
                         .leading_icon(Icon::Tag)
                         .show(ui);

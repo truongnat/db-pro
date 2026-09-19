@@ -602,9 +602,9 @@ impl DbProApp {
     fn on_file_picked(&mut self, kind: &str, path: Option<String>) {
         if let Some(path) = path {
             if kind == "sqlite" {
-                self.connection_draft.database = path;
+                self.connection_dialog.draft.database = path;
             } else if kind == "ssh-key" {
-                self.connection_draft.ssh_private_key = path;
+                self.connection_dialog.draft.ssh_private_key = path;
             } else if kind == "backup" {
                 self.backup_output_path = path;
             } else if kind == "restore" {
@@ -612,11 +612,11 @@ impl DbProApp {
             } else if kind == "workspace-folder" {
                 self.open_workspace_folder(std::path::PathBuf::from(path));
             }
-            self.connection_error.clear();
-            self.connection_test_valid = false;
+            self.connection_dialog.error.clear();
+            self.connection_dialog.test_valid = false;
         } else if kind == "sqlite" || kind == "ssh-key" {
-            self.connection_error = "File selection was cancelled".to_owned();
-            self.connection_test_valid = false;
+            self.connection_dialog.error = "File selection was cancelled".to_owned();
+            self.connection_dialog.test_valid = false;
         } else if kind == "workspace-folder" {
             self.runtime_message = "Workspace folder selection was cancelled".to_owned();
         }
@@ -680,17 +680,18 @@ impl DbProApp {
             self.request_connections_once();
         }
         if operation == "connection.tested" && pending_connection_request {
-            self.connection_error.clear();
+            self.connection_dialog.error.clear();
             self.refresh_connection_diagnostics(true, "Authentication succeeded");
-            if self.connection_test_draft.as_ref() == Some(&self.connection_draft) {
-                self.connection_test_valid = true;
+            if self.connection_dialog.test_draft.as_ref() == Some(&self.connection_dialog.draft) {
+                self.connection_dialog.test_valid = true;
                 self.runtime_message = self
-                    .connection_diagnostics
+                    .connection_dialog
+                    .diagnostics
                     .as_ref()
                     .map(|r| r.summary())
                     .unwrap_or_else(|| "Connection test succeeded".to_owned());
             } else {
-                self.connection_test_valid = false;
+                self.connection_dialog.test_valid = false;
                 self.runtime_message = "Connection changed · test again before saving".to_owned();
             }
         }
@@ -698,8 +699,9 @@ impl DbProApp {
             self.on_table_row_operation_completed(request_id);
         }
         if operation == "connection.created" || operation == "connection.updated" {
-            self.connection_dialog_open = false;
-            self.editing_connection_id = None;
+            self.connection_dialog
+                .transition(super::connection::state::ConnectionDialogAction::Close);
+            self.connection_dialog.editing_connection_id = None;
         }
         if operation.starts_with("query") || operation.starts_with("query-folder") {
             self.request_saved_queries_refresh();

@@ -410,12 +410,12 @@ impl DbProApp {
                     self.failed_connection_ids.insert(cid.clone());
                     self.connection_errors.insert(cid, message.clone());
                 }
-                if !self.connection_dialog_open {
+                if !self.connection_dialog.open {
                     self.connected = false;
                     self.schema_request = None;
                     self.schema_error = None;
                 }
-                self.connection_error = message.clone();
+                self.connection_dialog.error = message.clone();
                 self.runtime_message = format!("Connection failed · {message}");
             }
         } else if self.schema_request == Some(request_id) {

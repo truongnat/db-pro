@@ -286,22 +286,17 @@ impl DbProApp {
     }
 
     pub fn open_new_connection(&mut self) {
-        self.editing_connection_id = None;
-        self.connection_draft = UiConnectionDraft::default();
-        self.connection_error.clear();
-        self.connection_test_valid = false;
-        self.connection_test_draft = None;
+        self.connection_dialog
+            .transition(super::connection::state::ConnectionDialogAction::OpenNew);
         self.pending_connection_request = None;
-        self.connection_focus_name_on_open = true;
-        self.connection_dialog_open = true;
     }
 
     /// Capture/evidence helper: open the Edit Connection dialog with a test draft so
     /// the password input + eye toggle can be documented (the affected surface for the
     /// input click-steal fix) without needing a real saved connection.
     pub fn open_edit_connection_for_capture(&mut self) {
-        self.editing_connection_id = Some("capture-test".to_owned());
-        self.connection_draft = UiConnectionDraft {
+        self.connection_dialog.editing_connection_id = Some("capture-test".to_owned());
+        self.connection_dialog.draft = UiConnectionDraft {
             name: "Test Connection".to_owned(),
             host: "localhost".to_owned(),
             port: "5432".to_owned(),
@@ -329,12 +324,12 @@ impl DbProApp {
             cloud_snippet: String::new(),
             cloud_guidance: String::new(),
         };
-        self.connection_error.clear();
-        self.connection_test_valid = false;
-        self.connection_test_draft = None;
+        self.connection_dialog.error.clear();
+        self.connection_dialog.test_valid = false;
+        self.connection_dialog.test_draft = None;
         self.pending_connection_request = None;
-        self.connection_focus_name_on_open = true;
-        self.connection_dialog_open = true;
+        self.connection_dialog.focus_name_on_open = true;
+        self.connection_dialog.open = true;
     }
 
     /// Capture/evidence helper: open a fresh untitled Query buffer (UI05 editor-first shots).

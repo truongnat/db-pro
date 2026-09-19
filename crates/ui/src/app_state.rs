@@ -47,7 +47,7 @@ impl DbProApp {
             app.load_named_sessions_from_storage(storage);
             if let Some(raw) = storage.get_string("dbpro.native.ssh-profiles-v1") {
                 if let Ok(profiles) = serde_json::from_str(&raw) {
-                    app.ssh_profiles = profiles;
+                    app.connection_dialog.ssh_profiles = profiles;
                 }
             }
             if let Some(width) = storage
@@ -528,16 +528,7 @@ impl Default for DbProApp {
             failed_connection_ids: std::collections::HashSet::new(),
             connections_requested: false,
             connections_request_pending: false,
-            connection_dialog_open: false,
-            connection_focus_name_on_open: false,
-            editing_connection_id: None,
-            connection_draft: UiConnectionDraft::default(),
-            connection_show_password: false,
-            connection_error: String::new(),
-            connection_test_valid: false,
-            connection_test_draft: None,
-            connection_diagnostics: None,
-            ssh_profiles: Vec::new(),
+            connection_dialog: ConnectionDialogState::default(),
             delete_confirmation_id: None,
             folder_delete_confirmation: None,
             connections_pane_height: 160.0,

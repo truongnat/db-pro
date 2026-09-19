@@ -1,3 +1,4 @@
+use self::connection::ConnectionDialogState;
 use crate::components::*;
 use crate::editor::PredictionMode;
 use crate::query::SchemaSymbolIndex;
@@ -561,16 +562,7 @@ pub struct DbProApp {
     failed_connection_ids: std::collections::HashSet<String>,
     connections_requested: bool,
     connections_request_pending: bool,
-    connection_dialog_open: bool,
-    connection_focus_name_on_open: bool,
-    editing_connection_id: Option<String>,
-    connection_draft: UiConnectionDraft,
-    connection_show_password: bool,
-    connection_error: String,
-    connection_test_valid: bool,
-    connection_test_draft: Option<UiConnectionDraft>,
-    connection_diagnostics: Option<db_pro_core::domain::connection_diagnostics::ConnectionDiagnosticsReport>,
-    ssh_profiles: Vec<db_pro_core::domain::connection::SshProfile>,
+    connection_dialog: ConnectionDialogState,
     delete_confirmation_id: Option<String>,
     folder_delete_confirmation: Option<String>,
     /// Persisted height of the Connections sub-pane inside the Explorer sidebar.
@@ -597,7 +589,7 @@ impl eframe::App for DbProApp {
         }
         self.persist_saved_tasks(storage);
         self.persist_workspace_sessions(storage);
-        if let Ok(raw) = serde_json::to_string(&self.ssh_profiles) {
+        if let Ok(raw) = serde_json::to_string(&self.connection_dialog.ssh_profiles) {
             storage.set_string("dbpro.native.ssh-profiles-v1", raw);
         }
         if let Ok(layouts) = serde_json::to_string(&self.grid_layout_preferences) {
@@ -738,7 +730,7 @@ impl eframe::App for DbProApp {
                 self.draw_workspace(ui);
             });
 
-        if self.connection_dialog_open {
+        if self.connection_dialog.open {
             self.draw_connection_dialog(ctx);
         }
         if self.delete_confirmation_id.is_some() {
