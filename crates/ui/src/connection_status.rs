@@ -160,7 +160,7 @@ impl DbProApp {
         match self.workspace.active_tab {
             WorkspaceTab::Welcome => "Workspace",
             WorkspaceTab::Query => "SQL Editor",
-            WorkspaceTab::Table => match self.table_view {
+            WorkspaceTab::Table => match self.table_state.table_view {
                 TableView::Structure => "Table Structure",
                 TableView::Data => "Data Editor",
                 TableView::Profile => "Column Profile",

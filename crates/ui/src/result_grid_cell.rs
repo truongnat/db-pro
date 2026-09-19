@@ -575,18 +575,18 @@ impl DbProApp {
             self.request_delete_selected_data_rows(result);
         }
         if req.filter_this_val {
-            if self.workspace.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
-                self.table_data_filter_column = result
+            if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
+                self.table_state.table_data_filter_column = result
                     .columns
                     .get(column_index)
                     .map(|column| column.name.clone())
                     .unwrap_or_default();
                 if matches!(display_cell, UiCell::Null) {
-                    self.table_data_filter_operator = UiTableFilterOperator::IsNull;
-                    self.table_data_filter_value.clear();
+                    self.table_state.table_data_filter_operator = UiTableFilterOperator::IsNull;
+                    self.table_state.table_data_filter_value.clear();
                 } else {
-                    self.table_data_filter_operator = UiTableFilterOperator::Equals;
-                    self.table_data_filter_value = crate::cell_text(display_cell);
+                    self.table_state.table_data_filter_operator = UiTableFilterOperator::Equals;
+                    self.table_state.table_data_filter_value = crate::cell_text(display_cell);
                 }
                 self.commit_table_filter_draft();
             } else {

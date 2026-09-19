@@ -453,32 +453,32 @@ impl DbProApp {
             let formatted = format!("Row mutation failed · {message}");
             self.runtime_message = formatted.clone();
             self.show_toast_error(formatted);
-        } else if self.table_info_request == Some(request_id) {
-            self.table_info_request = None;
-            self.table_info_error = Some(message.clone());
+        } else if self.table_state.table_info_request == Some(request_id) {
+            self.table_state.table_info_request = None;
+            self.table_state.table_info_error = Some(message.clone());
             self.runtime_message = format!("Table structure failed · {message}");
-        } else if self.table_ddl_request == Some(request_id) {
-            self.table_ddl_request = None;
-            self.table_ddl_error = Some(message.clone());
+        } else if self.table_state.table_ddl_request == Some(request_id) {
+            self.table_state.table_ddl_request = None;
+            self.table_state.table_ddl_error = Some(message.clone());
             self.runtime_message = format!("Table DDL failed · {message}");
-        } else if self.table_row_reload_request == Some(request_id) {
-            self.table_row_reload_request = None;
-            self.table_row_reload_identity = None;
+        } else if self.table_state.table_row_reload_request == Some(request_id) {
+            self.table_state.table_row_reload_request = None;
+            self.table_state.table_row_reload_identity = None;
             self.table_mutation_retry_after_reload = false;
             self.table_mutation_retry_target = None;
             self.runtime_message = format!("Could not reload row: {message}");
-        } else if self.table_data_request == Some(request_id) {
-            self.table_data_request = None;
+        } else if self.table_state.table_data_request == Some(request_id) {
+            self.table_state.table_data_request = None;
             self.table_mutation_retry_after_reload = false;
             self.table_mutation_retry_target = None;
-            self.table_data_error = Some(message.clone());
+            self.table_state.table_data_error = Some(message.clone());
             let formatted = format!("Table data failed · {message}");
             self.runtime_message = formatted.clone();
             self.show_toast_error(formatted);
-        } else if self.ddl_execution_request == Some(request_id) {
-            self.ddl_execution_request = None;
-            self.ddl_execute_confirmation = false;
-            self.table_ddl_error = Some(message.clone());
+        } else if self.table_state.ddl_execution_request == Some(request_id) {
+            self.table_state.ddl_execution_request = None;
+            self.table_state.ddl_execute_confirmation = false;
+            self.table_state.table_ddl_error = Some(message.clone());
             let formatted = format!("DDL execution failed · {message}");
             self.runtime_message = formatted.clone();
             self.show_toast_error(formatted);

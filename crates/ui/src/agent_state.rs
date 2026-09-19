@@ -18,6 +18,7 @@ impl DbProApp {
         let connection_name = Some(self.active_connection_name().to_owned());
         let driver = self.active_driver().to_owned();
         let selected_columns = self
+            .table_state
             .table_info
             .as_ref()
             .map(|info| info.columns.iter().map(|column| column.name.clone()).collect())
@@ -29,7 +30,7 @@ impl DbProApp {
         };
         let result_summary = self
             .active_query_result()
-            .or(self.table_data_result.as_ref())
+            .or(self.table_state.table_data_result.as_ref())
             .map(|result| format!("{} rows returned in {} ms", result.row_count, result.duration_ms));
         let last_error = self.has_runtime_error().then(|| self.runtime_message.clone());
 

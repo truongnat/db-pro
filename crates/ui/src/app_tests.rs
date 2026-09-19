@@ -172,18 +172,21 @@ fn grid_copy_uses_staged_values_only_for_data_editor() {
             active_tab: WorkspaceTab::Table,
             ..Default::default()
         },
-        table_view: TableView::Data,
-        table_info: Some(UiTableInfo {
-            schema: "public".to_owned(),
-            name: "customers".to_owned(),
-            row_count: Some(1),
-            columns: Vec::new(),
-            primary_key: Some(vec!["id".to_owned()]),
-            indexes: Vec::new(),
-            foreign_keys: Vec::new(),
-            check_constraints: Vec::new(),
-            dependencies: Vec::new(),
-        }),
+        table_state: TableState {
+            table_view: TableView::Data,
+            table_info: Some(UiTableInfo {
+                schema: "public".to_owned(),
+                name: "customers".to_owned(),
+                row_count: Some(1),
+                columns: Vec::new(),
+                primary_key: Some(vec!["id".to_owned()]),
+                indexes: Vec::new(),
+                foreign_keys: Vec::new(),
+                check_constraints: Vec::new(),
+                dependencies: Vec::new(),
+            }),
+            ..Default::default()
+        },
         staged_changes: ChangeSet::from(vec![StagedChange::Update {
             identity: primary_key_identity("2"),
             current_row_index: Some(0),
@@ -491,7 +494,7 @@ fn table_edits_stage_until_explicit_apply() {
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
     app.selected_table = Some("customers".to_owned());
-    app.table_info = Some(UiTableInfo {
+    app.table_state.table_info = Some(UiTableInfo {
         schema: "public".to_owned(),
         name: "customers".to_owned(),
         row_count: Some(1),
@@ -596,24 +599,27 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
             active_connection_id: Some("conn-1".to_owned()),
             ..Default::default()
         },
-        table_info: Some(UiTableInfo {
-            schema: "public".to_owned(),
-            name: "customers".to_owned(),
-            row_count: Some(1),
-            columns: vec![crate::UiTableColumn {
-                name: "id".to_owned(),
-                data_type: "integer".to_owned(),
-                nullable: false,
-                default: None,
-                is_primary_key: true,
-                ..Default::default()
-            }],
-            primary_key: Some(vec!["id".to_owned()]),
-            indexes: Vec::new(),
-            foreign_keys: Vec::new(),
-            check_constraints: Vec::new(),
-            dependencies: Vec::new(),
-        }),
+        table_state: TableState {
+            table_info: Some(UiTableInfo {
+                schema: "public".to_owned(),
+                name: "customers".to_owned(),
+                row_count: Some(1),
+                columns: vec![crate::UiTableColumn {
+                    name: "id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    nullable: false,
+                    default: None,
+                    is_primary_key: true,
+                    ..Default::default()
+                }],
+                primary_key: Some(vec!["id".to_owned()]),
+                indexes: Vec::new(),
+                foreign_keys: Vec::new(),
+                check_constraints: Vec::new(),
+                dependencies: Vec::new(),
+            }),
+            ..Default::default()
+        },
         table_data: TableDataState {
             data_edit_value: "2".to_owned(),
             ..Default::default()
@@ -663,17 +669,20 @@ fn no_primary_key_table_blocks_safe_row_mutations() {
                 environment: "Development".to_owned(),
             }],
         },
-        table_info: Some(UiTableInfo {
-            schema: "public".to_owned(),
-            name: "logs".to_owned(),
-            row_count: Some(1),
-            columns: Vec::new(),
-            primary_key: None,
-            indexes: Vec::new(),
-            foreign_keys: Vec::new(),
-            check_constraints: Vec::new(),
-            dependencies: Vec::new(),
-        }),
+        table_state: TableState {
+            table_info: Some(UiTableInfo {
+                schema: "public".to_owned(),
+                name: "logs".to_owned(),
+                row_count: Some(1),
+                columns: Vec::new(),
+                primary_key: None,
+                indexes: Vec::new(),
+                foreign_keys: Vec::new(),
+                check_constraints: Vec::new(),
+                dependencies: Vec::new(),
+            }),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -706,34 +715,37 @@ fn binary_cell_edit_is_refused_with_a_reason() {
                 environment: "Development".to_owned(),
             }],
         },
-        table_info: Some(UiTableInfo {
-            schema: "public".to_owned(),
-            name: "files".to_owned(),
-            row_count: Some(1),
-            columns: vec![
-                crate::UiTableColumn {
-                    name: "id".to_owned(),
-                    data_type: "integer".to_owned(),
-                    nullable: false,
-                    default: None,
-                    is_primary_key: true,
-                    ..Default::default()
-                },
-                crate::UiTableColumn {
-                    name: "payload".to_owned(),
-                    data_type: "bytea".to_owned(),
-                    nullable: true,
-                    default: None,
-                    is_primary_key: false,
-                    ..Default::default()
-                },
-            ],
-            primary_key: Some(vec!["id".to_owned()]),
-            indexes: Vec::new(),
-            foreign_keys: Vec::new(),
-            check_constraints: Vec::new(),
-            dependencies: Vec::new(),
-        }),
+        table_state: TableState {
+            table_info: Some(UiTableInfo {
+                schema: "public".to_owned(),
+                name: "files".to_owned(),
+                row_count: Some(1),
+                columns: vec![
+                    crate::UiTableColumn {
+                        name: "id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        default: None,
+                        is_primary_key: true,
+                        ..Default::default()
+                    },
+                    crate::UiTableColumn {
+                        name: "payload".to_owned(),
+                        data_type: "bytea".to_owned(),
+                        nullable: true,
+                        default: None,
+                        is_primary_key: false,
+                        ..Default::default()
+                    },
+                ],
+                primary_key: Some(vec!["id".to_owned()]),
+                indexes: Vec::new(),
+                foreign_keys: Vec::new(),
+                check_constraints: Vec::new(),
+                dependencies: Vec::new(),
+            }),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let result = UiQueryResult {
@@ -797,35 +809,38 @@ fn generated_column_edit_is_refused_before_staging() {
                 environment: "Development".to_owned(),
             }],
         },
-        table_info: Some(UiTableInfo {
-            schema: "public".to_owned(),
-            name: "line_items".to_owned(),
-            row_count: Some(1),
-            columns: vec![
-                crate::UiTableColumn {
-                    name: "id".to_owned(),
-                    data_type: "integer".to_owned(),
-                    nullable: false,
-                    default: None,
-                    is_primary_key: true,
-                    ..Default::default()
-                },
-                crate::UiTableColumn {
-                    name: "total".to_owned(),
-                    data_type: "numeric".to_owned(),
-                    nullable: false,
-                    default: None,
-                    is_primary_key: false,
-                    is_generated: true,
-                    ..Default::default()
-                },
-            ],
-            primary_key: Some(vec!["id".to_owned()]),
-            indexes: Vec::new(),
-            foreign_keys: Vec::new(),
-            check_constraints: Vec::new(),
-            dependencies: Vec::new(),
-        }),
+        table_state: TableState {
+            table_info: Some(UiTableInfo {
+                schema: "public".to_owned(),
+                name: "line_items".to_owned(),
+                row_count: Some(1),
+                columns: vec![
+                    crate::UiTableColumn {
+                        name: "id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        default: None,
+                        is_primary_key: true,
+                        ..Default::default()
+                    },
+                    crate::UiTableColumn {
+                        name: "total".to_owned(),
+                        data_type: "numeric".to_owned(),
+                        nullable: false,
+                        default: None,
+                        is_primary_key: false,
+                        is_generated: true,
+                        ..Default::default()
+                    },
+                ],
+                primary_key: Some(vec!["id".to_owned()]),
+                indexes: Vec::new(),
+                foreign_keys: Vec::new(),
+                check_constraints: Vec::new(),
+                dependencies: Vec::new(),
+            }),
+            ..Default::default()
+        },
         table_data: TableDataState {
             data_edit_value: "99.99".to_owned(),
             ..Default::default()
@@ -894,43 +909,46 @@ fn generated_column_is_never_staged_by_insert() {
             }],
         },
         selected_table: Some("line_items".to_owned()),
-        table_info: Some(UiTableInfo {
-            schema: "public".to_owned(),
-            name: "line_items".to_owned(),
-            row_count: Some(0),
-            columns: vec![
-                crate::UiTableColumn {
-                    name: "id".to_owned(),
-                    data_type: "integer".to_owned(),
-                    nullable: false,
-                    default: None,
-                    is_primary_key: true,
-                    ..Default::default()
-                },
-                crate::UiTableColumn {
-                    name: "qty".to_owned(),
-                    data_type: "integer".to_owned(),
-                    nullable: false,
-                    default: None,
-                    is_primary_key: false,
-                    ..Default::default()
-                },
-                crate::UiTableColumn {
-                    name: "total".to_owned(),
-                    data_type: "numeric".to_owned(),
-                    nullable: false,
-                    default: None,
-                    is_primary_key: false,
-                    is_generated: true,
-                    ..Default::default()
-                },
-            ],
-            primary_key: Some(vec!["id".to_owned()]),
-            indexes: Vec::new(),
-            foreign_keys: Vec::new(),
-            check_constraints: Vec::new(),
-            dependencies: Vec::new(),
-        }),
+        table_state: TableState {
+            table_info: Some(UiTableInfo {
+                schema: "public".to_owned(),
+                name: "line_items".to_owned(),
+                row_count: Some(0),
+                columns: vec![
+                    crate::UiTableColumn {
+                        name: "id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        default: None,
+                        is_primary_key: true,
+                        ..Default::default()
+                    },
+                    crate::UiTableColumn {
+                        name: "qty".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        default: None,
+                        is_primary_key: false,
+                        ..Default::default()
+                    },
+                    crate::UiTableColumn {
+                        name: "total".to_owned(),
+                        data_type: "numeric".to_owned(),
+                        nullable: false,
+                        default: None,
+                        is_primary_key: false,
+                        is_generated: true,
+                        ..Default::default()
+                    },
+                ],
+                primary_key: Some(vec!["id".to_owned()]),
+                indexes: Vec::new(),
+                foreign_keys: Vec::new(),
+                check_constraints: Vec::new(),
+                dependencies: Vec::new(),
+            }),
+            ..Default::default()
+        },
         table_data: TableDataState {
             insert_row_values: vec!["1".to_owned(), "2".to_owned(), String::new()],
             ..Default::default()
@@ -978,7 +996,10 @@ fn generated_column_is_never_staged_by_insert() {
             }],
         },
         selected_table: Some("line_items".to_owned()),
-        table_info: app.table_info.clone(),
+        table_state: TableState {
+            table_info: app.table_state.table_info.clone(),
+            ..Default::default()
+        },
         table_data: TableDataState {
             insert_row_values: vec!["1".to_owned(), "2".to_owned(), "3.0".to_owned()],
             ..Default::default()
@@ -1020,35 +1041,38 @@ fn duplicated_row_leaves_blocked_columns_empty() {
                 environment: "Development".to_owned(),
             }],
         },
-        table_info: Some(UiTableInfo {
-            schema: "public".to_owned(),
-            name: "line_items".to_owned(),
-            row_count: Some(1),
-            columns: vec![
-                crate::UiTableColumn {
-                    name: "id".to_owned(),
-                    data_type: "integer".to_owned(),
-                    nullable: false,
-                    default: None,
-                    is_primary_key: true,
-                    ..Default::default()
-                },
-                crate::UiTableColumn {
-                    name: "total".to_owned(),
-                    data_type: "numeric".to_owned(),
-                    nullable: false,
-                    default: None,
-                    is_primary_key: false,
-                    is_generated: true,
-                    ..Default::default()
-                },
-            ],
-            primary_key: Some(vec!["id".to_owned()]),
-            indexes: Vec::new(),
-            foreign_keys: Vec::new(),
-            check_constraints: Vec::new(),
-            dependencies: Vec::new(),
-        }),
+        table_state: TableState {
+            table_info: Some(UiTableInfo {
+                schema: "public".to_owned(),
+                name: "line_items".to_owned(),
+                row_count: Some(1),
+                columns: vec![
+                    crate::UiTableColumn {
+                        name: "id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        default: None,
+                        is_primary_key: true,
+                        ..Default::default()
+                    },
+                    crate::UiTableColumn {
+                        name: "total".to_owned(),
+                        data_type: "numeric".to_owned(),
+                        nullable: false,
+                        default: None,
+                        is_primary_key: false,
+                        is_generated: true,
+                        ..Default::default()
+                    },
+                ],
+                primary_key: Some(vec!["id".to_owned()]),
+                indexes: Vec::new(),
+                foreign_keys: Vec::new(),
+                check_constraints: Vec::new(),
+                dependencies: Vec::new(),
+            }),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let result = UiQueryResult {
@@ -1344,7 +1368,7 @@ fn editor_status_lives_on_query_strip_not_shell_statusbar() {
     app.workspace.active_tab = WorkspaceTab::Table;
     assert!(!app.shows_editor_status());
     assert_eq!(app.statusbar_context_label(), "Table Structure");
-    app.table_view = TableView::Data;
+    app.table_state.table_view = TableView::Data;
     assert_eq!(app.statusbar_context_label(), "Data Editor");
     app.workspace.active_tab = WorkspaceTab::Diagram;
     assert!(!app.shows_editor_status());
@@ -3621,7 +3645,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
     app.connection_lifecycle.active_connection_id = Some("active".to_owned());
     app.selected_table = Some("customers".to_owned());
     app.workspace.active_tab = WorkspaceTab::Table;
-    app.refresh_table_info_after_schema = true;
+    app.table_state.refresh_table_info_after_schema = true;
     event_tx
         .send(UiEvent::SchemaLoaded {
             request_id: crate::RequestId(1),
@@ -3651,7 +3675,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
     assert_eq!(connection_id, "active");
     assert_eq!(schema, "main");
     assert_eq!(table, "customers");
-    assert!(!app.refresh_table_info_after_schema);
+    assert!(!app.table_state.refresh_table_info_after_schema);
 }
 
 #[test]
@@ -3689,10 +3713,13 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
             ..Default::default()
         },
         selected_table: Some("customers".to_owned()),
-        table_info_request: Some(crate::RequestId(1)),
-        table_ddl_request: Some(crate::RequestId(2)),
-        table_data_request: Some(crate::RequestId(3)),
-        table_data_result: Some(result()),
+        table_state: TableState {
+            table_info_request: Some(crate::RequestId(1)),
+            table_ddl_request: Some(crate::RequestId(2)),
+            table_data_request: Some(crate::RequestId(3)),
+            table_data_result: Some(result()),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -3700,10 +3727,10 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
 
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Welcome);
     assert_eq!(app.selected_table, None);
-    assert_eq!(app.table_info_request, None);
-    assert_eq!(app.table_ddl_request, None);
-    assert_eq!(app.table_data_request, None);
-    assert_eq!(app.table_data_result, None);
+    assert_eq!(app.table_state.table_info_request, None);
+    assert_eq!(app.table_state.table_ddl_request, None);
+    assert_eq!(app.table_state.table_data_request, None);
+    assert_eq!(app.table_state.table_data_result, None);
 }
 
 #[test]
@@ -3782,7 +3809,7 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
     };
     assert_eq!(connection_id, "active");
     assert_eq!(sql, "CREATE TABLE \"public\".\"audit\" (id INTEGER)");
-    assert!(app.ddl_execution_request.is_some());
+    assert!(app.table_state.ddl_execution_request.is_some());
 }
 
 #[test]
@@ -3946,12 +3973,12 @@ fn test_export_result_writes_escaped_delimited_text() {
 #[test]
 fn test_table_data_limit_and_paging_offset() {
     let mut app = DbProApp::default();
-    assert_eq!(app.table_data_limit, 100);
+    assert_eq!(app.table_state.table_data_limit, 100);
 
-    app.table_data_limit = 50;
-    app.table_data_offset = 100;
+    app.table_state.table_data_limit = 50;
+    app.table_state.table_data_offset = 100;
     app.reset_table_data_page();
-    assert_eq!(app.table_data_offset, 0);
+    assert_eq!(app.table_state.table_data_offset, 0);
 }
 
 #[test]
@@ -5399,7 +5426,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
     let mut app = DbProApp::with_task_bridge(bridge);
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.selected_table = Some("user_roles".to_owned());
-    app.table_info = Some(UiTableInfo {
+    app.table_state.table_info = Some(UiTableInfo {
         schema: "public".to_owned(),
         name: "user_roles".to_owned(),
         row_count: Some(2),
@@ -5429,7 +5456,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
         check_constraints: Vec::new(),
         dependencies: Vec::new(),
     });
-    app.table_data_result = Some(UiQueryResult {
+    app.table_state.table_data_result = Some(UiQueryResult {
         columns: vec![
             crate::UiColumn {
                 name: "tenant_id".to_owned(),
@@ -5486,7 +5513,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
     assert_eq!(filters[1].value, "20");
 
     let server_reloaded = UiQueryResult {
-        columns: app.table_data_result.as_ref().unwrap().columns.clone(),
+        columns: app.table_state.table_data_result.as_ref().unwrap().columns.clone(),
         rows: vec![vec![
             UiCell::Number("1".to_owned()),
             UiCell::Number("20".to_owned()),
@@ -5498,7 +5525,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
 
     app.on_table_row_reloaded(server_reloaded);
 
-    let result = app.table_data_result.as_ref().unwrap();
+    let result = app.table_state.table_data_result.as_ref().unwrap();
     assert_eq!(result.rows[0][2], UiCell::Text("admin".to_owned()));
     assert_eq!(result.rows[1][2], UiCell::Text("manager".to_owned()));
 }
@@ -5535,27 +5562,30 @@ fn test_inserted_row_delete_removes_from_changeset_without_db_delete() {
 fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
     let mut app = DbProApp {
         staged_apply_request: Some(crate::RequestId(12)),
-        table_data_result: Some(UiQueryResult {
-            columns: vec![
-                crate::UiColumn {
-                    name: "id".to_owned(),
-                    data_type: "INTEGER".to_owned(),
-                    nullable: false,
-                },
-                crate::UiColumn {
-                    name: "name".to_owned(),
-                    data_type: "TEXT".to_owned(),
-                    nullable: false,
-                },
-            ],
-            rows: vec![
-                vec![UiCell::Number("1".to_owned()), UiCell::Text("Alice".to_owned())],
-                vec![UiCell::Number("2".to_owned()), UiCell::Text("Bob".to_owned())],
-                vec![UiCell::Number("3".to_owned()), UiCell::Text("Charlie".to_owned())],
-            ],
-            row_count: 3,
-            duration_ms: 0,
-        }),
+        table_state: TableState {
+            table_data_result: Some(UiQueryResult {
+                columns: vec![
+                    crate::UiColumn {
+                        name: "id".to_owned(),
+                        data_type: "INTEGER".to_owned(),
+                        nullable: false,
+                    },
+                    crate::UiColumn {
+                        name: "name".to_owned(),
+                        data_type: "TEXT".to_owned(),
+                        nullable: false,
+                    },
+                ],
+                rows: vec![
+                    vec![UiCell::Number("1".to_owned()), UiCell::Text("Alice".to_owned())],
+                    vec![UiCell::Number("2".to_owned()), UiCell::Text("Bob".to_owned())],
+                    vec![UiCell::Number("3".to_owned()), UiCell::Text("Charlie".to_owned())],
+                ],
+                row_count: 3,
+                duration_ms: 0,
+            }),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -5641,7 +5671,7 @@ fn test_conflict_keep_mine_and_use_database_resolution_actions() {
         original_pk_values: vec![UiCell::Number("42".to_owned())],
     };
 
-    app.table_data_result = Some(UiQueryResult {
+    app.table_state.table_data_result = Some(UiQueryResult {
         columns: vec![
             crate::UiColumn {
                 name: "id".to_owned(),

@@ -180,7 +180,7 @@ impl DbProApp {
             self.runtime_message = "No supported SQL operations to apply".into();
             return;
         }
-        if self.ddl_execution_request.is_some() {
+        if self.table_state.ddl_execution_request.is_some() {
             return;
         }
         let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() else {
@@ -192,7 +192,7 @@ impl DbProApp {
             connection_id,
             sql,
         });
-        self.ddl_execution_request = Some(request_id);
+        self.table_state.ddl_execution_request = Some(request_id);
         self.runtime_message = "Applying migration plan…".into();
     }
 

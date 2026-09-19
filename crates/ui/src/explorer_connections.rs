@@ -326,9 +326,9 @@ impl DbProApp {
         self.selected_schema = Some(schema.to_owned());
         self.selected_table = None;
         self.selected_schema_object = None;
-        self.table_info = None;
+        self.table_state.table_info = None;
         self.table_ddl = None;
-        self.table_data_result = None;
+        self.table_state.table_data_result = None;
         self.staged_changes.clear();
         self.staged_apply_targets.clear();
         self.table_mutation_error = None;

@@ -257,7 +257,7 @@ impl DbProApp {
 
         if open_data {
             self.open_table(table.to_owned());
-            self.table_view = TableView::Data;
+            self.table_state.table_view = TableView::Data;
         }
         if open_structure {
             self.open_table_from_palette(table.to_owned());

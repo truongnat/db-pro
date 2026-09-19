@@ -84,7 +84,10 @@ fn table_sort_cycles_and_shift_adds_prioritized_clauses() {
             active_tab: WorkspaceTab::Table,
             ..Default::default()
         },
-        table_view: TableView::Data,
+        table_state: TableState {
+            table_view: TableView::Data,
+            ..Default::default()
+        },
         ..Default::default()
     };
     let result = UiQueryResult {
@@ -106,21 +109,22 @@ fn table_sort_cycles_and_shift_adds_prioritized_clauses() {
     };
 
     app.cycle_table_data_sort(&result, 0, false);
-    assert_eq!(app.table_data_sorts[0].column, "tenant_id");
-    assert!(!app.table_data_sorts[0].descending);
+    assert_eq!(app.table_state.table_data_sorts[0].column, "tenant_id");
+    assert!(!app.table_state.table_data_sorts[0].descending);
     app.cycle_table_data_sort(&result, 0, false);
-    assert!(app.table_data_sorts[0].descending);
+    assert!(app.table_state.table_data_sorts[0].descending);
     app.cycle_table_data_sort(&result, 1, true);
     assert_eq!(
-        app.table_data_sorts
+        app.table_state
+            .table_data_sorts
             .iter()
             .map(|sort| sort.column.as_str())
             .collect::<Vec<_>>(),
         vec!["tenant_id", "item_id"]
     );
     app.cycle_table_data_sort(&result, 0, true);
-    assert_eq!(app.table_data_sorts.len(), 1);
-    assert_eq!(app.table_data_sorts[0].column, "item_id");
+    assert_eq!(app.table_state.table_data_sorts.len(), 1);
+    assert_eq!(app.table_state.table_data_sorts[0].column, "item_id");
 }
 
 #[test]
@@ -235,7 +239,10 @@ fn sorting_is_blocked_while_staged_changes_are_present() {
             active_tab: WorkspaceTab::Table,
             ..Default::default()
         },
-        table_view: TableView::Data,
+        table_state: TableState {
+            table_view: TableView::Data,
+            ..Default::default()
+        },
         staged_changes: ChangeSet::from(vec![StagedChange::Insert {
             local_id: 1,
             columns: vec!["name".to_owned()],
@@ -256,7 +263,7 @@ fn sorting_is_blocked_while_staged_changes_are_present() {
 
     app.cycle_table_data_sort(&result, 0, false);
 
-    assert!(app.table_data_sorts.is_empty());
+    assert!(app.table_state.table_data_sorts.is_empty());
     assert!(app.runtime_message.contains("staged changes"));
 }
 

@@ -276,7 +276,10 @@ impl DbProApp {
                                 .color(self.theme.text_muted),
                         );
                     }
-                    if let Some(result) = self.active_query_result().or(self.table_data_result.as_ref()) {
+                    if let Some(result) = self
+                        .active_query_result()
+                        .or(self.table_state.table_data_result.as_ref())
+                    {
                         ui.label(
                             RichText::new(format!("{} ms", result.duration_ms))
                                 .font(font_mono_sm())
@@ -366,7 +369,9 @@ impl DbProApp {
                 ui.separator();
                 match self.query_output_state.active_tab {
                     OutputTab::Results => {
-                        let result = self.active_query_result().or(self.table_data_result.as_ref());
+                        let result = self
+                            .active_query_result()
+                            .or(self.table_state.table_data_result.as_ref());
                         ui.label(
                             RichText::new(
                                 result
@@ -3429,7 +3434,7 @@ impl DbProApp {
     }
 
     fn apply_security_rls_preview(&mut self) {
-        if self.ddl_execution_request.is_some() {
+        if self.table_state.ddl_execution_request.is_some() {
             return;
         }
         let sql = self.security_rls_preview_sql.trim().to_owned();
@@ -3445,7 +3450,7 @@ impl DbProApp {
             connection_id,
             sql,
         });
-        self.ddl_execution_request = Some(request_id);
+        self.table_state.ddl_execution_request = Some(request_id);
         self.runtime_message = "Applying RLS mutation…".into();
     }
 

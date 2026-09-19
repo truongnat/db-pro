@@ -691,7 +691,7 @@ impl DbProApp {
 
     fn refresh_schema_palette(&mut self) {
         if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
-            self.refresh_table_info_after_schema = self.selected_table.is_some();
+            self.table_state.refresh_table_info_after_schema = self.selected_table.is_some();
             self.request_schema_introspection(connection_id, true);
         } else {
             self.runtime_message = "Connect to a database before refreshing schema".to_owned();
@@ -708,10 +708,10 @@ impl DbProApp {
         self.selected_table = Some(table.clone());
         self.restore_grid_layout_for_active_table();
         self.selected_schema_object = None;
-        self.table_view = TableView::Structure;
-        self.table_info = None;
+        self.table_state.table_view = TableView::Structure;
+        self.table_state.table_info = None;
         self.table_ddl = None;
-        self.table_data_result = None;
+        self.table_state.table_data_result = None;
         self.request_table_info();
         self.workspace.active_tab = WorkspaceTab::Table;
         self.runtime_message = format!("Opening table {table}");

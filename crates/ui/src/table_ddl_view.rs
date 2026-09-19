@@ -76,7 +76,7 @@ impl DbProApp {
             self.table_ddl = Some(ddl);
         }
 
-        if self.ddl_execute_confirmation {
+        if self.table_state.ddl_execute_confirmation {
             let impact = ddl_impact_summary(self.table_ddl.as_deref().unwrap_or(""), table_name);
             ui.add_space(8.0);
             self.draw_ddl_confirmation_card(ui, &impact);

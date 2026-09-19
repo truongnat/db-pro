@@ -308,8 +308,8 @@ impl DbProApp {
         }
         self.schema_request = None;
         self.schema_error = None;
-        let refresh_selected_table = self.refresh_table_info_after_schema;
-        self.refresh_table_info_after_schema = false;
+        let refresh_selected_table = self.table_state.refresh_table_info_after_schema;
+        self.table_state.refresh_table_info_after_schema = false;
         let mut schema = schema;
         schema.schemas.retain(|name| is_user_visible_schema(name));
         self.schema_symbol_index = SchemaSymbolIndex::build(&schema);
@@ -352,24 +352,24 @@ impl DbProApp {
     fn clear_missing_selected_table(&mut self) {
         self.selected_table = None;
         self.selected_schema_object = None;
-        self.table_info = None;
+        self.table_state.table_info = None;
         self.table_ddl = None;
-        self.table_info_error = None;
-        self.table_ddl_error = None;
-        self.ddl_execute_confirmation = false;
-        self.ddl_execution_request = None;
-        self.table_data_result = None;
-        self.table_data_total_rows = None;
-        self.table_data_offset = 0;
-        self.table_data_filter_column.clear();
-        self.table_data_filter_operator = UiTableFilterOperator::default();
-        self.table_data_filter_value.clear();
-        self.table_data_filters.clear();
-        self.table_data_sorts.clear();
-        self.table_data_error = None;
-        self.table_info_request = None;
-        self.table_ddl_request = None;
-        self.table_data_request = None;
+        self.table_state.table_info_error = None;
+        self.table_state.table_ddl_error = None;
+        self.table_state.ddl_execute_confirmation = false;
+        self.table_state.ddl_execution_request = None;
+        self.table_state.table_data_result = None;
+        self.table_state.table_data_total_rows = None;
+        self.table_state.table_data_offset = 0;
+        self.table_state.table_data_filter_column.clear();
+        self.table_state.table_data_filter_operator = UiTableFilterOperator::default();
+        self.table_state.table_data_filter_value.clear();
+        self.table_state.table_data_filters.clear();
+        self.table_state.table_data_sorts.clear();
+        self.table_state.table_data_error = None;
+        self.table_state.table_info_request = None;
+        self.table_state.table_ddl_request = None;
+        self.table_state.table_data_request = None;
         if self.workspace.active_tab == WorkspaceTab::Table {
             self.activate_welcome_tab();
         }
@@ -459,73 +459,73 @@ impl DbProApp {
 
     /// Table structure arrived: seed filter/sort defaults on first load.
     fn on_table_info_loaded(&mut self, request_id: RequestId, table_info: UiTableInfo) {
-        if self.table_info_request != Some(request_id) {
+        if self.table_state.table_info_request != Some(request_id) {
             return;
         }
-        if self.table_data_filter_column.is_empty() {
-            self.table_data_filter_column = table_info
+        if self.table_state.table_data_filter_column.is_empty() {
+            self.table_state.table_data_filter_column = table_info
                 .columns
                 .first()
                 .map(|column| column.name.clone())
                 .unwrap_or_default();
         }
-        if self.table_data_sorts.is_empty() {
+        if self.table_state.table_data_sorts.is_empty() {
             if let Some(column) = table_info
                 .primary_key
                 .as_ref()
                 .and_then(|columns| columns.first().cloned())
                 .or_else(|| table_info.columns.first().map(|column| column.name.clone()))
             {
-                self.table_data_sorts.push(UiTableDataSort {
+                self.table_state.table_data_sorts.push(UiTableDataSort {
                     column,
                     descending: false,
                 });
             }
         }
-        self.table_info = Some(table_info);
+        self.table_state.table_info = Some(table_info);
         self.invalidate_grid_row_caches();
-        self.table_info_error = None;
-        self.table_info_request = None;
+        self.table_state.table_info_error = None;
+        self.table_state.table_info_request = None;
         self.runtime_message = "Table structure loaded".to_owned();
     }
 
     fn on_table_ddl_loaded(&mut self, request_id: RequestId, sql: String) {
-        if self.table_ddl_request == Some(request_id) {
+        if self.table_state.table_ddl_request == Some(request_id) {
             self.table_ddl = Some(sql);
-            self.ddl_execute_confirmation = false;
-            self.table_ddl_error = None;
-            self.table_ddl_request = None;
+            self.table_state.ddl_execute_confirmation = false;
+            self.table_state.table_ddl_error = None;
+            self.table_state.table_ddl_request = None;
             self.runtime_message = "Table DDL loaded".to_owned();
         }
     }
 
     /// Table data arrived: seed filter/sort defaults on first load.
     fn on_table_data_loaded(&mut self, request_id: RequestId, result: UiQueryResult, total_rows: u64) {
-        if self.table_row_reload_request == Some(request_id) {
+        if self.table_state.table_row_reload_request == Some(request_id) {
             self.on_table_row_reloaded(result);
             return;
         }
-        if self.table_data_request != Some(request_id) {
+        if self.table_state.table_data_request != Some(request_id) {
             return;
         }
-        if self.table_data_filter_column.is_empty() {
-            self.table_data_filter_column = result
+        if self.table_state.table_data_filter_column.is_empty() {
+            self.table_state.table_data_filter_column = result
                 .columns
                 .first()
                 .map(|column| column.name.clone())
                 .unwrap_or_default();
         }
-        if self.table_data_sorts.is_empty() {
+        if self.table_state.table_data_sorts.is_empty() {
             if let Some(column) = result.columns.first().map(|column| column.name.clone()) {
-                self.table_data_sorts.push(UiTableDataSort {
+                self.table_state.table_data_sorts.push(UiTableDataSort {
                     column,
                     descending: false,
                 });
             }
         }
-        self.table_data_result = Some(result);
+        self.table_state.table_data_result = Some(result);
         self.invalidate_grid_row_caches();
-        self.table_data_total_rows = Some(total_rows);
+        self.table_state.table_data_total_rows = Some(total_rows);
         if self.staged_changes.is_empty() {
             self.table_data.selected_cell = None;
             self.table_data.selected_row = None;
@@ -533,8 +533,8 @@ impl DbProApp {
             self.table_data.selection_anchor_row = None;
             self.table_data.selection_anchor_cell = None;
         }
-        self.table_data_error = None;
-        self.table_data_request = None;
+        self.table_state.table_data_error = None;
+        self.table_state.table_data_request = None;
         self.runtime_message = format!("Table data loaded · {total_rows} rows");
         if self.table_mutation_retry_after_reload {
             self.table_mutation_retry_after_reload = false;
@@ -543,8 +543,8 @@ impl DbProApp {
     }
 
     pub(crate) fn on_table_row_reloaded(&mut self, result: UiQueryResult) {
-        self.table_row_reload_request = None;
-        let Some(identity) = self.table_row_reload_identity.take() else {
+        self.table_state.table_row_reload_request = None;
+        let Some(identity) = self.table_state.table_row_reload_identity.take() else {
             return;
         };
         let Some(server_row) = result.rows.into_iter().next() else {
@@ -557,7 +557,7 @@ impl DbProApp {
         };
 
         let mut replaced_row = false;
-        if let Some(table_result) = self.table_data_result.as_mut() {
+        if let Some(table_result) = self.table_state.table_data_result.as_mut() {
             let column_indexes: std::collections::HashMap<&str, usize> = table_result
                 .columns
                 .iter()
@@ -577,7 +577,7 @@ impl DbProApp {
         if replaced_row {
             self.invalidate_grid_row_caches();
         }
-        self.table_data_error = None;
+        self.table_state.table_data_error = None;
         self.runtime_message = "Row reloaded from database".to_owned();
         if self.table_mutation_retry_after_reload {
             self.table_mutation_retry_after_reload = false;
@@ -628,11 +628,11 @@ impl DbProApp {
 
     /// DDL applied; re-introspect so the tree and table view pick up the change.
     fn on_ddl_completed(&mut self, request_id: RequestId, affected_rows: u64) {
-        if self.ddl_execution_request == Some(request_id) {
-            self.ddl_execution_request = None;
-            self.ddl_execute_confirmation = false;
-            self.table_ddl_error = None;
-            self.refresh_table_info_after_schema = self.selected_table.is_some();
+        if self.table_state.ddl_execution_request == Some(request_id) {
+            self.table_state.ddl_execution_request = None;
+            self.table_state.ddl_execute_confirmation = false;
+            self.table_state.table_ddl_error = None;
+            self.table_state.refresh_table_info_after_schema = self.selected_table.is_some();
             self.runtime_message = format!("DDL applied · {affected_rows} affected rows");
             if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                 self.request_schema_introspection(connection_id, true);
@@ -738,10 +738,10 @@ impl DbProApp {
             self.staged_apply_completed();
         } else if self.table_mutation_request == Some(request_id) {
             self.table_mutation_request = None;
-            self.table_data_result = None;
-            self.table_data_total_rows = None;
-            self.table_data_error = None;
-            self.table_data_request = None;
+            self.table_state.table_data_result = None;
+            self.table_state.table_data_total_rows = None;
+            self.table_state.table_data_error = None;
+            self.table_state.table_data_request = None;
             if self.workspace.active_tab == WorkspaceTab::Table {
                 self.request_table_data();
             }
@@ -833,40 +833,43 @@ mod row_reload_tests {
 
     fn row_reload_app() -> DbProApp {
         DbProApp {
-            table_info: Some(UiTableInfo {
-                schema: "public".to_owned(),
-                name: "customers".to_owned(),
-                row_count: Some(1),
-                columns: vec![
-                    UiTableColumn {
-                        name: "id".to_owned(),
-                        data_type: "integer".to_owned(),
-                        nullable: false,
-                        default: None,
-                        is_primary_key: true,
-                        ..Default::default()
-                    },
-                    UiTableColumn {
-                        name: "name".to_owned(),
-                        data_type: "text".to_owned(),
-                        nullable: false,
-                        default: None,
-                        is_primary_key: false,
-                        ..Default::default()
-                    },
-                ],
-                primary_key: Some(vec!["id".to_owned()]),
-                indexes: Vec::new(),
-                foreign_keys: Vec::new(),
-                check_constraints: Vec::new(),
-                dependencies: Vec::new(),
-            }),
-            table_data_result: Some(row_result("local server value")),
-            table_row_reload_request: Some(RequestId(9)),
-            table_row_reload_identity: Some(RowIdentity {
-                original_pk_columns: vec!["id".to_owned()],
-                original_pk_values: vec![UiCell::Number("7".to_owned())],
-            }),
+            table_state: TableState {
+                table_info: Some(UiTableInfo {
+                    schema: "public".to_owned(),
+                    name: "customers".to_owned(),
+                    row_count: Some(1),
+                    columns: vec![
+                        UiTableColumn {
+                            name: "id".to_owned(),
+                            data_type: "integer".to_owned(),
+                            nullable: false,
+                            default: None,
+                            is_primary_key: true,
+                            ..Default::default()
+                        },
+                        UiTableColumn {
+                            name: "name".to_owned(),
+                            data_type: "text".to_owned(),
+                            nullable: false,
+                            default: None,
+                            is_primary_key: false,
+                            ..Default::default()
+                        },
+                    ],
+                    primary_key: Some(vec!["id".to_owned()]),
+                    indexes: Vec::new(),
+                    foreign_keys: Vec::new(),
+                    check_constraints: Vec::new(),
+                    dependencies: Vec::new(),
+                }),
+                table_data_result: Some(row_result("local server value")),
+                table_row_reload_request: Some(RequestId(9)),
+                table_row_reload_identity: Some(RowIdentity {
+                    original_pk_columns: vec!["id".to_owned()],
+                    original_pk_values: vec![UiCell::Number("7".to_owned())],
+                }),
+                ..Default::default()
+            },
             ..Default::default()
         }
     }
@@ -876,9 +879,12 @@ mod row_reload_tests {
         let mut app = row_reload_app();
         app.on_table_data_loaded(RequestId(9), row_result("fresh server value"), 1);
 
-        let result = app.table_data_result.expect("table result should remain visible");
+        let result = app
+            .table_state
+            .table_data_result
+            .expect("table result should remain visible");
         assert_eq!(result.rows[0][1], UiCell::Text("fresh server value".to_owned()));
-        assert!(app.table_row_reload_request.is_none());
+        assert!(app.table_state.table_row_reload_request.is_none());
     }
 
     #[test]
@@ -893,7 +899,7 @@ mod row_reload_tests {
         app.on_table_data_loaded(RequestId(9), empty, 0);
 
         assert_eq!(app.runtime_message, "Row was deleted");
-        assert!(app.table_data_result.is_some());
+        assert!(app.table_state.table_data_result.is_some());
     }
 
     #[test]

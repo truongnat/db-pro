@@ -49,10 +49,11 @@ impl DbProApp {
 
                 // Check PK / FK indicators
                 let is_pk = self
+                    .table_state
                     .table_info
                     .as_ref()
                     .is_some_and(|info| info.columns.iter().any(|c| c.name == column.name && c.is_primary_key));
-                let is_fk = self.table_info.as_ref().is_some_and(|info| {
+                let is_fk = self.table_state.table_info.as_ref().is_some_and(|info| {
                     info.foreign_keys
                         .iter()
                         .any(|fk| fk.from_columns.iter().any(|col| col == &column.name))
@@ -99,11 +100,17 @@ impl DbProApp {
 
                 // Column title + data type + sort icon
                 let table_sort = (self.workspace.active_tab == WorkspaceTab::Table
-                    && self.table_view == TableView::Data)
-                    .then(|| self.table_data_sorts.iter().find(|sort| sort.column == column.name))
+                    && self.table_state.table_view == TableView::Data)
+                    .then(|| {
+                        self.table_state
+                            .table_data_sorts
+                            .iter()
+                            .find(|sort| sort.column == column.name)
+                    })
                     .flatten();
                 let table_sort_priority = table_sort.and_then(|_| {
-                    self.table_data_sorts
+                    self.table_state
+                        .table_data_sorts
                         .iter()
                         .position(|sort| sort.column == column.name)
                         .map(|position| position + 1)
@@ -249,7 +256,7 @@ impl DbProApp {
                         *close_menu = true;
                     }
                     if self.workspace.active_tab == WorkspaceTab::Table
-                        && self.table_view == TableView::Data
+                        && self.table_state.table_view == TableView::Data
                         && ctx_menu_item(ui, Some(Icon::Filter), "Add Filter", None, theme.text_primary, theme)
                             .clicked()
                     {
@@ -344,7 +351,9 @@ impl DbProApp {
                 });
 
                 if col_resp.clicked() && !divider.dragged() {
-                    if self.workspace.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+                    if self.workspace.active_tab == WorkspaceTab::Table
+                        && self.table_state.table_view == TableView::Data
+                    {
                         self.cycle_table_data_sort(result, col_idx, ui.input(|input| input.modifiers.shift));
                     } else if self.table_data.grid_sort_column == Some(col_idx) {
                         self.set_table_or_grid_sort(
@@ -396,10 +405,10 @@ impl DbProApp {
         }
         if let Some(column_index) = add_filter_req {
             if let Some(column) = result.columns.get(column_index) {
-                self.table_data_filter_column = column.name.clone();
-                self.table_data_filter_operator = UiTableFilterOperator::Equals;
-                self.table_data_filter_value.clear();
-                self.table_data_filter_editing = None;
+                self.table_state.table_data_filter_column = column.name.clone();
+                self.table_state.table_data_filter_operator = UiTableFilterOperator::Equals;
+                self.table_state.table_data_filter_value.clear();
+                self.table_state.table_data_filter_editing = None;
                 self.runtime_message = format!("Filter draft ready for {}", column.name);
             }
         }

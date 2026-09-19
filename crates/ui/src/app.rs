@@ -140,6 +140,8 @@ mod sidebar_activities_view;
 mod sidebar_view;
 #[path = "table_data_state.rs"]
 mod table_data_state;
+#[path = "table_state.rs"]
+mod table_state;
 #[path = "tasks_view.rs"]
 mod tasks_view;
 #[path = "visual_query_builder_view.rs"]
@@ -154,6 +156,7 @@ pub(crate) use query_output_state::QueryOutputState;
 pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
 pub(crate) use table_data_state::TableDataState;
+pub(crate) use table_state::TableState;
 #[path = "schema_compare.rs"]
 mod schema_compare;
 #[path = "schema_object_view.rs"]
@@ -465,37 +468,10 @@ pub struct DbProApp {
     diagram_layout_worker: crate::diagram::ErLayoutWorker,
     diagram_layout_state: crate::diagram::ErLayoutState,
     diagram_latest_layout_request: u64,
-    table_info: Option<UiTableInfo>,
+    table_state: TableState,
     table_ddl: Option<String>,
-    table_info_error: Option<String>,
-    table_ddl_error: Option<String>,
-    ddl_execute_confirmation: bool,
     /// A destructive statement the user must confirm before it reaches the database.
     pending_destructive_run: Option<events::PendingDestructiveRun>,
-    ddl_execution_request: Option<crate::RequestId>,
-    refresh_table_info_after_schema: bool,
-    table_data_result: Option<UiQueryResult>,
-    table_data_total_rows: Option<u64>,
-    table_data_offset: u64,
-    table_data_limit: u64,
-    table_data_filter_column: String,
-    table_data_filter_operator: UiTableFilterOperator,
-    table_data_filter_value: String,
-    table_data_filter_editing: Option<usize>,
-    table_data_filters: Vec<UiTableDataFilter>,
-    table_data_sorts: Vec<UiTableDataSort>,
-    table_data_error: Option<String>,
-    table_structure_search: String,
-    table_metadata_search: String,
-    table_column_detail: Option<String>,
-    table_index_detail: Option<String>,
-    table_dependency_filter: String,
-    table_constraint_filter: String,
-    table_info_request: Option<crate::RequestId>,
-    table_ddl_request: Option<crate::RequestId>,
-    table_data_request: Option<crate::RequestId>,
-    table_row_reload_request: Option<crate::RequestId>,
-    table_row_reload_identity: Option<RowIdentity>,
     table_mutation_request: Option<crate::RequestId>,
     staged_changes: ChangeSet,
     pending_changes_open: bool,
@@ -505,7 +481,6 @@ pub struct DbProApp {
     table_mutation_retry_target: Option<MutationTarget>,
     table_mutation_error: Option<MutationFailure>,
     conflict_dialog_open: bool,
-    table_view: TableView,
     query_folder: String,
     backup_output_path: String,
     restore_input_path: String,
@@ -829,12 +804,12 @@ impl DbProApp {
                 .agent_sessions
                 .values()
                 .any(|session| session.request_id.is_some() || session.active_run_id.is_some())
-            || self.table_info_request.is_some()
-            || self.table_ddl_request.is_some()
-            || self.table_data_request.is_some()
+            || self.table_state.table_info_request.is_some()
+            || self.table_state.table_ddl_request.is_some()
+            || self.table_state.table_data_request.is_some()
             || self.table_mutation_request.is_some()
             || self.staged_apply_request.is_some()
-            || self.ddl_execution_request.is_some()
+            || self.table_state.ddl_execution_request.is_some()
     }
 
     fn request_schema_introspection(&mut self, connection_id: String, force_refresh: bool) {

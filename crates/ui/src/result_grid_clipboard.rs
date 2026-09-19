@@ -112,15 +112,16 @@ impl DbProApp {
             return;
         }
         let table = self.selected_table.as_deref().unwrap_or("table_name");
-        let target = if self.workspace.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
-            format!(
-                "{}.{}",
-                Self::quote_sql_identifier(self.active_schema()),
+        let target =
+            if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
+                format!(
+                    "{}.{}",
+                    Self::quote_sql_identifier(self.active_schema()),
+                    Self::quote_sql_identifier(table)
+                )
+            } else {
                 Self::quote_sql_identifier(table)
-            )
-        } else {
-            Self::quote_sql_identifier(table)
-        };
+            };
         let columns = result
             .columns
             .iter()
@@ -426,7 +427,7 @@ impl DbProApp {
         column_index: usize,
     ) -> Option<crate::UiCell> {
         let cell = result.rows.get(row_index).and_then(|row| row.get(column_index))?;
-        if self.workspace.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+        if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
             Some(
                 self.staged_cell_value(result, row_index, column_index)
                     .unwrap_or_else(|| cell.clone()),

@@ -131,7 +131,7 @@ impl DbProApp {
 
         let order = self.column_order_for_columns(&result.columns);
         let editable = self.workspace.active_tab == WorkspaceTab::Table
-            && self.table_view == TableView::Data
+            && self.table_state.table_view == TableView::Data
             && self.can_edit_table_rows();
         // The projection is memoized across frames: sorting a 200k-row result on a timestamp-shaped
         // column costs seconds per invocation in debug, so rebuilding it in the draw path is what
@@ -151,7 +151,7 @@ impl DbProApp {
             .take(&projection_key, &order)
             .unwrap_or_else(|| GridSelectionLookup::new(&indexes, &order));
 
-        if self.workspace.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+        if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
             self.rebuild_row_identity_cache(result, &indexes);
         } else {
             self.table_data.grid_row_identity_cache.clear();
@@ -160,13 +160,18 @@ impl DbProApp {
 
         self.handle_grid_keyboard(ui, result, &indexes, &order, editable, &selection_lookup);
 
-        let is_table_data = self.workspace.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data;
+        let is_table_data =
+            self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data;
         if !is_table_data {
             self.draw_grid_toolbar(ui, result, editable, indexes.len(), &indexes);
         }
         self.draw_record_inspector_panel(ui, result);
 
-        let row_offset = if is_table_data { self.table_data_offset } else { 0 };
+        let row_offset = if is_table_data {
+            self.table_state.table_data_offset
+        } else {
+            0
+        };
         self.draw_grid_body(ui, result, &indexes, &order, editable, row_offset, &selection_lookup);
 
         self.table_data
@@ -339,12 +344,12 @@ impl DbProApp {
         column_index: usize,
         descending: Option<bool>,
     ) {
-        if self.workspace.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+        if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
             if !self.staged_changes.is_empty() {
                 self.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
                 return;
             }
-            self.table_data_sorts = descending
+            self.table_state.table_data_sorts = descending
                 .and_then(|_| {
                     result.columns.get(column_index).map(|column| UiTableDataSort {
                         column: column.name.clone(),
@@ -374,28 +379,38 @@ impl DbProApp {
             return;
         };
         if additive {
-            if let Some(index) = self.table_data_sorts.iter().position(|sort| sort.column == column) {
-                if self.table_data_sorts[index].descending {
-                    self.table_data_sorts.remove(index);
+            if let Some(index) = self
+                .table_state
+                .table_data_sorts
+                .iter()
+                .position(|sort| sort.column == column)
+            {
+                if self.table_state.table_data_sorts[index].descending {
+                    self.table_state.table_data_sorts.remove(index);
                 } else {
-                    self.table_data_sorts[index].descending = true;
+                    self.table_state.table_data_sorts[index].descending = true;
                 }
             } else {
-                self.table_data_sorts.push(UiTableDataSort {
+                self.table_state.table_data_sorts.push(UiTableDataSort {
                     column,
                     descending: false,
                 });
             }
-        } else if self.table_data_sorts.len() == 1
-            && self.table_data_sorts.first().map(|sort| sort.column.as_str()) == Some(column.as_str())
+        } else if self.table_state.table_data_sorts.len() == 1
+            && self
+                .table_state
+                .table_data_sorts
+                .first()
+                .map(|sort| sort.column.as_str())
+                == Some(column.as_str())
         {
-            if self.table_data_sorts[0].descending {
-                self.table_data_sorts.clear();
+            if self.table_state.table_data_sorts[0].descending {
+                self.table_state.table_data_sorts.clear();
             } else {
-                self.table_data_sorts[0].descending = true;
+                self.table_state.table_data_sorts[0].descending = true;
             }
         } else {
-            self.table_data_sorts = vec![UiTableDataSort {
+            self.table_state.table_data_sorts = vec![UiTableDataSort {
                 column,
                 descending: false,
             }];
