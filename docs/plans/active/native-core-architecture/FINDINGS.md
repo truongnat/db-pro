@@ -30,3 +30,16 @@ directly. This is a useful current seam, but it must dispatch into feature
 reducers as aggregates are extracted.
 
 Severity: P1 follow-up.
+
+## F4 — Connection lifecycle was coupled to every consumer
+
+Evidence: active connection identity, pending request identity, failure
+markers and request flags were individual `DbProApp` fields read by explorer,
+query, navigation, task, schema and event code.
+
+Fix in `13dedb61`: those lifecycle values now have one owner,
+`ConnectionLifecycleState`, with explicit clearing behavior for pending
+requests and connection errors. The saved-connection collection is still a
+read model in `DbProApp` and is intentionally the next migration step.
+
+Severity: P1 boundary leak, partially resolved.
