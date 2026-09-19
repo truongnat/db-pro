@@ -43,8 +43,9 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
    files, diagram, database operations, palette, query execution policy, query
    library, saved tasks, named sessions, overlays, feedback, preferences and
    welcome state are also extracted.
-7. Split runtime event dispatch by feature and keep `DbProApp` as composition,
-   persistence, event pump, and top-level orchestration only.
+7. Keep the runtime event dispatch table isolated in `event_router.rs`; split
+   the remaining feature reducers out of `events.rs` and keep `DbProApp` as
+   composition, persistence, event pump, and top-level orchestration only.
 8. Add architecture checks so new feature code cannot reach another feature's
    internals or reintroduce raw control paths.
 
@@ -58,7 +59,8 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
 ## Completion criteria
 
 - Every migrated feature state has one owner and a public transition surface.
-- UI event handling is feature-dispatched and testable without egui painting.
+- UI event dispatch is isolated from feature handlers and remains testable
+  without egui painting.
 - `DbProApp` contains no feature-specific draft/result collection once the
   corresponding feature migration is complete.
 - Core behavior tests cover open/edit/duplicate/close, stale request guards,

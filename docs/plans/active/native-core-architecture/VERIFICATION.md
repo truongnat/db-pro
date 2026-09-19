@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `f2743613`.
+Source checkpoint: `5ce727ab8770c86859c3062a31d86781e093ba04`.
 
 ## Current change
 
@@ -35,6 +35,8 @@ Source checkpoint: `f2743613`.
   `PreferencesState` and `WelcomeState` now own their feature state.
 - `ConnectionLifecycleState` now also owns connection status and fallback name;
   `SchemaExplorerState` owns persisted explorer pane heights.
+- Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
+  transition handlers remain independently callable from the router.
 - Unit tests for the extracted aggregates: 25 passed, 0 failed.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
@@ -50,6 +52,6 @@ Source checkpoint: `f2743613`.
 ## Not yet proven
 
 - Native screenshot/runtime evidence for all affected states.
-- Runtime event dispatch is still centralized in `events.rs`; feature-level
-  event reducers are the next architectural slice.
+- Feature-level event reducers still share the legacy handler module and are
+  the next architectural slice.
 - Native screenshot/runtime evidence for all affected states.
