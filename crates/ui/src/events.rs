@@ -38,7 +38,7 @@ impl DbProApp {
         batch_was_full
     }
 
-    // Query completion/history/prediction: `events_query.rs`.
+    // Query completion/history/prediction: dedicated query event reducers.
     // Shortcuts / dispatch: `events_query_dispatch.rs`.
 }
 

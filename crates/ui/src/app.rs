@@ -26,7 +26,6 @@ use std::time::{Duration, Instant};
 
 use agent_workflow_state::AgentUiSession;
 use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
-use events::QueryHistoryRecord;
 
 #[path = "agent_events.rs"]
 mod agent_events;
@@ -74,8 +73,6 @@ mod diagram_view;
 mod event_router;
 #[path = "events.rs"]
 mod events;
-#[path = "events_query.rs"]
-mod events_query;
 #[path = "events_query_dispatch.rs"]
 mod events_query_dispatch;
 #[path = "explorer_connections.rs"]
@@ -114,6 +111,8 @@ mod preferences_state;
 mod query_execution_events;
 #[path = "query_execution_state.rs"]
 mod query_execution_state;
+#[path = "query_failure_events.rs"]
+mod query_failure_events;
 #[path = "query_history_events.rs"]
 mod query_history_events;
 #[path = "query_library_events.rs"]
@@ -577,10 +576,6 @@ impl DbProApp {
         }
     }
 
-    fn record_query_history(&mut self, record: QueryHistoryRecord) {
-        query_history_events::record_query_history(&mut self.query_editor, record);
-    }
-
     pub(super) fn on_explain_completed(&mut self, request_id: RequestId, plan: String) {
         query_execution_events::on_explain_completed(
             &mut self.query_session_state,
@@ -624,6 +619,30 @@ impl DbProApp {
             feedback: &mut self.feedback,
         };
         query_multi_result_events::on_query_multi_completed(&mut context, request_id, output);
+    }
+
+    pub(super) fn on_query_failed(
+        &mut self,
+        request_id: RequestId,
+        message: String,
+        position: Option<usize>,
+        code: Option<String>,
+    ) {
+        if self.handle_agent_request_failure(request_id, &message)
+            || self.handle_connection_request_failure(request_id, &message)
+            || self.handle_schema_request_failure(request_id, &message)
+            || self.handle_table_request_failure(request_id, &message)
+        {
+            return;
+        }
+        let mut context = query_failure_events::QueryFailureContext {
+            query_session: &mut self.query_session_state,
+            query_editor: &mut self.query_editor,
+            query_output: &mut self.query_output_state,
+            workspace: &mut self.workspace.shell,
+            feedback: &mut self.feedback,
+        };
+        query_failure_events::on_query_failed(&mut context, request_id, message, position, code);
     }
 
     pub(super) fn on_query_queued(&mut self, request_id: RequestId) {
