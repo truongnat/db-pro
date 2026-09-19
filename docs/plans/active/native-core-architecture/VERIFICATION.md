@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `86969167`.
+Source checkpoint: `71807a18`.
 
 ## Current change
 
@@ -79,6 +79,11 @@ Source checkpoint: `86969167`.
   request returned by `SchemaLoadedTransition`. Stale request rejection and
   missing-table reconciliation are covered by reducer tests, and the
   architecture guard rejects `DbProApp` references in the reducer module.
+- Agent provider/workflow event handling now lives in explicit-state reducers
+  in `agent_events.rs`; provider configuration failure is request-scoped and
+  reducer tests cover stale configuration events and provider readiness. Toast
+  emission is owned by `FeedbackState`, not an app-only helper, and the
+  architecture guard rejects `DbProApp` references in the agent reducer.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

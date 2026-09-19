@@ -157,6 +157,10 @@ aggregate keeps the shell navigation API readable.
 Schema event handling now follows the same boundary: `schema_events.rs` is an
 explicit-state reducer with a typed follow-up transition, while `DbProApp`
 only coordinates the request to reload selected table metadata.
+Agent provider/workflow events now follow the same boundary: `agent_events.rs`
+reduces explicit `AgentState` and `FeedbackState`, including request-scoped
+configuration failures and provider readiness, with the root limited to event
+composition.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
