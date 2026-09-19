@@ -110,6 +110,8 @@ mod overlay_state;
 mod palette_state;
 #[path = "preferences_state.rs"]
 mod preferences_state;
+#[path = "query_execution_events.rs"]
+mod query_execution_events;
 #[path = "query_execution_state.rs"]
 mod query_execution_state;
 #[path = "query_history_events.rs"]
@@ -573,6 +575,27 @@ impl DbProApp {
 
     fn record_query_history(&mut self, record: QueryHistoryRecord) {
         query_history_events::record_query_history(&mut self.query_editor, record);
+    }
+
+    pub(super) fn on_explain_completed(&mut self, request_id: RequestId, plan: String) {
+        query_execution_events::on_explain_completed(
+            &mut self.query_session_state,
+            &mut self.query_output_state,
+            &mut self.workspace.shell,
+            &mut self.query_editor,
+            &mut self.feedback,
+            request_id,
+            plan,
+        );
+    }
+
+    pub(super) fn on_query_cancelled(&mut self, request_id: RequestId) {
+        query_execution_events::on_query_cancelled(
+            &mut self.query_session_state,
+            &mut self.query_editor,
+            &mut self.feedback,
+            request_id,
+        );
     }
 
     pub(super) fn on_query_queued(&mut self, request_id: RequestId) {
