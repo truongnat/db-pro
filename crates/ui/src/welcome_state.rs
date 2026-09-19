@@ -1,7 +1,7 @@
 /// Draft state for the welcome surface.
 #[derive(Debug, Default)]
 pub(crate) struct WelcomeState {
-    pub prompt: String,
+    pub(super) prompt: String,
 }
 
 #[cfg(test)]

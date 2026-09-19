@@ -3,10 +3,10 @@ use super::workspace_session::NamedSessionStore;
 /// UI state for named workspace sessions and restore diagnostics.
 #[derive(Debug)]
 pub(crate) struct WorkspaceSessionState {
-    pub store: NamedSessionStore,
-    pub name_draft: String,
-    pub selected_id: Option<String>,
-    pub last_restore_notes: Vec<String>,
+    pub(super) store: NamedSessionStore,
+    pub(super) name_draft: String,
+    pub(super) selected_id: Option<String>,
+    pub(super) last_restore_notes: Vec<String>,
 }
 
 impl Default for WorkspaceSessionState {

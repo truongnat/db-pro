@@ -4,14 +4,14 @@ use crate::editor::PredictionMode;
 /// User preferences and settings-editor drafts owned by the settings feature.
 #[derive(Debug)]
 pub(crate) struct PreferencesState {
-    pub dark_mode: bool,
-    pub reduce_motion: bool,
-    pub settings: AppSettings,
-    pub section: SettingsSection,
-    pub keybindings_filter: String,
-    pub keybinding_edit_id: Option<String>,
-    pub keybinding_edit_draft: String,
-    pub prediction_mode: PredictionMode,
+    pub(super) dark_mode: bool,
+    pub(super) reduce_motion: bool,
+    pub(super) settings: AppSettings,
+    pub(super) section: SettingsSection,
+    pub(super) keybindings_filter: String,
+    pub(super) keybinding_edit_id: Option<String>,
+    pub(super) keybinding_edit_draft: String,
+    pub(super) prediction_mode: PredictionMode,
 }
 
 impl Default for PreferencesState {

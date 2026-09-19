@@ -7,15 +7,15 @@ use std::collections::{HashMap, HashSet};
 /// migration step because it is also used as the explorer's read model.
 #[derive(Debug, Default)]
 pub(crate) struct ConnectionLifecycleState {
-    pub(crate) fallback_name: String,
-    pub(crate) connected: bool,
-    pub(crate) active_connection_id: Option<String>,
-    pub(crate) pending_connection_id: Option<String>,
-    pub(crate) pending_request: Option<RequestId>,
-    pub(crate) errors: HashMap<String, String>,
-    pub(crate) failed_connection_ids: HashSet<String>,
-    pub(crate) connections_requested: bool,
-    pub(crate) connections_request_pending: bool,
+    pub(in crate::app) fallback_name: String,
+    pub(in crate::app) connected: bool,
+    pub(in crate::app) active_connection_id: Option<String>,
+    pub(in crate::app) pending_connection_id: Option<String>,
+    pub(in crate::app) pending_request: Option<RequestId>,
+    pub(in crate::app) errors: HashMap<String, String>,
+    pub(in crate::app) failed_connection_ids: HashSet<String>,
+    pub(in crate::app) connections_requested: bool,
+    pub(in crate::app) connections_request_pending: bool,
 }
 
 impl ConnectionLifecycleState {

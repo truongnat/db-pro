@@ -3,7 +3,7 @@ use crate::UiConnectionSummary;
 /// Read model of saved connections exposed to explorer and workspace surfaces.
 #[derive(Debug, Default)]
 pub(crate) struct ConnectionCatalogState {
-    pub(crate) connections: Vec<UiConnectionSummary>,
+    pub(in crate::app) connections: Vec<UiConnectionSummary>,
 }
 
 impl ConnectionCatalogState {

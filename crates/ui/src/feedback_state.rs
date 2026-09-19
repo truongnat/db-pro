@@ -3,9 +3,9 @@ use crate::components::overlay::ToastManager;
 /// User-visible feedback shared by feature slices and the shell status surfaces.
 #[derive(Debug, Default)]
 pub(crate) struct FeedbackState {
-    pub runtime_message: String,
-    pub copy_status: String,
-    pub toasts: ToastManager,
+    pub(super) runtime_message: String,
+    pub(super) copy_status: String,
+    pub(super) toasts: ToastManager,
 }
 
 #[cfg(test)]

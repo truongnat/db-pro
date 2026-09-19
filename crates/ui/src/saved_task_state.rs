@@ -4,11 +4,11 @@ use uuid::Uuid;
 /// UI state for saved-task editing, scheduling, and confirmation flows.
 #[derive(Debug)]
 pub(crate) struct SavedTaskState {
-    pub store: SavedTaskStore,
-    pub draft: Option<SavedTask>,
-    pub dirty: bool,
-    pub confirm_destructive: bool,
-    pub pending_destructive_task_id: Option<Uuid>,
+    pub(super) store: SavedTaskStore,
+    pub(super) draft: Option<SavedTask>,
+    pub(super) dirty: bool,
+    pub(super) confirm_destructive: bool,
+    pub(super) pending_destructive_task_id: Option<Uuid>,
 }
 
 impl Default for SavedTaskState {

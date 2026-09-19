@@ -95,6 +95,19 @@ if rg -n 'database_operations|DatabaseOperationsState' "$repo_root/crates/ui/src
   exit 1
 fi
 
+state_field_leaks=$(rg -n '^\s*pub(\(crate\))? [A-Za-z_][A-Za-z0-9_]*:' \
+  "$repo_root/crates/ui/src"/*_state.rs \
+  "$repo_root/crates/ui/src/database_feature_states.rs" \
+  "$repo_root/crates/ui/src/schema_workbench.rs" \
+  "$repo_root/crates/ui/src/connection/state.rs" \
+  "$repo_root/crates/ui/src/connection/lifecycle.rs" \
+  "$repo_root/crates/ui/src/connection/catalog.rs" || true)
+if [[ -n "$state_field_leaks" ]]; then
+  echo "$state_field_leaks" >&2
+  echo "UI architecture check failed: feature state fields must stay inside the app boundary." >&2
+  exit 1
+fi
+
 for module in event_router agent_events connection_events operation_events schema_events table_events; do
   test -f "$repo_root/crates/ui/src/${module}.rs" || {
     echo "UI architecture check failed: missing event module ${module}.rs." >&2

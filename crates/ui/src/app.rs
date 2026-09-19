@@ -251,7 +251,7 @@ pub struct DbProApp {
     theme: DbProTheme,
     preferences: PreferencesState,
     workspace: WorkspaceShellState,
-    pub(crate) welcome: WelcomeState,
+    welcome: WelcomeState,
     query_session_state: QuerySessionState,
     query_editor: QueryEditorState,
     palette: PaletteState,
@@ -288,7 +288,7 @@ pub struct DbProApp {
     connection_dialog: ConnectionDialogState,
     /// Counter for initial render frames to ensure window is maximized on startup.
     initial_frames_count: u8,
-    pub gallery_state: component_gallery_view::ComponentGalleryState,
+    gallery_state: component_gallery_view::ComponentGalleryState,
 }
 
 impl eframe::App for DbProApp {

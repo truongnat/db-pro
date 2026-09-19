@@ -1,15 +1,15 @@
 /// State for transient shell overlays that are not owned by a single data view.
 #[derive(Debug)]
 pub(crate) struct OverlayState {
-    pub export_open: bool,
-    pub export_format: String,
-    pub export_path: String,
-    pub export_overwrite_pending: bool,
-    pub backup_output_path: String,
-    pub restore_input_path: String,
-    pub restore_confirmation: bool,
-    pub delete_confirmation_id: Option<String>,
-    pub folder_delete_confirmation: Option<String>,
+    pub(super) export_open: bool,
+    pub(super) export_format: String,
+    pub(super) export_path: String,
+    pub(super) export_overwrite_pending: bool,
+    pub(super) backup_output_path: String,
+    pub(super) restore_input_path: String,
+    pub(super) restore_confirmation: bool,
+    pub(super) delete_confirmation_id: Option<String>,
+    pub(super) folder_delete_confirmation: Option<String>,
 }
 
 impl Default for OverlayState {

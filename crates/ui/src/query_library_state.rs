@@ -3,9 +3,9 @@ use crate::{UiQueryFolderSummary, UiSavedQuerySummary};
 /// UI-owned state for the saved-query library and its editor drafts.
 #[derive(Debug, Default)]
 pub(crate) struct QueryLibraryState {
-    pub saved_queries: Vec<UiSavedQuerySummary>,
-    pub query_folders: Vec<UiQueryFolderSummary>,
-    pub query_folder: String,
+    pub(super) saved_queries: Vec<UiSavedQuerySummary>,
+    pub(super) query_folders: Vec<UiQueryFolderSummary>,
+    pub(super) query_folder: String,
 }
 
 #[cfg(test)]

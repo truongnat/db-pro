@@ -7,16 +7,16 @@ use crate::UiConnectionDraft;
 /// session state in `DbProApp` until that boundary is migrated separately.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ConnectionDialogState {
-    pub(crate) open: bool,
-    pub(crate) focus_name_on_open: bool,
-    pub(crate) editing_connection_id: Option<String>,
-    pub(crate) draft: UiConnectionDraft,
-    pub(crate) show_password: bool,
-    pub(crate) error: String,
-    pub(crate) test_valid: bool,
-    pub(crate) test_draft: Option<UiConnectionDraft>,
-    pub(crate) diagnostics: Option<db_pro_core::domain::connection_diagnostics::ConnectionDiagnosticsReport>,
-    pub(crate) ssh_profiles: Vec<db_pro_core::domain::connection::SshProfile>,
+    pub(in crate::app) open: bool,
+    pub(in crate::app) focus_name_on_open: bool,
+    pub(in crate::app) editing_connection_id: Option<String>,
+    pub(in crate::app) draft: UiConnectionDraft,
+    pub(in crate::app) show_password: bool,
+    pub(in crate::app) error: String,
+    pub(in crate::app) test_valid: bool,
+    pub(in crate::app) test_draft: Option<UiConnectionDraft>,
+    pub(in crate::app) diagnostics: Option<db_pro_core::domain::connection_diagnostics::ConnectionDiagnosticsReport>,
+    pub(in crate::app) ssh_profiles: Vec<db_pro_core::domain::connection::SshProfile>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
