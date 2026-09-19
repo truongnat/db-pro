@@ -154,6 +154,9 @@ The root now also owns one `WorkspaceFeatureState` aggregate for shell,
 local-file and named-session state; the old `workspace_files` and
 `workspace_sessions` composition-root fields are removed, while the typed
 aggregate keeps the shell navigation API readable.
+Schema event handling now follows the same boundary: `schema_events.rs` is an
+explicit-state reducer with a typed follow-up transition, while `DbProApp`
+only coordinates the request to reload selected table metadata.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

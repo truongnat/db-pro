@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `f052ecb6`.
+Source checkpoint: `86969167`.
 
 ## Current change
 
@@ -74,6 +74,11 @@ Source checkpoint: `f052ecb6`.
   `workspace_sessions` root fields. Existing shell field access is preserved
   through a typed `Deref` facade while file/session ownership remains explicit
   under `workspace.files` and `workspace.sessions`.
+- Schema event handling now lives in explicit-state reducers in
+  `schema_events.rs`; the root wrapper only performs the follow-up table-info
+  request returned by `SchemaLoadedTransition`. Stale request rejection and
+  missing-table reconciliation are covered by reducer tests, and the
+  architecture guard rejects `DbProApp` references in the reducer module.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
