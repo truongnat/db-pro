@@ -293,7 +293,6 @@ impl DbProApp {
         };
         let connections: Vec<(String, String, String)> = self
             .connection_catalog
-            .connections
             .iter()
             .map(|c| (c.id.clone(), c.name.clone(), c.environment.clone()))
             .collect();

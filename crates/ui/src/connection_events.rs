@@ -45,18 +45,15 @@ impl DbProApp {
         self.connection_lifecycle.connections_request_pending = false;
         self.connection_catalog.replace(connections);
         if self.connection_lifecycle.active_connection_id.is_none() {
-            self.connection_lifecycle.active_connection_id = self
-                .connection_catalog
-                .connections
-                .first()
-                .map(|connection| connection.id.clone());
+            self.connection_lifecycle.active_connection_id =
+                self.connection_catalog.get(0).map(|connection| connection.id.clone());
         }
         if !self.connection_lifecycle.connected && self.connection_lifecycle.pending_request.is_none() {
             if let Some(active) = self.active_connection().cloned() {
                 self.connect_to_connection(&active);
             }
         }
-        self.feedback.runtime_message = format!("Loaded {} connections", self.connection_catalog.connections.len());
+        self.feedback.runtime_message = format!("Loaded {} connections", self.connection_catalog.len());
     }
 
     /// Connection established: load schema, saved queries and query folders.

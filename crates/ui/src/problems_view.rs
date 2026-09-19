@@ -136,7 +136,6 @@ impl DbProApp {
         let mut summary = DiagnosticsSummary::placeholder();
         summary.connections = self
             .connection_catalog
-            .connections
             .iter()
             .map(|connection| ConnectionDiagnostic {
                 connection_id: connection.id.clone(),

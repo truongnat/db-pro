@@ -479,7 +479,7 @@ fn ssl_mode_guidance_names_the_plaintext_risk_for_disable() {
 fn table_edits_stage_until_explicit_apply() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Local".to_owned(),
         host: "localhost".to_owned(),
@@ -1219,7 +1219,7 @@ fn internal_error_code_is_normalized_for_mutation_state() {
 fn explain_query_uses_selected_connection_and_switches_output() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Local".to_owned(),
         host: "localhost".to_owned(),
@@ -1260,7 +1260,7 @@ fn explain_query_uses_selected_connection_and_switches_output() {
 fn explain_analyze_requires_explicit_confirm_before_dispatch() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Local".to_owned(),
         host: "localhost".to_owned(),
@@ -1363,19 +1363,21 @@ fn selected_connection_is_not_shown_as_connected() {
 
     assert_eq!(app.active_connection_name(), "Local");
     assert_eq!(
-        app.connection_indicator(&app.connection_catalog.connections[0]).1,
+        app.connection_indicator(app.connection_catalog.get(0).expect("connection"))
+            .1,
         app.theme.accent
     );
     assert_eq!(app.statusbar_state().2, "Not connected");
     assert!(!app.can_mutate_active_connection());
     app.connection_lifecycle.connected = true;
     assert_eq!(
-        app.connection_indicator(&app.connection_catalog.connections[0]).1,
+        app.connection_indicator(app.connection_catalog.get(0).expect("connection"))
+            .1,
         app.theme.success
     );
     assert_eq!(app.statusbar_state().2, "Connected");
     assert!(app.can_mutate_active_connection());
-    app.connection_catalog.connections[0].readonly = true;
+    app.connection_catalog.connections_mut()[0].readonly = true;
     assert!(!app.can_mutate_active_connection());
     app.feedback.runtime_message = "Table data failed · timeout".to_owned();
     assert!(app.has_runtime_error());
@@ -2568,7 +2570,7 @@ fn sql_snippet_insert_is_one_undoable_buffer_edit() {
 fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "active".to_owned(),
         name: "Active".to_owned(),
         host: "localhost".to_owned(),
@@ -2643,7 +2645,7 @@ fn loading_connections_automatically_connects_active_connection() {
 fn failed_connection_shows_red_indicator_and_records_error() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-bad".to_owned(),
         name: "Remote Bad".to_owned(),
         host: "10.0.0.99".to_owned(),
@@ -2676,7 +2678,7 @@ fn failed_connection_shows_red_indicator_and_records_error() {
         app.connection_lifecycle.errors.get("conn-bad").map(|s| s.as_str()),
         Some("Connection refused (os error 61)")
     );
-    let (icon, color) = app.connection_indicator(&app.connection_catalog.connections[0]);
+    let (icon, color) = app.connection_indicator(app.connection_catalog.get(0).expect("connection"));
     assert_eq!(char::from(icon), char::from(Icon::AlertCircle));
     assert_eq!(color, app.theme.danger);
 }
@@ -3244,7 +3246,7 @@ fn sidebar_header_launcher_opens_full_command_palette() {
 fn deleting_sibling_connection_does_not_auto_reconnect_active() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![
+    *app.connection_catalog.connections_mut() = vec![
         UiConnectionSummary {
             id: "conn-a".to_owned(),
             name: "A".to_owned(),
@@ -3298,7 +3300,7 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
     event_tx
         .send(UiEvent::ConnectionsLoaded {
             request_id: crate::RequestId(22),
-            connections: vec![app.connection_catalog.connections[0].clone()],
+            connections: vec![app.connection_catalog.connections_mut()[0].clone()],
         })
         .expect("connections list should queue");
     app.apply_runtime_events();
@@ -3485,21 +3487,23 @@ fn diagnostics_summary_redacts_runtime_errors_and_lists_mysql() {
         },
         ..DbProApp::default()
     };
-    app.connection_catalog.connections.push(crate::UiConnectionSummary {
-        id: "c1".to_owned(),
-        name: "local".to_owned(),
-        host: "localhost".to_owned(),
-        port: 5432,
-        database: "app".to_owned(),
-        username: "alice".to_owned(),
-        driver: "PostgreSQL".to_owned(),
-        ssl_mode: crate::UiSslMode::Disable,
-        readonly: false,
-        tags: vec![],
-        group: None,
-        favorite: false,
-        environment: "Development".to_owned(),
-    });
+    app.connection_catalog
+        .connections_mut()
+        .push(crate::UiConnectionSummary {
+            id: "c1".to_owned(),
+            name: "local".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "app".to_owned(),
+            username: "alice".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: crate::UiSslMode::Disable,
+            readonly: false,
+            tags: vec![],
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        });
     let summary = app.build_diagnostics_summary();
     assert!(summary.drivers.iter().any(|d| d.driver == "mysql"));
     assert_eq!(summary.connections.len(), 1);
@@ -3679,7 +3683,7 @@ fn connection_test_success_is_invalidated_when_the_draft_changes() {
 fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "active".to_owned(),
         name: "Active".to_owned(),
         host: String::new(),
@@ -3792,7 +3796,7 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
 fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![
+    *app.connection_catalog.connections_mut() = vec![
         UiConnectionSummary {
             id: "first".to_owned(),
             name: "First".to_owned(),
@@ -3838,7 +3842,7 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
 fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "active".to_owned(),
         name: "Active".to_owned(),
         host: "localhost".to_owned(),
@@ -4664,7 +4668,7 @@ fn dirty_query_close_is_deferred_until_user_decision() {
 fn query_dispatch_allows_independent_documents_to_run_concurrently() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![
+    *app.connection_catalog.connections_mut() = vec![
         UiConnectionSummary {
             id: "conn-1".to_owned(),
             name: "DB 1".to_owned(),
@@ -4833,7 +4837,7 @@ fn test_multi_tab_explain_plan_routing() {
     let mut app = DbProApp::with_task_bridge(bridge);
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.connection_lifecycle.connected = true;
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Test DB".to_owned(),
         database: "test".to_owned(),
@@ -5827,7 +5831,7 @@ fn every_runtime_message_reaches_the_status_bar() {
 fn destructive_statement_is_held_until_it_is_confirmed() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "active".to_owned(),
         name: "Active".to_owned(),
         host: "localhost".to_owned(),
@@ -5874,7 +5878,7 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
 fn cancelling_a_held_destructive_statement_sends_nothing() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "active".to_owned(),
         name: "Active".to_owned(),
         host: "localhost".to_owned(),
@@ -5919,7 +5923,7 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
     ] {
         let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
         let mut app = DbProApp::with_task_bridge(bridge);
-        app.connection_catalog.connections = vec![UiConnectionSummary {
+        *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
             id: "active".to_owned(),
             name: "Active".to_owned(),
             host: "localhost".to_owned(),
@@ -5960,7 +5964,7 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
 fn a_script_whose_worst_statement_is_destructive_is_held() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "active".to_owned(),
         name: "Active".to_owned(),
         host: "localhost".to_owned(),
@@ -6064,7 +6068,7 @@ fn data_activity_palette_action_opens_sidebar() {
 fn dispatch_query_binds_named_parameters_for_postgres() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Local".to_owned(),
         host: "localhost".to_owned(),
@@ -6173,7 +6177,7 @@ fn saved_task_persists_without_secrets_and_blocks_destructive_without_confirm() 
 
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Local".to_owned(),
         host: "localhost".to_owned(),
@@ -6209,7 +6213,7 @@ fn scheduled_task_tick_dispatches_once_while_app_active() {
     };
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_catalog.connections = vec![UiConnectionSummary {
+    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Local".to_owned(),
         host: "localhost".to_owned(),

@@ -36,6 +36,9 @@ Source checkpoint: `ee6a1247`.
   `PreferencesState` and `WelcomeState` now own their feature state.
 - `ConnectionLifecycleState` now also owns connection status and fallback name;
   `SchemaExplorerState` owns persisted explorer pane heights.
+- Connection dialog fields are private to the `connection` feature module, and
+  saved-connection storage is private behind catalog read-model methods
+  (`iter`, `get`, `find`, `len`, `is_empty`).
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

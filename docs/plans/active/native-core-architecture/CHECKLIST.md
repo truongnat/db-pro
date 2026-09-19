@@ -7,6 +7,7 @@
 - [x] Existing connection UI behavior compiles against the aggregate.
 - [x] Connection lifecycle state separated from `DbProApp`.
 - [x] Saved-connection read model separated from `DbProApp`.
+- [x] Connection dialog and catalog storage are private behind feature APIs.
 
 ## Remaining migrations
 

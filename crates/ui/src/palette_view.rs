@@ -64,7 +64,7 @@ impl DbProApp {
             columns: self.active_schema_column_names().len(),
             saved_queries: self.query_library.saved_queries.len(),
             history: self.query_editor.query_history_entries.len(),
-            connections: self.connection_catalog.connections.len(),
+            connections: self.connection_catalog.len(),
             workspace_files,
         })
     }
@@ -421,7 +421,6 @@ impl DbProApp {
 
     fn connection_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         self.connection_catalog
-            .connections
             .iter()
             .cloned()
             .map(|connection| {
@@ -794,13 +793,8 @@ impl DbProApp {
     }
 
     fn switch_connection_from_palette(&mut self, connection_id: String) {
-        if let Some(connection) = self
-            .connection_catalog
-            .connections
-            .iter()
-            .find(|item| item.id == connection_id)
-            .cloned()
-        {
+        let connection = self.connection_catalog.find(&connection_id).cloned();
+        if let Some(connection) = connection {
             self.connection_lifecycle.active_connection_id = Some(connection.id.clone());
             self.connection_lifecycle.connected = false;
             let request_id = self.task_bridge.next_request_id();

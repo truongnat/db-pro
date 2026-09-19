@@ -12,7 +12,6 @@ impl DbProApp {
         };
         let name = self
             .connection_catalog
-            .connections
             .iter()
             .find(|connection| connection.id == connection_id)
             .map(|connection| connection.name.clone())

@@ -250,13 +250,8 @@ impl DbProApp {
                 self.activate_schema(&schema);
             }
             PendingNavigationAction::ChangeConnection(connection_id) => {
-                if let Some(conn) = self
-                    .connection_catalog
-                    .connections
-                    .iter()
-                    .find(|c| c.id == connection_id)
-                    .cloned()
-                {
+                let connection = self.connection_catalog.find(&connection_id).cloned();
+                if let Some(conn) = connection {
                     self.connect_to_connection(&conn);
                 }
             }
