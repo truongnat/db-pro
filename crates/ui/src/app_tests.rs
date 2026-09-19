@@ -464,7 +464,7 @@ fn table_edits_stage_until_explicit_apply() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("conn-1".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
     app.selected_table = Some("customers".to_owned());
     app.table_info = Some(UiTableInfo {
@@ -566,7 +566,10 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
             favorite: false,
             environment: "Development".to_owned(),
         }],
-        active_connection_id: Some("conn-1".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("conn-1".to_owned()),
+            ..Default::default()
+        },
         table_info: Some(UiTableInfo {
             schema: "public".to_owned(),
             name: "customers".to_owned(),
@@ -610,7 +613,10 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
 fn no_primary_key_table_blocks_safe_row_mutations() {
     let app = DbProApp {
         connected: true,
-        active_connection_id: Some("conn-1".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("conn-1".to_owned()),
+            ..Default::default()
+        },
         connections: vec![UiConnectionSummary {
             id: "conn-1".to_owned(),
             name: "Local".to_owned(),
@@ -648,7 +654,10 @@ fn no_primary_key_table_blocks_safe_row_mutations() {
 fn binary_cell_edit_is_refused_with_a_reason() {
     let mut app = DbProApp {
         connected: true,
-        active_connection_id: Some("conn-1".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("conn-1".to_owned()),
+            ..Default::default()
+        },
         connections: vec![UiConnectionSummary {
             id: "conn-1".to_owned(),
             name: "Local".to_owned(),
@@ -734,7 +743,10 @@ fn binary_cell_edit_is_refused_with_a_reason() {
 fn generated_column_edit_is_refused_before_staging() {
     let mut app = DbProApp {
         connected: true,
-        active_connection_id: Some("conn-1".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("conn-1".to_owned()),
+            ..Default::default()
+        },
         connections: vec![UiConnectionSummary {
             id: "conn-1".to_owned(),
             name: "Local".to_owned(),
@@ -817,7 +829,10 @@ fn generated_column_edit_is_refused_before_staging() {
 fn generated_column_is_never_staged_by_insert() {
     let mut app = DbProApp {
         connected: true,
-        active_connection_id: Some("conn-1".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("conn-1".to_owned()),
+            ..Default::default()
+        },
         connections: vec![UiConnectionSummary {
             id: "conn-1".to_owned(),
             name: "Local".to_owned(),
@@ -893,7 +908,10 @@ fn generated_column_is_never_staged_by_insert() {
     // A value for the generated column is refused deterministically, before staging.
     let mut second = DbProApp {
         connected: true,
-        active_connection_id: Some("conn-1".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("conn-1".to_owned()),
+            ..Default::default()
+        },
         connections: vec![UiConnectionSummary {
             id: "conn-1".to_owned(),
             name: "Local".to_owned(),
@@ -928,7 +946,10 @@ fn generated_column_is_never_staged_by_insert() {
 fn duplicated_row_leaves_blocked_columns_empty() {
     let mut app = DbProApp {
         connected: true,
-        active_connection_id: Some("conn-1".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("conn-1".to_owned()),
+            ..Default::default()
+        },
         connections: vec![UiConnectionSummary {
             id: "conn-1".to_owned(),
             name: "Local".to_owned(),
@@ -1102,7 +1123,7 @@ fn explain_query_uses_selected_connection_and_switches_output() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("conn-1".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
     app.set_active_query_text("SELECT 1");
 
@@ -1143,7 +1164,7 @@ fn explain_analyze_requires_explicit_confirm_before_dispatch() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("conn-1".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
     app.set_active_query_text("SELECT 1");
 
@@ -1218,7 +1239,10 @@ fn selected_connection_is_not_shown_as_connected() {
     };
     let mut app = DbProApp {
         connections: vec![connection],
-        active_connection_id: Some("conn-1".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("conn-1".to_owned()),
+            ..Default::default()
+        },
         connected: false,
         ..Default::default()
     };
@@ -1311,12 +1335,18 @@ fn provider_capabilities_gate_provider_specific_actions() {
 
     let sqlite_app = DbProApp {
         connections: vec![sqlite],
-        active_connection_id: Some("sqlite".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("sqlite".to_owned()),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let postgres_app = DbProApp {
         connections: vec![postgres],
-        active_connection_id: Some("sqlite".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("sqlite".to_owned()),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -1360,7 +1390,10 @@ fn mysql_connection_resolves_to_its_own_capability_set() {
             favorite: false,
             environment: "Development".to_owned(),
         }],
-        active_connection_id: Some("mysql".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("mysql".to_owned()),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -1403,7 +1436,10 @@ fn unknown_driver_resolves_to_a_named_state_not_none() {
             favorite: false,
             environment: "Development".to_owned(),
         }],
-        active_connection_id: Some("oracle".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("oracle".to_owned()),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -1482,7 +1518,10 @@ fn query_capabilities_follow_the_bound_connection_and_do_not_default_to_postgres
 
     let mut app = DbProApp {
         connections: vec![pg, sqlite],
-        active_connection_id: Some("pg".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("pg".to_owned()),
+            ..Default::default()
+        },
         ..Default::default()
     };
     assert!(app.query_capabilities().allows(|caps| caps.features.server_sessions));
@@ -2378,7 +2417,7 @@ fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("active".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
     app.connected = true;
     let ctx = egui::Context::default();
 
@@ -2453,9 +2492,9 @@ fn failed_connection_shows_red_indicator_and_records_error() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("conn-bad".to_owned());
-    app.pending_connection_id = Some("conn-bad".to_owned());
-    app.pending_connection_request = Some(crate::RequestId(99));
+    app.connection_lifecycle.active_connection_id = Some("conn-bad".to_owned());
+    app.connection_lifecycle.pending_connection_id = Some("conn-bad".to_owned());
+    app.connection_lifecycle.pending_request = Some(crate::RequestId(99));
 
     event_tx
         .send(UiEvent::QueryFailed {
@@ -2466,9 +2505,9 @@ fn failed_connection_shows_red_indicator_and_records_error() {
 
     app.apply_runtime_events();
 
-    assert!(app.failed_connection_ids.contains("conn-bad"));
+    assert!(app.connection_lifecycle.failed_connection_ids.contains("conn-bad"));
     assert_eq!(
-        app.connection_errors.get("conn-bad").map(|s| s.as_str()),
+        app.connection_lifecycle.errors.get("conn-bad").map(|s| s.as_str()),
         Some("Connection refused (os error 61)")
     );
     let (icon, color) = app.connection_indicator(&app.connections[0]);
@@ -2480,7 +2519,7 @@ fn failed_connection_shows_red_indicator_and_records_error() {
 fn connected_event_starts_schema_and_metadata_loading() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.pending_connection_request = Some(crate::RequestId(1));
+    app.connection_lifecycle.pending_request = Some(crate::RequestId(1));
     event_tx
         .send(UiEvent::Connected {
             request_id: crate::RequestId(1),
@@ -2986,7 +3025,7 @@ fn failed_connection_request_clears_connecting_state_and_keeps_error() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     app.connected = true;
-    app.pending_connection_request = Some(crate::RequestId(42));
+    app.connection_lifecycle.pending_request = Some(crate::RequestId(42));
     event_tx
         .send(UiEvent::QueryFailed {
             request_id: crate::RequestId(42),
@@ -2997,7 +3036,7 @@ fn failed_connection_request_clears_connecting_state_and_keeps_error() {
     app.apply_runtime_events();
 
     assert!(!app.connected);
-    assert_eq!(app.pending_connection_request, None);
+    assert_eq!(app.connection_lifecycle.pending_request, None);
     assert_eq!(app.connection_dialog.error, "auth failed");
     assert_eq!(app.runtime_message, "Connection failed · auth failed");
 }
@@ -3006,8 +3045,8 @@ fn failed_connection_request_clears_connecting_state_and_keeps_error() {
 fn connection_mutation_refreshes_the_explorer_without_waiting_for_another_frame() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connections_requested = true;
-    app.pending_connection_request = Some(crate::RequestId(7));
+    app.connection_lifecycle.connections_requested = true;
+    app.connection_lifecycle.pending_request = Some(crate::RequestId(7));
     event_tx
         .send(UiEvent::OperationCompleted {
             request_id: crate::RequestId(7),
@@ -3017,7 +3056,7 @@ fn connection_mutation_refreshes_the_explorer_without_waiting_for_another_frame(
 
     app.apply_runtime_events();
 
-    assert!(app.connections_requested);
+    assert!(app.connection_lifecycle.connections_requested);
     assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ListConnections { .. })));
 }
 
@@ -3069,11 +3108,11 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
             environment: "Development".to_owned(),
         },
     ];
-    app.active_connection_id = Some("conn-a".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("conn-a".to_owned());
     app.connected = true;
-    app.pending_connection_request = Some(crate::RequestId(21));
-    app.pending_connection_id = Some("conn-b".to_owned());
-    app.connections_requested = true;
+    app.connection_lifecycle.pending_request = Some(crate::RequestId(21));
+    app.connection_lifecycle.pending_connection_id = Some("conn-b".to_owned());
+    app.connection_lifecycle.connections_requested = true;
 
     event_tx
         .send(UiEvent::OperationCompleted {
@@ -3083,7 +3122,7 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
         .expect("delete completion should queue");
     app.apply_runtime_events();
 
-    assert_eq!(app.active_connection_id.as_deref(), Some("conn-a"));
+    assert_eq!(app.connection_lifecycle.active_connection_id.as_deref(), Some("conn-a"));
     assert!(app.connected);
     assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ListConnections { .. })));
 
@@ -3096,7 +3135,7 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
         .expect("connections list should queue");
     app.apply_runtime_events();
 
-    assert_eq!(app.active_connection_id.as_deref(), Some("conn-a"));
+    assert_eq!(app.connection_lifecycle.active_connection_id.as_deref(), Some("conn-a"));
     assert!(app.connected);
     assert!(
         !matches!(command_rx.try_recv(), Ok(UiCommand::Connect { .. })),
@@ -3470,7 +3509,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("active".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
     app.selected_table = Some("customers".to_owned());
     app.active_tab = WorkspaceTab::Table;
     app.refresh_table_info_after_schema = true;
@@ -3591,7 +3630,7 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
             environment: "Development".to_owned(),
         },
     ];
-    app.active_connection_id = Some("active".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
     app.connected = true;
     app.dispatch_query();
 
@@ -3620,7 +3659,7 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("active".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
     app.connected = true;
     app.table_ddl = Some("CREATE TABLE \"public\".\"audit\" (id INTEGER)".to_owned());
 
@@ -3933,7 +3972,10 @@ fn test_query_cancellation_capability_gate() {
 
     let mut app = DbProApp {
         connections: vec![postgres_conn, sqlite_conn],
-        active_connection_id: Some("pg".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("pg".to_owned()),
+            ..Default::default()
+        },
         connected: true,
         ..Default::default()
     };
@@ -3942,7 +3984,7 @@ fn test_query_cancellation_capability_gate() {
     assert!(!app.active_capabilities().allows(|caps| caps.query.cancel));
 
     // Switching to SQLite enables query cancellation
-    app.active_connection_id = Some("sqlite".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("sqlite".to_owned());
     assert!(app.active_capabilities().allows(|caps| caps.query.cancel));
 }
 
@@ -4418,7 +4460,7 @@ fn query_dispatch_allows_independent_documents_to_run_concurrently() {
             environment: "Development".to_owned(),
         },
     ];
-    app.active_connection_id = Some("conn-1".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
     app.set_document_connection(0, Some("conn-1".to_owned()));
     app.set_active_query_text("SELECT 1;");
@@ -4550,7 +4592,7 @@ fn test_popup_flipping_near_viewport_bottom() {
 fn test_multi_tab_explain_plan_routing() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.active_connection_id = Some("conn-1".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
     app.connections = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
@@ -4654,7 +4696,10 @@ fn test_per_document_connection_and_schema_isolation() {
                 environment: "Development".to_owned(),
             },
         ],
-        active_connection_id: Some("conn-pg".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("conn-pg".to_owned()),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -5194,7 +5239,7 @@ fn test_agent_retry_isolation_and_session_routing() {
 fn test_composite_pk_targeted_reload_and_merge() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.active_connection_id = Some("conn-1".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.selected_table = Some("user_roles".to_owned());
     app.table_info = Some(UiTableInfo {
         schema: "public".to_owned(),
@@ -5304,7 +5349,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
 fn test_inserted_row_delete_removes_from_changeset_without_db_delete() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.active_connection_id = Some("conn-1".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.selected_table = Some("users".to_owned());
 
     let local_id = app.staged_changes.stage_insert(
@@ -5535,7 +5580,7 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("active".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
     app.connected = true;
     app.set_active_query_text("DROP TABLE users");
 
@@ -5581,7 +5626,7 @@ fn cancelling_a_held_destructive_statement_sends_nothing() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("active".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
     app.connected = true;
     app.set_active_query_text("TRUNCATE users");
 
@@ -5626,7 +5671,7 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
             favorite: false,
             environment: "Development".to_owned(),
         }];
-        app.active_connection_id = Some("active".to_owned());
+        app.connection_lifecycle.active_connection_id = Some("active".to_owned());
         app.connected = true;
         app.set_active_query_text(sql);
 
@@ -5664,7 +5709,7 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("active".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
     app.connected = true;
     app.set_active_query_text("SELECT 1;\nDROP TABLE users;");
 
@@ -5755,7 +5800,7 @@ fn dispatch_query_binds_named_parameters_for_postgres() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("conn-1".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
     app.set_active_query_text("SELECT :id, :name".to_owned());
     if let Some(doc) = app.query_documents.get_mut(0) {
@@ -5781,7 +5826,10 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
     std::fs::write(dir.join("sql/demo.sql"), "SELECT 42;").unwrap();
 
     let mut app = DbProApp {
-        active_connection_id: Some("conn-1".to_owned()),
+        connection_lifecycle: ConnectionLifecycleState {
+            active_connection_id: Some("conn-1".to_owned()),
+            ..Default::default()
+        },
         connected: true,
         selected_schema: Some("public".to_owned()),
         ..Default::default()
@@ -5857,7 +5905,7 @@ fn saved_task_persists_without_secrets_and_blocks_destructive_without_confirm() 
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("conn-1".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
     app.settings.general.confirm_destructive_queries = true;
     app.saved_task_store = store;
@@ -5893,7 +5941,7 @@ fn scheduled_task_tick_dispatches_once_while_app_active() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.active_connection_id = Some("conn-1".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
     let id = uuid::Uuid::new_v4();
     let now = chrono::Utc::now();
@@ -5936,7 +5984,7 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     app.active_query_document = 1;
     app.activity = Activity::Data;
     app.active_tab = WorkspaceTab::Query;
-    app.active_connection_id = Some("gone-conn".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("gone-conn".to_owned());
     app.pinned_tables = vec!["public.orders".to_owned()];
     app.session_name_draft = "Focus pack".to_owned();
     app.save_named_workspace_session();
@@ -5946,14 +5994,17 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     // Mutate live state, then restore.
     app.activity = Activity::Explorer;
     app.active_query_document = 0;
-    app.active_connection_id = Some("other".to_owned());
+    app.connection_lifecycle.active_connection_id = Some("other".to_owned());
     app.pinned_tables.clear();
     app.restore_named_workspace_session(&id);
 
     assert_eq!(app.activity, Activity::Data);
     assert_eq!(app.active_query_document, 1);
     assert_eq!(app.pinned_tables, vec!["public.orders".to_owned()]);
-    assert!(app.active_connection_id.is_none(), "missing connection must not crash");
+    assert!(
+        app.connection_lifecycle.active_connection_id.is_none(),
+        "missing connection must not crash"
+    );
     assert!(!app.last_session_restore_notes.is_empty());
 
     app.duplicate_named_workspace_session(&id);

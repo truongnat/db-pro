@@ -1,4 +1,4 @@
-use self::connection::ConnectionDialogState;
+use self::connection::{ConnectionDialogState, ConnectionLifecycleState};
 use crate::components::*;
 use crate::editor::PredictionMode;
 use crate::query::SchemaSymbolIndex;
@@ -555,13 +555,7 @@ pub struct DbProApp {
     backup_output_path: String,
     restore_input_path: String,
     restore_confirmation: bool,
-    active_connection_id: Option<String>,
-    pending_connection_id: Option<String>,
-    pending_connection_request: Option<crate::RequestId>,
-    connection_errors: std::collections::HashMap<String, String>,
-    failed_connection_ids: std::collections::HashSet<String>,
-    connections_requested: bool,
-    connections_request_pending: bool,
+    connection_lifecycle: ConnectionLifecycleState,
     connection_dialog: ConnectionDialogState,
     delete_confirmation_id: Option<String>,
     folder_delete_confirmation: Option<String>,
@@ -850,18 +844,18 @@ impl DbProApp {
     }
 
     fn request_connections_once(&mut self) {
-        if self.connections_requested {
+        if self.connection_lifecycle.connections_requested {
             return;
         }
-        self.connections_requested = true;
-        self.connections_request_pending = true;
+        self.connection_lifecycle.connections_requested = true;
+        self.connection_lifecycle.connections_request_pending = true;
         let request_id = self.task_bridge.next_request_id();
         self.dispatch_command(UiCommand::ListConnections { request_id });
     }
 
     fn runtime_work_pending(&self) -> bool {
-        self.connections_request_pending
-            || self.pending_connection_request.is_some()
+        self.connection_lifecycle.connections_request_pending
+            || self.connection_lifecycle.pending_request.is_some()
             || self.schema_request.is_some()
             || self
                 .query_documents

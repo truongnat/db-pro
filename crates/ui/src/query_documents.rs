@@ -5,7 +5,7 @@ impl DbProApp {
     pub(crate) fn new_query_document(&mut self) {
         let (document_id, index) = self.next_query_document_identity();
         let mut doc = QueryDocument::new(document_id, format!("Query {index}"), String::new());
-        doc.connection_id = self.active_connection_id.clone();
+        doc.connection_id = self.connection_lifecycle.active_connection_id.clone();
         doc.schema = Some(self.active_schema().to_owned());
         self.query_documents.push(doc);
         self.active_query_document = self.query_documents.len() - 1;
@@ -20,7 +20,7 @@ impl DbProApp {
     pub(crate) fn new_scratch_query_document(&mut self) {
         let (document_id, index) = self.next_query_document_identity();
         let mut doc = QueryDocument::new(document_id, format!("Scratch {index}"), String::new());
-        doc.connection_id = self.active_connection_id.clone();
+        doc.connection_id = self.connection_lifecycle.active_connection_id.clone();
         doc.schema = Some(self.active_schema().to_owned());
         self.query_documents.push(doc);
         self.active_query_document = self.query_documents.len() - 1;
@@ -145,7 +145,10 @@ impl DbProApp {
         let content = src.text().to_owned();
         let (document_id, _) = self.next_query_document_identity();
         let mut new_doc = QueryDocument::new(document_id, title, content);
-        new_doc.connection_id = src.connection_id.clone().or_else(|| self.active_connection_id.clone());
+        new_doc.connection_id = src
+            .connection_id
+            .clone()
+            .or_else(|| self.connection_lifecycle.active_connection_id.clone());
         new_doc.schema = src.schema.clone().or_else(|| Some(self.active_schema().to_owned()));
         self.query_documents.push(new_doc);
         self.active_query_document = self.query_documents.len() - 1;

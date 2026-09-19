@@ -124,7 +124,7 @@ impl DbProApp {
         let id = format!("file-{absolute_str}");
         let mut doc = QueryDocument::new(id, title, content);
         doc.file_path = Some(absolute_str.clone());
-        doc.connection_id = self.active_connection_id.clone();
+        doc.connection_id = self.connection_lifecycle.active_connection_id.clone();
         doc.schema = Some(self.active_schema().to_owned());
         doc.mark_saved();
         if let Some(mtime) = git_workspace::disk_mtime_secs(&absolute) {
@@ -288,7 +288,7 @@ impl DbProApp {
     pub fn open_new_connection(&mut self) {
         self.connection_dialog
             .transition(super::connection::state::ConnectionDialogAction::OpenNew);
-        self.pending_connection_request = None;
+        self.connection_lifecycle.clear_pending_request();
     }
 
     /// Capture/evidence helper: open the Edit Connection dialog with a test draft so
@@ -327,7 +327,7 @@ impl DbProApp {
         self.connection_dialog.error.clear();
         self.connection_dialog.test_valid = false;
         self.connection_dialog.test_draft = None;
-        self.pending_connection_request = None;
+        self.connection_lifecycle.clear_pending_request();
         self.connection_dialog.focus_name_on_open = true;
         self.connection_dialog.open = true;
     }

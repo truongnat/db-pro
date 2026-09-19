@@ -324,7 +324,7 @@ impl DbProApp {
                 return;
             }
 
-            let active_id = self.active_connection_id.clone();
+            let active_id = self.connection_lifecycle.active_connection_id.clone();
             let rows: Vec<_> = self.connections.iter().take(CONNECTION_ROW_LIMIT).cloned().collect();
 
             for connection in &rows {

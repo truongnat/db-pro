@@ -170,7 +170,7 @@ impl DbProApp {
         let mut session = WorkspaceSession::new_named(name);
         session.activity = activity_label(self.activity).to_owned();
         session.active_tab = tab_label(self.active_tab).to_owned();
-        session.active_connection_id = self.active_connection_id.clone();
+        session.active_connection_id = self.connection_lifecycle.active_connection_id.clone();
         session.selected_schema = self.selected_schema.clone();
         session.open_document_ids = self.query_documents.iter().map(|d| d.id.clone()).collect();
         session.active_document_id = self
@@ -202,15 +202,15 @@ impl DbProApp {
 
         if let Some(conn_id) = &session.active_connection_id {
             if self.connections.iter().any(|c| c.id == *conn_id) {
-                self.active_connection_id = Some(conn_id.clone());
+                self.connection_lifecycle.active_connection_id = Some(conn_id.clone());
             } else {
-                self.active_connection_id = None;
+                self.connection_lifecycle.active_connection_id = None;
                 notes.push(format!(
                     "Connection `{conn_id}` is missing — left disconnected without crashing"
                 ));
             }
         } else {
-            self.active_connection_id = None;
+            self.connection_lifecycle.active_connection_id = None;
         }
 
         if !session.open_document_ids.is_empty() {

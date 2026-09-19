@@ -27,13 +27,13 @@ impl DbProApp {
         let connection_count = self.connections.len();
         for index in 0..connection_count {
             let connection = self.connections[index].clone();
-            let is_active = self.active_connection_id.as_deref() == Some(&connection.id);
+            let is_active = self.connection_lifecycle.active_connection_id.as_deref() == Some(&connection.id);
             let is_connected = self.connected && is_active;
-            let is_connecting = self.pending_connection_request.is_some()
-                && (self.pending_connection_id.as_deref() == Some(&connection.id)
-                    || (self.pending_connection_id.is_none() && is_active));
-            let is_failed = self.failed_connection_ids.contains(&connection.id);
-            let err_msg = self.connection_errors.get(&connection.id).cloned();
+            let is_connecting = self.connection_lifecycle.pending_request.is_some()
+                && (self.connection_lifecycle.pending_connection_id.as_deref() == Some(&connection.id)
+                    || (self.connection_lifecycle.pending_connection_id.is_none() && is_active));
+            let is_failed = self.connection_lifecycle.failed_connection_ids.contains(&connection.id);
+            let err_msg = self.connection_lifecycle.errors.get(&connection.id).cloned();
             let id = ui.make_persistent_id(("codex_conn_node", &connection.id));
 
             let mut collapsing = egui::collapsing_header::CollapsingState::load_with_default_open(
@@ -376,7 +376,11 @@ impl DbProApp {
 
     /// Returns cached visible table names for `schema` + current search.
     fn cached_explorer_tables(&mut self, schema: &str, search_query: &str) -> (usize, usize, Vec<String>) {
-        let connection_id = self.active_connection_id.clone().unwrap_or_default();
+        let connection_id = self
+            .connection_lifecycle
+            .active_connection_id
+            .clone()
+            .unwrap_or_default();
         if let Some(cache) = self.explorer_nav_cache.as_ref() {
             if cache.connection_id == connection_id && cache.schema == schema && cache.search == search_query {
                 return (cache.total_count, cache.matching_count, cache.visible.clone());
@@ -412,7 +416,12 @@ impl DbProApp {
         } else if let Some(cache) = self.explorer_nav_cache.as_ref().filter(|cache| {
             cache.schema == schema
                 && cache.search == search_query
-                && cache.connection_id == self.active_connection_id.as_deref().unwrap_or_default()
+                && cache.connection_id
+                    == self
+                        .connection_lifecycle
+                        .active_connection_id
+                        .as_deref()
+                        .unwrap_or_default()
         }) {
             cache.matching_count
         } else {

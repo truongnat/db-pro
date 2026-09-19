@@ -1531,8 +1531,10 @@ impl DbProApp {
         }
     }
     pub(crate) fn request_table_info(&mut self) {
-        let (Some(connection_id), Some(table)) = (self.active_connection_id.clone(), self.selected_table.clone())
-        else {
+        let (Some(connection_id), Some(table)) = (
+            self.connection_lifecycle.active_connection_id.clone(),
+            self.selected_table.clone(),
+        ) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2014,8 +2016,10 @@ impl DbProApp {
     }
 
     pub(crate) fn request_table_row_reload(&mut self, identity: RowIdentity) {
-        let (Some(connection_id), Some(table)) = (self.active_connection_id.clone(), self.selected_table.clone())
-        else {
+        let (Some(connection_id), Some(table)) = (
+            self.connection_lifecycle.active_connection_id.clone(),
+            self.selected_table.clone(),
+        ) else {
             self.runtime_message = "Connect to a database before reloading the row".to_owned();
             return;
         };
@@ -2837,8 +2841,10 @@ impl DbProApp {
     }
 
     pub(crate) fn request_table_ddl(&mut self) {
-        let (Some(connection_id), Some(table)) = (self.active_connection_id.clone(), self.selected_table.clone())
-        else {
+        let (Some(connection_id), Some(table)) = (
+            self.connection_lifecycle.active_connection_id.clone(),
+            self.selected_table.clone(),
+        ) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2853,7 +2859,7 @@ impl DbProApp {
     }
 
     pub(crate) fn request_table_data(&mut self) {
-        let Some(connection_id) = self.active_connection_id.clone() else {
+        let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() else {
             return;
         };
         let table = self

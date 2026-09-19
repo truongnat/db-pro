@@ -392,7 +392,7 @@ impl DbProApp {
             .query_documents
             .get(self.active_query_document)
             .and_then(|d| d.connection_id.clone())
-            .or_else(|| self.active_connection_id.clone());
+            .or_else(|| self.connection_lifecycle.active_connection_id.clone());
         let schema = self
             .query_documents
             .get(self.active_query_document)

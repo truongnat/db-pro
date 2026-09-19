@@ -50,7 +50,7 @@ impl DbProApp {
     fn search_fingerprint(&self) -> String {
         let workspace_files = self.ide_workspace.index().into_iter().filter(|e| e.is_sql).count();
         SearchService::build_fingerprint(SearchFingerprintParts {
-            connection_id: self.active_connection_id.as_deref(),
+            connection_id: self.connection_lifecycle.active_connection_id.as_deref(),
             schema: self.active_schema(),
             tables: self.schema.tables.len(),
             views: self.schema.views.len(),
@@ -689,7 +689,7 @@ impl DbProApp {
     }
 
     fn refresh_schema_palette(&mut self) {
-        if let Some(connection_id) = self.active_connection_id.clone() {
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
             self.refresh_table_info_after_schema = self.selected_table.is_some();
             self.request_schema_introspection(connection_id, true);
         } else {
@@ -763,10 +763,10 @@ impl DbProApp {
 
     fn switch_connection_from_palette(&mut self, connection_id: String) {
         if let Some(connection) = self.connections.iter().find(|item| item.id == connection_id).cloned() {
-            self.active_connection_id = Some(connection.id.clone());
+            self.connection_lifecycle.active_connection_id = Some(connection.id.clone());
             self.connected = false;
             let request_id = self.task_bridge.next_request_id();
-            self.pending_connection_request = Some(request_id);
+            self.connection_lifecycle.pending_request = Some(request_id);
             let _ = self.task_bridge.send(UiCommand::Connect {
                 request_id,
                 connection_id: connection.id,

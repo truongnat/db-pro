@@ -276,7 +276,7 @@ impl DbProApp {
                     }
                 });
                 if refresh_btn.clicked() || refresh_schema {
-                    if let Some(connection_id) = self.active_connection_id.clone() {
+                    if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                         self.request_schema_introspection(connection_id, true);
                     }
                 }
@@ -321,7 +321,7 @@ impl DbProApp {
                 ui.horizontal(|ui| {
                     ui.label(icon_text(Icon::TriangleAlert, "Schema load failed", self.theme.danger));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if let Some(connection_id) = self.active_connection_id.clone() {
+                        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                             if secondary_button_with_icon(ui, Icon::RotateCcw, "Refresh schema", self.theme).clicked() {
                                 self.request_schema_introspection(connection_id, true);
                             }
@@ -376,7 +376,7 @@ impl DbProApp {
 
     /// Helper to initiate connection logic.
     pub(crate) fn connect_to_connection(&mut self, connection: &UiConnectionSummary) {
-        if self.active_connection_id.as_deref() == Some(&connection.id) && self.connected {
+        if self.connection_lifecycle.active_connection_id.as_deref() == Some(&connection.id) && self.connected {
             return;
         }
         if !self.staged_changes.is_empty() {
@@ -392,10 +392,9 @@ impl DbProApp {
         }
         self.pending_navigation_action = None;
         self.reset_agent_context();
-        self.active_connection_id = Some(connection.id.clone());
-        self.pending_connection_id = Some(connection.id.clone());
-        self.connection_errors.remove(&connection.id);
-        self.failed_connection_ids.remove(&connection.id);
+        self.connection_lifecycle.active_connection_id = Some(connection.id.clone());
+        self.connection_lifecycle.pending_connection_id = Some(connection.id.clone());
+        self.connection_lifecycle.clear_connection_error(&connection.id);
         self.selected_schema = None;
         self.schema = UiSchemaSummary::default();
         self.schema_symbol_index = SchemaSymbolIndex::default();
@@ -405,7 +404,7 @@ impl DbProApp {
         self.explorer_search.clear();
         let request_id = self.task_bridge.next_request_id();
         self.connected = false;
-        self.pending_connection_request = Some(request_id);
+        self.connection_lifecycle.pending_request = Some(request_id);
         self.schema_request = None;
         self.schema_error = None;
         self.dispatch_command(UiCommand::Connect {

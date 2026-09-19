@@ -394,12 +394,13 @@ impl DbProApp {
             self.agent_configure_request = None;
             self.runtime_message = format!("Agent key operation failed · {message}");
             self.show_toast_error(self.runtime_message.clone());
-        } else if self.pending_connection_request == Some(request_id) {
-            self.pending_connection_request = None;
+        } else if self.connection_lifecycle.pending_request == Some(request_id) {
+            self.connection_lifecycle.clear_pending_request();
             let conn_id = self
+                .connection_lifecycle
                 .pending_connection_id
                 .take()
-                .or_else(|| self.active_connection_id.clone());
+                .or_else(|| self.connection_lifecycle.active_connection_id.clone());
             let is_delete = self.runtime_message.to_ascii_lowercase().contains("delet");
             if is_delete {
                 let formatted = format!("Delete failed · {message}");
@@ -407,8 +408,8 @@ impl DbProApp {
                 self.show_toast_error(formatted);
             } else {
                 if let Some(cid) = conn_id {
-                    self.failed_connection_ids.insert(cid.clone());
-                    self.connection_errors.insert(cid, message.clone());
+                    self.connection_lifecycle.failed_connection_ids.insert(cid.clone());
+                    self.connection_lifecycle.errors.insert(cid, message.clone());
                 }
                 if !self.connection_dialog.open {
                     self.connected = false;

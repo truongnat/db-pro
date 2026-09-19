@@ -492,7 +492,7 @@ impl DbProApp {
                 return;
             }
         }
-        if self.active_connection_id.is_none() || !self.connected {
+        if self.connection_lifecycle.active_connection_id.is_none() || !self.connected {
             self.er_design.error = Some("connect before applying design plan".into());
             return;
         }

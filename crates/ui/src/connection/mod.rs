@@ -3,6 +3,7 @@ pub mod config;
 pub mod confirm_dialogs;
 pub mod form_fields;
 pub mod layout;
+pub mod lifecycle;
 pub mod logic;
 pub mod mapper;
 pub mod state;
@@ -13,6 +14,7 @@ mod tests;
 
 use crate::{DbProApp, UiConnectionSummary, UiDriver};
 
+pub(crate) use lifecycle::ConnectionLifecycleState;
 pub(crate) use state::ConnectionDialogState;
 
 impl DbProApp {
@@ -23,7 +25,7 @@ impl DbProApp {
 
     /// Open connection edit dialog from saved summary.
     pub fn open_edit_connection(&mut self, connection: &UiConnectionSummary) {
-        self.pending_connection_request = None;
+        self.connection_lifecycle.clear_pending_request();
         self.connection_dialog
             .transition(state::ConnectionDialogAction::OpenEdit {
                 connection_id: connection.id.clone(),
@@ -33,7 +35,7 @@ impl DbProApp {
 
     /// Open connection draft duplicating a saved summary.
     pub fn open_duplicate_connection(&mut self, connection: &UiConnectionSummary) {
-        self.pending_connection_request = None;
+        self.connection_lifecycle.clear_pending_request();
         self.connection_dialog
             .transition(state::ConnectionDialogAction::OpenDuplicate {
                 draft: mapper::summary_to_duplicate_draft(connection),
@@ -101,7 +103,7 @@ impl DbProApp {
         );
 
         self.dispatch_command(command);
-        self.pending_connection_request = Some(request_id);
+        self.connection_lifecycle.pending_request = Some(request_id);
         if save {
             self.connection_dialog.test_valid = false;
         } else {

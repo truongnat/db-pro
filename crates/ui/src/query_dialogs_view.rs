@@ -402,7 +402,7 @@ impl DbProApp {
             .query_documents
             .get(document_index)
             .and_then(|document| document.connection_id.clone())
-            .or_else(|| self.active_connection_id.clone())
+            .or_else(|| self.connection_lifecycle.active_connection_id.clone())
         else {
             self.runtime_message = "Create or select a connection first".to_owned();
             return;

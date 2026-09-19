@@ -5,9 +5,9 @@ use lucide_icons::Icon;
 
 impl DbProApp {
     pub(super) fn active_connection(&self) -> Option<&UiConnectionSummary> {
-        self.connections
-            .iter()
-            .find(|connection| Some(connection.id.as_str()) == self.active_connection_id.as_deref())
+        self.connections.iter().find(|connection| {
+            Some(connection.id.as_str()) == self.connection_lifecycle.active_connection_id.as_deref()
+        })
     }
 
     pub(super) fn active_connection_name(&self) -> &str {
@@ -139,7 +139,7 @@ impl DbProApp {
     }
 
     pub(super) fn statusbar_state(&self) -> (Icon, Color32, &'static str) {
-        if self.connected && self.active_connection_id.is_some() {
+        if self.connected && self.connection_lifecycle.active_connection_id.is_some() {
             return (Icon::CircleCheck, self.theme.success, "Connected");
         }
         if self.runtime_message.starts_with("Connecting") {
@@ -179,9 +179,9 @@ impl DbProApp {
     }
 
     pub(super) fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, Color32) {
-        let is_active = self.active_connection_id.as_deref() == Some(connection.id.as_str());
+        let is_active = self.connection_lifecycle.active_connection_id.as_deref() == Some(connection.id.as_str());
         let is_connected = is_active && self.connected;
-        let is_failed = self.failed_connection_ids.contains(&connection.id);
+        let is_failed = self.connection_lifecycle.failed_connection_ids.contains(&connection.id);
         let icon = if is_connected {
             Icon::CircleCheck
         } else if is_failed {

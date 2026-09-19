@@ -75,7 +75,7 @@ impl DbProApp {
         let connection_id = document
             .connection_id
             .clone()
-            .or_else(|| self.active_connection_id.clone());
+            .or_else(|| self.connection_lifecycle.active_connection_id.clone());
         let schema = document
             .schema
             .clone()

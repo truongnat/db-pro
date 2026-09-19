@@ -304,7 +304,7 @@ impl DbProApp {
             );
         }
         if actions.refresh_schema {
-            if let Some(connection_id) = self.active_connection_id.clone() {
+            if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                 self.request_schema_introspection(connection_id, true);
             }
         }

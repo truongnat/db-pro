@@ -185,7 +185,7 @@ impl DbProApp {
             self.runtime_message = t!("status.connection_changed").to_string();
         }
         if !self.connection_dialog.open {
-            self.pending_connection_request = None;
+            self.connection_lifecycle.clear_pending_request();
         }
     }
 
@@ -279,7 +279,7 @@ impl DbProApp {
 
     pub(crate) fn draw_connection_footer(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            let is_testing = self.pending_connection_request.is_some();
+            let is_testing = self.connection_lifecycle.pending_request.is_some();
             let test_btn = Button::new(self.theme)
                 .text(t!("connection.test_connection"))
                 .variant(ButtonVariant::Secondary)

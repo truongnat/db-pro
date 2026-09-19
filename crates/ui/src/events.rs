@@ -109,7 +109,7 @@ impl DbProApp {
             }
             UiEvent::PgSettingActionCompleted { action, name, .. } => {
                 self.runtime_message = format!("pg_settings {action} `{name}` ok");
-                if let Some(connection_id) = self.active_connection_id.clone() {
+                if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::ListPgSettings {
                         request_id,
@@ -126,7 +126,7 @@ impl DbProApp {
                 self.runtime_message = format!("FDW {action} `{name}` ok");
                 self.fdw_drop_confirm = None;
                 self.fdw_ddl_preview = None;
-                if let Some(connection_id) = self.active_connection_id.clone() {
+                if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::ListFdwInventory {
                         request_id,
@@ -144,7 +144,7 @@ impl DbProApp {
                 self.replication_drop_publication = None;
                 self.replication_drop_subscription = None;
                 self.replication_ddl_preview = None;
-                if let Some(connection_id) = self.active_connection_id.clone() {
+                if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::ListReplicationInventory {
                         request_id,
@@ -161,7 +161,7 @@ impl DbProApp {
                 self.runtime_message = format!("Event trigger {action} `{name}` ok");
                 self.event_trigger_drop_confirm = None;
                 self.event_trigger_ddl_preview = None;
-                if let Some(connection_id) = self.active_connection_id.clone() {
+                if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::ListEventTriggers {
                         request_id,
@@ -181,7 +181,7 @@ impl DbProApp {
                 );
                 self.monitoring_terminate_confirm = None;
                 self.monitoring_reset_stats_confirm = false;
-                if let Some(connection_id) = self.active_connection_id.clone() {
+                if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::MonitoringSnapshot {
                         request_id,
@@ -281,12 +281,13 @@ impl DbProApp {
 
     /// Connection list refreshed; auto-select and auto-connect the first one when nothing is active.
     fn on_connections_loaded(&mut self, connections: Vec<UiConnectionSummary>) {
-        self.connections_request_pending = false;
+        self.connection_lifecycle.connections_request_pending = false;
         self.connections = connections;
-        if self.active_connection_id.is_none() {
-            self.active_connection_id = self.connections.first().map(|connection| connection.id.clone());
+        if self.connection_lifecycle.active_connection_id.is_none() {
+            self.connection_lifecycle.active_connection_id =
+                self.connections.first().map(|connection| connection.id.clone());
         }
-        if !self.connected && self.pending_connection_request.is_none() {
+        if !self.connected && self.connection_lifecycle.pending_request.is_none() {
             if let Some(active) = self.active_connection().cloned() {
                 self.connect_to_connection(&active);
             }
@@ -630,7 +631,7 @@ impl DbProApp {
             self.table_ddl_error = None;
             self.refresh_table_info_after_schema = self.selected_table.is_some();
             self.runtime_message = format!("DDL applied · {affected_rows} affected rows");
-            if let Some(connection_id) = self.active_connection_id.clone() {
+            if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                 self.request_schema_introspection(connection_id, true);
             }
             if !self.security_rls_table.trim().is_empty() {
@@ -642,7 +643,7 @@ impl DbProApp {
 
     /// Generic completion for connection, table-row and query operations.
     fn on_operation_completed(&mut self, request_id: RequestId, operation: String) {
-        let pending_connection_request = self.pending_connection_request == Some(request_id);
+        let pending_connection_request = self.connection_lifecycle.pending_request == Some(request_id);
         if matches!(
             operation.as_str(),
             "connection.created" | "connection.updated" | "connection.deleted" | "connection.tested"
@@ -652,7 +653,7 @@ impl DbProApp {
         }
         self.runtime_message = operation.clone();
         if pending_connection_request {
-            self.pending_connection_request = None;
+            self.connection_lifecycle.clear_pending_request();
         }
         if matches!(
             operation.as_str(),
@@ -676,7 +677,7 @@ impl DbProApp {
             operation.as_str(),
             "connection.created" | "connection.updated" | "connection.deleted"
         ) {
-            self.connections_requested = false;
+            self.connection_lifecycle.connections_requested = false;
             self.request_connections_once();
         }
         if operation == "connection.tested" && pending_connection_request {
@@ -708,18 +709,17 @@ impl DbProApp {
         }
         if operation == "connection.deleted" {
             // `pending_connection_id` is the delete target (set by the confirm dialog).
-            let deleted_id = self.pending_connection_id.take();
+            let deleted_id = self.connection_lifecycle.pending_connection_id.take();
             if let Some(ref id) = deleted_id {
-                self.failed_connection_ids.remove(id);
-                self.connection_errors.remove(id);
+                self.connection_lifecycle.clear_connection_error(id);
             }
             let deleted_was_active = deleted_id
                 .as_ref()
-                .is_some_and(|id| self.active_connection_id.as_deref() == Some(id.as_str()));
+                .is_some_and(|id| self.connection_lifecycle.active_connection_id.as_deref() == Some(id.as_str()));
             // Only tear down the live session when the deleted connection was active.
             // Deleting a sibling must not force a reconnect / schema reload of the open one.
             if deleted_was_active {
-                self.active_connection_id = None;
+                self.connection_lifecycle.active_connection_id = None;
                 self.connected = false;
             }
         }
@@ -747,7 +747,7 @@ impl DbProApp {
 
     /// Re-reads saved queries for the active connection.
     fn request_saved_queries_refresh(&mut self) {
-        if let Some(connection_id) = self.active_connection_id.clone() {
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListSavedQueries {
                 request_id,
@@ -759,19 +759,19 @@ impl DbProApp {
     /// Connection established: load schema, saved queries and query folders.
     fn on_connected(&mut self, request_id: RequestId, connection_id: String) {
         if self
-            .pending_connection_request
+            .connection_lifecycle
+            .pending_request
             .is_some_and(|expected_request| expected_request != request_id)
         {
             return;
         }
-        self.pending_connection_request = None;
-        self.pending_connection_id = None;
-        self.active_connection_id = Some(connection_id.clone());
+        self.connection_lifecycle.pending_request = None;
+        self.connection_lifecycle.pending_connection_id = None;
+        self.connection_lifecycle.active_connection_id = Some(connection_id.clone());
         self.connected = true;
-        self.connection_errors.remove(&connection_id);
-        self.failed_connection_ids.remove(&connection_id);
+        self.connection_lifecycle.clear_connection_error(&connection_id);
         self.runtime_message = "Connection established".to_owned();
-        if let Some(connection_id) = self.active_connection_id.clone() {
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
             self.request_schema_introspection(connection_id.clone(), false);
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListSavedQueries {
@@ -896,47 +896,56 @@ mod row_reload_tests {
     #[test]
     fn deleting_non_active_connection_preserves_active_session() {
         let mut app = DbProApp {
-            active_connection_id: Some("conn-a".to_owned()),
             connected: true,
-            pending_connection_request: Some(RequestId(11)),
-            pending_connection_id: Some("conn-b".to_owned()),
-            failed_connection_ids: ["conn-a".to_owned(), "conn-b".to_owned()].into_iter().collect(),
-            connection_errors: [
-                ("conn-a".to_owned(), "stale".to_owned()),
-                ("conn-b".to_owned(), "gone".to_owned()),
-            ]
-            .into_iter()
-            .collect(),
+            connection_lifecycle: ConnectionLifecycleState {
+                active_connection_id: Some("conn-a".to_owned()),
+                pending_request: Some(RequestId(11)),
+                pending_connection_id: Some("conn-b".to_owned()),
+                failed_connection_ids: ["conn-a".to_owned(), "conn-b".to_owned()].into_iter().collect(),
+                errors: [
+                    ("conn-a".to_owned(), "stale".to_owned()),
+                    ("conn-b".to_owned(), "gone".to_owned()),
+                ]
+                .into_iter()
+                .collect(),
+                ..Default::default()
+            },
             ..Default::default()
         };
 
         app.on_operation_completed(RequestId(11), "connection.deleted".to_owned());
 
-        assert_eq!(app.active_connection_id.as_deref(), Some("conn-a"));
+        assert_eq!(app.connection_lifecycle.active_connection_id.as_deref(), Some("conn-a"));
         assert!(app.connected);
-        assert!(app.pending_connection_id.is_none());
-        assert!(app.failed_connection_ids.contains("conn-a"));
-        assert!(!app.failed_connection_ids.contains("conn-b"));
-        assert_eq!(app.connection_errors.get("conn-a").map(String::as_str), Some("stale"));
-        assert!(!app.connection_errors.contains_key("conn-b"));
+        assert!(app.connection_lifecycle.pending_connection_id.is_none());
+        assert!(app.connection_lifecycle.failed_connection_ids.contains("conn-a"));
+        assert!(!app.connection_lifecycle.failed_connection_ids.contains("conn-b"));
+        assert_eq!(
+            app.connection_lifecycle.errors.get("conn-a").map(String::as_str),
+            Some("stale")
+        );
+        assert!(!app.connection_lifecycle.errors.contains_key("conn-b"));
     }
 
     #[test]
     fn deleting_active_connection_clears_session() {
         let mut app = DbProApp {
-            active_connection_id: Some("conn-a".to_owned()),
             connected: true,
-            pending_connection_request: Some(RequestId(12)),
-            pending_connection_id: Some("conn-a".to_owned()),
-            failed_connection_ids: ["conn-a".to_owned()].into_iter().collect(),
+            connection_lifecycle: ConnectionLifecycleState {
+                active_connection_id: Some("conn-a".to_owned()),
+                pending_request: Some(RequestId(12)),
+                pending_connection_id: Some("conn-a".to_owned()),
+                failed_connection_ids: ["conn-a".to_owned()].into_iter().collect(),
+                ..Default::default()
+            },
             ..Default::default()
         };
 
         app.on_operation_completed(RequestId(12), "connection.deleted".to_owned());
 
-        assert!(app.active_connection_id.is_none());
+        assert!(app.connection_lifecycle.active_connection_id.is_none());
         assert!(!app.connected);
-        assert!(app.pending_connection_id.is_none());
-        assert!(app.failed_connection_ids.is_empty());
+        assert!(app.connection_lifecycle.pending_connection_id.is_none());
+        assert!(app.connection_lifecycle.failed_connection_ids.is_empty());
     }
 }
