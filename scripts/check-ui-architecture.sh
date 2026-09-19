@@ -96,6 +96,7 @@ connection_renderers=(
   "$repo_root/crates/ui/src/connection/form_fields.rs"
   "$repo_root/crates/ui/src/connection/advanced_panels.rs"
   "$repo_root/crates/ui/src/connection_status.rs"
+  "$repo_root/crates/ui/src/connection_events.rs"
 )
 for renderer in "${connection_renderers[@]}"; do
   if rg -n '^impl DbProApp|\bDbProApp\b' "$renderer"; then

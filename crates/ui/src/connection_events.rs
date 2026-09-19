@@ -1,83 +1,85 @@
-//! Connection lifecycle and file-picker runtime events.
+//! Connection lifecycle reducers over explicit feature state.
 
 use super::*;
 use crate::RequestId;
 
-impl DbProApp {
-    pub(super) fn handle_connection_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
-        if self.connection_lifecycle.pending_request() != Some(request_id) {
-            return false;
-        }
-
-        self.connection_lifecycle.clear_pending_request();
-        let connection_id = self
-            .connection_lifecycle
-            .take_pending_connection_id()
-            .or_else(|| self.connection_lifecycle.active_connection_id().map(str::to_owned));
-        let is_delete = self.feedback.runtime_message.to_ascii_lowercase().contains("delet");
-        if is_delete {
-            let formatted = format!("Delete failed · {message}");
-            self.feedback.runtime_message = formatted.clone();
-            self.show_toast_error(formatted);
-        } else {
-            if let Some(connection_id) = connection_id {
-                self.connection_lifecycle
-                    .record_connection_failure(connection_id, message.to_owned());
-            }
-            if !self.connection_dialog.is_open() {
-                self.connection_lifecycle.set_connected(false);
-                self.schema_explorer.schema_request = None;
-                self.schema_explorer.schema_error = None;
-            }
-            self.connection_dialog.set_error(message);
-            self.feedback.runtime_message = format!("Connection failed · {message}");
-        }
-        true
+pub(super) fn handle_connection_request_failure(
+    lifecycle: &mut ConnectionLifecycleState,
+    dialog: &mut ConnectionDialogState,
+    schema_explorer: &mut SchemaExplorerState,
+    feedback: &mut FeedbackState,
+    request_id: RequestId,
+    message: &str,
+) -> bool {
+    if lifecycle.pending_request() != Some(request_id) {
+        return false;
     }
 
-    /// Connection list refreshed; auto-select and auto-connect the first one when nothing is active.
-    pub(super) fn on_connections_loaded(&mut self, connections: Vec<UiConnectionSummary>) {
-        self.connection_lifecycle.set_connections_request_pending(false);
-        self.connection_catalog.replace(connections);
-        if self.connection_lifecycle.active_connection_id().is_none() {
-            *self.connection_lifecycle.active_connection_id_mut() =
-                self.connection_catalog.get(0).map(|connection| connection.id.clone());
+    lifecycle.clear_pending_request();
+    let connection_id = lifecycle
+        .take_pending_connection_id()
+        .or_else(|| lifecycle.active_connection_id().map(str::to_owned));
+    let is_delete = feedback.runtime_message.to_ascii_lowercase().contains("delet");
+    if is_delete {
+        let formatted = format!("Delete failed · {message}");
+        feedback.set_runtime_message(formatted.clone());
+        feedback.show_error_toast(formatted);
+    } else {
+        if let Some(connection_id) = connection_id {
+            lifecycle.record_connection_failure(connection_id, message.to_owned());
         }
-        if !self.connection_lifecycle.is_connected() && self.connection_lifecycle.pending_request().is_none() {
-            if let Some(active) = self.active_connection().cloned() {
-                self.connect_to_connection(&active);
-            }
+        if !dialog.is_open() {
+            lifecycle.set_connected(false);
+            schema_explorer.schema_request = None;
+            schema_explorer.schema_error = None;
         }
-        self.feedback.runtime_message = format!("Loaded {} connections", self.connection_catalog.len());
+        dialog.set_error(message);
+        feedback.set_runtime_message(format!("Connection failed · {message}"));
     }
+    true
+}
 
-    /// Connection established: load schema, saved queries and query folders.
-    pub(super) fn on_connected(&mut self, request_id: RequestId, connection_id: String) {
-        if self
-            .connection_lifecycle
-            .pending_request()
-            .is_some_and(|expected_request| expected_request != request_id)
-        {
-            return;
-        }
-        self.connection_lifecycle.clear_pending_request();
-        self.connection_lifecycle.set_pending_connection_id(None);
-        *self.connection_lifecycle.active_connection_id_mut() = Some(connection_id.clone());
-        self.connection_lifecycle.set_connected(true);
-        self.connection_lifecycle.clear_connection_error(&connection_id);
-        self.feedback.runtime_message = "Connection established".to_owned();
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
-            self.request_schema_introspection(connection_id.clone(), false);
-            let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(UiCommand::ListSavedQueries {
-                request_id,
-                connection_id: connection_id.clone(),
-            });
-            let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(UiCommand::ListQueryFolders {
-                request_id,
-                connection_id,
-            });
-        }
+/// Replace the connection read model and return the connection that should be
+/// auto-connected by the composition root, if any.
+pub(super) fn on_connections_loaded(
+    lifecycle: &mut ConnectionLifecycleState,
+    catalog: &mut ConnectionCatalogState,
+    feedback: &mut FeedbackState,
+    connections: Vec<UiConnectionSummary>,
+) -> Option<UiConnectionSummary> {
+    lifecycle.set_connections_request_pending(false);
+    catalog.replace(connections);
+    if lifecycle.active_connection_id().is_none() {
+        *lifecycle.active_connection_id_mut() = catalog.get(0).map(|connection| connection.id.clone());
     }
+    let should_connect = !lifecycle.is_connected() && lifecycle.pending_request().is_none();
+    let active = should_connect
+        .then(|| lifecycle.active_connection_id().map(str::to_owned))
+        .flatten()
+        .and_then(|connection_id| catalog.find(&connection_id).cloned());
+    feedback.set_runtime_message(format!("Loaded {} connections", catalog.len()));
+    active
+}
+
+/// Apply the authoritative connected transition and return the active id for
+/// the follow-up schema/query refreshes owned by the composition root.
+pub(super) fn on_connected(
+    lifecycle: &mut ConnectionLifecycleState,
+    feedback: &mut FeedbackState,
+    request_id: RequestId,
+    connection_id: String,
+) -> Option<String> {
+    if lifecycle
+        .pending_request()
+        .is_some_and(|expected_request| expected_request != request_id)
+    {
+        return None;
+    }
+    lifecycle.clear_pending_request();
+    lifecycle.set_pending_connection_id(None);
+    *lifecycle.active_connection_id_mut() = Some(connection_id.clone());
+    lifecycle.set_connected(true);
+    lifecycle.clear_connection_error(&connection_id);
+    feedback.set_runtime_message("Connection established");
+    Some(connection_id)
 }

@@ -9,11 +9,11 @@ use crate::{
     input_full_width, menu_button_with_icon, panel_frame, primary_button, primary_button_with_icon, secondary_button,
     secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame, toolbar_frame, AgentContext,
     AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock, ColumnWritePolicy, DbProTheme, GridProjectionCache,
-    GridProjectionKey, OfflineAgentProvider, TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary,
-    UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryHistoryEntry, UiQueryHistoryStatus,
-    UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput, UiTableDataFilter,
-    UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary,
-    UiViewSummary,
+    GridProjectionKey, OfflineAgentProvider, RequestId, TaskBridge, UiCell, UiCommand, UiConnectionDraft,
+    UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryHistoryEntry,
+    UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput,
+    UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary,
+    UiTriggerSummary, UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
@@ -545,6 +545,51 @@ impl DbProApp {
     /// Refresh the diagnostic report for the active draft.
     pub fn refresh_connection_diagnostics(&mut self, auth_ok: bool, auth_message: &str) {
         connection::refresh_connection_diagnostics(&mut self.connection_dialog, auth_ok, auth_message);
+    }
+
+    pub(super) fn handle_connection_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
+        connection_events::handle_connection_request_failure(
+            &mut self.connection_lifecycle,
+            &mut self.connection_dialog,
+            &mut self.schema_explorer,
+            &mut self.feedback,
+            request_id,
+            message,
+        )
+    }
+
+    pub(super) fn on_connections_loaded(&mut self, connections: Vec<UiConnectionSummary>) {
+        let active = connection_events::on_connections_loaded(
+            &mut self.connection_lifecycle,
+            &mut self.connection_catalog,
+            &mut self.feedback,
+            connections,
+        );
+        if let Some(active) = active {
+            self.connect_to_connection(&active);
+        }
+    }
+
+    pub(super) fn on_connected(&mut self, request_id: RequestId, connection_id: String) {
+        let Some(connection_id) = connection_events::on_connected(
+            &mut self.connection_lifecycle,
+            &mut self.feedback,
+            request_id,
+            connection_id,
+        ) else {
+            return;
+        };
+        self.request_schema_introspection(connection_id.clone(), false);
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::ListSavedQueries {
+            request_id,
+            connection_id: connection_id.clone(),
+        });
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(UiCommand::ListQueryFolders {
+            request_id,
+            connection_id,
+        });
     }
 
     // Grid layout: `grid_layout.rs`.
