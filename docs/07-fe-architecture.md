@@ -18,7 +18,8 @@ fallback UI. See `_archive/README.md`.
 ## Stack
 
 - `eframe` / `egui` 0.29 for the shell, panels, tabs, dialogs, and painting
-- `DbProTheme` (`crates/ui/src/theme.rs`) as the single source of design tokens, mapped to
+- `DbProTheme` (`crates/ui/src/theme.rs`) plus semantic constants in `crates/ui/src/tokens.rs` as
+  the source of design tokens, mapped to
   `egui::Visuals`
 - `lucide-icons` as the single icon set
 - Native SQL editor and native virtualized result grid (no Monaco, no TanStack Virtual)
@@ -28,7 +29,7 @@ fallback UI. See `_archive/README.md`.
 ## Component ownership
 
 All UI code lives in `crates/ui` and is owned by the product. Views compose shared
-widgets from `crates/ui/src/components.rs` and must not create one-off visual variants
+widgets from `crates/ui/src/components/` and must not create one-off visual variants
 without adding a reusable widget or documenting a feature variant.
 
 Styling, tokens, density, and states are DB Pro code. A widget must read semantic tokens
@@ -37,9 +38,10 @@ views.
 
 ## State boundary
 
-- `AppState` (`crates/ui/src/app_state.rs`) holds all display state, split into
-  sub-states rather than one large struct: connection, explorer, workspace, query, schema,
-  grid, overlay, settings, agent, diagnostics.
+- `DbProApp` (`crates/ui/src/app.rs`) is the current egui composition root. Its display state is
+  being split into feature-owned aggregates: connection, explorer, workspace, query, schema,
+  grid, overlay, settings, agent and diagnostics. The migration is not complete yet; remaining
+  feature fields are tracked in `docs/plans/active/native-core-architecture/`.
 - State changes are one-directional:
   `UserIntent → UiCommand → service → UiEvent → reducer → repaint`.
 - `UiCommand` leaves the UI thread through the task bridge; the runtime worker handles it
@@ -63,8 +65,9 @@ surface showing the connection, target, operation class, and SQL preview.
 crates/ui/src/
   lib.rs                  public exports
   app.rs                  eframe::App implementation, frame orchestration
-  app_state.rs            AppState sub-states
-  components.rs           shared widgets
+  app.rs                  eframe::App composition root and frame orchestration
+  *_state.rs              feature-owned display-state aggregates
+  components/             shared widgets and overlay primitives
   theme.rs                DbProTheme tokens → egui::Visuals
   events.rs               UiEvent definitions
   runtime.rs              task bridge (UiCommand → worker → UiEvent)

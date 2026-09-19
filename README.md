@@ -89,7 +89,7 @@ These are planned, not shipped. Do not treat them as current capabilities. Detai
 The product UI is **native Rust (`eframe` + `egui`)** and is the only UI under active
 development:
 
-- `crates/ui` (`db-pro-ui`) — shell, views, `AppState`, reducer, task bridge, theme
+- `crates/ui` (`db-pro-ui`) — shell, views, `DbProApp` composition root, feature state, task bridge, theme
 - `crates/native-app` (`db-pro-native`) — the shipped desktop binary
 - `crates/runtime` (`db-pro-runtime`) — bootstrap, services, worker/event bridge
 
@@ -105,7 +105,7 @@ material for parity comparison only — it is not built, tested, or packaged.
 │  shell · panels · tabs · dialogs · grid · editor     │
 ├──────────────────────────────────────────────────────┤
 │  UiCommand / UiEvent task bridge + reducer           │
-│  AppState · workspace · query · grid · agent state   │
+│  DbProApp · feature state aggregates · reducer       │
 ├──────────────────────────────────────────────────────┤
 │  Runtime worker (db-pro-runtime)                     │
 │  bootstrap · registries · service wiring · cancel    │
@@ -130,7 +130,7 @@ applies. See `docs/10-egui-native-migration-plan.md`.
 | `db-pro-core` | `crates/core` | Domain types, application services, port traits |
 | `db-pro-infrastructure` | `crates/infrastructure` | PostgreSQL, SQLite, metadata, secrets, SSH plumbing |
 | `db-pro-runtime` | `crates/runtime` | Bootstrap, service wiring, worker/event bridge, cancellation |
-| `db-pro-ui` | `crates/ui` | egui shell, views, `AppState`, reducer, theme |
+| `db-pro-ui` | `crates/ui` | egui shell, views, `DbProApp`, feature state, reducer, theme |
 | `db-pro-native` | `crates/native-app` | The shipped native desktop binary |
 | `db-pro-tauri` | `crates/tauri-app` | **Legacy** transitional Tauri host; scheduled for removal |
 
