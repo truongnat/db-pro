@@ -2724,7 +2724,7 @@ impl DbProApp {
             table,
             changes,
         };
-        if self.task_bridge.send(command).is_ok() {
+        if self.dispatch_command(command) {
             self.table_mutation.staged_apply_request = Some(request_id);
             self.table_mutation.table_mutation_request = Some(request_id);
             self.table_mutation.staged_apply_targets = targets;

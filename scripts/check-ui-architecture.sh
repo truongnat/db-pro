@@ -67,6 +67,13 @@ if ! rg -q 'drain_events\(crate::runtime::MAX_RUNTIME_EVENTS_PER_FRAME\)' "$repo
   exit 1
 fi
 
+direct_sends=$(rg -n 'task_bridge\.send\(' "$repo_root/crates/ui/src" --glob '*.rs' | rg -v '/app\.rs:' || true)
+if [[ -n "$direct_sends" ]]; then
+  echo "$direct_sends" >&2
+  echo "UI architecture check failed: feature code bypasses the command dispatch adapter." >&2
+  exit 1
+fi
+
 for module in event_router agent_events connection_events operation_events schema_events table_events; do
   test -f "$repo_root/crates/ui/src/${module}.rs" || {
     echo "UI architecture check failed: missing event module ${module}.rs." >&2

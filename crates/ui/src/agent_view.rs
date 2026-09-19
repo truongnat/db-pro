@@ -256,7 +256,7 @@ impl DbProApp {
                 if forget_button.clicked() {
                     let request_id = self.task_bridge.next_request_id();
                     self.agent.configure_request = Some(request_id);
-                    let _ = self.task_bridge.send(UiCommand::ForgetAgentApiKey { request_id });
+                    self.dispatch_command(UiCommand::ForgetAgentApiKey { request_id });
                 }
             }
         });

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
 
 /// Stable identity for an async UI operation. Real backend tasks will reuse
 /// this identity for cancellation and stale-result protection.
@@ -1116,6 +1116,9 @@ pub struct TaskBridge {
 /// the batch reaches this limit.
 pub(crate) const MAX_RUNTIME_EVENTS_PER_FRAME: usize = 64;
 
+/// Capacity of the bounded native adapter queue between the worker and egui.
+pub(crate) const UI_EVENT_CHANNEL_CAPACITY: usize = 256;
+
 impl Default for TaskBridge {
     fn default() -> Self {
         let (bridge, _command_rx, _event_tx) = Self::with_channels();
@@ -1127,9 +1130,9 @@ impl TaskBridge {
     /// Build the UI-side bridge and expose its endpoints to a runtime adapter.
     /// The adapter is responsible for translating these messages to its async
     /// channel implementation.
-    pub fn with_channels() -> (Self, Receiver<UiCommand>, Sender<UiEvent>) {
+    pub fn with_channels() -> (Self, Receiver<UiCommand>, SyncSender<UiEvent>) {
         let (command_tx, command_rx) = mpsc::channel();
-        let (event_tx, event_rx) = mpsc::channel();
+        let (event_tx, event_rx) = mpsc::sync_channel(UI_EVENT_CHANNEL_CAPACITY);
         (
             Self {
                 command_tx,
@@ -1157,6 +1160,14 @@ impl TaskBridge {
 
     pub fn send(&self, command: UiCommand) -> Result<(), Box<mpsc::SendError<UiCommand>>> {
         self.command_tx.send(command).map_err(Box::new)
+    }
+
+    pub fn send_best_effort(&self, command: UiCommand) -> bool {
+        if self.send(command).is_ok() {
+            return true;
+        }
+        tracing::warn!("runtime command channel closed before command dispatch");
+        false
     }
 
     pub fn drain_events(&self, limit: usize) -> impl Iterator<Item = UiEvent> + '_ {

@@ -80,7 +80,7 @@ impl DbProApp {
             .and_then(|session| session.active_run_id)
         {
             let request_id = self.task_bridge.next_request_id();
-            let _ = self.task_bridge.send(UiCommand::CancelAgentRun { request_id, run_id });
+            self.send_command_best_effort(UiCommand::CancelAgentRun { request_id, run_id });
         }
         self.agent.sessions.remove(&closed_id);
         self.query_session_state.documents.remove(index);

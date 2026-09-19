@@ -417,7 +417,7 @@ impl DbProApp {
             session.request_id = Some(request_id);
             session.state = db_pro_core::domain::agent::AgentSessionState::Running;
         }
-        let _ = self.task_bridge.send(UiCommand::ContinueAgentRun {
+        self.send_command_best_effort(UiCommand::ContinueAgentRun {
             request_id,
             run_id: pending.run_id,
             approved,
@@ -523,7 +523,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        let _ = self.task_bridge.send(UiCommand::CancelAgentRun { request_id, run_id });
+        self.send_command_best_effort(UiCommand::CancelAgentRun { request_id, run_id });
     }
 }
 

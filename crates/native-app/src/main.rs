@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{SyncSender, TrySendError};
 use std::thread;
 
 use db_pro_core::application::sql_builder::{FilterOp, SortClause, SortDir, TableFilter};
@@ -288,18 +288,31 @@ async fn seed_default_connection(runtime: &DbProRuntime) {
 /// Forwards translated runtime events to the UI, stopping when the UI is gone.
 fn spawn_event_pump(
     mut runtime_rx: tokio::sync::mpsc::Receiver<RuntimeEvent>,
-    event_tx: Sender<UiEvent>,
+    event_tx: SyncSender<UiEvent>,
     event_handle: tokio::runtime::Handle,
 ) {
     event_handle.spawn(async move {
         while let Some(event) = runtime_rx.recv().await {
             if let Some(event) = translate_event(event) {
-                if event_tx.send(event).is_err() {
+                if !send_ui_event_with_backpressure(&event_tx, event).await {
                     break;
                 }
             }
         }
     });
+}
+
+async fn send_ui_event_with_backpressure(event_tx: &SyncSender<UiEvent>, mut event: UiEvent) -> bool {
+    loop {
+        match event_tx.try_send(event) {
+            Ok(()) => return true,
+            Err(TrySendError::Disconnected(_)) => return false,
+            Err(TrySendError::Full(next_event)) => {
+                event = next_event;
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            }
+        }
+    }
 }
 
 /// Pins the initial window size from `DB_PRO_WINDOW_SIZE` (`1280x800`), instead of

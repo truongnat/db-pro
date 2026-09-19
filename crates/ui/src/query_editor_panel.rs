@@ -564,7 +564,8 @@ impl DbProApp {
         }
         if cursor_context_changed {
             if let Some(request_id) = doc.pending_prediction_request {
-                let _ = self.task_bridge.send(UiCommand::CancelSqlPrediction { request_id });
+                self.task_bridge
+                    .send_best_effort(UiCommand::CancelSqlPrediction { request_id });
             }
             doc.invalidate_prediction();
         }
@@ -604,7 +605,8 @@ impl DbProApp {
         if response.wants_format {
             if let Some(request_id) = doc.pending_prediction_request {
                 // Cancellation is best effort; the document version guard remains authoritative.
-                let _ = self.task_bridge.send(UiCommand::CancelSqlPrediction { request_id });
+                self.task_bridge
+                    .send_best_effort(UiCommand::CancelSqlPrediction { request_id });
             }
             format_query_document(doc, dialect);
         }
@@ -682,7 +684,7 @@ impl DbProApp {
                 doc.prediction_request_started_at = Some(Instant::now());
                 doc.prediction_requests_sent = doc.prediction_requests_sent.saturating_add(1);
                 let replacement_range = prediction_replacement_range(&doc.buffer, anchor, manual);
-                let _ = self.task_bridge.send(UiCommand::RequestSqlPrediction {
+                self.task_bridge.send_best_effort(UiCommand::RequestSqlPrediction {
                     request_id: req_id,
                     document_id: doc.id.clone(),
                     document_version,

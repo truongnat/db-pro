@@ -805,7 +805,7 @@ impl DbProApp {
             self.connection_lifecycle.connected = false;
             let request_id = self.task_bridge.next_request_id();
             self.connection_lifecycle.pending_request = Some(request_id);
-            let _ = self.task_bridge.send(UiCommand::Connect {
+            self.dispatch_command(UiCommand::Connect {
                 request_id,
                 connection_id: connection.id,
             });

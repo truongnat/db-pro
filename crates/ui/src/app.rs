@@ -523,15 +523,24 @@ impl DbProApp {
         }
     }
 
-    /// Queues a command for the runtime worker, ignoring transport failures.
+    /// Queues a command and exposes a closed runtime boundary to the user.
+    pub(crate) fn dispatch_command(&mut self, command: UiCommand) -> bool {
+        if self.send_command_best_effort(command) {
+            return true;
+        }
+        let message = "Runtime worker unavailable";
+        self.feedback.runtime_message = message.to_owned();
+        self.show_toast_error(message);
+        false
+    }
+
+    /// Sends a cancellation/background command without borrowing the whole app.
     ///
-    /// The UI is fire-and-forget: a send only fails once the worker channel is
-    /// closed (shutdown), and a frame that already drew its widgets has nothing
-    /// actionable to do about it. Runtime-side problems are reported back
-    /// through `UiEvent`, not through this return value.
-    fn dispatch_command(&mut self, command: UiCommand) {
-        // Intentionally ignored — see the method contract above.
-        let _ = self.task_bridge.send(command);
+    /// These calls are intentionally best-effort because their authoritative
+    /// guards are request IDs and document versions; a closed worker cannot
+    /// execute the cancellation, but it also cannot mutate UI state anymore.
+    pub(crate) fn send_command_best_effort(&self, command: UiCommand) -> bool {
+        self.task_bridge.send_best_effort(command)
     }
 
     // Connection/status: `connection_status.rs`.
