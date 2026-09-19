@@ -103,7 +103,8 @@ done
 for reducer in \
   "$repo_root/crates/ui/src/agent_events.rs" \
   "$repo_root/crates/ui/src/connection_events.rs" \
-  "$repo_root/crates/ui/src/schema_events.rs"; do
+  "$repo_root/crates/ui/src/schema_events.rs" \
+  "$repo_root/crates/ui/src/table_events.rs"; do
   if rg -n '^impl DbProApp|\bDbProApp\b' "$reducer"; then
     echo "UI architecture check failed: feature event reducers must depend on explicit state, not DbProApp." >&2
     exit 1

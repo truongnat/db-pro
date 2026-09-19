@@ -549,6 +549,86 @@ impl DbProApp {
         agent_events::on_agent_forgotten(&mut self.agent, &mut self.feedback, request_id);
     }
 
+    pub(super) fn handle_table_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
+        match table_events::handle_table_request_failure(
+            &mut self.table_state,
+            &mut self.table_mutation,
+            &mut self.table_data,
+            &mut self.feedback,
+            request_id,
+            message,
+        ) {
+            Some(table_events::TableFailureTransition::StagedApplyFailed) => {
+                self.staged_apply_failed(usize::MAX, "UNKNOWN", message, false);
+                true
+            }
+            Some(table_events::TableFailureTransition::Handled) => true,
+            None => false,
+        }
+    }
+
+    pub(super) fn on_table_info_loaded(&mut self, request_id: RequestId, table_info: UiTableInfo) {
+        if let Some(transition) =
+            table_events::on_table_info_loaded(&mut self.table_state, &mut self.feedback, request_id, table_info)
+        {
+            if transition.invalidate_grid_caches {
+                self.invalidate_grid_row_caches();
+            }
+        }
+    }
+
+    pub(super) fn on_table_ddl_loaded(&mut self, request_id: RequestId, sql: String) {
+        table_events::on_table_ddl_loaded(&mut self.table_state, &mut self.feedback, request_id, sql);
+    }
+
+    pub(super) fn on_table_data_loaded(&mut self, request_id: RequestId, result: UiQueryResult, total_rows: u64) {
+        if self.table_state.table_row_reload_request == Some(request_id) {
+            self.on_table_row_reloaded(result);
+            return;
+        }
+        if let Some(transition) = table_events::on_table_data_loaded(
+            &mut self.table_state,
+            &mut self.table_mutation,
+            &mut self.table_data,
+            &mut self.feedback,
+            request_id,
+            result,
+            total_rows,
+        ) {
+            if transition.invalidate_grid_caches {
+                self.invalidate_grid_row_caches();
+            }
+            if transition.apply_staged_changes {
+                self.table_mutation.table_mutation_retry_after_reload = false;
+                self.apply_staged_changes();
+            }
+        }
+    }
+
+    pub(crate) fn on_table_row_reloaded(&mut self, result: UiQueryResult) {
+        let transition = table_events::on_table_row_reloaded(
+            &mut self.table_state,
+            &mut self.table_mutation,
+            &mut self.feedback,
+            result,
+        );
+        if transition.invalidate_grid_caches {
+            self.invalidate_grid_row_caches();
+        }
+        if transition.apply_staged_changes {
+            self.table_mutation.table_mutation_retry_after_reload = false;
+            self.apply_staged_changes();
+        }
+    }
+
+    pub(crate) fn row_matches_identity(
+        row: &[UiCell],
+        column_indexes: &std::collections::HashMap<&str, usize>,
+        identity: &RowIdentity,
+    ) -> bool {
+        table_events::row_matches_identity(row, column_indexes, identity)
+    }
+
     /// Apply a driver choice from the connection dialog.
     pub fn select_connection_driver(&mut self, driver: UiDriver) {
         connection::select_connection_driver(self.connection.dialog.draft_mut(), driver);
