@@ -165,6 +165,9 @@ Table runtime events now follow the same boundary: `table_events.rs` owns
 request matching and table/grid state transitions, returning typed effects for
 cache invalidation and staged-change retry instead of reaching through the
 composition root.
+Saved-query and query-folder read-model replacement now follows the same
+boundary in `query_library_events.rs`; the root retains only event-routing
+adapters and the reducer tests cover replacement semantics.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
