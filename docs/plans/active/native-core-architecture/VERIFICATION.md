@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `20203752`.
+Source checkpoint: `f08526fe`.
 
 ## Current change
 
@@ -55,6 +55,9 @@ Source checkpoint: `20203752`.
 - Active connection, schema and statusbar helpers are pure functions in
   `connection_status.rs`; the module no longer implements methods on
   `DbProApp`, and the architecture guard enforces that boundary.
+- Connection lifecycle event reducers are pure functions in
+  `connection_events.rs`; the root wrapper only performs follow-up runtime
+  orchestration after the reducer returns an explicit transition result.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

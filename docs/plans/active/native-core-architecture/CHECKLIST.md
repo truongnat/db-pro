@@ -14,6 +14,7 @@
 - [x] Pending connection request/target and failure storage are private behind lifecycle APIs.
 - [x] Connection dialog view/form/advanced panels use an explicit feature view context.
 - [x] Connection status/schema helpers use explicit state inputs instead of `DbProApp` methods.
+- [x] Connection lifecycle reducers use explicit state inputs instead of `DbProApp` methods.
 
 ## Remaining migrations
 
