@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `0dae3342`.
+Source checkpoint: `74161cc9`.
 
 ## Current change
 
@@ -41,8 +41,18 @@ Source checkpoint: `0dae3342`.
   `table_events.rs`.
 - Connection, schema and operation event handlers now live in their own
   feature event modules; `events.rs` contains only the event pump and tests.
+- `event_router.rs` is now a pure event-to-handler dispatch table; database
+  operation, agent, query and feature-failure transitions no longer mutate
+  state inline in the router.
+- Runtime event application is bounded to `64` events per egui frame; a full
+  batch schedules another repaint. The native adapter uses a bounded
+  `sync_channel(256)` and retries asynchronously when the UI queue is full.
+- Runtime command sends are centralized through the dispatch adapter; closed
+  command boundaries are logged and surfaced as a user-visible runtime error.
 - `scripts/check-ui-architecture.sh`: PASS; it allowlists the composition-root
-  fields, rejects event handlers in `events.rs`, and verifies the event modules.
+  fields, rejects event handlers in `events.rs`, rejects direct state access in
+  `event_router.rs`, requires bounded event draining, and rejects feature code
+  bypassing the command dispatch adapter.
 - Shared dialog layout now reserves an explicit chrome budget, centers the card
   inside the safe viewport, gives the body its own scroll budget, and renders a
   full-width separated header with the close action aligned to the right.
@@ -58,7 +68,7 @@ Source checkpoint: `0dae3342`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 575 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 576 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.

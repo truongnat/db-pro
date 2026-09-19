@@ -23,13 +23,16 @@ open/edit/duplicate/new/test/close transitions.
 
 Severity: P1 boundary leak.
 
-## F3 — Runtime event dispatch is centralized before feature migration
+## F3 — Runtime event dispatch was centralized before feature migration
 
-Evidence: `events.rs` drains all `UiEvent` values and mutates `DbProApp`
-directly. This is a useful current seam, but it must dispatch into feature
-reducers as aggregates are extracted.
+Evidence at discovery: `events.rs` drained all `UiEvent` values and the
+central router mutated feature state inline.
 
-Severity: P1 follow-up.
+Fix in `01d7b547`: the router is now a pure event-to-handler table; feature
+reducers live in their owning event modules. The architecture check rejects
+direct state access in `event_router.rs`.
+
+Severity: resolved.
 
 ## F4 — Connection lifecycle was coupled to every consumer
 
@@ -126,3 +129,9 @@ reach unrelated state through the composition root and the centralized event
 dispatcher.
 
 Severity: P1 architectural follow-up.
+
+Current status: the root now contains only an allowlisted set of feature
+aggregates, shell composition state, presentation context and the task bridge;
+the allowlist is enforced in CI. The deeper privacy boundary between sibling
+feature modules (private aggregate fields plus reducer-only APIs) remains the
+last architectural hardening slice.

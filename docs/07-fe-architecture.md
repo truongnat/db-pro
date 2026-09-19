@@ -42,8 +42,9 @@ views.
   feature aggregates for connection, explorer, workspace, query, schema, grid, overlay,
   settings, agent, files, diagram, database operations and diagnostics. Runtime event routing is
   isolated in feature event modules, and `scripts/check-ui-architecture.sh` prevents scalar
-  feature state or handlers from returning to the root. Remaining work is runtime evidence,
-  not a second state owner.
+  feature state or handlers from returning to the root. Runtime event and command boundaries
+  are bounded and backpressured. A remaining hardening slice is making aggregate fields private
+  to their feature modules and exposing reducer APIs instead of a shared `DbProApp` facade.
 - State changes are one-directional:
   `UserIntent → UiCommand → service → UiEvent → reducer → repaint`.
 - `UiCommand` leaves the UI thread through the task bridge; the runtime worker handles it
