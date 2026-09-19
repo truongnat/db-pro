@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `8c7a0b14`.
+Source checkpoint: `9c3cdc34`.
 
 ## Current change
 
@@ -132,6 +132,8 @@ Source checkpoint: `8c7a0b14`.
   mutation facade.
 - New-connection dialog opening now lives on `ConnectionFeatureState`; all
   shell entry points call the feature transition directly.
+- Workspace close/refresh lifecycle now lives on `WorkspaceFilesState`; only
+  the native folder-picker command remains in the composition root.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

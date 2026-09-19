@@ -208,6 +208,8 @@ palette state through the composition root.
 New-connection dialog opening now follows the feature-owner rule on
 `ConnectionFeatureState`; shell entry points no longer depend on a root
 `open_new_connection` facade.
+Workspace close/refresh lifecycle now follows the feature-owner rule on
+`WorkspaceFilesState`; the root retains only the native folder-picker command.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
