@@ -348,7 +348,7 @@ impl DbProApp {
     pub(crate) fn active_query_connection_name(&self) -> &str {
         self.active_query_connection()
             .map(|c| c.name.as_str())
-            .unwrap_or(self.connection_lifecycle.fallback_name.as_str())
+            .unwrap_or(self.connection_lifecycle.fallback_name())
     }
 
     pub(crate) fn active_query_driver(&self) -> &str {

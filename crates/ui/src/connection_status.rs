@@ -13,7 +13,7 @@ impl DbProApp {
     pub(super) fn active_connection_name(&self) -> &str {
         self.active_connection()
             .map(|connection| connection.name.as_str())
-            .unwrap_or(self.connection_lifecycle.fallback_name.as_str())
+            .unwrap_or(self.connection_lifecycle.fallback_name())
     }
 
     pub(super) fn active_driver(&self) -> &str {

@@ -42,7 +42,7 @@ impl DbProApp {
 
     /// Connection list refreshed; auto-select and auto-connect the first one when nothing is active.
     pub(super) fn on_connections_loaded(&mut self, connections: Vec<UiConnectionSummary>) {
-        self.connection_lifecycle.connections_request_pending = false;
+        self.connection_lifecycle.set_connections_request_pending(false);
         self.connection_catalog.replace(connections);
         if self.connection_lifecycle.active_connection_id.is_none() {
             self.connection_lifecycle.active_connection_id =

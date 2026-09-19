@@ -315,8 +315,8 @@ impl DbProApp {
     /// Capture/evidence helper: keep the initial connection request pending so
     /// the Welcome surface can be documented in its loading state.
     pub fn prepare_loading_for_capture(&mut self) {
-        self.connection_lifecycle.connections_requested = true;
-        self.connection_lifecycle.connections_request_pending = true;
+        self.connection_lifecycle.mark_connections_requested();
+        self.connection_lifecycle.set_connections_request_pending(true);
         self.feedback.runtime_message = "Loading connections…".to_owned();
     }
 

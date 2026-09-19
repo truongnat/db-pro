@@ -8,6 +8,7 @@
 - [x] Connection lifecycle state separated from `DbProApp`.
 - [x] Saved-connection read model separated from `DbProApp`.
 - [x] Connection dialog and catalog storage are private behind feature APIs.
+- [x] Connection lifecycle request flags and fallback naming are private behind feature APIs.
 
 ## Remaining migrations
 

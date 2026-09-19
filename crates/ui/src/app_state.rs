@@ -209,10 +209,7 @@ impl Default for DbProApp {
                 ..Default::default()
             },
             table_mutation: TableMutationState::default(),
-            connection_lifecycle: ConnectionLifecycleState {
-                fallback_name: "Local PostgreSQL".to_owned(),
-                ..Default::default()
-            },
+            connection_lifecycle: ConnectionLifecycleState::with_fallback_name("Local PostgreSQL"),
             connection_dialog: ConnectionDialogState::default(),
             initial_frames_count: 0,
             gallery_state: ComponentGalleryState::default(),

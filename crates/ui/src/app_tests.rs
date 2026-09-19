@@ -3215,7 +3215,7 @@ fn failed_connection_request_clears_connecting_state_and_keeps_error() {
 fn connection_mutation_refreshes_the_explorer_without_waiting_for_another_frame() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_lifecycle.connections_requested = true;
+    app.connection_lifecycle.mark_connections_requested();
     app.connection_lifecycle.pending_request = Some(crate::RequestId(7));
     event_tx
         .send(UiEvent::OperationCompleted {
@@ -3226,7 +3226,7 @@ fn connection_mutation_refreshes_the_explorer_without_waiting_for_another_frame(
 
     app.apply_runtime_events();
 
-    assert!(app.connection_lifecycle.connections_requested);
+    assert!(app.connection_lifecycle.connections_requested());
     assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ListConnections { .. })));
 }
 
@@ -3282,7 +3282,7 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
     app.connection_lifecycle.connected = true;
     app.connection_lifecycle.pending_request = Some(crate::RequestId(21));
     app.connection_lifecycle.pending_connection_id = Some("conn-b".to_owned());
-    app.connection_lifecycle.connections_requested = true;
+    app.connection_lifecycle.mark_connections_requested();
 
     event_tx
         .send(UiEvent::OperationCompleted {

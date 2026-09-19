@@ -256,7 +256,7 @@ impl DbProApp {
             operation.as_str(),
             "connection.created" | "connection.updated" | "connection.deleted"
         ) {
-            self.connection_lifecycle.connections_requested = false;
+            self.connection_lifecycle.clear_connections_requested();
             self.request_connections_once();
         }
         if operation == "connection.tested" && pending_connection_request {

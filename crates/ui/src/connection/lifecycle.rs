@@ -7,18 +7,58 @@ use std::collections::{HashMap, HashSet};
 /// migration step because it is also used as the explorer's read model.
 #[derive(Debug, Default)]
 pub(crate) struct ConnectionLifecycleState {
+    #[cfg(test)]
     pub(in crate::app) fallback_name: String,
+    #[cfg(not(test))]
+    fallback_name: String,
     pub(in crate::app) connected: bool,
     pub(in crate::app) active_connection_id: Option<String>,
     pub(in crate::app) pending_connection_id: Option<String>,
     pub(in crate::app) pending_request: Option<RequestId>,
     pub(in crate::app) errors: HashMap<String, String>,
     pub(in crate::app) failed_connection_ids: HashSet<String>,
+    #[cfg(test)]
     pub(in crate::app) connections_requested: bool,
+    #[cfg(not(test))]
+    connections_requested: bool,
+    #[cfg(test)]
     pub(in crate::app) connections_request_pending: bool,
+    #[cfg(not(test))]
+    connections_request_pending: bool,
 }
 
 impl ConnectionLifecycleState {
+    pub(crate) fn with_fallback_name(name: impl Into<String>) -> Self {
+        Self {
+            fallback_name: name.into(),
+            ..Default::default()
+        }
+    }
+
+    pub(crate) fn fallback_name(&self) -> &str {
+        &self.fallback_name
+    }
+
+    pub(crate) fn connections_requested(&self) -> bool {
+        self.connections_requested
+    }
+
+    pub(crate) fn mark_connections_requested(&mut self) {
+        self.connections_requested = true;
+    }
+
+    pub(crate) fn clear_connections_requested(&mut self) {
+        self.connections_requested = false;
+    }
+
+    pub(crate) fn connections_request_pending(&self) -> bool {
+        self.connections_request_pending
+    }
+
+    pub(crate) fn set_connections_request_pending(&mut self, pending: bool) {
+        self.connections_request_pending = pending;
+    }
+
     pub(crate) fn clear_pending_request(&mut self) {
         self.pending_request = None;
     }

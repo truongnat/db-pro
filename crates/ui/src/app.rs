@@ -589,17 +589,17 @@ impl DbProApp {
     }
 
     fn request_connections_once(&mut self) {
-        if self.connection_lifecycle.connections_requested {
+        if self.connection_lifecycle.connections_requested() {
             return;
         }
-        self.connection_lifecycle.connections_requested = true;
-        self.connection_lifecycle.connections_request_pending = true;
+        self.connection_lifecycle.mark_connections_requested();
+        self.connection_lifecycle.set_connections_request_pending(true);
         let request_id = self.task_bridge.next_request_id();
         self.dispatch_command(UiCommand::ListConnections { request_id });
     }
 
     fn runtime_work_pending(&self) -> bool {
-        self.connection_lifecycle.connections_request_pending
+        self.connection_lifecycle.connections_request_pending()
             || self.connection_lifecycle.pending_request.is_some()
             || self.schema_explorer.schema_request.is_some()
             || self

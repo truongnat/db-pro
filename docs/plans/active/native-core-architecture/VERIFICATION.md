@@ -39,6 +39,9 @@ Source checkpoint: `202ffe6c`.
 - Connection dialog fields are private to the `connection` feature module, and
   saved-connection storage is private behind catalog read-model methods
   (`iter`, `get`, `find`, `len`, `is_empty`).
+- Connection lifecycle request flags and fallback naming are private behind
+  lifecycle methods; tests use explicit lifecycle setup APIs rather than
+  production field access.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
