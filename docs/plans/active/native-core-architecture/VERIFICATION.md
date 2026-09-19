@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `5649a4f0`.
+Source checkpoint: `f052ecb6`.
 
 ## Current change
 
@@ -68,6 +68,12 @@ Source checkpoint: `5649a4f0`.
 - `DbProApp` now composes one `ConnectionFeatureState` aggregate containing
   catalog, lifecycle and dialog sub-states; the architecture allowlist rejects
   the former three root fields.
+- `DbProApp` now composes one `WorkspaceFeatureState` aggregate containing
+  shell/navigation, local-file activity and named-session sub-states; the
+  architecture allowlist rejects the former `workspace_files` and
+  `workspace_sessions` root fields. Existing shell field access is preserved
+  through a typed `Deref` facade while file/session ownership remains explicit
+  under `workspace.files` and `workspace.sessions`.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

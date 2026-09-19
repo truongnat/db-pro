@@ -150,6 +150,10 @@ and the mixed-responsibility `connection/confirm_dialogs.rs` module is deleted.
 The root now owns one `ConnectionFeatureState` aggregate instead of three
 independent connection fields; its catalog, lifecycle and dialog remain
 separate sub-states behind that feature boundary.
+The root now also owns one `WorkspaceFeatureState` aggregate for shell,
+local-file and named-session state; the old `workspace_files` and
+`workspace_sessions` composition-root fields are removed, while the typed
+aggregate keeps the shell navigation API readable.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
