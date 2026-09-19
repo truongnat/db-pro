@@ -11,6 +11,7 @@
 - [x] Connection lifecycle request flags and fallback naming are private behind feature APIs.
 - [x] Connection connected status is private behind lifecycle APIs.
 - [x] Active connection identity is private behind lifecycle accessors.
+- [x] Pending connection request/target and failure storage are private behind lifecycle APIs.
 
 ## Remaining migrations
 

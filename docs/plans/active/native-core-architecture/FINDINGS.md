@@ -131,10 +131,13 @@ Severity: P1 architectural follow-up.
 
 Current status: `1a69b98d` split the former database catch-all into named
 feature aggregates (`database_feature_states.rs`), and `02ab0cc1` plus
-`ee6a1247` scoped aggregate fields to the app boundary. The root field allowlist
-and visibility guard are enforced in CI. The remaining slice is to move view
-and reducer APIs from `impl DbProApp` onto feature-owned contexts, so sibling
-features cannot use the composition root as a shared mutable facade.
+`ee6a1247` scoped aggregate fields to the app boundary. The connection dialog,
+catalog and lifecycle storage are now private behind feature APIs; `a418764f`
+also hides pending-request, pending-target and failure storage behind lifecycle
+methods. The root field allowlist and visibility guard are enforced in CI. The
+remaining architectural slice is to move view and reducer APIs from
+`impl DbProApp` onto feature-owned contexts, so sibling features cannot use the
+composition root as a shared mutable facade.
 
 ## F13 — Database management state was grouped behind a catch-all aggregate
 
