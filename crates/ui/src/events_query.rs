@@ -217,31 +217,6 @@ impl DbProApp {
         }
     }
 
-    pub(super) fn record_query_history(&mut self, record: QueryHistoryRecord) {
-        self.query_editor.query_history_entries.push(UiQueryHistoryEntry {
-            id: uuid::Uuid::new_v4().to_string(),
-            sql: record.sql,
-            connection_id: record.connection_id,
-            schema: record.schema,
-            started_at: record.started_at,
-            duration_ms: record.duration_ms,
-            status: record.status,
-            row_count: record.row_count,
-            affected_rows: record.affected_rows,
-            error_code: record.error_code,
-            error_summary: record.error_summary,
-        });
-        const QUERY_HISTORY_RETENTION: usize = 500;
-        let excess = self
-            .query_editor
-            .query_history_entries
-            .len()
-            .saturating_sub(QUERY_HISTORY_RETENTION);
-        if excess > 0 {
-            self.query_editor.query_history_entries.drain(..excess);
-        }
-    }
-
     pub(super) fn on_explain_completed(&mut self, request_id: RequestId, plan: String) {
         let Some(doc_index) = self
             .query_session_state

@@ -26,6 +26,7 @@ use std::time::{Duration, Instant};
 
 use agent_workflow_state::AgentUiSession;
 use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
+use events::QueryHistoryRecord;
 
 #[path = "agent_events.rs"]
 mod agent_events;
@@ -105,6 +106,8 @@ mod palette_state;
 mod preferences_state;
 #[path = "query_execution_state.rs"]
 mod query_execution_state;
+#[path = "query_history_events.rs"]
+mod query_history_events;
 #[path = "query_library_events.rs"]
 mod query_library_events;
 #[path = "query_library_state.rs"]
@@ -558,6 +561,10 @@ impl DbProApp {
         ) {
             self.close_query_document(index);
         }
+    }
+
+    fn record_query_history(&mut self, record: QueryHistoryRecord) {
+        query_history_events::record_query_history(&mut self.query_editor, record);
     }
 
     pub(super) fn handle_schema_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
