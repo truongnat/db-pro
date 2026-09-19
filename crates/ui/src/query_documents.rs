@@ -9,7 +9,7 @@ impl DbProApp {
         doc.schema = Some(self.active_schema().to_owned());
         self.query_session_state.documents.push(doc);
         self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
-        self.query_focus_editor_on_open = true;
+        self.query_editor.query_focus_editor_on_open = true;
         self.reset_query_cursor();
         self.workspace.activity = Activity::Queries;
         self.workspace.sidebar_open = true;
@@ -24,7 +24,7 @@ impl DbProApp {
         doc.schema = Some(self.active_schema().to_owned());
         self.query_session_state.documents.push(doc);
         self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
-        self.query_focus_editor_on_open = true;
+        self.query_editor.query_focus_editor_on_open = true;
         self.reset_query_cursor();
         self.workspace.activity = Activity::Queries;
         self.workspace.sidebar_open = true;
@@ -56,7 +56,7 @@ impl DbProApp {
         document.schema = entry.schema.clone();
         self.query_session_state.documents.push(document);
         self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
-        self.query_focus_editor_on_open = true;
+        self.query_editor.query_focus_editor_on_open = true;
         self.workspace.activity = Activity::Queries;
         self.workspace.active_tab = WorkspaceTab::Query;
         self.reset_query_cursor();
@@ -105,8 +105,8 @@ impl DbProApp {
                 .min(self.query_session_state.documents.len() - 1);
         }
         let doc = &self.query_session_state.documents[self.query_session_state.active_document_index];
-        self.query_cursor_line = doc.cursor.line + 1;
-        self.query_cursor_column = doc.cursor.col + 1;
+        self.query_editor.query_cursor_line = doc.cursor.line + 1;
+        self.query_editor.query_cursor_column = doc.cursor.col + 1;
         if !doc.selection.is_empty() {
             let (start, end) = doc.selection.normalized();
             self.query_session_state.selected_text = doc.buffer.slice(start, end).to_owned();
@@ -149,8 +149,8 @@ impl DbProApp {
     }
 
     pub(super) fn reset_query_cursor(&mut self) {
-        self.query_cursor_line = 1;
-        self.query_cursor_column = 1;
+        self.query_editor.query_cursor_line = 1;
+        self.query_editor.query_cursor_column = 1;
     }
 
     pub(crate) fn duplicate_query_document(&mut self, index: usize) {
@@ -169,7 +169,7 @@ impl DbProApp {
         new_doc.schema = src.schema.clone().or_else(|| Some(self.active_schema().to_owned()));
         self.query_session_state.documents.push(new_doc);
         self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
-        self.query_focus_editor_on_open = true;
+        self.query_editor.query_focus_editor_on_open = true;
         self.workspace.active_tab = WorkspaceTab::Query;
         self.runtime_message = format!("Duplicated {}", self.query_session_state.documents[index].title);
     }

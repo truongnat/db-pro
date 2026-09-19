@@ -77,7 +77,7 @@ impl DbProApp {
                 self.set_query_output_tab(doc_id, OutputTab::Results);
             }
             self.workspace.bottom_panel_open = true;
-            self.query_output_dock_maximized = false;
+            self.query_editor.query_output_dock_maximized = false;
         }
     }
 
@@ -209,7 +209,7 @@ impl DbProApp {
             self.table_data.selected_row = None;
             self.table_data.selected_rows.clear();
             self.workspace.bottom_panel_open = true;
-            self.query_output_dock_maximized = false;
+            self.query_editor.query_output_dock_maximized = false;
         }
     }
 
@@ -241,7 +241,7 @@ impl DbProApp {
     }
 
     pub(super) fn record_query_history(&mut self, record: QueryHistoryRecord) {
-        self.query_history_entries.push(UiQueryHistoryEntry {
+        self.query_editor.query_history_entries.push(UiQueryHistoryEntry {
             id: uuid::Uuid::new_v4().to_string(),
             sql: record.sql,
             connection_id: record.connection_id,
@@ -255,9 +255,13 @@ impl DbProApp {
             error_summary: record.error_summary,
         });
         const QUERY_HISTORY_RETENTION: usize = 500;
-        let excess = self.query_history_entries.len().saturating_sub(QUERY_HISTORY_RETENTION);
+        let excess = self
+            .query_editor
+            .query_history_entries
+            .len()
+            .saturating_sub(QUERY_HISTORY_RETENTION);
         if excess > 0 {
-            self.query_history_entries.drain(..excess);
+            self.query_editor.query_history_entries.drain(..excess);
         }
     }
 
@@ -273,7 +277,7 @@ impl DbProApp {
         let doc_id = self.query_session_state.documents[doc_index].id.clone();
         self.set_query_output_tab(&doc_id, OutputTab::Explain);
         self.workspace.bottom_panel_open = true;
-        self.query_output_dock_maximized = false;
+        self.query_editor.query_output_dock_maximized = false;
         if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
             doc.explain_request = None;
             doc.explain_plan = Some(plan);
@@ -550,7 +554,7 @@ impl DbProApp {
             if is_active_doc {
                 self.runtime_message = format!("Query failed · {message}");
                 self.workspace.bottom_panel_open = true;
-                self.query_output_dock_maximized = false;
+                self.query_editor.query_output_dock_maximized = false;
                 if let Some(doc_id) = target_doc_id.as_deref() {
                     self.set_query_output_tab(doc_id, OutputTab::Messages);
                 }
@@ -564,7 +568,7 @@ impl DbProApp {
             let doc_id = self.query_session_state.documents[doc_index].id.clone();
             self.set_query_output_tab(&doc_id, OutputTab::Messages);
             self.workspace.bottom_panel_open = true;
-            self.query_output_dock_maximized = false;
+            self.query_editor.query_output_dock_maximized = false;
             let message = format!("Explain failed · {message}");
             self.runtime_message = message;
             if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {

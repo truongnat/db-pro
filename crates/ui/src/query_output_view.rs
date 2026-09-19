@@ -18,14 +18,14 @@ impl DbProApp {
                     .clicked()
                 {
                     self.workspace.bottom_panel_open = false;
-                    self.query_output_dock_maximized = false;
+                    self.query_editor.query_output_dock_maximized = false;
                 }
-                let max_tip = if self.query_output_dock_maximized {
+                let max_tip = if self.query_editor.query_output_dock_maximized {
                     "Restore output"
                 } else {
                     "Maximize output"
                 };
-                let max_icon = if self.query_output_dock_maximized {
+                let max_icon = if self.query_editor.query_output_dock_maximized {
                     Icon::Minimize2
                 } else {
                     Icon::Maximize2
@@ -38,7 +38,7 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.query_output_dock_maximized = !self.query_output_dock_maximized;
+                    self.query_editor.query_output_dock_maximized = !self.query_editor.query_output_dock_maximized;
                 }
             }
             if let Some(request_id) = self.active_explain_request() {
@@ -495,14 +495,15 @@ impl DbProApp {
                 ui.label(RichText::new("Search").small().color(self.theme.text_muted));
                 ui.add_sized(
                     [220.0, 24.0],
-                    egui::TextEdit::singleline(&mut self.query_history_search).hint_text("SQL, connection, schema"),
+                    egui::TextEdit::singleline(&mut self.query_editor.query_history_search)
+                        .hint_text("SQL, connection, schema"),
                 );
                 if compact_button(ui, "Clear History", self.theme).clicked() {
-                    self.query_history_entries.clear();
+                    self.query_editor.query_history_entries.clear();
                     self.runtime_message = "Query history cleared".to_owned();
                 }
             });
-            if self.query_history_entries.is_empty() {
+            if self.query_editor.query_history_entries.is_empty() {
                 empty_state(
                     ui,
                     Icon::History,
@@ -511,8 +512,9 @@ impl DbProApp {
                     self.theme,
                 );
             } else {
-                let search = self.query_history_search.trim().to_lowercase();
+                let search = self.query_editor.query_history_search.trim().to_lowercase();
                 let entries = self
+                    .query_editor
                     .query_history_entries
                     .iter()
                     .rev()

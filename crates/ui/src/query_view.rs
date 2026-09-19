@@ -37,7 +37,7 @@ impl DbProApp {
             })
             .show(ui, |ui| {
                 self.refresh_diagnostics();
-                if let Some(deadline) = self.diagnostics_debounce_at {
+                if let Some(deadline) = self.query_editor.diagnostics_debounce_at {
                     let remaining = deadline.saturating_duration_since(Instant::now());
                     if !remaining.is_zero() {
                         ui.ctx().request_repaint_after(remaining);
@@ -45,12 +45,12 @@ impl DbProApp {
                 }
 
                 let more_anchor = self.draw_query_context_strip(ui);
-                if self.query_context_picker_open {
+                if self.query_editor.query_context_picker_open {
                     if let Some(anchor) = more_anchor.context_anchor {
                         self.draw_query_context_picker(ui.ctx(), anchor);
                     }
                 }
-                if self.query_tools_open {
+                if self.query_editor.query_tools_open {
                     if let Some(anchor) = more_anchor.more_anchor {
                         self.draw_query_actions_menu(ui.ctx(), anchor);
                     }
@@ -85,7 +85,7 @@ impl DbProApp {
 
                 // Builder stays secondary: prefer a compact side/bottom split later;
                 // for now keep it out of the default vertical stack unless opened.
-                if self.visual_query_builder_open {
+                if self.query_editor.visual_query_builder_open {
                     ui.add_space(SPACE_XS);
                     egui::CollapsingHeader::new("Visual query builder")
                         .default_open(true)
@@ -100,14 +100,14 @@ impl DbProApp {
                 let available = ui.available_height();
                 let dock_h = if !dock_open {
                     0.0
-                } else if self.query_output_dock_maximized {
+                } else if self.query_editor.query_output_dock_maximized {
                     (available - status_h - 80.0).max(OUTPUT_MIN_HEIGHT)
                 } else {
                     self.workspace
                         .bottom_panel_height
                         .clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT)
                 };
-                let editor_h = if self.query_output_dock_maximized && dock_open {
+                let editor_h = if self.query_editor.query_output_dock_maximized && dock_open {
                     80.0
                 } else {
                     (available - dock_h - status_h).max(120.0)
@@ -125,10 +125,10 @@ impl DbProApp {
 
                 // Snippets remain opt-in via More; keep them out of the default stack
                 // unless the user opened them (floating-ish card is acceptable for now).
-                if self.snippets_open {
+                if self.query_editor.snippets_open {
                     self.draw_sql_snippets(ui);
                 }
-                if self.query_params_panel_open {
+                if self.query_editor.query_params_panel_open {
                     self.draw_sql_parameters_panel(ui);
                 }
 
@@ -161,7 +161,7 @@ impl DbProApp {
             ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
             let chip_resp = self.draw_query_context_chip(ui);
             if chip_resp.clicked() {
-                self.query_context_picker_open = !self.query_context_picker_open;
+                self.query_editor.query_context_picker_open = !self.query_editor.query_context_picker_open;
             }
             anchors.context_anchor = Some(chip_resp.rect);
 
@@ -173,7 +173,7 @@ impl DbProApp {
                     .tooltip("More query actions")
                     .show(ui);
                 if more_response.clicked() {
-                    self.query_tools_open = !self.query_tools_open;
+                    self.query_editor.query_tools_open = !self.query_editor.query_tools_open;
                 }
                 anchors.more_anchor = Some(more_response.rect);
             });
@@ -362,7 +362,7 @@ impl DbProApp {
                     .is_some_and(|position| !menu.response.rect.contains(position) && !anchor.contains(position))
         });
         if clicked_outside || close {
-            self.query_context_picker_open = false;
+            self.query_editor.query_context_picker_open = false;
         }
     }
 
@@ -383,7 +383,7 @@ impl DbProApp {
         if grip_resp.dragged() {
             self.workspace
                 .set_bottom_panel_height(self.workspace.bottom_panel_height - grip_resp.drag_delta().y);
-            self.query_output_dock_maximized = false;
+            self.query_editor.query_output_dock_maximized = false;
         }
         grip_resp.on_hover_cursor(egui::CursorIcon::ResizeVertical);
 
@@ -408,12 +408,12 @@ impl DbProApp {
             self.query_session_state.active_document_index,
             self.active_query_buffer_version(),
         );
-        if self.param_count_cache_key != Some(param_key) {
-            self.param_count_cache_key = Some(param_key);
-            self.param_count_cache = crate::query::discover_sql_parameters(self.active_query_text()).len();
+        if self.query_editor.param_count_cache_key != Some(param_key) {
+            self.query_editor.param_count_cache_key = Some(param_key);
+            self.query_editor.param_count_cache = crate::query::discover_sql_parameters(self.active_query_text()).len();
         }
-        let param_count = self.param_count_cache;
-        let diagnostic_count = self.diagnostics.len();
+        let param_count = self.query_editor.param_count_cache;
+        let diagnostic_count = self.query_editor.diagnostics.len();
         let txn_label = if self.query_in_transaction {
             format!("Transaction · {} pending", self.query_txn_pending)
         } else if self.query_auto_commit {
@@ -458,7 +458,7 @@ impl DbProApp {
                     ui.label(
                         RichText::new(format!(
                             "Ln {}, Col {}",
-                            self.query_cursor_line, self.query_cursor_column
+                            self.query_editor.query_cursor_line, self.query_editor.query_cursor_column
                         ))
                         .font(font_mono_sm())
                         .color(self.theme.text_muted),
@@ -492,7 +492,7 @@ impl DbProApp {
                                 .sense(egui::Sense::click()),
                         );
                         if resp.clicked() {
-                            self.query_params_panel_open = !self.query_params_panel_open;
+                            self.query_editor.query_params_panel_open = !self.query_editor.query_params_panel_open;
                         }
                         resp.on_hover_text("Edit bind parameters");
                     }
@@ -604,10 +604,10 @@ impl DbProApp {
 
     /// Floating find overlay anchored to the top-right of the editor.
     fn draw_editor_search_overlay(&mut self, ctx: &egui::Context) {
-        if !self.editor_search_open {
+        if !self.query_editor.editor_search_open {
             return;
         }
-        let editor_rect = self.query_editor_rect;
+        let editor_rect = self.query_editor.query_editor_rect;
         if !editor_rect.is_positive() {
             return;
         }
@@ -639,10 +639,10 @@ impl DbProApp {
                         .get_mut(self.query_session_state.active_document_index)
                     {
                         ui.horizontal(|ui| {
-                            let prev_search = self.editor_search.clone();
-                            input(ui, &mut self.editor_search, "Search…", 160.0, self.theme);
-                            if self.editor_search != prev_search {
-                                doc.search.query = self.editor_search.clone();
+                            let prev_search = self.query_editor.editor_search.clone();
+                            input(ui, &mut self.query_editor.editor_search, "Search…", 160.0, self.theme);
+                            if self.query_editor.editor_search != prev_search {
+                                doc.search.query = self.query_editor.editor_search.clone();
                                 doc.search.update_matches(doc.buffer.text());
                                 if let Some(first_match) = doc.search.matches.first().copied() {
                                     doc.search.active_match_index = 0;
@@ -650,7 +650,7 @@ impl DbProApp {
                                 }
                             }
 
-                            if !self.editor_search.is_empty() {
+                            if !self.query_editor.editor_search.is_empty() {
                                 let total = doc.search.matches.len();
                                 let current = if total == 0 {
                                     0
@@ -715,8 +715,8 @@ impl DbProApp {
             });
 
         if close_search {
-            self.editor_search_open = false;
-            self.editor_search.clear();
+            self.query_editor.editor_search_open = false;
+            self.query_editor.editor_search.clear();
             if let Some(doc) = self
                 .query_session_state
                 .documents
@@ -742,10 +742,16 @@ impl DbProApp {
             .get_mut(self.query_session_state.active_document_index)
         {
             ui.horizontal(|ui| {
-                let prev_search = self.editor_search.clone();
-                input(ui, &mut self.editor_search, "Find in SQL…", 240.0, self.theme);
-                if self.editor_search != prev_search {
-                    doc.search.query = self.editor_search.clone();
+                let prev_search = self.query_editor.editor_search.clone();
+                input(
+                    ui,
+                    &mut self.query_editor.editor_search,
+                    "Find in SQL…",
+                    240.0,
+                    self.theme,
+                );
+                if self.query_editor.editor_search != prev_search {
+                    doc.search.query = self.query_editor.editor_search.clone();
                     doc.search.update_matches(doc.buffer.text());
                     if let Some(first_match) = doc.search.matches.first().copied() {
                         doc.search.active_match_index = 0;
@@ -753,7 +759,7 @@ impl DbProApp {
                     }
                 }
 
-                if !self.editor_search.is_empty() {
+                if !self.query_editor.editor_search.is_empty() {
                     let total = doc.search.matches.len();
                     let current = if total == 0 {
                         0
@@ -816,7 +822,7 @@ impl DbProApp {
         }
 
         if close_search {
-            self.editor_search_open = false;
+            self.query_editor.editor_search_open = false;
         }
     }
 
@@ -862,7 +868,7 @@ impl DbProApp {
                     .clicked()
                 {
                     self.append_to_active_query(keyword);
-                    self.completion_open = false;
+                    self.query_editor.completion_open = false;
                 }
             }
         });
@@ -881,7 +887,7 @@ impl DbProApp {
                     .clicked()
                 {
                     self.insert_snippet(snippet);
-                    self.snippets_open = false;
+                    self.query_editor.snippets_open = false;
                 }
             }
         });
@@ -913,11 +919,14 @@ impl DbProApp {
     /// Parser diagnostics for the current SQL (legacy list — gutter + status count are canonical).
     #[allow(dead_code)]
     fn draw_diagnostics(&mut self, ui: &mut egui::Ui) {
-        if self.diagnostics.is_empty() {
+        if self.query_editor.diagnostics.is_empty() {
             return;
         }
-        ui.colored_label(self.theme.warning, format!("Diagnostics · {}", self.diagnostics.len()));
-        for diagnostic in &self.diagnostics {
+        ui.colored_label(
+            self.theme.warning,
+            format!("Diagnostics · {}", self.query_editor.diagnostics.len()),
+        );
+        for diagnostic in &self.query_editor.diagnostics {
             ui.colored_label(self.theme.warning, format!("• {diagnostic}"));
         }
     }
@@ -1020,7 +1029,7 @@ impl DbProApp {
                     ui.add_space(4.0);
                     close_menu |= self.draw_query_editor_actions(ui);
                     ui.label(
-                        RichText::new(format!("Editor font · {} px", self.editor_font_size))
+                        RichText::new(format!("Editor font · {} px", self.query_editor.editor_font_size))
                             .small()
                             .color(self.theme.text_muted),
                     );
@@ -1034,7 +1043,7 @@ impl DbProApp {
                     .is_some_and(|position| !menu.response.rect.contains(position) && !anchor.contains(position))
         });
         if clicked_outside || close_menu {
-            self.query_tools_open = false;
+            self.query_editor.query_tools_open = false;
         }
     }
 
@@ -1084,13 +1093,13 @@ impl DbProApp {
             self.open_save_as_dialog();
             close_menu = true;
         }
-        let builder_label = if self.visual_query_builder_open {
+        let builder_label = if self.query_editor.visual_query_builder_open {
             "Hide visual query builder"
         } else {
             "Visual query builder"
         };
         if menu_button_with_icon(ui, Icon::LayoutTemplate, builder_label, self.theme).clicked() {
-            self.visual_query_builder_open = !self.visual_query_builder_open;
+            self.query_editor.visual_query_builder_open = !self.query_editor.visual_query_builder_open;
             close_menu = true;
         }
         close_menu
@@ -1100,7 +1109,7 @@ impl DbProApp {
     fn draw_query_editor_actions(&mut self, ui: &mut egui::Ui) -> bool {
         let mut close_menu = false;
         if menu_button_with_icon(ui, Icon::Search, "Find in SQL", self.theme).clicked() {
-            self.editor_search_open = !self.editor_search_open;
+            self.query_editor.editor_search_open = !self.query_editor.editor_search_open;
             close_menu = true;
         }
         let txn_label = if self.query_txn_bar_open {
@@ -1113,10 +1122,10 @@ impl DbProApp {
             close_menu = true;
         }
         if menu_button_with_icon(ui, Icon::Minus, "Decrease font size", self.theme).clicked() {
-            self.editor_font_size = (self.editor_font_size - 1.0).max(10.0);
+            self.query_editor.editor_font_size = (self.query_editor.editor_font_size - 1.0).max(10.0);
         }
         if menu_button_with_icon(ui, Icon::Plus, "Increase font size", self.theme).clicked() {
-            self.editor_font_size = (self.editor_font_size + 1.0).min(24.0);
+            self.query_editor.editor_font_size = (self.query_editor.editor_font_size + 1.0).min(24.0);
         }
         if menu_button_with_icon(ui, Icon::Bot, "Generate SQL Prediction", self.theme).clicked() {
             if self.prediction_mode != PredictionMode::Off {
@@ -1152,7 +1161,7 @@ impl DbProApp {
         );
         ui.add_space(4.0);
         if menu_button_with_icon(ui, Icon::FileCode2, "SQL snippets", self.theme).clicked() {
-            self.snippets_open = !self.snippets_open;
+            self.query_editor.snippets_open = !self.query_editor.snippets_open;
             close_menu = true;
         }
         ui.horizontal(|ui| {
@@ -1205,8 +1214,8 @@ impl DbProApp {
             doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, new_offset);
             doc.selection = crate::editor::SelectionRange::point(new_offset);
             doc.dirty = true;
-            self.query_cursor_line = doc.cursor.line + 1;
-            self.query_cursor_column = doc.cursor.col + 1;
+            self.query_editor.query_cursor_line = doc.cursor.line + 1;
+            self.query_editor.query_cursor_column = doc.cursor.col + 1;
         }
         self.workspace.active_tab = WorkspaceTab::Query;
         self.refresh_diagnostics();

@@ -9,7 +9,7 @@ impl DbProApp {
         self.settings.general.language.apply();
         self.dark_mode = self.settings.appearance.dark_mode;
         self.reduce_motion = self.settings.appearance.reduce_motion;
-        self.editor_font_size = self.settings.editor.font_size;
+        self.query_editor.editor_font_size = self.settings.editor.font_size;
         self.prediction_mode = match self.settings.editor.prediction_mode.as_str() {
             "off" => PredictionMode::Off,
             "subtle" => PredictionMode::Subtle,
@@ -27,7 +27,7 @@ impl DbProApp {
         self.settings.version = settings_model::SETTINGS_VERSION;
         self.settings.appearance.dark_mode = self.dark_mode;
         self.settings.appearance.reduce_motion = self.reduce_motion;
-        self.settings.editor.font_size = self.editor_font_size;
+        self.settings.editor.font_size = self.query_editor.editor_font_size;
         self.settings.editor.prediction_mode = match self.prediction_mode {
             PredictionMode::Off => "off".to_owned(),
             PredictionMode::Subtle => "subtle".to_owned(),
@@ -171,13 +171,16 @@ impl DbProApp {
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Font size").color(self.theme.text_secondary));
                 if compact_button(ui, "−", self.theme).clicked() {
-                    self.editor_font_size = (self.editor_font_size - 1.0).max(10.0);
-                    self.settings.editor.font_size = self.editor_font_size;
+                    self.query_editor.editor_font_size = (self.query_editor.editor_font_size - 1.0).max(10.0);
+                    self.settings.editor.font_size = self.query_editor.editor_font_size;
                 }
-                ui.label(RichText::new(format!("{:.0} px", self.editor_font_size)).color(self.theme.text_primary));
+                ui.label(
+                    RichText::new(format!("{:.0} px", self.query_editor.editor_font_size))
+                        .color(self.theme.text_primary),
+                );
                 if compact_button(ui, "+", self.theme).clicked() {
-                    self.editor_font_size = (self.editor_font_size + 1.0).min(24.0);
-                    self.settings.editor.font_size = self.editor_font_size;
+                    self.query_editor.editor_font_size = (self.query_editor.editor_font_size + 1.0).min(24.0);
+                    self.settings.editor.font_size = self.query_editor.editor_font_size;
                 }
             });
             ui.add_space(8.0);

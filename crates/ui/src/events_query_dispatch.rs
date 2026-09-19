@@ -45,11 +45,11 @@ impl DbProApp {
             return;
         }
         if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "editor.find")) {
-            self.editor_search_open = true;
+            self.query_editor.editor_search_open = true;
         }
         if ctx.input(|i| {
             self.shortcut_pressed(i, "query.run")
-                || (self.query_editor_focused
+                || (self.query_editor.query_editor_focused
                     && !self.workspace.agent_open
                     && i.key_pressed(egui::Key::Enter)
                     && Self::primary_modifier_pressed(i))
@@ -63,10 +63,10 @@ impl DbProApp {
                 } else {
                     self.runtime_message = "Query cancellation is not supported for this provider".to_owned();
                 }
-            } else if self.query_tools_open {
-                self.query_tools_open = false;
-            } else if self.editor_search_open {
-                self.editor_search_open = false;
+            } else if self.query_editor.query_tools_open {
+                self.query_editor.query_tools_open = false;
+            } else if self.query_editor.editor_search_open {
+                self.query_editor.editor_search_open = false;
             } else {
                 self.set_agent_open(false, ctx);
             }
@@ -266,10 +266,10 @@ impl DbProApp {
             }
         };
 
-        if !self.query_history.iter().any(|query| query == &sql) {
-            self.query_history.push(sql.clone());
-            if self.query_history.len() > 20 {
-                self.query_history.remove(0);
+        if !self.query_editor.query_history.iter().any(|query| query == &sql) {
+            self.query_editor.query_history.push(sql.clone());
+            if self.query_editor.query_history.len() > 20 {
+                self.query_editor.query_history.remove(0);
             }
         }
         let request_id = self.task_bridge.next_request_id();

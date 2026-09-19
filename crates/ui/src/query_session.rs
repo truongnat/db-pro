@@ -102,8 +102,8 @@ impl DbProApp {
         }
         self.query_session_state.active_document_index = index;
         let doc = &self.query_session_state.documents[index];
-        self.query_cursor_line = doc.cursor.line + 1;
-        self.query_cursor_column = doc.cursor.col + 1;
+        self.query_editor.query_cursor_line = doc.cursor.line + 1;
+        self.query_editor.query_cursor_column = doc.cursor.col + 1;
         if !doc.selection.is_empty() {
             let (start, end) = doc.selection.normalized();
             self.query_session_state.selected_text = doc.buffer.slice(start, end).to_owned();

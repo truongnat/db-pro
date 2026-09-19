@@ -306,7 +306,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
             egui::ComboBox::from_id_salt("problems_severity_filter")
-                .selected_text(match self.problems_severity_filter {
+                .selected_text(match self.query_editor.problems_severity_filter {
                     ProblemsSeverityFilter::All => "All",
                     ProblemsSeverityFilter::Errors => "Errors",
                     ProblemsSeverityFilter::Warnings => "Warnings",
@@ -318,11 +318,11 @@ impl DbProApp {
                         (ProblemsSeverityFilter::Errors, "Errors"),
                         (ProblemsSeverityFilter::Warnings, "Warnings"),
                     ] {
-                        ui.selectable_value(&mut self.problems_severity_filter, filter, label);
+                        ui.selectable_value(&mut self.query_editor.problems_severity_filter, filter, label);
                     }
                 });
             egui::ComboBox::from_id_salt("problems_source_filter")
-                .selected_text(match self.problems_source_filter {
+                .selected_text(match self.query_editor.problems_source_filter {
                     ProblemsSourceFilter::All => "All sources",
                     ProblemsSourceFilter::Parser => "Parser",
                     ProblemsSourceFilter::Lint => "Lint",
@@ -338,7 +338,7 @@ impl DbProApp {
                         (ProblemsSourceFilter::Delimiter, "Delimiter"),
                         (ProblemsSourceFilter::Database, "Database"),
                     ] {
-                        ui.selectable_value(&mut self.problems_source_filter, filter, label);
+                        ui.selectable_value(&mut self.query_editor.problems_source_filter, filter, label);
                     }
                 });
         });
@@ -377,8 +377,8 @@ impl DbProApp {
                         .color(self.theme.text_muted),
                 );
             }
-            let selected =
-                self.problems_selected.as_ref() == Some(&(entry.document_id.clone(), entry.diagnostic_index));
+            let selected = self.query_editor.problems_selected.as_ref()
+                == Some(&(entry.document_id.clone(), entry.diagnostic_index));
             let (icon, _color) = match entry.severity {
                 crate::editor::DiagnosticSeverity::Error => (Icon::AlertCircle, self.theme.danger),
                 crate::editor::DiagnosticSeverity::Warning => (Icon::TriangleAlert, self.theme.warning),
@@ -400,7 +400,7 @@ impl DbProApp {
             );
             let response = sidebar_item(ui, icon, &label, selected, self.theme);
             if response.clicked() {
-                self.problems_selected = Some((entry.document_id.clone(), entry.diagnostic_index));
+                self.query_editor.problems_selected = Some((entry.document_id.clone(), entry.diagnostic_index));
                 if entry.document_index == usize::MAX {
                     // Workspace-indexed diagnostic (#269): open the SQL file if possible.
                     self.open_workspace_sql_file(entry.document_title.clone());
@@ -595,11 +595,11 @@ impl DbProApp {
     }
 
     fn draw_local_history_section(&mut self, ui: &mut egui::Ui) {
-        if self.query_history.is_empty() {
+        if self.query_editor.query_history.is_empty() {
             ui.label(RichText::new("No queries run yet").color(self.theme.text_muted));
             return;
         }
-        let history = self.query_history.clone();
+        let history = self.query_editor.query_history.clone();
         for query in history.iter().rev() {
             let title = query.lines().next().unwrap_or("query");
             if sidebar_item(ui, Icon::History, title, false, self.theme)

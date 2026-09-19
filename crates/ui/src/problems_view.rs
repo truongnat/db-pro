@@ -45,12 +45,12 @@ impl DbProApp {
     }
 
     pub(super) fn problem_matches_filters(&self, entry: &ProblemEntry) -> bool {
-        let severity_ok = match self.problems_severity_filter {
+        let severity_ok = match self.query_editor.problems_severity_filter {
             ProblemsSeverityFilter::All => true,
             ProblemsSeverityFilter::Errors => entry.severity == crate::editor::DiagnosticSeverity::Error,
             ProblemsSeverityFilter::Warnings => entry.severity == crate::editor::DiagnosticSeverity::Warning,
         };
-        let source_ok = match self.problems_source_filter {
+        let source_ok = match self.query_editor.problems_source_filter {
             ProblemsSourceFilter::All => true,
             ProblemsSourceFilter::Parser => entry.source == crate::editor::DiagnosticSource::Parser,
             ProblemsSourceFilter::Lint => entry.source == crate::editor::DiagnosticSource::Lint,
@@ -75,8 +75,8 @@ impl DbProApp {
         let end = diagnostic.range.1.min(doc.buffer.len_bytes()).max(start);
         doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, start);
         doc.selection = crate::editor::SelectionRange::new(start, end);
-        self.query_cursor_line = doc.cursor.line + 1;
-        self.query_cursor_column = doc.cursor.col + 1;
+        self.query_editor.query_cursor_line = doc.cursor.line + 1;
+        self.query_editor.query_cursor_column = doc.cursor.col + 1;
         if start != end {
             self.query_session_state.selected_text = doc.buffer.slice(start, end).to_owned();
         } else {
@@ -85,7 +85,7 @@ impl DbProApp {
         self.workspace.activity = Activity::Problems;
         self.workspace.sidebar_open = true;
         self.workspace.active_tab = WorkspaceTab::Query;
-        self.problems_selected = Some((doc.id.clone(), diagnostic_index));
+        self.query_editor.problems_selected = Some((doc.id.clone(), diagnostic_index));
         self.runtime_message = format!("Jumped to problem in {}", doc.title);
     }
 
@@ -113,8 +113,8 @@ impl DbProApp {
         doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, new_end);
         doc.selection = crate::editor::SelectionRange::new(start, new_end);
         doc.dirty = true;
-        self.query_cursor_line = doc.cursor.line + 1;
-        self.query_cursor_column = doc.cursor.col + 1;
+        self.query_editor.query_cursor_line = doc.cursor.line + 1;
+        self.query_editor.query_cursor_column = doc.cursor.col + 1;
         let title = doc.title.clone();
         self.workspace.active_tab = WorkspaceTab::Query;
         self.refresh_diagnostics();

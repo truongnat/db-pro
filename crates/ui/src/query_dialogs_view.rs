@@ -744,32 +744,35 @@ impl DbProApp {
             .and_then(|doc| doc.execution_diagnostic.as_ref())
             .map(|d| d.range);
 
-        if self.diagnostics_cache_key == Some(cache_key) && self.diagnostics_cache_driver == driver {
+        if self.query_editor.diagnostics_cache_key == Some(cache_key)
+            && self.query_editor.diagnostics_cache_driver == driver
+        {
             // Cheap path: only rematch when execution diagnostic identity changes.
-            if self.diagnostics_exec_fp == exec_fp {
+            if self.query_editor.diagnostics_exec_fp == exec_fp {
                 return;
             }
             if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
                 doc.diagnostics = deduplicate_diagnostics(
-                    self.diagnostics_lint_structured
+                    self.query_editor
+                        .diagnostics_lint_structured
                         .iter()
                         .cloned()
                         .chain(doc.execution_diagnostic.clone())
                         .collect(),
                 );
             }
-            self.diagnostics_exec_fp = exec_fp;
+            self.query_editor.diagnostics_exec_fp = exec_fp;
             return;
         }
 
         // While typing, defer sqlparser until a short quiet window so keystrokes stay snappy.
         let now = Instant::now();
-        if self.diagnostics_debounce_key != Some(cache_key) {
-            self.diagnostics_debounce_key = Some(cache_key);
-            self.diagnostics_debounce_at = Some(now + Duration::from_millis(180));
+        if self.query_editor.diagnostics_debounce_key != Some(cache_key) {
+            self.query_editor.diagnostics_debounce_key = Some(cache_key);
+            self.query_editor.diagnostics_debounce_at = Some(now + Duration::from_millis(180));
             return;
         }
-        if let Some(deadline) = self.diagnostics_debounce_at {
+        if let Some(deadline) = self.query_editor.diagnostics_debounce_at {
             if now < deadline {
                 return;
             }
@@ -778,17 +781,18 @@ impl DbProApp {
         let lint = self.settings.editor.lint.clone();
         if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
             let (raw_diags, structured) = Self::analyze_sql_diagnostics_with_lint(doc.text(), &driver, &lint);
-            self.diagnostics = raw_diags;
-            self.diagnostics_lint_structured = structured.clone();
+            self.query_editor.diagnostics = raw_diags;
+            self.query_editor.diagnostics_lint_structured = structured.clone();
             doc.diagnostics =
                 deduplicate_diagnostics(structured.into_iter().chain(doc.execution_diagnostic.clone()).collect());
         } else {
-            self.diagnostics = Self::analyze_sql_diagnostics_with_lint(self.active_query_text(), &driver, &lint).0;
-            self.diagnostics_lint_structured.clear();
+            self.query_editor.diagnostics =
+                Self::analyze_sql_diagnostics_with_lint(self.active_query_text(), &driver, &lint).0;
+            self.query_editor.diagnostics_lint_structured.clear();
         }
-        self.diagnostics_cache_key = Some(cache_key);
-        self.diagnostics_cache_driver = driver;
-        self.diagnostics_exec_fp = exec_fp;
-        self.diagnostics_debounce_at = None;
+        self.query_editor.diagnostics_cache_key = Some(cache_key);
+        self.query_editor.diagnostics_cache_driver = driver;
+        self.query_editor.diagnostics_exec_fp = exec_fp;
+        self.query_editor.diagnostics_debounce_at = None;
     }
 }

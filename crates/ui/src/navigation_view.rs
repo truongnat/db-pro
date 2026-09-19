@@ -309,7 +309,7 @@ impl DbProApp {
                             ui.label(
                                 RichText::new(format!(
                                     "Ln {}, Col {}",
-                                    self.query_cursor_line, self.query_cursor_column
+                                    self.query_editor.query_cursor_line, self.query_editor.query_cursor_column
                                 ))
                                 .font(font_mono_sm())
                                 .color(self.theme.text_muted),
@@ -408,7 +408,7 @@ impl DbProApp {
                         }
                     }
                     OutputTab::History => {
-                        for query in self.query_history.iter().rev().take(8) {
+                        for query in self.query_editor.query_history.iter().rev().take(8) {
                             ui.label(
                                 RichText::new(query)
                                     .monospace()

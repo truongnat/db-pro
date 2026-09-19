@@ -57,7 +57,7 @@ impl DbProApp {
             functions: self.schema_explorer.schema.functions.len(),
             columns: self.active_schema_column_names().len(),
             saved_queries: self.saved_queries.len(),
-            history: self.query_history_entries.len(),
+            history: self.query_editor.query_history_entries.len(),
             connections: self.connection_catalog.connections.len(),
             workspace_files,
         })
@@ -477,7 +477,8 @@ impl DbProApp {
     }
 
     fn query_history_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.query_history_entries
+        self.query_editor
+            .query_history_entries
             .iter()
             .take(30)
             .enumerate()
@@ -654,7 +655,7 @@ impl DbProApp {
             PaletteAction::CloseWorkspaceFolder => self.close_workspace_folder(),
             PaletteAction::OpenSavedQuery(query_id) => self.open_saved_query_from_palette(query_id),
             PaletteAction::OpenHistoryEntry(index) => {
-                if let Some(entry) = self.query_history_entries.get(index).cloned() {
+                if let Some(entry) = self.query_editor.query_history_entries.get(index).cloned() {
                     self.open_history_entry(&entry, false);
                 } else {
                     self.runtime_message = "History entry is no longer available".to_owned();

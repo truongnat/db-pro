@@ -112,6 +112,8 @@ mod query_dialogs_view;
 mod query_documents;
 #[path = "query_editor_panel.rs"]
 mod query_editor_panel;
+#[path = "query_editor_state.rs"]
+mod query_editor_state;
 #[path = "query_output_state.rs"]
 mod query_output_state;
 #[path = "query_output_view.rs"]
@@ -155,6 +157,7 @@ mod workspace_session;
 #[path = "workspace_shell.rs"]
 mod workspace_shell;
 pub(crate) use agent_state::AgentState;
+pub(crate) use query_editor_state::QueryEditorState;
 pub(crate) use query_output_state::QueryOutputState;
 pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
@@ -204,61 +207,7 @@ pub struct DbProApp {
     pub prediction_mode: PredictionMode,
     welcome_prompt: String,
     query_session_state: QuerySessionState,
-    editor_search: String,
-    editor_search_open: bool,
-    query_editor_focused: bool,
-    query_focus_editor_on_open: bool,
-    query_cursor_line: usize,
-    query_cursor_column: usize,
-    editor_font_size: f32,
-    query_tools_open: bool,
-    /// Connection/schema context chip picker (click-to-open).
-    query_context_picker_open: bool,
-    /// Parameters dock/popover — only when the user opens it from the status badge.
-    query_params_panel_open: bool,
-    /// Maximize the in-query output dock over the editor.
-    query_output_dock_maximized: bool,
-    /// Last editor rect — anchors the floating find overlay.
-    query_editor_rect: egui::Rect,
-    completion_open: bool,
-    snippets_open: bool,
-    visual_query_builder_open: bool,
-    visual_query_model: crate::query::visual_builder::VisualQueryModel,
-    visual_query_sql_preview: String,
-    visual_query_error: Option<String>,
-    visual_query_add_table: String,
-    visual_query_join_table: String,
-    visual_query_join_left: String,
-    visual_query_join_right: String,
-    visual_query_col_ref: String,
-    visual_query_col_alias: String,
-    visual_query_col_agg: String,
-    visual_query_where_left: String,
-    visual_query_where_op: String,
-    visual_query_where_value: String,
-    visual_query_order: String,
-    visual_query_order_desc: bool,
-    visual_query_limit: String,
-    visual_query_offset: String,
-    diagnostics: Vec<String>,
-    /// Skip sqlparser re-lint while the active buffer version is unchanged.
-    diagnostics_cache_key: Option<(usize, u64)>,
-    diagnostics_cache_driver: String,
-    diagnostics_lint_structured: Vec<crate::editor::Diagnostic>,
-    /// Debounce expensive lint while typing; flush after quiet period.
-    diagnostics_debounce_key: Option<(usize, u64)>,
-    diagnostics_debounce_at: Option<std::time::Instant>,
-    /// Fingerprint of `execution_diagnostic` last merged into `doc.diagnostics`.
-    diagnostics_exec_fp: Option<(usize, usize)>,
-    /// Cached `discover_sql_parameters(...).len()` for the status strip.
-    param_count_cache_key: Option<(usize, u64)>,
-    param_count_cache: usize,
-    problems_severity_filter: ProblemsSeverityFilter,
-    problems_source_filter: ProblemsSourceFilter,
-    problems_selected: Option<(String, usize)>,
-    query_history: Vec<String>,
-    query_history_entries: Vec<UiQueryHistoryEntry>,
-    query_history_search: String,
+    query_editor: QueryEditorState,
     connection_name: String,
     connected: bool,
     palette_mode: Option<PaletteMode>,
@@ -502,7 +451,7 @@ impl eframe::App for DbProApp {
         if let Ok(documents) = serde_json::to_string(&self.query_session_state.documents) {
             storage.set_string("dbpro.native.query-documents", documents);
         }
-        if let Ok(history) = serde_json::to_string(&self.query_history_entries) {
+        if let Ok(history) = serde_json::to_string(&self.query_editor.query_history_entries) {
             storage.set_string("dbpro.native.query-history-v1", history);
         }
         if let Ok(pinned) = serde_json::to_string(&self.schema_explorer.pinned_tables) {

@@ -1410,14 +1410,17 @@ fn switching_query_documents_resets_editor_cursor_metadata() {
             active_tab: WorkspaceTab::Query,
             ..Default::default()
         },
-        query_cursor_line: 8,
-        query_cursor_column: 13,
+        query_editor: QueryEditorState {
+            query_cursor_line: 8,
+            query_cursor_column: 13,
+            ..Default::default()
+        },
         ..Default::default()
     };
     app.new_query_document();
 
-    assert_eq!(app.query_cursor_line, 1);
-    assert_eq!(app.query_cursor_column, 1);
+    assert_eq!(app.query_editor.query_cursor_line, 1);
+    assert_eq!(app.query_editor.query_cursor_column, 1);
 }
 
 #[test]
@@ -3450,8 +3453,8 @@ fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
     assert!(!entries.is_empty());
     assert!(entries.iter().any(|e| e.message.contains("SELECT *")));
 
-    app.problems_severity_filter = ProblemsSeverityFilter::Warnings;
-    app.problems_source_filter = ProblemsSourceFilter::Lint;
+    app.query_editor.problems_severity_filter = ProblemsSeverityFilter::Warnings;
+    app.query_editor.problems_source_filter = ProblemsSourceFilter::Lint;
     assert!(entries.iter().any(|e| app.problem_matches_filters(e)));
 
     let first_lint = entries
@@ -4515,8 +4518,11 @@ fn query_history_uses_execution_start_time() {
         .unwrap();
     app.apply_runtime_events();
 
-    assert_eq!(app.query_history_entries.len(), 1);
-    assert_eq!(app.query_history_entries[0].started_at, "2026-09-13T01:02:03Z");
+    assert_eq!(app.query_editor.query_history_entries.len(), 1);
+    assert_eq!(
+        app.query_editor.query_history_entries[0].started_at,
+        "2026-09-13T01:02:03Z"
+    );
 }
 
 #[test]
