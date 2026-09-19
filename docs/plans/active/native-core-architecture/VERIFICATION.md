@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `74161cc9`.
+Source checkpoint: `b128ffb1`.
 
 ## Current change
 
@@ -61,6 +61,11 @@ Source checkpoint: `74161cc9`.
   The inspected framebuffer shows balanced vertical margins, a separated
   header, right-aligned close action, independently scrolling body and sticky
   footer.
+- Deterministic state captures at logical `1280x800`: loading Welcome state
+  (`/tmp/db-pro-evidence-wRPixZ/loading-1280x800.png`) and New Connection
+  error state (`/tmp/db-pro-evidence-u7x4vI/error-1280x800.png`). The error
+  alert is visible immediately below the separated header instead of being
+  hidden at the end of the scroll body.
 - Release runtime smoke: PASS; `target/release/db-pro-native` launched from
   the verified HEAD and rendered the Welcome/empty state in a `1440x870` DB Pro
   window. Capture was inspected from the native window after startup settled.
@@ -72,15 +77,14 @@ Source checkpoint: `74161cc9`.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1247 passed, 0 failed, 42 ignored.
+- `cargo test --workspace --no-fail-fast`: 1248 passed, 0 failed, 42 ignored.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 11 pass, 5 warnings, 0 failures; warnings are ratcheted size/cast/clone heuristics.
 
 ## Not yet proven
 
-- Native screenshot/runtime evidence for all required viewport sizes and
-  loading/error/empty states is still pending; the smoke capture covers the
-  normal empty Welcome surface and the affected New Connection modal at
-  `1280x800`. macOS host capture clamps the requested `1440x900` and
-  `1920x1080` windows to a logical height of `838`.
+- Native screenshot/runtime evidence for the requested `1440x900` and
+  `1920x1080` logical heights remains host-limited: macOS capture clamps both
+  to a logical height of `838`. The required normal/loading/error/empty states
+  are now captured at exact logical `1280x800`.
 - Native screenshot/runtime evidence for all affected states.
