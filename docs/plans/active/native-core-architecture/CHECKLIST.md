@@ -16,6 +16,7 @@
 - [x] Connection status/schema helpers use explicit state inputs instead of `DbProApp` methods.
 - [x] Connection lifecycle reducers use explicit state inputs instead of `DbProApp` methods.
 - [x] Connection deletion confirmation uses an explicit feature context.
+- [x] Query-folder deletion confirmation has its own feature module.
 
 ## Remaining migrations
 

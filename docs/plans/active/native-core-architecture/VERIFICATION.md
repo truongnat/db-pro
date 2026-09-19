@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `99bf271f`.
+Source checkpoint: `6bad4fd1`.
 
 ## Current change
 
@@ -62,6 +62,9 @@ Source checkpoint: `99bf271f`.
   `connection/delete_dialog.rs` and receives explicit overlay/catalog/
   lifecycle/runtime/feedback dependencies; it no longer implements a
   `DbProApp` method.
+- Query-folder deletion confirmation now lives in
+  `query_folder_delete_dialog.rs`; the old mixed connection/folder confirmation
+  module was removed.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
