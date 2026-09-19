@@ -722,7 +722,7 @@ impl DbProApp {
             return;
         }
         self.persist_current_grid_layout();
-        self.record_recent_table(&table);
+        self.schema_explorer.record_recent_table(&table);
         self.schema_explorer.selected_table = Some(table.clone());
         self.restore_grid_layout_for_active_table();
         self.schema_explorer.selected_schema_object = None;

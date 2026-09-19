@@ -5,7 +5,7 @@ impl DbProApp {
     pub(crate) fn open_table(&mut self, table: String) {
         if self.schema_explorer.selected_table.as_deref() == Some(&table) {
             self.workspace.active_tab = WorkspaceTab::Table;
-            self.record_recent_table(&table);
+            self.schema_explorer.record_recent_table(&table);
             return;
         }
         if !self.table_mutation.staged_changes.is_empty() {
@@ -16,28 +16,12 @@ impl DbProApp {
         }
         self.workspace.pending_navigation_action = None;
         self.persist_current_grid_layout();
-        self.record_recent_table(&table);
+        self.schema_explorer.record_recent_table(&table);
         self.schema_explorer.selected_table = Some(table);
         self.restore_grid_layout_for_active_table();
         self.request_table_info();
         self.request_table_data();
         self.workspace.active_tab = WorkspaceTab::Table;
-    }
-
-    /// Push `table` to the front of the MRU recent list (#212).
-    pub(crate) fn record_recent_table(&mut self, table: &str) {
-        if table.is_empty() {
-            return;
-        }
-        self.schema_explorer.recent_tables.retain(|item| item != table);
-        self.schema_explorer.recent_tables.insert(0, table.to_owned());
-        if self.schema_explorer.recent_tables.len() > RECENT_TABLES_MAX {
-            self.schema_explorer.recent_tables.truncate(RECENT_TABLES_MAX);
-        }
-    }
-
-    pub(crate) fn remove_recent_table(&mut self, table: &str) {
-        self.schema_explorer.recent_tables.retain(|item| item != table);
     }
 
     pub(crate) fn request_open_workspace_folder(&mut self) {

@@ -274,7 +274,7 @@ impl DbProApp {
             self.toggle_pinned_table(table.to_owned());
         }
         if remove_recent {
-            self.remove_recent_table(table);
+            self.schema_explorer.remove_recent_table(table);
             self.feedback.runtime_message = format!("Removed {table} from recent");
         }
     }

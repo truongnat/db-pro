@@ -337,7 +337,7 @@ impl DbProApp {
         }
         self.persist_current_grid_layout();
         self.schema_explorer.selected_table = Some(table.to_owned());
-        self.record_recent_table(table);
+        self.schema_explorer.record_recent_table(table);
         self.schema_explorer.selected_schema_object = None;
         self.schema_explorer.schema_object_view = SchemaObjectView::Definition;
         self.reset_table_workspace_state();

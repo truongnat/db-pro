@@ -40,6 +40,23 @@ impl Default for SchemaExplorerState {
     }
 }
 
+impl SchemaExplorerState {
+    pub(super) fn record_recent_table(&mut self, table: &str) {
+        if table.is_empty() {
+            return;
+        }
+        self.recent_tables.retain(|item| item != table);
+        self.recent_tables.insert(0, table.to_owned());
+        if self.recent_tables.len() > RECENT_TABLES_MAX {
+            self.recent_tables.truncate(RECENT_TABLES_MAX);
+        }
+    }
+
+    pub(super) fn remove_recent_table(&mut self, table: &str) {
+        self.recent_tables.retain(|item| item != table);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -55,5 +72,17 @@ mod tests {
         assert_eq!(state.schema_object_view, SchemaObjectView::Definition);
         assert_eq!(state.connections_pane_height, 160.0);
         assert_eq!(state.schemas_pane_height, 90.0);
+    }
+
+    #[test]
+    fn recent_tables_are_owned_as_a_bounded_mru_list() {
+        let mut state = SchemaExplorerState::default();
+
+        state.record_recent_table("users");
+        state.record_recent_table("orders");
+        state.record_recent_table("users");
+        state.remove_recent_table("orders");
+
+        assert_eq!(state.recent_tables, vec!["users"]);
     }
 }

@@ -6155,7 +6155,7 @@ fn recent_tables_track_mru_and_appear_in_quick_open() {
         .filtered_palette_items(PaletteMode::QuickOpen)
         .iter()
         .any(|item| item.title == "orders" && item.subtitle.contains("Recent")));
-    app.remove_recent_table("orders");
+    app.schema_explorer.remove_recent_table("orders");
     assert_eq!(app.schema_explorer.recent_tables, vec!["users".to_owned()]);
 }
 
