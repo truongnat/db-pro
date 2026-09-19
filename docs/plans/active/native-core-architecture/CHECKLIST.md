@@ -11,7 +11,7 @@
 ## Remaining migrations
 
 - [x] Workspace shell/navigation aggregate.
-- [ ] Query document/session aggregate.
+- [x] Query document/session aggregate (document lifecycle; output lifecycle remains).
 - [ ] Table/data editor aggregate.
 - [ ] Agent/task aggregate.
 - [ ] Runtime event dispatch split by feature.
@@ -23,7 +23,7 @@
 - [x] `cargo fmt --all -- --check` (PASS)
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
-- [x] `cargo test -p db-pro-ui --lib` (554 passed)
-- [x] `cargo test --workspace --no-fail-fast` (1226 passed, 0 failed, 42 ignored)
+- [x] `cargo test -p db-pro-ui --lib` (555 passed)
+- [x] `cargo test --workspace --no-fail-fast` (1227 passed, 0 failed, 42 ignored)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [ ] Native runtime evidence for affected surfaces.

@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `a483000ad73c7a89589b31316394043d2ec960dd`.
+Source checkpoint: `0bde3a5f4091f2ce3e6ccdc3a12bb2f5a765c5db`.
 
 ## Current change
 
@@ -13,15 +13,17 @@ Source checkpoint: `a483000ad73c7a89589b31316394043d2ec960dd`.
 - `WorkspaceShellState` now owns shell navigation, panel visibility/geometry,
   welcome lifecycle and pending navigation state; panel resize values are
   clamped through state setters.
-- Unit tests for the new aggregates: 6 passed, 0 failed.
+- `QuerySessionState` now owns query documents, active selection, selected text,
+  save/close request tracking and Save As lifecycle.
+- Unit tests for the new aggregates: 7 passed, 0 failed.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 554 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 555 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1226 passed, 0 failed, 42 ignored.
+- `cargo test --workspace --no-fail-fast`: 1227 passed, 0 failed, 42 ignored.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 11 pass, 5 warnings, 0 failures; warnings are ratcheted size/cast/clone heuristics.
 

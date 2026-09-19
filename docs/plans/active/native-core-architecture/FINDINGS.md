@@ -56,3 +56,15 @@ panel geometry is clamped through state setters and shell tests cover defaults
 and boundary clamping.
 
 Severity: P1 boundary leak, resolved for the shell slice.
+
+## F6 — Query document lifecycle was coupled to the composition root
+
+Evidence: open documents, active document selection, selected text, save/close
+request maps and Save As/dirty-close state were individual `DbProApp` fields
+read by query, agent, workspace and runtime event code.
+
+Fix in `0bde3a5f`: those values now have one owner,
+`QuerySessionState`. Query output/result state intentionally remains separate
+for the next query slice.
+
+Severity: P1 boundary leak, resolved for document lifecycle.
