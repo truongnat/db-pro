@@ -469,7 +469,15 @@ impl eframe::App for DbProApp {
             );
         }
         if self.overlay.delete_confirmation_id.is_some() {
-            self.draw_delete_confirmation(ctx);
+            connection::delete_dialog::draw(
+                ctx,
+                self.theme,
+                &mut self.overlay,
+                &self.connection_catalog,
+                &mut self.connection_lifecycle,
+                &mut self.task_bridge,
+                &mut self.feedback,
+            );
         }
         if self.overlay.folder_delete_confirmation.is_some() {
             self.draw_folder_delete_confirmation(ctx);

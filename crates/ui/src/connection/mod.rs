@@ -2,6 +2,7 @@ pub mod advanced_panels;
 pub mod catalog;
 pub mod config;
 pub mod confirm_dialogs;
+pub mod delete_dialog;
 pub mod form_fields;
 pub mod layout;
 pub mod lifecycle;
