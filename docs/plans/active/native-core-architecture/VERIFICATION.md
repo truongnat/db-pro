@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `9eab2115`.
+Source checkpoint: `0dae3342`.
 
 ## Current change
 
@@ -43,6 +43,14 @@ Source checkpoint: `9eab2115`.
   feature event modules; `events.rs` contains only the event pump and tests.
 - `scripts/check-ui-architecture.sh`: PASS; it allowlists the composition-root
   fields, rejects event handlers in `events.rs`, and verifies the event modules.
+- Shared dialog layout now reserves an explicit chrome budget, centers the card
+  inside the safe viewport, gives the body its own scroll budget, and renders a
+  full-width separated header with the close action aligned to the right.
+- Deterministic native capture of the affected New Connection modal: PASS at
+  logical `1280x800` (`/tmp/db-pro-modal-evdl0N/new-connection-1280x800.png`).
+  The inspected framebuffer shows balanced vertical margins, a separated
+  header, right-aligned close action, independently scrolling body and sticky
+  footer.
 - Release runtime smoke: PASS; `target/release/db-pro-native` launched from
   the verified HEAD and rendered the Welcome/empty state in a `1440x870` DB Pro
   window. Capture was inspected from the native window after startup settled.
@@ -50,7 +58,7 @@ Source checkpoint: `9eab2115`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 573 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 575 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
@@ -61,8 +69,8 @@ Source checkpoint: `9eab2115`.
 ## Not yet proven
 
 - Native screenshot/runtime evidence for all required viewport sizes and
-  loading/error/empty states is still pending; the smoke capture covers only
-  the normal empty Welcome surface at `1440x870`.
-- Feature-level event reducers still share the legacy handler module and are
-  the next architectural slice.
+  loading/error/empty states is still pending; the smoke capture covers the
+  normal empty Welcome surface and the affected New Connection modal at
+  `1280x800`. macOS host capture clamps the requested `1440x900` and
+  `1920x1080` windows to a logical height of `838`.
 - Native screenshot/runtime evidence for all affected states.

@@ -36,4 +36,6 @@
 - [x] `cargo test -p db-pro-ui --lib` (573 passed)
 - [x] `cargo test --workspace --no-fail-fast` (1247 passed, 0 failed, 42 ignored)
 - [x] `cargo build --release --locked -p db-pro-native`
+- [x] New Connection modal runtime capture at logical `1280x800` (centered
+      card, separated header, right-aligned close, sticky footer).
 - [ ] Native runtime evidence for affected surfaces.
