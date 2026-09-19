@@ -12,7 +12,7 @@
 
 - [x] Workspace shell/navigation aggregate.
 - [x] Query document/session aggregate.
-- [ ] Table/data editor aggregate.
+- [x] Table/data interaction aggregate (grid/editor state; metadata/mutation remains).
 - [ ] Agent/task aggregate.
 - [ ] Runtime event dispatch split by feature.
 - [ ] `DbProApp` reduced to composition root.

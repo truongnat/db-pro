@@ -68,3 +68,15 @@ Fix in `0bde3a5f`: document lifecycle values now have one owner,
 output-tab overrides now have one owner, `QueryOutputState`.
 
 Severity: P1 boundary leak, resolved for document lifecycle.
+
+## F7 — Table/data interaction state was coupled to the composition root
+
+Evidence: grid projection/layout, filtering/sorting, selection, cell editor,
+record inspector and insert-row drafts were individual `DbProApp` fields
+consumed by table, result-grid, explorer and query event code.
+
+Fix in `77a27f0c`: those interaction values now have one owner,
+`TableDataState`, with its own default-state test. Table metadata requests and
+mutation orchestration remain a separate follow-up.
+
+Severity: P1 boundary leak, resolved for interaction state.
