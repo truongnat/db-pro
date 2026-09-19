@@ -152,6 +152,8 @@ mod query_documents;
 mod query_editor_panel;
 #[path = "query_editor_state.rs"]
 mod query_editor_state;
+#[path = "query_folder_delete_dialog.rs"]
+mod query_folder_delete_dialog;
 #[path = "query_output_state.rs"]
 mod query_output_state;
 #[path = "query_output_view.rs"]
@@ -480,7 +482,14 @@ impl eframe::App for DbProApp {
             );
         }
         if self.overlay.folder_delete_confirmation.is_some() {
-            self.draw_folder_delete_confirmation(ctx);
+            query_folder_delete_dialog::draw(
+                ctx,
+                self.theme,
+                &mut self.overlay,
+                &self.query_library,
+                &mut self.task_bridge,
+                &mut self.feedback,
+            );
         }
         if self.table_data.insert_row_open {
             self.draw_insert_row_dialog(ctx);
