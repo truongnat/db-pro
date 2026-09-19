@@ -156,35 +156,11 @@ impl DbProApp {
     }
 
     pub(crate) fn handle_transaction_action(&mut self, action: crate::components::TransactionAction) {
-        match action {
-            crate::components::TransactionAction::ToggleAutoCommit(value) => {
-                if self.query_execution.query_in_transaction && value {
-                    self.feedback.runtime_message =
-                        "Commit or rollback the open transaction before enabling auto-commit".into();
-                    return;
-                }
-                self.query_execution.query_auto_commit = value;
-                if value {
-                    self.query_execution.query_in_transaction = false;
-                    self.query_execution.query_txn_pending = 0;
-                }
-            }
-            crate::components::TransactionAction::Begin => {
-                self.query_execution.query_auto_commit = false;
-                self.dispatch_transaction_sql("BEGIN");
-                self.query_execution.query_in_transaction = true;
-                self.query_execution.query_txn_pending = 0;
-            }
-            crate::components::TransactionAction::Commit => {
-                self.dispatch_transaction_sql("COMMIT");
-                self.query_execution.query_in_transaction = false;
-                self.query_execution.query_txn_pending = 0;
-            }
-            crate::components::TransactionAction::Rollback => {
-                self.dispatch_transaction_sql("ROLLBACK");
-                self.query_execution.query_in_transaction = false;
-                self.query_execution.query_txn_pending = 0;
-            }
+        if let Some(sql) = self
+            .query_execution
+            .apply_transaction_action(action, &mut self.feedback)
+        {
+            self.dispatch_transaction_sql(sql);
         }
     }
 
