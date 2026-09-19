@@ -5,16 +5,16 @@ impl DbProApp {
     pub(super) fn draw_diagram(&mut self, ui: &mut egui::Ui) {
         let all_table_count = self.schema_explorer.schema.table_details.len();
         let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
-        let search_query = self.diagram_search.trim().to_ascii_lowercase();
-        let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
+        let search_query = self.diagram.search.trim().to_ascii_lowercase();
+        let search_mode = diagram_search_mode(large_schema, self.diagram.show_all);
 
         // Poll background layout worker:
-        if let Some(res) = self.diagram_layout_worker.poll_result() {
-            if res.graph_version == self.diagram_schema_version && res.request_id == self.diagram_latest_layout_request
+        if let Some(res) = self.diagram.layout_worker.poll_result() {
+            if res.graph_version == self.diagram.schema_version && res.request_id == self.diagram.latest_layout_request
             {
-                self.diagram_graph = res.graph;
-                self.diagram_spatial_index = res.spatial_index;
-                self.diagram_layout_state = ErLayoutState::Ready;
+                self.diagram.graph = res.graph;
+                self.diagram.spatial_index = res.spatial_index;
+                self.diagram.layout_state = ErLayoutState::Ready;
             }
         }
 
@@ -23,7 +23,7 @@ impl DbProApp {
             return;
         }
 
-        let render_limit = if !large_schema || self.diagram_show_all {
+        let render_limit = if !large_schema || self.diagram.show_all {
             all_table_count
         } else {
             ER_MAX_TABLES
@@ -58,7 +58,8 @@ impl DbProApp {
         // Determine active table subset:
         let active_node_indices: Option<Vec<usize>> = if search_mode && !search_query.is_empty() {
             let seed_indices: Vec<usize> = self
-                .diagram_graph
+                .diagram
+                .graph
                 .nodes
                 .iter()
                 .filter(|node| matches_diagram_search(&node.table, &search_query))
@@ -71,8 +72,9 @@ impl DbProApp {
                 return;
             }
             Some(
-                self.diagram_graph
-                    .bfs_neighborhood(&seed_indices, self.diagram_neighborhood_depth, 100),
+                self.diagram
+                    .graph
+                    .bfs_neighborhood(&seed_indices, self.diagram.neighborhood_depth, 100),
             )
         } else if search_mode && search_query.is_empty() {
             self.draw_diagram_toolbar(ui, large_schema, all_table_count, &tables, render_limit);
@@ -92,48 +94,48 @@ impl DbProApp {
 
     fn ensure_diagram_graph(&mut self, grid_columns: usize, node_height: f32) {
         let current_count = self.schema_explorer.schema.table_details.len();
-        let graph_dirty = self.diagram_graph.nodes.len() != current_count
-            || self.diagram_graph.schema_version != self.diagram_schema_version;
+        let graph_dirty = self.diagram.graph.nodes.len() != current_count
+            || self.diagram.graph.schema_version != self.diagram.schema_version;
 
         if graph_dirty && current_count > 0 {
-            if self.diagram_graph.nodes.is_empty() {
+            if self.diagram.graph.nodes.is_empty() {
                 // First load: build immediately so canvas starts populated without blank frame
-                self.diagram_graph = ErGraph::build(
+                self.diagram.graph = ErGraph::build(
                     &self.schema_explorer.schema.table_details,
-                    self.diagram_schema_version,
+                    self.diagram.schema_version,
                     grid_columns,
                     node_height,
                 );
-                self.diagram_spatial_index = ErSpatialIndex::build(
-                    &self.diagram_graph.nodes,
-                    &self.diagram_graph.edges,
+                self.diagram.spatial_index = ErSpatialIndex::build(
+                    &self.diagram.graph.nodes,
+                    &self.diagram.graph.edges,
                     DEFAULT_SPATIAL_CELL_SIZE,
                 );
-                self.diagram_layout_state = ErLayoutState::Ready;
+                self.diagram.layout_state = ErLayoutState::Ready;
             } else {
                 // Background worker update: keep old graph renderable and dispatch async request.
                 // saturating_add: at u64::MAX the version stays MAX; subsequent invalidations
                 // all produce the same version but the graph node count check (graph_dirty)
                 // prevents re-dispatch unless the actual table list changes.
-                self.diagram_schema_version = self.diagram_schema_version.saturating_add(1);
-                let request_id = self.diagram_layout_worker.request_layout(
-                    self.diagram_schema_version,
+                self.diagram.schema_version = self.diagram.schema_version.saturating_add(1);
+                let request_id = self.diagram.layout_worker.request_layout(
+                    self.diagram.schema_version,
                     self.schema_explorer.schema.table_details.clone(),
                     grid_columns,
                     node_height,
                 );
-                self.diagram_latest_layout_request = request_id;
+                self.diagram.latest_layout_request = request_id;
 
                 // If the worker is in degraded mode (spawn failed), the request was
                 // silently dropped. Transition to Failed state so the UI shows a
                 // concise error while retaining the last valid graph.
-                if self.diagram_layout_worker.dispatch_succeeded() {
-                    self.diagram_layout_state = ErLayoutState::Computing {
+                if self.diagram.layout_worker.dispatch_succeeded() {
+                    self.diagram.layout_state = ErLayoutState::Computing {
                         request_id,
-                        graph_version: self.diagram_schema_version,
+                        graph_version: self.diagram.schema_version,
                     };
                 } else {
-                    self.diagram_layout_state = ErLayoutState::Failed("ER layout worker unavailable".to_owned());
+                    self.diagram.layout_state = ErLayoutState::Failed("ER layout worker unavailable".to_owned());
                 }
             }
         }
@@ -192,12 +194,12 @@ impl DbProApp {
         tables: &[UiTableSummary],
         render_limit: usize,
     ) {
-        let visible_tables = if self.diagram_show_all || !large_schema {
+        let visible_tables = if self.diagram.show_all || !large_schema {
             all_table_count
         } else {
             tables.len().min(render_limit)
         };
-        let relationship_count: usize = self.diagram_graph.edges.len();
+        let relationship_count: usize = self.diagram.graph.edges.len();
 
         ui.horizontal_wrapped(|ui| {
             section_label(ui, "ER DIAGRAM", self.theme);
@@ -214,7 +216,7 @@ impl DbProApp {
                 self.theme.surface_hover,
                 self.theme.text_secondary,
             );
-            if matches!(self.diagram_layout_state, ErLayoutState::Computing { .. }) {
+            if matches!(self.diagram.layout_state, ErLayoutState::Computing { .. }) {
                 badge(
                     ui,
                     "Arranging map…",
@@ -225,23 +227,23 @@ impl DbProApp {
             if large_schema {
                 ui.separator();
                 let search_changed =
-                    input(ui, &mut self.diagram_search, "Find table or column…", 220.0, self.theme).changed();
-                self.diagram_show_all =
-                    diagram_show_all_after_search_edit(self.diagram_show_all, &self.diagram_search, search_changed);
-                let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
+                    input(ui, &mut self.diagram.search, "Find table or column…", 220.0, self.theme).changed();
+                self.diagram.show_all =
+                    diagram_show_all_after_search_edit(self.diagram.show_all, &self.diagram.search, search_changed);
+                let search_mode = diagram_search_mode(large_schema, self.diagram.show_all);
                 if search_mode {
                     ui.label(RichText::new("Neighborhood:").small().color(self.theme.text_muted));
                     if ui
-                        .selectable_label(self.diagram_neighborhood_depth == 1, "1 hop")
+                        .selectable_label(self.diagram.neighborhood_depth == 1, "1 hop")
                         .clicked()
                     {
-                        self.diagram_neighborhood_depth = 1;
+                        self.diagram.neighborhood_depth = 1;
                     }
                     if ui
-                        .selectable_label(self.diagram_neighborhood_depth == 2, "2 hops")
+                        .selectable_label(self.diagram.neighborhood_depth == 2, "2 hops")
                         .clicked()
                     {
-                        self.diagram_neighborhood_depth = 2;
+                        self.diagram.neighborhood_depth = 2;
                     }
                     ui.add_space(4.0);
                     if secondary_button_with_icon(
@@ -252,17 +254,17 @@ impl DbProApp {
                     )
                     .clicked()
                     {
-                        self.diagram_show_all = true;
+                        self.diagram.show_all = true;
                     }
                 } else {
                     badge(ui, "All tables", self.theme.warning, self.theme.text_inverse);
                     if compact_button_with_icon(ui, Icon::Search, "Focus search", self.theme).clicked() {
-                        self.diagram_show_all = false;
+                        self.diagram.show_all = false;
                     }
                 }
             }
             ui.separator();
-            let design_label = if self.er_design.enabled {
+            let design_label = if self.diagram.design.enabled {
                 "Design Mode ✓"
             } else {
                 "Design Mode"
@@ -271,8 +273,8 @@ impl DbProApp {
                 .on_hover_text("Draft schema edits — never mutates DB until Apply")
                 .clicked()
             {
-                self.er_design.enabled = !self.er_design.enabled;
-                if self.er_design.enabled {
+                self.diagram.design.enabled = !self.diagram.design.enabled;
+                if self.diagram.design.enabled {
                     let names: Vec<String> = self
                         .schema_explorer
                         .schema
@@ -280,7 +282,8 @@ impl DbProApp {
                         .iter()
                         .map(|t| format!("{}.{}", t.schema, t.name))
                         .collect();
-                    self.er_design
+                    self.diagram
+                        .design
                         .set_schema_fingerprint(crate::diagram::design_mode::schema_fingerprint_from_names(&names));
                 }
             }
@@ -288,7 +291,7 @@ impl DbProApp {
     }
 
     pub(super) fn draw_er_design_panel(&mut self, ui: &mut egui::Ui) {
-        if !self.er_design.enabled {
+        if !self.diagram.design.enabled {
             return;
         }
         ui.add_space(SPACE_SM);
@@ -309,31 +312,32 @@ impl DbProApp {
                     .collect();
                 crate::diagram::design_mode::schema_fingerprint_from_names(&names)
             };
-            if self.er_design.fingerprint_stale(&live_fp) {
+            if self.diagram.design.fingerprint_stale(&live_fp) {
                 ui.colored_label(
                     self.theme.warning,
                     "Live schema changed — re-open Design Mode or discard before apply",
                 );
             }
             ui.horizontal(|ui| {
-                ui.add(egui::TextEdit::singleline(&mut self.er_design_new_schema).hint_text("schema"));
-                ui.add(egui::TextEdit::singleline(&mut self.er_design_new_table).hint_text("table"));
+                ui.add(egui::TextEdit::singleline(&mut self.diagram.new_schema).hint_text("schema"));
+                ui.add(egui::TextEdit::singleline(&mut self.diagram.new_table).hint_text("table"));
                 if secondary_button(ui, "Add draft table", self.theme).clicked() {
-                    self.er_design
-                        .add_draft_table(&self.er_design_new_schema, &self.er_design_new_table);
-                    self.er_design_new_table.clear();
+                    self.diagram
+                        .design
+                        .add_draft_table(&self.diagram.new_schema, &self.diagram.new_table);
+                    self.diagram.new_table.clear();
                 }
                 if ghost_button(ui, "Undo", self.theme).clicked() {
-                    self.er_design.undo();
+                    self.diagram.design.undo();
                 }
                 if ghost_button(ui, "Redo", self.theme).clicked() {
-                    self.er_design.redo();
+                    self.diagram.design.redo();
                 }
                 if danger_button(ui, "Discard", self.theme).clicked() {
-                    self.er_design.discard();
+                    self.diagram.design.discard();
                 }
             });
-            for (idx, table) in self.er_design.draft.tables.clone().into_iter().enumerate() {
+            for (idx, table) in self.diagram.design.draft.tables.clone().into_iter().enumerate() {
                 ui.label(
                     RichText::new(format!(
                         "draft {}.{} · {} cols",
@@ -358,33 +362,35 @@ impl DbProApp {
                     );
                 }
                 ui.horizontal(|ui| {
-                    ui.add(egui::TextEdit::singleline(&mut self.er_design_col_name).hint_text("col"));
-                    ui.add(egui::TextEdit::singleline(&mut self.er_design_col_type).hint_text("type"));
+                    ui.add(egui::TextEdit::singleline(&mut self.diagram.column_name).hint_text("col"));
+                    ui.add(egui::TextEdit::singleline(&mut self.diagram.column_type).hint_text("type"));
                     if ghost_button(ui, "Add col", self.theme).clicked() {
-                        self.er_design.add_column(
+                        self.diagram.design.add_column(
                             idx,
                             crate::diagram::design_mode::DraftColumn {
-                                name: self.er_design_col_name.clone(),
-                                data_type: self.er_design_col_type.clone(),
+                                name: self.diagram.column_name.clone(),
+                                data_type: self.diagram.column_type.clone(),
                                 nullable: true,
                                 is_pk: false,
                                 is_unique: false,
                             },
                         );
-                        self.er_design_col_name.clear();
+                        self.diagram.column_name.clear();
                     }
                 });
             }
             ui.add_space(SPACE_XS);
             ui.horizontal(|ui| {
-                ui.add(egui::TextEdit::singleline(&mut self.er_design_fk_name).hint_text("fk name"));
-                ui.add(egui::TextEdit::singleline(&mut self.er_design_fk_from).hint_text("from schema.table.col"));
-                ui.add(egui::TextEdit::singleline(&mut self.er_design_fk_to).hint_text("to schema.table.col"));
+                ui.add(egui::TextEdit::singleline(&mut self.diagram.foreign_key_name).hint_text("fk name"));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.diagram.foreign_key_from).hint_text("from schema.table.col"),
+                );
+                ui.add(egui::TextEdit::singleline(&mut self.diagram.foreign_key_to).hint_text("to schema.table.col"));
                 if secondary_button(ui, "Add FK", self.theme).clicked() {
                     self.er_design_add_fk();
                 }
             });
-            for fk in &self.er_design.draft.foreign_keys {
+            for fk in &self.diagram.design.draft.foreign_keys {
                 ui.label(
                     RichText::new(format!(
                         "FK {} · {}.{}({}) → {}.{}({})",
@@ -408,48 +414,50 @@ impl DbProApp {
                     self.er_design_apply_plan();
                 }
             });
-            if let Some(error) = &self.er_design.error {
+            if let Some(error) = &self.diagram.design.error {
                 ui.colored_label(self.theme.danger, error);
             }
-            if !self.er_design.preview_sql.is_empty() {
+            if !self.diagram.design.preview_sql.is_empty() {
                 ui.label(
-                    RichText::new(format!("fingerprint {}", self.er_design.preview_fingerprint))
+                    RichText::new(format!("fingerprint {}", self.diagram.design.preview_fingerprint))
                         .small()
                         .color(self.theme.text_muted),
                 );
-                for effect in &self.er_design.preview_effects {
+                for effect in &self.diagram.design.preview_effects {
                     ui.label(RichText::new(effect).small().color(self.theme.text_secondary));
                 }
                 egui::ScrollArea::vertical().max_height(140.0).show(ui, |ui| {
-                    ui.label(RichText::new(&self.er_design.preview_sql).monospace());
+                    ui.label(RichText::new(&self.diagram.design.preview_sql).monospace());
                 });
             }
         });
     }
 
     fn er_design_add_fk(&mut self) {
-        let Some((from_schema, from_table, from_col)) = split_three(&self.er_design_fk_from) else {
-            self.er_design.error = Some("FK from must be schema.table.column".into());
+        let Some((from_schema, from_table, from_col)) = split_three(&self.diagram.foreign_key_from) else {
+            self.diagram.design.error = Some("FK from must be schema.table.column".into());
             return;
         };
-        let Some((to_schema, to_table, to_col)) = split_three(&self.er_design_fk_to) else {
-            self.er_design.error = Some("FK to must be schema.table.column".into());
+        let Some((to_schema, to_table, to_col)) = split_three(&self.diagram.foreign_key_to) else {
+            self.diagram.design.error = Some("FK to must be schema.table.column".into());
             return;
         };
-        let name = if self.er_design_fk_name.trim().is_empty() {
+        let name = if self.diagram.foreign_key_name.trim().is_empty() {
             format!("fk_{from_table}_{to_table}")
         } else {
-            self.er_design_fk_name.trim().to_owned()
+            self.diagram.foreign_key_name.trim().to_owned()
         };
-        self.er_design.add_fk(crate::diagram::design_mode::DraftForeignKey {
-            name,
-            from_schema,
-            from_table,
-            from_columns: vec![from_col],
-            to_schema,
-            to_table,
-            to_columns: vec![to_col],
-        });
+        self.diagram
+            .design
+            .add_fk(crate::diagram::design_mode::DraftForeignKey {
+                name,
+                from_schema,
+                from_table,
+                from_columns: vec![from_col],
+                to_schema,
+                to_table,
+                to_columns: vec![to_col],
+            });
     }
 
     fn er_design_preview_plan(&mut self) {
@@ -463,18 +471,18 @@ impl DbProApp {
             }
         }
         let driver = self.active_driver().to_owned();
-        match crate::diagram::design_mode::plan_design_draft(&self.er_design.draft, &driver, &QuoteDialect) {
+        match crate::diagram::design_mode::plan_design_draft(&self.diagram.design.draft, &driver, &QuoteDialect) {
             Ok(previews) => {
                 let (sql, fp, effects) = crate::diagram::design_mode::merge_preview_sql(&previews);
-                self.er_design.preview_sql = sql;
-                self.er_design.preview_fingerprint = fp;
-                self.er_design.preview_effects = effects;
-                self.er_design.error = None;
-                self.er_design.apply_confirm = true;
+                self.diagram.design.preview_sql = sql;
+                self.diagram.design.preview_fingerprint = fp;
+                self.diagram.design.preview_effects = effects;
+                self.diagram.design.error = None;
+                self.diagram.design.apply_confirm = true;
             }
             Err(err) => {
-                self.er_design.error = Some(err);
-                self.er_design.clear_preview();
+                self.diagram.design.error = Some(err);
+                self.diagram.design.clear_preview();
             }
         }
     }
@@ -490,25 +498,25 @@ impl DbProApp {
                 .collect();
             crate::diagram::design_mode::schema_fingerprint_from_names(&names)
         };
-        if self.er_design.fingerprint_stale(&live_fp) {
-            self.er_design.error = Some("schema fingerprint stale — refresh Design Mode".into());
+        if self.diagram.design.fingerprint_stale(&live_fp) {
+            self.diagram.design.error = Some("schema fingerprint stale — refresh Design Mode".into());
             return;
         }
-        if self.er_design.preview_sql.is_empty() || !self.er_design.apply_confirm {
+        if self.diagram.design.preview_sql.is_empty() || !self.diagram.design.apply_confirm {
             self.er_design_preview_plan();
-            if self.er_design.preview_sql.is_empty() {
+            if self.diagram.design.preview_sql.is_empty() {
                 return;
             }
         }
         if self.connection_lifecycle.active_connection_id.is_none() || !self.connected {
-            self.er_design.error = Some("connect before applying design plan".into());
+            self.diagram.design.error = Some("connect before applying design plan".into());
             return;
         }
-        self.set_active_query_text(self.er_design.preview_sql.clone());
+        self.set_active_query_text(self.diagram.design.preview_sql.clone());
         self.workspace.active_tab = WorkspaceTab::Query;
         self.dispatch_query();
         self.runtime_message = "Design Mode mutation plan applied via query runtime".into();
-        self.er_design.discard();
+        self.diagram.design.discard();
     }
 }
 
@@ -565,7 +573,7 @@ impl DbProApp {
                 if no_matches {
                     ui.add_space(10.0);
                     if compact_button(ui, "Clear search", self.theme).clicked() {
-                        self.diagram_search.clear();
+                        self.diagram.search.clear();
                     }
                 }
                 ui.add_space(56.0);
@@ -577,14 +585,14 @@ impl DbProApp {
 impl DbProApp {
     fn draw_diagram_canvas(&mut self, ui: &mut egui::Ui, active_filter: Option<&[usize]>) {
         let world_size = if let Some(filter) = active_filter {
-            self.diagram_graph.active_subset_bounds(filter).size()
+            self.diagram.graph.active_subset_bounds(filter).size()
         } else {
-            self.diagram_graph.world_bounds.size()
+            self.diagram.graph.world_bounds.size()
         };
         let viewport_size = egui::vec2(ui.available_width(), ui.available_height());
-        let canvas_size = diagram_canvas_size(world_size * self.diagram_zoom, viewport_size);
-        let zoom = self.diagram_zoom;
-        let pan = self.diagram_pan;
+        let canvas_size = diagram_canvas_size(world_size * self.diagram.zoom, viewport_size);
+        let zoom = self.diagram.zoom;
+        let pan = self.diagram.pan;
         let theme = self.theme;
 
         egui::Frame {
@@ -599,20 +607,20 @@ impl DbProApp {
 
                 let viewport = ErViewport::new(pan, zoom, response.rect.min);
                 let scene = prepare_render_scene(
-                    &self.diagram_graph,
-                    &self.diagram_spatial_index,
+                    &self.diagram.graph,
+                    &self.diagram.spatial_index,
                     &viewport,
                     response.rect,
                     active_filter,
                 );
 
                 // Paint visible edges:
-                paint_scene_edges(&painter, &self.diagram_graph, &scene, &viewport, zoom, theme);
+                paint_scene_edges(&painter, &self.diagram.graph, &scene, &viewport, zoom, theme);
 
                 // Paint visible nodes:
                 let selected_table_name = self.schema_explorer.selected_table.as_deref();
                 for &node_id in &scene.visible_nodes {
-                    if let Some(node) = self.diagram_graph.nodes.get(node_id) {
+                    if let Some(node) = self.diagram.graph.nodes.get(node_id) {
                         let screen_rect = viewport.world_to_screen_rect(node.world_rect);
                         let selected = selected_table_name == Some(node.table.name.as_str());
                         paint_er_node_lod(&painter, node, screen_rect, selected, scene.lod, zoom, theme);
@@ -622,9 +630,9 @@ impl DbProApp {
                 draw_diagram_zoom_controls(
                     ui,
                     response.rect,
-                    &mut self.diagram_zoom,
-                    &mut self.diagram_pan,
-                    &self.diagram_graph,
+                    &mut self.diagram.zoom,
+                    &mut self.diagram.pan,
+                    &self.diagram.graph,
                     active_filter,
                     theme,
                 );
@@ -634,10 +642,11 @@ impl DbProApp {
                     if let Some(pointer) = response.interact_pointer_pos() {
                         let world_pos = viewport.screen_to_world_pos(pointer);
                         if let Some(hit_id) = self
-                            .diagram_spatial_index
-                            .hit_test_node(world_pos, &self.diagram_graph.nodes)
+                            .diagram
+                            .spatial_index
+                            .hit_test_node(world_pos, &self.diagram.graph.nodes)
                         {
-                            let table_name = self.diagram_graph.nodes.get(hit_id).map(|node| node.table.name.clone());
+                            let table_name = self.diagram.graph.nodes.get(hit_id).map(|node| node.table.name.clone());
                             if let Some(name) = table_name {
                                 self.open_diagram_table(&name);
                             }
@@ -650,15 +659,15 @@ impl DbProApp {
 
     fn update_diagram_pan(&mut self, response: &egui::Response) {
         if response.drag_started() {
-            self.diagram_pan_origin = Some(self.diagram_pan);
+            self.diagram.pan_origin = Some(self.diagram.pan);
         }
         if response.dragged() {
-            if let Some(origin) = self.diagram_pan_origin {
-                self.diagram_pan = origin + response.drag_delta();
+            if let Some(origin) = self.diagram.pan_origin {
+                self.diagram.pan = origin + response.drag_delta();
             }
         }
         if response.drag_stopped() {
-            self.diagram_pan_origin = None;
+            self.diagram.pan_origin = None;
         }
     }
 

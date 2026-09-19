@@ -57,17 +57,20 @@ impl DbProApp {
                 }
 
                 // Transaction chrome only when relevant — never a permanent form row.
-                if self.query_txn_bar_open || self.query_in_transaction {
+                if self.query_execution.query_txn_bar_open || self.query_execution.query_in_transaction {
                     ui.add_space(4.0);
-                    if let Some(action) =
-                        TransactionBar::new(self.query_in_transaction, self.query_txn_pending, self.theme)
-                            .auto_commit(self.query_auto_commit)
-                            .show(ui)
+                    if let Some(action) = TransactionBar::new(
+                        self.query_execution.query_in_transaction,
+                        self.query_execution.query_txn_pending,
+                        self.theme,
+                    )
+                    .auto_commit(self.query_execution.query_auto_commit)
+                    .show(ui)
                     {
                         self.handle_transaction_action(action);
                     }
                 }
-                if self.disconnect_txn_guard {
+                if self.query_execution.disconnect_txn_guard {
                     ui.colored_label(
                         self.theme.warning,
                         "Open transaction blocks disconnect — Commit or Rollback first.",
@@ -79,7 +82,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        self.disconnect_txn_guard = false;
+                        self.query_execution.disconnect_txn_guard = false;
                     }
                 }
 
@@ -414,9 +417,9 @@ impl DbProApp {
         }
         let param_count = self.query_editor.param_count_cache;
         let diagnostic_count = self.query_editor.diagnostics.len();
-        let txn_label = if self.query_in_transaction {
-            format!("Transaction · {} pending", self.query_txn_pending)
-        } else if self.query_auto_commit {
+        let txn_label = if self.query_execution.query_in_transaction {
+            format!("Transaction · {} pending", self.query_execution.query_txn_pending)
+        } else if self.query_execution.query_auto_commit {
             "Auto-commit".to_owned()
         } else {
             "Manual".to_owned()
@@ -468,7 +471,7 @@ impl DbProApp {
 
                     let txn_resp = ui.add(
                         egui::Label::new(RichText::new(&txn_label).font(font_caption()).color(
-                            if self.query_in_transaction {
+                            if self.query_execution.query_in_transaction {
                                 self.theme.warning
                             } else {
                                 self.theme.text_muted
@@ -477,7 +480,7 @@ impl DbProApp {
                         .sense(egui::Sense::click()),
                     );
                     if txn_resp.clicked() {
-                        self.query_txn_bar_open = !self.query_txn_bar_open;
+                        self.query_execution.query_txn_bar_open = !self.query_execution.query_txn_bar_open;
                     }
                     txn_resp.on_hover_text("Toggle transaction controls");
 
@@ -1112,13 +1115,13 @@ impl DbProApp {
             self.query_editor.editor_search_open = !self.query_editor.editor_search_open;
             close_menu = true;
         }
-        let txn_label = if self.query_txn_bar_open {
+        let txn_label = if self.query_execution.query_txn_bar_open {
             "Hide transaction controls"
         } else {
             "Show transaction controls"
         };
         if menu_button_with_icon(ui, Icon::GitBranch, txn_label, self.theme).clicked() {
-            self.query_txn_bar_open = !self.query_txn_bar_open;
+            self.query_execution.query_txn_bar_open = !self.query_execution.query_txn_bar_open;
             close_menu = true;
         }
         if menu_button_with_icon(ui, Icon::Minus, "Decrease font size", self.theme).clicked() {

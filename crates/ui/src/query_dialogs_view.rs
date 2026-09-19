@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 impl DbProApp {
     pub(super) fn draw_destructive_run_dialog(&mut self, ui: &mut egui::Ui) {
-        let Some(pending) = self.pending_destructive_run.clone() else {
+        let Some(pending) = self.query_execution.pending_destructive_run.clone() else {
             return;
         };
         const PREVIEW_CHARS: usize = 600;
@@ -167,8 +167,8 @@ impl DbProApp {
             self.runtime_message = "Enter a query before explaining it".to_owned();
             return;
         }
-        if analyze && !self.explain_analyze_confirmed {
-            self.pending_explain_analyze = true;
+        if analyze && !self.query_execution.explain_analyze_confirmed {
+            self.query_execution.pending_explain_analyze = true;
             self.set_active_query_output_tab(OutputTab::Explain);
             self.runtime_message = "EXPLAIN ANALYZE executes the statement — confirm in the Explain pane".to_owned();
             return;
@@ -189,8 +189,8 @@ impl DbProApp {
                 doc.explain_request = Some(request_id);
                 doc.explain_plan = None;
             }
-            self.pending_explain_analyze = false;
-            self.explain_analyze_confirmed = false;
+            self.query_execution.pending_explain_analyze = false;
+            self.query_execution.explain_analyze_confirmed = false;
             self.set_active_query_output_tab(OutputTab::Explain);
             self.runtime_message = if analyze {
                 "EXPLAIN ANALYZE running (query executes)…".to_owned()

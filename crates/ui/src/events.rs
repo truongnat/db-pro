@@ -4,11 +4,11 @@ use crate::RequestId;
 /// A statement (or script) the classifier rates `Destructive`, held until the user
 /// confirms the exact text the prompt displayed.
 #[derive(Debug, Clone)]
-pub(super) struct PendingDestructiveRun {
-    pub(super) sql: String,
-    pub(super) execution_range: (usize, usize),
-    pub(super) version: u64,
-    pub(super) all_statements: bool,
+pub(crate) struct PendingDestructiveRun {
+    pub(crate) sql: String,
+    pub(crate) execution_range: (usize, usize),
+    pub(crate) version: u64,
+    pub(crate) all_statements: bool,
 }
 
 pub(super) struct QueryHistoryRecord {
@@ -78,24 +78,24 @@ impl DbProApp {
                 self.runtime_message = format!("Backup completed · {output_path} · {size_bytes} bytes");
             }
             UiEvent::MonitoringSnapshotLoaded { snapshot, .. } => {
-                if let Some(prev) = self.monitoring_snapshot.take() {
-                    self.monitoring_workload_prev = prev.workload;
+                if let Some(prev) = self.database_operations.monitoring_snapshot.take() {
+                    self.database_operations.monitoring_workload_prev = prev.workload;
                 }
-                self.monitoring_snapshot = Some(snapshot.clone());
-                self.monitoring_error = None;
+                self.database_operations.monitoring_snapshot = Some(snapshot.clone());
+                self.database_operations.monitoring_error = None;
                 self.runtime_message = format!("Monitor · {}", snapshot.message);
             }
             UiEvent::MonitoringWorkloadLoaded { workload, .. } => {
-                if let Some(snap) = self.monitoring_snapshot.as_mut() {
-                    self.monitoring_workload_prev = snap.workload.clone();
+                if let Some(snap) = self.database_operations.monitoring_snapshot.as_mut() {
+                    self.database_operations.monitoring_workload_prev = snap.workload.clone();
                     snap.workload = Some(workload.clone());
                 }
-                self.monitoring_stat_sort = workload.sort;
+                self.database_operations.monitoring_stat_sort = workload.sort;
                 self.runtime_message = format!("Workload · {}", workload.message);
             }
             UiEvent::AuditPageLoaded { page, .. } => {
-                self.audit_page = Some(page.clone());
-                self.audit_error = None;
+                self.database_operations.audit_page = Some(page.clone());
+                self.database_operations.audit_error = None;
                 self.runtime_message = format!(
                     "Audit · {} event(s) · {}",
                     page.events.len(),
@@ -103,8 +103,8 @@ impl DbProApp {
                 );
             }
             UiEvent::PgSettingsLoaded { snapshot, .. } => {
-                self.pg_settings = Some(snapshot.clone());
-                self.pg_settings_error = None;
+                self.database_operations.pg_settings = Some(snapshot.clone());
+                self.database_operations.pg_settings_error = None;
                 self.runtime_message = format!("pg_settings · {}", snapshot.message);
             }
             UiEvent::PgSettingActionCompleted { action, name, .. } => {
@@ -118,14 +118,14 @@ impl DbProApp {
                 }
             }
             UiEvent::FdwInventoryLoaded { inventory, .. } => {
-                self.fdw_inventory = Some(inventory.clone());
-                self.fdw_error = None;
+                self.database_operations.fdw_inventory = Some(inventory.clone());
+                self.database_operations.fdw_error = None;
                 self.runtime_message = format!("FDW · {}", inventory.message);
             }
             UiEvent::FdwActionCompleted { action, name, .. } => {
                 self.runtime_message = format!("FDW {action} `{name}` ok");
-                self.fdw_drop_confirm = None;
-                self.fdw_ddl_preview = None;
+                self.database_operations.fdw_drop_confirm = None;
+                self.database_operations.fdw_ddl_preview = None;
                 if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::ListFdwInventory {
@@ -135,15 +135,15 @@ impl DbProApp {
                 }
             }
             UiEvent::ReplicationInventoryLoaded { inventory, .. } => {
-                self.replication_inventory = Some(inventory.clone());
-                self.replication_error = None;
+                self.database_operations.replication_inventory = Some(inventory.clone());
+                self.database_operations.replication_error = None;
                 self.runtime_message = format!("Replication · {}", inventory.message);
             }
             UiEvent::ReplicationActionCompleted { action, name, .. } => {
                 self.runtime_message = format!("Replication {action} `{name}` ok");
-                self.replication_drop_publication = None;
-                self.replication_drop_subscription = None;
-                self.replication_ddl_preview = None;
+                self.database_operations.replication_drop_publication = None;
+                self.database_operations.replication_drop_subscription = None;
+                self.database_operations.replication_ddl_preview = None;
                 if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::ListReplicationInventory {
@@ -153,14 +153,14 @@ impl DbProApp {
                 }
             }
             UiEvent::EventTriggerInventoryLoaded { inventory, .. } => {
-                self.event_trigger_inventory = Some(inventory.clone());
-                self.event_trigger_error = None;
+                self.database_operations.event_trigger_inventory = Some(inventory.clone());
+                self.database_operations.event_trigger_error = None;
                 self.runtime_message = format!("Event triggers · {}", inventory.message);
             }
             UiEvent::EventTriggerActionCompleted { action, name, .. } => {
                 self.runtime_message = format!("Event trigger {action} `{name}` ok");
-                self.event_trigger_drop_confirm = None;
-                self.event_trigger_ddl_preview = None;
+                self.database_operations.event_trigger_drop_confirm = None;
+                self.database_operations.event_trigger_ddl_preview = None;
                 if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::ListEventTriggers {
@@ -179,8 +179,8 @@ impl DbProApp {
                     "Monitor {action} pid={backend_id} · {}",
                     if succeeded { "ok" } else { "no-op" }
                 );
-                self.monitoring_terminate_confirm = None;
-                self.monitoring_reset_stats_confirm = false;
+                self.database_operations.monitoring_terminate_confirm = None;
+                self.database_operations.monitoring_reset_stats_confirm = false;
                 if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::MonitoringSnapshot {
@@ -190,29 +190,29 @@ impl DbProApp {
                 }
             }
             UiEvent::UsersLoaded { users, .. } => {
-                self.security_users = users;
-                self.security_error = None;
-                self.runtime_message = format!("Security · {} role(s)", self.security_users.len());
+                self.database_operations.security_users = users;
+                self.database_operations.security_error = None;
+                self.runtime_message = format!("Security · {} role(s)", self.database_operations.security_users.len());
             }
             UiEvent::PrivilegesLoaded {
                 role_name, privileges, ..
             } => {
-                self.security_selected_role = Some(role_name);
-                self.security_privileges = privileges;
+                self.database_operations.security_selected_role = Some(role_name);
+                self.database_operations.security_privileges = privileges;
             }
             UiEvent::MembershipsLoaded {
                 member, memberships, ..
             } => {
-                self.security_selected_role = Some(member);
-                self.security_memberships = memberships;
+                self.database_operations.security_selected_role = Some(member);
+                self.database_operations.security_memberships = memberships;
             }
             UiEvent::TableRlsLoaded { state, .. } => {
-                self.security_rls_state = Some(state);
-                self.security_error = None;
+                self.database_operations.security_rls_state = Some(state);
+                self.database_operations.security_error = None;
                 self.runtime_message = "Security · RLS state loaded".into();
             }
             UiEvent::DataDiffLoaded { diff, .. } => {
-                self.data_diff_result = Some(diff);
+                self.database_operations.data_diff_result = Some(diff);
                 self.runtime_message = "Data compare ready".into();
             }
             UiEvent::DdlCompleted {
@@ -316,7 +316,7 @@ impl DbProApp {
         self.schema_explorer.schema_symbol_index = SchemaSymbolIndex::build(&schema);
         self.schema_explorer.schema = schema;
         self.schema_explorer.explorer_nav_cache = None;
-        self.search_index.invalidate();
+        self.palette.search_index.invalidate();
         if self.schema_explorer.selected_schema.as_ref().is_none_or(|selected| {
             !self
                 .schema_explorer
@@ -654,10 +654,10 @@ impl DbProApp {
             if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                 self.request_schema_introspection(connection_id, true);
             }
-            if !self.security_rls_table.trim().is_empty() {
+            if !self.database_operations.security_rls_table.trim().is_empty() {
                 self.request_security_rls();
             }
-            self.security_rls_confirm_apply = false;
+            self.database_operations.security_rls_confirm_apply = false;
         }
     }
 
@@ -686,10 +686,10 @@ impl DbProApp {
                 | "grant_privilege"
                 | "revoke_privilege"
         ) {
-            self.security_drop_confirm = None;
-            self.security_password.clear();
+            self.database_operations.security_drop_confirm = None;
+            self.database_operations.security_password.clear();
             self.request_security_users();
-            if let Some(role) = self.security_selected_role.clone() {
+            if let Some(role) = self.database_operations.security_selected_role.clone() {
                 self.request_security_role_details(&role);
             }
         }

@@ -121,7 +121,7 @@ impl DbProApp {
             self.active_connection_name(),
             chrono::Utc::now().format("%H:%M:%S")
         );
-        self.schema_snapshot = Some(schema_compare::UiSchemaSnapshot::from_summary(
+        self.database_operations.schema_snapshot = Some(schema_compare::UiSchemaSnapshot::from_summary(
             label,
             &self.schema_explorer.schema,
         ));
@@ -129,52 +129,52 @@ impl DbProApp {
     }
 
     pub(crate) fn diff_against_schema_snapshot(&mut self) {
-        let Some(snapshot) = self.schema_snapshot.clone() else {
+        let Some(snapshot) = self.database_operations.schema_snapshot.clone() else {
             self.runtime_message = "Take a schema snapshot before comparing".to_owned();
             return;
         };
         let current = schema_compare::UiSchemaSnapshot::from_summary("current", &self.schema_explorer.schema);
-        self.schema_diff = Some(schema_compare::diff_snapshots(&snapshot, &current));
-        self.migration_plan = None;
-        self.migration_preview_sql.clear();
-        self.migration_confirm_destructive = false;
-        self.migration_fingerprint_at_preview.clear();
+        self.database_operations.schema_diff = Some(schema_compare::diff_snapshots(&snapshot, &current));
+        self.database_operations.migration_plan = None;
+        self.database_operations.migration_preview_sql.clear();
+        self.database_operations.migration_confirm_destructive = false;
+        self.database_operations.migration_fingerprint_at_preview.clear();
         self.runtime_message = "Schema diff ready".to_owned();
     }
 
     pub(crate) fn plan_migration_from_schema_diff(&mut self) {
         use db_pro_core::application::MigrationPlanner;
 
-        let Some(diff) = self.schema_diff.clone() else {
+        let Some(diff) = self.database_operations.schema_diff.clone() else {
             self.runtime_message = "Diff a schema snapshot before planning a migration".into();
             return;
         };
         let core_diff = schema_compare::to_core_schema_diff(&diff);
         let driver = self.active_driver().to_owned();
         let plan = MigrationPlanner::plan_from_schema_diff(&core_diff, &driver);
-        self.migration_preview_sql = MigrationPlanner::preview_sql(&plan, true);
-        self.migration_fingerprint_at_preview = plan.fingerprint.clone();
-        self.migration_confirm_destructive = false;
-        self.migration_plan = Some(plan);
+        self.database_operations.migration_preview_sql = MigrationPlanner::preview_sql(&plan, true);
+        self.database_operations.migration_fingerprint_at_preview = plan.fingerprint.clone();
+        self.database_operations.migration_confirm_destructive = false;
+        self.database_operations.migration_plan = Some(plan);
         self.runtime_message = "Migration plan ready — review SQL before apply".into();
     }
 
     pub(crate) fn apply_migration_preview(&mut self) {
         use db_pro_core::application::MigrationPlanner;
 
-        let Some(plan) = self.migration_plan.clone() else {
+        let Some(plan) = self.database_operations.migration_plan.clone() else {
             self.runtime_message = "Plan a migration before applying".into();
             return;
         };
-        if !MigrationPlanner::verify_fingerprint(&plan, &self.migration_fingerprint_at_preview) {
+        if !MigrationPlanner::verify_fingerprint(&plan, &self.database_operations.migration_fingerprint_at_preview) {
             self.runtime_message = "Migration fingerprint changed — re-plan before apply".into();
             return;
         }
-        if plan.has_destructive && !self.migration_confirm_destructive {
+        if plan.has_destructive && !self.database_operations.migration_confirm_destructive {
             self.runtime_message = "Destructive migration requires explicit confirmation checkbox".into();
             return;
         }
-        let sql = if plan.has_destructive && self.migration_confirm_destructive {
+        let sql = if plan.has_destructive && self.database_operations.migration_confirm_destructive {
             MigrationPlanner::preview_sql(&plan, false)
         } else {
             MigrationPlanner::non_destructive_sql(&plan)
@@ -202,31 +202,31 @@ impl DbProApp {
     pub(crate) fn handle_transaction_action(&mut self, action: crate::components::TransactionAction) {
         match action {
             crate::components::TransactionAction::ToggleAutoCommit(value) => {
-                if self.query_in_transaction && value {
+                if self.query_execution.query_in_transaction && value {
                     self.runtime_message = "Commit or rollback the open transaction before enabling auto-commit".into();
                     return;
                 }
-                self.query_auto_commit = value;
+                self.query_execution.query_auto_commit = value;
                 if value {
-                    self.query_in_transaction = false;
-                    self.query_txn_pending = 0;
+                    self.query_execution.query_in_transaction = false;
+                    self.query_execution.query_txn_pending = 0;
                 }
             }
             crate::components::TransactionAction::Begin => {
-                self.query_auto_commit = false;
+                self.query_execution.query_auto_commit = false;
                 self.dispatch_transaction_sql("BEGIN");
-                self.query_in_transaction = true;
-                self.query_txn_pending = 0;
+                self.query_execution.query_in_transaction = true;
+                self.query_execution.query_txn_pending = 0;
             }
             crate::components::TransactionAction::Commit => {
                 self.dispatch_transaction_sql("COMMIT");
-                self.query_in_transaction = false;
-                self.query_txn_pending = 0;
+                self.query_execution.query_in_transaction = false;
+                self.query_execution.query_txn_pending = 0;
             }
             crate::components::TransactionAction::Rollback => {
                 self.dispatch_transaction_sql("ROLLBACK");
-                self.query_in_transaction = false;
-                self.query_txn_pending = 0;
+                self.query_execution.query_in_transaction = false;
+                self.query_execution.query_txn_pending = 0;
             }
         }
     }

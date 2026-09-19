@@ -361,8 +361,8 @@ impl DbProApp {
 
     /// Clears the connected state after an explicit disconnect.
     pub(crate) fn disconnect_from_connection(&mut self, connection: &UiConnectionSummary) {
-        if self.query_in_transaction {
-            self.disconnect_txn_guard = true;
+        if self.query_execution.query_in_transaction {
+            self.query_execution.disconnect_txn_guard = true;
             self.runtime_message = "Open transaction detected — commit or rollback before disconnecting".to_owned();
             return;
         }
@@ -386,8 +386,8 @@ impl DbProApp {
             self.runtime_message = "Apply or discard staged changes before changing connection".to_owned();
             return;
         }
-        if self.query_in_transaction {
-            self.disconnect_txn_guard = true;
+        if self.query_execution.query_in_transaction {
+            self.query_execution.disconnect_txn_guard = true;
             self.runtime_message = "Commit or rollback the open transaction before changing connection".to_owned();
             return;
         }

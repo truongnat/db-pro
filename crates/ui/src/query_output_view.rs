@@ -384,10 +384,10 @@ impl DbProApp {
                     self.explain_query();
                 }
                 if compact_button(ui, "Explain ANALYZE…", self.theme).clicked() {
-                    self.explain_analyze_confirmed = false;
+                    self.query_execution.explain_analyze_confirmed = false;
                     self.explain_query_analyze();
                 }
-                ui.checkbox(&mut self.explain_show_raw_json, "Raw JSON");
+                ui.checkbox(&mut self.query_execution.explain_show_raw_json, "Raw JSON");
                 if let Some(plan) = self.active_explain_plan() {
                     if compact_button(ui, "Copy plan", self.theme).clicked() {
                         ui.output_mut(|o| o.copied_text = plan.to_owned());
@@ -395,7 +395,7 @@ impl DbProApp {
                     }
                 }
             });
-            if self.pending_explain_analyze {
+            if self.query_execution.pending_explain_analyze {
                 ui.add_space(8.0);
                 ui.label(
                     RichText::new(
@@ -404,14 +404,14 @@ impl DbProApp {
                     .color(self.theme.warning),
                 );
                 ui.checkbox(
-                    &mut self.explain_analyze_confirmed,
+                    &mut self.query_execution.explain_analyze_confirmed,
                     "I understand this will execute the query",
                 );
                 if Button::new(self.theme)
                     .text("Run EXPLAIN ANALYZE")
                     .variant(ButtonVariant::Default)
                     .size(ButtonSize::Sm)
-                    .enabled(self.explain_analyze_confirmed)
+                    .enabled(self.query_execution.explain_analyze_confirmed)
                     .show(ui)
                     .clicked()
                 {
@@ -420,7 +420,7 @@ impl DbProApp {
             }
             ui.add_space(8.0);
             if let Some(plan_json) = self.active_explain_plan() {
-                if self.explain_show_raw_json {
+                if self.query_execution.explain_show_raw_json {
                     egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
                         ui.label(RichText::new(plan_json).monospace().color(self.theme.text_secondary));
                     });

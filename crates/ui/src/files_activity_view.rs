@@ -20,7 +20,7 @@ impl DbProApp {
                 {
                     self.request_open_workspace_folder();
                 }
-                if !self.ide_workspace.roots.is_empty()
+                if !self.workspace_files.ide_workspace.roots.is_empty()
                     && Button::new(self.theme)
                         .icon(Icon::RefreshCw)
                         .variant(ButtonVariant::Ghost)
@@ -35,7 +35,7 @@ impl DbProApp {
         });
         ui.add_space(6.0);
 
-        if self.ide_workspace.roots.is_empty() {
+        if self.workspace_files.ide_workspace.roots.is_empty() {
             ui.label(
                 RichText::new("Open a folder to browse SQL, migrations, and project files.")
                     .small()
@@ -52,11 +52,11 @@ impl DbProApp {
             {
                 self.request_open_workspace_folder();
             }
-            if !self.ide_workspace.recent_roots.is_empty() {
+            if !self.workspace_files.ide_workspace.recent_roots.is_empty() {
                 ui.add_space(12.0);
                 section_label(ui, "RECENT", self.theme);
                 ui.add_space(6.0);
-                let recent = self.ide_workspace.recent_roots.clone();
+                let recent = self.workspace_files.ide_workspace.recent_roots.clone();
                 for path in recent.into_iter().take(8) {
                     let label = path
                         .file_name()
@@ -75,15 +75,15 @@ impl DbProApp {
 
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = vec2(4.0, 4.0);
-            for (index, root) in self.ide_workspace.roots.clone().into_iter().enumerate() {
+            for (index, root) in self.workspace_files.ide_workspace.roots.clone().into_iter().enumerate() {
                 let label = root
                     .path
                     .file_name()
                     .map(|name| name.to_string_lossy().into_owned())
                     .unwrap_or_else(|| root.path.display().to_string());
-                let selected = self.ide_workspace.active_root == index;
+                let selected = self.workspace_files.ide_workspace.active_root == index;
                 if ui.selectable_label(selected, label).clicked() {
-                    self.ide_workspace.active_root = index;
+                    self.workspace_files.ide_workspace.active_root = index;
                 }
             }
             if Button::new(self.theme)
@@ -102,11 +102,11 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                self.ide_workspace.remove_active_root();
+                self.workspace_files.ide_workspace.remove_active_root();
             }
         });
         ui.add_space(4.0);
-        if let Some(path) = self.ide_workspace.primary_path() {
+        if let Some(path) = self.workspace_files.ide_workspace.primary_path() {
             ui.label(
                 RichText::new(path.display().to_string())
                     .small()
@@ -116,12 +116,12 @@ impl DbProApp {
         }
         ui.add_space(4.0);
         ui.horizontal(|ui| {
-            let trusted = self.ide_workspace.is_trusted();
+            let trusted = self.workspace_files.ide_workspace.is_trusted();
             if ui.selectable_label(trusted, "Trusted").clicked() {
-                self.ide_workspace.set_trusted(true);
+                self.workspace_files.ide_workspace.set_trusted(true);
             }
             if ui.selectable_label(!trusted, "Untrusted").clicked() {
-                self.ide_workspace.set_trusted(false);
+                self.workspace_files.ide_workspace.set_trusted(false);
             }
             if Button::new(self.theme)
                 .icon(Icon::X)
@@ -136,18 +136,25 @@ impl DbProApp {
         });
         ui.add_space(4.0);
         ui.horizontal_wrapped(|ui| {
-            for (index, env) in self.ide_workspace.environments.clone().into_iter().enumerate() {
-                let selected = self.ide_workspace.active_environment == index;
+            for (index, env) in self
+                .workspace_files
+                .ide_workspace
+                .environments
+                .clone()
+                .into_iter()
+                .enumerate()
+            {
+                let selected = self.workspace_files.ide_workspace.active_environment == index;
                 if ui.selectable_label(selected, &env.name).clicked() {
-                    self.ide_workspace.set_active_environment(index);
+                    self.workspace_files.ide_workspace.set_active_environment(index);
                     self.runtime_message = format!("Environment → {}", env.name);
                 }
             }
         });
-        if let Some(drift) = self.ide_workspace.schema_drift_message.clone() {
+        if let Some(drift) = self.workspace_files.ide_workspace.schema_drift_message.clone() {
             ui.label(RichText::new(drift).small().color(self.theme.warning));
         }
-        if let Some(error) = self.ide_workspace.last_error.clone() {
+        if let Some(error) = self.workspace_files.ide_workspace.last_error.clone() {
             ui.label(RichText::new(error).small().color(self.theme.danger));
         }
 
@@ -287,7 +294,7 @@ impl DbProApp {
                 }
             }
         });
-        if self.workspace_context_items.is_empty() {
+        if self.workspace_files.workspace_context_items.is_empty() {
             ui.label(
                 RichText::new("No context chips yet — add a file, selection, or table.")
                     .small()
@@ -297,14 +304,16 @@ impl DbProApp {
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(4.0, 4.0);
-                for item in self.workspace_context_items.clone() {
+                for item in self.workspace_files.workspace_context_items.clone() {
                     let short = if item.len() > 28 {
                         format!("{}…", &item.chars().take(27).collect::<String>())
                     } else {
                         item.clone()
                     };
                     if tag_chip(ui, &short, true, self.theme) {
-                        self.workspace_context_items.retain(|existing| existing != &item);
+                        self.workspace_files
+                            .workspace_context_items
+                            .retain(|existing| existing != &item);
                     }
                 }
             });
@@ -321,6 +330,7 @@ impl DbProApp {
                 .clicked()
             {
                 match self
+                    .workspace_files
                     .ide_workspace
                     .create_file("", "untitled.sql", "-- new query\nSELECT 1;\n")
                 {
@@ -341,7 +351,7 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                if let Err(error) = self.ide_workspace.create_folder("", "new-folder") {
+                if let Err(error) = self.workspace_files.ide_workspace.create_folder("", "new-folder") {
                     self.runtime_message = error;
                 }
             }
@@ -357,9 +367,13 @@ impl DbProApp {
             ui.label(RichText::new(path).small().monospace().color(self.theme.text_muted));
             ui.add_space(4.0);
         }
-        section_label(ui, format!("FILES · {}", self.ide_workspace.index().len()), self.theme);
+        section_label(
+            ui,
+            format!("FILES · {}", self.workspace_files.ide_workspace.index().len()),
+            self.theme,
+        );
         ui.add_space(6.0);
-        let tree = self.ide_workspace.tree().to_vec();
+        let tree = self.workspace_files.ide_workspace.tree().to_vec();
         for node in &tree {
             self.draw_workspace_tree_node(ui, node, 0);
         }
@@ -367,13 +381,13 @@ impl DbProApp {
 
     fn draw_files_search_tab(&mut self, ui: &mut egui::Ui) {
         ui.add(
-            egui::TextEdit::singleline(&mut self.workspace_search_query)
+            egui::TextEdit::singleline(&mut self.workspace_files.workspace_search_query)
                 .hint_text("Find in files…")
                 .desired_width(ui.available_width()),
         );
         ui.add_space(4.0);
         ui.add(
-            egui::TextEdit::singleline(&mut self.workspace_replace_query)
+            egui::TextEdit::singleline(&mut self.workspace_files.workspace_replace_query)
                 .hint_text("Replace with…")
                 .desired_width(ui.available_width()),
         );
@@ -410,12 +424,12 @@ impl DbProApp {
         ui.add_space(6.0);
         ui.horizontal(|ui| {
             ui.add(
-                egui::TextEdit::singleline(&mut self.workspace_refactor_from)
+                egui::TextEdit::singleline(&mut self.workspace_files.workspace_refactor_from)
                     .hint_text("Rename from")
                     .desired_width(90.0),
             );
             ui.add(
-                egui::TextEdit::singleline(&mut self.workspace_refactor_to)
+                egui::TextEdit::singleline(&mut self.workspace_files.workspace_refactor_to)
                     .hint_text("to")
                     .desired_width(90.0),
             );
@@ -429,10 +443,16 @@ impl DbProApp {
                 self.apply_workspace_refactor();
             }
         });
-        if !self.workspace_replace_previews.is_empty() {
+        if !self.workspace_files.workspace_replace_previews.is_empty() {
             ui.add_space(6.0);
             section_label(ui, "REPLACE PREVIEW", self.theme);
-            for preview in self.workspace_replace_previews.clone().into_iter().take(30) {
+            for preview in self
+                .workspace_files
+                .workspace_replace_previews
+                .clone()
+                .into_iter()
+                .take(30)
+            {
                 ui.label(
                     RichText::new(format!(
                         "{}::{} · {} hits",
@@ -443,11 +463,11 @@ impl DbProApp {
                 );
             }
         }
-        if !self.workspace_search_hits.is_empty() {
+        if !self.workspace_files.workspace_search_hits.is_empty() {
             ui.add_space(6.0);
             section_label(ui, "SEARCH RESULTS", self.theme);
             ui.add_space(4.0);
-            let hits = self.workspace_search_hits.clone();
+            let hits = self.workspace_files.workspace_search_hits.clone();
             for hit in hits.into_iter().take(40) {
                 let label = format!("{}:{}", hit.relative_path, hit.line);
                 if sidebar_item(ui, Icon::Search, &label, false, self.theme)
@@ -462,7 +482,7 @@ impl DbProApp {
     }
 
     fn draw_files_migrations_tab(&mut self, ui: &mut egui::Ui) {
-        let migrations = self.ide_workspace.detect_migrations();
+        let migrations = self.workspace_files.ide_workspace.detect_migrations();
         if migrations.is_empty() {
             ui.label(
                 RichText::new("No migration SQL detected under migrations/ paths.")
@@ -484,7 +504,7 @@ impl DbProApp {
 
     fn draw_files_tasks_tab(&mut self, ui: &mut egui::Ui) {
         ui.add(
-            egui::TextEdit::singleline(&mut self.workspace_task_command)
+            egui::TextEdit::singleline(&mut self.workspace_files.workspace_task_command)
                 .hint_text("shell command in workspace root…")
                 .desired_width(ui.available_width()),
         );
@@ -498,7 +518,7 @@ impl DbProApp {
         {
             self.run_workspace_task();
         }
-        if let Some(result) = self.ide_workspace.last_task.clone() {
+        if let Some(result) = self.workspace_files.ide_workspace.last_task.clone() {
             ui.add_space(6.0);
             ui.label(
                 RichText::new(format!(
@@ -555,7 +575,7 @@ impl DbProApp {
     }
 
     fn draw_files_graph_tab(&mut self, ui: &mut egui::Ui) {
-        let edges = self.ide_workspace.dependency_edges();
+        let edges = self.workspace_files.ide_workspace.dependency_edges();
         if edges.is_empty() {
             ui.label(
                 RichText::new("No FROM/JOIN object references found yet.")
@@ -592,7 +612,7 @@ impl DbProApp {
         });
         ui.add_space(4.0);
         self.check_external_file_changes();
-        if let Some(path) = self.workspace_external_change.clone() {
+        if let Some(path) = self.workspace_files.workspace_external_change.clone() {
             ui.colored_label(
                 self.theme.warning,
                 format!("Disk changed for {path} — unsaved editor buffer was kept."),
@@ -615,15 +635,15 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.workspace_external_change = None;
+                    self.workspace_files.workspace_external_change = None;
                 }
             });
             ui.add_space(6.0);
         }
-        if let Some(error) = self.git_last_error.clone() {
+        if let Some(error) = self.workspace_files.git_last_error.clone() {
             ui.colored_label(self.theme.danger, error);
         }
-        let Some(status) = self.git_status.clone() else {
+        let Some(status) = self.workspace_files.git_status.clone() else {
             ui.label(
                 RichText::new("Refresh to probe Git for the active workspace root.")
                     .small()
@@ -646,7 +666,7 @@ impl DbProApp {
         );
         ui.add_space(6.0);
         ui.add(
-            egui::TextEdit::singleline(&mut self.git_commit_message)
+            egui::TextEdit::singleline(&mut self.workspace_files.git_commit_message)
                 .hint_text("commit message (explicit only — never auto)")
                 .desired_width(ui.available_width()),
         );
@@ -720,7 +740,7 @@ impl DbProApp {
             });
             ui.add_space(4.0);
         }
-        if let Some(diff) = self.git_diff.clone() {
+        if let Some(diff) = self.workspace_files.git_diff.clone() {
             ui.add_space(8.0);
             section_label(ui, format!("DIFF · {} vs {}", diff.path, diff.against), self.theme);
             ui.add_space(4.0);
@@ -740,7 +760,11 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.add_space(indent);
             if node.is_dir {
-                let expanded = self.ide_workspace.expanded.contains(&node.relative_path);
+                let expanded = self
+                    .workspace_files
+                    .ide_workspace
+                    .expanded
+                    .contains(&node.relative_path);
                 let chevron = if expanded {
                     Icon::ChevronDown
                 } else {
@@ -779,18 +803,23 @@ impl DbProApp {
                 });
                 if response.clicked() {
                     if expanded {
-                        self.ide_workspace.expanded.remove(&node.relative_path);
+                        self.workspace_files.ide_workspace.expanded.remove(&node.relative_path);
                     } else {
-                        self.ide_workspace.expanded.insert(node.relative_path.clone());
+                        self.workspace_files
+                            .ide_workspace
+                            .expanded
+                            .insert(node.relative_path.clone());
                     }
                 }
                 if create_sql {
-                    let _ =
-                        self.ide_workspace
-                            .create_file(&node.relative_path, "query.sql", "-- new query\nSELECT 1;\n");
+                    let _ = self.workspace_files.ide_workspace.create_file(
+                        &node.relative_path,
+                        "query.sql",
+                        "-- new query\nSELECT 1;\n",
+                    );
                 }
                 if delete_node {
-                    let _ = self.ide_workspace.delete_path(&node.relative_path);
+                    let _ = self.workspace_files.ide_workspace.delete_path(&node.relative_path);
                 }
             } else {
                 let icon = if node.name.ends_with(".sql") {
@@ -866,16 +895,22 @@ impl DbProApp {
                 }
                 if find_refs {
                     let stem = node.name.trim_end_matches(".sql").to_owned();
-                    self.workspace_search_query = stem;
+                    self.workspace_files.workspace_search_query = stem;
                     self.workspace.files_panel_tab = FilesPanelTab::Search;
                     self.run_workspace_search();
                 }
                 if delete_node {
-                    let _ = self.ide_workspace.delete_path(&node.relative_path);
+                    let _ = self.workspace_files.ide_workspace.delete_path(&node.relative_path);
                 }
             }
         });
-        if node.is_dir && self.ide_workspace.expanded.contains(&node.relative_path) {
+        if node.is_dir
+            && self
+                .workspace_files
+                .ide_workspace
+                .expanded
+                .contains(&node.relative_path)
+        {
             for child in &node.children {
                 self.draw_workspace_tree_node(ui, child, depth + 1);
             }

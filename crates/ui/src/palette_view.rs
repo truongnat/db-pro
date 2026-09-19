@@ -48,7 +48,13 @@ impl DbProApp {
     }
 
     fn search_fingerprint(&self) -> String {
-        let workspace_files = self.ide_workspace.index().into_iter().filter(|e| e.is_sql).count();
+        let workspace_files = self
+            .workspace_files
+            .ide_workspace
+            .index()
+            .into_iter()
+            .filter(|e| e.is_sql)
+            .count();
         SearchService::build_fingerprint(SearchFingerprintParts {
             connection_id: self.connection_lifecycle.active_connection_id.as_deref(),
             schema: self.active_schema(),
@@ -65,11 +71,11 @@ impl DbProApp {
 
     fn ensure_search_index(&mut self, mode: PaletteMode) {
         let fingerprint = format!("{}|{:?}", self.search_fingerprint(), mode);
-        if self.search_index.fingerprint() == fingerprint && !self.search_index.is_empty() {
+        if self.palette.search_index.fingerprint() == fingerprint && !self.palette.search_index.is_empty() {
             return;
         }
         let entries = self.palette_entries(mode);
-        self.search_index.replace(fingerprint, entries);
+        self.palette.search_index.replace(fingerprint, entries);
     }
 
     fn quick_open_items() -> Vec<PaletteItem> {
@@ -392,7 +398,8 @@ impl DbProApp {
     }
 
     fn workspace_file_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.ide_workspace
+        self.workspace_files
+            .ide_workspace
             .index()
             .into_iter()
             .filter(|entry| entry.is_sql)
@@ -555,13 +562,14 @@ impl DbProApp {
     }
 
     pub(crate) fn filtered_palette_items(&self, mode: PaletteMode) -> Vec<PaletteItem> {
-        let entries = if self.search_index.fingerprint().contains(&format!("{mode:?}")) && !self.search_index.is_empty()
+        let entries = if self.palette.search_index.fingerprint().contains(&format!("{mode:?}"))
+            && !self.palette.search_index.is_empty()
         {
-            self.search_index.entries().to_vec()
+            self.palette.search_index.entries().to_vec()
         } else {
             self.palette_entries(mode)
         };
-        SearchService::filter_rank(&entries, &self.palette_query, self.palette_scope, 120)
+        SearchService::filter_rank(&entries, &self.palette.query, self.palette.scope, 120)
     }
 
     /// Rebuild + rank for mutable callers (palette draw path).
@@ -571,7 +579,7 @@ impl DbProApp {
     }
 
     pub(crate) fn execute_palette_action(&mut self, action: PaletteAction, _ctx: &egui::Context) {
-        self.palette_mode = None;
+        self.palette.mode = None;
         match action {
             PaletteAction::Welcome => self.activate_welcome_tab(),
             PaletteAction::Query => {
@@ -799,7 +807,7 @@ impl DbProApp {
     }
 
     pub(super) fn draw_palette(&mut self, ctx: &egui::Context) {
-        let Some(mode) = self.palette_mode else {
+        let Some(mode) = self.palette.mode else {
             return;
         };
         let items = self.filtered_palette_items_fresh(mode);
@@ -808,14 +816,14 @@ impl DbProApp {
         let mut open = true;
         let title = if mode == PaletteMode::QuickOpen {
             "Quick Open"
-        } else if self.palette_scope == SearchScope::Connections {
+        } else if self.palette.scope == SearchScope::Connections {
             "Switch Connection"
         } else {
             "Command Palette"
         };
         let description = if mode == PaletteMode::QuickOpen {
             "Switch workspaces, tabs, or open editors"
-        } else if self.palette_scope == SearchScope::Connections {
+        } else if self.palette.scope == SearchScope::Connections {
             "Pick a saved connection to open"
         } else {
             "Search commands, actions, and database tools"
@@ -827,37 +835,37 @@ impl DbProApp {
             .id_salt("palette_dialog")
             .show_ctx(ctx, |ui| {
                 let response = ui.add(
-                    TextEdit::singleline(&mut self.palette_query)
+                    TextEdit::singleline(&mut self.palette.query)
                         .hint_text(RichText::new("Type a command or search…").color(self.theme.text_muted))
                         .desired_width(ui.available_width())
                         .margin(egui::Margin::symmetric(12.0, 8.0))
                         .font(egui::FontId::proportional(13.5))
                         .text_color(self.theme.text_primary),
                 );
-                if self.palette_focus_requested {
+                if self.palette.focus_requested {
                     response.request_focus();
-                    self.palette_focus_requested = false;
+                    self.palette.focus_requested = false;
                 }
 
                 ui.add_space(6.0);
                 ui.horizontal_wrapped(|ui| {
                     for scope in SearchScope::all() {
-                        let selected = self.palette_scope == *scope;
+                        let selected = self.palette.scope == *scope;
                         if ui.selectable_label(selected, scope.label()).clicked() {
-                            self.palette_scope = *scope;
-                            self.palette_selected = 0;
+                            self.palette.scope = *scope;
+                            self.palette.selected = 0;
                         }
                     }
                 });
 
                 if ui.input(|input| input.key_pressed(egui::Key::ArrowDown)) && !items.is_empty() {
-                    self.palette_selected = (self.palette_selected + 1) % items.len();
+                    self.palette.selected = (self.palette.selected + 1) % items.len();
                 }
                 if ui.input(|input| input.key_pressed(egui::Key::ArrowUp)) && !items.is_empty() {
-                    self.palette_selected = if self.palette_selected == 0 {
+                    self.palette.selected = if self.palette.selected == 0 {
                         items.len() - 1
                     } else {
-                        self.palette_selected - 1
+                        self.palette.selected - 1
                     };
                 }
                 if ui.input(|input| input.key_pressed(egui::Key::Enter)) && !items.is_empty() {
@@ -874,7 +882,7 @@ impl DbProApp {
                         ui.add_space(16.0);
                     }
                     for (index, item) in items.iter().enumerate() {
-                        let selected = index == self.palette_selected;
+                        let selected = index == self.palette.selected;
                         let item_fill = if selected {
                             self.theme.surface_hover
                         } else {
@@ -883,10 +891,10 @@ impl DbProApp {
                         let (rect, item_resp) =
                             ui.allocate_exact_size(egui::vec2(ui.available_width(), 44.0), egui::Sense::click());
                         if item_resp.hovered() {
-                            self.palette_selected = index;
+                            self.palette.selected = index;
                         }
                         if item_resp.clicked() {
-                            self.palette_selected = index;
+                            self.palette.selected = index;
                             activate = true;
                         }
 
@@ -960,11 +968,11 @@ impl DbProApp {
             });
 
         if !open {
-            self.palette_mode = None;
+            self.palette.mode = None;
         }
 
         if activate {
-            if let Some(item) = items.get(self.palette_selected) {
+            if let Some(item) = items.get(self.palette.selected) {
                 self.execute_palette_action(item.action.clone(), ctx);
             }
         }
@@ -972,9 +980,9 @@ impl DbProApp {
 
     fn clamp_palette_selection(&mut self, items: &[PaletteItem]) {
         if items.is_empty() {
-            self.palette_selected = 0;
+            self.palette.selected = 0;
         } else {
-            self.palette_selected = self.palette_selected.min(items.len() - 1);
+            self.palette.selected = self.palette.selected.min(items.len() - 1);
         }
     }
 }

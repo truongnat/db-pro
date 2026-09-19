@@ -1277,16 +1277,16 @@ fn explain_analyze_requires_explicit_confirm_before_dispatch() {
 
     app.explain_query_analyze();
     assert!(command_rx.try_recv().is_err(), "ANALYZE must wait for confirm");
-    assert!(app.pending_explain_analyze);
+    assert!(app.query_execution.pending_explain_analyze);
 
-    app.explain_analyze_confirmed = true;
+    app.query_execution.explain_analyze_confirmed = true;
     app.explain_query_analyze();
     let UiCommand::ExplainQuery { analyze, sql, .. } = command_rx.try_recv().expect("analyze command") else {
         panic!("expected ExplainQuery");
     };
     assert!(analyze);
     assert_eq!(sql, "SELECT 1");
-    assert!(!app.pending_explain_analyze);
+    assert!(!app.query_execution.pending_explain_analyze);
 }
 
 #[test]
@@ -1730,7 +1730,10 @@ fn closing_welcome_activates_the_existing_query_tab() {
 #[test]
 fn quick_open_filters_workspaces_by_title_and_description() {
     let app = DbProApp {
-        palette_query: "relationship".to_owned(),
+        palette: PaletteState {
+            query: "relationship".to_owned(),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let items = app.filtered_palette_items(PaletteMode::QuickOpen);
@@ -2410,7 +2413,7 @@ fn command_palette_new_query_keeps_a_query_entry_point() {
 
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Query);
     assert_eq!(app.query_session_state.documents.len(), 2);
-    assert!(app.palette_mode.is_none());
+    assert!(app.palette.mode.is_none());
 }
 
 #[test]
@@ -2430,7 +2433,7 @@ fn quick_open_finds_schema_workbench_and_compare() {
     let mut app = DbProApp::default();
     let ctx = egui::Context::default();
 
-    app.palette_query = "Schema workbench".to_owned();
+    app.palette.query = "Schema workbench".to_owned();
     let workbench = app.filtered_palette_items(PaletteMode::QuickOpen);
     assert!(
         workbench.iter().any(|item| item.title == "Schema workbench"),
@@ -2440,7 +2443,7 @@ fn quick_open_finds_schema_workbench_and_compare() {
     app.execute_palette_action(PaletteAction::SchemaWorkbench, &ctx);
     assert_eq!(app.workspace.active_tab, WorkspaceTab::SchemaWorkbench);
 
-    app.palette_query = "Schema compare".to_owned();
+    app.palette.query = "Schema compare".to_owned();
     let compare = app.filtered_palette_items(PaletteMode::QuickOpen);
     assert!(compare.iter().any(|item| item.title == "Schema compare"));
     app.execute_palette_action(PaletteAction::SchemaCompare, &ctx);
@@ -2482,8 +2485,8 @@ fn global_search_scopes_and_indexes_functions_with_invalidation() {
         ..Default::default()
     };
 
-    app.palette_query = "calc_total".to_owned();
-    app.palette_scope = SearchScope::Schema;
+    app.palette.query = "calc_total".to_owned();
+    app.palette.scope = SearchScope::Schema;
     let schema_hits = app.filtered_palette_items_fresh(PaletteMode::QuickOpen);
     assert!(
         schema_hits.iter().any(|item| item.title == "calc_total"),
@@ -2494,8 +2497,8 @@ fn global_search_scopes_and_indexes_functions_with_invalidation() {
         .iter()
         .any(|item| matches!(item.action, PaletteAction::OpenFunction { .. })));
 
-    app.palette_query.clear();
-    app.palette_scope = SearchScope::Agent;
+    app.palette.query.clear();
+    app.palette.scope = SearchScope::Agent;
     let agent_hits = app.filtered_palette_items_fresh(PaletteMode::QuickOpen);
     assert!(agent_hits.iter().all(|item| {
         matches!(item.action, PaletteAction::Agent | PaletteAction::ExplainQuery)
@@ -2503,12 +2506,12 @@ fn global_search_scopes_and_indexes_functions_with_invalidation() {
     }));
     assert!(!agent_hits.iter().any(|item| item.title == "orders"));
 
-    let fp_before = app.search_index.fingerprint().to_owned();
+    let fp_before = app.palette.search_index.fingerprint().to_owned();
     assert!(!fp_before.is_empty());
-    app.search_index.invalidate();
-    assert!(app.search_index.is_empty());
+    app.palette.search_index.invalidate();
+    assert!(app.palette.search_index.is_empty());
     let _ = app.filtered_palette_items_fresh(PaletteMode::QuickOpen);
-    assert_ne!(app.search_index.fingerprint(), "");
+    assert_ne!(app.palette.search_index.fingerprint(), "");
 }
 
 #[test]
@@ -3010,7 +3013,7 @@ fn command_palette_shortcut_is_available_from_the_native_shell() {
 
     app.handle_shortcuts(&ctx);
 
-    assert_eq!(app.palette_mode, Some(PaletteMode::QuickOpen));
+    assert_eq!(app.palette.mode, Some(PaletteMode::QuickOpen));
     let _ = ctx.end_pass();
 }
 
@@ -3042,7 +3045,7 @@ fn command_palette_shortcut_accepts_mac_command_modifier() {
 
     app.handle_shortcuts(&ctx);
 
-    assert_eq!(app.palette_mode, Some(PaletteMode::QuickOpen));
+    assert_eq!(app.palette.mode, Some(PaletteMode::QuickOpen));
     let _ = ctx.end_pass();
 }
 
@@ -3177,7 +3180,7 @@ fn global_palette_shortcuts_do_not_steal_text_input_combinations() {
 
     app.handle_shortcuts(&ctx);
 
-    assert_eq!(app.palette_mode, None);
+    assert_eq!(app.palette.mode, None);
     let _ = ctx.end_pass();
 }
 
@@ -3229,8 +3232,8 @@ fn sidebar_header_launcher_opens_full_command_palette() {
     // Header name+search is one control → full palette (connections + commands).
     app.open_palette(PaletteMode::Commands);
 
-    assert_eq!(app.palette_mode, Some(PaletteMode::Commands));
-    assert_eq!(app.palette_scope, SearchScope::All);
+    assert_eq!(app.palette.mode, Some(PaletteMode::Commands));
+    assert_eq!(app.palette.scope, SearchScope::All);
 }
 
 #[test]
@@ -5837,6 +5840,7 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
         "a destructive statement must not be dispatched before it is confirmed"
     );
     let pending = app
+        .query_execution
         .pending_destructive_run
         .as_ref()
         .expect("the statement must be held for confirmation");
@@ -5850,7 +5854,7 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
         panic!("expected RunQuery command");
     };
     assert_eq!(sql, "DROP TABLE users");
-    assert!(app.pending_destructive_run.is_none());
+    assert!(app.query_execution.pending_destructive_run.is_none());
 }
 
 #[test]
@@ -5877,14 +5881,14 @@ fn cancelling_a_held_destructive_statement_sends_nothing() {
     app.set_active_query_text("TRUNCATE users");
 
     app.dispatch_query();
-    assert!(app.pending_destructive_run.is_some());
+    assert!(app.query_execution.pending_destructive_run.is_some());
     app.cancel_pending_destructive_run();
 
     assert!(
         command_rx.try_recv().is_err(),
         "a cancelled statement must never be dispatched"
     );
-    assert!(app.pending_destructive_run.is_none());
+    assert!(app.query_execution.pending_destructive_run.is_none());
     assert!(app.runtime_message.contains("cancelled"));
 }
 
@@ -5923,7 +5927,10 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
 
         app.dispatch_query();
 
-        assert!(app.pending_destructive_run.is_none(), "{sql} must not be gated");
+        assert!(
+            app.query_execution.pending_destructive_run.is_none(),
+            "{sql} must not be gated"
+        );
         let UiCommand::RunQuery { sql: dispatched, .. } = command_rx
             .try_recv()
             .unwrap_or_else(|_| panic!("{sql} must dispatch immediately"))
@@ -5962,7 +5969,11 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
     app.dispatch_query_all();
 
     assert!(command_rx.try_recv().is_err(), "the script must be held");
-    let pending = app.pending_destructive_run.as_ref().expect("script must be held");
+    let pending = app
+        .query_execution
+        .pending_destructive_run
+        .as_ref()
+        .expect("script must be held");
     assert!(
         pending.all_statements,
         "a run-all must be dispatched as a script on confirm"
@@ -5978,7 +5989,7 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
     app.set_active_query_text("SELECT 1;\nSELECT 2;");
     app.query_session_state.documents[0].execution_state = QueryExecutionState::Idle;
     app.dispatch_query_all();
-    assert!(app.pending_destructive_run.is_none());
+    assert!(app.query_execution.pending_destructive_run.is_none());
     assert!(
         command_rx.try_recv().is_ok(),
         "a read-only script must dispatch immediately"
@@ -6093,8 +6104,9 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
         ..Default::default()
     };
     app.open_workspace_folder(dir.clone());
-    assert!(app.ide_workspace.root().is_some());
+    assert!(app.workspace_files.ide_workspace.root().is_some());
     assert!(app
+        .workspace_files
         .ide_workspace
         .index()
         .iter()

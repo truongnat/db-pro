@@ -22,7 +22,13 @@ impl DbProApp {
                 });
             }
         }
-        for (index, diagnostic) in self.ide_workspace.workspace_diagnostics.iter().enumerate() {
+        for (index, diagnostic) in self
+            .workspace_files
+            .ide_workspace
+            .workspace_diagnostics
+            .iter()
+            .enumerate()
+        {
             let severity = match diagnostic.severity {
                 ide_workspace::WorkspaceDiagnosticSeverity::Error => crate::editor::DiagnosticSeverity::Error,
                 ide_workspace::WorkspaceDiagnosticSeverity::Warning => crate::editor::DiagnosticSeverity::Warning,

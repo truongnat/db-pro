@@ -58,6 +58,10 @@ pub mod connection;
 pub use component_gallery_view::ComponentGalleryState;
 #[path = "capability_lookup.rs"]
 mod capability_lookup;
+#[path = "database_operations_state.rs"]
+mod database_operations_state;
+#[path = "diagram_state.rs"]
+mod diagram_state;
 #[path = "diagram_view.rs"]
 mod diagram_view;
 #[path = "events.rs"]
@@ -84,11 +88,19 @@ mod git_workspace;
 mod ide_workspace;
 #[path = "navigation_view.rs"]
 mod navigation_view;
+#[path = "palette_state.rs"]
+mod palette_state;
+#[path = "query_execution_state.rs"]
+mod query_execution_state;
 #[path = "settings_model.rs"]
 mod settings_model;
 #[path = "settings_view.rs"]
 mod settings_view;
 pub(crate) use capability_lookup::CapabilityLookup;
+pub(crate) use database_operations_state::DatabaseOperationsState;
+pub(crate) use diagram_state::DiagramState;
+pub(crate) use palette_state::PaletteState;
+pub(crate) use query_execution_state::QueryExecutionPolicyState;
 pub(crate) use settings_model::{
     default_keybinding_catalog, AppSettings, SettingsSection, SqlLintSettings, SETTINGS_STORAGE_KEY,
 };
@@ -152,6 +164,8 @@ mod tasks_view;
 mod visual_query_builder_view;
 #[path = "workspace_actions.rs"]
 mod workspace_actions;
+#[path = "workspace_files_state.rs"]
+mod workspace_files_state;
 #[path = "workspace_session.rs"]
 mod workspace_session;
 #[path = "workspace_shell.rs"]
@@ -165,6 +179,7 @@ pub(crate) use schema_explorer_state::SchemaExplorerState;
 pub(crate) use table_data_state::TableDataState;
 pub(crate) use table_mutation_state::TableMutationState;
 pub(crate) use table_state::TableState;
+pub(crate) use workspace_files_state::WorkspaceFilesState;
 #[path = "schema_compare.rs"]
 mod schema_compare;
 #[path = "schema_explorer_state.rs"]
@@ -210,12 +225,7 @@ pub struct DbProApp {
     query_editor: QueryEditorState,
     connection_name: String,
     connected: bool,
-    palette_mode: Option<PaletteMode>,
-    palette_query: String,
-    palette_scope: SearchScope,
-    palette_selected: usize,
-    palette_focus_requested: bool,
-    search_index: SearchIndex,
+    palette: PaletteState,
     agent: AgentState,
     task_bridge: TaskBridge,
     runtime_message: String,
@@ -233,130 +243,9 @@ pub struct DbProApp {
     saved_queries: Vec<UiSavedQuerySummary>,
     query_folders: Vec<UiQueryFolderSummary>,
     schema_explorer: SchemaExplorerState,
-    /// Local IDE workspace folder / file tree (#261–#264).
-    ide_workspace: ide_workspace::IdeWorkspaceState,
-    /// Optional Git status for the active workspace root (#255).
-    git_status: Option<git_workspace::GitWorkspaceStatus>,
-    git_diff: Option<git_workspace::GitDiffResult>,
-    git_commit_message: String,
-    git_last_error: Option<String>,
-    /// Absolute path → disk mtime when last loaded/saved (external change detection).
-    workspace_file_mtimes: std::collections::HashMap<String, u64>,
-    workspace_external_change: Option<String>,
-    /// Find-in-Files / replace drafts for the Files activity (#267).
-    workspace_search_query: String,
-    workspace_replace_query: String,
-    workspace_search_hits: Vec<ide_workspace::SearchHit>,
-    workspace_replace_previews: Vec<ide_workspace::ReplacePreview>,
-    workspace_task_command: String,
-    workspace_refactor_from: String,
-    workspace_refactor_to: String,
-    workspace_context_items: Vec<String>,
-    /// Editable CREATE body for the selected routine (#192).
-    routine_source_draft: String,
-    /// Values for IN/INOUT parameters in the execute form.
-    routine_param_values: Vec<String>,
-    routine_param_nulls: Vec<bool>,
-    routine_ddl_preview: Option<String>,
-    routine_drop_confirm: bool,
-    /// Recent transfer jobs for Transfers activity (#193).
-    transfer_jobs: Vec<db_pro_core::domain::transfer::TransferJob>,
-    synthetic_table: String,
-    synthetic_row_count: String,
-    synthetic_seed: String,
-    synthetic_null_pct: String,
-    synthetic_preview: Option<db_pro_core::domain::synthetic_data::SyntheticPreview>,
-    synthetic_error: Option<String>,
-    synthetic_production_confirm: bool,
-    masking_columns_csv: String,
-    masking_rule: db_pro_core::domain::masking::MaskRule,
-    masking_keyed: bool,
-    masking_preview: Option<db_pro_core::domain::masking::MaskingPreview>,
-    masking_error: Option<String>,
-    /// Latest monitoring snapshot for Monitor activity (#196).
-    monitoring_snapshot: Option<db_pro_core::domain::monitoring::MonitoringSnapshot>,
-    monitoring_error: Option<String>,
-    monitoring_poll: bool,
-    monitoring_last_poll: Option<std::time::Instant>,
-    monitoring_terminate_confirm: Option<i64>,
-    monitoring_filter_active_only: bool,
-    monitoring_maintenance_confirm: Option<db_pro_core::domain::monitoring::MaintenanceAction>,
-    monitoring_stat_sort: db_pro_core::domain::monitoring::StatStatementSort,
-    monitoring_reset_stats_confirm: bool,
-    monitoring_workload_prev: Option<db_pro_core::domain::monitoring::StatStatementsSnapshot>,
-    monitoring_workload_filter: String,
-    audit_page: Option<db_pro_core::domain::audit::AuditPage>,
-    audit_error: Option<String>,
-    audit_filter_text: String,
-    audit_filter_database: String,
-    audit_filter_username: String,
-    audit_filter_severity: String,
-    audit_bookmarks: std::collections::HashSet<String>,
-    audit_selected: std::collections::HashSet<String>,
-    audit_export_preview: Option<String>,
-    pg_settings: Option<db_pro_core::domain::pg_settings::PgSettingsSnapshot>,
-    pg_settings_filter: String,
-    pg_settings_edit_name: String,
-    pg_settings_edit_value: String,
-    pg_settings_preview: Option<db_pro_core::domain::pg_settings::PgSettingPreviewSql>,
-    pg_settings_error: Option<String>,
-    fdw_inventory: Option<db_pro_core::domain::fdw::FdwInventory>,
-    fdw_error: Option<String>,
-    fdw_create_name: String,
-    fdw_create_wrapper: String,
-    fdw_create_host: String,
-    fdw_create_dbname: String,
-    fdw_create_port: String,
-    fdw_ddl_preview: Option<String>,
-    fdw_drop_confirm: Option<String>,
-    replication_inventory: Option<db_pro_core::domain::replication::ReplicationInventory>,
-    replication_error: Option<String>,
-    replication_create_name: String,
-    replication_ddl_preview: Option<String>,
-    replication_drop_publication: Option<String>,
-    replication_drop_subscription: Option<String>,
-    event_trigger_inventory: Option<db_pro_core::domain::event_trigger::EventTriggerInventory>,
-    event_trigger_error: Option<String>,
-    event_trigger_create_name: String,
-    event_trigger_create_event: String,
-    event_trigger_create_function: String,
-    event_trigger_create_tags: String,
-    event_trigger_ddl_preview: Option<String>,
-    event_trigger_drop_confirm: Option<String>,
-    security_users: Vec<db_pro_core::domain::user::DatabaseUser>,
-    security_selected_role: Option<String>,
-    security_privileges: Vec<db_pro_core::domain::user::Privilege>,
-    security_memberships: Vec<db_pro_core::domain::user::RoleMembership>,
-    security_new_role: String,
-    security_new_role_login: bool,
-    security_membership_role: String,
-    security_password: String,
-    security_grant_kind: db_pro_core::domain::user::PrivilegeObjectKind,
-    security_grant_schema: String,
-    security_grant_object: String,
-    security_grant_privilege: String,
-    security_rls_schema: String,
-    security_rls_table: String,
-    security_rls_state: Option<db_pro_core::domain::rls::TableRlsState>,
-    security_rls_policy_name: String,
-    security_rls_command: String,
-    security_rls_roles: String,
-    security_rls_using: String,
-    security_rls_with_check: String,
-    security_rls_preview_sql: String,
-    security_rls_confirm_apply: bool,
-    security_drop_confirm: Option<String>,
-    security_error: Option<String>,
-    schema_workbench: schema_workbench::SchemaWorkbenchState,
-    schema_snapshot: Option<schema_compare::UiSchemaSnapshot>,
-    schema_diff: Option<schema_compare::UiSchemaDiffResult>,
-    migration_plan: Option<db_pro_core::domain::migration::MigrationPlan>,
-    migration_preview_sql: String,
-    migration_confirm_destructive: bool,
-    /// EXPLAIN ANALYZE requires an explicit confirm in the Explain pane (#215).
-    pending_explain_analyze: bool,
-    explain_analyze_confirmed: bool,
-    explain_show_raw_json: bool,
+    workspace_files: WorkspaceFilesState,
+    database_operations: DatabaseOperationsState,
+    query_execution: QueryExecutionPolicyState,
     saved_task_store: db_pro_core::domain::saved_task::SavedTaskStore,
     saved_task_draft: Option<db_pro_core::domain::saved_task::SavedTask>,
     saved_tasks_dirty: bool,
@@ -366,42 +255,8 @@ pub struct DbProApp {
     session_name_draft: String,
     selected_named_session_id: Option<String>,
     last_session_restore_notes: Vec<String>,
-    migration_fingerprint_at_preview: String,
-    data_diff_target_id: String,
-    data_diff_schema: String,
-    data_diff_table: String,
-    data_diff_keys: String,
-    data_diff_result: Option<db_pro_core::domain::cross_connection::DataDiff>,
-    data_diff_filter: String,
-    query_auto_commit: bool,
-    query_in_transaction: bool,
-    query_txn_pending: usize,
-    disconnect_txn_guard: bool,
-    /// Transaction bar is opt-in so the SQL surface stays file-editor quiet by default.
-    query_txn_bar_open: bool,
-    diagram_zoom: f32,
-    diagram_pan: egui::Vec2,
-    diagram_pan_origin: Option<egui::Vec2>,
-    diagram_search: String,
-    diagram_show_all: bool,
-    er_design: crate::diagram::design_mode::DesignModeState,
-    er_design_new_table: String,
-    er_design_new_schema: String,
-    er_design_col_name: String,
-    er_design_col_type: String,
-    er_design_fk_name: String,
-    er_design_fk_from: String,
-    er_design_fk_to: String,
-    diagram_neighborhood_depth: usize,
-    diagram_graph: ErGraph,
-    diagram_spatial_index: ErSpatialIndex,
-    diagram_schema_version: u64,
-    diagram_layout_worker: crate::diagram::ErLayoutWorker,
-    diagram_layout_state: crate::diagram::ErLayoutState,
-    diagram_latest_layout_request: u64,
+    diagram: DiagramState,
     table_state: TableState,
-    /// A destructive statement the user must confirm before it reaches the database.
-    pending_destructive_run: Option<events::PendingDestructiveRun>,
     table_mutation: TableMutationState,
     query_folder: String,
     backup_output_path: String,
@@ -462,6 +317,7 @@ impl eframe::App for DbProApp {
         }
         if let Ok(recent_ws) = serde_json::to_string(
             &self
+                .workspace_files
                 .ide_workspace
                 .recent_roots
                 .iter()
@@ -472,6 +328,7 @@ impl eframe::App for DbProApp {
         }
         if let Ok(roots) = serde_json::to_string(
             &self
+                .workspace_files
                 .ide_workspace
                 .roots
                 .iter()
@@ -482,7 +339,7 @@ impl eframe::App for DbProApp {
         }
         storage.set_string(
             "dbpro.native.workspace-trusted-v1",
-            self.ide_workspace.is_trusted().to_string(),
+            self.workspace_files.ide_workspace.is_trusted().to_string(),
         );
         storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
         storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
@@ -591,7 +448,7 @@ impl eframe::App for DbProApp {
         if self.table_data.insert_row_open {
             self.draw_insert_row_dialog(ctx);
         }
-        if self.palette_mode.is_some() {
+        if self.palette.mode.is_some() {
             self.draw_palette(ctx);
         }
 

@@ -4,7 +4,7 @@ use super::*;
 
 impl DbProApp {
     pub(super) fn handle_shortcuts(&mut self, ctx: &egui::Context) {
-        if self.palette_mode.is_some()
+        if self.palette.mode.is_some()
             || self.connection_dialog.open
             || self.delete_confirmation_id.is_some()
             || self.folder_delete_confirmation.is_some()
@@ -184,7 +184,7 @@ impl DbProApp {
         {
             return false;
         }
-        self.pending_destructive_run = Some(PendingDestructiveRun {
+        self.query_execution.pending_destructive_run = Some(PendingDestructiveRun {
             sql: sql.to_owned(),
             execution_range,
             version,
@@ -199,7 +199,7 @@ impl DbProApp {
     /// the prompt displayed, so a confirmation can never execute something the user did
     /// not see.
     pub(super) fn confirm_pending_destructive_run(&mut self) {
-        let Some(pending) = self.pending_destructive_run.take() else {
+        let Some(pending) = self.query_execution.pending_destructive_run.take() else {
             return;
         };
         let Some(connection_id) = self
@@ -221,7 +221,7 @@ impl DbProApp {
 
     /// Drop a held destructive statement without executing it.
     pub(super) fn cancel_pending_destructive_run(&mut self) {
-        if self.pending_destructive_run.take().is_some() {
+        if self.query_execution.pending_destructive_run.take().is_some() {
             self.runtime_message = "Destructive statement cancelled — nothing was sent to the database".to_owned();
         }
     }

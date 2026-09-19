@@ -466,10 +466,10 @@ impl DbProApp {
                 .collect();
             ui.horizontal(|ui| {
                 egui::ComboBox::from_id_salt("synth_table")
-                    .selected_text(if self.synthetic_table.is_empty() {
+                    .selected_text(if self.database_operations.synthetic_table.is_empty() {
                         "Select table…"
                     } else {
-                        &self.synthetic_table
+                        &self.database_operations.synthetic_table
                     })
                     .show_ui(ui, |ui| {
                         for (schema, name) in &tables {
@@ -478,15 +478,19 @@ impl DbProApp {
                             } else {
                                 format!("{schema}.{name}")
                             };
-                            ui.selectable_value(&mut self.synthetic_table, key.clone(), key);
+                            ui.selectable_value(&mut self.database_operations.synthetic_table, key.clone(), key);
                         }
                     });
                 ui.label("rows");
-                ui.add(egui::TextEdit::singleline(&mut self.synthetic_row_count).desired_width(48.0));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.database_operations.synthetic_row_count).desired_width(48.0),
+                );
                 ui.label("seed");
-                ui.add(egui::TextEdit::singleline(&mut self.synthetic_seed).desired_width(64.0));
+                ui.add(egui::TextEdit::singleline(&mut self.database_operations.synthetic_seed).desired_width(64.0));
                 ui.label("null%");
-                ui.add(egui::TextEdit::singleline(&mut self.synthetic_null_pct).desired_width(36.0));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.database_operations.synthetic_null_pct).desired_width(36.0),
+                );
             });
             let is_production = self
                 .active_connection()
@@ -498,7 +502,7 @@ impl DbProApp {
                     "Production connection — confirm before applying INSERT SQL",
                 );
                 ui.checkbox(
-                    &mut self.synthetic_production_confirm,
+                    &mut self.database_operations.synthetic_production_confirm,
                     "I confirm seeding this Production database",
                 );
             }
@@ -513,10 +517,10 @@ impl DbProApp {
                     self.apply_synthetic_seed();
                 }
             });
-            if let Some(error) = &self.synthetic_error {
+            if let Some(error) = &self.database_operations.synthetic_error {
                 ui.colored_label(self.theme.danger, error);
             }
-            if let Some(preview) = &self.synthetic_preview {
+            if let Some(preview) = &self.database_operations.synthetic_preview {
                 ui.label(RichText::new(&preview.message).small().color(self.theme.text_secondary));
                 for (i, row) in preview.rows.iter().take(8).enumerate() {
                     ui.label(RichText::new(format!("#{i}: {}", row.join(" | "))).monospace().small());
@@ -534,37 +538,40 @@ impl DbProApp {
                 .color(self.theme.text_muted),
             );
             ui.horizontal(|ui| {
-                ui.add(egui::TextEdit::singleline(&mut self.masking_columns_csv).hint_text("cols: email,phone"));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.database_operations.masking_columns_csv)
+                        .hint_text("cols: email,phone"),
+                );
                 egui::ComboBox::from_id_salt("mask_rule")
-                    .selected_text(format!("{:?}", self.masking_rule))
+                    .selected_text(format!("{:?}", self.database_operations.masking_rule))
                     .show_ui(ui, |ui| {
                         ui.selectable_value(
-                            &mut self.masking_rule,
+                            &mut self.database_operations.masking_rule,
                             db_pro_core::domain::masking::MaskRule::Redact,
                             "Redact",
                         );
                         ui.selectable_value(
-                            &mut self.masking_rule,
+                            &mut self.database_operations.masking_rule,
                             db_pro_core::domain::masking::MaskRule::Hash,
                             "Hash",
                         );
                         ui.selectable_value(
-                            &mut self.masking_rule,
+                            &mut self.database_operations.masking_rule,
                             db_pro_core::domain::masking::MaskRule::PartialReveal,
                             "Partial",
                         );
                         ui.selectable_value(
-                            &mut self.masking_rule,
+                            &mut self.database_operations.masking_rule,
                             db_pro_core::domain::masking::MaskRule::Fixed,
                             "Fixed",
                         );
                         ui.selectable_value(
-                            &mut self.masking_rule,
+                            &mut self.database_operations.masking_rule,
                             db_pro_core::domain::masking::MaskRule::Synthetic,
                             "Synthetic",
                         );
                     });
-                ui.checkbox(&mut self.masking_keyed, "Keyed hash");
+                ui.checkbox(&mut self.database_operations.masking_keyed, "Keyed hash");
                 if secondary_button(ui, "Suggest cols", self.theme).clicked() {
                     let names: Vec<String> = self
                         .schema_explorer
@@ -573,7 +580,7 @@ impl DbProApp {
                         .first()
                         .map(|t| t.columns.iter().map(|c| c.name.clone()).collect())
                         .unwrap_or_default();
-                    self.masking_columns_csv =
+                    self.database_operations.masking_columns_csv =
                         db_pro_core::domain::masking::suggest_sensitive_columns(&names).join(",");
                 }
                 if secondary_button(ui, "Preview sample", self.theme).clicked() {
@@ -583,10 +590,10 @@ impl DbProApp {
                     self.run_masked_csv_export_harness();
                 }
             });
-            if let Some(error) = &self.masking_error {
+            if let Some(error) = &self.database_operations.masking_error {
                 ui.colored_label(self.theme.danger, error);
             }
-            if let Some(preview) = &self.masking_preview {
+            if let Some(preview) = &self.database_operations.masking_preview {
                 ui.label(RichText::new(&preview.message).small().color(self.theme.text_secondary));
                 for (i, (orig, masked)) in preview.original.iter().zip(preview.masked.iter()).take(5).enumerate() {
                     ui.label(RichText::new(format!("#{i} {orig:?} → {masked:?}")).monospace().small());
@@ -617,11 +624,11 @@ impl DbProApp {
                 self.run_db_to_db_transfer_harness();
             }
             if ghost_button_with_icon(ui, Icon::Trash2, "Clear jobs", self.theme).clicked() {
-                self.transfer_jobs.clear();
+                self.database_operations.transfer_jobs.clear();
             }
         });
         ui.add_space(SPACE_MD);
-        if self.transfer_jobs.is_empty() {
+        if self.database_operations.transfer_jobs.is_empty() {
             empty_state(
                 ui,
                 Icon::Upload,
@@ -631,7 +638,7 @@ impl DbProApp {
             );
             return;
         }
-        for job in &self.transfer_jobs {
+        for job in &self.database_operations.transfer_jobs {
             card_frame(self.theme).show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(&job.label).strong().color(self.theme.text_primary));
@@ -675,13 +682,13 @@ impl DbProApp {
 
     fn build_synthetic_plan(&self) -> Result<db_pro_core::domain::synthetic_data::SyntheticPlan, String> {
         use db_pro_core::domain::synthetic_data::{infer_generator, ColumnSpec, SyntheticPlan};
-        if self.synthetic_table.is_empty() {
+        if self.database_operations.synthetic_table.is_empty() {
             return Err("select a table".into());
         }
-        let (schema, name) = if let Some((s, t)) = self.synthetic_table.split_once('.') {
+        let (schema, name) = if let Some((s, t)) = self.database_operations.synthetic_table.split_once('.') {
             (s.to_owned(), t.to_owned())
         } else {
-            (String::new(), self.synthetic_table.clone())
+            (String::new(), self.database_operations.synthetic_table.clone())
         };
         let detail = self
             .schema_explorer
@@ -691,11 +698,17 @@ impl DbProApp {
             .find(|t| t.name == name && (schema.is_empty() || t.schema == schema))
             .ok_or_else(|| "table metadata not loaded".to_owned())?;
         let row_count: u64 = self
+            .database_operations
             .synthetic_row_count
             .parse()
             .map_err(|_| "invalid row count".to_owned())?;
-        let seed: u64 = self.synthetic_seed.parse().map_err(|_| "invalid seed".to_owned())?;
+        let seed: u64 = self
+            .database_operations
+            .synthetic_seed
+            .parse()
+            .map_err(|_| "invalid seed".to_owned())?;
         let null_rate_pct: u8 = self
+            .database_operations
             .synthetic_null_pct
             .parse()
             .map_err(|_| "invalid null %".to_owned())?;
@@ -735,17 +748,17 @@ impl DbProApp {
         match self.build_synthetic_plan() {
             Ok(plan) => match db_pro_core::domain::synthetic_data::generate_preview(&plan, 20) {
                 Ok(preview) => {
-                    self.synthetic_preview = Some(preview);
-                    self.synthetic_error = None;
+                    self.database_operations.synthetic_preview = Some(preview);
+                    self.database_operations.synthetic_error = None;
                 }
                 Err(err) => {
-                    self.synthetic_error = Some(err);
-                    self.synthetic_preview = None;
+                    self.database_operations.synthetic_error = Some(err);
+                    self.database_operations.synthetic_preview = None;
                 }
             },
             Err(err) => {
-                self.synthetic_error = Some(err);
-                self.synthetic_preview = None;
+                self.database_operations.synthetic_error = Some(err);
+                self.database_operations.synthetic_preview = None;
             }
         }
     }
@@ -754,7 +767,7 @@ impl DbProApp {
         let plan = match self.build_synthetic_plan() {
             Ok(p) => p,
             Err(err) => {
-                self.synthetic_error = Some(err);
+                self.database_operations.synthetic_error = Some(err);
                 return;
             }
         };
@@ -762,7 +775,7 @@ impl DbProApp {
         let rows = match db_pro_core::domain::synthetic_data::generate_rows(&plan, count) {
             Ok(r) => r,
             Err(err) => {
-                self.synthetic_error = Some(err);
+                self.database_operations.synthetic_error = Some(err);
                 return;
             }
         };
@@ -770,10 +783,10 @@ impl DbProApp {
             Ok(sql) => {
                 self.set_active_query_text(sql);
                 self.workspace.active_tab = WorkspaceTab::Query;
-                self.synthetic_error = None;
+                self.database_operations.synthetic_error = None;
                 self.runtime_message = format!("Synthetic INSERT SQL ({count} rows) exported to Query editor");
             }
-            Err(err) => self.synthetic_error = Some(err),
+            Err(err) => self.database_operations.synthetic_error = Some(err),
         }
     }
 
@@ -782,16 +795,17 @@ impl DbProApp {
             .active_connection()
             .map(|c| c.environment.eq_ignore_ascii_case("Production"))
             .unwrap_or(false);
-        if is_production && !self.synthetic_production_confirm {
-            self.synthetic_error = Some("Production confirmation required before applying seed INSERT".into());
+        if is_production && !self.database_operations.synthetic_production_confirm {
+            self.database_operations.synthetic_error =
+                Some("Production confirmation required before applying seed INSERT".into());
             return;
         }
         self.export_synthetic_seed_sql();
-        if self.synthetic_error.is_some() {
+        if self.database_operations.synthetic_error.is_some() {
             return;
         }
         if self.connection_lifecycle.active_connection_id.is_none() || !self.connected {
-            self.synthetic_error = Some("Connect to a database before applying seed".into());
+            self.database_operations.synthetic_error = Some("Connect to a database before applying seed".into());
             return;
         }
         self.dispatch_query();
@@ -801,6 +815,7 @@ impl DbProApp {
     pub(crate) fn preview_masking_sample(&mut self) {
         use db_pro_core::domain::masking::{preview_masking, ColumnMask, MaskingProfile};
         let cols: Vec<String> = self
+            .database_operations
             .masking_columns_csv
             .split(',')
             .map(str::trim)
@@ -844,22 +859,22 @@ impl DbProApp {
                 .into_iter()
                 .map(|column| ColumnMask {
                     column,
-                    rule: self.masking_rule,
+                    rule: self.database_operations.masking_rule,
                     replacement: "[masked]".into(),
                     keep_prefix: 2,
                     keep_suffix: 2,
                 })
                 .collect(),
-            keyed: self.masking_keyed,
+            keyed: self.database_operations.masking_keyed,
             key_id: "local-dev".into(),
         };
-        let key_material = if self.masking_keyed {
+        let key_material = if self.database_operations.masking_keyed {
             "db-pro-local-masking-key"
         } else {
             ""
         };
-        self.masking_preview = Some(preview_masking(&headers, &sample, &profile, key_material));
-        self.masking_error = None;
+        self.database_operations.masking_preview = Some(preview_masking(&headers, &sample, &profile, key_material));
+        self.database_operations.masking_error = None;
     }
 
     pub(crate) fn run_masked_csv_export_harness(&mut self) {
@@ -869,26 +884,30 @@ impl DbProApp {
             TransferCancellation, TransferJob, TransferSourceKind, TransferStatus, TransferTargetKind,
         };
 
-        let path = std::env::temp_dir().join(format!("db-pro-masked-{}.csv", self.transfer_jobs.len() + 1));
+        let path = std::env::temp_dir().join(format!(
+            "db-pro-masked-{}.csv",
+            self.database_operations.transfer_jobs.len() + 1
+        ));
         let headers = vec!["id".into(), "email".into(), "phone".into()];
         let profile = MaskingProfile {
             name: "export".into(),
             schema: String::new(),
             table: String::new(),
             columns: self
+                .database_operations
                 .masking_columns_csv
                 .split(',')
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
                 .map(|column| ColumnMask {
                     column: column.to_owned(),
-                    rule: self.masking_rule,
+                    rule: self.database_operations.masking_rule,
                     replacement: "[masked]".into(),
                     keep_prefix: 2,
                     keep_suffix: 2,
                 })
                 .collect(),
-            keyed: self.masking_keyed,
+            keyed: self.database_operations.masking_keyed,
             key_id: "local-dev".into(),
         };
         let raw = vec![
@@ -901,7 +920,7 @@ impl DbProApp {
         ];
         let masked = mask_transfer_batch(&headers, &raw, &profile, "db-pro-local-masking-key");
         let mut job = TransferJob {
-            id: format!("masked-{}", self.transfer_jobs.len() + 1),
+            id: format!("masked-{}", self.database_operations.transfer_jobs.len() + 1),
             label: format!("Masked CSV → {}", path.display()),
             source: TransferSourceKind::Synthetic {
                 rows: masked.len() as u64,
@@ -948,12 +967,12 @@ impl DbProApp {
             Err(err) => {
                 job.status = TransferStatus::Failed;
                 job.error = Some(err.to_string());
-                self.masking_error = Some(err.to_string());
+                self.database_operations.masking_error = Some(err.to_string());
             }
         }
-        self.transfer_jobs.insert(0, job);
-        if self.transfer_jobs.len() > 40 {
-            self.transfer_jobs.truncate(40);
+        self.database_operations.transfer_jobs.insert(0, job);
+        if self.database_operations.transfer_jobs.len() > 40 {
+            self.database_operations.transfer_jobs.truncate(40);
         }
     }
 
@@ -961,7 +980,7 @@ impl DbProApp {
         use db_pro_core::application::TransferService;
         use db_pro_core::domain::transfer::{TransferCancellation, TransferJob, TransferStatus};
 
-        let id = format!("xfer-{}", self.transfer_jobs.len() + 1);
+        let id = format!("xfer-{}", self.database_operations.transfer_jobs.len() + 1);
         let mut job = TransferJob::new_synthetic(id, if cancel_midway { 20_000 } else { 5_000 }, 128);
         let cancel = TransferCancellation::new();
         if cancel_midway {
@@ -987,9 +1006,9 @@ impl DbProApp {
             "Transfer {} · {:?} · wrote {}",
             job.id, job.status, job.progress.rows_written
         );
-        self.transfer_jobs.insert(0, job);
-        if self.transfer_jobs.len() > 20 {
-            self.transfer_jobs.truncate(20);
+        self.database_operations.transfer_jobs.insert(0, job);
+        if self.database_operations.transfer_jobs.len() > 20 {
+            self.database_operations.transfer_jobs.truncate(20);
         }
     }
 
@@ -1000,8 +1019,11 @@ impl DbProApp {
         };
 
         let mut path = std::env::temp_dir();
-        path.push(format!("dbpro-export-{}.csv", self.transfer_jobs.len() + 1));
-        let id = format!("csv-{}", self.transfer_jobs.len() + 1);
+        path.push(format!(
+            "dbpro-export-{}.csv",
+            self.database_operations.transfer_jobs.len() + 1
+        ));
+        let id = format!("csv-{}", self.database_operations.transfer_jobs.len() + 1);
         let mut job = TransferJob {
             id,
             label: format!("CSV export → {}", path.display()),
@@ -1030,9 +1052,9 @@ impl DbProApp {
             }
         }
         self.runtime_message = format!("CSV transfer {} · {:?} · {}", job.id, job.status, path.display());
-        self.transfer_jobs.insert(0, job);
-        if self.transfer_jobs.len() > 20 {
-            self.transfer_jobs.truncate(20);
+        self.database_operations.transfer_jobs.insert(0, job);
+        if self.database_operations.transfer_jobs.len() > 20 {
+            self.database_operations.transfer_jobs.truncate(20);
         }
     }
 
@@ -1058,7 +1080,11 @@ impl DbProApp {
             },
         );
 
-        let mut job = TransferJob::new_synthetic(format!("csv-import-{}", self.transfer_jobs.len() + 1), 0, 50);
+        let mut job = TransferJob::new_synthetic(
+            format!("csv-import-{}", self.database_operations.transfer_jobs.len() + 1),
+            0,
+            50,
+        );
         job.label = format!("CSV import preview ← {}", path.display());
         job.target = TransferTargetKind::File {
             path: path.to_string_lossy().into_owned(),
@@ -1082,9 +1108,9 @@ impl DbProApp {
             }
         }
         self.runtime_message = job.progress.message.clone();
-        self.transfer_jobs.insert(0, job);
-        if self.transfer_jobs.len() > 20 {
-            self.transfer_jobs.truncate(20);
+        self.database_operations.transfer_jobs.insert(0, job);
+        if self.database_operations.transfer_jobs.len() > 20 {
+            self.database_operations.transfer_jobs.truncate(20);
         }
     }
 
@@ -1093,8 +1119,15 @@ impl DbProApp {
         use db_pro_core::domain::transfer::{TransferCancellation, TransferJob, TransferStatus, TransferTargetKind};
 
         let mut path = std::env::temp_dir();
-        path.push(format!("dbpro-export-{}.jsonl", self.transfer_jobs.len() + 1));
-        let mut job = TransferJob::new_synthetic(format!("jsonl-{}", self.transfer_jobs.len() + 1), 400, 50);
+        path.push(format!(
+            "dbpro-export-{}.jsonl",
+            self.database_operations.transfer_jobs.len() + 1
+        ));
+        let mut job = TransferJob::new_synthetic(
+            format!("jsonl-{}", self.database_operations.transfer_jobs.len() + 1),
+            400,
+            50,
+        );
         job.label = format!("JSONL export → {}", path.display());
         job.target = TransferTargetKind::File {
             path: path.to_string_lossy().into_owned(),
@@ -1112,9 +1145,9 @@ impl DbProApp {
             }
         }
         self.runtime_message = format!("JSONL {} · {:?}", job.id, job.status);
-        self.transfer_jobs.insert(0, job);
-        if self.transfer_jobs.len() > 20 {
-            self.transfer_jobs.truncate(20);
+        self.database_operations.transfer_jobs.insert(0, job);
+        if self.database_operations.transfer_jobs.len() > 20 {
+            self.database_operations.transfer_jobs.truncate(20);
         }
     }
 
@@ -1123,8 +1156,15 @@ impl DbProApp {
         use db_pro_core::domain::transfer::{TransferCancellation, TransferJob, TransferStatus, TransferTargetKind};
 
         let mut path = std::env::temp_dir();
-        path.push(format!("dbpro-export-{}.xlsx", self.transfer_jobs.len() + 1));
-        let mut job = TransferJob::new_synthetic(format!("xlsx-{}", self.transfer_jobs.len() + 1), 80, 20);
+        path.push(format!(
+            "dbpro-export-{}.xlsx",
+            self.database_operations.transfer_jobs.len() + 1
+        ));
+        let mut job = TransferJob::new_synthetic(
+            format!("xlsx-{}", self.database_operations.transfer_jobs.len() + 1),
+            80,
+            20,
+        );
         job.label = format!("Excel export → {}", path.display());
         job.target = TransferTargetKind::File {
             path: path.to_string_lossy().into_owned(),
@@ -1142,9 +1182,9 @@ impl DbProApp {
             }
         }
         self.runtime_message = format!("Excel {} · {:?}", job.id, job.status);
-        self.transfer_jobs.insert(0, job);
-        if self.transfer_jobs.len() > 20 {
-            self.transfer_jobs.truncate(20);
+        self.database_operations.transfer_jobs.insert(0, job);
+        if self.database_operations.transfer_jobs.len() > 20 {
+            self.database_operations.transfer_jobs.truncate(20);
         }
     }
 
@@ -1202,7 +1242,7 @@ impl DbProApp {
         }
 
         let mut job = TransferJob::new_db_table_copy(
-            format!("dbdb-{}", self.transfer_jobs.len() + 1),
+            format!("dbdb-{}", self.database_operations.transfer_jobs.len() + 1),
             DbTableEndpoint {
                 connection_id: "src-conn".into(),
                 schema: "public".into(),
@@ -1241,9 +1281,9 @@ impl DbProApp {
         } else {
             self.runtime_message = format!("DB→DB {} · {:?} · {:?}", job.id, result.status, job.error);
         }
-        self.transfer_jobs.insert(0, job);
-        if self.transfer_jobs.len() > 20 {
-            self.transfer_jobs.truncate(20);
+        self.database_operations.transfer_jobs.insert(0, job);
+        if self.database_operations.transfer_jobs.len() > 20 {
+            self.database_operations.transfer_jobs.truncate(20);
         }
     }
 
@@ -1276,7 +1316,7 @@ impl DbProApp {
                     if connected && secondary_button_with_icon(ui, Icon::RefreshCw, "Refresh", self.theme).clicked() {
                         self.request_monitoring_snapshot();
                     }
-                    ui.checkbox(&mut self.monitoring_poll, "Auto-refresh");
+                    ui.checkbox(&mut self.database_operations.monitoring_poll, "Auto-refresh");
                 });
             });
             ui.add_space(SPACE_SM);
@@ -1295,8 +1335,9 @@ impl DbProApp {
             }
         });
 
-        if connected && self.monitoring_poll {
+        if connected && self.database_operations.monitoring_poll {
             let due = self
+                .database_operations
                 .monitoring_last_poll
                 .map(|t| t.elapsed() >= std::time::Duration::from_secs(5))
                 .unwrap_or(true);
@@ -1306,12 +1347,12 @@ impl DbProApp {
         }
 
         ui.add_space(SPACE_MD);
-        if let Some(error) = &self.monitoring_error {
+        if let Some(error) = &self.database_operations.monitoring_error {
             ui.colored_label(self.theme.warning, error);
             ui.add_space(SPACE_SM);
         }
 
-        if let Some(snapshot) = self.monitoring_snapshot.clone() {
+        if let Some(snapshot) = self.database_operations.monitoring_snapshot.clone() {
             let health = db_pro_core::domain::health_advisor::analyze_health(
                 &snapshot,
                 snapshot.workload.as_ref(),
@@ -1398,7 +1439,10 @@ impl DbProApp {
 
             section_label(ui, "SESSIONS", self.theme);
             ui.add_space(SPACE_SM);
-            ui.checkbox(&mut self.monitoring_filter_active_only, "Active queries only");
+            ui.checkbox(
+                &mut self.database_operations.monitoring_filter_active_only,
+                "Active queries only",
+            );
             ui.add_space(SPACE_SM);
 
             let idle_xacts = snapshot.idle_in_transaction_sessions();
@@ -1421,7 +1465,7 @@ impl DbProApp {
                 ui.add_space(SPACE_MD);
             }
 
-            let sessions: Vec<_> = if self.monitoring_filter_active_only {
+            let sessions: Vec<_> = if self.database_operations.monitoring_filter_active_only {
                 snapshot.active_queries().into_iter().cloned().collect()
             } else {
                 snapshot.sessions.clone()
@@ -1510,7 +1554,7 @@ impl DbProApp {
                                     }
                                 }
                                 if !session.is_current && danger_button(ui, "Terminate", self.theme).clicked() {
-                                    self.monitoring_terminate_confirm = Some(session.backend_id);
+                                    self.database_operations.monitoring_terminate_confirm = Some(session.backend_id);
                                 }
                             });
                         }
@@ -1608,23 +1652,24 @@ impl DbProApp {
                             StatStatementSort::Calls,
                             StatStatementSort::Rows,
                         ] {
-                            let selected = self.monitoring_stat_sort == sort;
+                            let selected = self.database_operations.monitoring_stat_sort == sort;
                             if ui.selectable_label(selected, sort.as_label()).clicked() {
-                                self.monitoring_stat_sort = sort;
+                                self.database_operations.monitoring_stat_sort = sort;
                                 self.request_monitoring_workload();
                             }
                         }
                         if danger_button(ui, "Reset stats…", self.theme).clicked() {
-                            self.monitoring_reset_stats_confirm = true;
+                            self.database_operations.monitoring_reset_stats_confirm = true;
                         }
                     });
                     ui.add_space(SPACE_XS);
                     ui.horizontal(|ui| {
                         ui.label(RichText::new("Filter").small().color(self.theme.text_muted));
-                        ui.text_edit_singleline(&mut self.monitoring_workload_filter);
+                        ui.text_edit_singleline(&mut self.database_operations.monitoring_workload_filter);
                     });
-                    let filter = self.monitoring_workload_filter.to_ascii_lowercase();
+                    let filter = self.database_operations.monitoring_workload_filter.to_ascii_lowercase();
                     let prev_by_id: std::collections::HashMap<Option<i64>, f64> = self
+                        .database_operations
                         .monitoring_workload_prev
                         .as_ref()
                         .map(|prev| prev.statements.iter().map(|s| (s.queryid, s.total_time_ms)).collect())
@@ -1731,21 +1776,27 @@ impl DbProApp {
             ui.horizontal_wrapped(|ui| {
                 ui.label(RichText::new("Text").small().color(self.theme.text_muted));
                 ui.add(
-                    egui::TextEdit::singleline(&mut self.audit_filter_text)
+                    egui::TextEdit::singleline(&mut self.database_operations.audit_filter_text)
                         .desired_width(120.0)
                         .hint_text("message/query"),
                 );
                 ui.label(RichText::new("DB").small().color(self.theme.text_muted));
-                ui.add(egui::TextEdit::singleline(&mut self.audit_filter_database).desired_width(80.0));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.database_operations.audit_filter_database).desired_width(80.0),
+                );
                 ui.label(RichText::new("User").small().color(self.theme.text_muted));
-                ui.add(egui::TextEdit::singleline(&mut self.audit_filter_username).desired_width(80.0));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.database_operations.audit_filter_username).desired_width(80.0),
+                );
                 ui.label(RichText::new("Severity").small().color(self.theme.text_muted));
-                ui.add(egui::TextEdit::singleline(&mut self.audit_filter_severity).desired_width(60.0));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.database_operations.audit_filter_severity).desired_width(60.0),
+                );
             });
-            if let Some(error) = &self.audit_error {
+            if let Some(error) = &self.database_operations.audit_error {
                 ui.colored_label(self.theme.danger, error);
             }
-            if let Some(page) = self.audit_page.clone() {
+            if let Some(page) = self.database_operations.audit_page.clone() {
                 ui.label(
                     RichText::new(format!(
                         "{} · scanned {} bytes · truncated={}",
@@ -1761,16 +1812,16 @@ impl DbProApp {
                     ui.colored_label(self.theme.warning, &page.source.guidance);
                 }
                 for event in page.events.iter().take(80) {
-                    let bookmarked = self.audit_bookmarks.contains(&event.id);
-                    let selected = self.audit_selected.contains(&event.id);
+                    let bookmarked = self.database_operations.audit_bookmarks.contains(&event.id);
+                    let selected = self.database_operations.audit_selected.contains(&event.id);
                     card_frame(self.theme).show(ui, |ui| {
                         ui.horizontal(|ui| {
                             let mut sel = selected;
                             if ui.checkbox(&mut sel, "").changed() {
                                 if sel {
-                                    self.audit_selected.insert(event.id.clone());
+                                    self.database_operations.audit_selected.insert(event.id.clone());
                                 } else {
-                                    self.audit_selected.remove(&event.id);
+                                    self.database_operations.audit_selected.remove(&event.id);
                                 }
                             }
                             ui.label(
@@ -1809,16 +1860,16 @@ impl DbProApp {
                             let label = if bookmarked { "Unbookmark" } else { "Bookmark" };
                             if ghost_button_with_icon(ui, Icon::Bookmark, label, self.theme).clicked() {
                                 if bookmarked {
-                                    self.audit_bookmarks.remove(&event.id);
+                                    self.database_operations.audit_bookmarks.remove(&event.id);
                                 } else {
-                                    self.audit_bookmarks.insert(event.id.clone());
+                                    self.database_operations.audit_bookmarks.insert(event.id.clone());
                                 }
                             }
                         });
                     });
                     ui.add_space(SPACE_XS);
                 }
-                if let Some(preview) = &self.audit_export_preview {
+                if let Some(preview) = &self.database_operations.audit_export_preview {
                     ui.label(
                         RichText::new(page.export_warning.clone())
                             .small()
@@ -1844,10 +1895,10 @@ impl DbProApp {
             if secondary_button_with_icon(ui, Icon::RefreshCw, "Load FDW inventory", self.theme).clicked() {
                 self.request_fdw_inventory();
             }
-            if let Some(error) = &self.fdw_error {
+            if let Some(error) = &self.database_operations.fdw_error {
                 ui.colored_label(self.theme.danger, error);
             }
-            if let Some(inv) = self.fdw_inventory.clone() {
+            if let Some(inv) = self.database_operations.fdw_inventory.clone() {
                 ui.label(RichText::new(&inv.message).small().color(self.theme.text_secondary));
                 if let Some(hint) = &inv.extension_hint {
                     ui.colored_label(self.theme.warning, hint);
@@ -1878,11 +1929,11 @@ impl DbProApp {
                         ui.horizontal(|ui| {
                             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
                                 // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Drop
-                                self.fdw_ddl_preview =
+                                self.database_operations.fdw_ddl_preview =
                                     db_pro_core::domain::fdw::preview_drop_server(&s.name, true).ok();
                             }
                             if danger_button(ui, "Drop…", self.theme).clicked() {
-                                self.fdw_drop_confirm = Some(s.name.clone());
+                                self.database_operations.fdw_drop_confirm = Some(s.name.clone());
                             }
                         });
                     });
@@ -1914,23 +1965,25 @@ impl DbProApp {
             ui.add_space(SPACE_SM);
             ui.label(RichText::new("Create foreign server").small().strong());
             ui.horizontal(|ui| {
-                ui.add(egui::TextEdit::singleline(&mut self.fdw_create_name).hint_text("server name"));
-                ui.add(egui::TextEdit::singleline(&mut self.fdw_create_wrapper).hint_text("fdw"));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.database_operations.fdw_create_name).hint_text("server name"),
+                );
+                ui.add(egui::TextEdit::singleline(&mut self.database_operations.fdw_create_wrapper).hint_text("fdw"));
             });
             ui.horizontal(|ui| {
-                ui.add(egui::TextEdit::singleline(&mut self.fdw_create_host).hint_text("host"));
-                ui.add(egui::TextEdit::singleline(&mut self.fdw_create_dbname).hint_text("dbname"));
-                ui.add(egui::TextEdit::singleline(&mut self.fdw_create_port).hint_text("port"));
+                ui.add(egui::TextEdit::singleline(&mut self.database_operations.fdw_create_host).hint_text("host"));
+                ui.add(egui::TextEdit::singleline(&mut self.database_operations.fdw_create_dbname).hint_text("dbname"));
+                ui.add(egui::TextEdit::singleline(&mut self.database_operations.fdw_create_port).hint_text("port"));
             });
             ui.horizontal(|ui| {
                 if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
                     // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Create
-                    self.fdw_ddl_preview = db_pro_core::domain::fdw::preview_create_server(
-                        &self.fdw_create_name,
-                        &self.fdw_create_wrapper,
-                        &self.fdw_create_host,
-                        &self.fdw_create_dbname,
-                        &self.fdw_create_port,
+                    self.database_operations.fdw_ddl_preview = db_pro_core::domain::fdw::preview_create_server(
+                        &self.database_operations.fdw_create_name,
+                        &self.database_operations.fdw_create_wrapper,
+                        &self.database_operations.fdw_create_host,
+                        &self.database_operations.fdw_create_dbname,
+                        &self.database_operations.fdw_create_port,
                     )
                     .ok();
                 }
@@ -1939,7 +1992,7 @@ impl DbProApp {
                 }
             });
 
-            if let Some(preview) = self.fdw_ddl_preview.clone() {
+            if let Some(preview) = self.database_operations.fdw_ddl_preview.clone() {
                 egui::Window::new("FDW DDL preview")
                     .collapsible(false)
                     .resizable(true)
@@ -1947,11 +2000,11 @@ impl DbProApp {
                     .show(ui.ctx(), |ui| {
                         ui.label(RichText::new(preview).monospace());
                         if secondary_button(ui, "Close", self.theme).clicked() {
-                            self.fdw_ddl_preview = None;
+                            self.database_operations.fdw_ddl_preview = None;
                         }
                     });
             }
-            if let Some(name) = self.fdw_drop_confirm.clone() {
+            if let Some(name) = self.database_operations.fdw_drop_confirm.clone() {
                 egui::Window::new("Drop foreign server?")
                     .collapsible(false)
                     .resizable(false)
@@ -1964,7 +2017,7 @@ impl DbProApp {
                                 self.drop_fdw_server_confirmed(&name, true);
                             }
                             if secondary_button(ui, "Cancel", self.theme).clicked() {
-                                self.fdw_drop_confirm = None;
+                                self.database_operations.fdw_drop_confirm = None;
                             }
                         });
                     });
@@ -1983,10 +2036,10 @@ impl DbProApp {
             if secondary_button_with_icon(ui, Icon::RefreshCw, "Load replication inventory", self.theme).clicked() {
                 self.request_replication_inventory();
             }
-            if let Some(error) = &self.replication_error {
+            if let Some(error) = &self.database_operations.replication_error {
                 ui.colored_label(self.theme.danger, error);
             }
-            if let Some(inv) = self.replication_inventory.clone() {
+            if let Some(inv) = self.database_operations.replication_inventory.clone() {
                 ui.label(RichText::new(&inv.message).small().color(self.theme.text_secondary));
                 for pub_info in inv.publications.iter().take(40) {
                     card_frame(self.theme).show(ui, |ui| {
@@ -2008,11 +2061,11 @@ impl DbProApp {
                         ui.horizontal(|ui| {
                             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
                                 // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Drop
-                                self.replication_ddl_preview =
+                                self.database_operations.replication_ddl_preview =
                                     db_pro_core::domain::replication::preview_drop_publication(&pub_info.name).ok();
                             }
                             if danger_button(ui, "Drop…", self.theme).clicked() {
-                                self.replication_drop_publication = Some(pub_info.name.clone());
+                                self.database_operations.replication_drop_publication = Some(pub_info.name.clone());
                             }
                         });
                     });
@@ -2040,11 +2093,11 @@ impl DbProApp {
                         ui.horizontal(|ui| {
                             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
                                 // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Drop
-                                self.replication_ddl_preview =
+                                self.database_operations.replication_ddl_preview =
                                     db_pro_core::domain::replication::preview_drop_subscription(&sub.name).ok();
                             }
                             if danger_button(ui, "Drop…", self.theme).clicked() {
-                                self.replication_drop_subscription = Some(sub.name.clone());
+                                self.database_operations.replication_drop_subscription = Some(sub.name.clone());
                             }
                         });
                     });
@@ -2066,19 +2119,24 @@ impl DbProApp {
             ui.add_space(SPACE_SM);
             ui.label(RichText::new("Create publication (FOR ALL TABLES)").small().strong());
             ui.horizontal(|ui| {
-                ui.add(egui::TextEdit::singleline(&mut self.replication_create_name).hint_text("publication name"));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.database_operations.replication_create_name)
+                        .hint_text("publication name"),
+                );
                 if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
                     // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Create
-                    self.replication_ddl_preview =
-                        db_pro_core::domain::replication::preview_create_publication_all(&self.replication_create_name)
-                            .ok();
+                    self.database_operations.replication_ddl_preview =
+                        db_pro_core::domain::replication::preview_create_publication_all(
+                            &self.database_operations.replication_create_name,
+                        )
+                        .ok();
                 }
                 if secondary_button(ui, "Create (confirm)", self.theme).clicked() {
                     self.create_publication_confirmed();
                 }
             });
 
-            if let Some(preview) = self.replication_ddl_preview.clone() {
+            if let Some(preview) = self.database_operations.replication_ddl_preview.clone() {
                 egui::Window::new("Replication DDL preview")
                     .collapsible(false)
                     .resizable(true)
@@ -2086,11 +2144,11 @@ impl DbProApp {
                     .show(ui.ctx(), |ui| {
                         ui.label(RichText::new(preview).monospace());
                         if secondary_button(ui, "Close", self.theme).clicked() {
-                            self.replication_ddl_preview = None;
+                            self.database_operations.replication_ddl_preview = None;
                         }
                     });
             }
-            if let Some(name) = self.replication_drop_publication.clone() {
+            if let Some(name) = self.database_operations.replication_drop_publication.clone() {
                 egui::Window::new("Drop publication?")
                     .collapsible(false)
                     .resizable(false)
@@ -2101,12 +2159,12 @@ impl DbProApp {
                                 self.drop_publication_confirmed(&name);
                             }
                             if secondary_button(ui, "Cancel", self.theme).clicked() {
-                                self.replication_drop_publication = None;
+                                self.database_operations.replication_drop_publication = None;
                             }
                         });
                     });
             }
-            if let Some(name) = self.replication_drop_subscription.clone() {
+            if let Some(name) = self.database_operations.replication_drop_subscription.clone() {
                 egui::Window::new("Drop subscription?")
                     .collapsible(false)
                     .resizable(false)
@@ -2119,7 +2177,7 @@ impl DbProApp {
                                 self.drop_subscription_confirmed(&name);
                             }
                             if secondary_button(ui, "Cancel", self.theme).clicked() {
-                                self.replication_drop_subscription = None;
+                                self.database_operations.replication_drop_subscription = None;
                             }
                         });
                     });
@@ -2138,10 +2196,10 @@ impl DbProApp {
             if secondary_button_with_icon(ui, Icon::RefreshCw, "Load event triggers", self.theme).clicked() {
                 self.request_event_triggers();
             }
-            if let Some(error) = &self.event_trigger_error {
+            if let Some(error) = &self.database_operations.event_trigger_error {
                 ui.colored_label(self.theme.danger, error);
             }
-            if let Some(inv) = self.event_trigger_inventory.clone() {
+            if let Some(inv) = self.database_operations.event_trigger_inventory.clone() {
                 ui.label(RichText::new(&inv.message).small().color(self.theme.text_secondary));
                 for trig in inv.triggers.iter().take(50) {
                     card_frame(self.theme).show(ui, |ui| {
@@ -2163,7 +2221,7 @@ impl DbProApp {
                         ui.horizontal(|ui| {
                             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
                                 // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Drop
-                                self.event_trigger_ddl_preview =
+                                self.database_operations.event_trigger_ddl_preview =
                                     db_pro_core::domain::event_trigger::preview_drop_event_trigger(&trig.name).ok();
                             }
                             if ghost_button(ui, "Disable", self.theme).clicked() {
@@ -2173,7 +2231,7 @@ impl DbProApp {
                                 self.alter_event_trigger_confirmed(&trig.name, "enable");
                             }
                             if danger_button(ui, "Drop…", self.theme).clicked() {
-                                self.event_trigger_drop_confirm = Some(trig.name.clone());
+                                self.database_operations.event_trigger_drop_confirm = Some(trig.name.clone());
                             }
                         });
                     });
@@ -2184,30 +2242,43 @@ impl DbProApp {
             ui.add_space(SPACE_SM);
             ui.label(RichText::new("Create event trigger").small().strong());
             ui.horizontal(|ui| {
-                ui.add(egui::TextEdit::singleline(&mut self.event_trigger_create_name).hint_text("name"));
-                ui.add(egui::TextEdit::singleline(&mut self.event_trigger_create_event).hint_text("event"));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.database_operations.event_trigger_create_name)
+                        .hint_text("name"),
+                );
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.database_operations.event_trigger_create_event)
+                        .hint_text("event"),
+                );
             });
             ui.horizontal(|ui| {
-                ui.add(egui::TextEdit::singleline(&mut self.event_trigger_create_function).hint_text("schema.func()"));
-                ui.add(egui::TextEdit::singleline(&mut self.event_trigger_create_tags).hint_text("tags CSV optional"));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.database_operations.event_trigger_create_function)
+                        .hint_text("schema.func()"),
+                );
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.database_operations.event_trigger_create_tags)
+                        .hint_text("tags CSV optional"),
+                );
             });
             ui.horizontal(|ui| {
                 if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
                     // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Create
-                    self.event_trigger_ddl_preview = db_pro_core::domain::event_trigger::preview_create_event_trigger(
-                        &self.event_trigger_create_name,
-                        &self.event_trigger_create_event,
-                        &self.event_trigger_create_function,
-                        &self.event_trigger_create_tags,
-                    )
-                    .ok();
+                    self.database_operations.event_trigger_ddl_preview =
+                        db_pro_core::domain::event_trigger::preview_create_event_trigger(
+                            &self.database_operations.event_trigger_create_name,
+                            &self.database_operations.event_trigger_create_event,
+                            &self.database_operations.event_trigger_create_function,
+                            &self.database_operations.event_trigger_create_tags,
+                        )
+                        .ok();
                 }
                 if secondary_button(ui, "Create (confirm)", self.theme).clicked() {
                     self.create_event_trigger_confirmed();
                 }
             });
 
-            if let Some(preview) = self.event_trigger_ddl_preview.clone() {
+            if let Some(preview) = self.database_operations.event_trigger_ddl_preview.clone() {
                 egui::Window::new("Event trigger DDL preview")
                     .collapsible(false)
                     .resizable(true)
@@ -2215,11 +2286,11 @@ impl DbProApp {
                     .show(ui.ctx(), |ui| {
                         ui.label(RichText::new(preview).monospace());
                         if secondary_button(ui, "Close", self.theme).clicked() {
-                            self.event_trigger_ddl_preview = None;
+                            self.database_operations.event_trigger_ddl_preview = None;
                         }
                     });
             }
-            if let Some(name) = self.event_trigger_drop_confirm.clone() {
+            if let Some(name) = self.database_operations.event_trigger_drop_confirm.clone() {
                 egui::Window::new("Drop event trigger?")
                     .collapsible(false)
                     .resizable(false)
@@ -2232,7 +2303,7 @@ impl DbProApp {
                                 self.drop_event_trigger_confirmed(&name);
                             }
                             if secondary_button(ui, "Cancel", self.theme).clicked() {
-                                self.event_trigger_drop_confirm = None;
+                                self.database_operations.event_trigger_drop_confirm = None;
                             }
                         });
                     });
@@ -2256,12 +2327,12 @@ impl DbProApp {
             ui.add_space(SPACE_XS);
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Filter").small().color(self.theme.text_muted));
-                ui.text_edit_singleline(&mut self.pg_settings_filter);
+                ui.text_edit_singleline(&mut self.database_operations.pg_settings_filter);
             });
-            if let Some(error) = &self.pg_settings_error {
+            if let Some(error) = &self.database_operations.pg_settings_error {
                 ui.colored_label(self.theme.danger, error);
             }
-            if let Some(snapshot) = self.pg_settings.clone() {
+            if let Some(snapshot) = self.database_operations.pg_settings.clone() {
                 ui.label(
                     RichText::new(format!(
                         "{} · fetched @ {} ms",
@@ -2270,7 +2341,7 @@ impl DbProApp {
                     .small()
                     .color(self.theme.text_muted),
                 );
-                let filter = self.pg_settings_filter.to_ascii_lowercase();
+                let filter = self.database_operations.pg_settings_filter.to_ascii_lowercase();
                 let rows: Vec<_> = snapshot
                     .settings
                     .iter()
@@ -2320,8 +2391,8 @@ impl DbProApp {
                         ui.horizontal(|ui| {
                             if setting.session_mutable() && !setting.sensitive {
                                 if ghost_button_with_icon(ui, Icon::Pencil, "Edit session", self.theme).clicked() {
-                                    self.pg_settings_edit_name = setting.name.clone();
-                                    self.pg_settings_edit_value = setting.setting.clone();
+                                    self.database_operations.pg_settings_edit_name = setting.name.clone();
+                                    self.database_operations.pg_settings_edit_value = setting.setting.clone();
                                 }
                                 if secondary_button(ui, "RESET", self.theme).clicked() {
                                     self.reset_pg_setting_session(&setting.name);
@@ -2332,11 +2403,12 @@ impl DbProApp {
                                     .clicked()
                             {
                                 // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking ALTER SYSTEM
-                                self.pg_settings_preview = db_pro_core::domain::pg_settings::preview_alter_system(
-                                    &setting.name,
-                                    &setting.setting,
-                                )
-                                .ok();
+                                self.database_operations.pg_settings_preview =
+                                    db_pro_core::domain::pg_settings::preview_alter_system(
+                                        &setting.name,
+                                        &setting.setting,
+                                    )
+                                    .ok();
                             }
                         });
                     });
@@ -2344,28 +2416,31 @@ impl DbProApp {
                 }
             }
 
-            if !self.pg_settings_edit_name.is_empty() {
-                egui::Window::new(format!("SET SESSION · {}", self.pg_settings_edit_name))
-                    .collapsible(false)
-                    .resizable(false)
-                    .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                    .show(ui.ctx(), |ui| {
-                        ui.text_edit_singleline(&mut self.pg_settings_edit_value);
-                        ui.horizontal(|ui| {
-                            if secondary_button(ui, "Apply SET", self.theme).clicked() {
-                                let name = self.pg_settings_edit_name.clone();
-                                let value = self.pg_settings_edit_value.clone();
-                                self.set_pg_setting_session(&name, &value);
-                                self.pg_settings_edit_name.clear();
-                            }
-                            if ghost_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                                self.pg_settings_edit_name.clear();
-                            }
-                        });
+            if !self.database_operations.pg_settings_edit_name.is_empty() {
+                egui::Window::new(format!(
+                    "SET SESSION · {}",
+                    self.database_operations.pg_settings_edit_name
+                ))
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .show(ui.ctx(), |ui| {
+                    ui.text_edit_singleline(&mut self.database_operations.pg_settings_edit_value);
+                    ui.horizontal(|ui| {
+                        if secondary_button(ui, "Apply SET", self.theme).clicked() {
+                            let name = self.database_operations.pg_settings_edit_name.clone();
+                            let value = self.database_operations.pg_settings_edit_value.clone();
+                            self.set_pg_setting_session(&name, &value);
+                            self.database_operations.pg_settings_edit_name.clear();
+                        }
+                        if ghost_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                            self.database_operations.pg_settings_edit_name.clear();
+                        }
                     });
+                });
             }
 
-            if let Some(preview) = self.pg_settings_preview.clone() {
+            if let Some(preview) = self.database_operations.pg_settings_preview.clone() {
                 egui::Window::new("ALTER SYSTEM preview")
                     .collapsible(false)
                     .resizable(true)
@@ -2375,7 +2450,7 @@ impl DbProApp {
                         ui.label(RichText::new(&preview.note).small().color(self.theme.warning));
                         ui.label(RichText::new(&preview.sql).monospace());
                         if secondary_button(ui, "Close", self.theme).clicked() {
-                            self.pg_settings_preview = None;
+                            self.database_operations.pg_settings_preview = None;
                         }
                     });
             }
@@ -2396,7 +2471,7 @@ impl DbProApp {
                     MaintenanceAction::VacuumAnalyze,
                 ] {
                     if secondary_button(ui, action.as_label(), self.theme).clicked() {
-                        self.monitoring_maintenance_confirm = Some(action);
+                        self.database_operations.monitoring_maintenance_confirm = Some(action);
                     }
                 }
             });
@@ -2408,7 +2483,7 @@ impl DbProApp {
             );
         }
 
-        if let Some(backend_id) = self.monitoring_terminate_confirm {
+        if let Some(backend_id) = self.database_operations.monitoring_terminate_confirm {
             egui::Window::new("Terminate session?")
                 .collapsible(false)
                 .resizable(false)
@@ -2427,16 +2502,16 @@ impl DbProApp {
                                     backend_id,
                                 });
                             }
-                            self.monitoring_terminate_confirm = None;
+                            self.database_operations.monitoring_terminate_confirm = None;
                         }
                         if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.monitoring_terminate_confirm = None;
+                            self.database_operations.monitoring_terminate_confirm = None;
                         }
                     });
                 });
         }
 
-        if let Some(action) = self.monitoring_maintenance_confirm {
+        if let Some(action) = self.database_operations.monitoring_maintenance_confirm {
             egui::Window::new("Run maintenance?")
                 .collapsible(false)
                 .resizable(false)
@@ -2459,16 +2534,16 @@ impl DbProApp {
                                     confirmed: true,
                                 });
                             }
-                            self.monitoring_maintenance_confirm = None;
+                            self.database_operations.monitoring_maintenance_confirm = None;
                         }
                         if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.monitoring_maintenance_confirm = None;
+                            self.database_operations.monitoring_maintenance_confirm = None;
                         }
                     });
                 });
         }
 
-        if self.monitoring_reset_stats_confirm {
+        if self.database_operations.monitoring_reset_stats_confirm {
             egui::Window::new("Reset pg_stat_statements?")
                 .collapsible(false)
                 .resizable(false)
@@ -2488,10 +2563,10 @@ impl DbProApp {
                                     confirmed: true,
                                 });
                             }
-                            self.monitoring_reset_stats_confirm = false;
+                            self.database_operations.monitoring_reset_stats_confirm = false;
                         }
                         if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.monitoring_reset_stats_confirm = false;
+                            self.database_operations.monitoring_reset_stats_confirm = false;
                         }
                     });
                 });
@@ -2506,14 +2581,14 @@ impl DbProApp {
         self.dispatch_command(UiCommand::MonitoringStatStatements {
             request_id,
             connection_id,
-            sort: self.monitoring_stat_sort,
+            sort: self.database_operations.monitoring_stat_sort,
             limit: 100,
         });
     }
 
     fn request_audit_page(&mut self) {
         let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() else {
-            self.audit_error = Some("Connect a database first".into());
+            self.database_operations.audit_error = Some("Connect a database first".into());
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2521,10 +2596,10 @@ impl DbProApp {
             request_id,
             connection_id,
             filter: db_pro_core::domain::audit::AuditFilter {
-                text: self.audit_filter_text.clone(),
-                database: self.audit_filter_database.clone(),
-                username: self.audit_filter_username.clone(),
-                severity: self.audit_filter_severity.clone(),
+                text: self.database_operations.audit_filter_text.clone(),
+                database: self.database_operations.audit_filter_database.clone(),
+                username: self.database_operations.audit_filter_username.clone(),
+                severity: self.database_operations.audit_filter_severity.clone(),
                 command_tag: String::new(),
             },
             limit: Some(100),
@@ -2532,22 +2607,26 @@ impl DbProApp {
     }
 
     fn export_selected_audit_events(&mut self) {
-        let Some(page) = &self.audit_page else {
-            self.audit_error = Some("Load an audit page before exporting".into());
+        let Some(page) = &self.database_operations.audit_page else {
+            self.database_operations.audit_error = Some("Load an audit page before exporting".into());
             return;
         };
         let selected: Vec<_> = page
             .events
             .iter()
-            .filter(|e| self.audit_selected.contains(&e.id) || self.audit_bookmarks.contains(&e.id))
+            .filter(|e| {
+                self.database_operations.audit_selected.contains(&e.id)
+                    || self.database_operations.audit_bookmarks.contains(&e.id)
+            })
             .cloned()
             .collect();
         if selected.is_empty() {
-            self.audit_error = Some("Select or bookmark events to export".into());
+            self.database_operations.audit_error = Some("Select or bookmark events to export".into());
             return;
         }
-        self.audit_export_preview = Some(db_pro_core::application::AuditService::export_selected(&selected));
-        self.audit_error = None;
+        self.database_operations.audit_export_preview =
+            Some(db_pro_core::application::AuditService::export_selected(&selected));
+        self.database_operations.audit_error = None;
         self.runtime_message = format!(
             "Audit export preview · {} row(s) · {}",
             selected.len(),
@@ -2557,12 +2636,12 @@ impl DbProApp {
 
     fn request_pg_settings(&mut self) {
         let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() else {
-            self.pg_settings_error = Some("Connect a PostgreSQL database first".into());
+            self.database_operations.pg_settings_error = Some("Connect a PostgreSQL database first".into());
             return;
         };
         let driver = self.active_driver().to_ascii_lowercase();
         if !(driver.contains("postgres")) {
-            self.pg_settings_error = Some("pg_settings is PostgreSQL-only".into());
+            self.database_operations.pg_settings_error = Some("pg_settings is PostgreSQL-only".into());
             return;
         }
         let request_id = self.task_bridge.next_request_id();
@@ -2599,11 +2678,11 @@ impl DbProApp {
 
     fn request_fdw_inventory(&mut self) {
         let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() else {
-            self.fdw_error = Some("Connect a PostgreSQL database first".into());
+            self.database_operations.fdw_error = Some("Connect a PostgreSQL database first".into());
             return;
         };
         if !self.active_driver().to_ascii_lowercase().contains("postgres") {
-            self.fdw_error = Some("FDW administration is PostgreSQL-only".into());
+            self.database_operations.fdw_error = Some("FDW administration is PostgreSQL-only".into());
             return;
         }
         let request_id = self.task_bridge.next_request_id();
@@ -2621,11 +2700,11 @@ impl DbProApp {
         self.dispatch_command(UiCommand::CreateFdwServer {
             request_id,
             connection_id,
-            name: self.fdw_create_name.clone(),
-            fdw: self.fdw_create_wrapper.clone(),
-            host: self.fdw_create_host.clone(),
-            dbname: self.fdw_create_dbname.clone(),
-            port: self.fdw_create_port.clone(),
+            name: self.database_operations.fdw_create_name.clone(),
+            fdw: self.database_operations.fdw_create_wrapper.clone(),
+            host: self.database_operations.fdw_create_host.clone(),
+            dbname: self.database_operations.fdw_create_dbname.clone(),
+            port: self.database_operations.fdw_create_port.clone(),
             confirmed: true,
         });
     }
@@ -2646,11 +2725,12 @@ impl DbProApp {
 
     fn request_replication_inventory(&mut self) {
         let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() else {
-            self.replication_error = Some("Connect a PostgreSQL database first".into());
+            self.database_operations.replication_error = Some("Connect a PostgreSQL database first".into());
             return;
         };
         if !self.active_driver().to_ascii_lowercase().contains("postgres") {
-            self.replication_error = Some("Logical replication administration is PostgreSQL-only".into());
+            self.database_operations.replication_error =
+                Some("Logical replication administration is PostgreSQL-only".into());
             return;
         }
         let request_id = self.task_bridge.next_request_id();
@@ -2668,7 +2748,7 @@ impl DbProApp {
         self.dispatch_command(UiCommand::CreatePublicationAll {
             request_id,
             connection_id,
-            name: self.replication_create_name.clone(),
+            name: self.database_operations.replication_create_name.clone(),
             confirmed: true,
         });
     }
@@ -2701,11 +2781,11 @@ impl DbProApp {
 
     fn request_event_triggers(&mut self) {
         let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() else {
-            self.event_trigger_error = Some("Connect a PostgreSQL database first".into());
+            self.database_operations.event_trigger_error = Some("Connect a PostgreSQL database first".into());
             return;
         };
         if !self.active_driver().to_ascii_lowercase().contains("postgres") {
-            self.event_trigger_error = Some("Event triggers are PostgreSQL-only".into());
+            self.database_operations.event_trigger_error = Some("Event triggers are PostgreSQL-only".into());
             return;
         }
         let request_id = self.task_bridge.next_request_id();
@@ -2723,10 +2803,10 @@ impl DbProApp {
         self.dispatch_command(UiCommand::CreateEventTrigger {
             request_id,
             connection_id,
-            name: self.event_trigger_create_name.clone(),
-            event: self.event_trigger_create_event.clone(),
-            function_ref: self.event_trigger_create_function.clone(),
-            tags_csv: self.event_trigger_create_tags.clone(),
+            name: self.database_operations.event_trigger_create_name.clone(),
+            event: self.database_operations.event_trigger_create_event.clone(),
+            function_ref: self.database_operations.event_trigger_create_function.clone(),
+            tags_csv: self.database_operations.event_trigger_create_tags.clone(),
             confirmed: true,
         });
     }
@@ -2762,7 +2842,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() else {
             return;
         };
-        self.monitoring_last_poll = Some(std::time::Instant::now());
+        self.database_operations.monitoring_last_poll = Some(std::time::Instant::now());
         let request_id = self.task_bridge.next_request_id();
         self.dispatch_command(UiCommand::MonitoringSnapshot {
             request_id,
@@ -2799,25 +2879,25 @@ impl DbProApp {
                 self.request_security_users();
             }
         });
-        if let Some(error) = &self.security_error {
+        if let Some(error) = &self.database_operations.security_error {
             ui.colored_label(self.theme.warning, error);
         }
 
         ui.add_space(SPACE_MD);
         section_label(ui, "ROLES / USERS", self.theme);
         ui.add_space(SPACE_SM);
-        if self.security_users.is_empty() {
+        if self.database_operations.security_users.is_empty() {
             ui.label(
                 RichText::new("No roles loaded yet — click Refresh.")
                     .small()
                     .color(self.theme.text_muted),
             );
         }
-        for user in self.security_users.clone() {
-            let selected = self.security_selected_role.as_deref() == Some(user.name.as_str());
+        for user in self.database_operations.security_users.clone() {
+            let selected = self.database_operations.security_selected_role.as_deref() == Some(user.name.as_str());
             ui.horizontal(|ui| {
                 if ui.selectable_label(selected, &user.name).clicked() {
-                    self.security_selected_role = Some(user.name.clone());
+                    self.database_operations.security_selected_role = Some(user.name.clone());
                     self.request_security_role_details(&user.name);
                 }
                 if user.can_login {
@@ -2833,7 +2913,7 @@ impl DbProApp {
                     badge(ui, "createrole", self.theme.surface_active, self.theme.text_secondary);
                 }
                 if danger_button(ui, "Drop", self.theme).clicked() {
-                    self.security_drop_confirm = Some(user.name.clone());
+                    self.database_operations.security_drop_confirm = Some(user.name.clone());
                 }
             });
         }
@@ -2841,24 +2921,29 @@ impl DbProApp {
         ui.add_space(SPACE_MD);
         section_label(ui, "CREATE ROLE", self.theme);
         ui.add_space(SPACE_SM);
-        input_full_width(ui, &mut self.security_new_role, "role name", self.theme);
-        ui.checkbox(&mut self.security_new_role_login, "LOGIN");
+        input_full_width(
+            ui,
+            &mut self.database_operations.security_new_role,
+            "role name",
+            self.theme,
+        );
+        ui.checkbox(&mut self.database_operations.security_new_role_login, "LOGIN");
         if primary_button_with_icon(ui, Icon::Plus, "Create role", self.theme).clicked()
-            && !self.security_new_role.trim().is_empty()
+            && !self.database_operations.security_new_role.trim().is_empty()
         {
             if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                 let request_id = self.task_bridge.next_request_id();
                 self.dispatch_command(UiCommand::CreateRole {
                     request_id,
                     connection_id,
-                    name: self.security_new_role.trim().to_owned(),
-                    login: self.security_new_role_login,
+                    name: self.database_operations.security_new_role.trim().to_owned(),
+                    login: self.database_operations.security_new_role_login,
                 });
-                self.security_new_role.clear();
+                self.database_operations.security_new_role.clear();
             }
         }
 
-        if let Some(role) = self.security_selected_role.clone() {
+        if let Some(role) = self.database_operations.security_selected_role.clone() {
             ui.add_space(SPACE_MD);
             section_label(ui, format!("ATTRIBUTES · {role}"), self.theme);
             ui.add_space(SPACE_SM);
@@ -2910,16 +2995,16 @@ impl DbProApp {
                     .color(self.theme.text_muted),
             );
             ui.add(
-                egui::TextEdit::singleline(&mut self.security_password)
+                egui::TextEdit::singleline(&mut self.database_operations.security_password)
                     .password(true)
                     .hint_text("new password")
                     .desired_width(f32::INFINITY),
             );
             if primary_button_with_icon(ui, Icon::Key, "Update password", self.theme).clicked()
-                && !self.security_password.is_empty()
+                && !self.database_operations.security_password.is_empty()
             {
                 if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
-                    let password = std::mem::take(&mut self.security_password);
+                    let password = std::mem::take(&mut self.database_operations.security_password);
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::UpdateRolePassword {
                         request_id,
@@ -2933,14 +3018,14 @@ impl DbProApp {
             ui.add_space(SPACE_MD);
             section_label(ui, format!("MEMBERSHIPS · {role}"), self.theme);
             ui.add_space(SPACE_SM);
-            if self.security_memberships.is_empty() {
+            if self.database_operations.security_memberships.is_empty() {
                 ui.label(
                     RichText::new("No role memberships.")
                         .small()
                         .color(self.theme.text_muted),
                 );
             } else {
-                for membership in self.security_memberships.clone() {
+                for membership in self.database_operations.security_memberships.clone() {
                     ui.horizontal(|ui| {
                         ui.label(
                             RichText::new(format!("member of {}", membership.role))
@@ -2962,33 +3047,38 @@ impl DbProApp {
                     });
                 }
             }
-            input_full_width(ui, &mut self.security_membership_role, "grant role name", self.theme);
+            input_full_width(
+                ui,
+                &mut self.database_operations.security_membership_role,
+                "grant role name",
+                self.theme,
+            );
             if secondary_button_with_icon(ui, Icon::Plus, "Grant membership", self.theme).clicked()
-                && !self.security_membership_role.trim().is_empty()
+                && !self.database_operations.security_membership_role.trim().is_empty()
             {
                 if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::GrantMembership {
                         request_id,
                         connection_id,
-                        role: self.security_membership_role.trim().to_owned(),
+                        role: self.database_operations.security_membership_role.trim().to_owned(),
                         member: role.clone(),
                     });
-                    self.security_membership_role.clear();
+                    self.database_operations.security_membership_role.clear();
                 }
             }
 
             ui.add_space(SPACE_MD);
             section_label(ui, format!("PRIVILEGES · {role}"), self.theme);
             ui.add_space(SPACE_SM);
-            if self.security_privileges.is_empty() {
+            if self.database_operations.security_privileges.is_empty() {
                 ui.label(
                     RichText::new("No privileges listed for this role.")
                         .small()
                         .color(self.theme.text_muted),
                 );
             } else {
-                for privs in self.security_privileges.clone() {
+                for privs in self.database_operations.security_privileges.clone() {
                     ui.horizontal(|ui| {
                         let target = match privs.object_kind {
                             db_pro_core::domain::user::PrivilegeObjectKind::Database => privs.object_name.clone(),
@@ -3033,34 +3123,47 @@ impl DbProApp {
                     ("database", db_pro_core::domain::user::PrivilegeObjectKind::Database),
                     ("sequence", db_pro_core::domain::user::PrivilegeObjectKind::Sequence),
                 ] {
-                    if ui.selectable_label(self.security_grant_kind == kind, label).clicked() {
-                        self.security_grant_kind = kind;
+                    if ui
+                        .selectable_label(self.database_operations.security_grant_kind == kind, label)
+                        .clicked()
+                    {
+                        self.database_operations.security_grant_kind = kind;
                     }
                 }
             });
             if !matches!(
-                self.security_grant_kind,
+                self.database_operations.security_grant_kind,
                 db_pro_core::domain::user::PrivilegeObjectKind::Database
                     | db_pro_core::domain::user::PrivilegeObjectKind::Schema
             ) {
-                input_full_width(ui, &mut self.security_grant_schema, "schema", self.theme);
+                input_full_width(
+                    ui,
+                    &mut self.database_operations.security_grant_schema,
+                    "schema",
+                    self.theme,
+                );
             }
-            let object_hint = match self.security_grant_kind {
+            let object_hint = match self.database_operations.security_grant_kind {
                 db_pro_core::domain::user::PrivilegeObjectKind::Table => "table",
                 db_pro_core::domain::user::PrivilegeObjectKind::Schema => "schema",
                 db_pro_core::domain::user::PrivilegeObjectKind::Database => "database",
                 db_pro_core::domain::user::PrivilegeObjectKind::Sequence => "sequence",
             };
-            input_full_width(ui, &mut self.security_grant_object, object_hint, self.theme);
             input_full_width(
                 ui,
-                &mut self.security_grant_privilege,
+                &mut self.database_operations.security_grant_object,
+                object_hint,
+                self.theme,
+            );
+            input_full_width(
+                ui,
+                &mut self.database_operations.security_grant_privilege,
                 "privilege (SELECT/USAGE/CONNECT/…)",
                 self.theme,
             );
             if primary_button_with_icon(ui, Icon::Plus, "Grant privilege", self.theme).clicked()
-                && !self.security_grant_object.trim().is_empty()
-                && !self.security_grant_privilege.trim().is_empty()
+                && !self.database_operations.security_grant_object.trim().is_empty()
+                && !self.database_operations.security_grant_privilege.trim().is_empty()
             {
                 if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
@@ -3068,16 +3171,16 @@ impl DbProApp {
                         request_id,
                         connection_id,
                         role_name: role,
-                        object_kind: self.security_grant_kind,
-                        schema: self.security_grant_schema.trim().to_owned(),
-                        object_name: self.security_grant_object.trim().to_owned(),
-                        privilege: self.security_grant_privilege.trim().to_owned(),
+                        object_kind: self.database_operations.security_grant_kind,
+                        schema: self.database_operations.security_grant_schema.trim().to_owned(),
+                        object_name: self.database_operations.security_grant_object.trim().to_owned(),
+                        privilege: self.database_operations.security_grant_privilege.trim().to_owned(),
                     });
                 }
             }
         }
 
-        if let Some(name) = self.security_drop_confirm.clone() {
+        if let Some(name) = self.database_operations.security_drop_confirm.clone() {
             egui::Window::new("Drop role?")
                 .collapsible(false)
                 .resizable(false)
@@ -3094,10 +3197,10 @@ impl DbProApp {
                                     name,
                                 });
                             }
-                            self.security_drop_confirm = None;
+                            self.database_operations.security_drop_confirm = None;
                         }
                         if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.security_drop_confirm = None;
+                            self.database_operations.security_drop_confirm = None;
                         }
                     });
                 });
@@ -3111,8 +3214,18 @@ impl DbProApp {
                 .small()
                 .color(self.theme.text_muted),
         );
-        input_full_width(ui, &mut self.security_rls_schema, "schema", self.theme);
-        input_full_width(ui, &mut self.security_rls_table, "table", self.theme);
+        input_full_width(
+            ui,
+            &mut self.database_operations.security_rls_schema,
+            "schema",
+            self.theme,
+        );
+        input_full_width(
+            ui,
+            &mut self.database_operations.security_rls_table,
+            "table",
+            self.theme,
+        );
         ui.horizontal(|ui| {
             if secondary_button_with_icon(ui, Icon::RefreshCw, "Inspect RLS", self.theme).clicked() {
                 self.request_security_rls();
@@ -3130,7 +3243,7 @@ impl DbProApp {
                 self.preview_table_rls(true, false);
             }
         });
-        if let Some(state) = self.security_rls_state.clone() {
+        if let Some(state) = self.database_operations.security_rls_state.clone() {
             ui.label(
                 RichText::new(format!(
                     "{}.{} · enabled={} · forced={} · {} policy(ies)",
@@ -3169,34 +3282,45 @@ impl DbProApp {
                         self.preview_drop_rls_policy(&policy.name);
                     }
                     if secondary_button_with_icon(ui, Icon::Pencil, "Load for edit", self.theme).clicked() {
-                        self.security_rls_policy_name = policy.name.clone();
-                        self.security_rls_command = policy.command.clone();
-                        self.security_rls_roles = policy.roles.join(", ");
-                        self.security_rls_using = policy.using_expr.clone().unwrap_or_default();
-                        self.security_rls_with_check = policy.with_check_expr.clone().unwrap_or_default();
+                        self.database_operations.security_rls_policy_name = policy.name.clone();
+                        self.database_operations.security_rls_command = policy.command.clone();
+                        self.database_operations.security_rls_roles = policy.roles.join(", ");
+                        self.database_operations.security_rls_using = policy.using_expr.clone().unwrap_or_default();
+                        self.database_operations.security_rls_with_check =
+                            policy.with_check_expr.clone().unwrap_or_default();
                     }
                 });
             }
         }
         ui.add_space(SPACE_SM);
         section_label(ui, "CREATE / ALTER POLICY", self.theme);
-        input_full_width(ui, &mut self.security_rls_policy_name, "policy name", self.theme);
         input_full_width(
             ui,
-            &mut self.security_rls_command,
+            &mut self.database_operations.security_rls_policy_name,
+            "policy name",
+            self.theme,
+        );
+        input_full_width(
+            ui,
+            &mut self.database_operations.security_rls_command,
             "command (ALL/SELECT/INSERT/UPDATE/DELETE)",
             self.theme,
         );
         input_full_width(
             ui,
-            &mut self.security_rls_roles,
+            &mut self.database_operations.security_rls_roles,
             "roles (comma; empty=PUBLIC)",
             self.theme,
         );
-        input_full_width(ui, &mut self.security_rls_using, "USING expression", self.theme);
         input_full_width(
             ui,
-            &mut self.security_rls_with_check,
+            &mut self.database_operations.security_rls_using,
+            "USING expression",
+            self.theme,
+        );
+        input_full_width(
+            ui,
+            &mut self.database_operations.security_rls_with_check,
             "WITH CHECK expression",
             self.theme,
         );
@@ -3208,19 +3332,19 @@ impl DbProApp {
                 self.preview_rls_policy(db_pro_core::domain::object_mutation::ObjectAction::Alter);
             }
         });
-        if !self.security_rls_preview_sql.is_empty() {
+        if !self.database_operations.security_rls_preview_sql.is_empty() {
             ui.label(
-                RichText::new(&self.security_rls_preview_sql)
+                RichText::new(&self.database_operations.security_rls_preview_sql)
                     .small()
                     .monospace()
                     .color(self.theme.text_primary),
             );
             ui.checkbox(
-                &mut self.security_rls_confirm_apply,
+                &mut self.database_operations.security_rls_confirm_apply,
                 "I understand this changes data visibility immediately",
             );
             if primary_button_with_icon(ui, Icon::Play, "Apply preview SQL", self.theme).clicked() {
-                if !self.security_rls_confirm_apply {
+                if !self.database_operations.security_rls_confirm_apply {
                     self.runtime_message = "Confirm RLS apply checkbox first".into();
                 } else {
                     self.apply_security_rls_preview();
@@ -3262,8 +3386,8 @@ impl DbProApp {
         let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() else {
             return;
         };
-        let schema = self.security_rls_schema.trim().to_owned();
-        let table = self.security_rls_table.trim().to_owned();
+        let schema = self.database_operations.security_rls_schema.trim().to_owned();
+        let table = self.database_operations.security_rls_table.trim().to_owned();
         if schema.is_empty() || table.is_empty() {
             self.runtime_message = "Schema and table are required for RLS inspect".into();
             return;
@@ -3294,8 +3418,8 @@ impl DbProApp {
             }
         }
 
-        let schema = self.security_rls_schema.trim().to_owned();
-        let table = self.security_rls_table.trim().to_owned();
+        let schema = self.database_operations.security_rls_schema.trim().to_owned();
+        let table = self.database_operations.security_rls_table.trim().to_owned();
         if schema.is_empty() || table.is_empty() {
             self.runtime_message = "Schema and table are required".into();
             return;
@@ -3313,11 +3437,11 @@ impl DbProApp {
         };
         match ObjectMutationService::plan(&request, &QuoteDialect) {
             Ok(preview) => {
-                self.security_rls_preview_sql = preview.statements.join(";\n");
-                if !self.security_rls_preview_sql.is_empty() {
-                    self.security_rls_preview_sql.push(';');
+                self.database_operations.security_rls_preview_sql = preview.statements.join(";\n");
+                if !self.database_operations.security_rls_preview_sql.is_empty() {
+                    self.database_operations.security_rls_preview_sql.push(';');
                 }
-                self.security_rls_confirm_apply = false;
+                self.database_operations.security_rls_confirm_apply = false;
             }
             Err(err) => self.runtime_message = err.to_string(),
         }
@@ -3340,14 +3464,15 @@ impl DbProApp {
             }
         }
 
-        let schema = self.security_rls_schema.trim().to_owned();
-        let table = self.security_rls_table.trim().to_owned();
-        let name = self.security_rls_policy_name.trim().to_owned();
+        let schema = self.database_operations.security_rls_schema.trim().to_owned();
+        let table = self.database_operations.security_rls_table.trim().to_owned();
+        let name = self.database_operations.security_rls_policy_name.trim().to_owned();
         if schema.is_empty() || table.is_empty() || name.is_empty() {
             self.runtime_message = "Schema, table, and policy name are required".into();
             return;
         }
         let roles = self
+            .database_operations
             .security_rls_roles
             .split(',')
             .map(|s| s.trim().to_owned())
@@ -3361,10 +3486,11 @@ impl DbProApp {
                 table,
                 name,
                 permissive: true,
-                command: self.security_rls_command.clone(),
+                command: self.database_operations.security_rls_command.clone(),
                 roles,
-                using_expr: Some(self.security_rls_using.clone()).filter(|s| !s.trim().is_empty()),
-                with_check_expr: Some(self.security_rls_with_check.clone()).filter(|s| !s.trim().is_empty()),
+                using_expr: Some(self.database_operations.security_rls_using.clone()).filter(|s| !s.trim().is_empty()),
+                with_check_expr: Some(self.database_operations.security_rls_with_check.clone())
+                    .filter(|s| !s.trim().is_empty()),
                 new_name: None,
             }),
             options: MutationOptions::default(),
@@ -3374,13 +3500,13 @@ impl DbProApp {
             Ok(preview) => {
                 if let Some(reason) = preview.unsupported_reason {
                     self.runtime_message = reason;
-                    self.security_rls_preview_sql.clear();
+                    self.database_operations.security_rls_preview_sql.clear();
                 } else {
-                    self.security_rls_preview_sql = preview.statements.join(";\n");
-                    if !self.security_rls_preview_sql.is_empty() {
-                        self.security_rls_preview_sql.push(';');
+                    self.database_operations.security_rls_preview_sql = preview.statements.join(";\n");
+                    if !self.database_operations.security_rls_preview_sql.is_empty() {
+                        self.database_operations.security_rls_preview_sql.push(';');
                     }
-                    self.security_rls_confirm_apply = false;
+                    self.database_operations.security_rls_confirm_apply = false;
                 }
             }
             Err(err) => self.runtime_message = err.to_string(),
@@ -3408,8 +3534,8 @@ impl DbProApp {
             action: ObjectAction::Drop,
             target: None,
             definition: ObjectDefinition::RlsPolicy(RlsPolicyDefinition {
-                schema: self.security_rls_schema.trim().to_owned(),
-                table: self.security_rls_table.trim().to_owned(),
+                schema: self.database_operations.security_rls_schema.trim().to_owned(),
+                table: self.database_operations.security_rls_table.trim().to_owned(),
                 name: policy_name.to_owned(),
                 permissive: true,
                 command: "ALL".into(),
@@ -3426,11 +3552,11 @@ impl DbProApp {
         };
         match ObjectMutationService::plan(&request, &QuoteDialect) {
             Ok(preview) => {
-                self.security_rls_preview_sql = preview.statements.join(";\n");
-                if !self.security_rls_preview_sql.is_empty() {
-                    self.security_rls_preview_sql.push(';');
+                self.database_operations.security_rls_preview_sql = preview.statements.join(";\n");
+                if !self.database_operations.security_rls_preview_sql.is_empty() {
+                    self.database_operations.security_rls_preview_sql.push(';');
                 }
-                self.security_rls_confirm_apply = false;
+                self.database_operations.security_rls_confirm_apply = false;
             }
             Err(err) => self.runtime_message = err.to_string(),
         }
@@ -3440,7 +3566,7 @@ impl DbProApp {
         if self.table_state.ddl_execution_request.is_some() {
             return;
         }
-        let sql = self.security_rls_preview_sql.trim().to_owned();
+        let sql = self.database_operations.security_rls_preview_sql.trim().to_owned();
         if sql.is_empty() {
             return;
         }
@@ -3533,7 +3659,7 @@ impl DbProApp {
             self.workspace.active_tab = WorkspaceTab::SchemaCompare;
         }
         ui.add_space(8.0);
-        if let Some(snap) = &self.schema_snapshot {
+        if let Some(snap) = &self.database_operations.schema_snapshot {
             ui.label(
                 RichText::new(format!("Snapshot: {}", snap.label))
                     .small()
@@ -3569,7 +3695,7 @@ impl DbProApp {
             });
         });
         ui.add_space(SPACE_MD);
-        let Some(diff) = self.schema_diff.clone() else {
+        let Some(diff) = self.database_operations.schema_diff.clone() else {
             card_frame(self.theme).show(ui, |ui| {
                 ui.set_min_width((ui.available_width() - 8.0).max(0.0));
                 empty_state(
@@ -3608,7 +3734,7 @@ impl DbProApp {
             if primary_button_with_icon(ui, Icon::FileCode2, "Generate migration plan", self.theme).clicked() {
                 self.plan_migration_from_schema_diff();
             }
-            if let Some(plan) = &self.migration_plan {
+            if let Some(plan) = &self.database_operations.migration_plan {
                 ui.label(
                     RichText::new(format!(
                         "{} ops · fingerprint {} · destructive={}",
@@ -3637,16 +3763,21 @@ impl DbProApp {
                     );
                 }
             }
-            if !self.migration_preview_sql.is_empty() {
+            if !self.database_operations.migration_preview_sql.is_empty() {
                 ui.label(
-                    RichText::new(&self.migration_preview_sql)
+                    RichText::new(&self.database_operations.migration_preview_sql)
                         .small()
                         .monospace()
                         .color(self.theme.text_primary),
                 );
-                if self.migration_plan.as_ref().is_some_and(|p| p.has_destructive) {
+                if self
+                    .database_operations
+                    .migration_plan
+                    .as_ref()
+                    .is_some_and(|p| p.has_destructive)
+                {
                     ui.checkbox(
-                        &mut self.migration_confirm_destructive,
+                        &mut self.database_operations.migration_confirm_destructive,
                         "Confirm destructive operations (never auto-applied)",
                     );
                 }
@@ -3662,14 +3793,24 @@ impl DbProApp {
                     .small()
                     .color(self.theme.text_muted),
             );
-            input_full_width(ui, &mut self.data_diff_target_id, "target connection id", self.theme);
-            input_full_width(ui, &mut self.data_diff_schema, "schema", self.theme);
-            input_full_width(ui, &mut self.data_diff_table, "table", self.theme);
-            input_full_width(ui, &mut self.data_diff_keys, "key columns (comma)", self.theme);
+            input_full_width(
+                ui,
+                &mut self.database_operations.data_diff_target_id,
+                "target connection id",
+                self.theme,
+            );
+            input_full_width(ui, &mut self.database_operations.data_diff_schema, "schema", self.theme);
+            input_full_width(ui, &mut self.database_operations.data_diff_table, "table", self.theme);
+            input_full_width(
+                ui,
+                &mut self.database_operations.data_diff_keys,
+                "key columns (comma)",
+                self.theme,
+            );
             if primary_button_with_icon(ui, Icon::GitCompare, "Compare rows", self.theme).clicked() {
                 self.request_data_diff_keyed();
             }
-            if let Some(diff) = &self.data_diff_result {
+            if let Some(diff) = &self.database_operations.data_diff_result {
                 ui.label(
                     RichText::new(format!(
                         "counts src={} tgt={} · +{} -{} ~{} ={} · truncated={}",
@@ -3687,13 +3828,16 @@ impl DbProApp {
                 );
                 ui.horizontal(|ui| {
                     for label in ["all", "added", "removed", "changed"] {
-                        if ui.selectable_label(self.data_diff_filter == label, label).clicked() {
-                            self.data_diff_filter = label.to_owned();
+                        if ui
+                            .selectable_label(self.database_operations.data_diff_filter == label, label)
+                            .clicked()
+                        {
+                            self.database_operations.data_diff_filter = label.to_owned();
                         }
                     }
                 });
                 for row in &diff.row_diffs {
-                    let include = match self.data_diff_filter.as_str() {
+                    let include = match self.database_operations.data_diff_filter.as_str() {
                         "added" => row.state == db_pro_core::domain::cross_connection::DataRowState::Added,
                         "removed" => row.state == db_pro_core::domain::cross_connection::DataRowState::Removed,
                         "changed" => row.state == db_pro_core::domain::cross_connection::DataRowState::Changed,
@@ -3721,17 +3865,18 @@ impl DbProApp {
             self.runtime_message = "Connect a source database first".into();
             return;
         };
-        let target_id = self.data_diff_target_id.trim().to_owned();
+        let target_id = self.database_operations.data_diff_target_id.trim().to_owned();
         if target_id.is_empty() {
             self.runtime_message = "Target connection id is required".into();
             return;
         }
-        let table = self.data_diff_table.trim().to_owned();
+        let table = self.database_operations.data_diff_table.trim().to_owned();
         if table.is_empty() {
             self.runtime_message = "Table is required".into();
             return;
         }
         let key_columns = self
+            .database_operations
             .data_diff_keys
             .split(',')
             .map(|s| s.trim().to_owned())
@@ -3746,7 +3891,7 @@ impl DbProApp {
             request_id,
             source_id,
             target_id,
-            schema: self.data_diff_schema.trim().to_owned(),
+            schema: self.database_operations.data_diff_schema.trim().to_owned(),
             table,
             key_columns,
             sample_limit: Some(1_000),
