@@ -47,12 +47,12 @@ mod egress_tests {
     }
 
     #[test]
-    fn prediction_default_is_subtle_with_the_note_visible() {
-        // Idle Query must stay snappy: Subtle keeps ghost text opt-in until reveal,
+    fn prediction_default_is_off_with_the_note_visible() {
+        // Idle Query must stay predictable: AI suggestions require explicit opt-in,
         // while the egress note still discloses the AI path when prediction runs.
         let app = DbProApp::default();
 
-        assert_eq!(app.prediction_mode, PredictionMode::Subtle);
+        assert_eq!(app.prediction_mode, PredictionMode::Off);
         assert!(AI_PREDICTION_EGRESS_NOTE.contains("configured AI provider"));
     }
 }

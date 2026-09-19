@@ -6,8 +6,8 @@ use std::hash::{Hash, Hasher};
 pub enum PredictionMode {
     Eager,
     #[default]
-    Subtle,
     Off,
+    Subtle,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

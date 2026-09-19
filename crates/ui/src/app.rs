@@ -1,5 +1,6 @@
 use crate::components::*;
 use crate::editor::PredictionMode;
+use crate::query::SchemaSymbolIndex;
 use crate::tokens::*;
 use crate::{
     agent_message_frame, badge, card_frame, compact_button, compact_button_with_icon, compact_icon_button,
@@ -194,6 +195,7 @@ pub struct DbProApp {
     editor_search: String,
     editor_search_open: bool,
     query_editor_focused: bool,
+    query_focus_editor_on_open: bool,
     query_cursor_line: usize,
     query_cursor_column: usize,
     editor_font_size: f32,
@@ -325,6 +327,7 @@ pub struct DbProApp {
     saved_queries: Vec<UiSavedQuerySummary>,
     query_folders: Vec<UiQueryFolderSummary>,
     schema: UiSchemaSummary,
+    schema_symbol_index: SchemaSymbolIndex,
     selected_schema: Option<String>,
     explorer_search: String,
     /// Cached filtered table names for the open explorer schema folder.
@@ -560,7 +563,6 @@ pub struct DbProApp {
     connections_request_pending: bool,
     connection_dialog_open: bool,
     connection_focus_name_on_open: bool,
-    connection_focus_group_on_tab: bool,
     editing_connection_id: Option<String>,
     connection_draft: UiConnectionDraft,
     connection_show_password: bool,

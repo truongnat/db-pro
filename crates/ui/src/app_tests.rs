@@ -4460,8 +4460,10 @@ fn query_dispatch_allows_independent_documents_to_run_concurrently() {
 #[test]
 fn test_tab_switching_preserves_completion_and_prediction_isolation() {
     let mut doc1 = QueryDocument::new("query-1", "Query 1", "SELECT * FROM u");
+    let document_version = doc1.buffer.version();
     doc1.completion.open(
         15,
+        document_version,
         egui::Pos2::new(100.0, 100.0),
         "u".to_string(),
         vec![crate::editor::CompletionItem {
@@ -4610,7 +4612,7 @@ fn test_multi_tab_explain_plan_routing() {
 #[test]
 fn test_prediction_mode_defaults_and_options() {
     let app = DbProApp::default();
-    assert_eq!(app.prediction_mode, PredictionMode::Subtle);
+    assert_eq!(app.prediction_mode, PredictionMode::Off);
 
     let eager = PredictionMode::Eager;
     let off = PredictionMode::Off;

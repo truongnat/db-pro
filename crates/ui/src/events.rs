@@ -308,6 +308,7 @@ impl DbProApp {
         self.refresh_table_info_after_schema = false;
         let mut schema = schema;
         schema.schemas.retain(|name| is_user_visible_schema(name));
+        self.schema_symbol_index = SchemaSymbolIndex::build(&schema);
         self.schema = schema;
         self.explorer_nav_cache = None;
         self.search_index.invalidate();

@@ -9,6 +9,7 @@ impl DbProApp {
         doc.schema = Some(self.active_schema().to_owned());
         self.query_documents.push(doc);
         self.active_query_document = self.query_documents.len() - 1;
+        self.query_focus_editor_on_open = true;
         self.reset_query_cursor();
         self.activity = Activity::Queries;
         self.sidebar_open = true;
@@ -23,6 +24,7 @@ impl DbProApp {
         doc.schema = Some(self.active_schema().to_owned());
         self.query_documents.push(doc);
         self.active_query_document = self.query_documents.len() - 1;
+        self.query_focus_editor_on_open = true;
         self.reset_query_cursor();
         self.activity = Activity::Queries;
         self.sidebar_open = true;
@@ -54,6 +56,7 @@ impl DbProApp {
         document.schema = entry.schema.clone();
         self.query_documents.push(document);
         self.active_query_document = self.query_documents.len() - 1;
+        self.query_focus_editor_on_open = true;
         self.activity = Activity::Queries;
         self.active_tab = WorkspaceTab::Query;
         self.reset_query_cursor();
@@ -146,6 +149,7 @@ impl DbProApp {
         new_doc.schema = src.schema.clone().or_else(|| Some(self.active_schema().to_owned()));
         self.query_documents.push(new_doc);
         self.active_query_document = self.query_documents.len() - 1;
+        self.query_focus_editor_on_open = true;
         self.active_tab = WorkspaceTab::Query;
         self.runtime_message = format!("Duplicated {}", self.query_documents[index].title);
     }

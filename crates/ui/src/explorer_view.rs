@@ -368,6 +368,7 @@ impl DbProApp {
         }
         self.connected = false;
         self.schema = UiSchemaSummary::default();
+        self.schema_symbol_index = SchemaSymbolIndex::default();
         self.selected_table = None;
         self.selected_schema_object = None;
         self.runtime_message = format!("Disconnected from {}", connection.name);
@@ -397,6 +398,7 @@ impl DbProApp {
         self.failed_connection_ids.remove(&connection.id);
         self.selected_schema = None;
         self.schema = UiSchemaSummary::default();
+        self.schema_symbol_index = SchemaSymbolIndex::default();
         self.selected_table = None;
         self.selected_schema_object = None;
         self.reset_table_workspace_state();

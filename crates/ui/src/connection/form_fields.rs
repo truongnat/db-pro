@@ -30,7 +30,7 @@ impl DbProApp {
             ui.vertical(|ui| {
                 ui.set_width(name_w);
                 ui.set_max_width(name_w);
-                let name_response = Input::new(
+                Input::new(
                     &mut self.connection_draft.name,
                     t!("connection.connection_name_placeholder"),
                     self.theme,
@@ -42,11 +42,6 @@ impl DbProApp {
                 .leading_icon(Icon::Tag)
                 .clearable(true)
                 .show(ui);
-                if name_response.has_focus()
-                    && ui.input(|input| input.key_pressed(egui::Key::Tab) && !input.modifiers.shift)
-                {
-                    self.connection_focus_group_on_tab = true;
-                }
             });
             ui.vertical(|ui| {
                 ui.set_width(group_w);
@@ -58,14 +53,10 @@ impl DbProApp {
                 )
                 .label(t!("connection.folder_group"))
                 .id_salt(focus_id::GROUP)
-                .auto_focus(self.connection_focus_group_on_tab)
                 .width(group_w)
                 .leading_icon(Icon::Folder)
                 .clearable(true)
                 .show(ui);
-                if self.connection_focus_group_on_tab {
-                    self.connection_focus_group_on_tab = false;
-                }
             });
             ui.vertical(|ui| {
                 ui.set_width(fav_w);
@@ -119,7 +110,9 @@ impl DbProApp {
                 );
                 ui.add_space(SPACE_XXS);
                 let mut env_idx = environment_to_index(&self.connection_draft.environment);
-                SegmentedTabs::new(&mut env_idx, ENVIRONMENT_OPTIONS, self.theme).show(ui);
+                SegmentedTabs::new(&mut env_idx, ENVIRONMENT_OPTIONS, self.theme)
+                    .focusable(false)
+                    .show(ui);
                 self.connection_draft.environment = index_to_environment(env_idx).to_owned();
             });
             ui.vertical(|ui| {
@@ -257,7 +250,9 @@ impl DbProApp {
                 );
                 ui.add_space(SPACE_XXS);
                 let mut ssl_idx = ssl_mode_to_index(self.connection_draft.ssl_mode);
-                SegmentedTabs::new(&mut ssl_idx, SSL_MODE_OPTIONS, self.theme).show(ui);
+                SegmentedTabs::new(&mut ssl_idx, SSL_MODE_OPTIONS, self.theme)
+                    .focusable(false)
+                    .show(ui);
                 self.connection_draft.ssl_mode = index_to_ssl_mode(ssl_idx);
                 ui.add_space(SPACE_XXS);
                 let guidance_color = match self.connection_draft.ssl_mode {
@@ -265,10 +260,15 @@ impl DbProApp {
                     crate::UiSslMode::Require | crate::UiSslMode::VerifyCa => self.theme.warning,
                     crate::UiSslMode::VerifyFull => self.theme.text_muted,
                 };
-                ui.label(
-                    RichText::new(super::view::ssl_mode_guidance(self.connection_draft.ssl_mode))
-                        .size(10.0)
-                        .color(guidance_color),
+                let guidance_width = ui.available_width();
+                ui.add_sized(
+                    egui::vec2(guidance_width, 28.0),
+                    egui::Label::new(
+                        RichText::new(super::view::ssl_mode_guidance(self.connection_draft.ssl_mode))
+                            .size(10.0)
+                            .color(guidance_color),
+                    )
+                    .wrap(),
                 );
             });
         });

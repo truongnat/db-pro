@@ -229,7 +229,11 @@ impl DbProApp {
                 )
                 .clicked()
                 {
+                    let driver_changed = self.connection_draft.driver != spec.driver;
                     select_driver(&mut self.connection_draft, spec.driver);
+                    if driver_changed {
+                        self.connection_focus_name_on_open = true;
+                    }
                 }
             }
         });

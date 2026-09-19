@@ -37,13 +37,21 @@ impl DbProApp {
                         .font(font_caption())
                         .color(self.theme.text_muted),
                 );
-                ui.label(RichText::new("›").font(font_caption()).color(self.theme.text_muted));
+                ui.label(
+                    RichText::new(char::from(Icon::ChevronRight).to_string())
+                        .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
+                        .color(self.theme.text_muted),
+                );
                 ui.label(
                     RichText::new(&schema)
                         .font(font_caption())
                         .color(self.theme.text_secondary),
                 );
-                ui.label(RichText::new("›").font(font_caption()).color(self.theme.text_muted));
+                ui.label(
+                    RichText::new(char::from(Icon::ChevronRight).to_string())
+                        .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
+                        .color(self.theme.text_muted),
+                );
                 ui.label(
                     RichText::new(&table_name)
                         .font(font_subheading())
