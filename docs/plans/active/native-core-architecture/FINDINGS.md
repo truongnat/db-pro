@@ -180,6 +180,10 @@ reducer rather than the composition root.
 Query queued feedback now follows the same boundary in
 `query_queue_events.rs`; the request status message no longer requires the
 composition root.
+Database-management event state transitions now follow the same boundary in
+`management_events.rs`; monitoring, audit, settings, FDW, replication, event
+trigger, security and data-compare read models no longer mutate through the
+composition root. Cross-feature refresh orchestration remains at the root.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `ea0b8c90`.
+Source checkpoint: `1089974a`.
 
 ## Current change
 
@@ -105,6 +105,10 @@ Source checkpoint: `ea0b8c90`.
   record.
 - Query queued feedback now lives in `query_queue_events.rs`; the reducer
   receives only `FeedbackState` and the request identity.
+- Database-management event state transitions now live in
+  `management_events.rs` for monitoring, audit, pg settings, FDW, replication,
+  event triggers, security and data compare. `operation_events.rs` retains
+  only composition-root orchestration and cross-feature follow-ups.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
