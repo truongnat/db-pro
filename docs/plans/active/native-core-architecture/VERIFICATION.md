@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `1089974a`.
+Source checkpoint: `ddb26a36`.
 
 ## Current change
 
@@ -109,6 +109,9 @@ Source checkpoint: `1089974a`.
   `management_events.rs` for monitoring, audit, pg settings, FDW, replication,
   event triggers, security and data compare. `operation_events.rs` retains
   only composition-root orchestration and cross-feature follow-ups.
+- File-picker state transitions now live in `file_picker_events.rs`, and DDL
+  completion now returns a typed refresh transition from `ddl_events.rs`.
+  Workspace opening and schema/RLS requests remain explicit root side effects.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

@@ -184,6 +184,9 @@ Database-management event state transitions now follow the same boundary in
 `management_events.rs`; monitoring, audit, settings, FDW, replication, event
 trigger, security and data-compare read models no longer mutate through the
 composition root. Cross-feature refresh orchestration remains at the root.
+File-picker state transitions and DDL completion now follow the same boundary
+in `file_picker_events.rs` and `ddl_events.rs`; the root retains only workspace
+opening and schema/RLS refresh side effects.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
