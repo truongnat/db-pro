@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `315415c9`.
+Source checkpoint: `2a141fad`.
 
 ## Current change
 
@@ -93,6 +93,10 @@ Source checkpoint: `315415c9`.
 - Saved-query and query-folder read-model replacement now lives in
   `query_library_events.rs`; the root keeps only thin adapters for event
   routing, and reducer tests cover replacement semantics.
+- SQL prediction ready/failed handling now lives in
+  `query_prediction_events.rs`; stale request and document-version checks stay
+  in the query-session reducer boundary, while the root only adapts runtime
+  event payloads.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
