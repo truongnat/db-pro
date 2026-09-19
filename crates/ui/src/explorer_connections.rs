@@ -29,7 +29,7 @@ impl DbProApp {
             let Some(connection) = self.connection_catalog.get(index).cloned() else {
                 continue;
             };
-            let is_active = self.connection_lifecycle.active_connection_id.as_deref() == Some(&connection.id);
+            let is_active = self.connection_lifecycle.active_connection_id() == Some(&connection.id);
             let is_connected = self.connection_lifecycle.is_connected() && is_active;
             let is_connecting = self.connection_lifecycle.pending_request.is_some()
                 && (self.connection_lifecycle.pending_connection_id.as_deref() == Some(&connection.id)
@@ -380,8 +380,8 @@ impl DbProApp {
     fn cached_explorer_tables(&mut self, schema: &str, search_query: &str) -> (usize, usize, Vec<String>) {
         let connection_id = self
             .connection_lifecycle
-            .active_connection_id
-            .clone()
+            .active_connection_id()
+            .map(str::to_owned)
             .unwrap_or_default();
         if let Some(cache) = self.schema_explorer.explorer_nav_cache.as_ref() {
             if cache.connection_id == connection_id && cache.schema == schema && cache.search == search_query {
@@ -418,12 +418,7 @@ impl DbProApp {
         } else if let Some(cache) = self.schema_explorer.explorer_nav_cache.as_ref().filter(|cache| {
             cache.schema == schema
                 && cache.search == search_query
-                && cache.connection_id
-                    == self
-                        .connection_lifecycle
-                        .active_connection_id
-                        .as_deref()
-                        .unwrap_or_default()
+                && cache.connection_id == self.connection_lifecycle.active_connection_id().unwrap_or_default()
         }) {
             cache.matching_count
         } else {

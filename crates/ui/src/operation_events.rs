@@ -54,7 +54,7 @@ impl DbProApp {
 
     pub(super) fn on_pg_setting_action_completed(&mut self, action: String, name: String) {
         self.feedback.runtime_message = format!("pg_settings {action} `{name}` ok");
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListPgSettings {
                 request_id,
@@ -73,7 +73,7 @@ impl DbProApp {
         self.feedback.runtime_message = format!("FDW {action} `{name}` ok");
         self.fdw.fdw_drop_confirm = None;
         self.fdw.fdw_ddl_preview = None;
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListFdwInventory {
                 request_id,
@@ -96,7 +96,7 @@ impl DbProApp {
         self.replication.replication_drop_publication = None;
         self.replication.replication_drop_subscription = None;
         self.replication.replication_ddl_preview = None;
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListReplicationInventory {
                 request_id,
@@ -118,7 +118,7 @@ impl DbProApp {
         self.feedback.runtime_message = format!("Event trigger {action} `{name}` ok");
         self.event_trigger.event_trigger_drop_confirm = None;
         self.event_trigger.event_trigger_ddl_preview = None;
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListEventTriggers {
                 request_id,
@@ -134,7 +134,7 @@ impl DbProApp {
         );
         self.monitoring.monitoring_terminate_confirm = None;
         self.monitoring.monitoring_reset_stats_confirm = false;
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::MonitoringSnapshot {
                 request_id,
@@ -210,7 +210,7 @@ impl DbProApp {
             self.table_state.table_ddl_error = None;
             self.table_state.refresh_table_info_after_schema = self.schema_explorer.selected_table.is_some();
             self.feedback.runtime_message = format!("DDL applied · {affected_rows} affected rows");
-            if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+            if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
                 self.request_schema_introspection(connection_id, true);
             }
             if !self.security.security_rls_table.trim().is_empty() {
@@ -293,11 +293,11 @@ impl DbProApp {
             }
             let deleted_was_active = deleted_id
                 .as_ref()
-                .is_some_and(|id| self.connection_lifecycle.active_connection_id.as_deref() == Some(id.as_str()));
+                .is_some_and(|id| self.connection_lifecycle.active_connection_id() == Some(id.as_str()));
             // Only tear down the live session when the deleted connection was active.
             // Deleting a sibling must not force a reconnect / schema reload of the open one.
             if deleted_was_active {
-                self.connection_lifecycle.active_connection_id = None;
+                *self.connection_lifecycle.active_connection_id_mut() = None;
                 self.connection_lifecycle.set_connected(false);
             }
         }
@@ -325,7 +325,7 @@ impl DbProApp {
 
     /// Re-reads saved queries for the active connection.
     fn request_saved_queries_refresh(&mut self) {
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListSavedQueries {
                 request_id,

@@ -160,7 +160,7 @@ mod row_reload_tests {
 
         app.on_operation_completed(RequestId(11), "connection.deleted".to_owned());
 
-        assert_eq!(app.connection_lifecycle.active_connection_id.as_deref(), Some("conn-a"));
+        assert_eq!(app.connection_lifecycle.active_connection_id(), Some("conn-a"));
         assert!(app.connection_lifecycle.is_connected());
         assert!(app.connection_lifecycle.pending_connection_id.is_none());
         assert!(app.connection_lifecycle.failed_connection_ids.contains("conn-a"));
@@ -188,7 +188,7 @@ mod row_reload_tests {
 
         app.on_operation_completed(RequestId(12), "connection.deleted".to_owned());
 
-        assert!(app.connection_lifecycle.active_connection_id.is_none());
+        assert!(app.connection_lifecycle.active_connection_id().is_none());
         assert!(!app.connection_lifecycle.is_connected());
         assert!(app.connection_lifecycle.pending_connection_id.is_none());
         assert!(app.connection_lifecycle.failed_connection_ids.is_empty());

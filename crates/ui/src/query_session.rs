@@ -186,7 +186,7 @@ impl DbProApp {
         if self.table_state.ddl_execution_request.is_some() {
             return;
         }
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() else {
+        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -321,7 +321,7 @@ impl DbProApp {
             .documents
             .get(self.query_session_state.active_document_index)
             .and_then(|doc| doc.connection_id.as_deref())
-            .or(self.connection_lifecycle.active_connection_id.as_deref())
+            .or(self.connection_lifecycle.active_connection_id())
     }
 
     pub(crate) fn active_query_connection(&self) -> Option<&UiConnectionSummary> {

@@ -5,7 +5,7 @@ impl DbProApp {
     pub(super) fn grid_layout_scope(&self) -> Option<String> {
         Some(format!(
             "{}|{}|{}",
-            self.connection_lifecycle.active_connection_id.as_deref()?,
+            self.connection_lifecycle.active_connection_id()?,
             self.active_schema(),
             self.schema_explorer.selected_table.as_deref()?
         ))

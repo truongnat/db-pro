@@ -44,6 +44,8 @@ Source checkpoint: `bc7fa28b`.
   production field access.
 - Connection connected status is private behind `is_connected` and
   `set_connected` lifecycle APIs.
+- Active connection identity is private behind lifecycle accessors; consumers
+  no longer read or mutate the storage field directly.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

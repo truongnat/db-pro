@@ -15,7 +15,10 @@ pub(crate) struct ConnectionLifecycleState {
     pub(in crate::app) connected: bool,
     #[cfg(not(test))]
     connected: bool,
+    #[cfg(test)]
     pub(in crate::app) active_connection_id: Option<String>,
+    #[cfg(not(test))]
+    active_connection_id: Option<String>,
     pub(in crate::app) pending_connection_id: Option<String>,
     pub(in crate::app) pending_request: Option<RequestId>,
     pub(in crate::app) errors: HashMap<String, String>,
@@ -31,6 +34,14 @@ pub(crate) struct ConnectionLifecycleState {
 }
 
 impl ConnectionLifecycleState {
+    pub(crate) fn active_connection_id(&self) -> Option<&str> {
+        self.active_connection_id.as_deref()
+    }
+
+    pub(crate) fn active_connection_id_mut(&mut self) -> &mut Option<String> {
+        &mut self.active_connection_id
+    }
+
     pub(crate) fn is_connected(&self) -> bool {
         self.connected
     }

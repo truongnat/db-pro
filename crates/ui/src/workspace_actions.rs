@@ -125,7 +125,7 @@ impl DbProApp {
         let id = format!("file-{absolute_str}");
         let mut doc = QueryDocument::new(id, title, content);
         doc.file_path = Some(absolute_str.clone());
-        doc.connection_id = self.connection_lifecycle.active_connection_id.clone();
+        doc.connection_id = self.connection_lifecycle.active_connection_id().map(str::to_owned);
         doc.schema = Some(self.active_schema().to_owned());
         doc.mark_saved();
         if let Some(mtime) = git_workspace::disk_mtime_secs(&absolute) {

@@ -401,7 +401,7 @@ impl DbProApp {
             .documents
             .get(self.query_session_state.active_document_index)
             .and_then(|d| d.connection_id.clone())
-            .or_else(|| self.connection_lifecycle.active_connection_id.clone());
+            .or_else(|| self.connection_lifecycle.active_connection_id().map(str::to_owned));
         let schema = self
             .query_session_state
             .documents

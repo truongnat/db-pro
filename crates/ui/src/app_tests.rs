@@ -494,7 +494,7 @@ fn table_edits_stage_until_explicit_apply() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection_lifecycle.set_connected(true);
     app.schema_explorer.selected_table = Some("customers".to_owned());
     app.table_state.table_info = Some(UiTableInfo {
@@ -1234,7 +1234,7 @@ fn explain_query_uses_selected_connection_and_switches_output() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection_lifecycle.set_connected(true);
     app.set_active_query_text("SELECT 1");
 
@@ -1275,7 +1275,7 @@ fn explain_analyze_requires_explicit_confirm_before_dispatch() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection_lifecycle.set_connected(true);
     app.set_active_query_text("SELECT 1");
 
@@ -2585,7 +2585,7 @@ fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection_lifecycle.set_connected(true);
     let ctx = egui::Context::default();
 
@@ -2660,7 +2660,7 @@ fn failed_connection_shows_red_indicator_and_records_error() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("conn-bad".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-bad".to_owned());
     app.connection_lifecycle.pending_connection_id = Some("conn-bad".to_owned());
     app.connection_lifecycle.pending_request = Some(crate::RequestId(99));
 
@@ -3278,7 +3278,7 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
             environment: "Development".to_owned(),
         },
     ];
-    app.connection_lifecycle.active_connection_id = Some("conn-a".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-a".to_owned());
     app.connection_lifecycle.set_connected(true);
     app.connection_lifecycle.pending_request = Some(crate::RequestId(21));
     app.connection_lifecycle.pending_connection_id = Some("conn-b".to_owned());
@@ -3292,7 +3292,7 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
         .expect("delete completion should queue");
     app.apply_runtime_events();
 
-    assert_eq!(app.connection_lifecycle.active_connection_id.as_deref(), Some("conn-a"));
+    assert_eq!(app.connection_lifecycle.active_connection_id(), Some("conn-a"));
     assert!(app.connection_lifecycle.is_connected());
     assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ListConnections { .. })));
 
@@ -3305,7 +3305,7 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
         .expect("connections list should queue");
     app.apply_runtime_events();
 
-    assert_eq!(app.connection_lifecycle.active_connection_id.as_deref(), Some("conn-a"));
+    assert_eq!(app.connection_lifecycle.active_connection_id(), Some("conn-a"));
     assert!(app.connection_lifecycle.is_connected());
     assert!(
         !matches!(command_rx.try_recv(), Ok(UiCommand::Connect { .. })),
@@ -3698,7 +3698,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.schema_explorer.selected_table = Some("customers".to_owned());
     app.workspace.active_tab = WorkspaceTab::Table;
     app.table_state.refresh_table_info_after_schema = true;
@@ -3828,7 +3828,7 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
             environment: "Development".to_owned(),
         },
     ];
-    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection_lifecycle.set_connected(true);
     app.dispatch_query();
 
@@ -3857,7 +3857,7 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection_lifecycle.set_connected(true);
     app.table_state.table_ddl = Some("CREATE TABLE \"public\".\"audit\" (id INTEGER)".to_owned());
 
@@ -4190,7 +4190,7 @@ fn test_query_cancellation_capability_gate() {
     assert!(!app.active_capabilities().allows(|caps| caps.query.cancel));
 
     // Switching to SQLite enables query cancellation
-    app.connection_lifecycle.active_connection_id = Some("sqlite".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("sqlite".to_owned());
     assert!(app.active_capabilities().allows(|caps| caps.query.cancel));
 }
 
@@ -4700,7 +4700,7 @@ fn query_dispatch_allows_independent_documents_to_run_concurrently() {
             environment: "Development".to_owned(),
         },
     ];
-    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection_lifecycle.set_connected(true);
     app.set_document_connection(0, Some("conn-1".to_owned()));
     app.set_active_query_text("SELECT 1;");
@@ -4835,7 +4835,7 @@ fn test_popup_flipping_near_viewport_bottom() {
 fn test_multi_tab_explain_plan_routing() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection_lifecycle.set_connected(true);
     *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
@@ -5495,7 +5495,7 @@ fn test_agent_retry_isolation_and_session_routing() {
 fn test_composite_pk_targeted_reload_and_merge() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.schema_explorer.selected_table = Some("user_roles".to_owned());
     app.table_state.table_info = Some(UiTableInfo {
         schema: "public".to_owned(),
@@ -5605,7 +5605,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
 fn test_inserted_row_delete_removes_from_changeset_without_db_delete() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.schema_explorer.selected_table = Some("users".to_owned());
 
     let local_id = app.table_mutation.staged_changes.stage_insert(
@@ -5846,7 +5846,7 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection_lifecycle.set_connected(true);
     app.set_active_query_text("DROP TABLE users");
 
@@ -5893,7 +5893,7 @@ fn cancelling_a_held_destructive_statement_sends_nothing() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection_lifecycle.set_connected(true);
     app.set_active_query_text("TRUNCATE users");
 
@@ -5938,7 +5938,7 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
             favorite: false,
             environment: "Development".to_owned(),
         }];
-        app.connection_lifecycle.active_connection_id = Some("active".to_owned());
+        *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
         app.connection_lifecycle.set_connected(true);
         app.set_active_query_text(sql);
 
@@ -5979,7 +5979,7 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("active".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection_lifecycle.set_connected(true);
     app.set_active_query_text("SELECT 1;\nDROP TABLE users;");
 
@@ -6083,7 +6083,7 @@ fn dispatch_query_binds_named_parameters_for_postgres() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection_lifecycle.set_connected(true);
     app.set_active_query_text("SELECT :id, :name".to_owned());
     if let Some(doc) = app.query_session_state.documents.get_mut(0) {
@@ -6192,7 +6192,7 @@ fn saved_task_persists_without_secrets_and_blocks_destructive_without_confirm() 
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection_lifecycle.set_connected(true);
     app.preferences.settings.general.confirm_destructive_queries = true;
     app.saved_tasks.store = store;
@@ -6228,7 +6228,7 @@ fn scheduled_task_tick_dispatches_once_while_app_active() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection_lifecycle.set_connected(true);
     let id = uuid::Uuid::new_v4();
     let now = chrono::Utc::now();
@@ -6275,7 +6275,7 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     app.query_session_state.active_document_index = 1;
     app.workspace.activity = Activity::Data;
     app.workspace.active_tab = WorkspaceTab::Query;
-    app.connection_lifecycle.active_connection_id = Some("gone-conn".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("gone-conn".to_owned());
     app.schema_explorer.pinned_tables = vec!["public.orders".to_owned()];
     app.workspace_sessions.name_draft = "Focus pack".to_owned();
     app.save_named_workspace_session();
@@ -6285,7 +6285,7 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     // Mutate live state, then restore.
     app.workspace.activity = Activity::Explorer;
     app.query_session_state.active_document_index = 0;
-    app.connection_lifecycle.active_connection_id = Some("other".to_owned());
+    *app.connection_lifecycle.active_connection_id_mut() = Some("other".to_owned());
     app.schema_explorer.pinned_tables.clear();
     app.restore_named_workspace_session(&id);
 
@@ -6293,7 +6293,7 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     assert_eq!(app.query_session_state.active_document_index, 1);
     assert_eq!(app.schema_explorer.pinned_tables, vec!["public.orders".to_owned()]);
     assert!(
-        app.connection_lifecycle.active_connection_id.is_none(),
+        app.connection_lifecycle.active_connection_id().is_none(),
         "missing connection must not crash"
     );
     assert!(!app.workspace_sessions.last_restore_notes.is_empty());

@@ -120,7 +120,7 @@ impl DbProApp {
         let connection_id = document
             .connection_id
             .clone()
-            .or_else(|| self.connection_lifecycle.active_connection_id.clone());
+            .or_else(|| self.connection_lifecycle.active_connection_id().map(str::to_owned));
         let schema = document
             .schema
             .clone()

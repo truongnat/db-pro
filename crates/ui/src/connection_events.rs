@@ -14,7 +14,7 @@ impl DbProApp {
             .connection_lifecycle
             .pending_connection_id
             .take()
-            .or_else(|| self.connection_lifecycle.active_connection_id.clone());
+            .or_else(|| self.connection_lifecycle.active_connection_id().map(str::to_owned));
         let is_delete = self.feedback.runtime_message.to_ascii_lowercase().contains("delet");
         if is_delete {
             let formatted = format!("Delete failed · {message}");
@@ -44,8 +44,8 @@ impl DbProApp {
     pub(super) fn on_connections_loaded(&mut self, connections: Vec<UiConnectionSummary>) {
         self.connection_lifecycle.set_connections_request_pending(false);
         self.connection_catalog.replace(connections);
-        if self.connection_lifecycle.active_connection_id.is_none() {
-            self.connection_lifecycle.active_connection_id =
+        if self.connection_lifecycle.active_connection_id().is_none() {
+            *self.connection_lifecycle.active_connection_id_mut() =
                 self.connection_catalog.get(0).map(|connection| connection.id.clone());
         }
         if !self.connection_lifecycle.is_connected() && self.connection_lifecycle.pending_request.is_none() {
@@ -67,11 +67,11 @@ impl DbProApp {
         }
         self.connection_lifecycle.pending_request = None;
         self.connection_lifecycle.pending_connection_id = None;
-        self.connection_lifecycle.active_connection_id = Some(connection_id.clone());
+        *self.connection_lifecycle.active_connection_id_mut() = Some(connection_id.clone());
         self.connection_lifecycle.set_connected(true);
         self.connection_lifecycle.clear_connection_error(&connection_id);
         self.feedback.runtime_message = "Connection established".to_owned();
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
             self.request_schema_introspection(connection_id.clone(), false);
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListSavedQueries {

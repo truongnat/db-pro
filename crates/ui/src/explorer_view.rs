@@ -276,7 +276,7 @@ impl DbProApp {
                     }
                 });
                 if refresh_btn.clicked() || refresh_schema {
-                    if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+                    if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
                         self.request_schema_introspection(connection_id, true);
                     }
                 }
@@ -321,7 +321,8 @@ impl DbProApp {
                 ui.horizontal(|ui| {
                     ui.label(icon_text(Icon::TriangleAlert, "Schema load failed", self.theme.danger));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+                        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned)
+                        {
                             if secondary_button_with_icon(ui, Icon::RotateCcw, "Refresh schema", self.theme).clicked() {
                                 self.request_schema_introspection(connection_id, true);
                             }
@@ -377,7 +378,7 @@ impl DbProApp {
 
     /// Helper to initiate connection logic.
     pub(crate) fn connect_to_connection(&mut self, connection: &UiConnectionSummary) {
-        if self.connection_lifecycle.active_connection_id.as_deref() == Some(&connection.id)
+        if self.connection_lifecycle.active_connection_id() == Some(&connection.id)
             && self.connection_lifecycle.is_connected()
         {
             return;
@@ -397,7 +398,7 @@ impl DbProApp {
         }
         self.workspace.pending_navigation_action = None;
         self.reset_agent_context();
-        self.connection_lifecycle.active_connection_id = Some(connection.id.clone());
+        *self.connection_lifecycle.active_connection_id_mut() = Some(connection.id.clone());
         self.connection_lifecycle.pending_connection_id = Some(connection.id.clone());
         self.connection_lifecycle.clear_connection_error(&connection.id);
         self.schema_explorer.selected_schema = None;

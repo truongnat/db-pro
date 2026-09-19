@@ -87,7 +87,7 @@ impl DbProApp {
         ui.add_space(SPACE_SM);
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = vec2(SPACE_XS, 0.0);
-            let active_name = if self.connection_lifecycle.active_connection_id.is_some() {
+            let active_name = if self.connection_lifecycle.active_connection_id().is_some() {
                 self.active_connection_name().to_owned()
             } else {
                 "DB Pro".to_owned()

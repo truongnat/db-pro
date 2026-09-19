@@ -10,6 +10,7 @@
 - [x] Connection dialog and catalog storage are private behind feature APIs.
 - [x] Connection lifecycle request flags and fallback naming are private behind feature APIs.
 - [x] Connection connected status is private behind lifecycle APIs.
+- [x] Active connection identity is private behind lifecycle accessors.
 
 ## Remaining migrations
 

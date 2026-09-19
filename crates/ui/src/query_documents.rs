@@ -5,7 +5,7 @@ impl DbProApp {
     pub(crate) fn new_query_document(&mut self) {
         let (document_id, index) = self.next_query_document_identity();
         let mut doc = QueryDocument::new(document_id, format!("Query {index}"), String::new());
-        doc.connection_id = self.connection_lifecycle.active_connection_id.clone();
+        doc.connection_id = self.connection_lifecycle.active_connection_id().map(str::to_owned);
         doc.schema = Some(self.active_schema().to_owned());
         self.query_session_state.documents.push(doc);
         self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
@@ -20,7 +20,7 @@ impl DbProApp {
     pub(crate) fn new_scratch_query_document(&mut self) {
         let (document_id, index) = self.next_query_document_identity();
         let mut doc = QueryDocument::new(document_id, format!("Scratch {index}"), String::new());
-        doc.connection_id = self.connection_lifecycle.active_connection_id.clone();
+        doc.connection_id = self.connection_lifecycle.active_connection_id().map(str::to_owned);
         doc.schema = Some(self.active_schema().to_owned());
         self.query_session_state.documents.push(doc);
         self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
@@ -165,7 +165,7 @@ impl DbProApp {
         new_doc.connection_id = src
             .connection_id
             .clone()
-            .or_else(|| self.connection_lifecycle.active_connection_id.clone());
+            .or_else(|| self.connection_lifecycle.active_connection_id().map(str::to_owned));
         new_doc.schema = src.schema.clone().or_else(|| Some(self.active_schema().to_owned()));
         self.query_session_state.documents.push(new_doc);
         self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;

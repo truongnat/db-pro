@@ -146,10 +146,10 @@ impl DbProApp {
                 username: connection.username.clone(),
                 has_password: true,
                 has_ssh: false,
-                is_connected: self.connection_lifecycle.active_connection_id.as_deref() == Some(connection.id.as_str()),
+                is_connected: self.connection_lifecycle.active_connection_id() == Some(connection.id.as_str()),
             })
             .collect();
-        summary.runtime.active_connections = usize::from(self.connection_lifecycle.active_connection_id.is_some());
+        summary.runtime.active_connections = usize::from(self.connection_lifecycle.active_connection_id().is_some());
         summary.runtime.active_executions = self
             .query_session_state
             .documents

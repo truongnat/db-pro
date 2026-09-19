@@ -325,7 +325,7 @@ impl DbProApp {
                 return;
             }
 
-            let active_id = self.connection_lifecycle.active_connection_id.clone();
+            let active_id = self.connection_lifecycle.active_connection_id().map(str::to_owned);
             let rows: Vec<_> = self
                 .connection_catalog
                 .iter()
