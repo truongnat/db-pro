@@ -176,7 +176,7 @@ Source checkpoint: `c3842bf6`.
   inside the safe viewport, gives the body its own scroll budget, and renders a
   full-width separated header with the close action aligned to the right.
 - Deterministic native capture of the affected New Connection modal: PASS at
-  logical `1280x800` (`/tmp/db-pro-evidence-core-error-1280x800.png`).
+  logical `1280x800` (`/tmp/db-pro-evidence-core-error-latest.png`).
   The inspected framebuffer shows balanced vertical margins, a separated
   header, right-aligned close action, independently scrolling body and sticky
   footer.
