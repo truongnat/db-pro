@@ -95,10 +95,11 @@ connection_renderers=(
   "$repo_root/crates/ui/src/connection/view.rs"
   "$repo_root/crates/ui/src/connection/form_fields.rs"
   "$repo_root/crates/ui/src/connection/advanced_panels.rs"
+  "$repo_root/crates/ui/src/connection_status.rs"
 )
 for renderer in "${connection_renderers[@]}"; do
   if rg -n '^impl DbProApp|\bDbProApp\b' "$renderer"; then
-    echo "UI architecture check failed: connection dialog renderers must depend on ConnectionDialogView, not DbProApp." >&2
+    echo "UI architecture check failed: connection feature helpers must depend on explicit state/context, not DbProApp." >&2
     exit 1
   fi
 done

@@ -569,6 +569,85 @@ impl DbProApp {
             .info(message, crate::components::overlay::ToastPosition::BottomRight);
     }
 
+    // Connection read models and shell status are implemented as explicit pure helpers
+    // in `connection_status.rs`; these root methods preserve the app's internal API while
+    // keeping that feature module independent from the composition root.
+    pub(super) fn active_connection(&self) -> Option<&UiConnectionSummary> {
+        connection_status::active_connection(&self.connection_catalog, &self.connection_lifecycle)
+    }
+
+    pub(super) fn active_connection_name(&self) -> &str {
+        connection_status::active_connection_name(&self.connection_catalog, &self.connection_lifecycle)
+    }
+
+    pub(super) fn active_driver(&self) -> &str {
+        connection_status::active_driver(&self.connection_catalog, &self.connection_lifecycle)
+    }
+
+    pub(crate) fn active_capabilities(&self) -> CapabilityLookup {
+        connection_status::active_capabilities(&self.connection_catalog, &self.connection_lifecycle)
+    }
+
+    pub(super) fn active_schema(&self) -> &str {
+        connection_status::active_schema(
+            &self.schema_explorer,
+            &self.connection_catalog,
+            &self.connection_lifecycle,
+        )
+    }
+
+    pub(super) fn active_schema_table_names(&self) -> Vec<String> {
+        connection_status::active_schema_table_names(
+            &self.schema_explorer,
+            &self.connection_catalog,
+            &self.connection_lifecycle,
+        )
+    }
+
+    pub(super) fn schema_table_names(&self, schema: &str) -> Vec<String> {
+        connection_status::schema_table_names(&self.schema_explorer, schema)
+    }
+
+    pub(super) fn schema_table_count(&self, schema: &str) -> usize {
+        connection_status::schema_table_count(&self.schema_explorer, schema)
+    }
+
+    pub(super) fn schema_matching_table_count(&self, schema: &str, query: &str) -> usize {
+        connection_status::schema_matching_table_count(&self.schema_explorer, schema, query)
+    }
+
+    pub(super) fn active_schema_column_names(&self) -> Vec<String> {
+        connection_status::active_schema_column_names(
+            &self.schema_explorer,
+            &self.connection_catalog,
+            &self.connection_lifecycle,
+        )
+    }
+
+    pub(super) fn has_runtime_error(&self) -> bool {
+        connection_status::has_runtime_error(&self.feedback)
+    }
+
+    pub(super) fn runtime_status(&self) -> Option<(String, egui::Color32)> {
+        connection_status::runtime_status(&self.feedback, self.theme)
+    }
+
+    pub(super) fn statusbar_state(&self) -> (Icon, egui::Color32, &'static str) {
+        connection_status::statusbar_state(&self.connection_lifecycle, &self.feedback, self.theme)
+    }
+
+    pub(super) fn shows_editor_status(&self) -> bool {
+        connection_status::shows_editor_status()
+    }
+
+    pub(super) fn statusbar_context_label(&self) -> &'static str {
+        connection_status::statusbar_context_label(&self.workspace, &self.table_state)
+    }
+
+    pub(super) fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, egui::Color32) {
+        connection_status::connection_indicator(&self.connection_lifecycle, connection, self.theme)
+    }
+
     pub(super) fn primary_modifier_pressed(input: &egui::InputState) -> bool {
         input.modifiers.command || input.modifiers.ctrl || input.modifiers.mac_cmd
     }
