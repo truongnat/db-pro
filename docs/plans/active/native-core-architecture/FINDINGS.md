@@ -190,6 +190,9 @@ opening and schema/RLS refresh side effects.
 Explain completion and query cancellation now follow the same boundary in
 `query_execution_events.rs`; output-tab selection, document cleanup and
 cancellation history no longer mutate through the root event handler.
+Single-statement query completion now follows the same boundary in
+`query_result_events.rs` through an explicit `QueryResultContext`; grid
+invalidation, history and output presentation no longer live in the root.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

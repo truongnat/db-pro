@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `ad6b85fd`.
+Source checkpoint: `39b7e989`.
 
 ## Current change
 
@@ -115,6 +115,9 @@ Source checkpoint: `ad6b85fd`.
 - Explain completion and query cancellation now live in
   `query_execution_events.rs`, including output-tab selection, document
   cleanup and cancellation history.
+- Single-statement query completion now lives in `query_result_events.rs`
+  behind an explicit `QueryResultContext`, including grid invalidation,
+  history, output selection and active-document presentation state.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
