@@ -25,6 +25,8 @@ use std::time::{Duration, Instant};
 use agent_workflow_state::AgentUiSession;
 use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
 
+#[path = "agent_events.rs"]
+mod agent_events;
 #[path = "agent_state.rs"]
 mod agent_state;
 #[path = "agent_view.rs"]
@@ -170,6 +172,8 @@ mod sidebar_activities_view;
 mod sidebar_view;
 #[path = "table_data_state.rs"]
 mod table_data_state;
+#[path = "table_events.rs"]
+mod table_events;
 #[path = "table_mutation_state.rs"]
 mod table_mutation_state;
 #[path = "table_state.rs"]
