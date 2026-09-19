@@ -1,27 +1,27 @@
 //! Feature-owned state for database-management surfaces.
 
 #[derive(Default)]
-pub(crate) struct RoutineState {
-    pub(crate) routine_source_draft: String,
-    pub(crate) routine_param_values: Vec<String>,
-    pub(crate) routine_param_nulls: Vec<bool>,
-    pub(crate) routine_ddl_preview: Option<String>,
-    pub(crate) routine_drop_confirm: bool,
+pub(super) struct RoutineState {
+    pub(super) routine_source_draft: String,
+    pub(super) routine_param_values: Vec<String>,
+    pub(super) routine_param_nulls: Vec<bool>,
+    pub(super) routine_ddl_preview: Option<String>,
+    pub(super) routine_drop_confirm: bool,
 }
 
 #[derive(Default)]
-pub(crate) struct TransferState {
-    pub(crate) transfer_jobs: Vec<db_pro_core::domain::transfer::TransferJob>,
+pub(super) struct TransferState {
+    pub(super) transfer_jobs: Vec<db_pro_core::domain::transfer::TransferJob>,
 }
 
-pub(crate) struct SyntheticDataState {
-    pub(crate) synthetic_table: String,
-    pub(crate) synthetic_row_count: String,
-    pub(crate) synthetic_seed: String,
-    pub(crate) synthetic_null_pct: String,
-    pub(crate) synthetic_preview: Option<db_pro_core::domain::synthetic_data::SyntheticPreview>,
-    pub(crate) synthetic_error: Option<String>,
-    pub(crate) synthetic_production_confirm: bool,
+pub(super) struct SyntheticDataState {
+    pub(super) synthetic_table: String,
+    pub(super) synthetic_row_count: String,
+    pub(super) synthetic_seed: String,
+    pub(super) synthetic_null_pct: String,
+    pub(super) synthetic_preview: Option<db_pro_core::domain::synthetic_data::SyntheticPreview>,
+    pub(super) synthetic_error: Option<String>,
+    pub(super) synthetic_production_confirm: bool,
 }
 
 impl Default for SyntheticDataState {
@@ -38,12 +38,12 @@ impl Default for SyntheticDataState {
     }
 }
 
-pub(crate) struct MaskingState {
-    pub(crate) masking_columns_csv: String,
-    pub(crate) masking_rule: db_pro_core::domain::masking::MaskRule,
-    pub(crate) masking_keyed: bool,
-    pub(crate) masking_preview: Option<db_pro_core::domain::masking::MaskingPreview>,
-    pub(crate) masking_error: Option<String>,
+pub(super) struct MaskingState {
+    pub(super) masking_columns_csv: String,
+    pub(super) masking_rule: db_pro_core::domain::masking::MaskRule,
+    pub(super) masking_keyed: bool,
+    pub(super) masking_preview: Option<db_pro_core::domain::masking::MaskingPreview>,
+    pub(super) masking_error: Option<String>,
 }
 
 impl Default for MaskingState {
@@ -58,18 +58,18 @@ impl Default for MaskingState {
     }
 }
 
-pub(crate) struct MonitoringState {
-    pub(crate) monitoring_snapshot: Option<db_pro_core::domain::monitoring::MonitoringSnapshot>,
-    pub(crate) monitoring_error: Option<String>,
-    pub(crate) monitoring_poll: bool,
-    pub(crate) monitoring_last_poll: Option<std::time::Instant>,
-    pub(crate) monitoring_terminate_confirm: Option<i64>,
-    pub(crate) monitoring_filter_active_only: bool,
-    pub(crate) monitoring_maintenance_confirm: Option<db_pro_core::domain::monitoring::MaintenanceAction>,
-    pub(crate) monitoring_stat_sort: db_pro_core::domain::monitoring::StatStatementSort,
-    pub(crate) monitoring_reset_stats_confirm: bool,
-    pub(crate) monitoring_workload_prev: Option<db_pro_core::domain::monitoring::StatStatementsSnapshot>,
-    pub(crate) monitoring_workload_filter: String,
+pub(super) struct MonitoringState {
+    pub(super) monitoring_snapshot: Option<db_pro_core::domain::monitoring::MonitoringSnapshot>,
+    pub(super) monitoring_error: Option<String>,
+    pub(super) monitoring_poll: bool,
+    pub(super) monitoring_last_poll: Option<std::time::Instant>,
+    pub(super) monitoring_terminate_confirm: Option<i64>,
+    pub(super) monitoring_filter_active_only: bool,
+    pub(super) monitoring_maintenance_confirm: Option<db_pro_core::domain::monitoring::MaintenanceAction>,
+    pub(super) monitoring_stat_sort: db_pro_core::domain::monitoring::StatStatementSort,
+    pub(super) monitoring_reset_stats_confirm: bool,
+    pub(super) monitoring_workload_prev: Option<db_pro_core::domain::monitoring::StatStatementsSnapshot>,
+    pub(super) monitoring_workload_filter: String,
 }
 
 impl Default for MonitoringState {
@@ -91,38 +91,38 @@ impl Default for MonitoringState {
 }
 
 #[derive(Default)]
-pub(crate) struct AuditState {
-    pub(crate) audit_page: Option<db_pro_core::domain::audit::AuditPage>,
-    pub(crate) audit_error: Option<String>,
-    pub(crate) audit_filter_text: String,
-    pub(crate) audit_filter_database: String,
-    pub(crate) audit_filter_username: String,
-    pub(crate) audit_filter_severity: String,
-    pub(crate) audit_bookmarks: std::collections::HashSet<String>,
-    pub(crate) audit_selected: std::collections::HashSet<String>,
-    pub(crate) audit_export_preview: Option<String>,
+pub(super) struct AuditState {
+    pub(super) audit_page: Option<db_pro_core::domain::audit::AuditPage>,
+    pub(super) audit_error: Option<String>,
+    pub(super) audit_filter_text: String,
+    pub(super) audit_filter_database: String,
+    pub(super) audit_filter_username: String,
+    pub(super) audit_filter_severity: String,
+    pub(super) audit_bookmarks: std::collections::HashSet<String>,
+    pub(super) audit_selected: std::collections::HashSet<String>,
+    pub(super) audit_export_preview: Option<String>,
 }
 
 #[derive(Default)]
-pub(crate) struct PgSettingsState {
-    pub(crate) pg_settings: Option<db_pro_core::domain::pg_settings::PgSettingsSnapshot>,
-    pub(crate) pg_settings_filter: String,
-    pub(crate) pg_settings_edit_name: String,
-    pub(crate) pg_settings_edit_value: String,
-    pub(crate) pg_settings_preview: Option<db_pro_core::domain::pg_settings::PgSettingPreviewSql>,
-    pub(crate) pg_settings_error: Option<String>,
+pub(super) struct PgSettingsState {
+    pub(super) pg_settings: Option<db_pro_core::domain::pg_settings::PgSettingsSnapshot>,
+    pub(super) pg_settings_filter: String,
+    pub(super) pg_settings_edit_name: String,
+    pub(super) pg_settings_edit_value: String,
+    pub(super) pg_settings_preview: Option<db_pro_core::domain::pg_settings::PgSettingPreviewSql>,
+    pub(super) pg_settings_error: Option<String>,
 }
 
-pub(crate) struct FdwState {
-    pub(crate) fdw_inventory: Option<db_pro_core::domain::fdw::FdwInventory>,
-    pub(crate) fdw_error: Option<String>,
-    pub(crate) fdw_create_name: String,
-    pub(crate) fdw_create_wrapper: String,
-    pub(crate) fdw_create_host: String,
-    pub(crate) fdw_create_dbname: String,
-    pub(crate) fdw_create_port: String,
-    pub(crate) fdw_ddl_preview: Option<String>,
-    pub(crate) fdw_drop_confirm: Option<String>,
+pub(super) struct FdwState {
+    pub(super) fdw_inventory: Option<db_pro_core::domain::fdw::FdwInventory>,
+    pub(super) fdw_error: Option<String>,
+    pub(super) fdw_create_name: String,
+    pub(super) fdw_create_wrapper: String,
+    pub(super) fdw_create_host: String,
+    pub(super) fdw_create_dbname: String,
+    pub(super) fdw_create_port: String,
+    pub(super) fdw_ddl_preview: Option<String>,
+    pub(super) fdw_drop_confirm: Option<String>,
 }
 
 impl Default for FdwState {
@@ -142,24 +142,24 @@ impl Default for FdwState {
 }
 
 #[derive(Default)]
-pub(crate) struct ReplicationState {
-    pub(crate) replication_inventory: Option<db_pro_core::domain::replication::ReplicationInventory>,
-    pub(crate) replication_error: Option<String>,
-    pub(crate) replication_create_name: String,
-    pub(crate) replication_ddl_preview: Option<String>,
-    pub(crate) replication_drop_publication: Option<String>,
-    pub(crate) replication_drop_subscription: Option<String>,
+pub(super) struct ReplicationState {
+    pub(super) replication_inventory: Option<db_pro_core::domain::replication::ReplicationInventory>,
+    pub(super) replication_error: Option<String>,
+    pub(super) replication_create_name: String,
+    pub(super) replication_ddl_preview: Option<String>,
+    pub(super) replication_drop_publication: Option<String>,
+    pub(super) replication_drop_subscription: Option<String>,
 }
 
-pub(crate) struct EventTriggerState {
-    pub(crate) event_trigger_inventory: Option<db_pro_core::domain::event_trigger::EventTriggerInventory>,
-    pub(crate) event_trigger_error: Option<String>,
-    pub(crate) event_trigger_create_name: String,
-    pub(crate) event_trigger_create_event: String,
-    pub(crate) event_trigger_create_function: String,
-    pub(crate) event_trigger_create_tags: String,
-    pub(crate) event_trigger_ddl_preview: Option<String>,
-    pub(crate) event_trigger_drop_confirm: Option<String>,
+pub(super) struct EventTriggerState {
+    pub(super) event_trigger_inventory: Option<db_pro_core::domain::event_trigger::EventTriggerInventory>,
+    pub(super) event_trigger_error: Option<String>,
+    pub(super) event_trigger_create_name: String,
+    pub(super) event_trigger_create_event: String,
+    pub(super) event_trigger_create_function: String,
+    pub(super) event_trigger_create_tags: String,
+    pub(super) event_trigger_ddl_preview: Option<String>,
+    pub(super) event_trigger_drop_confirm: Option<String>,
 }
 
 impl Default for EventTriggerState {
@@ -177,31 +177,31 @@ impl Default for EventTriggerState {
     }
 }
 
-pub(crate) struct SecurityState {
-    pub(crate) security_users: Vec<db_pro_core::domain::user::DatabaseUser>,
-    pub(crate) security_selected_role: Option<String>,
-    pub(crate) security_privileges: Vec<db_pro_core::domain::user::Privilege>,
-    pub(crate) security_memberships: Vec<db_pro_core::domain::user::RoleMembership>,
-    pub(crate) security_new_role: String,
-    pub(crate) security_new_role_login: bool,
-    pub(crate) security_membership_role: String,
-    pub(crate) security_password: String,
-    pub(crate) security_grant_kind: db_pro_core::domain::user::PrivilegeObjectKind,
-    pub(crate) security_grant_schema: String,
-    pub(crate) security_grant_object: String,
-    pub(crate) security_grant_privilege: String,
-    pub(crate) security_rls_schema: String,
-    pub(crate) security_rls_table: String,
-    pub(crate) security_rls_state: Option<db_pro_core::domain::rls::TableRlsState>,
-    pub(crate) security_rls_policy_name: String,
-    pub(crate) security_rls_command: String,
-    pub(crate) security_rls_roles: String,
-    pub(crate) security_rls_using: String,
-    pub(crate) security_rls_with_check: String,
-    pub(crate) security_rls_preview_sql: String,
-    pub(crate) security_rls_confirm_apply: bool,
-    pub(crate) security_drop_confirm: Option<String>,
-    pub(crate) security_error: Option<String>,
+pub(super) struct SecurityState {
+    pub(super) security_users: Vec<db_pro_core::domain::user::DatabaseUser>,
+    pub(super) security_selected_role: Option<String>,
+    pub(super) security_privileges: Vec<db_pro_core::domain::user::Privilege>,
+    pub(super) security_memberships: Vec<db_pro_core::domain::user::RoleMembership>,
+    pub(super) security_new_role: String,
+    pub(super) security_new_role_login: bool,
+    pub(super) security_membership_role: String,
+    pub(super) security_password: String,
+    pub(super) security_grant_kind: db_pro_core::domain::user::PrivilegeObjectKind,
+    pub(super) security_grant_schema: String,
+    pub(super) security_grant_object: String,
+    pub(super) security_grant_privilege: String,
+    pub(super) security_rls_schema: String,
+    pub(super) security_rls_table: String,
+    pub(super) security_rls_state: Option<db_pro_core::domain::rls::TableRlsState>,
+    pub(super) security_rls_policy_name: String,
+    pub(super) security_rls_command: String,
+    pub(super) security_rls_roles: String,
+    pub(super) security_rls_using: String,
+    pub(super) security_rls_with_check: String,
+    pub(super) security_rls_preview_sql: String,
+    pub(super) security_rls_confirm_apply: bool,
+    pub(super) security_drop_confirm: Option<String>,
+    pub(super) security_error: Option<String>,
 }
 
 impl Default for SecurityState {
