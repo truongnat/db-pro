@@ -134,10 +134,13 @@ feature aggregates (`database_feature_states.rs`), and `02ab0cc1` plus
 `ee6a1247` scoped aggregate fields to the app boundary. The connection dialog,
 catalog and lifecycle storage are now private behind feature APIs; `a418764f`
 also hides pending-request, pending-target and failure storage behind lifecycle
-methods. The root field allowlist and visibility guard are enforced in CI. The
-remaining architectural slice is to move view and reducer APIs from
-`impl DbProApp` onto feature-owned contexts, so sibling features cannot use the
-composition root as a shared mutable facade.
+methods. `ConnectionDialogView<'a>` now owns the connection dialog renderer's
+explicit dependencies, and the renderer guard rejects `DbProApp` from the
+dialog view/form/advanced-panel modules. The root field allowlist and
+visibility guard are enforced in CI. The remaining architectural slice is to
+move the other view and reducer APIs from `impl DbProApp` onto feature-owned
+contexts, so sibling features cannot use the composition root as a shared
+mutable facade.
 
 ## F13 — Database management state was grouped behind a catch-all aggregate
 

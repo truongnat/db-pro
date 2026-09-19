@@ -12,6 +12,7 @@
 - [x] Connection connected status is private behind lifecycle APIs.
 - [x] Active connection identity is private behind lifecycle accessors.
 - [x] Pending connection request/target and failure storage are private behind lifecycle APIs.
+- [x] Connection dialog view/form/advanced panels use an explicit feature view context.
 
 ## Remaining migrations
 

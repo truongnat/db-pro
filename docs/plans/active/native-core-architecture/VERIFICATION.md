@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `a418764f`.
+Source checkpoint: `390f9f9e`.
 
 ## Current change
 
@@ -49,6 +49,9 @@ Source checkpoint: `a418764f`.
 - Pending request/target and connection failure storage are private behind
   lifecycle APIs; production consumers no longer access those storage fields
   directly.
+- Connection dialog rendering is now driven by `ConnectionDialogView<'a>` with
+  explicit state/runtime/feedback dependencies; `view.rs`, `form_fields.rs`
+  and `advanced_panels.rs` no longer implement methods on `DbProApp`.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
