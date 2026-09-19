@@ -379,7 +379,7 @@ impl DbProApp {
         if self.connection_lifecycle.active_connection_id.as_deref() == Some(&connection.id) && self.connected {
             return;
         }
-        if !self.staged_changes.is_empty() {
+        if !self.table_mutation.staged_changes.is_empty() {
             self.workspace.pending_navigation_action =
                 Some(PendingNavigationAction::ChangeConnection(connection.id.clone()));
             self.table_data.discard_changes_confirmation = true;

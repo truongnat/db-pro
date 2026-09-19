@@ -440,12 +440,12 @@ impl DbProApp {
             self.schema_request = None;
             self.schema_error = Some(message.clone());
             self.runtime_message = format!("Schema introspection failed · {message}");
-        } else if self.staged_apply_request == Some(request_id) {
+        } else if self.table_mutation.staged_apply_request == Some(request_id) {
             // Older runtimes can still report the generic failure event. Keep
             // the staged changes and surface it as an unmapped mutation.
             self.staged_apply_failed(usize::MAX, "UNKNOWN", &message, false);
-        } else if self.table_mutation_request == Some(request_id) {
-            self.table_mutation_request = None;
+        } else if self.table_mutation.table_mutation_request == Some(request_id) {
+            self.table_mutation.table_mutation_request = None;
             self.table_data.data_editing_cell = None;
             self.table_data.data_edit_value.clear();
             self.table_data.data_edit_error = None;
@@ -464,13 +464,13 @@ impl DbProApp {
         } else if self.table_state.table_row_reload_request == Some(request_id) {
             self.table_state.table_row_reload_request = None;
             self.table_state.table_row_reload_identity = None;
-            self.table_mutation_retry_after_reload = false;
-            self.table_mutation_retry_target = None;
+            self.table_mutation.table_mutation_retry_after_reload = false;
+            self.table_mutation.table_mutation_retry_target = None;
             self.runtime_message = format!("Could not reload row: {message}");
         } else if self.table_state.table_data_request == Some(request_id) {
             self.table_state.table_data_request = None;
-            self.table_mutation_retry_after_reload = false;
-            self.table_mutation_retry_target = None;
+            self.table_mutation.table_mutation_retry_after_reload = false;
+            self.table_mutation.table_mutation_retry_target = None;
             self.table_state.table_data_error = Some(message.clone());
             let formatted = format!("Table data failed · {message}");
             self.runtime_message = formatted.clone();

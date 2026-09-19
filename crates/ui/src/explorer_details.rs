@@ -329,7 +329,7 @@ impl DbProApp {
 
     /// Selects a table and resets the table workspace to a clean slate.
     pub(crate) fn select_table(&mut self, table: &str) {
-        if self.selected_table.as_deref() != Some(table) && !self.staged_changes.is_empty() {
+        if self.selected_table.as_deref() != Some(table) && !self.table_mutation.staged_changes.is_empty() {
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
@@ -352,7 +352,7 @@ impl DbProApp {
     /// "connect to a connection" so both start from an identical slate.
     pub(super) fn reset_table_workspace_state(&mut self) {
         self.table_state.table_info = None;
-        self.table_ddl = None;
+        self.table_state.table_ddl = None;
         self.table_state.table_info_error = None;
         self.table_state.table_ddl_error = None;
         self.table_state.ddl_execute_confirmation = false;
@@ -369,13 +369,13 @@ impl DbProApp {
         self.table_state.table_info_request = None;
         self.table_state.table_ddl_request = None;
         self.table_state.table_data_request = None;
-        self.table_mutation_request = None;
-        self.staged_changes.clear();
-        self.staged_apply_request = None;
-        self.staged_apply_targets.clear();
-        self.table_mutation_retry_after_reload = false;
-        self.table_mutation_retry_target = None;
-        self.table_mutation_error = None;
+        self.table_mutation.table_mutation_request = None;
+        self.table_mutation.staged_changes.clear();
+        self.table_mutation.staged_apply_request = None;
+        self.table_mutation.staged_apply_targets.clear();
+        self.table_mutation.table_mutation_retry_after_reload = false;
+        self.table_mutation.table_mutation_retry_target = None;
+        self.table_mutation.table_mutation_error = None;
         self.table_data.selected_cell = None;
         self.table_data.selected_row = None;
         self.table_data.selected_rows.clear();

@@ -5,6 +5,7 @@ use super::*;
 #[derive(Debug)]
 pub(crate) struct TableState {
     pub(crate) table_info: Option<UiTableInfo>,
+    pub(crate) table_ddl: Option<String>,
     pub(crate) table_info_error: Option<String>,
     pub(crate) table_ddl_error: Option<String>,
     pub(crate) ddl_execute_confirmation: bool,
@@ -39,6 +40,7 @@ impl Default for TableState {
     fn default() -> Self {
         Self {
             table_info: None,
+            table_ddl: None,
             table_info_error: None,
             table_ddl_error: None,
             ddl_execute_confirmation: false,

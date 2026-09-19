@@ -655,7 +655,7 @@ impl DbProApp {
     }
 
     fn open_diagram_table(&mut self, table: &str) {
-        if self.selected_table.as_deref() != Some(table) && !self.staged_changes.is_empty() {
+        if self.selected_table.as_deref() != Some(table) && !self.table_mutation.staged_changes.is_empty() {
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
@@ -665,7 +665,7 @@ impl DbProApp {
         self.selected_schema_object = None;
         self.schema_object_view = SchemaObjectView::Definition;
         self.table_state.table_info = None;
-        self.table_ddl = None;
+        self.table_state.table_ddl = None;
         self.table_state.table_info_error = None;
         self.table_state.table_ddl_error = None;
         self.table_state.ddl_execute_confirmation = false;

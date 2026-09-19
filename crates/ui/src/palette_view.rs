@@ -699,7 +699,7 @@ impl DbProApp {
     }
 
     pub(crate) fn open_table_from_palette(&mut self, table: String) {
-        if self.selected_table.as_deref() != Some(table.as_str()) && !self.staged_changes.is_empty() {
+        if self.selected_table.as_deref() != Some(table.as_str()) && !self.table_mutation.staged_changes.is_empty() {
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
@@ -710,7 +710,7 @@ impl DbProApp {
         self.selected_schema_object = None;
         self.table_state.table_view = TableView::Structure;
         self.table_state.table_info = None;
-        self.table_ddl = None;
+        self.table_state.table_ddl = None;
         self.table_state.table_data_result = None;
         self.request_table_info();
         self.workspace.active_tab = WorkspaceTab::Table;

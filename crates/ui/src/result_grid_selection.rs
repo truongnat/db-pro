@@ -151,7 +151,7 @@ impl DbProApp {
     }
 
     pub(super) fn mutation_error_for_row(&self, result: &UiQueryResult, row_index: usize) -> bool {
-        let Some(failure) = self.table_mutation_error.as_ref() else {
+        let Some(failure) = self.table_mutation.table_mutation_error.as_ref() else {
             return false;
         };
         let Some(identity) = self.row_identity_for_result(result, row_index) else {
@@ -170,7 +170,7 @@ impl DbProApp {
         row_index: usize,
         column_index: usize,
     ) -> bool {
-        let Some(failure) = self.table_mutation_error.as_ref() else {
+        let Some(failure) = self.table_mutation.table_mutation_error.as_ref() else {
             return false;
         };
         let Some(identity) = self.row_identity_for_result(result, row_index) else {

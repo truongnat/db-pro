@@ -8,7 +8,7 @@ impl DbProApp {
             self.record_recent_table(&table);
             return;
         }
-        if !self.staged_changes.is_empty() {
+        if !self.table_mutation.staged_changes.is_empty() {
             self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable(table));
             self.table_data.discard_changes_confirmation = true;
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
@@ -370,7 +370,7 @@ impl DbProApp {
     pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
         match tab {
             WorkspaceTab::Table => {
-                if !self.staged_changes.is_empty() {
+                if !self.table_mutation.staged_changes.is_empty() {
                     self.workspace.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
                     self.table_data.discard_changes_confirmation = true;
                     self.runtime_message = "Apply or discard staged changes before closing the table".to_owned();
@@ -379,7 +379,7 @@ impl DbProApp {
                 self.workspace.pending_navigation_action = None;
                 self.selected_table = None;
                 self.table_state.table_info = None;
-                self.table_ddl = None;
+                self.table_state.table_ddl = None;
                 self.table_state.table_info_error = None;
                 self.table_state.table_ddl_error = None;
                 self.table_state.table_data_result = None;
@@ -387,13 +387,13 @@ impl DbProApp {
                 self.table_state.table_data_request = None;
                 self.table_state.table_info_request = None;
                 self.table_state.table_ddl_request = None;
-                self.table_mutation_request = None;
-                self.staged_changes.clear();
-                self.staged_apply_request = None;
-                self.staged_apply_targets.clear();
-                self.table_mutation_retry_after_reload = false;
-                self.table_mutation_retry_target = None;
-                self.table_mutation_error = None;
+                self.table_mutation.table_mutation_request = None;
+                self.table_mutation.staged_changes.clear();
+                self.table_mutation.staged_apply_request = None;
+                self.table_mutation.staged_apply_targets.clear();
+                self.table_mutation.table_mutation_retry_after_reload = false;
+                self.table_mutation.table_mutation_retry_target = None;
+                self.table_mutation.table_mutation_error = None;
                 self.table_data.selected_cell = None;
                 self.table_data.selected_row = None;
                 self.table_data.selected_rows.clear();

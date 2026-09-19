@@ -348,7 +348,7 @@ impl DbProApp {
         self.schema_object_view = SchemaObjectView::Definition;
         self.selected_table = None;
         self.table_state.table_info = None;
-        self.table_ddl = None;
+        self.table_state.table_ddl = None;
         self.table_state.table_view = TableView::Ddl;
         self.workspace.active_tab = WorkspaceTab::SchemaObject;
         self.routine_drop_confirm = false;

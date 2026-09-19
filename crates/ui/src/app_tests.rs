@@ -187,15 +187,18 @@ fn grid_copy_uses_staged_values_only_for_data_editor() {
             }),
             ..Default::default()
         },
-        staged_changes: ChangeSet::from(vec![StagedChange::Update {
-            identity: primary_key_identity("2"),
-            current_row_index: Some(0),
-            column_index: 1,
-            column: "name".to_owned(),
-            data_type: "TEXT".to_owned(),
-            original: UiCell::Text("Beta".to_owned()),
-            value: UiCell::Text("Updated".to_owned()),
-        }]),
+        table_mutation: TableMutationState {
+            staged_changes: ChangeSet::from(vec![StagedChange::Update {
+                identity: primary_key_identity("2"),
+                current_row_index: Some(0),
+                column_index: 1,
+                column: "name".to_owned(),
+                data_type: "TEXT".to_owned(),
+                original: UiCell::Text("Beta".to_owned()),
+                value: UiCell::Text("Updated".to_owned()),
+            }]),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -546,7 +549,7 @@ fn table_edits_stage_until_explicit_apply() {
 
     app.submit_data_cell_edit(&value, 0, 1);
 
-    assert_eq!(app.staged_changes.counts().total(), 1);
+    assert_eq!(app.table_mutation.staged_changes.counts().total(), 1);
     assert!(command_rx.try_recv().is_err());
     app.apply_staged_changes();
     assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ApplyTableChanges { changes, .. }) if changes.len() == 1));
@@ -556,7 +559,7 @@ fn table_edits_stage_until_explicit_apply() {
 fn apply_is_blocked_while_a_validation_error_exists() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.staged_changes.stage_update(StagedChange::Update {
+    app.table_mutation.staged_changes.stage_update(StagedChange::Update {
         identity: primary_key_identity("1"),
         current_row_index: Some(0),
         column_index: 1,
@@ -571,7 +574,7 @@ fn apply_is_blocked_while_a_validation_error_exists() {
 
     assert!(command_rx.try_recv().is_err());
     assert_eq!(app.runtime_message, "Fix the validation error before applying changes");
-    assert_eq!(app.staged_changes.counts().total(), 1);
+    assert_eq!(app.table_mutation.staged_changes.counts().total(), 1);
 }
 
 #[test]
@@ -637,7 +640,7 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
         duration_ms: 0,
     };
     assert!(app.submit_data_cell_edit(&result, 0, 0));
-    let Some(StagedChange::Update { value, identity, .. }) = app.staged_changes.iter().next() else {
+    let Some(StagedChange::Update { value, identity, .. }) = app.table_mutation.staged_changes.iter().next() else {
         panic!("primary-key edit was not staged");
     };
     assert_eq!(value, &UiCell::Number("2".to_owned()));
@@ -780,7 +783,7 @@ fn binary_cell_edit_is_refused_with_a_reason() {
         "the reason must be visible: {}",
         app.runtime_message
     );
-    assert_eq!(app.staged_changes.counts().total(), 0);
+    assert_eq!(app.table_mutation.staged_changes.counts().total(), 0);
 }
 
 /// A generated column cannot be staged, even through the commit path.
@@ -874,7 +877,11 @@ fn generated_column_edit_is_refused_before_staging() {
         .as_deref()
         .unwrap_or_default()
         .contains("computed"));
-    assert_eq!(app.staged_changes.counts().total(), 0, "nothing may be staged");
+    assert_eq!(
+        app.table_mutation.staged_changes.counts().total(),
+        0,
+        "nothing may be staged"
+    );
     assert!(
         app.runtime_message.contains("computed"),
         "the reason must be visible: {}",
@@ -958,7 +965,7 @@ fn generated_column_is_never_staged_by_insert() {
 
     app.submit_insert_row();
 
-    let Some(StagedChange::Insert { columns, .. }) = app.staged_changes.iter().next() else {
+    let Some(StagedChange::Insert { columns, .. }) = app.table_mutation.staged_changes.iter().next() else {
         panic!("the insert was not staged");
     };
     assert_eq!(
@@ -1012,7 +1019,7 @@ fn generated_column_is_never_staged_by_insert() {
         "the refusal must be visible: {}",
         second.table_data.insert_row_error
     );
-    assert_eq!(second.staged_changes.counts().total(), 0);
+    assert_eq!(second.table_mutation.staged_changes.counts().total(), 0);
 }
 
 /// Duplicating a row must not prefill a column the policy blocks.
@@ -1113,29 +1120,32 @@ fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
         value: UiCell::Text("new".to_owned()),
     });
     let mut app = DbProApp {
-        staged_apply_request: Some(crate::RequestId(7)),
-        staged_apply_targets: vec![
-            MutationTarget::Delete {
-                identity: primary_key_identity("1"),
-                current_row_index: Some(0),
-            },
-            MutationTarget::Update {
-                identity: primary_key_identity("3"),
-                current_row_index: Some(2),
-                columns: vec![1, 3],
-            },
-        ],
-        staged_changes,
+        table_mutation: TableMutationState {
+            staged_apply_request: Some(crate::RequestId(7)),
+            staged_apply_targets: vec![
+                MutationTarget::Delete {
+                    identity: primary_key_identity("1"),
+                    current_row_index: Some(0),
+                },
+                MutationTarget::Update {
+                    identity: primary_key_identity("3"),
+                    current_row_index: Some(2),
+                    columns: vec![1, 3],
+                },
+            ],
+            staged_changes,
+            ..Default::default()
+        },
         ..Default::default()
     };
 
     app.staged_apply_failed(1, "CONSTRAINT_VIOLATION", "duplicate key value", true);
 
-    assert_eq!(app.staged_apply_request, None);
-    assert_eq!(app.staged_changes.counts().updates, 1);
+    assert_eq!(app.table_mutation.staged_apply_request, None);
+    assert_eq!(app.table_mutation.staged_changes.counts().updates, 1);
     assert_eq!(app.table_data.selected_cell, Some((2, 1)));
     assert!(matches!(
-        app.table_mutation_error.as_ref().and_then(|failure| failure.target.as_ref()),
+        app.table_mutation.table_mutation_error.as_ref().and_then(|failure| failure.target.as_ref()),
         Some(MutationTarget::Update {
             current_row_index: Some(2),
             columns,
@@ -1150,18 +1160,24 @@ fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
 #[test]
 fn conflict_failure_has_distinct_code_and_user_action_message() {
     let mut app = DbProApp {
-        staged_apply_request: Some(crate::RequestId(8)),
-        staged_apply_targets: vec![MutationTarget::Update {
-            identity: primary_key_identity("3"),
-            current_row_index: Some(2),
-            columns: vec![1],
-        }],
+        table_mutation: TableMutationState {
+            staged_apply_request: Some(crate::RequestId(8)),
+            staged_apply_targets: vec![MutationTarget::Update {
+                identity: primary_key_identity("3"),
+                current_row_index: Some(2),
+                columns: vec![1],
+            }],
+            ..Default::default()
+        },
         ..Default::default()
     };
 
     app.staged_apply_failed(0, "CONFLICT", "row count was zero", true);
 
-    let failure = app.table_mutation_error.expect("conflict should be visible");
+    let failure = app
+        .table_mutation
+        .table_mutation_error
+        .expect("conflict should be visible");
     assert_eq!(failure.code, "CONFLICT");
     assert!(failure
         .message
@@ -1171,14 +1187,20 @@ fn conflict_failure_has_distinct_code_and_user_action_message() {
 #[test]
 fn internal_error_code_is_normalized_for_mutation_state() {
     let mut app = DbProApp {
-        staged_apply_request: Some(crate::RequestId(9)),
+        table_mutation: TableMutationState {
+            staged_apply_request: Some(crate::RequestId(9)),
+            ..Default::default()
+        },
         ..Default::default()
     };
 
     app.staged_apply_failed(usize::MAX, "INTERNAL_ERROR", "invariant violation", true);
 
     assert_eq!(
-        app.table_mutation_error.expect("error should be visible").code,
+        app.table_mutation
+            .table_mutation_error
+            .expect("error should be visible")
+            .code,
         "INTERNAL"
     );
 }
@@ -3800,7 +3822,7 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
     }];
     app.connection_lifecycle.active_connection_id = Some("active".to_owned());
     app.connected = true;
-    app.table_ddl = Some("CREATE TABLE \"public\".\"audit\" (id INTEGER)".to_owned());
+    app.table_state.table_ddl = Some("CREATE TABLE \"public\".\"audit\" (id INTEGER)".to_owned());
 
     app.submit_ddl();
 
@@ -4047,8 +4069,8 @@ fn test_open_table_blocked_with_unapplied_staged_changes() {
         selected_table: Some("users".to_owned()),
         ..Default::default()
     };
-    app.staged_changes.ensure_target("users");
-    app.staged_changes.stage_update(StagedChange::Update {
+    app.table_mutation.staged_changes.ensure_target("users");
+    app.table_mutation.staged_changes.stage_update(StagedChange::Update {
         identity: primary_key_identity("1"),
         current_row_index: Some(0),
         column_index: 0,
@@ -4135,8 +4157,8 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
         selected_table: Some("users".to_owned()),
         ..Default::default()
     };
-    app.staged_changes.ensure_target("users");
-    app.staged_changes.stage_update(StagedChange::Update {
+    app.table_mutation.staged_changes.ensure_target("users");
+    app.table_mutation.staged_changes.stage_update(StagedChange::Update {
         identity: primary_key_identity("1"),
         current_row_index: Some(0),
         column_index: 0,
@@ -4159,7 +4181,7 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
     app.table_data.discard_changes_confirmation = false;
     app.workspace.pending_navigation_action = None;
     assert_eq!(app.selected_table, Some("users".to_owned()));
-    assert!(!app.staged_changes.is_empty());
+    assert!(!app.table_mutation.staged_changes.is_empty());
 
     // 3. Staged apply success executes pending navigation action
     app.open_table("products".to_owned());
@@ -4169,7 +4191,7 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
     );
     app.staged_apply_completed();
     assert_eq!(app.selected_table, Some("products".to_owned()));
-    assert!(app.staged_changes.is_empty());
+    assert!(app.table_mutation.staged_changes.is_empty());
     assert!(app.workspace.pending_navigation_action.is_none());
 }
 
@@ -5537,7 +5559,7 @@ fn test_inserted_row_delete_removes_from_changeset_without_db_delete() {
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.selected_table = Some("users".to_owned());
 
-    let local_id = app.staged_changes.stage_insert(
+    let local_id = app.table_mutation.staged_changes.stage_insert(
         vec!["username".to_owned(), "email".to_owned()],
         vec![
             UiCell::Text("alice".to_owned()),
@@ -5545,13 +5567,13 @@ fn test_inserted_row_delete_removes_from_changeset_without_db_delete() {
         ],
     );
 
-    assert_eq!(app.staged_changes.counts().inserts, 1);
-    assert_eq!(app.staged_changes.counts().total(), 1);
+    assert_eq!(app.table_mutation.staged_changes.counts().inserts, 1);
+    assert_eq!(app.table_mutation.staged_changes.counts().total(), 1);
 
     // Deleting the draft insert row removes it locally
-    let removed = app.staged_changes.remove_insert(local_id);
+    let removed = app.table_mutation.staged_changes.remove_insert(local_id);
     assert!(removed);
-    assert!(app.staged_changes.is_empty());
+    assert!(app.table_mutation.staged_changes.is_empty());
 
     // Apply now has zero changes and dispatches nothing
     app.apply_staged_changes();
@@ -5561,7 +5583,10 @@ fn test_inserted_row_delete_removes_from_changeset_without_db_delete() {
 #[test]
 fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
     let mut app = DbProApp {
-        staged_apply_request: Some(crate::RequestId(12)),
+        table_mutation: TableMutationState {
+            staged_apply_request: Some(crate::RequestId(12)),
+            ..Default::default()
+        },
         table_state: TableState {
             table_data_result: Some(UiQueryResult {
                 columns: vec![
@@ -5602,7 +5627,7 @@ fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
         original_pk_values: vec![UiCell::Number("3".to_owned())],
     };
 
-    app.staged_changes.stage_update(StagedChange::Update {
+    app.table_mutation.staged_changes.stage_update(StagedChange::Update {
         identity: id_1.clone(),
         current_row_index: Some(0),
         column_index: 1,
@@ -5611,7 +5636,7 @@ fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
         original: UiCell::Text("Alice".to_owned()),
         value: UiCell::Text("Alice Updated".to_owned()),
     });
-    app.staged_changes.stage_update(StagedChange::Update {
+    app.table_mutation.staged_changes.stage_update(StagedChange::Update {
         identity: id_2.clone(),
         current_row_index: Some(1),
         column_index: 1,
@@ -5620,12 +5645,12 @@ fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
         original: UiCell::Text("Bob".to_owned()),
         value: UiCell::Text("Bob Conflicting".to_owned()),
     });
-    app.staged_changes.stage_delete(StagedChange::Delete {
+    app.table_mutation.staged_changes.stage_delete(StagedChange::Delete {
         identity: id_3.clone(),
         current_row_index: Some(2),
     });
 
-    app.staged_apply_targets = vec![
+    app.table_mutation.staged_apply_targets = vec![
         MutationTarget::Update {
             identity: id_1,
             current_row_index: Some(0),
@@ -5646,20 +5671,24 @@ fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
     app.staged_apply_failed(1, "CONFLICT", "row count was zero", true);
 
     // 1. Transaction rolled back
-    let failure = app.table_mutation_error.as_ref().expect("failure recorded");
+    let failure = app
+        .table_mutation
+        .table_mutation_error
+        .as_ref()
+        .expect("failure recorded");
     assert!(failure.rolled_back);
     assert_eq!(failure.code, "CONFLICT");
 
     // 2. ChangeSet remains intact (2 updates + 1 delete)
-    assert_eq!(app.staged_changes.counts().updates, 2);
-    assert_eq!(app.staged_changes.counts().deletes, 1);
+    assert_eq!(app.table_mutation.staged_changes.counts().updates, 2);
+    assert_eq!(app.table_mutation.staged_changes.counts().deletes, 1);
 
     // 3. Focus moves to failed row and cell
     assert_eq!(app.table_data.selected_row, Some(1));
     assert_eq!(app.table_data.selected_cell, Some((1, 1)));
 
     // 4. Conflict resolution dialog opened
-    assert!(app.conflict_dialog_open);
+    assert!(app.table_mutation.conflict_dialog_open);
 }
 
 #[test]
@@ -5692,7 +5721,7 @@ fn test_conflict_keep_mine_and_use_database_resolution_actions() {
         duration_ms: 0,
     });
 
-    app.staged_changes.stage_update(StagedChange::Update {
+    app.table_mutation.staged_changes.stage_update(StagedChange::Update {
         identity: id.clone(),
         current_row_index: Some(0),
         column_index: 1,
@@ -5702,7 +5731,7 @@ fn test_conflict_keep_mine_and_use_database_resolution_actions() {
         value: UiCell::Text("val_mine".to_owned()),
     });
 
-    app.table_mutation_error = Some(MutationFailure {
+    app.table_mutation.table_mutation_error = Some(MutationFailure {
         statement_index: 0,
         target: Some(MutationTarget::Update {
             identity: id.clone(),
@@ -5713,13 +5742,13 @@ fn test_conflict_keep_mine_and_use_database_resolution_actions() {
         message: "Conflict".to_owned(),
         rolled_back: true,
     });
-    app.conflict_dialog_open = true;
+    app.table_mutation.conflict_dialog_open = true;
 
     // Test Use Database: reverts local staged changes
     app.conflict_use_database();
-    assert!(app.staged_changes.is_empty());
-    assert!(app.table_mutation_error.is_none());
-    assert!(!app.conflict_dialog_open);
+    assert!(app.table_mutation.staged_changes.is_empty());
+    assert!(app.table_mutation.table_mutation_error.is_none());
+    assert!(!app.table_mutation.conflict_dialog_open);
 }
 
 /// The status bar used to render `runtime_message` only when the text happened to

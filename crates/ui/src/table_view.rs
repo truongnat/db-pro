@@ -7,7 +7,7 @@ impl DbProApp {
             return;
         };
         if self.table_state.table_view == TableView::Ddl
-            && self.table_ddl.is_none()
+            && self.table_state.table_ddl.is_none()
             && self.table_state.table_ddl_request.is_none()
         {
             self.request_table_ddl();
@@ -114,7 +114,7 @@ impl DbProApp {
                             self.reset_table_data_page();
                             self.request_table_data();
                         } else if self.table_state.table_view == TableView::Ddl {
-                            self.table_ddl = None;
+                            self.table_state.table_ddl = None;
                             self.request_table_ddl();
                         }
                     }

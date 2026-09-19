@@ -345,7 +345,7 @@ impl DbProApp {
         descending: Option<bool>,
     ) {
         if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
-            if !self.staged_changes.is_empty() {
+            if !self.table_mutation.staged_changes.is_empty() {
                 self.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
                 return;
             }
@@ -371,7 +371,7 @@ impl DbProApp {
     /// makes the clicked column the next priority; plain click selects one
     /// clause and cycles ASC -> DESC -> none.
     pub(crate) fn cycle_table_data_sort(&mut self, result: &UiQueryResult, column_index: usize, additive: bool) {
-        if !self.staged_changes.is_empty() {
+        if !self.table_mutation.staged_changes.is_empty() {
             self.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
             return;
         }
@@ -461,7 +461,7 @@ impl DbProApp {
                 self.apply_staged_changes();
             }
             if ui.input(|input| input.key_pressed(egui::Key::Z) && Self::primary_modifier_pressed(input)) {
-                if self.staged_changes.counts().total() > 1 {
+                if self.table_mutation.staged_changes.counts().total() > 1 {
                     self.table_data.discard_changes_confirmation = true;
                 } else {
                     self.discard_staged_changes();

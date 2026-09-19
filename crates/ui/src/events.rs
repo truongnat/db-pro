@@ -353,7 +353,7 @@ impl DbProApp {
         self.selected_table = None;
         self.selected_schema_object = None;
         self.table_state.table_info = None;
-        self.table_ddl = None;
+        self.table_state.table_ddl = None;
         self.table_state.table_info_error = None;
         self.table_state.table_ddl_error = None;
         self.table_state.ddl_execute_confirmation = false;
@@ -491,7 +491,7 @@ impl DbProApp {
 
     fn on_table_ddl_loaded(&mut self, request_id: RequestId, sql: String) {
         if self.table_state.table_ddl_request == Some(request_id) {
-            self.table_ddl = Some(sql);
+            self.table_state.table_ddl = Some(sql);
             self.table_state.ddl_execute_confirmation = false;
             self.table_state.table_ddl_error = None;
             self.table_state.table_ddl_request = None;
@@ -526,7 +526,7 @@ impl DbProApp {
         self.table_state.table_data_result = Some(result);
         self.invalidate_grid_row_caches();
         self.table_state.table_data_total_rows = Some(total_rows);
-        if self.staged_changes.is_empty() {
+        if self.table_mutation.staged_changes.is_empty() {
             self.table_data.selected_cell = None;
             self.table_data.selected_row = None;
             self.table_data.selected_rows.clear();
@@ -536,8 +536,8 @@ impl DbProApp {
         self.table_state.table_data_error = None;
         self.table_state.table_data_request = None;
         self.runtime_message = format!("Table data loaded · {total_rows} rows");
-        if self.table_mutation_retry_after_reload {
-            self.table_mutation_retry_after_reload = false;
+        if self.table_mutation.table_mutation_retry_after_reload {
+            self.table_mutation.table_mutation_retry_after_reload = false;
             self.apply_staged_changes();
         }
     }
@@ -549,9 +549,9 @@ impl DbProApp {
         };
         let Some(server_row) = result.rows.into_iter().next() else {
             self.runtime_message = "Row was deleted".to_owned();
-            if self.table_mutation_retry_after_reload {
-                self.table_mutation_retry_after_reload = false;
-                self.table_mutation_retry_target = None;
+            if self.table_mutation.table_mutation_retry_after_reload {
+                self.table_mutation.table_mutation_retry_after_reload = false;
+                self.table_mutation.table_mutation_retry_target = None;
             }
             return;
         };
@@ -579,8 +579,8 @@ impl DbProApp {
         }
         self.table_state.table_data_error = None;
         self.runtime_message = "Row reloaded from database".to_owned();
-        if self.table_mutation_retry_after_reload {
-            self.table_mutation_retry_after_reload = false;
+        if self.table_mutation.table_mutation_retry_after_reload {
+            self.table_mutation.table_mutation_retry_after_reload = false;
             self.apply_staged_changes();
         }
     }
@@ -734,10 +734,10 @@ impl DbProApp {
         self.table_data.data_edit_value.clear();
         self.table_data.data_edit_error = None;
         self.table_data.data_delete_confirmation = false;
-        if self.staged_apply_request == Some(request_id) {
+        if self.table_mutation.staged_apply_request == Some(request_id) {
             self.staged_apply_completed();
-        } else if self.table_mutation_request == Some(request_id) {
-            self.table_mutation_request = None;
+        } else if self.table_mutation.table_mutation_request == Some(request_id) {
+            self.table_mutation.table_mutation_request = None;
             self.table_state.table_data_result = None;
             self.table_state.table_data_total_rows = None;
             self.table_state.table_data_error = None;
@@ -800,7 +800,7 @@ impl DbProApp {
         statement_index: usize,
         rolled_back: bool,
     ) {
-        if self.staged_apply_request == Some(request_id) {
+        if self.table_mutation.staged_apply_request == Some(request_id) {
             self.staged_apply_failed(statement_index, &code, &message, rolled_back);
         }
     }

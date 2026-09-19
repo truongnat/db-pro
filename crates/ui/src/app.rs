@@ -140,6 +140,8 @@ mod sidebar_activities_view;
 mod sidebar_view;
 #[path = "table_data_state.rs"]
 mod table_data_state;
+#[path = "table_mutation_state.rs"]
+mod table_mutation_state;
 #[path = "table_state.rs"]
 mod table_state;
 #[path = "tasks_view.rs"]
@@ -156,6 +158,7 @@ pub(crate) use query_output_state::QueryOutputState;
 pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
 pub(crate) use table_data_state::TableDataState;
+pub(crate) use table_mutation_state::TableMutationState;
 pub(crate) use table_state::TableState;
 #[path = "schema_compare.rs"]
 mod schema_compare;
@@ -469,18 +472,9 @@ pub struct DbProApp {
     diagram_layout_state: crate::diagram::ErLayoutState,
     diagram_latest_layout_request: u64,
     table_state: TableState,
-    table_ddl: Option<String>,
     /// A destructive statement the user must confirm before it reaches the database.
     pending_destructive_run: Option<events::PendingDestructiveRun>,
-    table_mutation_request: Option<crate::RequestId>,
-    staged_changes: ChangeSet,
-    pending_changes_open: bool,
-    staged_apply_request: Option<crate::RequestId>,
-    staged_apply_targets: Vec<MutationTarget>,
-    table_mutation_retry_after_reload: bool,
-    table_mutation_retry_target: Option<MutationTarget>,
-    table_mutation_error: Option<MutationFailure>,
-    conflict_dialog_open: bool,
+    table_mutation: TableMutationState,
     query_folder: String,
     backup_output_path: String,
     restore_input_path: String,
@@ -807,8 +801,8 @@ impl DbProApp {
             || self.table_state.table_info_request.is_some()
             || self.table_state.table_ddl_request.is_some()
             || self.table_state.table_data_request.is_some()
-            || self.table_mutation_request.is_some()
-            || self.staged_apply_request.is_some()
+            || self.table_mutation.table_mutation_request.is_some()
+            || self.table_mutation.staged_apply_request.is_some()
             || self.table_state.ddl_execution_request.is_some()
     }
 

@@ -8,7 +8,7 @@ use lucide_icons::Icon;
 impl DbProApp {
     /// Draw the DDL / Schema tab.
     pub(super) fn draw_table_ddl_view(&mut self, ui: &mut egui::Ui, table_name: &str) {
-        let Some(mut ddl) = self.table_ddl.clone() else {
+        let Some(mut ddl) = self.table_state.table_ddl.clone() else {
             self.draw_table_ddl_placeholder(ui, table_name);
             return;
         };
@@ -34,7 +34,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        self.table_ddl = None;
+                        self.table_state.table_ddl = None;
                         self.request_table_ddl();
                     }
 
@@ -73,11 +73,11 @@ impl DbProApp {
 
         let content_changed = self.draw_ddl_script_card(ui, can_mutate, &mut ddl);
         if content_changed {
-            self.table_ddl = Some(ddl);
+            self.table_state.table_ddl = Some(ddl);
         }
 
         if self.table_state.ddl_execute_confirmation {
-            let impact = ddl_impact_summary(self.table_ddl.as_deref().unwrap_or(""), table_name);
+            let impact = ddl_impact_summary(self.table_state.table_ddl.as_deref().unwrap_or(""), table_name);
             ui.add_space(8.0);
             self.draw_ddl_confirmation_card(ui, &impact);
         }

@@ -243,11 +243,14 @@ fn sorting_is_blocked_while_staged_changes_are_present() {
             table_view: TableView::Data,
             ..Default::default()
         },
-        staged_changes: ChangeSet::from(vec![StagedChange::Insert {
-            local_id: 1,
-            columns: vec!["name".to_owned()],
-            values: vec![UiCell::Text("draft".to_owned())],
-        }]),
+        table_mutation: TableMutationState {
+            staged_changes: ChangeSet::from(vec![StagedChange::Insert {
+                local_id: 1,
+                columns: vec!["name".to_owned()],
+                values: vec![UiCell::Text("draft".to_owned())],
+            }]),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let result = UiQueryResult {

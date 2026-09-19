@@ -48,6 +48,7 @@ impl DbProApp {
         let validation_error = editing && self.table_data.data_edit_error.is_some();
         let conflict_error = (cell_mutation_error || row_mutation_error)
             && self
+                .table_mutation
                 .table_mutation_error
                 .as_ref()
                 .is_some_and(|failure| failure.code == "CONFLICT");
@@ -114,7 +115,7 @@ impl DbProApp {
                     },
                 ),
             );
-            if let Some(error) = self.table_mutation_error.as_ref() {
+            if let Some(error) = self.table_mutation.table_mutation_error.as_ref() {
                 cell_resp.clone().on_hover_text(error.message.as_str());
             }
         }
@@ -367,7 +368,7 @@ impl DbProApp {
                 let has_row_change = self
                     .row_identity_for_result(result, row_index)
                     .as_ref()
-                    .map(|identity| self.staged_changes.row_has_changes(identity))
+                    .map(|identity| self.table_mutation.staged_changes.row_has_changes(identity))
                     .unwrap_or(false);
                 if has_row_change
                     && ctx_menu_item(
