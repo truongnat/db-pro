@@ -711,7 +711,7 @@ impl DbProApp {
             table_events::on_table_info_loaded(&mut self.table_state, &mut self.feedback, request_id, table_info)
         {
             if transition.invalidate_grid_caches {
-                self.invalidate_grid_row_caches();
+                self.table_data.invalidate_grid_row_caches();
             }
         }
     }
@@ -735,7 +735,7 @@ impl DbProApp {
             total_rows,
         ) {
             if transition.invalidate_grid_caches {
-                self.invalidate_grid_row_caches();
+                self.table_data.invalidate_grid_row_caches();
             }
             if transition.apply_staged_changes {
                 self.table_mutation.table_mutation_retry_after_reload = false;
@@ -752,7 +752,7 @@ impl DbProApp {
             result,
         );
         if transition.invalidate_grid_caches {
-            self.invalidate_grid_row_caches();
+            self.table_data.invalidate_grid_row_caches();
         }
         if transition.apply_staged_changes {
             self.table_mutation.table_mutation_retry_after_reload = false;

@@ -202,28 +202,9 @@ impl DbProApp {
         {
             if index < doc.query_results.len() && doc.active_result_index != index {
                 doc.active_result_index = index;
-                self.invalidate_grid_projection();
+                self.table_data.invalidate_grid_projection();
             }
         }
-    }
-
-    /// Advance the grid's projection epoch: the displayed rows are about to change.
-    ///
-    /// Called wherever the row data behind the grid is replaced or edited in place — loading query
-    /// results, loading table data, reloading one row, switching the active result set. Missing a
-    /// call does not corrupt data, but the grid would keep drawing the previous order and filter.
-    pub(crate) fn invalidate_grid_projection(&mut self) {
-        self.table_data.grid_projection_epoch = self.table_data.grid_projection_epoch.wrapping_add(1);
-    }
-
-    /// Drop the per-row identity cache and the projection built from those rows.
-    ///
-    /// The two are invalidated together on purpose: every site that changes row data needs both, and
-    /// keeping them in one call is what makes "no site was forgotten" checkable by grep.
-    pub(crate) fn invalidate_grid_row_caches(&mut self) {
-        self.table_data.grid_row_identity_cache.clear();
-        self.table_data.grid_row_identity_cache_ready = false;
-        self.invalidate_grid_projection();
     }
 
     /// The projection key for the result currently being drawn.

@@ -358,7 +358,7 @@ fn result_grid_rebuilds_the_projection_when_an_input_changes() {
     assert_eq!(app.table_data.grid_selection_cache.rebuilds(), 4);
 
     // A new result set behind the same filter and sort: only the epoch differs.
-    app.invalidate_grid_projection();
+    app.table_data.invalidate_grid_projection();
     draw_grid_frame(&mut app, &ctx, &result);
     assert_eq!(app.table_data.grid_projection_cache.rebuilds(), 5);
     assert_eq!(app.table_data.grid_selection_cache.rebuilds(), 5);

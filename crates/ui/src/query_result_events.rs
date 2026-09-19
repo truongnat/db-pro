@@ -25,7 +25,7 @@ pub(super) fn on_query_completed(context: &mut QueryResultContext<'_>, request_i
     let target_doc_id = query_session.document_requests.remove(&request_id);
     // A new result set replaces the rows behind the grid, so nothing the projection cache holds
     // may survive it.
-    table_data.grid_projection_epoch = table_data.grid_projection_epoch.wrapping_add(1);
+    table_data.invalidate_grid_projection();
     let mut history = None;
     if let Some(doc_id) = &target_doc_id {
         if let Some(doc) = query_session.documents.iter_mut().find(|doc| &doc.id == doc_id) {

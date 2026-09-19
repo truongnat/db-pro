@@ -473,7 +473,7 @@ impl DbProApp {
             document.active_result_index = 0;
             self.query_output_state.active_tab = OutputTab::Results;
             // The agent's result replaces the rows behind the grid.
-            self.invalidate_grid_projection();
+            self.table_data.invalidate_grid_projection();
             if total_rows > sample_len as u64 {
                 self.feedback.runtime_message =
                     format!("Showing {sample_len} sampled rows of {total_rows} total rows.");

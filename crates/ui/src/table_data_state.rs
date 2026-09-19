@@ -76,6 +76,18 @@ impl Default for TableDataState {
     }
 }
 
+impl TableDataState {
+    pub(super) fn invalidate_grid_projection(&mut self) {
+        self.grid_projection_epoch = self.grid_projection_epoch.wrapping_add(1);
+    }
+
+    pub(super) fn invalidate_grid_row_caches(&mut self) {
+        self.grid_row_identity_cache.clear();
+        self.grid_row_identity_cache_ready = false;
+        self.invalidate_grid_projection();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,5 +101,24 @@ mod tests {
         assert!(state.selected_rows.is_empty());
         assert!(state.data_editing_cell.is_none());
         assert!(!state.insert_row_open);
+    }
+
+    #[test]
+    fn grid_cache_invalidation_is_owned_by_table_data_state() {
+        let mut state = TableDataState::default();
+        state.grid_row_identity_cache.insert(
+            0,
+            RowIdentity {
+                original_pk_columns: Vec::new(),
+                original_pk_values: Vec::new(),
+            },
+        );
+        state.grid_row_identity_cache_ready = true;
+
+        state.invalidate_grid_row_caches();
+
+        assert!(state.grid_row_identity_cache.is_empty());
+        assert!(!state.grid_row_identity_cache_ready);
+        assert_eq!(state.grid_projection_epoch, 1);
     }
 }

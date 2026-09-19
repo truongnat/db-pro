@@ -31,7 +31,7 @@ pub(super) fn on_query_multi_completed(
         return;
     };
     // Same as the single-statement path: the result sets behind the grid are being replaced.
-    table_data.grid_projection_epoch = table_data.grid_projection_epoch.wrapping_add(1);
+    table_data.invalidate_grid_projection();
     let mut history = None;
     if let Some(doc) = query_session.documents.iter_mut().find(|doc| doc.id == doc_id) {
         let (started_at, duration_ms) = doc.take_execution_timing(output.total_duration_ms);
