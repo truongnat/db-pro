@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `35e341f6`.
+Source checkpoint: `7adcf7d8`.
 
 ## Current change
 
@@ -127,6 +127,9 @@ Source checkpoint: `35e341f6`.
   deleted.
 - Recent-table MRU ownership now lives on `SchemaExplorerState`; workspace,
   palette, explorer and tests use the state API instead of a root facade.
+- Palette open lifecycle now lives on `PaletteState`; navigation, welcome,
+  sidebar, query shortcuts and tests no longer call a `DbProApp` palette
+  mutation facade.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
@@ -172,11 +175,11 @@ Source checkpoint: `35e341f6`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 586 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 587 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1258 passed, 0 failed, 42 ignored.
+- `cargo test --workspace --no-fail-fast`: 1259 passed, 0 failed, 42 ignored.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 11 pass, 5 warnings, 0 failures; warnings are ratcheted size/cast/clone heuristics.

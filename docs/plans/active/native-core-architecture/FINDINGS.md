@@ -202,6 +202,9 @@ cross-feature routing remains explicit at the composition root.
 Recent-table MRU ownership now follows the state-owner rule on
 `SchemaExplorerState`; workspace, palette and explorer consumers no longer
 depend on a `DbProApp` recent-table facade.
+Palette open lifecycle now follows the state-owner rule on `PaletteState`;
+navigation, welcome, sidebar and query shortcut consumers no longer mutate
+palette state through the composition root.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
