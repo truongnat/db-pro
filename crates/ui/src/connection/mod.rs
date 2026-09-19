@@ -1,4 +1,5 @@
 pub mod advanced_panels;
+pub mod catalog;
 pub mod config;
 pub mod confirm_dialogs;
 pub mod form_fields;
@@ -14,6 +15,7 @@ mod tests;
 
 use crate::{DbProApp, UiConnectionSummary, UiDriver};
 
+pub(crate) use catalog::ConnectionCatalogState;
 pub(crate) use lifecycle::ConnectionLifecycleState;
 pub(crate) use state::ConnectionDialogState;
 

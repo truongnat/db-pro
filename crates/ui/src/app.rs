@@ -1,4 +1,4 @@
-use self::connection::{ConnectionDialogState, ConnectionLifecycleState};
+use self::connection::{ConnectionCatalogState, ConnectionDialogState, ConnectionLifecycleState};
 use crate::components::*;
 use crate::editor::PredictionMode;
 use crate::query::SchemaSymbolIndex;
@@ -324,7 +324,7 @@ pub struct DbProApp {
     /// Set when the export dialog was asked to write over an existing file and is waiting for the
     /// user to confirm it (#244, E-1).
     export_overwrite_pending: bool,
-    connections: Vec<UiConnectionSummary>,
+    connection_catalog: ConnectionCatalogState,
     saved_queries: Vec<UiSavedQuerySummary>,
     query_folders: Vec<UiQueryFolderSummary>,
     schema: UiSchemaSummary,

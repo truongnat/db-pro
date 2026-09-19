@@ -201,7 +201,7 @@ impl DbProApp {
         self.selected_schema = session.selected_schema.clone();
 
         if let Some(conn_id) = &session.active_connection_id {
-            if self.connections.iter().any(|c| c.id == *conn_id) {
+            if self.connection_catalog.connections.iter().any(|c| c.id == *conn_id) {
                 self.connection_lifecycle.active_connection_id = Some(conn_id.clone());
             } else {
                 self.connection_lifecycle.active_connection_id = None;

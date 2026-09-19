@@ -5,7 +5,7 @@ use lucide_icons::Icon;
 
 impl DbProApp {
     pub(super) fn active_connection(&self) -> Option<&UiConnectionSummary> {
-        self.connections.iter().find(|connection| {
+        self.connection_catalog.connections.iter().find(|connection| {
             Some(connection.id.as_str()) == self.connection_lifecycle.active_connection_id.as_deref()
         })
     }

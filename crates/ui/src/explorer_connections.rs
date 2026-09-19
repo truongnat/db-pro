@@ -24,9 +24,9 @@ fn connection_display_uri(connection: &UiConnectionSummary) -> String {
 
 impl DbProApp {
     pub(super) fn draw_dbeaver_connections_tree(&mut self, ui: &mut egui::Ui) {
-        let connection_count = self.connections.len();
+        let connection_count = self.connection_catalog.connections.len();
         for index in 0..connection_count {
-            let connection = self.connections[index].clone();
+            let connection = self.connection_catalog.connections[index].clone();
             let is_active = self.connection_lifecycle.active_connection_id.as_deref() == Some(&connection.id);
             let is_connected = self.connected && is_active;
             let is_connecting = self.connection_lifecycle.pending_request.is_some()

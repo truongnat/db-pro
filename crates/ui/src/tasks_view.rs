@@ -263,7 +263,13 @@ impl DbProApp {
             .connection_lifecycle
             .active_connection_id
             .clone()
-            .unwrap_or_else(|| self.connections.first().map(|c| c.id.clone()).unwrap_or_default());
+            .unwrap_or_else(|| {
+                self.connection_catalog
+                    .connections
+                    .first()
+                    .map(|c| c.id.clone())
+                    .unwrap_or_default()
+            });
         self.saved_task_draft = Some(SavedTask {
             id: Uuid::new_v4(),
             name: "SQL task".into(),
@@ -284,7 +290,13 @@ impl DbProApp {
             .connection_lifecycle
             .active_connection_id
             .clone()
-            .unwrap_or_else(|| self.connections.first().map(|c| c.id.clone()).unwrap_or_default());
+            .unwrap_or_else(|| {
+                self.connection_catalog
+                    .connections
+                    .first()
+                    .map(|c| c.id.clone())
+                    .unwrap_or_default()
+            });
         self.saved_task_draft = Some(SavedTask {
             id: Uuid::new_v4(),
             name: "Backup".into(),

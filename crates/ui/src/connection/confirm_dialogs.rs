@@ -11,6 +11,7 @@ impl DbProApp {
             return;
         };
         let name = self
+            .connection_catalog
             .connections
             .iter()
             .find(|connection| connection.id == connection_id)

@@ -292,7 +292,7 @@ impl DbProApp {
 
     pub(crate) fn active_query_connection(&self) -> Option<&UiConnectionSummary> {
         let conn_id = self.active_query_connection_id()?;
-        self.connections.iter().find(|c| c.id == conn_id)
+        self.connection_catalog.find(conn_id)
     }
 
     /// Capabilities for the connection the active query document is bound to.

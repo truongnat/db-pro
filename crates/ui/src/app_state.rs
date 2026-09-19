@@ -302,7 +302,7 @@ impl Default for DbProApp {
             export_format: "CSV".to_owned(),
             export_path: String::new(),
             export_overwrite_pending: false,
-            connections: Vec::new(),
+            connection_catalog: ConnectionCatalogState::default(),
             saved_queries: Vec::new(),
             query_folders: Vec::new(),
             schema: UiSchemaSummary::default(),
