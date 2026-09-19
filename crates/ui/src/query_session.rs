@@ -94,12 +94,12 @@ impl DbProApp {
     }
 
     pub(crate) fn switch_query_document(&mut self, index: usize) {
-        if index >= self.query_session_state.documents.len() || index == self.query_session_state.active_document_index
-        {
+        if index == self.query_session_state.active_document_index || !self.query_session_state.select_document(index) {
             return;
         }
-        self.query_session_state.active_document_index = index;
-        let doc = &self.query_session_state.documents[index];
+        let Some(doc) = self.query_session_state.active_document() else {
+            return;
+        };
         self.query_editor.query_cursor_line = doc.cursor.line + 1;
         self.query_editor.query_cursor_column = doc.cursor.col + 1;
         if !doc.selection.is_empty() {

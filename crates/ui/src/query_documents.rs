@@ -7,8 +7,7 @@ impl DbProApp {
         let mut doc = QueryDocument::new(document_id, format!("Query {index}"), String::new());
         doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
         doc.schema = Some(self.active_schema().to_owned());
-        self.query_session_state.documents.push(doc);
-        self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
+        self.query_session_state.add_document(doc);
         self.query_editor.query_focus_editor_on_open = true;
         self.reset_query_cursor();
         self.workspace.activity = Activity::Queries;
@@ -22,8 +21,7 @@ impl DbProApp {
         let mut doc = QueryDocument::new(document_id, format!("Scratch {index}"), String::new());
         doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
         doc.schema = Some(self.active_schema().to_owned());
-        self.query_session_state.documents.push(doc);
-        self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
+        self.query_session_state.add_document(doc);
         self.query_editor.query_focus_editor_on_open = true;
         self.reset_query_cursor();
         self.workspace.activity = Activity::Queries;
@@ -54,8 +52,7 @@ impl DbProApp {
         let mut document = QueryDocument::new(document_id, format!("History {document_number}"), entry.sql.clone());
         document.connection_id = entry.connection_id.clone();
         document.schema = entry.schema.clone();
-        self.query_session_state.documents.push(document);
-        self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
+        self.query_session_state.add_document(document);
         self.query_editor.query_focus_editor_on_open = true;
         self.workspace.activity = Activity::Queries;
         self.workspace.active_tab = WorkspaceTab::Query;
@@ -83,7 +80,7 @@ impl DbProApp {
             self.send_command_best_effort(UiCommand::CancelAgentRun { request_id, run_id });
         }
         self.agent.sessions.remove(&closed_id);
-        self.query_session_state.documents.remove(index);
+        self.query_session_state.remove_document(index);
         self.query_output_state.tabs_by_document.remove(&closed_id);
 
         if self.query_session_state.documents.is_empty() {
@@ -96,15 +93,9 @@ impl DbProApp {
             return;
         }
 
-        if self.query_session_state.active_document_index > index {
-            self.query_session_state.active_document_index -= 1;
-        } else if self.query_session_state.active_document_index == index {
-            self.query_session_state.active_document_index = self
-                .query_session_state
-                .active_document_index
-                .min(self.query_session_state.documents.len() - 1);
-        }
-        let doc = &self.query_session_state.documents[self.query_session_state.active_document_index];
+        let Some(doc) = self.query_session_state.active_document() else {
+            return;
+        };
         self.query_editor.query_cursor_line = doc.cursor.line + 1;
         self.query_editor.query_cursor_column = doc.cursor.col + 1;
         if !doc.selection.is_empty() {
@@ -158,6 +149,7 @@ impl DbProApp {
             return;
         }
         let src = &self.query_session_state.documents[index];
+        let src_title = src.title.clone();
         let title = format!("{} (Copy)", src.title);
         let content = src.text().to_owned();
         let (document_id, _) = self.next_query_document_identity();
@@ -167,11 +159,10 @@ impl DbProApp {
             .clone()
             .or_else(|| self.connection.lifecycle.active_connection_id().map(str::to_owned));
         new_doc.schema = src.schema.clone().or_else(|| Some(self.active_schema().to_owned()));
-        self.query_session_state.documents.push(new_doc);
-        self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
+        self.query_session_state.add_document(new_doc);
         self.query_editor.query_focus_editor_on_open = true;
         self.workspace.active_tab = WorkspaceTab::Query;
-        self.feedback.runtime_message = format!("Duplicated {}", self.query_session_state.documents[index].title);
+        self.feedback.runtime_message = format!("Duplicated {src_title}");
     }
 
     pub(crate) fn close_other_query_documents(&mut self, keep_index: usize) {
@@ -183,9 +174,7 @@ impl DbProApp {
                 self.cancel_prediction_for_document(index);
             }
         }
-        let kept = self.query_session_state.documents[keep_index].clone();
-        self.query_session_state.documents = vec![kept];
-        self.query_session_state.active_document_index = 0;
+        self.query_session_state.keep_document(keep_index);
         self.feedback.runtime_message = "Closed other queries".to_owned();
     }
 
@@ -196,10 +185,7 @@ impl DbProApp {
         for query_index in index + 1..self.query_session_state.documents.len() {
             self.cancel_prediction_for_document(query_index);
         }
-        self.query_session_state.documents.truncate(index + 1);
-        if self.query_session_state.active_document_index > index {
-            self.query_session_state.active_document_index = index;
-        }
+        self.query_session_state.close_documents_to_right(index);
         self.feedback.runtime_message = "Closed queries to the right".to_owned();
     }
 
@@ -208,8 +194,8 @@ impl DbProApp {
             self.cancel_prediction_for_document(index);
         }
         self.workspace.welcome_open = true;
-        self.query_session_state.documents = vec![QueryDocument::new("query-1", "Query 1", String::new())];
-        self.query_session_state.active_document_index = 0;
+        self.query_session_state
+            .replace_with_document(QueryDocument::new("query-1", "Query 1", String::new()));
         self.schema_explorer.selected_table = None;
         self.schema_explorer.selected_schema_object = None;
         self.workspace.active_tab = WorkspaceTab::Welcome;
