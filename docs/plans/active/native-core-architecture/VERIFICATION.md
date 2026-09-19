@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `941db9014e32250d972a80d077bb602a97c2407f`.
+Source checkpoint: `f2743613`.
 
 ## Current change
 
@@ -29,11 +29,17 @@ Source checkpoint: `941db9014e32250d972a80d077bb602a97c2407f`.
   pinned/recent tables and schema-object view state.
 - `QueryEditorState` now owns editor overlays, visual-builder drafts,
   diagnostics caches, problem filters and query history.
-- Unit tests for the extracted aggregates: 14 passed, 0 failed.
+- `WorkspaceFilesState`, `DiagramState`, `DatabaseOperationsState`,
+  `PaletteState`, `QueryExecutionPolicyState`, `QueryLibraryState`,
+  `SavedTaskState`, `WorkspaceSessionState`, `OverlayState`, `FeedbackState`,
+  `PreferencesState` and `WelcomeState` now own their feature state.
+- `ConnectionLifecycleState` now also owns connection status and fallback name;
+  `SchemaExplorerState` owns persisted explorer pane heights.
+- Unit tests for the extracted aggregates: 25 passed, 0 failed.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 562 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 573 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
@@ -44,4 +50,6 @@ Source checkpoint: `941db9014e32250d972a80d077bb602a97c2407f`.
 ## Not yet proven
 
 - Native screenshot/runtime evidence for all affected states.
-- Completion of the remaining feature-state migrations.
+- Runtime event dispatch is still centralized in `events.rs`; feature-level
+  event reducers are the next architectural slice.
+- Native screenshot/runtime evidence for all affected states.

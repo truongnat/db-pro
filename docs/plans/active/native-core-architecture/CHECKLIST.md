@@ -18,9 +18,12 @@
 - [x] Agent workspace aggregate.
 - [x] Query editor/diagnostics/history aggregate.
 - [x] Schema explorer aggregate.
-- [ ] Saved-task scheduler and remaining task lifecycle aggregate.
+- [x] Saved-task scheduler and task lifecycle aggregate.
+- [x] Query library, named workspace session and overlay aggregates.
+- [x] Preferences, welcome and shared feedback aggregates.
+- [x] Diagram, workspace files, database operations, palette and query execution policy aggregates.
 - [ ] Runtime event dispatch split by feature.
-- [ ] `DbProApp` reduced to composition root.
+- [ ] `DbProApp` reduced to composition root (remaining: event pump and cross-feature orchestration).
 - [ ] Architecture boundary check in CI.
 
 ## Gates
@@ -28,7 +31,7 @@
 - [x] `cargo fmt --all -- --check` (PASS)
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
-- [x] `cargo test -p db-pro-ui --lib` (562 passed)
+- [x] `cargo test -p db-pro-ui --lib` (573 passed)
 - [x] `cargo test --workspace --no-fail-fast` (1230 passed, 0 failed, 42 ignored)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [ ] Native runtime evidence for affected surfaces.

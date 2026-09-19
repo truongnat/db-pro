@@ -39,10 +39,11 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
 5. Table/data editor state and mutation effects — grid/editor interaction state
    completed in `77a27f0c`; table metadata/request state completed in
    `0fc757d8`; mutation effects remain.
-6. Agent state and query-editor/schema-explorer state — agent and query-editor
-   aggregates are now extracted; task lifecycle and remaining workspace/database
-   feature state still need migration.
-7. Remove remaining feature fields from `DbProApp`; leave it as composition,
+6. Agent state and query-editor/schema-explorer state — completed; workspace
+   files, diagram, database operations, palette, query execution policy, query
+   library, saved tasks, named sessions, overlays, feedback, preferences and
+   welcome state are also extracted.
+7. Split runtime event dispatch by feature and keep `DbProApp` as composition,
    persistence, event pump, and top-level orchestration only.
 8. Add architecture checks so new feature code cannot reach another feature's
    internals or reintroduce raw control paths.
@@ -56,7 +57,7 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
 
 ## Completion criteria
 
-- Every feature state has one owner and a public transition surface.
+- Every migrated feature state has one owner and a public transition surface.
 - UI event handling is feature-dispatched and testable without egui painting.
 - `DbProApp` contains no feature-specific draft/result collection once the
   corresponding feature migration is complete.
