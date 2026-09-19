@@ -55,7 +55,7 @@ impl DbProApp {
         self.query_session_state
             .documents
             .get(self.query_session_state.active_document_index)
-            .and_then(|doc| self.query_output_state.tabs_by_document.get(&doc.id).copied())
+            .map(|doc| self.query_output_state.tab_for_document(&doc.id))
             .unwrap_or(OutputTab::Results)
     }
 
@@ -67,14 +67,12 @@ impl DbProApp {
             .get(self.query_session_state.active_document_index)
             .map(|doc| doc.id.clone())
         {
-            self.query_output_state.tabs_by_document.insert(doc_id, tab);
+            self.query_output_state.set_active_for_document(&doc_id, tab);
         }
     }
 
     pub(crate) fn set_query_output_tab(&mut self, document_id: &str, tab: OutputTab) {
-        self.query_output_state
-            .tabs_by_document
-            .insert(document_id.to_owned(), tab);
+        self.query_output_state.set_for_document(document_id, tab);
         if self
             .query_session_state
             .documents
