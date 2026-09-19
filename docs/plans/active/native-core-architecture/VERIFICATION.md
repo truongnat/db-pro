@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `ddb26a36`.
+Source checkpoint: `ad6b85fd`.
 
 ## Current change
 
@@ -112,6 +112,9 @@ Source checkpoint: `ddb26a36`.
 - File-picker state transitions now live in `file_picker_events.rs`, and DDL
   completion now returns a typed refresh transition from `ddl_events.rs`.
   Workspace opening and schema/RLS requests remain explicit root side effects.
+- Explain completion and query cancellation now live in
+  `query_execution_events.rs`, including output-tab selection, document
+  cleanup and cancellation history.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

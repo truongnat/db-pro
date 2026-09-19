@@ -187,6 +187,9 @@ composition root. Cross-feature refresh orchestration remains at the root.
 File-picker state transitions and DDL completion now follow the same boundary
 in `file_picker_events.rs` and `ddl_events.rs`; the root retains only workspace
 opening and schema/RLS refresh side effects.
+Explain completion and query cancellation now follow the same boundary in
+`query_execution_events.rs`; output-tab selection, document cleanup and
+cancellation history no longer mutate through the root event handler.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
