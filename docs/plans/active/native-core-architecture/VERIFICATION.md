@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `0fc757d841a63a31af545da808694ab975bde555`.
+Source checkpoint: `941db9014e32250d972a80d077bb602a97c2407f`.
 
 ## Current change
 
@@ -21,11 +21,19 @@ Source checkpoint: `0fc757d841a63a31af545da808694ab975bde555`.
   selection, cell editor, inspector and insert-row interaction state.
 - `TableState` now owns table metadata, table view, introspection/DDL/data
   requests, paging, filters, metadata searches, details and row reload state.
-- Unit tests for the new aggregates: 10 passed, 0 failed.
+- `TableMutationState` now owns staged changes, mutation requests, retries and
+  conflict/apply state.
+- `AgentState` now owns provider settings, composer input and agent sessions;
+  the saved-task scheduler remains in `DbProApp`.
+- `SchemaExplorerState` now owns schema loading, selection, navigation cache,
+  pinned/recent tables and schema-object view state.
+- `QueryEditorState` now owns editor overlays, visual-builder drafts,
+  diagnostics caches, problem filters and query history.
+- Unit tests for the extracted aggregates: 14 passed, 0 failed.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 558 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 562 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.

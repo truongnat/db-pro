@@ -93,3 +93,36 @@ default-state test. Mutation/change-set effects remain intentionally separate
 for the next migration slice.
 
 Severity: P1 boundary leak, resolved for metadata/request state.
+
+## F9 — Query editor state was coupled to the composition root
+
+Evidence: `DbProApp` held editor overlays, visual query builder drafts,
+diagnostics caches, problem filters and query history as unrelated fields.
+
+Fix in `941db901`: these values now have one owner, `QueryEditorState`, with a
+default-state test. The editor view and query event paths address the aggregate.
+
+Severity: P1 boundary leak, resolved for the query-editor slice.
+
+## F10 — Schema explorer state was coupled to the composition root
+
+Evidence: schema loading, selection, navigation cache, pinned/recent tables and
+object-view state were spread across `DbProApp` and explorer consumers.
+
+Fix in `f96dfce1`: these values now have one owner, `SchemaExplorerState`, with
+a default-state test.
+
+Severity: P1 boundary leak, resolved for the explorer slice.
+
+## F11 — The remaining composition root is still too broad
+
+Evidence: `DbProApp` still owns palette state, IDE/Git state, routine/transfer
+state, monitoring/audit/admin/security state, schema workbench/migration state,
+transaction state, diagram state and saved-task state in addition to runtime
+orchestration (`crates/ui/src/app.rs`).
+
+Impact: the extracted aggregates reduce coupling, but new feature work can still
+reach unrelated state through the composition root and the centralized event
+dispatcher.
+
+Severity: P1 architectural follow-up.
