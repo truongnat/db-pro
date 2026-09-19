@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `7adcf7d8`.
+Source checkpoint: `8c7a0b14`.
 
 ## Current change
 
@@ -130,6 +130,8 @@ Source checkpoint: `7adcf7d8`.
 - Palette open lifecycle now lives on `PaletteState`; navigation, welcome,
   sidebar, query shortcuts and tests no longer call a `DbProApp` palette
   mutation facade.
+- New-connection dialog opening now lives on `ConnectionFeatureState`; all
+  shell entry points call the feature transition directly.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

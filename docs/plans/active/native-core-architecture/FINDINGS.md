@@ -205,6 +205,9 @@ depend on a `DbProApp` recent-table facade.
 Palette open lifecycle now follows the state-owner rule on `PaletteState`;
 navigation, welcome, sidebar and query shortcut consumers no longer mutate
 palette state through the composition root.
+New-connection dialog opening now follows the feature-owner rule on
+`ConnectionFeatureState`; shell entry points no longer depend on a root
+`open_new_connection` facade.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
