@@ -798,7 +798,7 @@ impl DbProApp {
             *self.connection_lifecycle.active_connection_id_mut() = Some(connection.id.clone());
             self.connection_lifecycle.set_connected(false);
             let request_id = self.task_bridge.next_request_id();
-            self.connection_lifecycle.pending_request = Some(request_id);
+            self.connection_lifecycle.set_pending_request(Some(request_id));
             self.dispatch_command(UiCommand::Connect {
                 request_id,
                 connection_id: connection.id,

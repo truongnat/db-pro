@@ -105,7 +105,7 @@ impl DbProApp {
         );
 
         self.dispatch_command(command);
-        self.connection_lifecycle.pending_request = Some(request_id);
+        self.connection_lifecycle.set_pending_request(Some(request_id));
         if save {
             self.connection_dialog.test_valid = false;
         } else {

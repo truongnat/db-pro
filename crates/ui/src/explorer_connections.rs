@@ -31,11 +31,14 @@ impl DbProApp {
             };
             let is_active = self.connection_lifecycle.active_connection_id() == Some(&connection.id);
             let is_connected = self.connection_lifecycle.is_connected() && is_active;
-            let is_connecting = self.connection_lifecycle.pending_request.is_some()
-                && (self.connection_lifecycle.pending_connection_id.as_deref() == Some(&connection.id)
-                    || (self.connection_lifecycle.pending_connection_id.is_none() && is_active));
-            let is_failed = self.connection_lifecycle.failed_connection_ids.contains(&connection.id);
-            let err_msg = self.connection_lifecycle.errors.get(&connection.id).cloned();
+            let is_connecting = self.connection_lifecycle.pending_request().is_some()
+                && (self.connection_lifecycle.pending_connection_id() == Some(connection.id.as_str())
+                    || (self.connection_lifecycle.pending_connection_id().is_none() && is_active));
+            let is_failed = self.connection_lifecycle.has_failed_connection(&connection.id);
+            let err_msg = self
+                .connection_lifecycle
+                .connection_error(&connection.id)
+                .map(str::to_owned);
             let id = ui.make_persistent_id(("codex_conn_node", &connection.id));
 
             let mut collapsing = egui::collapsing_header::CollapsingState::load_with_default_open(

@@ -282,7 +282,7 @@ impl DbProApp {
 
     pub(crate) fn draw_connection_footer(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            let is_testing = self.connection_lifecycle.pending_request.is_some();
+            let is_testing = self.connection_lifecycle.pending_request().is_some();
             let test_btn = Button::new(self.theme)
                 .text(t!("connection.test_connection"))
                 .variant(ButtonVariant::Secondary)

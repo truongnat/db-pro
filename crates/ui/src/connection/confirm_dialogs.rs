@@ -64,8 +64,8 @@ impl DbProApp {
             });
             // Track the target so Failed events report delete failure, not a
             // spurious "Connection failed" on the active connection.
-            self.connection_lifecycle.pending_request = Some(request_id);
-            self.connection_lifecycle.pending_connection_id = Some(connection_id);
+            self.connection_lifecycle.set_pending_request(Some(request_id));
+            self.connection_lifecycle.set_pending_connection_id(Some(connection_id));
             self.feedback.runtime_message = t!("status.deleting", name = name.as_str()).to_string();
             self.overlay.delete_confirmation_id = None;
         } else if cancelled || !open {

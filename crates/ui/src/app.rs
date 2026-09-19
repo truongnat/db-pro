@@ -600,7 +600,7 @@ impl DbProApp {
 
     fn runtime_work_pending(&self) -> bool {
         self.connection_lifecycle.connections_request_pending()
-            || self.connection_lifecycle.pending_request.is_some()
+            || self.connection_lifecycle.pending_request().is_some()
             || self.schema_explorer.schema_request.is_some()
             || self
                 .query_session_state

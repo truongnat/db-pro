@@ -19,10 +19,22 @@ pub(crate) struct ConnectionLifecycleState {
     pub(in crate::app) active_connection_id: Option<String>,
     #[cfg(not(test))]
     active_connection_id: Option<String>,
+    #[cfg(test)]
     pub(in crate::app) pending_connection_id: Option<String>,
+    #[cfg(not(test))]
+    pending_connection_id: Option<String>,
+    #[cfg(test)]
     pub(in crate::app) pending_request: Option<RequestId>,
+    #[cfg(not(test))]
+    pending_request: Option<RequestId>,
+    #[cfg(test)]
     pub(in crate::app) errors: HashMap<String, String>,
+    #[cfg(not(test))]
+    errors: HashMap<String, String>,
+    #[cfg(test)]
     pub(in crate::app) failed_connection_ids: HashSet<String>,
+    #[cfg(not(test))]
+    failed_connection_ids: HashSet<String>,
     #[cfg(test)]
     pub(in crate::app) connections_requested: bool,
     #[cfg(not(test))]
@@ -83,6 +95,39 @@ impl ConnectionLifecycleState {
 
     pub(crate) fn clear_pending_request(&mut self) {
         self.pending_request = None;
+    }
+
+    pub(crate) fn pending_request(&self) -> Option<RequestId> {
+        self.pending_request
+    }
+
+    pub(crate) fn set_pending_request(&mut self, request_id: Option<RequestId>) {
+        self.pending_request = request_id;
+    }
+
+    pub(crate) fn pending_connection_id(&self) -> Option<&str> {
+        self.pending_connection_id.as_deref()
+    }
+
+    pub(crate) fn set_pending_connection_id(&mut self, connection_id: Option<String>) {
+        self.pending_connection_id = connection_id;
+    }
+
+    pub(crate) fn take_pending_connection_id(&mut self) -> Option<String> {
+        self.pending_connection_id.take()
+    }
+
+    pub(crate) fn has_failed_connection(&self, connection_id: &str) -> bool {
+        self.failed_connection_ids.contains(connection_id)
+    }
+
+    pub(crate) fn connection_error(&self, connection_id: &str) -> Option<&str> {
+        self.errors.get(connection_id).map(String::as_str)
+    }
+
+    pub(crate) fn record_connection_failure(&mut self, connection_id: String, message: String) {
+        self.failed_connection_ids.insert(connection_id.clone());
+        self.errors.insert(connection_id, message);
     }
 
     pub(crate) fn clear_connection_error(&mut self, connection_id: &str) {

@@ -399,7 +399,8 @@ impl DbProApp {
         self.workspace.pending_navigation_action = None;
         self.reset_agent_context();
         *self.connection_lifecycle.active_connection_id_mut() = Some(connection.id.clone());
-        self.connection_lifecycle.pending_connection_id = Some(connection.id.clone());
+        self.connection_lifecycle
+            .set_pending_connection_id(Some(connection.id.clone()));
         self.connection_lifecycle.clear_connection_error(&connection.id);
         self.schema_explorer.selected_schema = None;
         self.schema_explorer.schema = UiSchemaSummary::default();
@@ -410,7 +411,7 @@ impl DbProApp {
         self.schema_explorer.explorer_search.clear();
         let request_id = self.task_bridge.next_request_id();
         self.connection_lifecycle.set_connected(false);
-        self.connection_lifecycle.pending_request = Some(request_id);
+        self.connection_lifecycle.set_pending_request(Some(request_id));
         self.schema_explorer.schema_request = None;
         self.schema_explorer.schema_error = None;
         self.dispatch_command(UiCommand::Connect {

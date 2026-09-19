@@ -188,7 +188,7 @@ impl DbProApp {
     pub(super) fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, Color32) {
         let is_active = self.connection_lifecycle.active_connection_id() == Some(connection.id.as_str());
         let is_connected = is_active && self.connection_lifecycle.is_connected();
-        let is_failed = self.connection_lifecycle.failed_connection_ids.contains(&connection.id);
+        let is_failed = self.connection_lifecycle.has_failed_connection(&connection.id);
         let icon = if is_connected {
             Icon::CircleCheck
         } else if is_failed {

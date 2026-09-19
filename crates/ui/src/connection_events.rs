@@ -5,15 +5,14 @@ use crate::RequestId;
 
 impl DbProApp {
     pub(super) fn handle_connection_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
-        if self.connection_lifecycle.pending_request != Some(request_id) {
+        if self.connection_lifecycle.pending_request() != Some(request_id) {
             return false;
         }
 
         self.connection_lifecycle.clear_pending_request();
         let connection_id = self
             .connection_lifecycle
-            .pending_connection_id
-            .take()
+            .take_pending_connection_id()
             .or_else(|| self.connection_lifecycle.active_connection_id().map(str::to_owned));
         let is_delete = self.feedback.runtime_message.to_ascii_lowercase().contains("delet");
         if is_delete {
@@ -23,11 +22,7 @@ impl DbProApp {
         } else {
             if let Some(connection_id) = connection_id {
                 self.connection_lifecycle
-                    .failed_connection_ids
-                    .insert(connection_id.clone());
-                self.connection_lifecycle
-                    .errors
-                    .insert(connection_id, message.to_owned());
+                    .record_connection_failure(connection_id, message.to_owned());
             }
             if !self.connection_dialog.is_open() {
                 self.connection_lifecycle.set_connected(false);
@@ -48,7 +43,7 @@ impl DbProApp {
             *self.connection_lifecycle.active_connection_id_mut() =
                 self.connection_catalog.get(0).map(|connection| connection.id.clone());
         }
-        if !self.connection_lifecycle.is_connected() && self.connection_lifecycle.pending_request.is_none() {
+        if !self.connection_lifecycle.is_connected() && self.connection_lifecycle.pending_request().is_none() {
             if let Some(active) = self.active_connection().cloned() {
                 self.connect_to_connection(&active);
             }
@@ -60,13 +55,13 @@ impl DbProApp {
     pub(super) fn on_connected(&mut self, request_id: RequestId, connection_id: String) {
         if self
             .connection_lifecycle
-            .pending_request
+            .pending_request()
             .is_some_and(|expected_request| expected_request != request_id)
         {
             return;
         }
-        self.connection_lifecycle.pending_request = None;
-        self.connection_lifecycle.pending_connection_id = None;
+        self.connection_lifecycle.clear_pending_request();
+        self.connection_lifecycle.set_pending_connection_id(None);
         *self.connection_lifecycle.active_connection_id_mut() = Some(connection_id.clone());
         self.connection_lifecycle.set_connected(true);
         self.connection_lifecycle.clear_connection_error(&connection_id);

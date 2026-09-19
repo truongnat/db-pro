@@ -222,7 +222,7 @@ impl DbProApp {
 
     /// Generic completion for connection, table-row and query operations.
     pub(super) fn on_operation_completed(&mut self, request_id: RequestId, operation: String) {
-        let pending_connection_request = self.connection_lifecycle.pending_request == Some(request_id);
+        let pending_connection_request = self.connection_lifecycle.pending_request() == Some(request_id);
         if matches!(
             operation.as_str(),
             "connection.created" | "connection.updated" | "connection.deleted" | "connection.tested"
@@ -287,7 +287,7 @@ impl DbProApp {
         }
         if operation == "connection.deleted" {
             // `pending_connection_id` is the delete target (set by the confirm dialog).
-            let deleted_id = self.connection_lifecycle.pending_connection_id.take();
+            let deleted_id = self.connection_lifecycle.take_pending_connection_id();
             if let Some(ref id) = deleted_id {
                 self.connection_lifecycle.clear_connection_error(id);
             }
