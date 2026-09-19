@@ -212,7 +212,7 @@ impl DbProApp {
     }
 
     fn draw_query_context_chip(&self, ui: &mut egui::Ui) -> egui::Response {
-        let connected = self.active_query_connection_id().is_some() && self.connection_lifecycle.connected;
+        let connected = self.active_query_connection_id().is_some() && self.connection_lifecycle.is_connected();
         let conn_label = if connected {
             self.active_query_connection_name().to_owned()
         } else {
@@ -403,7 +403,7 @@ impl DbProApp {
 
     fn draw_query_status_bar(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
-        let connected = self.active_query_connection_id().is_some() && self.connection_lifecycle.connected;
+        let connected = self.active_query_connection_id().is_some() && self.connection_lifecycle.is_connected();
         let driver = self.active_query_driver().to_owned();
         let schema = self.active_query_schema().to_owned();
         let param_key = (

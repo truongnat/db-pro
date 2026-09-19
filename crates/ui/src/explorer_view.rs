@@ -367,7 +367,7 @@ impl DbProApp {
                 "Open transaction detected — commit or rollback before disconnecting".to_owned();
             return;
         }
-        self.connection_lifecycle.connected = false;
+        self.connection_lifecycle.set_connected(false);
         self.schema_explorer.schema = UiSchemaSummary::default();
         self.schema_explorer.schema_symbol_index = SchemaSymbolIndex::default();
         self.schema_explorer.selected_table = None;
@@ -378,7 +378,7 @@ impl DbProApp {
     /// Helper to initiate connection logic.
     pub(crate) fn connect_to_connection(&mut self, connection: &UiConnectionSummary) {
         if self.connection_lifecycle.active_connection_id.as_deref() == Some(&connection.id)
-            && self.connection_lifecycle.connected
+            && self.connection_lifecycle.is_connected()
         {
             return;
         }
@@ -408,7 +408,7 @@ impl DbProApp {
         self.reset_table_workspace_state();
         self.schema_explorer.explorer_search.clear();
         let request_id = self.task_bridge.next_request_id();
-        self.connection_lifecycle.connected = false;
+        self.connection_lifecycle.set_connected(false);
         self.connection_lifecycle.pending_request = Some(request_id);
         self.schema_explorer.schema_request = None;
         self.schema_explorer.schema_error = None;

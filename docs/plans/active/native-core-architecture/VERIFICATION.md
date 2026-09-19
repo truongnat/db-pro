@@ -42,6 +42,8 @@ Source checkpoint: `0426d818`.
 - Connection lifecycle request flags and fallback naming are private behind
   lifecycle methods; tests use explicit lifecycle setup APIs rather than
   production field access.
+- Connection connected status is private behind `is_connected` and
+  `set_connected` lifecycle APIs.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

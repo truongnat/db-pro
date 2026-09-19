@@ -146,7 +146,7 @@ impl DbProApp {
     }
 
     pub(super) fn statusbar_state(&self) -> (Icon, Color32, &'static str) {
-        if self.connection_lifecycle.connected && self.connection_lifecycle.active_connection_id.is_some() {
+        if self.connection_lifecycle.is_connected() && self.connection_lifecycle.active_connection_id.is_some() {
             return (Icon::CircleCheck, self.theme.success, "Connected");
         }
         if self.feedback.runtime_message.starts_with("Connecting") {
@@ -187,7 +187,7 @@ impl DbProApp {
 
     pub(super) fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, Color32) {
         let is_active = self.connection_lifecycle.active_connection_id.as_deref() == Some(connection.id.as_str());
-        let is_connected = is_active && self.connection_lifecycle.connected;
+        let is_connected = is_active && self.connection_lifecycle.is_connected();
         let is_failed = self.connection_lifecycle.failed_connection_ids.contains(&connection.id);
         let icon = if is_connected {
             Icon::CircleCheck

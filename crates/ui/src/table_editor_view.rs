@@ -219,7 +219,7 @@ impl DbProApp {
                             }
                         }
                     }
-                } else if self.connection_lifecycle.connected {
+                } else if self.connection_lifecycle.is_connected() {
                     ui.separator();
                     ui.label(
                         RichText::new(if self.table_has_primary_key() {
@@ -1573,7 +1573,8 @@ impl DbProApp {
     }
 
     pub(crate) fn can_mutate_active_connection(&self) -> bool {
-        self.connection_lifecycle.connected && self.active_connection().is_some_and(|connection| !connection.readonly)
+        self.connection_lifecycle.is_connected()
+            && self.active_connection().is_some_and(|connection| !connection.readonly)
     }
 
     pub(crate) fn table_has_primary_key(&self) -> bool {

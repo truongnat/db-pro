@@ -30,7 +30,7 @@ impl DbProApp {
                 continue;
             };
             let is_active = self.connection_lifecycle.active_connection_id.as_deref() == Some(&connection.id);
-            let is_connected = self.connection_lifecycle.connected && is_active;
+            let is_connected = self.connection_lifecycle.is_connected() && is_active;
             let is_connecting = self.connection_lifecycle.pending_request.is_some()
                 && (self.connection_lifecycle.pending_connection_id.as_deref() == Some(&connection.id)
                     || (self.connection_lifecycle.pending_connection_id.is_none() && is_active));

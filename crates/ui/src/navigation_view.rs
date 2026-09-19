@@ -256,7 +256,7 @@ impl DbProApp {
                             .color(self.theme.text_secondary),
                     );
                     ui.separator();
-                    if self.connection_lifecycle.connected {
+                    if self.connection_lifecycle.is_connected() {
                         ui.label(
                             RichText::new(self.active_connection_name())
                                 .font(font_caption())
@@ -803,7 +803,7 @@ impl DbProApp {
         if self.synthetic_data.synthetic_error.is_some() {
             return;
         }
-        if self.connection_lifecycle.active_connection_id.is_none() || !self.connection_lifecycle.connected {
+        if self.connection_lifecycle.active_connection_id.is_none() || !self.connection_lifecycle.is_connected() {
             self.synthetic_data.synthetic_error = Some("Connect to a database before applying seed".into());
             return;
         }
@@ -1268,7 +1268,8 @@ impl DbProApp {
         section_label(ui, "MONITOR", self.theme);
         ui.add_space(SPACE_SM);
 
-        let connected = self.connection_lifecycle.connected && self.connection_lifecycle.active_connection_id.is_some();
+        let connected =
+            self.connection_lifecycle.is_connected() && self.connection_lifecycle.active_connection_id.is_some();
         let driver = self.active_driver().to_owned();
         let name = self.active_connection_name().to_owned();
 
@@ -2809,7 +2810,8 @@ impl DbProApp {
     pub(super) fn draw_security_activity(&mut self, ui: &mut egui::Ui) {
         section_label(ui, "SECURITY", self.theme);
         ui.add_space(SPACE_SM);
-        let connected = self.connection_lifecycle.connected && self.connection_lifecycle.active_connection_id.is_some();
+        let connected =
+            self.connection_lifecycle.is_connected() && self.connection_lifecycle.active_connection_id.is_some();
         let is_pg = self.active_driver().eq_ignore_ascii_case("postgresql")
             || self.active_driver().eq_ignore_ascii_case("postgres");
 

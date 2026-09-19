@@ -30,7 +30,7 @@ impl DbProApp {
                     .insert(connection_id, message.to_owned());
             }
             if !self.connection_dialog.is_open() {
-                self.connection_lifecycle.connected = false;
+                self.connection_lifecycle.set_connected(false);
                 self.schema_explorer.schema_request = None;
                 self.schema_explorer.schema_error = None;
             }
@@ -48,7 +48,7 @@ impl DbProApp {
             self.connection_lifecycle.active_connection_id =
                 self.connection_catalog.get(0).map(|connection| connection.id.clone());
         }
-        if !self.connection_lifecycle.connected && self.connection_lifecycle.pending_request.is_none() {
+        if !self.connection_lifecycle.is_connected() && self.connection_lifecycle.pending_request.is_none() {
             if let Some(active) = self.active_connection().cloned() {
                 self.connect_to_connection(&active);
             }
@@ -68,7 +68,7 @@ impl DbProApp {
         self.connection_lifecycle.pending_request = None;
         self.connection_lifecycle.pending_connection_id = None;
         self.connection_lifecycle.active_connection_id = Some(connection_id.clone());
-        self.connection_lifecycle.connected = true;
+        self.connection_lifecycle.set_connected(true);
         self.connection_lifecycle.clear_connection_error(&connection_id);
         self.feedback.runtime_message = "Connection established".to_owned();
         if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {

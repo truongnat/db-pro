@@ -298,7 +298,7 @@ impl DbProApp {
             // Deleting a sibling must not force a reconnect / schema reload of the open one.
             if deleted_was_active {
                 self.connection_lifecycle.active_connection_id = None;
-                self.connection_lifecycle.connected = false;
+                self.connection_lifecycle.set_connected(false);
             }
         }
     }

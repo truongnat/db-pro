@@ -11,7 +11,10 @@ pub(crate) struct ConnectionLifecycleState {
     pub(in crate::app) fallback_name: String,
     #[cfg(not(test))]
     fallback_name: String,
+    #[cfg(test)]
     pub(in crate::app) connected: bool,
+    #[cfg(not(test))]
+    connected: bool,
     pub(in crate::app) active_connection_id: Option<String>,
     pub(in crate::app) pending_connection_id: Option<String>,
     pub(in crate::app) pending_request: Option<RequestId>,
@@ -28,6 +31,14 @@ pub(crate) struct ConnectionLifecycleState {
 }
 
 impl ConnectionLifecycleState {
+    pub(crate) fn is_connected(&self) -> bool {
+        self.connected
+    }
+
+    pub(crate) fn set_connected(&mut self, connected: bool) {
+        self.connected = connected;
+    }
+
     pub(crate) fn with_fallback_name(name: impl Into<String>) -> Self {
         Self {
             fallback_name: name.into(),

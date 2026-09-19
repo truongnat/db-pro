@@ -796,7 +796,7 @@ impl DbProApp {
         let connection = self.connection_catalog.find(&connection_id).cloned();
         if let Some(connection) = connection {
             self.connection_lifecycle.active_connection_id = Some(connection.id.clone());
-            self.connection_lifecycle.connected = false;
+            self.connection_lifecycle.set_connected(false);
             let request_id = self.task_bridge.next_request_id();
             self.connection_lifecycle.pending_request = Some(request_id);
             self.dispatch_command(UiCommand::Connect {
