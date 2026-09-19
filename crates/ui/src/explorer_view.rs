@@ -236,7 +236,7 @@ impl DbProApp {
                 // Claim the full width up front so the first row inherits it
                 // instead of measuring against intrinsic label width.
                 ui.allocate_exact_size(egui::vec2(tree_width, 0.0), egui::Sense::hover());
-                if self.connection_catalog.connections.is_empty() {
+                if self.connection_catalog.is_empty() {
                     self.draw_dbeaver_empty_state(ui);
                 } else {
                     self.draw_dbeaver_connections_tree(ui);
