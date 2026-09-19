@@ -142,7 +142,7 @@ impl eframe::App for CaptureApp {
         // input click-steal fix) instead of the default window. Gated by an env var
         // so a normal launch is unaffected.
         if !self.opened_dialog && std::env::var_os(NEW_CONNECTION_ENV).is_some() && self.frames >= 2 {
-            self.inner.open_new_connection();
+            self.inner.open_new_connection_for_capture();
             self.opened_dialog = true;
         }
         if !self.opened_dialog && std::env::var_os(CONNECTION_ERROR_ENV).is_some() && self.frames >= 2 {

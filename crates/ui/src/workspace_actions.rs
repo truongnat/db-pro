@@ -166,6 +166,11 @@ impl DbProApp {
         self.feedback.runtime_message = "Connection test failed".to_owned();
     }
 
+    /// Capture/evidence helper: open the new-connection dialog in its normal state.
+    pub fn open_new_connection_for_capture(&mut self) {
+        self.connection.open_new();
+    }
+
     /// Capture/evidence helper: open the Edit Connection dialog with a test draft so
     /// the password input + eye toggle can be documented (the affected surface for the
     /// input click-steal fix) without needing a real saved connection.
