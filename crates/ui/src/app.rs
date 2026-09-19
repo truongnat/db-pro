@@ -306,7 +306,7 @@ impl eframe::App for DbProApp {
         }
         self.persist_saved_tasks(storage);
         self.persist_workspace_sessions(storage);
-        if let Ok(raw) = serde_json::to_string(&self.connection_dialog.ssh_profiles) {
+        if let Ok(raw) = serde_json::to_string(self.connection_dialog.ssh_profiles()) {
             storage.set_string("dbpro.native.ssh-profiles-v1", raw);
         }
         if let Ok(layouts) = serde_json::to_string(&self.table_data.grid_layout_preferences) {
@@ -457,7 +457,7 @@ impl eframe::App for DbProApp {
                 self.draw_workspace(ui);
             });
 
-        if self.connection_dialog.open {
+        if self.connection_dialog.is_open() {
             self.draw_connection_dialog(ctx);
         }
         if self.overlay.delete_confirmation_id.is_some() {

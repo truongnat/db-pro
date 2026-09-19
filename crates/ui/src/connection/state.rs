@@ -7,16 +7,16 @@ use crate::UiConnectionDraft;
 /// session state in `DbProApp` until that boundary is migrated separately.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ConnectionDialogState {
-    pub(in crate::app) open: bool,
-    pub(in crate::app) focus_name_on_open: bool,
-    pub(in crate::app) editing_connection_id: Option<String>,
-    pub(in crate::app) draft: UiConnectionDraft,
-    pub(in crate::app) show_password: bool,
-    pub(in crate::app) error: String,
-    pub(in crate::app) test_valid: bool,
-    pub(in crate::app) test_draft: Option<UiConnectionDraft>,
-    pub(in crate::app) diagnostics: Option<db_pro_core::domain::connection_diagnostics::ConnectionDiagnosticsReport>,
-    pub(in crate::app) ssh_profiles: Vec<db_pro_core::domain::connection::SshProfile>,
+    pub(super) open: bool,
+    pub(super) focus_name_on_open: bool,
+    pub(super) editing_connection_id: Option<String>,
+    pub(super) draft: UiConnectionDraft,
+    pub(super) show_password: bool,
+    pub(super) error: String,
+    pub(super) test_valid: bool,
+    pub(super) test_draft: Option<UiConnectionDraft>,
+    pub(super) diagnostics: Option<db_pro_core::domain::connection_diagnostics::ConnectionDiagnosticsReport>,
+    pub(super) ssh_profiles: Vec<db_pro_core::domain::connection::SshProfile>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,6 +37,78 @@ pub(crate) enum ConnectionDialogAction {
 }
 
 impl ConnectionDialogState {
+    pub(crate) fn is_open(&self) -> bool {
+        self.open
+    }
+
+    pub(crate) fn draft(&self) -> &UiConnectionDraft {
+        &self.draft
+    }
+
+    pub(crate) fn draft_mut(&mut self) -> &mut UiConnectionDraft {
+        &mut self.draft
+    }
+
+    pub(crate) fn set_draft(&mut self, draft: UiConnectionDraft) {
+        self.draft = draft;
+    }
+
+    pub(crate) fn set_editing_connection_id(&mut self, connection_id: Option<String>) {
+        self.editing_connection_id = connection_id;
+    }
+
+    pub(crate) fn set_error(&mut self, error: impl Into<String>) {
+        self.error = error.into();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn error(&self) -> &str {
+        &self.error
+    }
+
+    pub(crate) fn clear_error(&mut self) {
+        self.error.clear();
+    }
+
+    pub(crate) fn set_test_valid(&mut self, valid: bool) {
+        self.test_valid = valid;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_valid(&self) -> bool {
+        self.test_valid
+    }
+
+    pub(crate) fn test_draft(&self) -> Option<&UiConnectionDraft> {
+        self.test_draft.as_ref()
+    }
+
+    pub(crate) fn clear_test(&mut self) {
+        self.invalidate_test();
+    }
+
+    pub(crate) fn diagnostics(
+        &self,
+    ) -> Option<&db_pro_core::domain::connection_diagnostics::ConnectionDiagnosticsReport> {
+        self.diagnostics.as_ref()
+    }
+
+    pub(crate) fn ssh_profiles(&self) -> &[db_pro_core::domain::connection::SshProfile] {
+        &self.ssh_profiles
+    }
+
+    pub(crate) fn set_ssh_profiles(&mut self, profiles: Vec<db_pro_core::domain::connection::SshProfile>) {
+        self.ssh_profiles = profiles;
+    }
+
+    pub(crate) fn set_open(&mut self, open: bool) {
+        self.open = open;
+    }
+
+    pub(crate) fn set_focus_name_on_open(&mut self, focus: bool) {
+        self.focus_name_on_open = focus;
+    }
+
     pub(crate) fn transition(&mut self, action: ConnectionDialogAction) {
         match action {
             ConnectionDialogAction::OpenNew => {

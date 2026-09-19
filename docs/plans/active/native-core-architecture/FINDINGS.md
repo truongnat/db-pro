@@ -117,24 +117,38 @@ a default-state test.
 
 Severity: P1 boundary leak, resolved for the explorer slice.
 
-## F11 — The remaining composition root is still too broad
+## F11 — Sibling feature modules can still reach the composition root
 
-Evidence: `DbProApp` still owns palette state, IDE/Git state, routine/transfer
-state, monitoring/audit/admin/security state, schema workbench/migration state,
-transaction state, diagram state and saved-task state in addition to runtime
-orchestration (`crates/ui/src/app.rs`).
+Evidence: `DbProApp` remains the composition root and feature view/reducer
+modules are still implemented as `impl DbProApp`, so sibling feature code can
+reach other aggregates through the root (`crates/ui/src/app.rs`).
 
-Impact: the extracted aggregates reduce coupling, but new feature work can still
-reach unrelated state through the composition root and the centralized event
-dispatcher.
+Impact: state ownership is explicit, but the Rust module boundary is not yet a
+feature boundary. A new feature can still reach unrelated state by adding a
+method to `DbProApp` instead of going through a typed feature facade.
 
 Severity: P1 architectural follow-up.
 
-Current status: the root now contains only an allowlisted set of feature
-aggregates, shell composition state, presentation context and the task bridge;
-the allowlist is enforced in CI. The deeper privacy boundary between sibling
-feature modules (private aggregate fields plus reducer-only APIs) remains the
-last architectural hardening slice.
+Current status: `1a69b98d` split the former database catch-all into named
+feature aggregates (`database_feature_states.rs`), and `02ab0cc1` plus
+`ee6a1247` scoped aggregate fields to the app boundary. The root field allowlist
+and visibility guard are enforced in CI. The remaining slice is to move view
+and reducer APIs from `impl DbProApp` onto feature-owned contexts, so sibling
+features cannot use the composition root as a shared mutable facade.
+
+## F13 — Database management state was grouped behind a catch-all aggregate
+
+Evidence at discovery: routine, transfer, monitoring, audit, settings, FDW,
+replication, event-trigger, masking, synthetic-data and security state lived
+under `DatabaseOperationsState`, even though the features have different
+lifecycles and safety boundaries.
+
+Fix in `1a69b98d`: replaced the catch-all with named aggregates in
+`database_feature_states.rs` and moved schema comparison state into its own
+`SchemaCompareState`. `scripts/check-ui-architecture.sh` rejects the old
+aggregate and file name.
+
+Severity: P1 state-boundary risk, resolved for the database-management slice.
 
 ## F12 — Legacy agent command/event path bypassed the workflow boundary
 

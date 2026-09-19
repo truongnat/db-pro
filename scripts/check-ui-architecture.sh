@@ -108,6 +108,14 @@ if [[ -n "$state_field_leaks" ]]; then
   exit 1
 fi
 
+connection_dialog_boundary_leaks=$(rg -n 'pub\(in crate::app\)' \
+  "$repo_root/crates/ui/src/connection/state.rs" || true)
+if [[ -n "$connection_dialog_boundary_leaks" ]]; then
+  echo "$connection_dialog_boundary_leaks" >&2
+  echo "UI architecture check failed: connection dialog state must not expose app-wide fields." >&2
+  exit 1
+fi
+
 for module in event_router agent_events connection_events operation_events schema_events table_events; do
   test -f "$repo_root/crates/ui/src/${module}.rs" || {
     echo "UI architecture check failed: missing event module ${module}.rs." >&2

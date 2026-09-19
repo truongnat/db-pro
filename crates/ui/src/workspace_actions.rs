@@ -324,7 +324,8 @@ impl DbProApp {
     /// validation error, without requiring a live database.
     pub fn open_connection_error_for_capture(&mut self) {
         self.open_new_connection();
-        self.connection_dialog.error = "Connection test failed: authentication rejected by the server.".to_owned();
+        self.connection_dialog
+            .set_error("Connection test failed: authentication rejected by the server.");
         self.feedback.runtime_message = "Connection test failed".to_owned();
     }
 
@@ -332,8 +333,9 @@ impl DbProApp {
     /// the password input + eye toggle can be documented (the affected surface for the
     /// input click-steal fix) without needing a real saved connection.
     pub fn open_edit_connection_for_capture(&mut self) {
-        self.connection_dialog.editing_connection_id = Some("capture-test".to_owned());
-        self.connection_dialog.draft = UiConnectionDraft {
+        self.connection_dialog
+            .set_editing_connection_id(Some("capture-test".to_owned()));
+        self.connection_dialog.set_draft(UiConnectionDraft {
             name: "Test Connection".to_owned(),
             host: "localhost".to_owned(),
             port: "5432".to_owned(),
@@ -360,13 +362,12 @@ impl DbProApp {
             auth_kind: "password".to_owned(),
             cloud_snippet: String::new(),
             cloud_guidance: String::new(),
-        };
-        self.connection_dialog.error.clear();
-        self.connection_dialog.test_valid = false;
-        self.connection_dialog.test_draft = None;
+        });
+        self.connection_dialog.clear_error();
+        self.connection_dialog.clear_test();
         self.connection_lifecycle.clear_pending_request();
-        self.connection_dialog.focus_name_on_open = true;
-        self.connection_dialog.open = true;
+        self.connection_dialog.set_focus_name_on_open(true);
+        self.connection_dialog.set_open(true);
     }
 
     /// Capture/evidence helper: open a fresh untitled Query buffer (UI05 editor-first shots).

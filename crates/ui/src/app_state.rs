@@ -47,7 +47,7 @@ impl DbProApp {
             app.load_named_sessions_from_storage(storage);
             if let Some(raw) = storage.get_string("dbpro.native.ssh-profiles-v1") {
                 if let Ok(profiles) = serde_json::from_str(&raw) {
-                    app.connection_dialog.ssh_profiles = profiles;
+                    app.connection_dialog.set_ssh_profiles(profiles);
                 }
             }
             if let Some(width) = storage

@@ -40,11 +40,12 @@ views.
 
 - `DbProApp` (`crates/ui/src/app.rs`) is the egui composition root. Its display state is owned by
   feature aggregates for connection, explorer, workspace, query, schema, grid, overlay,
-  settings, agent, files, diagram, database operations and diagnostics. Runtime event routing is
+  settings, agent, files, diagram, named database-management features and diagnostics. Runtime event routing is
   isolated in feature event modules, and `scripts/check-ui-architecture.sh` prevents scalar
   feature state or handlers from returning to the root. Runtime event and command boundaries
-  are bounded and backpressured. A remaining hardening slice is making aggregate fields private
-  to their feature modules and exposing reducer APIs instead of a shared `DbProApp` facade.
+  are bounded and backpressured. Aggregate fields are now scoped to the app boundary; the
+  remaining hardening slice is moving view and reducer APIs onto feature-owned contexts instead
+  of using `DbProApp` as a shared mutable facade.
 - State changes are one-directional:
   `UserIntent → UiCommand → service → UiEvent → reducer → repaint`.
 - `UiCommand` leaves the UI thread through the task bridge; the runtime worker handles it

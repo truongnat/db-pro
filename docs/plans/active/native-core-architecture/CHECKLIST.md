@@ -22,6 +22,8 @@
 - [x] Query library, named workspace session and overlay aggregates.
 - [x] Preferences, welcome and shared feedback aggregates.
 - [x] Diagram, workspace files, database operations, palette and query execution policy aggregates.
+- [x] Database management catch-all split into named feature aggregates and schema comparison state.
+- [x] Feature aggregate fields scoped to the app boundary with an architecture guard.
 - [x] Runtime event dispatch table isolated from feature handlers.
 - [x] Agent and table runtime handlers split into feature event modules.
 - [x] Connection, schema and operation reducers split out of `events.rs`.
@@ -34,9 +36,10 @@
 - [x] `cargo fmt --all -- --check` (PASS)
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
-- [x] `cargo test -p db-pro-ui --lib` (576 passed)
-- [x] `cargo test --workspace --no-fail-fast` (1248 passed, 0 failed, 42 ignored)
+- [x] `cargo test -p db-pro-ui --lib` (578 passed)
+- [x] `cargo test --workspace --no-fail-fast` (1250 passed, 0 failed, 42 ignored)
 - [x] `cargo build --release --locked -p db-pro-native`
+- [x] `cargo build --release --locked -p db-pro-native --features capture`
 - [x] New Connection modal runtime capture at logical `1280x800` (centered
       card, separated header, right-aligned close, sticky footer).
 - [x] Loading Welcome and New Connection error state captures at logical

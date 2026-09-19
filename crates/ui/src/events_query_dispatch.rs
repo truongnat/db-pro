@@ -5,7 +5,7 @@ use super::*;
 impl DbProApp {
     pub(super) fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         if self.palette.mode.is_some()
-            || self.connection_dialog.open
+            || self.connection_dialog.is_open()
             || self.overlay.delete_confirmation_id.is_some()
             || self.overlay.folder_delete_confirmation.is_some()
             || self.table_data.insert_row_open

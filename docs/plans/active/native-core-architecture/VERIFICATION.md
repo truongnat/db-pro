@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `a096664e`.
+Source checkpoint: `ee6a1247`.
 
 ## Current change
 
@@ -29,7 +29,8 @@ Source checkpoint: `a096664e`.
   pinned/recent tables and schema-object view state.
 - `QueryEditorState` now owns editor overlays, visual-builder drafts,
   diagnostics caches, problem filters and query history.
-- `WorkspaceFilesState`, `DiagramState`, `DatabaseOperationsState`,
+- `WorkspaceFilesState`, `DiagramState`, named database-management aggregates
+  from `database_feature_states.rs`, `SchemaCompareState`,
   `PaletteState`, `QueryExecutionPolicyState`, `QueryLibraryState`,
   `SavedTaskState`, `WorkspaceSessionState`, `OverlayState`, `FeedbackState`,
   `PreferencesState` and `WelcomeState` now own their feature state.
@@ -52,6 +53,9 @@ Source checkpoint: `a096664e`.
 - Legacy `RunAgent`/`ExecuteAgentTool` commands and ignored tool completion
   events were removed; the runtime now exposes one agent workflow command/event
   contract.
+- Aggregate fields are scoped to the app boundary; the architecture guard
+  rejects crate-public state fields in feature state modules and connection
+  state modules.
 - `scripts/check-ui-architecture.sh`: PASS; it allowlists the composition-root
   fields, rejects event handlers in `events.rs`, rejects direct state access in
   `event_router.rs`, requires bounded event draining, and rejects feature code
@@ -73,16 +77,17 @@ Source checkpoint: `a096664e`.
 - Release runtime smoke: PASS; `target/release/db-pro-native` launched from
   the verified HEAD and rendered the Welcome/empty state in a `1440x870` DB Pro
   window. Capture was inspected from the native window after startup settled.
-- Unit tests for the extracted aggregates: 27 passed, 0 failed.
+- Unit tests for the extracted aggregates are included in the UI test suite.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 576 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 578 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1248 passed, 0 failed, 42 ignored.
+- `cargo test --workspace --no-fail-fast`: 1250 passed, 0 failed, 42 ignored.
 - `cargo build --release --locked -p db-pro-native`: PASS.
+- `cargo build --release --locked -p db-pro-native --features capture`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 11 pass, 5 warnings, 0 failures; warnings are ratcheted size/cast/clone heuristics.
 
 ## Not yet proven

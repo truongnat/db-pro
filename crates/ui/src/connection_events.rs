@@ -29,12 +29,12 @@ impl DbProApp {
                     .errors
                     .insert(connection_id, message.to_owned());
             }
-            if !self.connection_dialog.open {
+            if !self.connection_dialog.is_open() {
                 self.connection_lifecycle.connected = false;
                 self.schema_explorer.schema_request = None;
                 self.schema_explorer.schema_error = None;
             }
-            self.connection_dialog.error = message.to_owned();
+            self.connection_dialog.set_error(message);
             self.feedback.runtime_message = format!("Connection failed · {message}");
         }
         true
