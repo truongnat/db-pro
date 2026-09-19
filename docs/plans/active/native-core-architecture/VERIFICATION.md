@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `9442a9c1`.
+Source checkpoint: `d05077ce`.
 
 ## Current change
 
@@ -156,6 +156,9 @@ Source checkpoint: `9442a9c1`.
 - Grid projection epoch and row-identity cache invalidation now live on
   `TableDataState`; query/result reducers and table event orchestration call
   that explicit state API.
+- Query document collection invariants now live on `QuerySessionState`; add,
+  select, remove, keep-one, truncate-right and reset operations no longer
+  mutate the document vector and active index ad hoc in `DbProApp` helpers.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

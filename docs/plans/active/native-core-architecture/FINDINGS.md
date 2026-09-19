@@ -232,6 +232,9 @@ Query output-tab override and active-tab mutations now follow the same rule on
 Grid projection epoch and row-identity cache invalidation now follow the same
 rule on `TableDataState`; query/result reducers and table orchestration call
 that explicit state API.
+Query document collection invariants now follow the same rule on
+`QuerySessionState`; document lifecycle helpers no longer edit the collection
+and active index independently through the composition root.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
