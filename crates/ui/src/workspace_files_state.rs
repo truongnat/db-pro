@@ -24,6 +24,30 @@ pub(crate) struct WorkspaceFilesState {
     pub(super) workspace_context_items: Vec<String>,
 }
 
+impl WorkspaceFilesState {
+    pub(super) fn close(&mut self, shell: &mut WorkspaceShellState, feedback: &mut FeedbackState) {
+        self.ide_workspace.close();
+        self.workspace_search_hits.clear();
+        self.workspace_replace_previews.clear();
+        self.workspace_context_items.clear();
+        shell.split_editor_secondary = None;
+        feedback.set_runtime_message("Workspace closed");
+    }
+
+    pub(super) fn refresh(&mut self, feedback: &mut FeedbackState) {
+        match self.ide_workspace.refresh() {
+            Ok(()) => {
+                self.ide_workspace.scan_diagnostics();
+                feedback.set_runtime_message(format!(
+                    "Workspace refreshed · {} files indexed",
+                    self.ide_workspace.index().len()
+                ));
+            }
+            Err(error) => feedback.set_runtime_message(format!("Workspace refresh failed: {error}")),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::WorkspaceFilesState;

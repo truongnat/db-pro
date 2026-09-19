@@ -55,30 +55,6 @@ impl DbProApp {
         }
     }
 
-    pub(crate) fn close_workspace_folder(&mut self) {
-        self.workspace.files.ide_workspace.close();
-        self.workspace.files.workspace_search_hits.clear();
-        self.workspace.files.workspace_replace_previews.clear();
-        self.workspace.files.workspace_context_items.clear();
-        self.workspace.split_editor_secondary = None;
-        self.feedback.runtime_message = "Workspace closed".to_owned();
-    }
-
-    pub(crate) fn refresh_workspace_folder(&mut self) {
-        match self.workspace.files.ide_workspace.refresh() {
-            Ok(()) => {
-                self.workspace.files.ide_workspace.scan_diagnostics();
-                self.feedback.runtime_message = format!(
-                    "Workspace refreshed · {} files indexed",
-                    self.workspace.files.ide_workspace.index().len()
-                );
-            }
-            Err(error) => {
-                self.feedback.runtime_message = format!("Workspace refresh failed: {error}");
-            }
-        }
-    }
-
     pub(crate) fn open_workspace_sql_file(&mut self, relative_path: String) {
         let Some(absolute) = self.workspace.files.ide_workspace.absolute_for_relative(&relative_path) else {
             self.feedback.runtime_message = "Open a workspace folder first".to_owned();

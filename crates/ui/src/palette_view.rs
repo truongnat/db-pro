@@ -663,7 +663,10 @@ impl DbProApp {
             }
             PaletteAction::OpenWorkspaceFile(path) => self.open_workspace_sql_file(path),
             PaletteAction::OpenWorkspaceFolder => self.request_open_workspace_folder(),
-            PaletteAction::CloseWorkspaceFolder => self.close_workspace_folder(),
+            PaletteAction::CloseWorkspaceFolder => self
+                .workspace
+                .files
+                .close(&mut self.workspace.shell, &mut self.feedback),
             PaletteAction::OpenSavedQuery(query_id) => self.open_saved_query_from_palette(query_id),
             PaletteAction::OpenHistoryEntry(index) => {
                 if let Some(entry) = self.query_editor.query_history_entries.get(index).cloned() {

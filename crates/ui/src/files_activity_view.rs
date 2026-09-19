@@ -29,7 +29,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.refresh_workspace_folder();
+                    self.workspace.files.refresh(&mut self.feedback);
                 }
             });
         });
@@ -131,7 +131,9 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                self.close_workspace_folder();
+                self.workspace
+                    .files
+                    .close(&mut self.workspace.shell, &mut self.feedback);
             }
         });
         ui.add_space(4.0);
