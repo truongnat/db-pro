@@ -11,7 +11,7 @@
 ## Remaining migrations
 
 - [x] Workspace shell/navigation aggregate.
-- [x] Query document/session aggregate (document lifecycle; output lifecycle remains).
+- [x] Query document/session aggregate.
 - [ ] Table/data editor aggregate.
 - [ ] Agent/task aggregate.
 - [ ] Runtime event dispatch split by feature.

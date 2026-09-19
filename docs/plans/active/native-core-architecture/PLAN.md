@@ -34,8 +34,8 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
 2. Connection session state and lifecycle transitions — lifecycle completed in
    `13dedb61`; saved-connection read model completed in `d9ff6b00`.
 3. Workspace shell state and navigation reducer — completed in `a483000a`.
-4. Query document/session state and output lifecycle — document lifecycle
-   completed in `0bde3a5f`; output state remains for the next query slice.
+4. Query document/session state and output lifecycle — completed in
+   `24f8692a`.
 5. Table/data editor state and mutation effects.
 6. Agent state and task lifecycle.
 7. Remove remaining feature fields from `DbProApp`; leave it as composition,

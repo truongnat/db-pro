@@ -63,8 +63,8 @@ Evidence: open documents, active document selection, selected text, save/close
 request maps and Save As/dirty-close state were individual `DbProApp` fields
 read by query, agent, workspace and runtime event code.
 
-Fix in `0bde3a5f`: those values now have one owner,
-`QuerySessionState`. Query output/result state intentionally remains separate
-for the next query slice.
+Fix in `0bde3a5f`: document lifecycle values now have one owner,
+`QuerySessionState`. Fix in `24f8692a`: output-tab selection and per-document
+output-tab overrides now have one owner, `QueryOutputState`.
 
 Severity: P1 boundary leak, resolved for document lifecycle.
