@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `5edcb162`.
+Source checkpoint: `ea0b8c90`.
 
 ## Current change
 
@@ -103,6 +103,8 @@ Source checkpoint: `5edcb162`.
 - Query-history retention now lives in `query_history_events.rs`; the reducer
   owns the 500-entry cap and only receives `QueryEditorState` plus a history
   record.
+- Query queued feedback now lives in `query_queue_events.rs`; the reducer
+  receives only `FeedbackState` and the request identity.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

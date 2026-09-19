@@ -177,6 +177,9 @@ the root performs only tab orchestration.
 Query-history retention now follows the same boundary in
 `query_history_events.rs`; the 500-entry cap is owned by the editor-state
 reducer rather than the composition root.
+Query queued feedback now follows the same boundary in
+`query_queue_events.rs`; the request status message no longer requires the
+composition root.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
