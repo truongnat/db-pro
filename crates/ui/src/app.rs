@@ -94,6 +94,8 @@ mod files_activity_view;
 mod git_workspace;
 #[path = "ide_workspace.rs"]
 mod ide_workspace;
+#[path = "management_events.rs"]
+mod management_events;
 #[path = "navigation_view.rs"]
 mod navigation_view;
 #[path = "operation_events.rs"]

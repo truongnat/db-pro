@@ -1,59 +1,46 @@
-//! Runtime completion and mutation-failure events.
+//! Runtime orchestration for database-management and mutation events.
 
 use super::*;
 use crate::RequestId;
 
 impl DbProApp {
     pub(super) fn on_operation_progress(&mut self, operation: String, status: String) {
-        self.feedback.runtime_message = format!("{operation}: {status}");
+        management_events::on_operation_progress(&mut self.feedback, operation, status);
     }
 
     pub(super) fn on_backup_completed(&mut self, output_path: String, size_bytes: u64) {
-        self.feedback.runtime_message = format!("Backup completed · {output_path} · {size_bytes} bytes");
+        management_events::on_backup_completed(&mut self.feedback, output_path, size_bytes);
     }
 
     pub(super) fn on_monitoring_snapshot_loaded(
         &mut self,
         snapshot: db_pro_core::domain::monitoring::MonitoringSnapshot,
     ) {
-        if let Some(prev) = self.monitoring.monitoring_snapshot.take() {
-            self.monitoring.monitoring_workload_prev = prev.workload;
-        }
-        self.monitoring.monitoring_snapshot = Some(snapshot.clone());
-        self.monitoring.monitoring_error = None;
-        self.feedback.runtime_message = format!("Monitor · {}", snapshot.message);
+        management_events::on_monitoring_snapshot_loaded(&mut self.monitoring, &mut self.feedback, snapshot);
     }
 
     pub(super) fn on_monitoring_workload_loaded(
         &mut self,
         workload: db_pro_core::domain::monitoring::StatStatementsSnapshot,
     ) {
-        if let Some(snapshot) = self.monitoring.monitoring_snapshot.as_mut() {
-            self.monitoring.monitoring_workload_prev = snapshot.workload.clone();
-            snapshot.workload = Some(workload.clone());
-        }
-        self.monitoring.monitoring_stat_sort = workload.sort;
-        self.feedback.runtime_message = format!("Workload · {}", workload.message);
+        management_events::on_monitoring_workload_loaded(&mut self.monitoring, &mut self.feedback, workload);
     }
 
     pub(super) fn on_audit_page_loaded(&mut self, page: db_pro_core::domain::audit::AuditPage) {
-        self.audit.audit_page = Some(page.clone());
-        self.audit.audit_error = None;
-        self.feedback.runtime_message = format!(
-            "Audit · {} event(s) · {}",
-            page.events.len(),
-            page.source.guidance.chars().take(80).collect::<String>()
+        management_events::on_audit_page_loaded(
+            &mut self.audit.audit_page,
+            &mut self.audit.audit_error,
+            &mut self.feedback,
+            page,
         );
     }
 
     pub(super) fn on_pg_settings_loaded(&mut self, snapshot: db_pro_core::domain::pg_settings::PgSettingsSnapshot) {
-        self.pg_settings.pg_settings = Some(snapshot.clone());
-        self.pg_settings.pg_settings_error = None;
-        self.feedback.runtime_message = format!("pg_settings · {}", snapshot.message);
+        management_events::on_pg_settings_loaded(&mut self.pg_settings, &mut self.feedback, snapshot);
     }
 
     pub(super) fn on_pg_setting_action_completed(&mut self, action: String, name: String) {
-        self.feedback.runtime_message = format!("pg_settings {action} `{name}` ok");
+        management_events::on_pg_setting_action_completed(&mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListPgSettings {
@@ -64,15 +51,11 @@ impl DbProApp {
     }
 
     pub(super) fn on_fdw_inventory_loaded(&mut self, inventory: db_pro_core::domain::fdw::FdwInventory) {
-        self.fdw.fdw_inventory = Some(inventory.clone());
-        self.fdw.fdw_error = None;
-        self.feedback.runtime_message = format!("FDW · {}", inventory.message);
+        management_events::on_fdw_inventory_loaded(&mut self.fdw, &mut self.feedback, inventory);
     }
 
     pub(super) fn on_fdw_action_completed(&mut self, action: String, name: String) {
-        self.feedback.runtime_message = format!("FDW {action} `{name}` ok");
-        self.fdw.fdw_drop_confirm = None;
-        self.fdw.fdw_ddl_preview = None;
+        management_events::on_fdw_action_completed(&mut self.fdw, &mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListFdwInventory {
@@ -86,16 +69,11 @@ impl DbProApp {
         &mut self,
         inventory: db_pro_core::domain::replication::ReplicationInventory,
     ) {
-        self.replication.replication_inventory = Some(inventory.clone());
-        self.replication.replication_error = None;
-        self.feedback.runtime_message = format!("Replication · {}", inventory.message);
+        management_events::on_replication_inventory_loaded(&mut self.replication, &mut self.feedback, inventory);
     }
 
     pub(super) fn on_replication_action_completed(&mut self, action: String, name: String) {
-        self.feedback.runtime_message = format!("Replication {action} `{name}` ok");
-        self.replication.replication_drop_publication = None;
-        self.replication.replication_drop_subscription = None;
-        self.replication.replication_ddl_preview = None;
+        management_events::on_replication_action_completed(&mut self.replication, &mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListReplicationInventory {
@@ -109,15 +87,11 @@ impl DbProApp {
         &mut self,
         inventory: db_pro_core::domain::event_trigger::EventTriggerInventory,
     ) {
-        self.event_trigger.event_trigger_inventory = Some(inventory.clone());
-        self.event_trigger.event_trigger_error = None;
-        self.feedback.runtime_message = format!("Event triggers · {}", inventory.message);
+        management_events::on_event_trigger_inventory_loaded(&mut self.event_trigger, &mut self.feedback, inventory);
     }
 
     pub(super) fn on_event_trigger_action_completed(&mut self, action: String, name: String) {
-        self.feedback.runtime_message = format!("Event trigger {action} `{name}` ok");
-        self.event_trigger.event_trigger_drop_confirm = None;
-        self.event_trigger.event_trigger_ddl_preview = None;
+        management_events::on_event_trigger_action_completed(&mut self.event_trigger, &mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListEventTriggers {
@@ -128,12 +102,13 @@ impl DbProApp {
     }
 
     pub(super) fn on_monitoring_action_completed(&mut self, action: String, backend_id: i64, succeeded: bool) {
-        self.feedback.runtime_message = format!(
-            "Monitor {action} pid={backend_id} · {}",
-            if succeeded { "ok" } else { "no-op" }
+        management_events::on_monitoring_action_completed(
+            &mut self.monitoring,
+            &mut self.feedback,
+            action,
+            backend_id,
+            succeeded,
         );
-        self.monitoring.monitoring_terminate_confirm = None;
-        self.monitoring.monitoring_reset_stats_confirm = false;
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::MonitoringSnapshot {
@@ -144,9 +119,7 @@ impl DbProApp {
     }
 
     pub(super) fn on_users_loaded(&mut self, users: Vec<db_pro_core::domain::user::DatabaseUser>) {
-        self.security.security_users = users;
-        self.security.security_error = None;
-        self.feedback.runtime_message = format!("Security · {} role(s)", self.security.security_users.len());
+        management_events::on_users_loaded(&mut self.security, &mut self.feedback, users);
     }
 
     pub(super) fn on_privileges_loaded(
@@ -154,8 +127,7 @@ impl DbProApp {
         role_name: String,
         privileges: Vec<db_pro_core::domain::user::Privilege>,
     ) {
-        self.security.security_selected_role = Some(role_name);
-        self.security.security_privileges = privileges;
+        management_events::on_privileges_loaded(&mut self.security, role_name, privileges);
     }
 
     pub(super) fn on_memberships_loaded(
@@ -163,19 +135,15 @@ impl DbProApp {
         member: String,
         memberships: Vec<db_pro_core::domain::user::RoleMembership>,
     ) {
-        self.security.security_selected_role = Some(member);
-        self.security.security_memberships = memberships;
+        management_events::on_memberships_loaded(&mut self.security, member, memberships);
     }
 
     pub(super) fn on_table_rls_loaded(&mut self, state: db_pro_core::domain::rls::TableRlsState) {
-        self.security.security_rls_state = Some(state);
-        self.security.security_error = None;
-        self.feedback.runtime_message = "Security · RLS state loaded".to_owned();
+        management_events::on_table_rls_loaded(&mut self.security, &mut self.feedback, state);
     }
 
     pub(super) fn on_data_diff_loaded(&mut self, diff: db_pro_core::domain::cross_connection::DataDiff) {
-        self.schema_compare.data_diff_result = Some(diff);
-        self.feedback.runtime_message = "Data compare ready".to_owned();
+        management_events::on_data_diff_loaded(&mut self.schema_compare, &mut self.feedback, diff);
     }
 
     /// A native file picker returned (or was cancelled).
@@ -198,7 +166,8 @@ impl DbProApp {
             self.connection.dialog.set_error("File selection was cancelled");
             self.connection.dialog.set_test_valid(false);
         } else if kind == "workspace-folder" {
-            self.feedback.runtime_message = "Workspace folder selection was cancelled".to_owned();
+            self.feedback
+                .set_runtime_message("Workspace folder selection was cancelled");
         }
     }
 
@@ -209,7 +178,8 @@ impl DbProApp {
             self.table_state.ddl_execute_confirmation = false;
             self.table_state.table_ddl_error = None;
             self.table_state.refresh_table_info_after_schema = self.schema_explorer.selected_table.is_some();
-            self.feedback.runtime_message = format!("DDL applied · {affected_rows} affected rows");
+            self.feedback
+                .set_runtime_message(format!("DDL applied · {affected_rows} affected rows"));
             if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                 self.request_schema_introspection(connection_id, true);
             }
@@ -230,7 +200,7 @@ impl DbProApp {
         {
             return;
         }
-        self.feedback.runtime_message = operation.clone();
+        self.feedback.set_runtime_message(operation.clone());
         if pending_connection_request {
             self.connection.lifecycle.clear_pending_request();
         }
@@ -264,15 +234,17 @@ impl DbProApp {
             self.refresh_connection_diagnostics(true, "Authentication succeeded");
             if self.connection.dialog.test_draft() == Some(self.connection.dialog.draft()) {
                 self.connection.dialog.set_test_valid(true);
-                self.feedback.runtime_message = self
-                    .connection
-                    .dialog
-                    .diagnostics()
-                    .map(|r| r.summary())
-                    .unwrap_or_else(|| "Connection test succeeded".to_owned());
+                self.feedback.set_runtime_message(
+                    self.connection
+                        .dialog
+                        .diagnostics()
+                        .map(|result| result.summary())
+                        .unwrap_or_else(|| "Connection test succeeded".to_owned()),
+                );
             } else {
                 self.connection.dialog.set_test_valid(false);
-                self.feedback.runtime_message = "Connection changed · test again before saving".to_owned();
+                self.feedback
+                    .set_runtime_message("Connection changed · test again before saving");
             }
         }
         if operation.starts_with("table-row.") || operation == "table-changes.applied" {
