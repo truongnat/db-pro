@@ -4,6 +4,16 @@ use super::*;
 use crate::RequestId;
 
 impl DbProApp {
+    pub(super) fn handle_schema_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
+        if self.schema_explorer.schema_request != Some(request_id) {
+            return false;
+        }
+        self.schema_explorer.schema_request = None;
+        self.schema_explorer.schema_error = Some(message.to_owned());
+        self.feedback.runtime_message = format!("Schema introspection failed · {message}");
+        true
+    }
+
     /// Schema introspection result, revalidating the current schema/table/object selection.
     pub(super) fn on_schema_loaded(&mut self, request_id: RequestId, schema: UiSchemaSummary) {
         if self

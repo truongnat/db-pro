@@ -4,6 +4,18 @@ use super::*;
 use crate::RequestId;
 
 impl DbProApp {
+    pub(super) fn on_saved_queries_loaded(&mut self, queries: Vec<UiSavedQuerySummary>) {
+        self.query_library.saved_queries = queries;
+    }
+
+    pub(super) fn on_query_folders_loaded(&mut self, folders: Vec<crate::UiQueryFolderSummary>) {
+        self.query_library.query_folders = folders;
+    }
+
+    pub(super) fn on_query_queued(&mut self, request_id: RequestId) {
+        self.feedback.runtime_message = format!("Query queued · request {}", request_id.0);
+    }
+
     pub(super) fn on_query_completed(&mut self, request_id: RequestId, result: UiQueryResult) {
         let target_doc_id = self.query_session_state.document_requests.remove(&request_id);
         // A new result set replaces the rows behind the grid, so nothing the projection cache holds
@@ -411,82 +423,15 @@ impl DbProApp {
         position: Option<usize>,
         code: Option<String>,
     ) {
-        if self.agent.configure_request == Some(request_id) {
-            self.agent.configure_request = None;
-            self.feedback.runtime_message = format!("Agent key operation failed · {message}");
-            self.show_toast_error(self.feedback.runtime_message.clone());
-        } else if self.connection_lifecycle.pending_request == Some(request_id) {
-            self.connection_lifecycle.clear_pending_request();
-            let conn_id = self
-                .connection_lifecycle
-                .pending_connection_id
-                .take()
-                .or_else(|| self.connection_lifecycle.active_connection_id.clone());
-            let is_delete = self.feedback.runtime_message.to_ascii_lowercase().contains("delet");
-            if is_delete {
-                let formatted = format!("Delete failed · {message}");
-                self.feedback.runtime_message = formatted.clone();
-                self.show_toast_error(formatted);
-            } else {
-                if let Some(cid) = conn_id {
-                    self.connection_lifecycle.failed_connection_ids.insert(cid.clone());
-                    self.connection_lifecycle.errors.insert(cid, message.clone());
-                }
-                if !self.connection_dialog.open {
-                    self.connection_lifecycle.connected = false;
-                    self.schema_explorer.schema_request = None;
-                    self.schema_explorer.schema_error = None;
-                }
-                self.connection_dialog.error = message.clone();
-                self.feedback.runtime_message = format!("Connection failed · {message}");
-            }
-        } else if self.schema_explorer.schema_request == Some(request_id) {
-            self.schema_explorer.schema_request = None;
-            self.schema_explorer.schema_error = Some(message.clone());
-            self.feedback.runtime_message = format!("Schema introspection failed · {message}");
-        } else if self.table_mutation.staged_apply_request == Some(request_id) {
-            // Older runtimes can still report the generic failure event. Keep
-            // the staged changes and surface it as an unmapped mutation.
-            self.staged_apply_failed(usize::MAX, "UNKNOWN", &message, false);
-        } else if self.table_mutation.table_mutation_request == Some(request_id) {
-            self.table_mutation.table_mutation_request = None;
-            self.table_data.data_editing_cell = None;
-            self.table_data.data_edit_value.clear();
-            self.table_data.data_edit_error = None;
-            self.table_data.data_delete_confirmation = false;
-            let formatted = format!("Row mutation failed · {message}");
-            self.feedback.runtime_message = formatted.clone();
-            self.show_toast_error(formatted);
-        } else if self.table_state.table_info_request == Some(request_id) {
-            self.table_state.table_info_request = None;
-            self.table_state.table_info_error = Some(message.clone());
-            self.feedback.runtime_message = format!("Table structure failed · {message}");
-        } else if self.table_state.table_ddl_request == Some(request_id) {
-            self.table_state.table_ddl_request = None;
-            self.table_state.table_ddl_error = Some(message.clone());
-            self.feedback.runtime_message = format!("Table DDL failed · {message}");
-        } else if self.table_state.table_row_reload_request == Some(request_id) {
-            self.table_state.table_row_reload_request = None;
-            self.table_state.table_row_reload_identity = None;
-            self.table_mutation.table_mutation_retry_after_reload = false;
-            self.table_mutation.table_mutation_retry_target = None;
-            self.feedback.runtime_message = format!("Could not reload row: {message}");
-        } else if self.table_state.table_data_request == Some(request_id) {
-            self.table_state.table_data_request = None;
-            self.table_mutation.table_mutation_retry_after_reload = false;
-            self.table_mutation.table_mutation_retry_target = None;
-            self.table_state.table_data_error = Some(message.clone());
-            let formatted = format!("Table data failed · {message}");
-            self.feedback.runtime_message = formatted.clone();
-            self.show_toast_error(formatted);
-        } else if self.table_state.ddl_execution_request == Some(request_id) {
-            self.table_state.ddl_execution_request = None;
-            self.table_state.ddl_execute_confirmation = false;
-            self.table_state.table_ddl_error = Some(message.clone());
-            let formatted = format!("DDL execution failed · {message}");
-            self.feedback.runtime_message = formatted.clone();
-            self.show_toast_error(formatted);
-        } else if let Some(document_id) = self.query_session_state.save_requests.remove(&request_id) {
+        if self.handle_agent_request_failure(request_id, &message)
+            || self.handle_connection_request_failure(request_id, &message)
+            || self.handle_schema_request_failure(request_id, &message)
+            || self.handle_table_request_failure(request_id, &message)
+        {
+            return;
+        }
+
+        if let Some(document_id) = self.query_session_state.save_requests.remove(&request_id) {
             if self.query_session_state.pending_close_after_save.is_some_and(|index| {
                 self.query_session_state
                     .documents

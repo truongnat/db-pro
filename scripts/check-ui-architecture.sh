@@ -56,6 +56,17 @@ if rg -n 'fn on_[A-Za-z0-9_]+\(' "$events_file"; then
   exit 1
 fi
 
+router_file="$repo_root/crates/ui/src/event_router.rs"
+if rg --pcre2 -n 'self\.(?!on_[A-Za-z0-9_]+\(|apply_runtime_event\()' "$router_file"; then
+  echo "UI architecture check failed: event_router.rs contains direct state/orchestration access." >&2
+  exit 1
+fi
+
+if ! rg -q 'drain_events\(crate::runtime::MAX_RUNTIME_EVENTS_PER_FRAME\)' "$repo_root/crates/ui/src/events.rs"; then
+  echo "UI architecture check failed: runtime events are not drained with the per-frame bound." >&2
+  exit 1
+fi
+
 for module in event_router agent_events connection_events operation_events schema_events table_events; do
   test -f "$repo_root/crates/ui/src/${module}.rs" || {
     echo "UI architecture check failed: missing event module ${module}.rs." >&2

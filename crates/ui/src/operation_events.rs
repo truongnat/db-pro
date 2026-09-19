@@ -4,6 +4,180 @@ use super::*;
 use crate::RequestId;
 
 impl DbProApp {
+    pub(super) fn on_operation_progress(&mut self, operation: String, status: String) {
+        self.feedback.runtime_message = format!("{operation}: {status}");
+    }
+
+    pub(super) fn on_backup_completed(&mut self, output_path: String, size_bytes: u64) {
+        self.feedback.runtime_message = format!("Backup completed · {output_path} · {size_bytes} bytes");
+    }
+
+    pub(super) fn on_monitoring_snapshot_loaded(
+        &mut self,
+        snapshot: db_pro_core::domain::monitoring::MonitoringSnapshot,
+    ) {
+        if let Some(prev) = self.database_operations.monitoring_snapshot.take() {
+            self.database_operations.monitoring_workload_prev = prev.workload;
+        }
+        self.database_operations.monitoring_snapshot = Some(snapshot.clone());
+        self.database_operations.monitoring_error = None;
+        self.feedback.runtime_message = format!("Monitor · {}", snapshot.message);
+    }
+
+    pub(super) fn on_monitoring_workload_loaded(
+        &mut self,
+        workload: db_pro_core::domain::monitoring::StatStatementsSnapshot,
+    ) {
+        if let Some(snapshot) = self.database_operations.monitoring_snapshot.as_mut() {
+            self.database_operations.monitoring_workload_prev = snapshot.workload.clone();
+            snapshot.workload = Some(workload.clone());
+        }
+        self.database_operations.monitoring_stat_sort = workload.sort;
+        self.feedback.runtime_message = format!("Workload · {}", workload.message);
+    }
+
+    pub(super) fn on_audit_page_loaded(&mut self, page: db_pro_core::domain::audit::AuditPage) {
+        self.database_operations.audit_page = Some(page.clone());
+        self.database_operations.audit_error = None;
+        self.feedback.runtime_message = format!(
+            "Audit · {} event(s) · {}",
+            page.events.len(),
+            page.source.guidance.chars().take(80).collect::<String>()
+        );
+    }
+
+    pub(super) fn on_pg_settings_loaded(&mut self, snapshot: db_pro_core::domain::pg_settings::PgSettingsSnapshot) {
+        self.database_operations.pg_settings = Some(snapshot.clone());
+        self.database_operations.pg_settings_error = None;
+        self.feedback.runtime_message = format!("pg_settings · {}", snapshot.message);
+    }
+
+    pub(super) fn on_pg_setting_action_completed(&mut self, action: String, name: String) {
+        self.feedback.runtime_message = format!("pg_settings {action} `{name}` ok");
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+            let request_id = self.task_bridge.next_request_id();
+            self.dispatch_command(UiCommand::ListPgSettings {
+                request_id,
+                connection_id,
+            });
+        }
+    }
+
+    pub(super) fn on_fdw_inventory_loaded(&mut self, inventory: db_pro_core::domain::fdw::FdwInventory) {
+        self.database_operations.fdw_inventory = Some(inventory.clone());
+        self.database_operations.fdw_error = None;
+        self.feedback.runtime_message = format!("FDW · {}", inventory.message);
+    }
+
+    pub(super) fn on_fdw_action_completed(&mut self, action: String, name: String) {
+        self.feedback.runtime_message = format!("FDW {action} `{name}` ok");
+        self.database_operations.fdw_drop_confirm = None;
+        self.database_operations.fdw_ddl_preview = None;
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+            let request_id = self.task_bridge.next_request_id();
+            self.dispatch_command(UiCommand::ListFdwInventory {
+                request_id,
+                connection_id,
+            });
+        }
+    }
+
+    pub(super) fn on_replication_inventory_loaded(
+        &mut self,
+        inventory: db_pro_core::domain::replication::ReplicationInventory,
+    ) {
+        self.database_operations.replication_inventory = Some(inventory.clone());
+        self.database_operations.replication_error = None;
+        self.feedback.runtime_message = format!("Replication · {}", inventory.message);
+    }
+
+    pub(super) fn on_replication_action_completed(&mut self, action: String, name: String) {
+        self.feedback.runtime_message = format!("Replication {action} `{name}` ok");
+        self.database_operations.replication_drop_publication = None;
+        self.database_operations.replication_drop_subscription = None;
+        self.database_operations.replication_ddl_preview = None;
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+            let request_id = self.task_bridge.next_request_id();
+            self.dispatch_command(UiCommand::ListReplicationInventory {
+                request_id,
+                connection_id,
+            });
+        }
+    }
+
+    pub(super) fn on_event_trigger_inventory_loaded(
+        &mut self,
+        inventory: db_pro_core::domain::event_trigger::EventTriggerInventory,
+    ) {
+        self.database_operations.event_trigger_inventory = Some(inventory.clone());
+        self.database_operations.event_trigger_error = None;
+        self.feedback.runtime_message = format!("Event triggers · {}", inventory.message);
+    }
+
+    pub(super) fn on_event_trigger_action_completed(&mut self, action: String, name: String) {
+        self.feedback.runtime_message = format!("Event trigger {action} `{name}` ok");
+        self.database_operations.event_trigger_drop_confirm = None;
+        self.database_operations.event_trigger_ddl_preview = None;
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+            let request_id = self.task_bridge.next_request_id();
+            self.dispatch_command(UiCommand::ListEventTriggers {
+                request_id,
+                connection_id,
+            });
+        }
+    }
+
+    pub(super) fn on_monitoring_action_completed(&mut self, action: String, backend_id: i64, succeeded: bool) {
+        self.feedback.runtime_message = format!(
+            "Monitor {action} pid={backend_id} · {}",
+            if succeeded { "ok" } else { "no-op" }
+        );
+        self.database_operations.monitoring_terminate_confirm = None;
+        self.database_operations.monitoring_reset_stats_confirm = false;
+        if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
+            let request_id = self.task_bridge.next_request_id();
+            self.dispatch_command(UiCommand::MonitoringSnapshot {
+                request_id,
+                connection_id,
+            });
+        }
+    }
+
+    pub(super) fn on_users_loaded(&mut self, users: Vec<db_pro_core::domain::user::DatabaseUser>) {
+        self.database_operations.security_users = users;
+        self.database_operations.security_error = None;
+        self.feedback.runtime_message = format!("Security · {} role(s)", self.database_operations.security_users.len());
+    }
+
+    pub(super) fn on_privileges_loaded(
+        &mut self,
+        role_name: String,
+        privileges: Vec<db_pro_core::domain::user::Privilege>,
+    ) {
+        self.database_operations.security_selected_role = Some(role_name);
+        self.database_operations.security_privileges = privileges;
+    }
+
+    pub(super) fn on_memberships_loaded(
+        &mut self,
+        member: String,
+        memberships: Vec<db_pro_core::domain::user::RoleMembership>,
+    ) {
+        self.database_operations.security_selected_role = Some(member);
+        self.database_operations.security_memberships = memberships;
+    }
+
+    pub(super) fn on_table_rls_loaded(&mut self, state: db_pro_core::domain::rls::TableRlsState) {
+        self.database_operations.security_rls_state = Some(state);
+        self.database_operations.security_error = None;
+        self.feedback.runtime_message = "Security · RLS state loaded".to_owned();
+    }
+
+    pub(super) fn on_data_diff_loaded(&mut self, diff: db_pro_core::domain::cross_connection::DataDiff) {
+        self.database_operations.data_diff_result = Some(diff);
+        self.feedback.runtime_message = "Data compare ready".to_owned();
+    }
+
     /// A native file picker returned (or was cancelled).
     pub(super) fn on_file_picked(&mut self, kind: &str, path: Option<String>) {
         if let Some(path) = path {

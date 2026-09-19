@@ -382,9 +382,10 @@ impl eframe::App for DbProApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
         }
         self.request_connections_once();
-        self.apply_runtime_events();
+        let runtime_events_pending = self.apply_runtime_events();
         self.tick_saved_task_scheduler();
-        if self.runtime_work_pending()
+        if runtime_events_pending
+            || self.runtime_work_pending()
             || self
                 .saved_tasks
                 .store

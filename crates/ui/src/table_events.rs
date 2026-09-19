@@ -4,6 +4,66 @@ use super::*;
 use crate::RequestId;
 
 impl DbProApp {
+    pub(super) fn handle_table_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
+        if self.table_mutation.staged_apply_request == Some(request_id) {
+            // Older runtimes can still report the generic failure event. Keep
+            // the staged changes and surface it as an unmapped mutation.
+            self.staged_apply_failed(usize::MAX, "UNKNOWN", message, false);
+            return true;
+        }
+        if self.table_mutation.table_mutation_request == Some(request_id) {
+            self.table_mutation.table_mutation_request = None;
+            self.table_data.data_editing_cell = None;
+            self.table_data.data_edit_value.clear();
+            self.table_data.data_edit_error = None;
+            self.table_data.data_delete_confirmation = false;
+            let formatted = format!("Row mutation failed · {message}");
+            self.feedback.runtime_message = formatted.clone();
+            self.show_toast_error(formatted);
+            return true;
+        }
+        if self.table_state.table_info_request == Some(request_id) {
+            self.table_state.table_info_request = None;
+            self.table_state.table_info_error = Some(message.to_owned());
+            self.feedback.runtime_message = format!("Table structure failed · {message}");
+            return true;
+        }
+        if self.table_state.table_ddl_request == Some(request_id) {
+            self.table_state.table_ddl_request = None;
+            self.table_state.table_ddl_error = Some(message.to_owned());
+            self.feedback.runtime_message = format!("Table DDL failed · {message}");
+            return true;
+        }
+        if self.table_state.table_row_reload_request == Some(request_id) {
+            self.table_state.table_row_reload_request = None;
+            self.table_state.table_row_reload_identity = None;
+            self.table_mutation.table_mutation_retry_after_reload = false;
+            self.table_mutation.table_mutation_retry_target = None;
+            self.feedback.runtime_message = format!("Could not reload row: {message}");
+            return true;
+        }
+        if self.table_state.table_data_request == Some(request_id) {
+            self.table_state.table_data_request = None;
+            self.table_mutation.table_mutation_retry_after_reload = false;
+            self.table_mutation.table_mutation_retry_target = None;
+            self.table_state.table_data_error = Some(message.to_owned());
+            let formatted = format!("Table data failed · {message}");
+            self.feedback.runtime_message = formatted.clone();
+            self.show_toast_error(formatted);
+            return true;
+        }
+        if self.table_state.ddl_execution_request == Some(request_id) {
+            self.table_state.ddl_execution_request = None;
+            self.table_state.ddl_execute_confirmation = false;
+            self.table_state.table_ddl_error = Some(message.to_owned());
+            let formatted = format!("DDL execution failed · {message}");
+            self.feedback.runtime_message = formatted.clone();
+            self.show_toast_error(formatted);
+            return true;
+        }
+        false
+    }
+
     /// Table structure arrived: seed filter/sort defaults on first load.
     pub(super) fn on_table_info_loaded(&mut self, request_id: RequestId, table_info: UiTableInfo) {
         if self.table_state.table_info_request != Some(request_id) {

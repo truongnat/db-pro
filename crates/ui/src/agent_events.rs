@@ -4,6 +4,21 @@ use super::*;
 use crate::RequestId;
 
 impl DbProApp {
+    pub(super) fn handle_agent_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
+        if self.agent.configure_request != Some(request_id) {
+            return false;
+        }
+        self.agent.configure_request = None;
+        self.feedback.runtime_message = format!("Agent key operation failed · {message}");
+        self.show_toast_error(self.feedback.runtime_message.clone());
+        true
+    }
+
+    pub(super) fn on_agent_provider_ready(&mut self, provider: String, detail: String) {
+        self.agent.provider_label = provider;
+        self.agent.provider_detail = detail;
+    }
+
     pub(super) fn on_agent_completed(&mut self, _request_id: RequestId, provider: String, message: AgentMessage) {
         let provider_detail = format!("{provider} Responses API · SQL drafts stay unexecuted");
         self.agent.provider_label = provider;

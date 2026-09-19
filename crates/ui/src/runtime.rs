@@ -1101,13 +1101,20 @@ pub enum UiEvent {
 }
 
 /// Small typed boundary between the immediate-mode UI and asynchronous work.
-/// The receiver is drained by the UI thread once per frame; the native binary
-/// adapts these standard channels to the tokio runtime worker.
+/// The receiver is drained by the UI thread in bounded batches; the native
+/// binary adapts these standard channels to the tokio runtime worker.
 pub struct TaskBridge {
     command_tx: Sender<UiCommand>,
     event_rx: Receiver<UiEvent>,
     next_request_id: u64,
 }
+
+/// Maximum number of runtime events the UI reducer applies in one frame.
+///
+/// Keeping this bound at the UI boundary prevents a burst of backend results
+/// from monopolising an egui frame. The caller requests another repaint when
+/// the batch reaches this limit.
+pub(crate) const MAX_RUNTIME_EVENTS_PER_FRAME: usize = 64;
 
 impl Default for TaskBridge {
     fn default() -> Self {
@@ -1152,8 +1159,8 @@ impl TaskBridge {
         self.command_tx.send(command).map_err(Box::new)
     }
 
-    pub fn drain_events(&self) -> impl Iterator<Item = UiEvent> + '_ {
-        std::iter::from_fn(|| self.event_rx.try_recv().ok())
+    pub fn drain_events(&self, limit: usize) -> impl Iterator<Item = UiEvent> + '_ {
+        std::iter::from_fn(|| self.event_rx.try_recv().ok()).take(limit)
     }
 }
 
@@ -1223,5 +1230,20 @@ mod tests {
         let command = UiCommand::OpenQuery;
         bridge.send(command.clone()).expect("receiver is alive");
         assert_eq!(command_rx.recv().expect("command expected"), command);
+    }
+
+    #[test]
+    fn bridge_drains_at_most_the_requested_event_batch() {
+        let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
+        for request_id in 1..=3 {
+            event_tx
+                .send(UiEvent::QueryQueued {
+                    request_id: RequestId(request_id),
+                })
+                .expect("event receiver is alive");
+        }
+
+        assert_eq!(bridge.drain_events(2).count(), 2);
+        assert_eq!(bridge.drain_events(2).count(), 1);
     }
 }

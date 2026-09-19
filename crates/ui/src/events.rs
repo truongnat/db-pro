@@ -26,11 +26,16 @@ pub(super) struct QueryHistoryRecord {
 }
 
 impl DbProApp {
-    pub(super) fn apply_runtime_events(&mut self) {
-        let events: Vec<UiEvent> = self.task_bridge.drain_events().collect();
+    pub(super) fn apply_runtime_events(&mut self) -> bool {
+        let events: Vec<UiEvent> = self
+            .task_bridge
+            .drain_events(crate::runtime::MAX_RUNTIME_EVENTS_PER_FRAME)
+            .collect();
+        let batch_was_full = events.len() == crate::runtime::MAX_RUNTIME_EVENTS_PER_FRAME;
         for event in events {
             self.apply_runtime_event(event);
         }
+        batch_was_full
     }
 
     // Query completion/history/prediction: `events_query.rs`.

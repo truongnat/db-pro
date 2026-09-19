@@ -4,6 +4,42 @@ use super::*;
 use crate::RequestId;
 
 impl DbProApp {
+    pub(super) fn handle_connection_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
+        if self.connection_lifecycle.pending_request != Some(request_id) {
+            return false;
+        }
+
+        self.connection_lifecycle.clear_pending_request();
+        let connection_id = self
+            .connection_lifecycle
+            .pending_connection_id
+            .take()
+            .or_else(|| self.connection_lifecycle.active_connection_id.clone());
+        let is_delete = self.feedback.runtime_message.to_ascii_lowercase().contains("delet");
+        if is_delete {
+            let formatted = format!("Delete failed · {message}");
+            self.feedback.runtime_message = formatted.clone();
+            self.show_toast_error(formatted);
+        } else {
+            if let Some(connection_id) = connection_id {
+                self.connection_lifecycle
+                    .failed_connection_ids
+                    .insert(connection_id.clone());
+                self.connection_lifecycle
+                    .errors
+                    .insert(connection_id, message.to_owned());
+            }
+            if !self.connection_dialog.open {
+                self.connection_lifecycle.connected = false;
+                self.schema_explorer.schema_request = None;
+                self.schema_explorer.schema_error = None;
+            }
+            self.connection_dialog.error = message.to_owned();
+            self.feedback.runtime_message = format!("Connection failed · {message}");
+        }
+        true
+    }
+
     /// Connection list refreshed; auto-select and auto-connect the first one when nothing is active.
     pub(super) fn on_connections_loaded(&mut self, connections: Vec<UiConnectionSummary>) {
         self.connection_lifecycle.connections_request_pending = false;
