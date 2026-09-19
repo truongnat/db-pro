@@ -28,6 +28,14 @@ const SETTLE_ENV: &str = "DB_PRO_CAPTURE_SETTLE_FRAMES";
 /// default window. Inert for a normal launch.
 const NEW_CONNECTION_ENV: &str = "DB_PRO_CAPTURE_NEW_CONNECTION";
 
+/// Environment variable that opens the New Connection dialog with a stable
+/// validation error for the error-state acceptance capture.
+const CONNECTION_ERROR_ENV: &str = "DB_PRO_CAPTURE_CONNECTION_ERROR";
+
+/// Environment variable that holds the Welcome connection request pending for
+/// the loading-state acceptance capture.
+const LOADING_ENV: &str = "DB_PRO_CAPTURE_LOADING";
+
 /// Environment variable that, when set, asks the capture run to open the
 /// Edit Connection dialog with a test draft, so the password input + eye toggle
 /// on the edit surface can be documented. Inert for a normal launch.
@@ -80,6 +88,7 @@ pub(super) struct CaptureApp {
     frames: u32,
     requested: bool,
     opened_dialog: bool,
+    prepared_loading: bool,
     pinned: Option<egui::Vec2>,
 }
 
@@ -95,6 +104,7 @@ impl CaptureApp {
                 frames: 0,
                 requested: false,
                 opened_dialog: false,
+                prepared_loading: false,
                 pinned: capture_size_from_env(),
             }),
             None => Box::new(inner),
@@ -121,6 +131,10 @@ impl CaptureApp {
 
 impl eframe::App for CaptureApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if !self.prepared_loading && std::env::var_os(LOADING_ENV).is_some() {
+            self.inner.prepare_loading_for_capture();
+            self.prepared_loading = true;
+        }
         self.inner.update(ctx, frame);
 
         // Evidence hook: when asked, open the new-connection dialog so the capture
@@ -129,6 +143,10 @@ impl eframe::App for CaptureApp {
         // so a normal launch is unaffected.
         if !self.opened_dialog && std::env::var_os(NEW_CONNECTION_ENV).is_some() && self.frames >= 2 {
             self.inner.open_new_connection();
+            self.opened_dialog = true;
+        }
+        if !self.opened_dialog && std::env::var_os(CONNECTION_ERROR_ENV).is_some() && self.frames >= 2 {
+            self.inner.open_connection_error_for_capture();
             self.opened_dialog = true;
         }
         if !self.opened_dialog && std::env::var_os(EDIT_CONNECTION_ENV).is_some() && self.frames >= 2 {

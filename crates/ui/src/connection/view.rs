@@ -190,6 +190,8 @@ impl DbProApp {
     }
 
     pub(crate) fn draw_connection_form(&mut self, ui: &mut egui::Ui) {
+        self.draw_connection_feedback(ui);
+
         // ── 1. Database Engine Selection Cards (Grid: 4 cols) ─────────
         ui.horizontal(|ui| {
             ui.label(
@@ -245,8 +247,9 @@ impl DbProApp {
             UiDriver::Postgres | UiDriver::Mysql | UiDriver::SqlServer => self.draw_postgres_connection_fields(ui),
             UiDriver::Sqlite => self.draw_sqlite_connection_fields(ui),
         }
+    }
 
-        // ── 3. Feedback Alerts ─────────────────────────────────────────
+    fn draw_connection_feedback(&self, ui: &mut egui::Ui) {
         if !self.connection_dialog.error.is_empty() {
             ui.add_space(SPACE_XS);
             Alert::new(t!("alerts.config_error"), &self.connection_dialog.error, self.theme)

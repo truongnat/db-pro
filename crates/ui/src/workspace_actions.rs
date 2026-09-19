@@ -312,6 +312,22 @@ impl DbProApp {
         self.connection_lifecycle.clear_pending_request();
     }
 
+    /// Capture/evidence helper: keep the initial connection request pending so
+    /// the Welcome surface can be documented in its loading state.
+    pub fn prepare_loading_for_capture(&mut self) {
+        self.connection_lifecycle.connections_requested = true;
+        self.connection_lifecycle.connections_request_pending = true;
+        self.feedback.runtime_message = "Loading connections…".to_owned();
+    }
+
+    /// Capture/evidence helper: open the connection editor with a deterministic
+    /// validation error, without requiring a live database.
+    pub fn open_connection_error_for_capture(&mut self) {
+        self.open_new_connection();
+        self.connection_dialog.error = "Connection test failed: authentication rejected by the server.".to_owned();
+        self.feedback.runtime_message = "Connection test failed".to_owned();
+    }
+
     /// Capture/evidence helper: open the Edit Connection dialog with a test draft so
     /// the password input + eye toggle can be documented (the affected surface for the
     /// input click-steal fix) without needing a real saved connection.
