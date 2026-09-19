@@ -17,6 +17,7 @@
 - [x] Connection lifecycle reducers use explicit state inputs instead of `DbProApp` methods.
 - [x] Connection deletion confirmation uses an explicit feature context.
 - [x] Query-folder deletion confirmation has its own feature module.
+- [x] Connection catalog, lifecycle and dialog are composed under one feature aggregate at the root.
 
 ## Remaining migrations
 

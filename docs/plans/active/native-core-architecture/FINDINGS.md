@@ -147,6 +147,9 @@ connection deletion confirmation is also isolated in `connection/delete_dialog.r
 with explicit overlay/catalog/lifecycle/runtime dependencies. The
 query-folder confirmation is now isolated in `query_folder_delete_dialog.rs`,
 and the mixed-responsibility `connection/confirm_dialogs.rs` module is deleted.
+The root now owns one `ConnectionFeatureState` aggregate instead of three
+independent connection fields; its catalog, lifecycle and dialog remain
+separate sub-states behind that feature boundary.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
