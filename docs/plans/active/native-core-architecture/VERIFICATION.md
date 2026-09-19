@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `9ba8a8fe`.
+Source checkpoint: `202ffe6c`.
 
 ## Current change
 
