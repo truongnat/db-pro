@@ -10,7 +10,7 @@
 
 ## Remaining migrations
 
-- [ ] Workspace shell/navigation aggregate.
+- [x] Workspace shell/navigation aggregate.
 - [ ] Query document/session aggregate.
 - [ ] Table/data editor aggregate.
 - [ ] Agent/task aggregate.
@@ -23,7 +23,7 @@
 - [x] `cargo fmt --all -- --check` (PASS)
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
-- [x] `cargo test -p db-pro-ui --lib` (552 passed)
-- [x] `cargo test --workspace --no-fail-fast` (1224 passed, 0 failed, 42 ignored)
+- [x] `cargo test -p db-pro-ui --lib` (554 passed)
+- [x] `cargo test --workspace --no-fail-fast` (1226 passed, 0 failed, 42 ignored)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [ ] Native runtime evidence for affected surfaces.

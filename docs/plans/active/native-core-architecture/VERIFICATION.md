@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `d9ff6b00b5831490fe6fa33b4f086786c526f35b`.
+Source checkpoint: `a483000ad73c7a89589b31316394043d2ec960dd`.
 
 ## Current change
 
@@ -10,15 +10,18 @@ Source checkpoint: `d9ff6b00b5831490fe6fa33b4f086786c526f35b`.
 - Connection lifecycle state now owns active/pending/error/request state.
 - `ConnectionCatalogState` now owns the saved-connection read model and its
   replacement/lookup operations.
-- Unit tests for the new aggregates: 4 passed, 0 failed.
+- `WorkspaceShellState` now owns shell navigation, panel visibility/geometry,
+  welcome lifecycle and pending navigation state; panel resize values are
+  clamped through state setters.
+- Unit tests for the new aggregates: 6 passed, 0 failed.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 552 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 554 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1224 passed, 0 failed, 42 ignored.
+- `cargo test --workspace --no-fail-fast`: 1226 passed, 0 failed, 42 ignored.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 11 pass, 5 warnings, 0 failures; warnings are ratcheted size/cast/clone heuristics.
 

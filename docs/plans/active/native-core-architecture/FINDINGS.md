@@ -44,3 +44,15 @@ model now has one owner, `ConnectionCatalogState`, including replacement and
 lookup behavior.
 
 Severity: P1 boundary leak, partially resolved.
+
+## F5 — Shell layout and navigation state was coupled to the composition root
+
+Evidence: activity selection, workspace tab, panel visibility/geometry,
+welcome lifecycle and pending navigation were individual `DbProApp` fields
+consumed by the shell, sidebar, query, explorer and workspace actions.
+
+Fix in `a483000a`: those values now have one owner, `WorkspaceShellState`;
+panel geometry is clamped through state setters and shell tests cover defaults
+and boundary clamping.
+
+Severity: P1 boundary leak, resolved for the shell slice.
