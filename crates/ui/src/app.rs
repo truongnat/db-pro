@@ -124,6 +124,8 @@ mod query_library_state;
 mod query_prediction_events;
 #[path = "query_queue_events.rs"]
 mod query_queue_events;
+#[path = "query_result_events.rs"]
+mod query_result_events;
 #[path = "query_save_events.rs"]
 mod query_save_events;
 #[path = "saved_task_state.rs"]
@@ -596,6 +598,18 @@ impl DbProApp {
             &mut self.feedback,
             request_id,
         );
+    }
+
+    pub(super) fn on_query_completed(&mut self, request_id: RequestId, result: UiQueryResult) {
+        let mut context = query_result_events::QueryResultContext {
+            query_session: &mut self.query_session_state,
+            query_editor: &mut self.query_editor,
+            query_output: &mut self.query_output_state,
+            table_data: &mut self.table_data,
+            workspace: &mut self.workspace.shell,
+            feedback: &mut self.feedback,
+        };
+        query_result_events::on_query_completed(&mut context, request_id, result);
     }
 
     pub(super) fn on_query_queued(&mut self, request_id: RequestId) {
