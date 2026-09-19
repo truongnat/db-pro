@@ -252,7 +252,7 @@ impl DbProApp {
         }
 
         self.schema_explorer.pinned_tables.retain(|t| !t.trim().is_empty());
-        self.workspace_sessions.last_restore_notes = notes.clone();
+        self.workspace.sessions.last_restore_notes = notes.clone();
         if notes.is_empty() {
             self.feedback.runtime_message = format!("Restored workspace `{}`", session.name);
         } else {
@@ -265,21 +265,21 @@ impl DbProApp {
     }
 
     pub(crate) fn save_named_workspace_session(&mut self) {
-        let name = self.workspace_sessions.name_draft.trim();
+        let name = self.workspace.sessions.name_draft.trim();
         let name = if name.is_empty() {
             format!("Workspace {}", chrono::Utc::now().format("%Y-%m-%d %H:%M"))
         } else {
             name.to_owned()
         };
         let session = self.capture_workspace_session(name);
-        self.workspace_sessions.name_draft.clear();
-        self.workspace_sessions.selected_id = Some(session.id.clone());
-        self.workspace_sessions.store.upsert(session);
+        self.workspace.sessions.name_draft.clear();
+        self.workspace.sessions.selected_id = Some(session.id.clone());
+        self.workspace.sessions.store.upsert(session);
         self.feedback.runtime_message = "Named workspace session saved".to_owned();
     }
 
     pub(crate) fn restore_named_workspace_session(&mut self, id: &str) {
-        let Some(session) = self.workspace_sessions.store.get(id).cloned() else {
+        let Some(session) = self.workspace.sessions.store.get(id).cloned() else {
             self.feedback.runtime_message = "Named session not found".to_owned();
             return;
         };
@@ -287,7 +287,7 @@ impl DbProApp {
     }
 
     pub(crate) fn duplicate_named_workspace_session(&mut self, id: &str) {
-        let Some(mut session) = self.workspace_sessions.store.get(id).cloned() else {
+        let Some(mut session) = self.workspace.sessions.store.get(id).cloned() else {
             self.feedback.runtime_message = "Named session not found".to_owned();
             return;
         };
@@ -295,8 +295,8 @@ impl DbProApp {
         session.name = format!("{} (copy)", session.name);
         session.updated_at = chrono::Utc::now().to_rfc3339();
         let new_id = session.id.clone();
-        self.workspace_sessions.store.upsert(session);
-        self.workspace_sessions.selected_id = Some(new_id);
+        self.workspace.sessions.store.upsert(session);
+        self.workspace.sessions.selected_id = Some(new_id);
         self.feedback.runtime_message = "Duplicated workspace session".to_owned();
     }
 
@@ -305,7 +305,7 @@ impl DbProApp {
         if let Ok(raw) = serde_json::to_string(&last) {
             storage.set_string(LAST_SESSION_STORAGE_KEY, raw);
         }
-        if let Ok(raw) = serde_json::to_string(&self.workspace_sessions.store) {
+        if let Ok(raw) = serde_json::to_string(&self.workspace.sessions.store) {
             storage.set_string(NAMED_SESSIONS_STORAGE_KEY, raw);
         }
     }
@@ -315,7 +315,7 @@ impl DbProApp {
             if let Ok(mut store) = serde_json::from_str::<NamedSessionStore>(&raw) {
                 store.version = SESSION_VERSION;
                 store.sessions = store.sessions.into_iter().map(WorkspaceSession::migrate).collect();
-                self.workspace_sessions.store = store;
+                self.workspace.sessions.store = store;
             }
         }
     }

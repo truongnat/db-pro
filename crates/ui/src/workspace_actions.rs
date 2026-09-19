@@ -47,22 +47,22 @@ impl DbProApp {
     }
 
     pub(crate) fn open_workspace_folder(&mut self, path: std::path::PathBuf) {
-        let result = if self.workspace_files.ide_workspace.roots.is_empty() {
-            self.workspace_files.ide_workspace.open_root(path)
+        let result = if self.workspace.files.ide_workspace.roots.is_empty() {
+            self.workspace.files.ide_workspace.open_root(path)
         } else {
-            self.workspace_files.ide_workspace.add_root(path)
+            self.workspace.files.ide_workspace.add_root(path)
         };
         match result {
             Ok(()) => {
                 self.workspace.activity = Activity::Files;
                 self.workspace.sidebar_open = true;
-                self.workspace_files.workspace_search_hits.clear();
-                self.workspace_files.ide_workspace.scan_diagnostics();
+                self.workspace.files.workspace_search_hits.clear();
+                self.workspace.files.ide_workspace.scan_diagnostics();
                 self.feedback.runtime_message = format!(
                     "Opened workspace {} · {} files · {} roots",
-                    self.workspace_files.ide_workspace.root_label(),
-                    self.workspace_files.ide_workspace.index().len(),
-                    self.workspace_files.ide_workspace.roots.len()
+                    self.workspace.files.ide_workspace.root_label(),
+                    self.workspace.files.ide_workspace.index().len(),
+                    self.workspace.files.ide_workspace.roots.len()
                 );
             }
             Err(error) => {
@@ -72,21 +72,21 @@ impl DbProApp {
     }
 
     pub(crate) fn close_workspace_folder(&mut self) {
-        self.workspace_files.ide_workspace.close();
-        self.workspace_files.workspace_search_hits.clear();
-        self.workspace_files.workspace_replace_previews.clear();
-        self.workspace_files.workspace_context_items.clear();
+        self.workspace.files.ide_workspace.close();
+        self.workspace.files.workspace_search_hits.clear();
+        self.workspace.files.workspace_replace_previews.clear();
+        self.workspace.files.workspace_context_items.clear();
         self.workspace.split_editor_secondary = None;
         self.feedback.runtime_message = "Workspace closed".to_owned();
     }
 
     pub(crate) fn refresh_workspace_folder(&mut self) {
-        match self.workspace_files.ide_workspace.refresh() {
+        match self.workspace.files.ide_workspace.refresh() {
             Ok(()) => {
-                self.workspace_files.ide_workspace.scan_diagnostics();
+                self.workspace.files.ide_workspace.scan_diagnostics();
                 self.feedback.runtime_message = format!(
                     "Workspace refreshed · {} files indexed",
-                    self.workspace_files.ide_workspace.index().len()
+                    self.workspace.files.ide_workspace.index().len()
                 );
             }
             Err(error) => {
@@ -96,7 +96,7 @@ impl DbProApp {
     }
 
     pub(crate) fn open_workspace_sql_file(&mut self, relative_path: String) {
-        let Some(absolute) = self.workspace_files.ide_workspace.absolute_for_relative(&relative_path) else {
+        let Some(absolute) = self.workspace.files.ide_workspace.absolute_for_relative(&relative_path) else {
             self.feedback.runtime_message = "Open a workspace folder first".to_owned();
             return;
         };
@@ -129,7 +129,7 @@ impl DbProApp {
         doc.schema = Some(self.active_schema().to_owned());
         doc.mark_saved();
         if let Some(mtime) = git_workspace::disk_mtime_secs(&absolute) {
-            self.workspace_files.workspace_file_mtimes.insert(absolute_str, mtime);
+            self.workspace.files.workspace_file_mtimes.insert(absolute_str, mtime);
         }
         self.query_session_state.documents.push(doc);
         self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
@@ -155,9 +155,9 @@ impl DbProApp {
             Ok(()) => {
                 doc.mark_saved();
                 if let Some(mtime) = git_workspace::disk_mtime_secs(std::path::Path::new(&path)) {
-                    self.workspace_files.workspace_file_mtimes.insert(path.clone(), mtime);
+                    self.workspace.files.workspace_file_mtimes.insert(path.clone(), mtime);
                 }
-                self.workspace_files.workspace_external_change = None;
+                self.workspace.files.workspace_external_change = None;
                 self.feedback.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
                 true
             }
@@ -169,33 +169,34 @@ impl DbProApp {
     }
 
     pub(crate) fn run_workspace_search(&mut self) {
-        if self.workspace_files.ide_workspace.roots.is_empty() {
-            self.workspace_files.workspace_search_hits.clear();
+        if self.workspace.files.ide_workspace.roots.is_empty() {
+            self.workspace.files.workspace_search_hits.clear();
             self.feedback.runtime_message = "Open a workspace folder before searching".to_owned();
             return;
         }
-        self.workspace_files.workspace_search_hits = self
-            .workspace_files
+        self.workspace.files.workspace_search_hits = self
+            .workspace
+            .files
             .ide_workspace
-            .search(&self.workspace_files.workspace_search_query, 100);
-        self.feedback.runtime_message = format!("{} matches", self.workspace_files.workspace_search_hits.len());
+            .search(&self.workspace.files.workspace_search_query, 100);
+        self.feedback.runtime_message = format!("{} matches", self.workspace.files.workspace_search_hits.len());
     }
 
     pub(crate) fn preview_workspace_replace(&mut self) {
-        self.workspace_files.workspace_replace_previews = self.workspace_files.ide_workspace.preview_replace(
-            &self.workspace_files.workspace_search_query,
-            &self.workspace_files.workspace_replace_query,
+        self.workspace.files.workspace_replace_previews = self.workspace.files.ide_workspace.preview_replace(
+            &self.workspace.files.workspace_search_query,
+            &self.workspace.files.workspace_replace_query,
         );
         self.feedback.runtime_message = format!(
             "{} files would change",
-            self.workspace_files.workspace_replace_previews.len()
+            self.workspace.files.workspace_replace_previews.len()
         );
     }
 
     pub(crate) fn apply_workspace_replace(&mut self) {
-        match self.workspace_files.ide_workspace.apply_replace(
-            &self.workspace_files.workspace_search_query,
-            &self.workspace_files.workspace_replace_query,
+        match self.workspace.files.ide_workspace.apply_replace(
+            &self.workspace.files.workspace_search_query,
+            &self.workspace.files.workspace_replace_query,
         ) {
             Ok(count) => {
                 self.preview_workspace_replace();
@@ -208,17 +209,18 @@ impl DbProApp {
 
     pub(crate) fn add_workspace_context_item(&mut self, item: String) {
         if !self
-            .workspace_files
+            .workspace
+            .files
             .workspace_context_items
             .iter()
             .any(|existing| existing == &item)
         {
-            self.workspace_files.workspace_context_items.push(item);
+            self.workspace.files.workspace_context_items.push(item);
         }
     }
 
     pub(crate) fn clear_workspace_context_items(&mut self) {
-        self.workspace_files.workspace_context_items.clear();
+        self.workspace.files.workspace_context_items.clear();
     }
 
     pub(crate) fn export_live_schema_snapshot(&mut self) {
@@ -231,15 +233,15 @@ impl DbProApp {
                 table.columns.len()
             ));
         }
-        match self.workspace_files.ide_workspace.export_schema_snapshot(&sql) {
+        match self.workspace.files.ide_workspace.export_schema_snapshot(&sql) {
             Ok(path) => self.feedback.runtime_message = format!("Wrote schema snapshot {}", path.display()),
             Err(error) => self.feedback.runtime_message = error,
         }
     }
 
     pub(crate) fn run_workspace_task(&mut self) {
-        let command = self.workspace_files.workspace_task_command.clone();
-        match self.workspace_files.ide_workspace.run_task(&command) {
+        let command = self.workspace.files.workspace_task_command.clone();
+        match self.workspace.files.ide_workspace.run_task(&command) {
             Ok(result) => {
                 self.feedback.runtime_message = format!("Task exit {:?} · {}ms", result.exit_code, result.duration_ms);
             }
@@ -248,9 +250,9 @@ impl DbProApp {
     }
 
     pub(crate) fn apply_workspace_refactor(&mut self) {
-        let from = self.workspace_files.workspace_refactor_from.clone();
-        let to = self.workspace_files.workspace_refactor_to.clone();
-        match self.workspace_files.ide_workspace.rename_symbol_across_sql(&from, &to) {
+        let from = self.workspace.files.workspace_refactor_from.clone();
+        let to = self.workspace.files.workspace_refactor_to.clone();
+        match self.workspace.files.ide_workspace.rename_symbol_across_sql(&from, &to) {
             Ok(count) => self.feedback.runtime_message = format!("Refactored {count} occurrence(s)"),
             Err(error) => self.feedback.runtime_message = error,
         }
@@ -285,10 +287,11 @@ impl DbProApp {
             .map(|table| format!("{}.{}", table.schema, table.name))
             .collect();
         let fingerprint = ide_workspace::fingerprint_schema_names(&names);
-        self.workspace_files
+        self.workspace
+            .files
             .ide_workspace
             .update_schema_fingerprint(fingerprint);
-        if let Some(message) = self.workspace_files.ide_workspace.schema_drift_message.clone() {
+        if let Some(message) = self.workspace.files.ide_workspace.schema_drift_message.clone() {
             self.feedback.runtime_message = message;
         }
     }
@@ -470,76 +473,77 @@ impl DbProApp {
 
     pub(crate) fn refresh_git_status(&mut self) {
         let Some(root) = self
-            .workspace_files
+            .workspace
+            .files
             .ide_workspace
             .primary_path()
             .map(std::path::PathBuf::from)
         else {
-            self.workspace_files.git_status = None;
-            self.workspace_files.git_last_error = Some("Open a workspace folder first".into());
+            self.workspace.files.git_status = None;
+            self.workspace.files.git_last_error = Some("Open a workspace folder first".into());
             return;
         };
         let status = git_workspace::probe_git_status(&root);
-        self.workspace_files.git_last_error = if status.available {
+        self.workspace.files.git_last_error = if status.available {
             None
         } else {
             Some(status.message.clone())
         };
-        self.workspace_files.git_status = Some(status);
+        self.workspace.files.git_status = Some(status);
         self.feedback.runtime_message = "Git status refreshed".into();
     }
 
     pub(crate) fn stage_git_path(&mut self, relative: &str) {
-        let Some(root) = self.workspace_files.ide_workspace.primary_path() else {
+        let Some(root) = self.workspace.files.ide_workspace.primary_path() else {
             return;
         };
         match git_workspace::stage_path(root, relative) {
             Ok(()) => {
-                self.workspace_files.git_last_error = None;
+                self.workspace.files.git_last_error = None;
                 self.refresh_git_status();
             }
-            Err(err) => self.workspace_files.git_last_error = Some(err),
+            Err(err) => self.workspace.files.git_last_error = Some(err),
         }
     }
 
     pub(crate) fn unstage_git_path(&mut self, relative: &str) {
-        let Some(root) = self.workspace_files.ide_workspace.primary_path() else {
+        let Some(root) = self.workspace.files.ide_workspace.primary_path() else {
             return;
         };
         match git_workspace::unstage_path(root, relative) {
             Ok(()) => {
-                self.workspace_files.git_last_error = None;
+                self.workspace.files.git_last_error = None;
                 self.refresh_git_status();
             }
-            Err(err) => self.workspace_files.git_last_error = Some(err),
+            Err(err) => self.workspace.files.git_last_error = Some(err),
         }
     }
 
     pub(crate) fn diff_git_path(&mut self, relative: &str) {
-        let Some(root) = self.workspace_files.ide_workspace.primary_path() else {
+        let Some(root) = self.workspace.files.ide_workspace.primary_path() else {
             return;
         };
         match git_workspace::diff_against_head(root, relative) {
             Ok(diff) => {
-                self.workspace_files.git_diff = Some(diff);
-                self.workspace_files.git_last_error = None;
+                self.workspace.files.git_diff = Some(diff);
+                self.workspace.files.git_last_error = None;
             }
-            Err(err) => self.workspace_files.git_last_error = Some(err),
+            Err(err) => self.workspace.files.git_last_error = Some(err),
         }
     }
 
     pub(crate) fn commit_git_staged(&mut self) {
-        let Some(root) = self.workspace_files.ide_workspace.primary_path() else {
+        let Some(root) = self.workspace.files.ide_workspace.primary_path() else {
             return;
         };
-        match git_workspace::commit_paths(root, &self.workspace_files.git_commit_message) {
+        match git_workspace::commit_paths(root, &self.workspace.files.git_commit_message) {
             Ok(out) => {
-                self.workspace_files.git_commit_message.clear();
-                self.workspace_files.git_last_error = None;
+                self.workspace.files.git_commit_message.clear();
+                self.workspace.files.git_last_error = None;
                 self.feedback.runtime_message = out.lines().next().unwrap_or("Committed").to_owned();
                 self.refresh_git_status();
             }
-            Err(err) => self.workspace_files.git_last_error = Some(err),
+            Err(err) => self.workspace.files.git_last_error = Some(err),
         }
     }
 
@@ -558,14 +562,14 @@ impl DbProApp {
             let Some(mtime) = git_workspace::disk_mtime_secs(&path_buf) else {
                 continue;
             };
-            let known = self.workspace_files.workspace_file_mtimes.get(&path).copied();
+            let known = self.workspace.files.workspace_file_mtimes.get(&path).copied();
             if known == Some(mtime) {
                 continue;
             }
             if dirty && git_workspace::disk_diverged_from_buffer(&path_buf, &buffer) {
-                self.workspace_files.workspace_external_change = Some(path);
+                self.workspace.files.workspace_external_change = Some(path);
             } else if !dirty {
-                self.workspace_files.workspace_file_mtimes.insert(path, mtime);
+                self.workspace.files.workspace_file_mtimes.insert(path, mtime);
             }
         }
     }
@@ -584,11 +588,12 @@ impl DbProApp {
             doc.buffer.set_text(content);
             doc.mark_saved();
             if let Some(mtime) = git_workspace::disk_mtime_secs(std::path::Path::new(path)) {
-                self.workspace_files
+                self.workspace
+                    .files
                     .workspace_file_mtimes
                     .insert(path.to_owned(), mtime);
             }
-            self.workspace_files.workspace_external_change = None;
+            self.workspace.files.workspace_external_change = None;
             self.feedback.runtime_message = format!("Reloaded {path}");
         }
     }

@@ -49,7 +49,8 @@ impl DbProApp {
 
     fn search_fingerprint(&self) -> String {
         let workspace_files = self
-            .workspace_files
+            .workspace
+            .files
             .ide_workspace
             .index()
             .into_iter()
@@ -398,7 +399,8 @@ impl DbProApp {
     }
 
     fn workspace_file_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.workspace_files
+        self.workspace
+            .files
             .ide_workspace
             .index()
             .into_iter()

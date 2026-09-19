@@ -168,8 +168,11 @@ fn grid_columns_fill_the_viewport_until_manually_resized() {
 fn grid_copy_uses_staged_values_only_for_data_editor() {
     let value = result();
     let mut app = DbProApp {
-        workspace: WorkspaceShellState {
-            active_tab: WorkspaceTab::Table,
+        workspace: WorkspaceFeatureState {
+            shell: WorkspaceShellState {
+                active_tab: WorkspaceTab::Table,
+                ..Default::default()
+            },
             ..Default::default()
         },
         table_state: TableState {
@@ -1437,8 +1440,11 @@ fn selected_connection_is_not_shown_as_connected() {
 #[test]
 fn editor_status_lives_on_query_strip_not_shell_statusbar() {
     let mut app = DbProApp {
-        workspace: WorkspaceShellState {
-            active_tab: WorkspaceTab::Query,
+        workspace: WorkspaceFeatureState {
+            shell: WorkspaceShellState {
+                active_tab: WorkspaceTab::Query,
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -1460,8 +1466,11 @@ fn editor_status_lives_on_query_strip_not_shell_statusbar() {
 #[test]
 fn switching_query_documents_resets_editor_cursor_metadata() {
     let mut app = DbProApp {
-        workspace: WorkspaceShellState {
-            active_tab: WorkspaceTab::Query,
+        workspace: WorkspaceFeatureState {
+            shell: WorkspaceShellState {
+                active_tab: WorkspaceTab::Query,
+                ..Default::default()
+            },
             ..Default::default()
         },
         query_editor: QueryEditorState {
@@ -1780,8 +1789,11 @@ fn closing_query_document_restores_the_next_valid_document() {
 #[test]
 fn closing_last_query_document_returns_to_welcome() {
     let mut app = DbProApp {
-        workspace: WorkspaceShellState {
-            active_tab: WorkspaceTab::Query,
+        workspace: WorkspaceFeatureState {
+            shell: WorkspaceShellState {
+                active_tab: WorkspaceTab::Query,
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -1798,8 +1810,11 @@ fn closing_last_query_document_returns_to_welcome() {
 #[test]
 fn closing_welcome_activates_the_existing_query_tab() {
     let mut app = DbProApp {
-        workspace: WorkspaceShellState {
-            active_tab: WorkspaceTab::Welcome,
+        workspace: WorkspaceFeatureState {
+            shell: WorkspaceShellState {
+                active_tab: WorkspaceTab::Welcome,
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -3843,8 +3858,11 @@ fn schema_refresh_returns_to_welcome_when_selected_table_disappears() {
 #[test]
 fn closing_workspace_tab_clears_its_resource_and_requests() {
     let mut app = DbProApp {
-        workspace: WorkspaceShellState {
-            active_tab: WorkspaceTab::Table,
+        workspace: WorkspaceFeatureState {
+            shell: WorkspaceShellState {
+                active_tab: WorkspaceTab::Table,
+                ..Default::default()
+            },
             ..Default::default()
         },
         schema_explorer: SchemaExplorerState {
@@ -6144,8 +6162,11 @@ fn recent_tables_track_mru_and_appear_in_quick_open() {
 #[test]
 fn data_activity_palette_action_opens_sidebar() {
     let mut app = DbProApp {
-        workspace: WorkspaceShellState {
-            sidebar_open: false,
+        workspace: WorkspaceFeatureState {
+            shell: WorkspaceShellState {
+                sidebar_open: false,
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..DbProApp::default()
@@ -6219,9 +6240,10 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
         ..Default::default()
     };
     app.open_workspace_folder(dir.clone());
-    assert!(app.workspace_files.ide_workspace.root().is_some());
+    assert!(app.workspace.files.ide_workspace.root().is_some());
     assert!(app
-        .workspace_files
+        .workspace
+        .files
         .ide_workspace
         .index()
         .iter()
@@ -6375,10 +6397,10 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     app.workspace.active_tab = WorkspaceTab::Query;
     *app.connection.lifecycle.active_connection_id_mut() = Some("gone-conn".to_owned());
     app.schema_explorer.pinned_tables = vec!["public.orders".to_owned()];
-    app.workspace_sessions.name_draft = "Focus pack".to_owned();
+    app.workspace.sessions.name_draft = "Focus pack".to_owned();
     app.save_named_workspace_session();
-    assert_eq!(app.workspace_sessions.store.sessions.len(), 1);
-    let id = app.workspace_sessions.store.sessions[0].id.clone();
+    assert_eq!(app.workspace.sessions.store.sessions.len(), 1);
+    let id = app.workspace.sessions.store.sessions[0].id.clone();
 
     // Mutate live state, then restore.
     app.workspace.activity = Activity::Explorer;
@@ -6394,10 +6416,10 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
         app.connection.lifecycle.active_connection_id().is_none(),
         "missing connection must not crash"
     );
-    assert!(!app.workspace_sessions.last_restore_notes.is_empty());
+    assert!(!app.workspace.sessions.last_restore_notes.is_empty());
 
     app.duplicate_named_workspace_session(&id);
-    assert_eq!(app.workspace_sessions.store.sessions.len(), 2);
+    assert_eq!(app.workspace.sessions.store.sessions.len(), 2);
 }
 
 // ── Sidebar geometry ──────────────────────────────────────────────────────
@@ -6447,8 +6469,11 @@ fn painted_sidebar(sidebar_width: f32, connections: usize) -> Vec<egui::epaint::
             dialog: ConnectionDialogState::default(),
         },
 
-        workspace: WorkspaceShellState {
-            sidebar_width,
+        workspace: WorkspaceFeatureState {
+            shell: WorkspaceShellState {
+                sidebar_width,
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..DbProApp::default()

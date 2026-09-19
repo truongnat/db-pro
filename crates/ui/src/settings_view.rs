@@ -106,7 +106,7 @@ impl DbProApp {
                 .small()
                 .color(self.theme.text_muted),
             );
-            input_full_width(ui, &mut self.workspace_sessions.name_draft, "Session name", self.theme);
+            input_full_width(ui, &mut self.workspace.sessions.name_draft, "Session name", self.theme);
             ui.horizontal(|ui| {
                 if Button::new(self.theme)
                     .text("Save workspace")
@@ -119,12 +119,12 @@ impl DbProApp {
                 }
             });
             ui.add_space(SPACE_SM);
-            let sessions = self.workspace_sessions.store.sessions.clone();
+            let sessions = self.workspace.sessions.store.sessions.clone();
             for session in sessions {
                 ui.horizontal(|ui| {
-                    let selected = self.workspace_sessions.selected_id.as_deref() == Some(session.id.as_str());
+                    let selected = self.workspace.sessions.selected_id.as_deref() == Some(session.id.as_str());
                     if ui.selectable_label(selected, &session.name).clicked() {
-                        self.workspace_sessions.selected_id = Some(session.id.clone());
+                        self.workspace.sessions.selected_id = Some(session.id.clone());
                     }
                     if Button::new(self.theme)
                         .text("Restore")
@@ -151,13 +151,13 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        self.workspace_sessions.store.remove(&session.id);
+                        self.workspace.sessions.store.remove(&session.id);
                     }
                 });
             }
-            if !self.workspace_sessions.last_restore_notes.is_empty() {
+            if !self.workspace.sessions.last_restore_notes.is_empty() {
                 ui.add_space(6.0);
-                for note in &self.workspace_sessions.last_restore_notes {
+                for note in &self.workspace.sessions.last_restore_notes {
                     ui.label(RichText::new(note).small().color(self.theme.warning));
                 }
             }

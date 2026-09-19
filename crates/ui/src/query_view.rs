@@ -384,8 +384,8 @@ impl DbProApp {
             },
         );
         if grip_resp.dragged() {
-            self.workspace
-                .set_bottom_panel_height(self.workspace.bottom_panel_height - grip_resp.drag_delta().y);
+            let next_height = self.workspace.bottom_panel_height - grip_resp.drag_delta().y;
+            self.workspace.set_bottom_panel_height(next_height);
             self.query_editor.query_output_dock_maximized = false;
         }
         grip_resp.on_hover_cursor(egui::CursorIcon::ResizeVertical);

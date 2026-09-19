@@ -45,8 +45,6 @@ theme
 transfer
 welcome
 workspace
-workspace_files
-workspace_sessions
 EOF
 )
 

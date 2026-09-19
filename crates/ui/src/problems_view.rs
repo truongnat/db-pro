@@ -23,7 +23,8 @@ impl DbProApp {
             }
         }
         for (index, diagnostic) in self
-            .workspace_files
+            .workspace
+            .files
             .ide_workspace
             .workspace_diagnostics
             .iter()

@@ -128,7 +128,7 @@ impl DbProApp {
             }
             if let Some(recent_ws) = storage.get_string("dbpro.native.workspace-recent-v1") {
                 if let Ok(paths) = serde_json::from_str::<Vec<String>>(&recent_ws) {
-                    app.workspace_files.ide_workspace.recent_roots =
+                    app.workspace.files.ide_workspace.recent_roots =
                         paths.into_iter().map(std::path::PathBuf::from).collect();
                 }
             }
@@ -145,15 +145,15 @@ impl DbProApp {
             for root in roots {
                 let path = std::path::PathBuf::from(root);
                 if path.is_dir() {
-                    let _ = if app.workspace_files.ide_workspace.roots.is_empty() {
-                        app.workspace_files.ide_workspace.open_root(path)
+                    let _ = if app.workspace.files.ide_workspace.roots.is_empty() {
+                        app.workspace.files.ide_workspace.open_root(path)
                     } else {
-                        app.workspace_files.ide_workspace.add_root(path)
+                        app.workspace.files.ide_workspace.add_root(path)
                     };
                 }
             }
             if storage.get_string("dbpro.native.workspace-trusted-v1").as_deref() == Some("true") {
-                app.workspace_files.ide_workspace.set_trusted(true);
+                app.workspace.files.ide_workspace.set_trusted(true);
             }
         }
         app
@@ -165,7 +165,7 @@ impl Default for DbProApp {
         Self {
             theme: DbProTheme::default(),
             preferences: PreferencesState::default(),
-            workspace: WorkspaceShellState::default(),
+            workspace: WorkspaceFeatureState::default(),
             welcome: WelcomeState::default(),
             query_session_state: QuerySessionState {
                 documents: vec![QueryDocument::new("query-1", "Query 1", DEFAULT_QUERY)],
@@ -185,7 +185,6 @@ impl Default for DbProApp {
             connection: ConnectionFeatureState::default(),
             query_library: QueryLibraryState::default(),
             schema_explorer: SchemaExplorerState::default(),
-            workspace_files: WorkspaceFilesState::default(),
             audit: AuditState::default(),
             event_trigger: EventTriggerState::default(),
             fdw: FdwState::default(),
@@ -201,7 +200,6 @@ impl Default for DbProApp {
             query_execution: QueryExecutionPolicyState::default(),
             saved_tasks: SavedTaskState::default(),
             transfer: TransferState::default(),
-            workspace_sessions: WorkspaceSessionState::default(),
             diagram: DiagramState::default(),
             table_state: TableState {
                 table_dependency_filter: "all".to_owned(),

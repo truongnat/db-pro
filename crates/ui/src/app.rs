@@ -216,6 +216,7 @@ pub(crate) use table_data_state::TableDataState;
 pub(crate) use table_mutation_state::TableMutationState;
 pub(crate) use table_state::TableState;
 pub(crate) use welcome_state::WelcomeState;
+pub(crate) use workspace_feature_state::WorkspaceFeatureState;
 pub(crate) use workspace_files_state::WorkspaceFilesState;
 pub(crate) use workspace_session_state::WorkspaceSessionState;
 #[path = "schema_compare.rs"]
@@ -245,6 +246,8 @@ mod table_view;
 mod tests;
 #[path = "welcome_view.rs"]
 mod welcome_view;
+#[path = "workspace_feature_state.rs"]
+mod workspace_feature_state;
 #[path = "workspace_view.rs"]
 mod workspace_view;
 
@@ -254,7 +257,7 @@ pub(crate) use app_types::*;
 pub struct DbProApp {
     theme: DbProTheme,
     preferences: PreferencesState,
-    workspace: WorkspaceShellState,
+    workspace: WorkspaceFeatureState,
     welcome: WelcomeState,
     query_session_state: QuerySessionState,
     query_editor: QueryEditorState,
@@ -268,7 +271,6 @@ pub struct DbProApp {
     connection: ConnectionFeatureState,
     query_library: QueryLibraryState,
     schema_explorer: SchemaExplorerState,
-    workspace_files: WorkspaceFilesState,
     audit: AuditState,
     event_trigger: EventTriggerState,
     fdw: FdwState,
@@ -284,7 +286,6 @@ pub struct DbProApp {
     schema_compare: SchemaCompareState,
     query_execution: QueryExecutionPolicyState,
     saved_tasks: SavedTaskState,
-    workspace_sessions: WorkspaceSessionState,
     diagram: DiagramState,
     table_state: TableState,
     table_mutation: TableMutationState,
@@ -335,7 +336,8 @@ impl eframe::App for DbProApp {
         }
         if let Ok(recent_ws) = serde_json::to_string(
             &self
-                .workspace_files
+                .workspace
+                .files
                 .ide_workspace
                 .recent_roots
                 .iter()
@@ -346,7 +348,8 @@ impl eframe::App for DbProApp {
         }
         if let Ok(roots) = serde_json::to_string(
             &self
-                .workspace_files
+                .workspace
+                .files
                 .ide_workspace
                 .roots
                 .iter()
@@ -357,7 +360,7 @@ impl eframe::App for DbProApp {
         }
         storage.set_string(
             "dbpro.native.workspace-trusted-v1",
-            self.workspace_files.ide_workspace.is_trusted().to_string(),
+            self.workspace.files.ide_workspace.is_trusted().to_string(),
         );
         storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
         storage.set_string("dbpro.native.dark-mode", self.preferences.dark_mode.to_string());
