@@ -4,14 +4,6 @@ use super::*;
 use crate::RequestId;
 
 impl DbProApp {
-    pub(super) fn on_saved_queries_loaded(&mut self, queries: Vec<UiSavedQuerySummary>) {
-        self.query_library.saved_queries = queries;
-    }
-
-    pub(super) fn on_query_folders_loaded(&mut self, folders: Vec<crate::UiQueryFolderSummary>) {
-        self.query_library.query_folders = folders;
-    }
-
     pub(super) fn on_query_queued(&mut self, request_id: RequestId) {
         self.feedback.runtime_message = format!("Query queued · request {}", request_id.0);
     }

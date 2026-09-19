@@ -11,10 +11,10 @@ use crate::{
     secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame, toolbar_frame, AgentContext,
     AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock, ColumnWritePolicy, DbProTheme, GridProjectionCache,
     GridProjectionKey, OfflineAgentProvider, RequestId, TaskBridge, UiCell, UiCommand, UiConnectionDraft,
-    UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryHistoryEntry,
-    UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput,
-    UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary,
-    UiTriggerSummary, UiViewSummary,
+    UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryFolderSummary,
+    UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary,
+    UiStatementOutput, UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation,
+    UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
@@ -105,6 +105,8 @@ mod palette_state;
 mod preferences_state;
 #[path = "query_execution_state.rs"]
 mod query_execution_state;
+#[path = "query_library_events.rs"]
+mod query_library_events;
 #[path = "query_library_state.rs"]
 mod query_library_state;
 #[path = "saved_task_state.rs"]
@@ -510,6 +512,14 @@ impl eframe::App for DbProApp {
 // CapabilityLookup lives in `capability_lookup.rs`.
 
 impl DbProApp {
+    pub(super) fn on_saved_queries_loaded(&mut self, queries: Vec<UiSavedQuerySummary>) {
+        query_library_events::on_saved_queries_loaded(&mut self.query_library, queries);
+    }
+
+    pub(super) fn on_query_folders_loaded(&mut self, folders: Vec<UiQueryFolderSummary>) {
+        query_library_events::on_query_folders_loaded(&mut self.query_library, folders);
+    }
+
     pub(super) fn handle_schema_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
         schema_events::handle_schema_request_failure(&mut self.schema_explorer, &mut self.feedback, request_id, message)
     }
