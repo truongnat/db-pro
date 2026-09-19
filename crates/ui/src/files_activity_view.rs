@@ -212,7 +212,7 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.clear_workspace_context_items();
+                    self.workspace.files.clear_context_items();
                 }
                 if Button::new(self.theme)
                     .icon(Icon::GitCompare)
@@ -222,7 +222,16 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.refresh_schema_drift_watch();
+                    let names: Vec<String> = self
+                        .schema_explorer
+                        .schema
+                        .table_details
+                        .iter()
+                        .map(|table| format!("{}.{}", table.schema, table.name))
+                        .collect();
+                    self.workspace
+                        .files
+                        .refresh_schema_drift_watch(&names, &mut self.feedback);
                 }
                 if Button::new(self.theme)
                     .icon(Icon::Camera)
@@ -232,7 +241,9 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.export_live_schema_snapshot();
+                    self.workspace
+                        .files
+                        .export_live_schema_snapshot(&self.schema_explorer.schema, &mut self.feedback);
                 }
                 if Button::new(self.theme)
                     .icon(Icon::Columns2)
@@ -262,9 +273,9 @@ impl DbProApp {
                     .get(self.query_session_state.active_document_index)
                 {
                     if let Some(path) = doc.file_path.clone() {
-                        self.add_workspace_context_item(path);
+                        self.workspace.files.add_context_item(path);
                     } else {
-                        self.add_workspace_context_item(format!("query:{}", doc.title));
+                        self.workspace.files.add_context_item(format!("query:{}", doc.title));
                     }
                 }
             }
@@ -278,10 +289,9 @@ impl DbProApp {
             {
                 let selected = self.query_session_state.selected_text.clone();
                 if !selected.trim().is_empty() {
-                    self.add_workspace_context_item(format!(
-                        "selection:{}",
-                        selected.chars().take(80).collect::<String>()
-                    ));
+                    self.workspace
+                        .files
+                        .add_context_item(format!("selection:{}", selected.chars().take(80).collect::<String>()));
                 }
             }
             if Button::new(self.theme)
@@ -293,7 +303,7 @@ impl DbProApp {
                 .clicked()
             {
                 if let Some(table) = self.schema_explorer.selected_table.clone() {
-                    self.add_workspace_context_item(format!("table:{table}"));
+                    self.workspace.files.add_context_item(format!("table:{table}"));
                 }
             }
         });
@@ -405,7 +415,7 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                self.run_workspace_search();
+                self.workspace.files.run_search(&mut self.feedback);
             }
             if Button::new(self.theme)
                 .text("Preview")
@@ -414,7 +424,7 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                self.preview_workspace_replace();
+                self.workspace.files.preview_replace(&mut self.feedback);
             }
             if Button::new(self.theme)
                 .text("Replace all")
@@ -423,7 +433,7 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                self.apply_workspace_replace();
+                self.workspace.files.apply_replace(&mut self.feedback);
             }
         });
         ui.add_space(6.0);
@@ -445,7 +455,7 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                self.apply_workspace_refactor();
+                self.workspace.files.apply_refactor(&mut self.feedback);
             }
         });
         if !self.workspace.files.workspace_replace_previews.is_empty() {
@@ -522,7 +532,7 @@ impl DbProApp {
             .show(ui)
             .clicked()
         {
-            self.run_workspace_task();
+            self.workspace.files.run_task(&mut self.feedback);
         }
         if let Some(result) = self.workspace.files.ide_workspace.last_task.clone() {
             ui.add_space(6.0);
@@ -899,13 +909,15 @@ impl DbProApp {
                     self.open_workspace_sql_file(node.relative_path.clone());
                 }
                 if add_context {
-                    self.add_workspace_context_item(node.absolute_path.to_string_lossy().into_owned());
+                    self.workspace
+                        .files
+                        .add_context_item(node.absolute_path.to_string_lossy().into_owned());
                 }
                 if find_refs {
                     let stem = node.name.trim_end_matches(".sql").to_owned();
                     self.workspace.files.workspace_search_query = stem;
                     self.workspace.files_panel_tab = FilesPanelTab::Search;
-                    self.run_workspace_search();
+                    self.workspace.files.run_search(&mut self.feedback);
                 }
                 if delete_node {
                     let _ = self.workspace.files.ide_workspace.delete_path(&node.relative_path);

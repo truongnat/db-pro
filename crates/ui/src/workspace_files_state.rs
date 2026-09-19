@@ -46,6 +46,90 @@ impl WorkspaceFilesState {
             Err(error) => feedback.set_runtime_message(format!("Workspace refresh failed: {error}")),
         }
     }
+
+    pub(super) fn run_search(&mut self, feedback: &mut FeedbackState) {
+        if self.ide_workspace.roots.is_empty() {
+            self.workspace_search_hits.clear();
+            feedback.set_runtime_message("Open a workspace folder before searching");
+            return;
+        }
+        self.workspace_search_hits = self.ide_workspace.search(&self.workspace_search_query, 100);
+        feedback.set_runtime_message(format!("{} matches", self.workspace_search_hits.len()));
+    }
+
+    pub(super) fn preview_replace(&mut self, feedback: &mut FeedbackState) {
+        self.workspace_replace_previews = self
+            .ide_workspace
+            .preview_replace(&self.workspace_search_query, &self.workspace_replace_query);
+        feedback.set_runtime_message(format!("{} files would change", self.workspace_replace_previews.len()));
+    }
+
+    pub(super) fn apply_replace(&mut self, feedback: &mut FeedbackState) {
+        match self
+            .ide_workspace
+            .apply_replace(&self.workspace_search_query, &self.workspace_replace_query)
+        {
+            Ok(count) => {
+                self.preview_replace(feedback);
+                self.run_search(feedback);
+                feedback.set_runtime_message(format!("Replaced {count} occurrence(s)"));
+            }
+            Err(error) => feedback.set_runtime_message(error),
+        }
+    }
+
+    pub(super) fn add_context_item(&mut self, item: String) {
+        if !self.workspace_context_items.iter().any(|existing| existing == &item) {
+            self.workspace_context_items.push(item);
+        }
+    }
+
+    pub(super) fn clear_context_items(&mut self) {
+        self.workspace_context_items.clear();
+    }
+
+    pub(super) fn export_live_schema_snapshot(&self, schema: &UiSchemaSummary, feedback: &mut FeedbackState) {
+        let mut sql = String::from("-- DB Pro schema snapshot\n");
+        for table in &schema.table_details {
+            sql.push_str(&format!(
+                "-- table {}.{} ({} columns)\n",
+                table.schema,
+                table.name,
+                table.columns.len()
+            ));
+        }
+        match self.ide_workspace.export_schema_snapshot(&sql) {
+            Ok(path) => feedback.set_runtime_message(format!("Wrote schema snapshot {}", path.display())),
+            Err(error) => feedback.set_runtime_message(error),
+        }
+    }
+
+    pub(super) fn run_task(&mut self, feedback: &mut FeedbackState) {
+        let command = self.workspace_task_command.clone();
+        match self.ide_workspace.run_task(&command) {
+            Ok(result) => {
+                feedback.set_runtime_message(format!("Task exit {:?} · {}ms", result.exit_code, result.duration_ms))
+            }
+            Err(error) => feedback.set_runtime_message(error),
+        }
+    }
+
+    pub(super) fn apply_refactor(&mut self, feedback: &mut FeedbackState) {
+        let from = self.workspace_refactor_from.clone();
+        let to = self.workspace_refactor_to.clone();
+        match self.ide_workspace.rename_symbol_across_sql(&from, &to) {
+            Ok(count) => feedback.set_runtime_message(format!("Refactored {count} occurrence(s)")),
+            Err(error) => feedback.set_runtime_message(error),
+        }
+    }
+
+    pub(super) fn refresh_schema_drift_watch(&mut self, schema_names: &[String], feedback: &mut FeedbackState) {
+        let fingerprint = ide_workspace::fingerprint_schema_names(schema_names);
+        self.ide_workspace.update_schema_fingerprint(fingerprint);
+        if let Some(message) = self.ide_workspace.schema_drift_message.clone() {
+            feedback.set_runtime_message(message);
+        }
+    }
 }
 
 #[cfg(test)]

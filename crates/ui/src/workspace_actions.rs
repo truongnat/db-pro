@@ -128,96 +128,6 @@ impl DbProApp {
         }
     }
 
-    pub(crate) fn run_workspace_search(&mut self) {
-        if self.workspace.files.ide_workspace.roots.is_empty() {
-            self.workspace.files.workspace_search_hits.clear();
-            self.feedback.runtime_message = "Open a workspace folder before searching".to_owned();
-            return;
-        }
-        self.workspace.files.workspace_search_hits = self
-            .workspace
-            .files
-            .ide_workspace
-            .search(&self.workspace.files.workspace_search_query, 100);
-        self.feedback.runtime_message = format!("{} matches", self.workspace.files.workspace_search_hits.len());
-    }
-
-    pub(crate) fn preview_workspace_replace(&mut self) {
-        self.workspace.files.workspace_replace_previews = self.workspace.files.ide_workspace.preview_replace(
-            &self.workspace.files.workspace_search_query,
-            &self.workspace.files.workspace_replace_query,
-        );
-        self.feedback.runtime_message = format!(
-            "{} files would change",
-            self.workspace.files.workspace_replace_previews.len()
-        );
-    }
-
-    pub(crate) fn apply_workspace_replace(&mut self) {
-        match self.workspace.files.ide_workspace.apply_replace(
-            &self.workspace.files.workspace_search_query,
-            &self.workspace.files.workspace_replace_query,
-        ) {
-            Ok(count) => {
-                self.preview_workspace_replace();
-                self.run_workspace_search();
-                self.feedback.runtime_message = format!("Replaced {count} occurrence(s)");
-            }
-            Err(error) => self.feedback.runtime_message = error,
-        }
-    }
-
-    pub(crate) fn add_workspace_context_item(&mut self, item: String) {
-        if !self
-            .workspace
-            .files
-            .workspace_context_items
-            .iter()
-            .any(|existing| existing == &item)
-        {
-            self.workspace.files.workspace_context_items.push(item);
-        }
-    }
-
-    pub(crate) fn clear_workspace_context_items(&mut self) {
-        self.workspace.files.workspace_context_items.clear();
-    }
-
-    pub(crate) fn export_live_schema_snapshot(&mut self) {
-        let mut sql = String::from("-- DB Pro schema snapshot\n");
-        for table in &self.schema_explorer.schema.table_details {
-            sql.push_str(&format!(
-                "-- table {}.{} ({} columns)\n",
-                table.schema,
-                table.name,
-                table.columns.len()
-            ));
-        }
-        match self.workspace.files.ide_workspace.export_schema_snapshot(&sql) {
-            Ok(path) => self.feedback.runtime_message = format!("Wrote schema snapshot {}", path.display()),
-            Err(error) => self.feedback.runtime_message = error,
-        }
-    }
-
-    pub(crate) fn run_workspace_task(&mut self) {
-        let command = self.workspace.files.workspace_task_command.clone();
-        match self.workspace.files.ide_workspace.run_task(&command) {
-            Ok(result) => {
-                self.feedback.runtime_message = format!("Task exit {:?} · {}ms", result.exit_code, result.duration_ms);
-            }
-            Err(error) => self.feedback.runtime_message = error,
-        }
-    }
-
-    pub(crate) fn apply_workspace_refactor(&mut self) {
-        let from = self.workspace.files.workspace_refactor_from.clone();
-        let to = self.workspace.files.workspace_refactor_to.clone();
-        match self.workspace.files.ide_workspace.rename_symbol_across_sql(&from, &to) {
-            Ok(count) => self.feedback.runtime_message = format!("Refactored {count} occurrence(s)"),
-            Err(error) => self.feedback.runtime_message = error,
-        }
-    }
-
     pub(crate) fn toggle_split_editor(&mut self) {
         if self.workspace.split_editor_secondary.is_some() {
             self.workspace.split_editor_secondary = None;
@@ -236,24 +146,6 @@ impl DbProApp {
         };
         self.workspace.split_editor_secondary = Some(secondary);
         self.feedback.runtime_message = "Split editor enabled".to_owned();
-    }
-
-    pub(crate) fn refresh_schema_drift_watch(&mut self) {
-        let names: Vec<String> = self
-            .schema_explorer
-            .schema
-            .table_details
-            .iter()
-            .map(|table| format!("{}.{}", table.schema, table.name))
-            .collect();
-        let fingerprint = ide_workspace::fingerprint_schema_names(&names);
-        self.workspace
-            .files
-            .ide_workspace
-            .update_schema_fingerprint(fingerprint);
-        if let Some(message) = self.workspace.files.ide_workspace.schema_drift_message.clone() {
-            self.feedback.runtime_message = message;
-        }
     }
 
     /// Capture/evidence helper: keep the initial connection request pending so
