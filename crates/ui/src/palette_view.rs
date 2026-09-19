@@ -56,7 +56,7 @@ impl DbProApp {
             .filter(|e| e.is_sql)
             .count();
         SearchService::build_fingerprint(SearchFingerprintParts {
-            connection_id: self.connection_lifecycle.active_connection_id(),
+            connection_id: self.connection.lifecycle.active_connection_id(),
             schema: self.active_schema(),
             tables: self.schema_explorer.schema.tables.len(),
             views: self.schema_explorer.schema.views.len(),
@@ -64,7 +64,7 @@ impl DbProApp {
             columns: self.active_schema_column_names().len(),
             saved_queries: self.query_library.saved_queries.len(),
             history: self.query_editor.query_history_entries.len(),
-            connections: self.connection_catalog.len(),
+            connections: self.connection.catalog.len(),
             workspace_files,
         })
     }
@@ -420,7 +420,8 @@ impl DbProApp {
     }
 
     fn connection_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.connection_catalog
+        self.connection
+            .catalog
             .iter()
             .cloned()
             .map(|connection| {
@@ -703,7 +704,7 @@ impl DbProApp {
     }
 
     fn refresh_schema_palette(&mut self) {
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             self.table_state.refresh_table_info_after_schema = self.schema_explorer.selected_table.is_some();
             self.request_schema_introspection(connection_id, true);
         } else {
@@ -793,12 +794,12 @@ impl DbProApp {
     }
 
     fn switch_connection_from_palette(&mut self, connection_id: String) {
-        let connection = self.connection_catalog.find(&connection_id).cloned();
+        let connection = self.connection.catalog.find(&connection_id).cloned();
         if let Some(connection) = connection {
-            *self.connection_lifecycle.active_connection_id_mut() = Some(connection.id.clone());
-            self.connection_lifecycle.set_connected(false);
+            *self.connection.lifecycle.active_connection_id_mut() = Some(connection.id.clone());
+            self.connection.lifecycle.set_connected(false);
             let request_id = self.task_bridge.next_request_id();
-            self.connection_lifecycle.set_pending_request(Some(request_id));
+            self.connection.lifecycle.set_pending_request(Some(request_id));
             self.dispatch_command(UiCommand::Connect {
                 request_id,
                 connection_id: connection.id,

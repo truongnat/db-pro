@@ -212,7 +212,7 @@ impl DbProApp {
     }
 
     fn draw_query_context_chip(&self, ui: &mut egui::Ui) -> egui::Response {
-        let connected = self.active_query_connection_id().is_some() && self.connection_lifecycle.is_connected();
+        let connected = self.active_query_connection_id().is_some() && self.connection.lifecycle.is_connected();
         let conn_label = if connected {
             self.active_query_connection_name().to_owned()
         } else {
@@ -282,7 +282,7 @@ impl DbProApp {
             .documents
             .get(doc_idx)
             .and_then(|d| d.connection_id.clone())
-            .or_else(|| self.connection_lifecycle.active_connection_id().map(str::to_owned));
+            .or_else(|| self.connection.lifecycle.active_connection_id().map(str::to_owned));
         let current_schema = self.active_query_schema().to_owned();
         let available_schemas = if !self.schema_explorer.schema.schemas.is_empty() {
             self.schema_explorer.schema.schemas.clone()
@@ -292,7 +292,8 @@ impl DbProApp {
             vec!["public".to_string()]
         };
         let connections: Vec<(String, String, String)> = self
-            .connection_catalog
+            .connection
+            .catalog
             .iter()
             .map(|c| (c.id.clone(), c.name.clone(), c.environment.clone()))
             .collect();
@@ -403,7 +404,7 @@ impl DbProApp {
 
     fn draw_query_status_bar(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
-        let connected = self.active_query_connection_id().is_some() && self.connection_lifecycle.is_connected();
+        let connected = self.active_query_connection_id().is_some() && self.connection.lifecycle.is_connected();
         let driver = self.active_query_driver().to_owned();
         let schema = self.active_query_schema().to_owned();
         let param_key = (

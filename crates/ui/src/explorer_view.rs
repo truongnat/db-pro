@@ -236,7 +236,7 @@ impl DbProApp {
                 // Claim the full width up front so the first row inherits it
                 // instead of measuring against intrinsic label width.
                 ui.allocate_exact_size(egui::vec2(tree_width, 0.0), egui::Sense::hover());
-                if self.connection_catalog.is_empty() {
+                if self.connection.catalog.is_empty() {
                     self.draw_dbeaver_empty_state(ui);
                 } else {
                     self.draw_dbeaver_connections_tree(ui);
@@ -276,7 +276,7 @@ impl DbProApp {
                     }
                 });
                 if refresh_btn.clicked() || refresh_schema {
-                    if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+                    if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                         self.request_schema_introspection(connection_id, true);
                     }
                 }
@@ -321,7 +321,7 @@ impl DbProApp {
                 ui.horizontal(|ui| {
                     ui.label(icon_text(Icon::TriangleAlert, "Schema load failed", self.theme.danger));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned)
+                        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned)
                         {
                             if secondary_button_with_icon(ui, Icon::RotateCcw, "Refresh schema", self.theme).clicked() {
                                 self.request_schema_introspection(connection_id, true);
@@ -368,7 +368,7 @@ impl DbProApp {
                 "Open transaction detected — commit or rollback before disconnecting".to_owned();
             return;
         }
-        self.connection_lifecycle.set_connected(false);
+        self.connection.lifecycle.set_connected(false);
         self.schema_explorer.schema = UiSchemaSummary::default();
         self.schema_explorer.schema_symbol_index = SchemaSymbolIndex::default();
         self.schema_explorer.selected_table = None;
@@ -378,8 +378,8 @@ impl DbProApp {
 
     /// Helper to initiate connection logic.
     pub(crate) fn connect_to_connection(&mut self, connection: &UiConnectionSummary) {
-        if self.connection_lifecycle.active_connection_id() == Some(&connection.id)
-            && self.connection_lifecycle.is_connected()
+        if self.connection.lifecycle.active_connection_id() == Some(&connection.id)
+            && self.connection.lifecycle.is_connected()
         {
             return;
         }
@@ -398,10 +398,11 @@ impl DbProApp {
         }
         self.workspace.pending_navigation_action = None;
         self.reset_agent_context();
-        *self.connection_lifecycle.active_connection_id_mut() = Some(connection.id.clone());
-        self.connection_lifecycle
+        *self.connection.lifecycle.active_connection_id_mut() = Some(connection.id.clone());
+        self.connection
+            .lifecycle
             .set_pending_connection_id(Some(connection.id.clone()));
-        self.connection_lifecycle.clear_connection_error(&connection.id);
+        self.connection.lifecycle.clear_connection_error(&connection.id);
         self.schema_explorer.selected_schema = None;
         self.schema_explorer.schema = UiSchemaSummary::default();
         self.schema_explorer.schema_symbol_index = SchemaSymbolIndex::default();
@@ -410,8 +411,8 @@ impl DbProApp {
         self.reset_table_workspace_state();
         self.schema_explorer.explorer_search.clear();
         let request_id = self.task_bridge.next_request_id();
-        self.connection_lifecycle.set_connected(false);
-        self.connection_lifecycle.set_pending_request(Some(request_id));
+        self.connection.lifecycle.set_connected(false);
+        self.connection.lifecycle.set_pending_request(Some(request_id));
         self.schema_explorer.schema_request = None;
         self.schema_explorer.schema_error = None;
         self.dispatch_command(UiCommand::Connect {

@@ -450,7 +450,7 @@ impl DbProApp {
             return;
         }
 
-        if !ui.ctx().wants_keyboard_input() && !self.connection_dialog.is_open() {
+        if !ui.ctx().wants_keyboard_input() && !self.connection.dialog.is_open() {
             if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier && shift {
                 self.copy_selected_rows(ui, result);
             } else if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier {

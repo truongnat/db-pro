@@ -47,7 +47,7 @@ impl DbProApp {
             app.load_named_sessions_from_storage(storage);
             if let Some(raw) = storage.get_string("dbpro.native.ssh-profiles-v1") {
                 if let Ok(profiles) = serde_json::from_str(&raw) {
-                    app.connection_dialog.set_ssh_profiles(profiles);
+                    app.connection.dialog.set_ssh_profiles(profiles);
                 }
             }
             if let Some(width) = storage
@@ -182,7 +182,7 @@ impl Default for DbProApp {
             query_output_state: QueryOutputState::default(),
             table_data: TableDataState::default(),
             overlay: OverlayState::default(),
-            connection_catalog: ConnectionCatalogState::default(),
+            connection: ConnectionFeatureState::default(),
             query_library: QueryLibraryState::default(),
             schema_explorer: SchemaExplorerState::default(),
             workspace_files: WorkspaceFilesState::default(),
@@ -209,8 +209,6 @@ impl Default for DbProApp {
                 ..Default::default()
             },
             table_mutation: TableMutationState::default(),
-            connection_lifecycle: ConnectionLifecycleState::with_fallback_name("Local PostgreSQL"),
-            connection_dialog: ConnectionDialogState::default(),
             initial_frames_count: 0,
             gallery_state: ComponentGalleryState::default(),
         }

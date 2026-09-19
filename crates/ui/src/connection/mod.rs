@@ -19,6 +19,28 @@ pub(crate) use catalog::ConnectionCatalogState;
 pub(crate) use lifecycle::ConnectionLifecycleState;
 pub(crate) use state::ConnectionDialogState;
 
+/// Composition boundary for the connection feature.
+///
+/// The feature owns its saved-connection read model, lifecycle reducer state
+/// and editor dialog together; the app root only composes this aggregate with
+/// the other feature aggregates.
+#[derive(Debug)]
+pub(crate) struct ConnectionFeatureState {
+    pub(super) catalog: ConnectionCatalogState,
+    pub(super) lifecycle: ConnectionLifecycleState,
+    pub(super) dialog: ConnectionDialogState,
+}
+
+impl Default for ConnectionFeatureState {
+    fn default() -> Self {
+        Self {
+            catalog: ConnectionCatalogState::default(),
+            lifecycle: ConnectionLifecycleState::with_fallback_name("Local PostgreSQL"),
+            dialog: ConnectionDialogState::default(),
+        }
+    }
+}
+
 /// Apply a driver choice to the connection draft.
 pub(crate) fn select_connection_driver(draft: &mut UiConnectionDraft, driver: UiDriver) {
     logic::select_driver(draft, driver);

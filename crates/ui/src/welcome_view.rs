@@ -78,7 +78,7 @@ impl DbProApp {
             self.open_palette(PaletteMode::Commands);
         }
         if let Some(id) = intent.connect_id {
-            let connection = self.connection_catalog.find(&id).cloned();
+            let connection = self.connection.catalog.find(&id).cloned();
             if let Some(connection) = connection {
                 self.connect_to_connection(&connection);
             }
@@ -97,7 +97,7 @@ impl DbProApp {
                 ui.add_space(SPACE_XS);
                 let subtitle = if let Some(active) = self.active_connection() {
                     format!("Connected · {}", active.name)
-                } else if self.connection_catalog.is_empty() {
+                } else if self.connection.catalog.is_empty() {
                     "A focused database workspace. Connect to begin.".to_owned()
                 } else {
                     "Resume a connection, or start something new.".to_owned()
@@ -288,7 +288,7 @@ impl DbProApp {
             ..Default::default()
         }
         .show(ui, |ui| {
-            if self.connection_catalog.is_empty() {
+            if self.connection.catalog.is_empty() {
                 ui.add_space(SPACE_MD);
                 ui.vertical_centered(|ui| {
                     ui.label(
@@ -325,9 +325,10 @@ impl DbProApp {
                 return;
             }
 
-            let active_id = self.connection_lifecycle.active_connection_id().map(str::to_owned);
+            let active_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
             let rows: Vec<_> = self
-                .connection_catalog
+                .connection
+                .catalog
                 .iter()
                 .take(CONNECTION_ROW_LIMIT)
                 .cloned()

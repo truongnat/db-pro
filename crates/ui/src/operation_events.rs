@@ -54,7 +54,7 @@ impl DbProApp {
 
     pub(super) fn on_pg_setting_action_completed(&mut self, action: String, name: String) {
         self.feedback.runtime_message = format!("pg_settings {action} `{name}` ok");
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListPgSettings {
                 request_id,
@@ -73,7 +73,7 @@ impl DbProApp {
         self.feedback.runtime_message = format!("FDW {action} `{name}` ok");
         self.fdw.fdw_drop_confirm = None;
         self.fdw.fdw_ddl_preview = None;
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListFdwInventory {
                 request_id,
@@ -96,7 +96,7 @@ impl DbProApp {
         self.replication.replication_drop_publication = None;
         self.replication.replication_drop_subscription = None;
         self.replication.replication_ddl_preview = None;
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListReplicationInventory {
                 request_id,
@@ -118,7 +118,7 @@ impl DbProApp {
         self.feedback.runtime_message = format!("Event trigger {action} `{name}` ok");
         self.event_trigger.event_trigger_drop_confirm = None;
         self.event_trigger.event_trigger_ddl_preview = None;
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListEventTriggers {
                 request_id,
@@ -134,7 +134,7 @@ impl DbProApp {
         );
         self.monitoring.monitoring_terminate_confirm = None;
         self.monitoring.monitoring_reset_stats_confirm = false;
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::MonitoringSnapshot {
                 request_id,
@@ -182,9 +182,9 @@ impl DbProApp {
     pub(super) fn on_file_picked(&mut self, kind: &str, path: Option<String>) {
         if let Some(path) = path {
             if kind == "sqlite" {
-                self.connection_dialog.draft_mut().database = path;
+                self.connection.dialog.draft_mut().database = path;
             } else if kind == "ssh-key" {
-                self.connection_dialog.draft_mut().ssh_private_key = path;
+                self.connection.dialog.draft_mut().ssh_private_key = path;
             } else if kind == "backup" {
                 self.overlay.backup_output_path = path;
             } else if kind == "restore" {
@@ -192,11 +192,11 @@ impl DbProApp {
             } else if kind == "workspace-folder" {
                 self.open_workspace_folder(std::path::PathBuf::from(path));
             }
-            self.connection_dialog.clear_error();
-            self.connection_dialog.set_test_valid(false);
+            self.connection.dialog.clear_error();
+            self.connection.dialog.set_test_valid(false);
         } else if kind == "sqlite" || kind == "ssh-key" {
-            self.connection_dialog.set_error("File selection was cancelled");
-            self.connection_dialog.set_test_valid(false);
+            self.connection.dialog.set_error("File selection was cancelled");
+            self.connection.dialog.set_test_valid(false);
         } else if kind == "workspace-folder" {
             self.feedback.runtime_message = "Workspace folder selection was cancelled".to_owned();
         }
@@ -210,7 +210,7 @@ impl DbProApp {
             self.table_state.table_ddl_error = None;
             self.table_state.refresh_table_info_after_schema = self.schema_explorer.selected_table.is_some();
             self.feedback.runtime_message = format!("DDL applied · {affected_rows} affected rows");
-            if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+            if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                 self.request_schema_introspection(connection_id, true);
             }
             if !self.security.security_rls_table.trim().is_empty() {
@@ -222,7 +222,7 @@ impl DbProApp {
 
     /// Generic completion for connection, table-row and query operations.
     pub(super) fn on_operation_completed(&mut self, request_id: RequestId, operation: String) {
-        let pending_connection_request = self.connection_lifecycle.pending_request() == Some(request_id);
+        let pending_connection_request = self.connection.lifecycle.pending_request() == Some(request_id);
         if matches!(
             operation.as_str(),
             "connection.created" | "connection.updated" | "connection.deleted" | "connection.tested"
@@ -232,7 +232,7 @@ impl DbProApp {
         }
         self.feedback.runtime_message = operation.clone();
         if pending_connection_request {
-            self.connection_lifecycle.clear_pending_request();
+            self.connection.lifecycle.clear_pending_request();
         }
         if matches!(
             operation.as_str(),
@@ -256,21 +256,22 @@ impl DbProApp {
             operation.as_str(),
             "connection.created" | "connection.updated" | "connection.deleted"
         ) {
-            self.connection_lifecycle.clear_connections_requested();
+            self.connection.lifecycle.clear_connections_requested();
             self.request_connections_once();
         }
         if operation == "connection.tested" && pending_connection_request {
-            self.connection_dialog.clear_error();
+            self.connection.dialog.clear_error();
             self.refresh_connection_diagnostics(true, "Authentication succeeded");
-            if self.connection_dialog.test_draft() == Some(self.connection_dialog.draft()) {
-                self.connection_dialog.set_test_valid(true);
+            if self.connection.dialog.test_draft() == Some(self.connection.dialog.draft()) {
+                self.connection.dialog.set_test_valid(true);
                 self.feedback.runtime_message = self
-                    .connection_dialog
+                    .connection
+                    .dialog
                     .diagnostics()
                     .map(|r| r.summary())
                     .unwrap_or_else(|| "Connection test succeeded".to_owned());
             } else {
-                self.connection_dialog.set_test_valid(false);
+                self.connection.dialog.set_test_valid(false);
                 self.feedback.runtime_message = "Connection changed · test again before saving".to_owned();
             }
         }
@@ -278,27 +279,28 @@ impl DbProApp {
             self.on_table_row_operation_completed(request_id);
         }
         if operation == "connection.created" || operation == "connection.updated" {
-            self.connection_dialog
+            self.connection
+                .dialog
                 .transition(super::connection::state::ConnectionDialogAction::Close);
-            self.connection_dialog.set_editing_connection_id(None);
+            self.connection.dialog.set_editing_connection_id(None);
         }
         if operation.starts_with("query") || operation.starts_with("query-folder") {
             self.request_saved_queries_refresh();
         }
         if operation == "connection.deleted" {
             // `pending_connection_id` is the delete target (set by the confirm dialog).
-            let deleted_id = self.connection_lifecycle.take_pending_connection_id();
+            let deleted_id = self.connection.lifecycle.take_pending_connection_id();
             if let Some(ref id) = deleted_id {
-                self.connection_lifecycle.clear_connection_error(id);
+                self.connection.lifecycle.clear_connection_error(id);
             }
             let deleted_was_active = deleted_id
                 .as_ref()
-                .is_some_and(|id| self.connection_lifecycle.active_connection_id() == Some(id.as_str()));
+                .is_some_and(|id| self.connection.lifecycle.active_connection_id() == Some(id.as_str()));
             // Only tear down the live session when the deleted connection was active.
             // Deleting a sibling must not force a reconnect / schema reload of the open one.
             if deleted_was_active {
-                *self.connection_lifecycle.active_connection_id_mut() = None;
-                self.connection_lifecycle.set_connected(false);
+                *self.connection.lifecycle.active_connection_id_mut() = None;
+                self.connection.lifecycle.set_connected(false);
             }
         }
     }
@@ -325,7 +327,7 @@ impl DbProApp {
 
     /// Re-reads saved queries for the active connection.
     fn request_saved_queries_refresh(&mut self) {
-        if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
             self.dispatch_command(UiCommand::ListSavedQueries {
                 request_id,

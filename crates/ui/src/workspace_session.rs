@@ -170,7 +170,7 @@ impl DbProApp {
         let mut session = WorkspaceSession::new_named(name);
         session.activity = activity_label(self.workspace.activity).to_owned();
         session.active_tab = tab_label(self.workspace.active_tab).to_owned();
-        session.active_connection_id = self.connection_lifecycle.active_connection_id().map(str::to_owned);
+        session.active_connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
         session.selected_schema = self.schema_explorer.selected_schema.clone();
         session.open_document_ids = self
             .query_session_state
@@ -207,16 +207,16 @@ impl DbProApp {
         self.schema_explorer.selected_schema = session.selected_schema.clone();
 
         if let Some(conn_id) = &session.active_connection_id {
-            if self.connection_catalog.iter().any(|c| c.id == *conn_id) {
-                *self.connection_lifecycle.active_connection_id_mut() = Some(conn_id.clone());
+            if self.connection.catalog.iter().any(|c| c.id == *conn_id) {
+                *self.connection.lifecycle.active_connection_id_mut() = Some(conn_id.clone());
             } else {
-                *self.connection_lifecycle.active_connection_id_mut() = None;
+                *self.connection.lifecycle.active_connection_id_mut() = None;
                 notes.push(format!(
                     "Connection `{conn_id}` is missing — left disconnected without crashing"
                 ));
             }
         } else {
-            *self.connection_lifecycle.active_connection_id_mut() = None;
+            *self.connection.lifecycle.active_connection_id_mut() = None;
         }
 
         if !session.open_document_ids.is_empty() {

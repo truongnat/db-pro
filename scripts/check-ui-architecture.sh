@@ -11,9 +11,7 @@ events_file="$repo_root/crates/ui/src/events.rs"
 expected_fields=$(cat <<'EOF'
 agent
 audit
-connection_catalog
-connection_dialog
-connection_lifecycle
+connection
 diagram
 event_trigger
 fdw

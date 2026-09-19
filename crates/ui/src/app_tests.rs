@@ -323,7 +323,7 @@ fn editing_a_connection_preserves_its_stored_ssl_mode() {
 
     app.open_edit_connection(&connection);
 
-    assert_eq!(app.connection_dialog.draft().ssl_mode, UiSslMode::Require);
+    assert_eq!(app.connection.dialog.draft().ssl_mode, UiSslMode::Require);
 
     app.dispatch_connection_command(true);
 
@@ -345,7 +345,7 @@ fn duplicating_a_connection_preserves_its_stored_ssl_mode() {
 
     app.open_duplicate_connection(&connection);
 
-    assert_eq!(app.connection_dialog.draft().ssl_mode, UiSslMode::VerifyFull);
+    assert_eq!(app.connection.dialog.draft().ssl_mode, UiSslMode::VerifyFull);
 
     app.dispatch_connection_command(true);
 
@@ -363,8 +363,8 @@ fn new_postgresql_connection_defaults_to_tls_require() {
 
     app.open_new_connection();
 
-    assert_eq!(app.connection_dialog.draft().driver, UiDriver::Postgres);
-    assert_eq!(app.connection_dialog.draft().ssl_mode, UiSslMode::Require);
+    assert_eq!(app.connection.dialog.draft().driver, UiDriver::Postgres);
+    assert_eq!(app.connection.dialog.draft().ssl_mode, UiSslMode::Require);
 
     app.dispatch_connection_command(true);
     let UiCommand::CreateConnection { draft, .. } = command_rx.try_recv().expect("create command expected") else {
@@ -380,7 +380,7 @@ fn editing_a_disable_connection_keeps_disable_until_the_user_changes_it() {
     let connection = connection_summary_with_ssl_mode(UiSslMode::Disable);
 
     app.open_edit_connection(&connection);
-    assert_eq!(app.connection_dialog.draft().ssl_mode, UiSslMode::Disable);
+    assert_eq!(app.connection.dialog.draft().ssl_mode, UiSslMode::Disable);
 
     app.dispatch_connection_command(true);
     let UiCommand::UpdateConnection { draft, .. } = command_rx.try_recv().expect("update command expected") else {
@@ -394,13 +394,13 @@ fn switching_sqlite_to_postgresql_initializes_tls_require() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     app.open_new_connection();
-    app.connection_dialog.draft_mut().driver = UiDriver::Sqlite;
-    app.connection_dialog.draft_mut().ssl_mode = UiSslMode::Disable;
+    app.connection.dialog.draft_mut().driver = UiDriver::Sqlite;
+    app.connection.dialog.draft_mut().ssl_mode = UiSslMode::Disable;
 
     app.select_connection_driver(UiDriver::Postgres);
 
-    assert_eq!(app.connection_dialog.draft().driver, UiDriver::Postgres);
-    assert_eq!(app.connection_dialog.draft().ssl_mode, UiSslMode::Require);
+    assert_eq!(app.connection.dialog.draft().driver, UiDriver::Postgres);
+    assert_eq!(app.connection.dialog.draft().ssl_mode, UiSslMode::Require);
 }
 
 #[test]
@@ -409,15 +409,15 @@ fn selecting_mysql_sets_port_and_tls_and_preserves_password_on_submit() {
     let mut app = DbProApp::with_task_bridge(bridge);
     app.open_new_connection();
     app.select_connection_driver(UiDriver::Mysql);
-    assert_eq!(app.connection_dialog.draft().driver, UiDriver::Mysql);
-    assert_eq!(app.connection_dialog.draft().port, "3306");
-    assert_eq!(app.connection_dialog.draft().ssl_mode, UiSslMode::Require);
+    assert_eq!(app.connection.dialog.draft().driver, UiDriver::Mysql);
+    assert_eq!(app.connection.dialog.draft().port, "3306");
+    assert_eq!(app.connection.dialog.draft().ssl_mode, UiSslMode::Require);
 
-    app.connection_dialog.draft_mut().name = "MySQL Local".to_owned();
-    app.connection_dialog.draft_mut().host = "127.0.0.1".to_owned();
-    app.connection_dialog.draft_mut().database = "app".to_owned();
-    app.connection_dialog.draft_mut().username = "root".to_owned();
-    app.connection_dialog.draft_mut().password = "secret".to_owned();
+    app.connection.dialog.draft_mut().name = "MySQL Local".to_owned();
+    app.connection.dialog.draft_mut().host = "127.0.0.1".to_owned();
+    app.connection.dialog.draft_mut().database = "app".to_owned();
+    app.connection.dialog.draft_mut().username = "root".to_owned();
+    app.connection.dialog.draft_mut().password = "secret".to_owned();
     app.dispatch_connection_command(true);
 
     let UiCommand::CreateConnection { draft, .. } = command_rx.try_recv().expect("create") else {
@@ -448,7 +448,7 @@ fn editing_a_mysql_connection_keeps_the_mysql_driver() {
         environment: "Development".to_owned(),
     };
     app.open_edit_connection(&connection);
-    assert_eq!(app.connection_dialog.draft().driver, UiDriver::Mysql);
+    assert_eq!(app.connection.dialog.draft().driver, UiDriver::Mysql);
 }
 
 #[test]
@@ -456,9 +456,9 @@ fn explicit_disable_selection_is_preserved_on_submit() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     app.open_new_connection();
-    assert_eq!(app.connection_dialog.draft().ssl_mode, UiSslMode::Require);
+    assert_eq!(app.connection.dialog.draft().ssl_mode, UiSslMode::Require);
 
-    app.connection_dialog.draft_mut().ssl_mode = UiSslMode::Disable;
+    app.connection.dialog.draft_mut().ssl_mode = UiSslMode::Disable;
     app.dispatch_connection_command(true);
 
     let UiCommand::CreateConnection { draft, .. } = command_rx.try_recv().expect("create command expected") else {
@@ -479,7 +479,7 @@ fn ssl_mode_guidance_names_the_plaintext_risk_for_disable() {
 fn table_edits_stage_until_explicit_apply() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Local".to_owned(),
         host: "localhost".to_owned(),
@@ -494,8 +494,8 @@ fn table_edits_stage_until_explicit_apply() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+    app.connection.lifecycle.set_connected(true);
     app.schema_explorer.selected_table = Some("customers".to_owned());
     app.table_state.table_info = Some(UiTableInfo {
         schema: "public".to_owned(),
@@ -583,28 +583,34 @@ fn apply_is_blocked_while_a_validation_error_exists() {
 #[test]
 fn editing_primary_key_stages_new_value_with_original_identity() {
     let mut app = DbProApp {
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![UiConnectionSummary {
-                id: "conn-1".to_owned(),
-                name: "Local".to_owned(),
-                host: "localhost".to_owned(),
-                port: 5432,
-                database: "app".to_owned(),
-                username: "postgres".to_owned(),
-                driver: "PostgreSQL".to_owned(),
-                ssl_mode: UiSslMode::Disable,
-                readonly: false,
-                tags: vec![],
-                group: None,
-                favorite: false,
-                environment: "Development".to_owned(),
-            }],
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![UiConnectionSummary {
+                    id: "conn-1".to_owned(),
+                    name: "Local".to_owned(),
+                    host: "localhost".to_owned(),
+                    port: 5432,
+                    database: "app".to_owned(),
+                    username: "postgres".to_owned(),
+                    driver: "PostgreSQL".to_owned(),
+                    ssl_mode: UiSslMode::Disable,
+                    readonly: false,
+                    tags: vec![],
+                    group: None,
+                    favorite: false,
+                    environment: "Development".to_owned(),
+                }],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                connected: true,
+                active_connection_id: Some("conn-1".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_lifecycle: ConnectionLifecycleState {
-            connected: true,
-            active_connection_id: Some("conn-1".to_owned()),
-            ..Default::default()
-        },
+
         table_state: TableState {
             table_info: Some(UiTableInfo {
                 schema: "public".to_owned(),
@@ -653,28 +659,34 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
 #[test]
 fn no_primary_key_table_blocks_safe_row_mutations() {
     let app = DbProApp {
-        connection_lifecycle: ConnectionLifecycleState {
-            connected: true,
-            active_connection_id: Some("conn-1".to_owned()),
-            ..Default::default()
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![UiConnectionSummary {
+                    id: "conn-1".to_owned(),
+                    name: "Local".to_owned(),
+                    host: "localhost".to_owned(),
+                    port: 5432,
+                    database: "app".to_owned(),
+                    username: "postgres".to_owned(),
+                    driver: "PostgreSQL".to_owned(),
+                    ssl_mode: UiSslMode::Disable,
+                    readonly: false,
+                    tags: vec![],
+                    group: None,
+                    favorite: false,
+                    environment: "Development".to_owned(),
+                }],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                connected: true,
+                active_connection_id: Some("conn-1".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![UiConnectionSummary {
-                id: "conn-1".to_owned(),
-                name: "Local".to_owned(),
-                host: "localhost".to_owned(),
-                port: 5432,
-                database: "app".to_owned(),
-                username: "postgres".to_owned(),
-                driver: "PostgreSQL".to_owned(),
-                ssl_mode: UiSslMode::Disable,
-                readonly: false,
-                tags: vec![],
-                group: None,
-                favorite: false,
-                environment: "Development".to_owned(),
-            }],
-        },
+
         table_state: TableState {
             table_info: Some(UiTableInfo {
                 schema: "public".to_owned(),
@@ -699,28 +711,34 @@ fn no_primary_key_table_blocks_safe_row_mutations() {
 #[test]
 fn binary_cell_edit_is_refused_with_a_reason() {
     let mut app = DbProApp {
-        connection_lifecycle: ConnectionLifecycleState {
-            connected: true,
-            active_connection_id: Some("conn-1".to_owned()),
-            ..Default::default()
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![UiConnectionSummary {
+                    id: "conn-1".to_owned(),
+                    name: "Local".to_owned(),
+                    host: "localhost".to_owned(),
+                    port: 5432,
+                    database: "app".to_owned(),
+                    username: "postgres".to_owned(),
+                    driver: "PostgreSQL".to_owned(),
+                    ssl_mode: UiSslMode::Disable,
+                    readonly: false,
+                    tags: vec![],
+                    group: None,
+                    favorite: false,
+                    environment: "Development".to_owned(),
+                }],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                connected: true,
+                active_connection_id: Some("conn-1".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![UiConnectionSummary {
-                id: "conn-1".to_owned(),
-                name: "Local".to_owned(),
-                host: "localhost".to_owned(),
-                port: 5432,
-                database: "app".to_owned(),
-                username: "postgres".to_owned(),
-                driver: "PostgreSQL".to_owned(),
-                ssl_mode: UiSslMode::Disable,
-                readonly: false,
-                tags: vec![],
-                group: None,
-                favorite: false,
-                environment: "Development".to_owned(),
-            }],
-        },
+
         table_state: TableState {
             table_info: Some(UiTableInfo {
                 schema: "public".to_owned(),
@@ -793,28 +811,34 @@ fn binary_cell_edit_is_refused_with_a_reason() {
 #[test]
 fn generated_column_edit_is_refused_before_staging() {
     let mut app = DbProApp {
-        connection_lifecycle: ConnectionLifecycleState {
-            connected: true,
-            active_connection_id: Some("conn-1".to_owned()),
-            ..Default::default()
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![UiConnectionSummary {
+                    id: "conn-1".to_owned(),
+                    name: "Local".to_owned(),
+                    host: "localhost".to_owned(),
+                    port: 5432,
+                    database: "app".to_owned(),
+                    username: "postgres".to_owned(),
+                    driver: "PostgreSQL".to_owned(),
+                    ssl_mode: UiSslMode::Disable,
+                    readonly: false,
+                    tags: vec![],
+                    group: None,
+                    favorite: false,
+                    environment: "Development".to_owned(),
+                }],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                connected: true,
+                active_connection_id: Some("conn-1".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![UiConnectionSummary {
-                id: "conn-1".to_owned(),
-                name: "Local".to_owned(),
-                host: "localhost".to_owned(),
-                port: 5432,
-                database: "app".to_owned(),
-                username: "postgres".to_owned(),
-                driver: "PostgreSQL".to_owned(),
-                ssl_mode: UiSslMode::Disable,
-                readonly: false,
-                tags: vec![],
-                group: None,
-                favorite: false,
-                environment: "Development".to_owned(),
-            }],
-        },
+
         table_state: TableState {
             table_info: Some(UiTableInfo {
                 schema: "public".to_owned(),
@@ -896,28 +920,34 @@ fn generated_column_edit_is_refused_before_staging() {
 #[test]
 fn generated_column_is_never_staged_by_insert() {
     let mut app = DbProApp {
-        connection_lifecycle: ConnectionLifecycleState {
-            connected: true,
-            active_connection_id: Some("conn-1".to_owned()),
-            ..Default::default()
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![UiConnectionSummary {
+                    id: "conn-1".to_owned(),
+                    name: "Local".to_owned(),
+                    host: "localhost".to_owned(),
+                    port: 5432,
+                    database: "app".to_owned(),
+                    username: "postgres".to_owned(),
+                    driver: "PostgreSQL".to_owned(),
+                    ssl_mode: UiSslMode::Disable,
+                    readonly: false,
+                    tags: vec![],
+                    group: None,
+                    favorite: false,
+                    environment: "Development".to_owned(),
+                }],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                connected: true,
+                active_connection_id: Some("conn-1".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![UiConnectionSummary {
-                id: "conn-1".to_owned(),
-                name: "Local".to_owned(),
-                host: "localhost".to_owned(),
-                port: 5432,
-                database: "app".to_owned(),
-                username: "postgres".to_owned(),
-                driver: "PostgreSQL".to_owned(),
-                ssl_mode: UiSslMode::Disable,
-                readonly: false,
-                tags: vec![],
-                group: None,
-                favorite: false,
-                environment: "Development".to_owned(),
-            }],
-        },
+
         schema_explorer: SchemaExplorerState {
             selected_table: Some("line_items".to_owned()),
             ..Default::default()
@@ -986,28 +1016,34 @@ fn generated_column_is_never_staged_by_insert() {
 
     // A value for the generated column is refused deterministically, before staging.
     let mut second = DbProApp {
-        connection_lifecycle: ConnectionLifecycleState {
-            connected: true,
-            active_connection_id: Some("conn-1".to_owned()),
-            ..Default::default()
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![UiConnectionSummary {
+                    id: "conn-1".to_owned(),
+                    name: "Local".to_owned(),
+                    host: "localhost".to_owned(),
+                    port: 5432,
+                    database: "app".to_owned(),
+                    username: "postgres".to_owned(),
+                    driver: "PostgreSQL".to_owned(),
+                    ssl_mode: UiSslMode::Disable,
+                    readonly: false,
+                    tags: vec![],
+                    group: None,
+                    favorite: false,
+                    environment: "Development".to_owned(),
+                }],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                connected: true,
+                active_connection_id: Some("conn-1".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![UiConnectionSummary {
-                id: "conn-1".to_owned(),
-                name: "Local".to_owned(),
-                host: "localhost".to_owned(),
-                port: 5432,
-                database: "app".to_owned(),
-                username: "postgres".to_owned(),
-                driver: "PostgreSQL".to_owned(),
-                ssl_mode: UiSslMode::Disable,
-                readonly: false,
-                tags: vec![],
-                group: None,
-                favorite: false,
-                environment: "Development".to_owned(),
-            }],
-        },
+
         schema_explorer: SchemaExplorerState {
             selected_table: Some("line_items".to_owned()),
             ..Default::default()
@@ -1035,28 +1071,34 @@ fn generated_column_is_never_staged_by_insert() {
 #[test]
 fn duplicated_row_leaves_blocked_columns_empty() {
     let mut app = DbProApp {
-        connection_lifecycle: ConnectionLifecycleState {
-            connected: true,
-            active_connection_id: Some("conn-1".to_owned()),
-            ..Default::default()
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![UiConnectionSummary {
+                    id: "conn-1".to_owned(),
+                    name: "Local".to_owned(),
+                    host: "localhost".to_owned(),
+                    port: 5432,
+                    database: "app".to_owned(),
+                    username: "postgres".to_owned(),
+                    driver: "PostgreSQL".to_owned(),
+                    ssl_mode: UiSslMode::Disable,
+                    readonly: false,
+                    tags: vec![],
+                    group: None,
+                    favorite: false,
+                    environment: "Development".to_owned(),
+                }],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                connected: true,
+                active_connection_id: Some("conn-1".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![UiConnectionSummary {
-                id: "conn-1".to_owned(),
-                name: "Local".to_owned(),
-                host: "localhost".to_owned(),
-                port: 5432,
-                database: "app".to_owned(),
-                username: "postgres".to_owned(),
-                driver: "PostgreSQL".to_owned(),
-                ssl_mode: UiSslMode::Disable,
-                readonly: false,
-                tags: vec![],
-                group: None,
-                favorite: false,
-                environment: "Development".to_owned(),
-            }],
-        },
+
         table_state: TableState {
             table_info: Some(UiTableInfo {
                 schema: "public".to_owned(),
@@ -1219,7 +1261,7 @@ fn internal_error_code_is_normalized_for_mutation_state() {
 fn explain_query_uses_selected_connection_and_switches_output() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Local".to_owned(),
         host: "localhost".to_owned(),
@@ -1234,8 +1276,8 @@ fn explain_query_uses_selected_connection_and_switches_output() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+    app.connection.lifecycle.set_connected(true);
     app.set_active_query_text("SELECT 1");
 
     app.explain_query();
@@ -1260,7 +1302,7 @@ fn explain_query_uses_selected_connection_and_switches_output() {
 fn explain_analyze_requires_explicit_confirm_before_dispatch() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Local".to_owned(),
         host: "localhost".to_owned(),
@@ -1275,8 +1317,8 @@ fn explain_analyze_requires_explicit_confirm_before_dispatch() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+    app.connection.lifecycle.set_connected(true);
     app.set_active_query_text("SELECT 1");
 
     app.explain_query_analyze();
@@ -1350,39 +1392,45 @@ fn selected_connection_is_not_shown_as_connected() {
         environment: "Development".to_owned(),
     };
     let mut app = DbProApp {
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![connection],
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![connection],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                connected: false,
+                active_connection_id: Some("conn-1".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_lifecycle: ConnectionLifecycleState {
-            connected: false,
-            active_connection_id: Some("conn-1".to_owned()),
-            ..Default::default()
-        },
+
         ..Default::default()
     };
 
     assert_eq!(app.active_connection_name(), "Local");
     assert_eq!(
-        app.connection_indicator(app.connection_catalog.get(0).expect("connection"))
+        app.connection_indicator(app.connection.catalog.get(0).expect("connection"))
             .1,
         app.theme.accent
     );
     assert_eq!(app.statusbar_state().2, "Not connected");
     assert!(!app.can_mutate_active_connection());
-    app.connection_lifecycle.set_connected(true);
+    app.connection.lifecycle.set_connected(true);
     assert_eq!(
-        app.connection_indicator(app.connection_catalog.get(0).expect("connection"))
+        app.connection_indicator(app.connection.catalog.get(0).expect("connection"))
             .1,
         app.theme.success
     );
     assert_eq!(app.statusbar_state().2, "Connected");
     assert!(app.can_mutate_active_connection());
-    app.connection_catalog.connections_mut()[0].readonly = true;
+    app.connection.catalog.connections_mut()[0].readonly = true;
     assert!(!app.can_mutate_active_connection());
     app.feedback.runtime_message = "Table data failed · timeout".to_owned();
     assert!(app.has_runtime_error());
     assert_eq!(app.statusbar_state().2, "Connected");
-    app.connection_lifecycle.set_connected(false);
+    app.connection.lifecycle.set_connected(false);
     assert_eq!(app.statusbar_state().2, "Runtime error");
 }
 
@@ -1476,23 +1524,35 @@ fn provider_capabilities_gate_provider_specific_actions() {
     };
 
     let sqlite_app = DbProApp {
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![sqlite],
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![sqlite],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                active_connection_id: Some("sqlite".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_lifecycle: ConnectionLifecycleState {
-            active_connection_id: Some("sqlite".to_owned()),
-            ..Default::default()
-        },
+
         ..Default::default()
     };
     let postgres_app = DbProApp {
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![postgres],
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![postgres],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                active_connection_id: Some("sqlite".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_lifecycle: ConnectionLifecycleState {
-            active_connection_id: Some("sqlite".to_owned()),
-            ..Default::default()
-        },
+
         ..Default::default()
     };
 
@@ -1521,27 +1581,33 @@ fn mysql_connection_resolves_to_its_own_capability_set() {
     // newly registered provider had no capability path at all and every gate behaved as
     // "capability absent".
     let app = DbProApp {
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![UiConnectionSummary {
-                id: "mysql".to_owned(),
-                name: "MySQL".to_owned(),
-                host: "127.0.0.1".to_owned(),
-                port: 33306,
-                database: "dbpro_fixture".to_owned(),
-                username: "root".to_owned(),
-                driver: "MySQL".to_owned(),
-                ssl_mode: UiSslMode::Disable,
-                readonly: false,
-                tags: vec![],
-                group: None,
-                favorite: false,
-                environment: "Development".to_owned(),
-            }],
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![UiConnectionSummary {
+                    id: "mysql".to_owned(),
+                    name: "MySQL".to_owned(),
+                    host: "127.0.0.1".to_owned(),
+                    port: 33306,
+                    database: "dbpro_fixture".to_owned(),
+                    username: "root".to_owned(),
+                    driver: "MySQL".to_owned(),
+                    ssl_mode: UiSslMode::Disable,
+                    readonly: false,
+                    tags: vec![],
+                    group: None,
+                    favorite: false,
+                    environment: "Development".to_owned(),
+                }],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                active_connection_id: Some("mysql".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_lifecycle: ConnectionLifecycleState {
-            active_connection_id: Some("mysql".to_owned()),
-            ..Default::default()
-        },
+
         ..Default::default()
     };
 
@@ -1569,27 +1635,33 @@ fn mysql_connection_resolves_to_its_own_capability_set() {
 #[test]
 fn unknown_driver_resolves_to_a_named_state_not_none() {
     let app = DbProApp {
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![UiConnectionSummary {
-                id: "oracle".to_owned(),
-                name: "Oracle".to_owned(),
-                host: "db.example.com".to_owned(),
-                port: 1521,
-                database: "ORCL".to_owned(),
-                username: "system".to_owned(),
-                driver: "Oracle".to_owned(),
-                ssl_mode: UiSslMode::Disable,
-                readonly: false,
-                tags: vec![],
-                group: None,
-                favorite: false,
-                environment: "Development".to_owned(),
-            }],
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![UiConnectionSummary {
+                    id: "oracle".to_owned(),
+                    name: "Oracle".to_owned(),
+                    host: "db.example.com".to_owned(),
+                    port: 1521,
+                    database: "ORCL".to_owned(),
+                    username: "system".to_owned(),
+                    driver: "Oracle".to_owned(),
+                    ssl_mode: UiSslMode::Disable,
+                    readonly: false,
+                    tags: vec![],
+                    group: None,
+                    favorite: false,
+                    environment: "Development".to_owned(),
+                }],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                active_connection_id: Some("oracle".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_lifecycle: ConnectionLifecycleState {
-            active_connection_id: Some("oracle".to_owned()),
-            ..Default::default()
-        },
+
         ..Default::default()
     };
 
@@ -1667,13 +1739,19 @@ fn query_capabilities_follow_the_bound_connection_and_do_not_default_to_postgres
     ));
 
     let mut app = DbProApp {
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![pg, sqlite],
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![pg, sqlite],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                active_connection_id: Some("pg".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_lifecycle: ConnectionLifecycleState {
-            active_connection_id: Some("pg".to_owned()),
-            ..Default::default()
-        },
+
         ..Default::default()
     };
     assert!(app.query_capabilities().allows(|caps| caps.features.server_sessions));
@@ -2570,7 +2648,7 @@ fn sql_snippet_insert_is_one_undoable_buffer_edit() {
 fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "active".to_owned(),
         name: "Active".to_owned(),
         host: "localhost".to_owned(),
@@ -2585,8 +2663,8 @@ fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
+    app.connection.lifecycle.set_connected(true);
     let ctx = egui::Context::default();
 
     app.execute_palette_action(PaletteAction::RefreshSchema, &ctx);
@@ -2645,7 +2723,7 @@ fn loading_connections_automatically_connects_active_connection() {
 fn failed_connection_shows_red_indicator_and_records_error() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-bad".to_owned(),
         name: "Remote Bad".to_owned(),
         host: "10.0.0.99".to_owned(),
@@ -2660,9 +2738,9 @@ fn failed_connection_shows_red_indicator_and_records_error() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-bad".to_owned());
-    app.connection_lifecycle.pending_connection_id = Some("conn-bad".to_owned());
-    app.connection_lifecycle.pending_request = Some(crate::RequestId(99));
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-bad".to_owned());
+    app.connection.lifecycle.pending_connection_id = Some("conn-bad".to_owned());
+    app.connection.lifecycle.pending_request = Some(crate::RequestId(99));
 
     event_tx
         .send(UiEvent::QueryFailed {
@@ -2673,12 +2751,12 @@ fn failed_connection_shows_red_indicator_and_records_error() {
 
     app.apply_runtime_events();
 
-    assert!(app.connection_lifecycle.failed_connection_ids.contains("conn-bad"));
+    assert!(app.connection.lifecycle.failed_connection_ids.contains("conn-bad"));
     assert_eq!(
-        app.connection_lifecycle.errors.get("conn-bad").map(|s| s.as_str()),
+        app.connection.lifecycle.errors.get("conn-bad").map(|s| s.as_str()),
         Some("Connection refused (os error 61)")
     );
-    let (icon, color) = app.connection_indicator(app.connection_catalog.get(0).expect("connection"));
+    let (icon, color) = app.connection_indicator(app.connection.catalog.get(0).expect("connection"));
     assert_eq!(char::from(icon), char::from(Icon::AlertCircle));
     assert_eq!(color, app.theme.danger);
 }
@@ -2687,7 +2765,7 @@ fn failed_connection_shows_red_indicator_and_records_error() {
 fn connected_event_starts_schema_and_metadata_loading() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_lifecycle.pending_request = Some(crate::RequestId(1));
+    app.connection.lifecycle.pending_request = Some(crate::RequestId(1));
     event_tx
         .send(UiEvent::Connected {
             request_id: crate::RequestId(1),
@@ -3194,8 +3272,8 @@ fn global_palette_shortcuts_do_not_steal_text_input_combinations() {
 fn failed_connection_request_clears_connecting_state_and_keeps_error() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_lifecycle.set_connected(true);
-    app.connection_lifecycle.pending_request = Some(crate::RequestId(42));
+    app.connection.lifecycle.set_connected(true);
+    app.connection.lifecycle.pending_request = Some(crate::RequestId(42));
     event_tx
         .send(UiEvent::QueryFailed {
             request_id: crate::RequestId(42),
@@ -3205,9 +3283,9 @@ fn failed_connection_request_clears_connecting_state_and_keeps_error() {
 
     app.apply_runtime_events();
 
-    assert!(!app.connection_lifecycle.is_connected());
-    assert_eq!(app.connection_lifecycle.pending_request, None);
-    assert_eq!(app.connection_dialog.error(), "auth failed");
+    assert!(!app.connection.lifecycle.is_connected());
+    assert_eq!(app.connection.lifecycle.pending_request, None);
+    assert_eq!(app.connection.dialog.error(), "auth failed");
     assert_eq!(app.feedback.runtime_message, "Connection failed · auth failed");
 }
 
@@ -3215,8 +3293,8 @@ fn failed_connection_request_clears_connecting_state_and_keeps_error() {
 fn connection_mutation_refreshes_the_explorer_without_waiting_for_another_frame() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_lifecycle.mark_connections_requested();
-    app.connection_lifecycle.pending_request = Some(crate::RequestId(7));
+    app.connection.lifecycle.mark_connections_requested();
+    app.connection.lifecycle.pending_request = Some(crate::RequestId(7));
     event_tx
         .send(UiEvent::OperationCompleted {
             request_id: crate::RequestId(7),
@@ -3226,7 +3304,7 @@ fn connection_mutation_refreshes_the_explorer_without_waiting_for_another_frame(
 
     app.apply_runtime_events();
 
-    assert!(app.connection_lifecycle.connections_requested());
+    assert!(app.connection.lifecycle.connections_requested());
     assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ListConnections { .. })));
 }
 
@@ -3246,7 +3324,7 @@ fn sidebar_header_launcher_opens_full_command_palette() {
 fn deleting_sibling_connection_does_not_auto_reconnect_active() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![
+    *app.connection.catalog.connections_mut() = vec![
         UiConnectionSummary {
             id: "conn-a".to_owned(),
             name: "A".to_owned(),
@@ -3278,11 +3356,11 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
             environment: "Development".to_owned(),
         },
     ];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-a".to_owned());
-    app.connection_lifecycle.set_connected(true);
-    app.connection_lifecycle.pending_request = Some(crate::RequestId(21));
-    app.connection_lifecycle.pending_connection_id = Some("conn-b".to_owned());
-    app.connection_lifecycle.mark_connections_requested();
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-a".to_owned());
+    app.connection.lifecycle.set_connected(true);
+    app.connection.lifecycle.pending_request = Some(crate::RequestId(21));
+    app.connection.lifecycle.pending_connection_id = Some("conn-b".to_owned());
+    app.connection.lifecycle.mark_connections_requested();
 
     event_tx
         .send(UiEvent::OperationCompleted {
@@ -3292,21 +3370,21 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
         .expect("delete completion should queue");
     app.apply_runtime_events();
 
-    assert_eq!(app.connection_lifecycle.active_connection_id(), Some("conn-a"));
-    assert!(app.connection_lifecycle.is_connected());
+    assert_eq!(app.connection.lifecycle.active_connection_id(), Some("conn-a"));
+    assert!(app.connection.lifecycle.is_connected());
     assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ListConnections { .. })));
 
     // List refresh must not force a Connect when the active session is still up.
     event_tx
         .send(UiEvent::ConnectionsLoaded {
             request_id: crate::RequestId(22),
-            connections: vec![app.connection_catalog.connections_mut()[0].clone()],
+            connections: vec![app.connection.catalog.connections_mut()[0].clone()],
         })
         .expect("connections list should queue");
     app.apply_runtime_events();
 
-    assert_eq!(app.connection_lifecycle.active_connection_id(), Some("conn-a"));
-    assert!(app.connection_lifecycle.is_connected());
+    assert_eq!(app.connection.lifecycle.active_connection_id(), Some("conn-a"));
+    assert!(app.connection.lifecycle.is_connected());
     assert!(
         !matches!(command_rx.try_recv(), Ok(UiCommand::Connect { .. })),
         "active session must not reconnect after deleting a sibling"
@@ -3487,7 +3565,8 @@ fn diagnostics_summary_redacts_runtime_errors_and_lists_mysql() {
         },
         ..DbProApp::default()
     };
-    app.connection_catalog
+    app.connection
+        .catalog
         .connections_mut()
         .push(crate::UiConnectionSummary {
             id: "c1".to_owned(),
@@ -3654,15 +3733,15 @@ fn stale_schema_event_cannot_replace_the_selected_connection_schema() {
 fn connection_test_success_is_invalidated_when_the_draft_changes() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connection_dialog.draft_mut().name = "Local".to_owned();
-    app.connection_dialog.draft_mut().database = "app".to_owned();
+    app.connection.dialog.draft_mut().name = "Local".to_owned();
+    app.connection.dialog.draft_mut().database = "app".to_owned();
     app.dispatch_connection_command(false);
 
     let request_id = match command_rx.try_recv().expect("test command expected") {
         UiCommand::TestConnection { request_id, .. } => request_id,
         _ => panic!("expected TestConnection command"),
     };
-    app.connection_dialog.draft_mut().database = "other".to_owned();
+    app.connection.dialog.draft_mut().database = "other".to_owned();
     event_tx
         .send(UiEvent::OperationCompleted {
             request_id,
@@ -3672,7 +3751,7 @@ fn connection_test_success_is_invalidated_when_the_draft_changes() {
 
     app.apply_runtime_events();
 
-    assert!(!app.connection_dialog.test_valid());
+    assert!(!app.connection.dialog.test_valid());
     assert_eq!(
         app.feedback.runtime_message,
         "Connection changed · test again before saving"
@@ -3683,7 +3762,7 @@ fn connection_test_success_is_invalidated_when_the_draft_changes() {
 fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
     let (bridge, command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "active".to_owned(),
         name: "Active".to_owned(),
         host: String::new(),
@@ -3698,7 +3777,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
+    *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.schema_explorer.selected_table = Some("customers".to_owned());
     app.workspace.active_tab = WorkspaceTab::Table;
     app.table_state.refresh_table_info_after_schema = true;
@@ -3796,7 +3875,7 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
 fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![
+    *app.connection.catalog.connections_mut() = vec![
         UiConnectionSummary {
             id: "first".to_owned(),
             name: "First".to_owned(),
@@ -3828,8 +3907,8 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
             environment: "Development".to_owned(),
         },
     ];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
+    app.connection.lifecycle.set_connected(true);
     app.dispatch_query();
 
     let UiCommand::RunQuery { connection_id, .. } = command_rx.try_recv().expect("query command expected") else {
@@ -3842,7 +3921,7 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
 fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "active".to_owned(),
         name: "Active".to_owned(),
         host: "localhost".to_owned(),
@@ -3857,8 +3936,8 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
+    app.connection.lifecycle.set_connected(true);
     app.table_state.table_ddl = Some("CREATE TABLE \"public\".\"audit\" (id INTEGER)".to_owned());
 
     app.submit_ddl();
@@ -4175,14 +4254,20 @@ fn test_query_cancellation_capability_gate() {
     };
 
     let mut app = DbProApp {
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![postgres_conn, sqlite_conn],
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![postgres_conn, sqlite_conn],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                connected: true,
+                active_connection_id: Some("pg".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_lifecycle: ConnectionLifecycleState {
-            connected: true,
-            active_connection_id: Some("pg".to_owned()),
-            ..Default::default()
-        },
+
         ..Default::default()
     };
 
@@ -4190,7 +4275,7 @@ fn test_query_cancellation_capability_gate() {
     assert!(!app.active_capabilities().allows(|caps| caps.query.cancel));
 
     // Switching to SQLite enables query cancellation
-    *app.connection_lifecycle.active_connection_id_mut() = Some("sqlite".to_owned());
+    *app.connection.lifecycle.active_connection_id_mut() = Some("sqlite".to_owned());
     assert!(app.active_capabilities().allows(|caps| caps.query.cancel));
 }
 
@@ -4668,7 +4753,7 @@ fn dirty_query_close_is_deferred_until_user_decision() {
 fn query_dispatch_allows_independent_documents_to_run_concurrently() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![
+    *app.connection.catalog.connections_mut() = vec![
         UiConnectionSummary {
             id: "conn-1".to_owned(),
             name: "DB 1".to_owned(),
@@ -4700,8 +4785,8 @@ fn query_dispatch_allows_independent_documents_to_run_concurrently() {
             environment: "Development".to_owned(),
         },
     ];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+    app.connection.lifecycle.set_connected(true);
     app.set_document_connection(0, Some("conn-1".to_owned()));
     app.set_active_query_text("SELECT 1;");
     app.dispatch_query();
@@ -4835,9 +4920,9 @@ fn test_popup_flipping_near_viewport_bottom() {
 fn test_multi_tab_explain_plan_routing() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
-    app.connection_lifecycle.set_connected(true);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+    app.connection.lifecycle.set_connected(true);
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Test DB".to_owned(),
         database: "test".to_owned(),
@@ -4915,44 +5000,50 @@ fn test_prediction_mode_defaults_and_options() {
 #[test]
 fn test_per_document_connection_and_schema_isolation() {
     let mut app = DbProApp {
-        connection_catalog: ConnectionCatalogState {
-            connections: vec![
-                UiConnectionSummary {
-                    id: "conn-pg".to_owned(),
-                    name: "Postgres Prod".to_owned(),
-                    driver: "postgresql".to_owned(),
-                    host: "localhost".to_owned(),
-                    port: 5432,
-                    database: "prod".to_owned(),
-                    username: "postgres".to_owned(),
-                    ssl_mode: UiSslMode::Disable,
-                    readonly: false,
-                    tags: vec![],
-                    group: None,
-                    favorite: false,
-                    environment: "Development".to_owned(),
-                },
-                UiConnectionSummary {
-                    id: "conn-sqlite".to_owned(),
-                    name: "Local SQLite".to_owned(),
-                    driver: "sqlite".to_owned(),
-                    host: "".to_owned(),
-                    port: 0,
-                    database: "/tmp/test.db".to_owned(),
-                    username: "".to_owned(),
-                    ssl_mode: UiSslMode::Disable,
-                    readonly: false,
-                    tags: vec![],
-                    group: None,
-                    favorite: false,
-                    environment: "Development".to_owned(),
-                },
-            ],
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: vec![
+                    UiConnectionSummary {
+                        id: "conn-pg".to_owned(),
+                        name: "Postgres Prod".to_owned(),
+                        driver: "postgresql".to_owned(),
+                        host: "localhost".to_owned(),
+                        port: 5432,
+                        database: "prod".to_owned(),
+                        username: "postgres".to_owned(),
+                        ssl_mode: UiSslMode::Disable,
+                        readonly: false,
+                        tags: vec![],
+                        group: None,
+                        favorite: false,
+                        environment: "Development".to_owned(),
+                    },
+                    UiConnectionSummary {
+                        id: "conn-sqlite".to_owned(),
+                        name: "Local SQLite".to_owned(),
+                        driver: "sqlite".to_owned(),
+                        host: "".to_owned(),
+                        port: 0,
+                        database: "/tmp/test.db".to_owned(),
+                        username: "".to_owned(),
+                        ssl_mode: UiSslMode::Disable,
+                        readonly: false,
+                        tags: vec![],
+                        group: None,
+                        favorite: false,
+                        environment: "Development".to_owned(),
+                    },
+                ],
+            },
+
+            lifecycle: ConnectionLifecycleState {
+                active_connection_id: Some("conn-pg".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
-        connection_lifecycle: ConnectionLifecycleState {
-            active_connection_id: Some("conn-pg".to_owned()),
-            ..Default::default()
-        },
+
         ..Default::default()
     };
 
@@ -5495,7 +5586,7 @@ fn test_agent_retry_isolation_and_session_routing() {
 fn test_composite_pk_targeted_reload_and_merge() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.schema_explorer.selected_table = Some("user_roles".to_owned());
     app.table_state.table_info = Some(UiTableInfo {
         schema: "public".to_owned(),
@@ -5605,7 +5696,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
 fn test_inserted_row_delete_removes_from_changeset_without_db_delete() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.schema_explorer.selected_table = Some("users".to_owned());
 
     let local_id = app.table_mutation.staged_changes.stage_insert(
@@ -5831,7 +5922,7 @@ fn every_runtime_message_reaches_the_status_bar() {
 fn destructive_statement_is_held_until_it_is_confirmed() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "active".to_owned(),
         name: "Active".to_owned(),
         host: "localhost".to_owned(),
@@ -5846,8 +5937,8 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
+    app.connection.lifecycle.set_connected(true);
     app.set_active_query_text("DROP TABLE users");
 
     app.dispatch_query();
@@ -5878,7 +5969,7 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
 fn cancelling_a_held_destructive_statement_sends_nothing() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "active".to_owned(),
         name: "Active".to_owned(),
         host: "localhost".to_owned(),
@@ -5893,8 +5984,8 @@ fn cancelling_a_held_destructive_statement_sends_nothing() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
+    app.connection.lifecycle.set_connected(true);
     app.set_active_query_text("TRUNCATE users");
 
     app.dispatch_query();
@@ -5923,7 +6014,7 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
     ] {
         let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
         let mut app = DbProApp::with_task_bridge(bridge);
-        *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+        *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
             id: "active".to_owned(),
             name: "Active".to_owned(),
             host: "localhost".to_owned(),
@@ -5938,8 +6029,8 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
             favorite: false,
             environment: "Development".to_owned(),
         }];
-        *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
-        app.connection_lifecycle.set_connected(true);
+        *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
+        app.connection.lifecycle.set_connected(true);
         app.set_active_query_text(sql);
 
         app.dispatch_query();
@@ -5964,7 +6055,7 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
 fn a_script_whose_worst_statement_is_destructive_is_held() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "active".to_owned(),
         name: "Active".to_owned(),
         host: "localhost".to_owned(),
@@ -5979,8 +6070,8 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("active".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
+    app.connection.lifecycle.set_connected(true);
     app.set_active_query_text("SELECT 1;\nDROP TABLE users;");
 
     app.dispatch_query_all();
@@ -6068,7 +6159,7 @@ fn data_activity_palette_action_opens_sidebar() {
 fn dispatch_query_binds_named_parameters_for_postgres() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Local".to_owned(),
         host: "localhost".to_owned(),
@@ -6083,8 +6174,8 @@ fn dispatch_query_binds_named_parameters_for_postgres() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+    app.connection.lifecycle.set_connected(true);
     app.set_active_query_text("SELECT :id, :name".to_owned());
     if let Some(doc) = app.query_session_state.documents.get_mut(0) {
         doc.parameter_values.insert(":id".to_owned(), "7".to_owned());
@@ -6109,11 +6200,18 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
     std::fs::write(dir.join("sql/demo.sql"), "SELECT 42;").unwrap();
 
     let mut app = DbProApp {
-        connection_lifecycle: ConnectionLifecycleState {
-            connected: true,
-            active_connection_id: Some("conn-1".to_owned()),
-            ..Default::default()
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState::default(),
+
+            lifecycle: ConnectionLifecycleState {
+                connected: true,
+                active_connection_id: Some("conn-1".to_owned()),
+                ..Default::default()
+            },
+
+            dialog: ConnectionDialogState::default(),
         },
+
         schema_explorer: SchemaExplorerState {
             selected_schema: Some("public".to_owned()),
             ..Default::default()
@@ -6177,7 +6275,7 @@ fn saved_task_persists_without_secrets_and_blocks_destructive_without_confirm() 
 
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Local".to_owned(),
         host: "localhost".to_owned(),
@@ -6192,8 +6290,8 @@ fn saved_task_persists_without_secrets_and_blocks_destructive_without_confirm() 
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+    app.connection.lifecycle.set_connected(true);
     app.preferences.settings.general.confirm_destructive_queries = true;
     app.saved_tasks.store = store;
     app.run_saved_task(id, SavedTaskRunTrigger::Manual);
@@ -6213,7 +6311,7 @@ fn scheduled_task_tick_dispatches_once_while_app_active() {
     };
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    *app.connection_catalog.connections_mut() = vec![UiConnectionSummary {
+    *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Local".to_owned(),
         host: "localhost".to_owned(),
@@ -6228,8 +6326,8 @@ fn scheduled_task_tick_dispatches_once_while_app_active() {
         favorite: false,
         environment: "Development".to_owned(),
     }];
-    *app.connection_lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
-    app.connection_lifecycle.set_connected(true);
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+    app.connection.lifecycle.set_connected(true);
     let id = uuid::Uuid::new_v4();
     let now = chrono::Utc::now();
     let mut schedule = TaskSchedule::every_secs(30);
@@ -6275,7 +6373,7 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     app.query_session_state.active_document_index = 1;
     app.workspace.activity = Activity::Data;
     app.workspace.active_tab = WorkspaceTab::Query;
-    *app.connection_lifecycle.active_connection_id_mut() = Some("gone-conn".to_owned());
+    *app.connection.lifecycle.active_connection_id_mut() = Some("gone-conn".to_owned());
     app.schema_explorer.pinned_tables = vec!["public.orders".to_owned()];
     app.workspace_sessions.name_draft = "Focus pack".to_owned();
     app.save_named_workspace_session();
@@ -6285,7 +6383,7 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     // Mutate live state, then restore.
     app.workspace.activity = Activity::Explorer;
     app.query_session_state.active_document_index = 0;
-    *app.connection_lifecycle.active_connection_id_mut() = Some("other".to_owned());
+    *app.connection.lifecycle.active_connection_id_mut() = Some("other".to_owned());
     app.schema_explorer.pinned_tables.clear();
     app.restore_named_workspace_session(&id);
 
@@ -6293,7 +6391,7 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     assert_eq!(app.query_session_state.active_document_index, 1);
     assert_eq!(app.schema_explorer.pinned_tables, vec!["public.orders".to_owned()]);
     assert!(
-        app.connection_lifecycle.active_connection_id().is_none(),
+        app.connection.lifecycle.active_connection_id().is_none(),
         "missing connection must not crash"
     );
     assert!(!app.workspace_sessions.last_restore_notes.is_empty());
@@ -6339,9 +6437,16 @@ fn badged_connection(index: usize) -> UiConnectionSummary {
 /// appears on the frame after the content was found to overflow.
 fn painted_sidebar(sidebar_width: f32, connections: usize) -> Vec<egui::epaint::ClippedShape> {
     let mut app = DbProApp {
-        connection_catalog: ConnectionCatalogState {
-            connections: (0..connections).map(badged_connection).collect(),
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: (0..connections).map(badged_connection).collect(),
+            },
+
+            lifecycle: ConnectionLifecycleState::default(),
+
+            dialog: ConnectionDialogState::default(),
         },
+
         workspace: WorkspaceShellState {
             sidebar_width,
             ..Default::default()

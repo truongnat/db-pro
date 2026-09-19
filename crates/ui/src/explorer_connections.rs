@@ -24,19 +24,20 @@ fn connection_display_uri(connection: &UiConnectionSummary) -> String {
 
 impl DbProApp {
     pub(super) fn draw_dbeaver_connections_tree(&mut self, ui: &mut egui::Ui) {
-        let connection_count = self.connection_catalog.len();
+        let connection_count = self.connection.catalog.len();
         for index in 0..connection_count {
-            let Some(connection) = self.connection_catalog.get(index).cloned() else {
+            let Some(connection) = self.connection.catalog.get(index).cloned() else {
                 continue;
             };
-            let is_active = self.connection_lifecycle.active_connection_id() == Some(&connection.id);
-            let is_connected = self.connection_lifecycle.is_connected() && is_active;
-            let is_connecting = self.connection_lifecycle.pending_request().is_some()
-                && (self.connection_lifecycle.pending_connection_id() == Some(connection.id.as_str())
-                    || (self.connection_lifecycle.pending_connection_id().is_none() && is_active));
-            let is_failed = self.connection_lifecycle.has_failed_connection(&connection.id);
+            let is_active = self.connection.lifecycle.active_connection_id() == Some(&connection.id);
+            let is_connected = self.connection.lifecycle.is_connected() && is_active;
+            let is_connecting = self.connection.lifecycle.pending_request().is_some()
+                && (self.connection.lifecycle.pending_connection_id() == Some(connection.id.as_str())
+                    || (self.connection.lifecycle.pending_connection_id().is_none() && is_active));
+            let is_failed = self.connection.lifecycle.has_failed_connection(&connection.id);
             let err_msg = self
-                .connection_lifecycle
+                .connection
+                .lifecycle
                 .connection_error(&connection.id)
                 .map(str::to_owned);
             let id = ui.make_persistent_id(("codex_conn_node", &connection.id));
@@ -382,7 +383,8 @@ impl DbProApp {
     /// Returns cached visible table names for `schema` + current search.
     fn cached_explorer_tables(&mut self, schema: &str, search_query: &str) -> (usize, usize, Vec<String>) {
         let connection_id = self
-            .connection_lifecycle
+            .connection
+            .lifecycle
             .active_connection_id()
             .map(str::to_owned)
             .unwrap_or_default();
@@ -421,7 +423,7 @@ impl DbProApp {
         } else if let Some(cache) = self.schema_explorer.explorer_nav_cache.as_ref().filter(|cache| {
             cache.schema == schema
                 && cache.search == search_query
-                && cache.connection_id == self.connection_lifecycle.active_connection_id().unwrap_or_default()
+                && cache.connection_id == self.connection.lifecycle.active_connection_id().unwrap_or_default()
         }) {
             cache.matching_count
         } else {

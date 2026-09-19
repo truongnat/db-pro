@@ -141,56 +141,70 @@ mod row_reload_tests {
     #[test]
     fn deleting_non_active_connection_preserves_active_session() {
         let mut app = DbProApp {
-            connection_lifecycle: ConnectionLifecycleState {
-                connected: true,
-                active_connection_id: Some("conn-a".to_owned()),
-                pending_request: Some(RequestId(11)),
-                pending_connection_id: Some("conn-b".to_owned()),
-                failed_connection_ids: ["conn-a".to_owned(), "conn-b".to_owned()].into_iter().collect(),
-                errors: [
-                    ("conn-a".to_owned(), "stale".to_owned()),
-                    ("conn-b".to_owned(), "gone".to_owned()),
-                ]
-                .into_iter()
-                .collect(),
-                ..Default::default()
+            connection: ConnectionFeatureState {
+                catalog: ConnectionCatalogState::default(),
+
+                lifecycle: ConnectionLifecycleState {
+                    connected: true,
+                    active_connection_id: Some("conn-a".to_owned()),
+                    pending_request: Some(RequestId(11)),
+                    pending_connection_id: Some("conn-b".to_owned()),
+                    failed_connection_ids: ["conn-a".to_owned(), "conn-b".to_owned()].into_iter().collect(),
+                    errors: [
+                        ("conn-a".to_owned(), "stale".to_owned()),
+                        ("conn-b".to_owned(), "gone".to_owned()),
+                    ]
+                    .into_iter()
+                    .collect(),
+                    ..Default::default()
+                },
+
+                dialog: ConnectionDialogState::default(),
             },
+
             ..Default::default()
         };
 
         app.on_operation_completed(RequestId(11), "connection.deleted".to_owned());
 
-        assert_eq!(app.connection_lifecycle.active_connection_id(), Some("conn-a"));
-        assert!(app.connection_lifecycle.is_connected());
-        assert!(app.connection_lifecycle.pending_connection_id.is_none());
-        assert!(app.connection_lifecycle.failed_connection_ids.contains("conn-a"));
-        assert!(!app.connection_lifecycle.failed_connection_ids.contains("conn-b"));
+        assert_eq!(app.connection.lifecycle.active_connection_id(), Some("conn-a"));
+        assert!(app.connection.lifecycle.is_connected());
+        assert!(app.connection.lifecycle.pending_connection_id.is_none());
+        assert!(app.connection.lifecycle.failed_connection_ids.contains("conn-a"));
+        assert!(!app.connection.lifecycle.failed_connection_ids.contains("conn-b"));
         assert_eq!(
-            app.connection_lifecycle.errors.get("conn-a").map(String::as_str),
+            app.connection.lifecycle.errors.get("conn-a").map(String::as_str),
             Some("stale")
         );
-        assert!(!app.connection_lifecycle.errors.contains_key("conn-b"));
+        assert!(!app.connection.lifecycle.errors.contains_key("conn-b"));
     }
 
     #[test]
     fn deleting_active_connection_clears_session() {
         let mut app = DbProApp {
-            connection_lifecycle: ConnectionLifecycleState {
-                connected: true,
-                active_connection_id: Some("conn-a".to_owned()),
-                pending_request: Some(RequestId(12)),
-                pending_connection_id: Some("conn-a".to_owned()),
-                failed_connection_ids: ["conn-a".to_owned()].into_iter().collect(),
-                ..Default::default()
+            connection: ConnectionFeatureState {
+                catalog: ConnectionCatalogState::default(),
+
+                lifecycle: ConnectionLifecycleState {
+                    connected: true,
+                    active_connection_id: Some("conn-a".to_owned()),
+                    pending_request: Some(RequestId(12)),
+                    pending_connection_id: Some("conn-a".to_owned()),
+                    failed_connection_ids: ["conn-a".to_owned()].into_iter().collect(),
+                    ..Default::default()
+                },
+
+                dialog: ConnectionDialogState::default(),
             },
+
             ..Default::default()
         };
 
         app.on_operation_completed(RequestId(12), "connection.deleted".to_owned());
 
-        assert!(app.connection_lifecycle.active_connection_id().is_none());
-        assert!(!app.connection_lifecycle.is_connected());
-        assert!(app.connection_lifecycle.pending_connection_id.is_none());
-        assert!(app.connection_lifecycle.failed_connection_ids.is_empty());
+        assert!(app.connection.lifecycle.active_connection_id().is_none());
+        assert!(!app.connection.lifecycle.is_connected());
+        assert!(app.connection.lifecycle.pending_connection_id.is_none());
+        assert!(app.connection.lifecycle.failed_connection_ids.is_empty());
     }
 }

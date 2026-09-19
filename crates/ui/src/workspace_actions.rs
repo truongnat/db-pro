@@ -125,7 +125,7 @@ impl DbProApp {
         let id = format!("file-{absolute_str}");
         let mut doc = QueryDocument::new(id, title, content);
         doc.file_path = Some(absolute_str.clone());
-        doc.connection_id = self.connection_lifecycle.active_connection_id().map(str::to_owned);
+        doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
         doc.schema = Some(self.active_schema().to_owned());
         doc.mark_saved();
         if let Some(mtime) = git_workspace::disk_mtime_secs(&absolute) {
@@ -307,16 +307,17 @@ impl DbProApp {
     }
 
     pub fn open_new_connection(&mut self) {
-        self.connection_dialog
+        self.connection
+            .dialog
             .transition(super::connection::state::ConnectionDialogAction::OpenNew);
-        self.connection_lifecycle.clear_pending_request();
+        self.connection.lifecycle.clear_pending_request();
     }
 
     /// Capture/evidence helper: keep the initial connection request pending so
     /// the Welcome surface can be documented in its loading state.
     pub fn prepare_loading_for_capture(&mut self) {
-        self.connection_lifecycle.mark_connections_requested();
-        self.connection_lifecycle.set_connections_request_pending(true);
+        self.connection.lifecycle.mark_connections_requested();
+        self.connection.lifecycle.set_connections_request_pending(true);
         self.feedback.runtime_message = "Loading connections…".to_owned();
     }
 
@@ -324,7 +325,8 @@ impl DbProApp {
     /// validation error, without requiring a live database.
     pub fn open_connection_error_for_capture(&mut self) {
         self.open_new_connection();
-        self.connection_dialog
+        self.connection
+            .dialog
             .set_error("Connection test failed: authentication rejected by the server.");
         self.feedback.runtime_message = "Connection test failed".to_owned();
     }
@@ -333,9 +335,10 @@ impl DbProApp {
     /// the password input + eye toggle can be documented (the affected surface for the
     /// input click-steal fix) without needing a real saved connection.
     pub fn open_edit_connection_for_capture(&mut self) {
-        self.connection_dialog
+        self.connection
+            .dialog
             .set_editing_connection_id(Some("capture-test".to_owned()));
-        self.connection_dialog.set_draft(UiConnectionDraft {
+        self.connection.dialog.set_draft(UiConnectionDraft {
             name: "Test Connection".to_owned(),
             host: "localhost".to_owned(),
             port: "5432".to_owned(),
@@ -363,11 +366,11 @@ impl DbProApp {
             cloud_snippet: String::new(),
             cloud_guidance: String::new(),
         });
-        self.connection_dialog.clear_error();
-        self.connection_dialog.clear_test();
-        self.connection_lifecycle.clear_pending_request();
-        self.connection_dialog.set_focus_name_on_open(true);
-        self.connection_dialog.set_open(true);
+        self.connection.dialog.clear_error();
+        self.connection.dialog.clear_test();
+        self.connection.lifecycle.clear_pending_request();
+        self.connection.dialog.set_focus_name_on_open(true);
+        self.connection.dialog.set_open(true);
     }
 
     /// Capture/evidence helper: open a fresh untitled Query buffer (UI05 editor-first shots).

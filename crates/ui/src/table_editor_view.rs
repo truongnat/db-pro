@@ -219,7 +219,7 @@ impl DbProApp {
                             }
                         }
                     }
-                } else if self.connection_lifecycle.is_connected() {
+                } else if self.connection.lifecycle.is_connected() {
                     ui.separator();
                     ui.label(
                         RichText::new(if self.table_has_primary_key() {
@@ -1556,7 +1556,7 @@ impl DbProApp {
     }
     pub(crate) fn request_table_info(&mut self) {
         let (Some(connection_id), Some(table)) = (
-            self.connection_lifecycle.active_connection_id().map(str::to_owned),
+            self.connection.lifecycle.active_connection_id().map(str::to_owned),
             self.schema_explorer.selected_table.clone(),
         ) else {
             return;
@@ -1573,7 +1573,7 @@ impl DbProApp {
     }
 
     pub(crate) fn can_mutate_active_connection(&self) -> bool {
-        self.connection_lifecycle.is_connected()
+        self.connection.lifecycle.is_connected()
             && self.active_connection().is_some_and(|connection| !connection.readonly)
     }
 
@@ -2054,7 +2054,7 @@ impl DbProApp {
 
     pub(crate) fn request_table_row_reload(&mut self, identity: RowIdentity) {
         let (Some(connection_id), Some(table)) = (
-            self.connection_lifecycle.active_connection_id().map(str::to_owned),
+            self.connection.lifecycle.active_connection_id().map(str::to_owned),
             self.schema_explorer.selected_table.clone(),
         ) else {
             self.feedback.runtime_message = "Connect to a database before reloading the row".to_owned();
@@ -2885,7 +2885,7 @@ impl DbProApp {
 
     pub(crate) fn request_table_ddl(&mut self) {
         let (Some(connection_id), Some(table)) = (
-            self.connection_lifecycle.active_connection_id().map(str::to_owned),
+            self.connection.lifecycle.active_connection_id().map(str::to_owned),
             self.schema_explorer.selected_table.clone(),
         ) else {
             return;
@@ -2902,7 +2902,7 @@ impl DbProApp {
     }
 
     pub(crate) fn request_table_data(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let table = self.schema_explorer.selected_table.clone().or_else(|| {

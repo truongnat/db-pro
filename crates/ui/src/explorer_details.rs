@@ -314,7 +314,7 @@ impl DbProApp {
             );
         }
         if actions.refresh_schema {
-            if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+            if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                 self.request_schema_introspection(connection_id, true);
             }
         }

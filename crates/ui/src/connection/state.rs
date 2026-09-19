@@ -3,8 +3,8 @@ use crate::UiConnectionDraft;
 /// UI-owned state for the connection editor dialog.
 ///
 /// This aggregate deliberately contains draft/edit/test state only. The saved
-/// connection collection and connection lifecycle belong to the connection
-/// session state in `DbProApp` until that boundary is migrated separately.
+/// connection collection and lifecycle are siblings in `ConnectionFeatureState`;
+/// they share the feature boundary without sharing mutable storage.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ConnectionDialogState {
     pub(super) open: bool,

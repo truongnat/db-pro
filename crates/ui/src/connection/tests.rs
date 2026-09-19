@@ -21,8 +21,8 @@ fn rendered_texts(app: &mut DbProApp) -> Vec<String> {
     let output = ctx.run(Default::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
             ConnectionDialogView {
-                dialog: &mut app.connection_dialog,
-                lifecycle: &mut app.connection_lifecycle,
+                dialog: &mut app.connection.dialog,
+                lifecycle: &mut app.connection.lifecycle,
                 task_bridge: &mut app.task_bridge,
                 feedback: &mut app.feedback,
                 theme: app.theme,
@@ -41,7 +41,7 @@ fn rendered_texts(app: &mut DbProApp) -> Vec<String> {
 #[test]
 fn ssh_section_discloses_its_unqualified_v0_1_status() {
     let mut app = DbProApp::default();
-    app.connection_dialog.draft.ssh_tunnel_enabled = false;
+    app.connection.dialog.draft.ssh_tunnel_enabled = false;
 
     let texts = rendered_texts(&mut app);
 
@@ -54,7 +54,7 @@ fn ssh_section_discloses_its_unqualified_v0_1_status() {
 #[test]
 fn ssh_caveat_is_non_blocking_and_keeps_the_control_usable() {
     let mut app = DbProApp::default();
-    app.connection_dialog.draft.ssh_tunnel_enabled = true;
+    app.connection.dialog.draft.ssh_tunnel_enabled = true;
 
     let texts = rendered_texts(&mut app);
 

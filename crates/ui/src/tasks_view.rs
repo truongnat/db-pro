@@ -260,10 +260,11 @@ impl DbProApp {
 
     fn begin_new_sql_task(&mut self) {
         let connection_id = self
-            .connection_lifecycle
+            .connection
+            .lifecycle
             .active_connection_id()
             .map(str::to_owned)
-            .unwrap_or_else(|| self.connection_catalog.get(0).map(|c| c.id.clone()).unwrap_or_default());
+            .unwrap_or_else(|| self.connection.catalog.get(0).map(|c| c.id.clone()).unwrap_or_default());
         self.saved_tasks.draft = Some(SavedTask {
             id: Uuid::new_v4(),
             name: "SQL task".into(),
@@ -281,10 +282,11 @@ impl DbProApp {
 
     fn begin_new_backup_task(&mut self) {
         let connection_id = self
-            .connection_lifecycle
+            .connection
+            .lifecycle
             .active_connection_id()
             .map(str::to_owned)
-            .unwrap_or_else(|| self.connection_catalog.get(0).map(|c| c.id.clone()).unwrap_or_default());
+            .unwrap_or_else(|| self.connection.catalog.get(0).map(|c| c.id.clone()).unwrap_or_default());
         self.saved_tasks.draft = Some(SavedTask {
             id: Uuid::new_v4(),
             name: "Backup".into(),
@@ -417,7 +419,7 @@ impl DbProApp {
                 if sql.trim().is_empty() {
                     return Err("SQL payload is empty".to_owned());
                 }
-                *self.connection_lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
+                *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
                 self.set_active_query_text(sql);
                 self.workspace.active_tab = WorkspaceTab::Query;
                 // Task-level confirmation already satisfied destructive policy (#206).
@@ -447,7 +449,7 @@ impl DbProApp {
             SavedTaskPayload::Export { table, format } => {
                 let fmt = format.to_ascii_lowercase();
                 if let Some(table) = table {
-                    *self.connection_lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
+                    *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
                     self.set_active_query_text(format!("SELECT * FROM {table} LIMIT 1000"));
                     self.workspace.active_tab = WorkspaceTab::Query;
                     self.dispatch_query();
@@ -467,7 +469,7 @@ impl DbProApp {
                     ("analyze", None) => "ANALYZE".to_owned(),
                     _ => return Err(format!("unsupported maintenance operation: {operation}")),
                 };
-                *self.connection_lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
+                *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
                 self.set_active_query_text(&sql);
                 self.workspace.active_tab = WorkspaceTab::Query;
                 self.dispatch_query();

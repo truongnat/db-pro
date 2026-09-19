@@ -5,7 +5,7 @@ impl DbProApp {
     pub(super) fn draw_topbar(&mut self, ctx: &egui::Context) {
         let connection_name = self.active_connection_name().to_owned();
         let driver = self.active_driver().to_owned();
-        let has_connection = self.connection_lifecycle.active_connection_id().is_some();
+        let has_connection = self.connection.lifecycle.active_connection_id().is_some();
         let (connection_icon, connection_color) = self
             .active_connection()
             .map(|connection| self.connection_indicator(connection))
@@ -256,7 +256,7 @@ impl DbProApp {
                             .color(self.theme.text_secondary),
                     );
                     ui.separator();
-                    if self.connection_lifecycle.is_connected() {
+                    if self.connection.lifecycle.is_connected() {
                         ui.label(
                             RichText::new(self.active_connection_name())
                                 .font(font_caption())
@@ -803,7 +803,7 @@ impl DbProApp {
         if self.synthetic_data.synthetic_error.is_some() {
             return;
         }
-        if self.connection_lifecycle.active_connection_id().is_none() || !self.connection_lifecycle.is_connected() {
+        if self.connection.lifecycle.active_connection_id().is_none() || !self.connection.lifecycle.is_connected() {
             self.synthetic_data.synthetic_error = Some("Connect to a database before applying seed".into());
             return;
         }
@@ -1269,7 +1269,7 @@ impl DbProApp {
         ui.add_space(SPACE_SM);
 
         let connected =
-            self.connection_lifecycle.is_connected() && self.connection_lifecycle.active_connection_id().is_some();
+            self.connection.lifecycle.is_connected() && self.connection.lifecycle.active_connection_id().is_some();
         let driver = self.active_driver().to_owned();
         let name = self.active_connection_name().to_owned();
 
@@ -1521,7 +1521,7 @@ impl DbProApp {
                                     && secondary_button_with_icon(ui, Icon::Ban, "Cancel", self.theme).clicked()
                                 {
                                     if let Some(connection_id) =
-                                        self.connection_lifecycle.active_connection_id().map(str::to_owned)
+                                        self.connection.lifecycle.active_connection_id().map(str::to_owned)
                                     {
                                         let request_id = self.task_bridge.next_request_id();
                                         self.dispatch_command(UiCommand::MonitoringCancelBackend {
@@ -2458,7 +2458,7 @@ impl DbProApp {
                     ui.horizontal(|ui| {
                         if danger_button(ui, "Terminate", self.theme).clicked() {
                             if let Some(connection_id) =
-                                self.connection_lifecycle.active_connection_id().map(str::to_owned)
+                                self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
                                 self.dispatch_command(UiCommand::MonitoringTerminateBackend {
@@ -2489,7 +2489,7 @@ impl DbProApp {
                     ui.horizontal(|ui| {
                         if danger_button(ui, action.as_label(), self.theme).clicked() {
                             if let Some(connection_id) =
-                                self.connection_lifecycle.active_connection_id().map(str::to_owned)
+                                self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
                                 self.dispatch_command(UiCommand::MonitoringMaintenance {
@@ -2523,7 +2523,7 @@ impl DbProApp {
                     ui.horizontal(|ui| {
                         if danger_button(ui, "Reset statistics", self.theme).clicked() {
                             if let Some(connection_id) =
-                                self.connection_lifecycle.active_connection_id().map(str::to_owned)
+                                self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
                                 self.dispatch_command(UiCommand::MonitoringResetStatStatements {
@@ -2543,7 +2543,7 @@ impl DbProApp {
     }
 
     fn request_monitoring_workload(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2556,7 +2556,7 @@ impl DbProApp {
     }
 
     fn request_audit_page(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             self.audit.audit_error = Some("Connect a database first".into());
             return;
         };
@@ -2600,7 +2600,7 @@ impl DbProApp {
     }
 
     fn request_pg_settings(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             self.pg_settings.pg_settings_error = Some("Connect a PostgreSQL database first".into());
             return;
         };
@@ -2617,7 +2617,7 @@ impl DbProApp {
     }
 
     fn set_pg_setting_session(&mut self, name: &str, value: &str) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2630,7 +2630,7 @@ impl DbProApp {
     }
 
     fn reset_pg_setting_session(&mut self, name: &str) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2642,7 +2642,7 @@ impl DbProApp {
     }
 
     fn request_fdw_inventory(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             self.fdw.fdw_error = Some("Connect a PostgreSQL database first".into());
             return;
         };
@@ -2658,7 +2658,7 @@ impl DbProApp {
     }
 
     fn create_fdw_server_confirmed(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2675,7 +2675,7 @@ impl DbProApp {
     }
 
     fn drop_fdw_server_confirmed(&mut self, name: &str, cascade: bool) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2689,7 +2689,7 @@ impl DbProApp {
     }
 
     fn request_replication_inventory(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             self.replication.replication_error = Some("Connect a PostgreSQL database first".into());
             return;
         };
@@ -2705,7 +2705,7 @@ impl DbProApp {
     }
 
     fn create_publication_confirmed(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2718,7 +2718,7 @@ impl DbProApp {
     }
 
     fn drop_publication_confirmed(&mut self, name: &str) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2731,7 +2731,7 @@ impl DbProApp {
     }
 
     fn drop_subscription_confirmed(&mut self, name: &str) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2744,7 +2744,7 @@ impl DbProApp {
     }
 
     fn request_event_triggers(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             self.event_trigger.event_trigger_error = Some("Connect a PostgreSQL database first".into());
             return;
         };
@@ -2760,7 +2760,7 @@ impl DbProApp {
     }
 
     fn create_event_trigger_confirmed(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2776,7 +2776,7 @@ impl DbProApp {
     }
 
     fn drop_event_trigger_confirmed(&mut self, name: &str) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2789,7 +2789,7 @@ impl DbProApp {
     }
 
     fn alter_event_trigger_confirmed(&mut self, name: &str, mode: &str) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -2803,7 +2803,7 @@ impl DbProApp {
     }
 
     fn request_monitoring_snapshot(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         self.monitoring.monitoring_last_poll = Some(std::time::Instant::now());
@@ -2818,7 +2818,7 @@ impl DbProApp {
         section_label(ui, "SECURITY", self.theme);
         ui.add_space(SPACE_SM);
         let connected =
-            self.connection_lifecycle.is_connected() && self.connection_lifecycle.active_connection_id().is_some();
+            self.connection.lifecycle.is_connected() && self.connection.lifecycle.active_connection_id().is_some();
         let is_pg = self.active_driver().eq_ignore_ascii_case("postgresql")
             || self.active_driver().eq_ignore_ascii_case("postgres");
 
@@ -2891,7 +2891,7 @@ impl DbProApp {
         if primary_button_with_icon(ui, Icon::Plus, "Create role", self.theme).clicked()
             && !self.security.security_new_role.trim().is_empty()
         {
-            if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+            if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                 let request_id = self.task_bridge.next_request_id();
                 self.dispatch_command(UiCommand::CreateRole {
                     request_id,
@@ -2963,7 +2963,7 @@ impl DbProApp {
             if primary_button_with_icon(ui, Icon::Key, "Update password", self.theme).clicked()
                 && !self.security.security_password.is_empty()
             {
-                if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+                if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                     let password = std::mem::take(&mut self.security.security_password);
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::UpdateRolePassword {
@@ -2995,7 +2995,7 @@ impl DbProApp {
                         );
                         if danger_button(ui, "Revoke", self.theme).clicked() {
                             if let Some(connection_id) =
-                                self.connection_lifecycle.active_connection_id().map(str::to_owned)
+                                self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
                                 self.dispatch_command(UiCommand::RevokeMembership {
@@ -3018,7 +3018,7 @@ impl DbProApp {
             if secondary_button_with_icon(ui, Icon::Plus, "Grant membership", self.theme).clicked()
                 && !self.security.security_membership_role.trim().is_empty()
             {
-                if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+                if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::GrantMembership {
                         request_id,
@@ -3060,7 +3060,7 @@ impl DbProApp {
                         );
                         if danger_button(ui, "Revoke", self.theme).clicked() {
                             if let Some(connection_id) =
-                                self.connection_lifecycle.active_connection_id().map(str::to_owned)
+                                self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
                                 self.dispatch_command(UiCommand::RevokePrivilege {
@@ -3119,7 +3119,7 @@ impl DbProApp {
                 && !self.security.security_grant_object.trim().is_empty()
                 && !self.security.security_grant_privilege.trim().is_empty()
             {
-                if let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) {
+                if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::GrantPrivilege {
                         request_id,
@@ -3144,7 +3144,7 @@ impl DbProApp {
                     ui.horizontal(|ui| {
                         if danger_button(ui, "Drop role", self.theme).clicked() {
                             if let Some(connection_id) =
-                                self.connection_lifecycle.active_connection_id().map(str::to_owned)
+                                self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
                                 self.dispatch_command(UiCommand::DropRole {
@@ -3299,7 +3299,7 @@ impl DbProApp {
     }
 
     pub(crate) fn request_security_users(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -3310,7 +3310,7 @@ impl DbProApp {
     }
 
     pub(crate) fn request_security_role_details(&mut self, role_name: &str) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -3328,7 +3328,7 @@ impl DbProApp {
     }
 
     pub(crate) fn request_security_rls(&mut self) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let schema = self.security.security_rls_schema.trim().to_owned();
@@ -3514,7 +3514,7 @@ impl DbProApp {
         if sql.is_empty() {
             return;
         }
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -3528,7 +3528,7 @@ impl DbProApp {
     }
 
     fn dispatch_alter_role(&mut self, name: &str, attributes: db_pro_core::domain::user::RoleAttributes) {
-        let Some(connection_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -3805,7 +3805,7 @@ impl DbProApp {
     }
 
     pub(crate) fn request_data_diff_keyed(&mut self) {
-        let Some(source_id) = self.connection_lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(source_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             self.feedback.runtime_message = "Connect a source database first".into();
             return;
         };

@@ -1,4 +1,5 @@
-use self::connection::{ConnectionCatalogState, ConnectionDialogState, ConnectionLifecycleState};
+use self::connection::ConnectionFeatureState;
+pub(crate) use self::connection::{ConnectionCatalogState, ConnectionDialogState, ConnectionLifecycleState};
 use crate::components::*;
 use crate::editor::PredictionMode;
 use crate::query::SchemaSymbolIndex;
@@ -264,7 +265,7 @@ pub struct DbProApp {
     query_output_state: QueryOutputState,
     table_data: TableDataState,
     overlay: OverlayState,
-    connection_catalog: ConnectionCatalogState,
+    connection: ConnectionFeatureState,
     query_library: QueryLibraryState,
     schema_explorer: SchemaExplorerState,
     workspace_files: WorkspaceFilesState,
@@ -287,8 +288,6 @@ pub struct DbProApp {
     diagram: DiagramState,
     table_state: TableState,
     table_mutation: TableMutationState,
-    connection_lifecycle: ConnectionLifecycleState,
-    connection_dialog: ConnectionDialogState,
     /// Counter for initial render frames to ensure window is maximized on startup.
     initial_frames_count: u8,
     gallery_state: component_gallery_view::ComponentGalleryState,
@@ -309,7 +308,7 @@ impl eframe::App for DbProApp {
         }
         self.persist_saved_tasks(storage);
         self.persist_workspace_sessions(storage);
-        if let Ok(raw) = serde_json::to_string(self.connection_dialog.ssh_profiles()) {
+        if let Ok(raw) = serde_json::to_string(self.connection.dialog.ssh_profiles()) {
             storage.set_string("dbpro.native.ssh-profiles-v1", raw);
         }
         if let Ok(layouts) = serde_json::to_string(&self.table_data.grid_layout_preferences) {
@@ -460,12 +459,12 @@ impl eframe::App for DbProApp {
                 self.draw_workspace(ui);
             });
 
-        if self.connection_dialog.is_open() {
+        if self.connection.dialog.is_open() {
             connection::view::draw_connection_dialog(
                 ctx,
                 self.theme,
-                &mut self.connection_dialog,
-                &mut self.connection_lifecycle,
+                &mut self.connection.dialog,
+                &mut self.connection.lifecycle,
                 &mut self.task_bridge,
                 &mut self.feedback,
             );
@@ -475,8 +474,8 @@ impl eframe::App for DbProApp {
                 ctx,
                 self.theme,
                 &mut self.overlay,
-                &self.connection_catalog,
-                &mut self.connection_lifecycle,
+                &self.connection.catalog,
+                &mut self.connection.lifecycle,
                 &mut self.task_bridge,
                 &mut self.feedback,
             );
@@ -510,24 +509,24 @@ impl eframe::App for DbProApp {
 impl DbProApp {
     /// Apply a driver choice from the connection dialog.
     pub fn select_connection_driver(&mut self, driver: UiDriver) {
-        connection::select_connection_driver(self.connection_dialog.draft_mut(), driver);
+        connection::select_connection_driver(self.connection.dialog.draft_mut(), driver);
     }
 
     /// Open connection edit dialog from a saved summary.
     pub fn open_edit_connection(&mut self, connection: &UiConnectionSummary) {
-        connection::open_edit_connection(&mut self.connection_dialog, &mut self.connection_lifecycle, connection);
+        connection::open_edit_connection(&mut self.connection.dialog, &mut self.connection.lifecycle, connection);
     }
 
     /// Open a duplicate connection draft from a saved summary.
     pub fn open_duplicate_connection(&mut self, connection: &UiConnectionSummary) {
-        connection::open_duplicate_connection(&mut self.connection_dialog, &mut self.connection_lifecycle, connection);
+        connection::open_duplicate_connection(&mut self.connection.dialog, &mut self.connection.lifecycle, connection);
     }
 
     /// Save the active draft's SSH parameters as a reusable profile.
     pub fn save_draft_as_ssh_profile(&mut self) {
-        match connection::save_draft_as_ssh_profile(&mut self.connection_dialog) {
+        match connection::save_draft_as_ssh_profile(&mut self.connection.dialog) {
             Ok(id) => {
-                self.connection_dialog.draft_mut().ssh_profile_id = id;
+                self.connection.dialog.draft_mut().ssh_profile_id = id;
                 self.feedback
                     .set_runtime_message("SSH profile saved — reusable by other connections");
             }
@@ -537,21 +536,21 @@ impl DbProApp {
 
     /// Apply an existing SSH profile to the active draft.
     pub fn apply_ssh_profile(&mut self, profile_id: &str) {
-        connection::apply_ssh_profile(&mut self.connection_dialog, profile_id);
+        connection::apply_ssh_profile(&mut self.connection.dialog, profile_id);
     }
 
     /// Apply the selected cloud preset to the active draft.
     pub fn apply_cloud_preset(&mut self) {
-        if let Err(err) = connection::apply_cloud_preset(&mut self.connection_dialog) {
-            self.connection_dialog.set_error(err);
+        if let Err(err) = connection::apply_cloud_preset(&mut self.connection.dialog) {
+            self.connection.dialog.set_error(err);
         }
     }
 
     /// Dispatch connection test or save command to the runtime worker.
     pub fn dispatch_connection_command(&mut self, save: bool) {
         connection::view::ConnectionDialogView {
-            dialog: &mut self.connection_dialog,
-            lifecycle: &mut self.connection_lifecycle,
+            dialog: &mut self.connection.dialog,
+            lifecycle: &mut self.connection.lifecycle,
             task_bridge: &mut self.task_bridge,
             feedback: &mut self.feedback,
             theme: self.theme,
@@ -561,13 +560,13 @@ impl DbProApp {
 
     /// Refresh the diagnostic report for the active draft.
     pub fn refresh_connection_diagnostics(&mut self, auth_ok: bool, auth_message: &str) {
-        connection::refresh_connection_diagnostics(&mut self.connection_dialog, auth_ok, auth_message);
+        connection::refresh_connection_diagnostics(&mut self.connection.dialog, auth_ok, auth_message);
     }
 
     pub(super) fn handle_connection_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
         connection_events::handle_connection_request_failure(
-            &mut self.connection_lifecycle,
-            &mut self.connection_dialog,
+            &mut self.connection.lifecycle,
+            &mut self.connection.dialog,
             &mut self.schema_explorer,
             &mut self.feedback,
             request_id,
@@ -577,8 +576,8 @@ impl DbProApp {
 
     pub(super) fn on_connections_loaded(&mut self, connections: Vec<UiConnectionSummary>) {
         let active = connection_events::on_connections_loaded(
-            &mut self.connection_lifecycle,
-            &mut self.connection_catalog,
+            &mut self.connection.lifecycle,
+            &mut self.connection.catalog,
             &mut self.feedback,
             connections,
         );
@@ -589,7 +588,7 @@ impl DbProApp {
 
     pub(super) fn on_connected(&mut self, request_id: RequestId, connection_id: String) {
         let Some(connection_id) = connection_events::on_connected(
-            &mut self.connection_lifecycle,
+            &mut self.connection.lifecycle,
             &mut self.feedback,
             request_id,
             connection_id,
@@ -635,34 +634,34 @@ impl DbProApp {
     // in `connection_status.rs`; these root methods preserve the app's internal API while
     // keeping that feature module independent from the composition root.
     pub(super) fn active_connection(&self) -> Option<&UiConnectionSummary> {
-        connection_status::active_connection(&self.connection_catalog, &self.connection_lifecycle)
+        connection_status::active_connection(&self.connection.catalog, &self.connection.lifecycle)
     }
 
     pub(super) fn active_connection_name(&self) -> &str {
-        connection_status::active_connection_name(&self.connection_catalog, &self.connection_lifecycle)
+        connection_status::active_connection_name(&self.connection.catalog, &self.connection.lifecycle)
     }
 
     pub(super) fn active_driver(&self) -> &str {
-        connection_status::active_driver(&self.connection_catalog, &self.connection_lifecycle)
+        connection_status::active_driver(&self.connection.catalog, &self.connection.lifecycle)
     }
 
     pub(crate) fn active_capabilities(&self) -> CapabilityLookup {
-        connection_status::active_capabilities(&self.connection_catalog, &self.connection_lifecycle)
+        connection_status::active_capabilities(&self.connection.catalog, &self.connection.lifecycle)
     }
 
     pub(super) fn active_schema(&self) -> &str {
         connection_status::active_schema(
             &self.schema_explorer,
-            &self.connection_catalog,
-            &self.connection_lifecycle,
+            &self.connection.catalog,
+            &self.connection.lifecycle,
         )
     }
 
     pub(super) fn active_schema_table_names(&self) -> Vec<String> {
         connection_status::active_schema_table_names(
             &self.schema_explorer,
-            &self.connection_catalog,
-            &self.connection_lifecycle,
+            &self.connection.catalog,
+            &self.connection.lifecycle,
         )
     }
 
@@ -681,8 +680,8 @@ impl DbProApp {
     pub(super) fn active_schema_column_names(&self) -> Vec<String> {
         connection_status::active_schema_column_names(
             &self.schema_explorer,
-            &self.connection_catalog,
-            &self.connection_lifecycle,
+            &self.connection.catalog,
+            &self.connection.lifecycle,
         )
     }
 
@@ -695,7 +694,7 @@ impl DbProApp {
     }
 
     pub(super) fn statusbar_state(&self) -> (Icon, egui::Color32, &'static str) {
-        connection_status::statusbar_state(&self.connection_lifecycle, &self.feedback, self.theme)
+        connection_status::statusbar_state(&self.connection.lifecycle, &self.feedback, self.theme)
     }
 
     pub(super) fn shows_editor_status(&self) -> bool {
@@ -707,7 +706,7 @@ impl DbProApp {
     }
 
     pub(super) fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, egui::Color32) {
-        connection_status::connection_indicator(&self.connection_lifecycle, connection, self.theme)
+        connection_status::connection_indicator(&self.connection.lifecycle, connection, self.theme)
     }
 
     pub(super) fn primary_modifier_pressed(input: &egui::InputState) -> bool {
@@ -794,18 +793,18 @@ impl DbProApp {
     }
 
     fn request_connections_once(&mut self) {
-        if self.connection_lifecycle.connections_requested() {
+        if self.connection.lifecycle.connections_requested() {
             return;
         }
-        self.connection_lifecycle.mark_connections_requested();
-        self.connection_lifecycle.set_connections_request_pending(true);
+        self.connection.lifecycle.mark_connections_requested();
+        self.connection.lifecycle.set_connections_request_pending(true);
         let request_id = self.task_bridge.next_request_id();
         self.dispatch_command(UiCommand::ListConnections { request_id });
     }
 
     fn runtime_work_pending(&self) -> bool {
-        self.connection_lifecycle.connections_request_pending()
-            || self.connection_lifecycle.pending_request().is_some()
+        self.connection.lifecycle.connections_request_pending()
+            || self.connection.lifecycle.pending_request().is_some()
             || self.schema_explorer.schema_request.is_some()
             || self
                 .query_session_state

@@ -508,7 +508,7 @@ impl DbProApp {
                 return;
             }
         }
-        if self.connection_lifecycle.active_connection_id().is_none() || !self.connection_lifecycle.is_connected() {
+        if self.connection.lifecycle.active_connection_id().is_none() || !self.connection.lifecycle.is_connected() {
             self.diagram.design.error = Some("connect before applying design plan".into());
             return;
         }
