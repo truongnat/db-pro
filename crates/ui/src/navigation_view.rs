@@ -3596,10 +3596,13 @@ impl DbProApp {
         );
         ui.add_space(8.0);
         if compact_button_with_icon(ui, Icon::Camera, "Take snapshot", self.theme).clicked() {
-            self.take_schema_snapshot();
+            let connection_name = self.active_connection_name().to_owned();
+            self.schema_compare
+                .take_snapshot(&self.schema_explorer.schema, &connection_name, &mut self.feedback);
         }
         if compact_button_with_icon(ui, Icon::GitCompare, "Diff vs snapshot", self.theme).clicked() {
-            self.diff_against_schema_snapshot();
+            self.schema_compare
+                .diff_against_snapshot(&self.schema_explorer.schema, &mut self.feedback);
             self.workspace.active_tab = WorkspaceTab::SchemaCompare;
         }
         ui.add_space(8.0);
@@ -3631,10 +3634,16 @@ impl DbProApp {
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if secondary_button_with_icon(ui, Icon::GitCompare, "Diff now", self.theme).clicked() {
-                    self.diff_against_schema_snapshot();
+                    self.schema_compare
+                        .diff_against_snapshot(&self.schema_explorer.schema, &mut self.feedback);
                 }
                 if secondary_button_with_icon(ui, Icon::Camera, "Snapshot", self.theme).clicked() {
-                    self.take_schema_snapshot();
+                    let connection_name = self.active_connection_name().to_owned();
+                    self.schema_compare.take_snapshot(
+                        &self.schema_explorer.schema,
+                        &connection_name,
+                        &mut self.feedback,
+                    );
                 }
             });
         });
@@ -3676,7 +3685,8 @@ impl DbProApp {
             ui.add_space(8.0);
             section_label(ui, "MIGRATION PLAN", self.theme);
             if primary_button_with_icon(ui, Icon::FileCode2, "Generate migration plan", self.theme).clicked() {
-                self.plan_migration_from_schema_diff();
+                let driver = self.active_driver().to_owned();
+                self.schema_compare.plan_migration(&driver, &mut self.feedback);
             }
             if let Some(plan) = &self.schema_compare.migration_plan {
                 ui.label(

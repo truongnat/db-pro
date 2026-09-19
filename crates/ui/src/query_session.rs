@@ -115,50 +115,6 @@ impl DbProApp {
 
     // Problems / diagnostics: `problems_view.rs`.
 
-    pub(crate) fn take_schema_snapshot(&mut self) {
-        let label = format!(
-            "{} @ {}",
-            self.active_connection_name(),
-            chrono::Utc::now().format("%H:%M:%S")
-        );
-        self.schema_compare.schema_snapshot = Some(schema_compare::UiSchemaSnapshot::from_summary(
-            label,
-            &self.schema_explorer.schema,
-        ));
-        self.feedback.runtime_message = "Schema snapshot captured".to_owned();
-    }
-
-    pub(crate) fn diff_against_schema_snapshot(&mut self) {
-        let Some(snapshot) = self.schema_compare.schema_snapshot.clone() else {
-            self.feedback.runtime_message = "Take a schema snapshot before comparing".to_owned();
-            return;
-        };
-        let current = schema_compare::UiSchemaSnapshot::from_summary("current", &self.schema_explorer.schema);
-        self.schema_compare.schema_diff = Some(schema_compare::diff_snapshots(&snapshot, &current));
-        self.schema_compare.migration_plan = None;
-        self.schema_compare.migration_preview_sql.clear();
-        self.schema_compare.migration_confirm_destructive = false;
-        self.schema_compare.migration_fingerprint_at_preview.clear();
-        self.feedback.runtime_message = "Schema diff ready".to_owned();
-    }
-
-    pub(crate) fn plan_migration_from_schema_diff(&mut self) {
-        use db_pro_core::application::MigrationPlanner;
-
-        let Some(diff) = self.schema_compare.schema_diff.clone() else {
-            self.feedback.runtime_message = "Diff a schema snapshot before planning a migration".into();
-            return;
-        };
-        let core_diff = schema_compare::to_core_schema_diff(&diff);
-        let driver = self.active_driver().to_owned();
-        let plan = MigrationPlanner::plan_from_schema_diff(&core_diff, &driver);
-        self.schema_compare.migration_preview_sql = MigrationPlanner::preview_sql(&plan, true);
-        self.schema_compare.migration_fingerprint_at_preview = plan.fingerprint.clone();
-        self.schema_compare.migration_confirm_destructive = false;
-        self.schema_compare.migration_plan = Some(plan);
-        self.feedback.runtime_message = "Migration plan ready — review SQL before apply".into();
-    }
-
     pub(crate) fn apply_migration_preview(&mut self) {
         use db_pro_core::application::MigrationPlanner;
 

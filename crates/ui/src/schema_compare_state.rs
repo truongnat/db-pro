@@ -1,6 +1,7 @@
 //! UI state for schema comparison, migration planning and cross-connection diff.
 
-use super::schema_compare::{UiSchemaDiffResult, UiSchemaSnapshot};
+use super::schema_compare::{self, UiSchemaDiffResult, UiSchemaSnapshot};
+use super::{FeedbackState, UiSchemaSummary};
 
 /// State owned by the schema-comparison workspace and its migration preview.
 pub(super) struct SchemaCompareState {
@@ -34,6 +35,49 @@ impl Default for SchemaCompareState {
             data_diff_result: None,
             data_diff_filter: "all".to_owned(),
         }
+    }
+}
+
+impl SchemaCompareState {
+    pub(super) fn take_snapshot(
+        &mut self,
+        schema: &UiSchemaSummary,
+        connection_name: &str,
+        feedback: &mut FeedbackState,
+    ) {
+        let label = format!("{} @ {}", connection_name, chrono::Utc::now().format("%H:%M:%S"));
+        self.schema_snapshot = Some(UiSchemaSnapshot::from_summary(label, schema));
+        feedback.set_runtime_message("Schema snapshot captured");
+    }
+
+    pub(super) fn diff_against_snapshot(&mut self, schema: &UiSchemaSummary, feedback: &mut FeedbackState) {
+        let Some(snapshot) = self.schema_snapshot.clone() else {
+            feedback.set_runtime_message("Take a schema snapshot before comparing");
+            return;
+        };
+        let current = UiSchemaSnapshot::from_summary("current", schema);
+        self.schema_diff = Some(schema_compare::diff_snapshots(&snapshot, &current));
+        self.migration_plan = None;
+        self.migration_preview_sql.clear();
+        self.migration_confirm_destructive = false;
+        self.migration_fingerprint_at_preview.clear();
+        feedback.set_runtime_message("Schema diff ready");
+    }
+
+    pub(super) fn plan_migration(&mut self, driver: &str, feedback: &mut FeedbackState) {
+        use db_pro_core::application::MigrationPlanner;
+
+        let Some(diff) = self.schema_diff.clone() else {
+            feedback.set_runtime_message("Diff a schema snapshot before planning a migration");
+            return;
+        };
+        let core_diff = schema_compare::to_core_schema_diff(&diff);
+        let plan = MigrationPlanner::plan_from_schema_diff(&core_diff, driver);
+        self.migration_preview_sql = MigrationPlanner::preview_sql(&plan, true);
+        self.migration_fingerprint_at_preview = plan.fingerprint.clone();
+        self.migration_confirm_destructive = false;
+        self.migration_plan = Some(plan);
+        feedback.set_runtime_message("Migration plan ready — review SQL before apply");
     }
 }
 
