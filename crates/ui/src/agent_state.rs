@@ -705,3 +705,20 @@ fn agent_tool_label(tool: db_pro_core::domain::agent::AgentTool) -> String {
         AgentTool::MonitoringRead => "Reading monitoring snapshot".to_owned(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_agent_state_starts_in_offline_draft_mode() {
+        let state = AgentState::default();
+
+        assert_eq!(state.provider_label, "Offline draft");
+        assert!(state.provider_detail.contains("unexecuted"));
+        assert!(state.sessions.is_empty());
+        assert!(state.input.is_empty());
+        assert!(!state.settings_open);
+        assert!(state.configure_request.is_none());
+    }
+}
