@@ -510,6 +510,25 @@ impl eframe::App for DbProApp {
 // CapabilityLookup lives in `capability_lookup.rs`.
 
 impl DbProApp {
+    pub(super) fn handle_schema_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
+        schema_events::handle_schema_request_failure(&mut self.schema_explorer, &mut self.feedback, request_id, message)
+    }
+
+    pub(super) fn on_schema_loaded(&mut self, request_id: RequestId, schema: UiSchemaSummary) {
+        let transition = schema_events::on_schema_loaded(
+            &mut self.schema_explorer,
+            &mut self.table_state,
+            &mut self.workspace.shell,
+            &mut self.palette,
+            &mut self.feedback,
+            request_id,
+            schema,
+        );
+        if transition.refresh_selected_table {
+            self.request_table_info();
+        }
+    }
+
     /// Apply a driver choice from the connection dialog.
     pub fn select_connection_driver(&mut self, driver: UiDriver) {
         connection::select_connection_driver(self.connection.dialog.draft_mut(), driver);
