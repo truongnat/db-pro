@@ -24,9 +24,9 @@
 - [x] Diagram, workspace files, database operations, palette and query execution policy aggregates.
 - [x] Runtime event dispatch table isolated from feature handlers.
 - [x] Agent and table runtime handlers split into feature event modules.
-- [ ] Remaining connection/schema/operation reducers split out of `events.rs`.
-- [ ] `DbProApp` reduced to composition root (remaining: event pump and cross-feature orchestration).
-- [ ] Architecture boundary check in CI.
+- [x] Connection, schema and operation reducers split out of `events.rs`.
+- [x] `DbProApp` reduced to composition root (event pump and cross-feature orchestration only).
+- [x] Architecture boundary check in CI (`scripts/check-ui-architecture.sh`).
 
 ## Gates
 

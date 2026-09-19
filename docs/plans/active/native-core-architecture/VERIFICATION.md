@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `b881f1f4`.
+Source checkpoint: `9eab2115`.
 
 ## Current change
 
@@ -38,8 +38,11 @@ Source checkpoint: `b881f1f4`.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
-  `table_events.rs`; the legacy module retains connection/schema/operation
-  reducers for the next split.
+  `table_events.rs`.
+- Connection, schema and operation event handlers now live in their own
+  feature event modules; `events.rs` contains only the event pump and tests.
+- `scripts/check-ui-architecture.sh`: PASS; it allowlists the composition-root
+  fields, rejects event handlers in `events.rs`, and verifies the event modules.
 - Unit tests for the extracted aggregates: 27 passed, 0 failed.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.

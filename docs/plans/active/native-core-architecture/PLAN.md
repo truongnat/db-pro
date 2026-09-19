@@ -44,10 +44,11 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
    library, saved tasks, named sessions, overlays, feedback, preferences and
    welcome state are also extracted.
 7. Keep the runtime event dispatch table isolated in `event_router.rs`; split
-   the remaining feature reducers out of `events.rs` and keep `DbProApp` as
-   composition, persistence, event pump, and top-level orchestration only.
+   feature reducers out of `events.rs` and keep `DbProApp` as composition,
+   persistence, event pump, and top-level orchestration only — completed.
 8. Add architecture checks so new feature code cannot reach another feature's
-   internals or reintroduce raw control paths.
+   internals or reintroduce raw control paths — completed by
+   `scripts/check-ui-architecture.sh` and CI.
 
 ## Non-goals
 
