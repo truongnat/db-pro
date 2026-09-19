@@ -113,21 +113,21 @@ impl DbProApp {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 badge(
                     ui,
-                    &self.pinned_tables.len().to_string(),
+                    &self.schema_explorer.pinned_tables.len().to_string(),
                     self.theme.surface_hover,
                     self.theme.text_muted,
                 );
             });
         });
         ui.add_space(8.0);
-        if self.pinned_tables.is_empty() {
+        if self.schema_explorer.pinned_tables.is_empty() {
             ui.label(
                 RichText::new("Pin tables from Explorer or Quick Open for fast reopen.")
                     .small()
                     .color(self.theme.text_muted),
             );
         } else {
-            let pinned = self.pinned_tables.clone();
+            let pinned = self.schema_explorer.pinned_tables.clone();
             for table in pinned {
                 self.draw_data_table_row(ui, &table, true);
             }
@@ -139,21 +139,21 @@ impl DbProApp {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 badge(
                     ui,
-                    &self.recent_tables.len().to_string(),
+                    &self.schema_explorer.recent_tables.len().to_string(),
                     self.theme.surface_hover,
                     self.theme.text_muted,
                 );
             });
         });
         ui.add_space(8.0);
-        if self.recent_tables.is_empty() {
+        if self.schema_explorer.recent_tables.is_empty() {
             ui.label(
                 RichText::new("Tables you open appear here in most-recent order.")
                     .small()
                     .color(self.theme.text_muted),
             );
         } else {
-            let recent = self.recent_tables.clone();
+            let recent = self.schema_explorer.recent_tables.clone();
             for table in recent {
                 self.draw_data_table_row(ui, &table, false);
             }
@@ -168,7 +168,7 @@ impl DbProApp {
     }
 
     fn draw_data_table_row(&mut self, ui: &mut egui::Ui, table: &str, from_pinned: bool) {
-        let selected = self.selected_table.as_deref() == Some(table);
+        let selected = self.schema_explorer.selected_table.as_deref() == Some(table);
         let icon = if from_pinned { Icon::Pin } else { Icon::Table2 };
         let response = sidebar_item(ui, icon, table, selected, self.theme);
         let is_ctx = is_context_menu_triggered(&response, ui);
@@ -178,7 +178,7 @@ impl DbProApp {
         let mut open_query = false;
         let mut toggle_pin = false;
         let mut remove_recent = false;
-        let is_pinned = self.pinned_tables.iter().any(|item| item == table);
+        let is_pinned = self.schema_explorer.pinned_tables.iter().any(|item| item == table);
         let pin_label = if is_pinned { "Unpin table" } else { "Pin table" };
 
         context_action_menu(ui, &response, self.theme, |ui, close_menu| {

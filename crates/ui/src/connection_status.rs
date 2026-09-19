@@ -30,9 +30,10 @@ impl DbProApp {
     }
 
     pub(super) fn active_schema(&self) -> &str {
-        self.selected_schema
+        self.schema_explorer
+            .selected_schema
             .as_deref()
-            .or_else(|| self.schema.schemas.first().map(String::as_str))
+            .or_else(|| self.schema_explorer.schema.schemas.first().map(String::as_str))
             .unwrap_or_else(|| {
                 if self.active_driver().eq_ignore_ascii_case("sqlite") {
                     "main"
@@ -48,18 +49,20 @@ impl DbProApp {
 
     /// Table names belonging to `schema`. Empty `schema` (SQLite flat tree) returns all tables.
     pub(super) fn schema_table_names(&self, schema: &str) -> Vec<String> {
-        if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
-            return self.schema.tables.clone();
+        if self.schema_explorer.schema.schemas.is_empty() || self.schema_explorer.schema.table_details.is_empty() {
+            return self.schema_explorer.schema.tables.clone();
         }
         if schema.is_empty() {
             return self
+                .schema_explorer
                 .schema
                 .table_details
                 .iter()
                 .map(|table| table.name.clone())
                 .collect();
         }
-        self.schema
+        self.schema_explorer
+            .schema
             .table_details
             .iter()
             .filter(|table| table.schema == schema)
@@ -68,13 +71,14 @@ impl DbProApp {
     }
 
     pub(super) fn schema_table_count(&self, schema: &str) -> usize {
-        if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
-            return self.schema.tables.len();
+        if self.schema_explorer.schema.schemas.is_empty() || self.schema_explorer.schema.table_details.is_empty() {
+            return self.schema_explorer.schema.tables.len();
         }
         if schema.is_empty() {
-            return self.schema.table_details.len();
+            return self.schema_explorer.schema.table_details.len();
         }
-        self.schema
+        self.schema_explorer
+            .schema
             .table_details
             .iter()
             .filter(|table| table.schema == schema)
@@ -86,15 +90,17 @@ impl DbProApp {
         if query.is_empty() {
             return self.schema_table_count(schema);
         }
-        if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
+        if self.schema_explorer.schema.schemas.is_empty() || self.schema_explorer.schema.table_details.is_empty() {
             return self
+                .schema_explorer
                 .schema
                 .tables
                 .iter()
                 .filter(|table| matches_explorer_table(table, query))
                 .count();
         }
-        self.schema
+        self.schema_explorer
+            .schema
             .table_details
             .iter()
             .filter(|table| schema.is_empty() || table.schema == schema)
@@ -103,10 +109,11 @@ impl DbProApp {
     }
 
     pub(super) fn active_schema_column_names(&self) -> Vec<String> {
-        if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
-            return self.schema.columns.clone();
+        if self.schema_explorer.schema.schemas.is_empty() || self.schema_explorer.schema.table_details.is_empty() {
+            return self.schema_explorer.schema.columns.clone();
         }
-        self.schema
+        self.schema_explorer
+            .schema
             .table_details
             .iter()
             .filter(|table| table.schema == self.active_schema())

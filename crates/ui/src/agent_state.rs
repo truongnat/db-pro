@@ -77,7 +77,7 @@ impl DbProApp {
             tables: self.active_schema_table_names(),
             columns: self.active_schema_column_names(),
             schema: Some(self.active_schema().to_owned()),
-            selected_table: self.selected_table.clone(),
+            selected_table: self.schema_explorer.selected_table.clone(),
             selected_columns,
             current_sql,
             result_summary,
@@ -204,6 +204,7 @@ impl DbProApp {
         schema: Option<&str>,
     ) -> CoreAgentContext {
         let tables = self
+            .schema_explorer
             .schema
             .table_details
             .iter()
@@ -231,6 +232,7 @@ impl DbProApp {
             })
             .collect::<Vec<_>>();
         let foreign_keys = self
+            .schema_explorer
             .schema
             .table_details
             .iter()

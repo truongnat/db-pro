@@ -282,7 +282,7 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                if let Some(table) = self.selected_table.clone() {
+                if let Some(table) = self.schema_explorer.selected_table.clone() {
                     self.add_workspace_context_item(format!("table:{table}"));
                 }
             }

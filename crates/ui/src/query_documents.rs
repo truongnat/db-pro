@@ -210,8 +210,8 @@ impl DbProApp {
         self.workspace.welcome_open = true;
         self.query_session_state.documents = vec![QueryDocument::new("query-1", "Query 1", String::new())];
         self.query_session_state.active_document_index = 0;
-        self.selected_table = None;
-        self.selected_schema_object = None;
+        self.schema_explorer.selected_table = None;
+        self.schema_explorer.selected_schema_object = None;
         self.workspace.active_tab = WorkspaceTab::Welcome;
         self.runtime_message = "Closed all tabs".to_owned();
     }
@@ -232,9 +232,9 @@ impl DbProApp {
     pub(super) fn activate_fallback_workspace_tab(&mut self) {
         if !self.query_session_state.documents.is_empty() {
             self.workspace.active_tab = WorkspaceTab::Query;
-        } else if self.selected_table.is_some() {
+        } else if self.schema_explorer.selected_table.is_some() {
             self.workspace.active_tab = WorkspaceTab::Table;
-        } else if self.selected_schema_object.is_some() {
+        } else if self.schema_explorer.selected_schema_object.is_some() {
             self.workspace.active_tab = WorkspaceTab::SchemaObject;
         } else {
             self.activate_welcome_tab();

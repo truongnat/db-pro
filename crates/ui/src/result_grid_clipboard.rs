@@ -111,7 +111,7 @@ impl DbProApp {
             self.copy_status = "Select one or more rows first".to_owned();
             return;
         }
-        let table = self.selected_table.as_deref().unwrap_or("table_name");
+        let table = self.schema_explorer.selected_table.as_deref().unwrap_or("table_name");
         let target =
             if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
                 format!(

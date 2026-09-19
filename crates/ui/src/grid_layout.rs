@@ -7,7 +7,7 @@ impl DbProApp {
             "{}|{}|{}",
             self.connection_lifecycle.active_connection_id.as_deref()?,
             self.active_schema(),
-            self.selected_table.as_deref()?
+            self.schema_explorer.selected_table.as_deref()?
         ))
     }
 

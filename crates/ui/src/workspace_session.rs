@@ -171,7 +171,7 @@ impl DbProApp {
         session.activity = activity_label(self.workspace.activity).to_owned();
         session.active_tab = tab_label(self.workspace.active_tab).to_owned();
         session.active_connection_id = self.connection_lifecycle.active_connection_id.clone();
-        session.selected_schema = self.selected_schema.clone();
+        session.selected_schema = self.schema_explorer.selected_schema.clone();
         session.open_document_ids = self
             .query_session_state
             .documents
@@ -183,7 +183,7 @@ impl DbProApp {
             .documents
             .get(self.query_session_state.active_document_index)
             .map(|d| d.id.clone());
-        session.pinned_tables = self.pinned_tables.clone();
+        session.pinned_tables = self.schema_explorer.pinned_tables.clone();
         session.sidebar_open = self.workspace.sidebar_open;
         session.agent_open = self.workspace.agent_open;
         session.sidebar_width = self.workspace.sidebar_width;
@@ -203,8 +203,8 @@ impl DbProApp {
         self.workspace.set_agent_width(session.agent_width);
         self.workspace.bottom_panel_open = session.bottom_panel_open;
         self.workspace.set_bottom_panel_height(session.bottom_panel_height);
-        self.pinned_tables = session.pinned_tables.clone();
-        self.selected_schema = session.selected_schema.clone();
+        self.schema_explorer.pinned_tables = session.pinned_tables.clone();
+        self.schema_explorer.selected_schema = session.selected_schema.clone();
 
         if let Some(conn_id) = &session.active_connection_id {
             if self.connection_catalog.connections.iter().any(|c| c.id == *conn_id) {
@@ -251,7 +251,7 @@ impl DbProApp {
             }
         }
 
-        self.pinned_tables.retain(|t| !t.trim().is_empty());
+        self.schema_explorer.pinned_tables.retain(|t| !t.trim().is_empty());
         self.last_session_restore_notes = notes.clone();
         if notes.is_empty() {
             self.runtime_message = format!("Restored workspace `{}`", session.name);

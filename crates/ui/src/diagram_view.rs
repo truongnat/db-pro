@@ -3,7 +3,7 @@ pub use crate::diagram::*;
 
 impl DbProApp {
     pub(super) fn draw_diagram(&mut self, ui: &mut egui::Ui) {
-        let all_table_count = self.schema.table_details.len();
+        let all_table_count = self.schema_explorer.schema.table_details.len();
         let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
         let search_query = self.diagram_search.trim().to_ascii_lowercase();
         let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
@@ -18,7 +18,7 @@ impl DbProApp {
             }
         }
 
-        if self.schema.table_details.is_empty() {
+        if self.schema_explorer.schema.table_details.is_empty() {
             self.draw_diagram_empty_state(ui, 0, false, false);
             return;
         }
@@ -29,8 +29,12 @@ impl DbProApp {
             ER_MAX_TABLES
         };
 
-        let (_candidate_count, tables) =
-            diagram_candidates(&self.schema.table_details, &search_query, search_mode, render_limit);
+        let (_candidate_count, tables) = diagram_candidates(
+            &self.schema_explorer.schema.table_details,
+            &search_query,
+            search_mode,
+            render_limit,
+        );
 
         let grid_columns = if tables.len() <= 3 {
             tables.len().max(1)
@@ -39,6 +43,7 @@ impl DbProApp {
         };
 
         let max_visible_columns = self
+            .schema_explorer
             .schema
             .table_details
             .iter()
@@ -86,7 +91,7 @@ impl DbProApp {
     }
 
     fn ensure_diagram_graph(&mut self, grid_columns: usize, node_height: f32) {
-        let current_count = self.schema.table_details.len();
+        let current_count = self.schema_explorer.schema.table_details.len();
         let graph_dirty = self.diagram_graph.nodes.len() != current_count
             || self.diagram_graph.schema_version != self.diagram_schema_version;
 
@@ -94,7 +99,7 @@ impl DbProApp {
             if self.diagram_graph.nodes.is_empty() {
                 // First load: build immediately so canvas starts populated without blank frame
                 self.diagram_graph = ErGraph::build(
-                    &self.schema.table_details,
+                    &self.schema_explorer.schema.table_details,
                     self.diagram_schema_version,
                     grid_columns,
                     node_height,
@@ -113,7 +118,7 @@ impl DbProApp {
                 self.diagram_schema_version = self.diagram_schema_version.saturating_add(1);
                 let request_id = self.diagram_layout_worker.request_layout(
                     self.diagram_schema_version,
-                    self.schema.table_details.clone(),
+                    self.schema_explorer.schema.table_details.clone(),
                     grid_columns,
                     node_height,
                 );
@@ -269,6 +274,7 @@ impl DbProApp {
                 self.er_design.enabled = !self.er_design.enabled;
                 if self.er_design.enabled {
                     let names: Vec<String> = self
+                        .schema_explorer
                         .schema
                         .table_details
                         .iter()
@@ -295,6 +301,7 @@ impl DbProApp {
             );
             let live_fp = {
                 let names: Vec<String> = self
+                    .schema_explorer
                     .schema
                     .table_details
                     .iter()
@@ -475,6 +482,7 @@ impl DbProApp {
     fn er_design_apply_plan(&mut self) {
         let live_fp = {
             let names: Vec<String> = self
+                .schema_explorer
                 .schema
                 .table_details
                 .iter()
@@ -602,7 +610,7 @@ impl DbProApp {
                 paint_scene_edges(&painter, &self.diagram_graph, &scene, &viewport, zoom, theme);
 
                 // Paint visible nodes:
-                let selected_table_name = self.selected_table.as_deref();
+                let selected_table_name = self.schema_explorer.selected_table.as_deref();
                 for &node_id in &scene.visible_nodes {
                     if let Some(node) = self.diagram_graph.nodes.get(node_id) {
                         let screen_rect = viewport.world_to_screen_rect(node.world_rect);
@@ -655,15 +663,17 @@ impl DbProApp {
     }
 
     fn open_diagram_table(&mut self, table: &str) {
-        if self.selected_table.as_deref() != Some(table) && !self.table_mutation.staged_changes.is_empty() {
+        if self.schema_explorer.selected_table.as_deref() != Some(table)
+            && !self.table_mutation.staged_changes.is_empty()
+        {
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
         self.persist_current_grid_layout();
-        self.selected_table = Some(table.to_owned());
+        self.schema_explorer.selected_table = Some(table.to_owned());
         self.restore_grid_layout_for_active_table();
-        self.selected_schema_object = None;
-        self.schema_object_view = SchemaObjectView::Definition;
+        self.schema_explorer.selected_schema_object = None;
+        self.schema_explorer.schema_object_view = SchemaObjectView::Definition;
         self.table_state.table_info = None;
         self.table_state.table_ddl = None;
         self.table_state.table_info_error = None;

@@ -121,7 +121,10 @@ impl DbProApp {
             self.active_connection_name(),
             chrono::Utc::now().format("%H:%M:%S")
         );
-        self.schema_snapshot = Some(schema_compare::UiSchemaSnapshot::from_summary(label, &self.schema));
+        self.schema_snapshot = Some(schema_compare::UiSchemaSnapshot::from_summary(
+            label,
+            &self.schema_explorer.schema,
+        ));
         self.runtime_message = "Schema snapshot captured".to_owned();
     }
 
@@ -130,7 +133,7 @@ impl DbProApp {
             self.runtime_message = "Take a schema snapshot before comparing".to_owned();
             return;
         };
-        let current = schema_compare::UiSchemaSnapshot::from_summary("current", &self.schema);
+        let current = schema_compare::UiSchemaSnapshot::from_summary("current", &self.schema_explorer.schema);
         self.schema_diff = Some(schema_compare::diff_snapshots(&snapshot, &current));
         self.migration_plan = None;
         self.migration_preview_sql.clear();

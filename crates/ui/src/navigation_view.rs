@@ -458,6 +458,7 @@ impl DbProApp {
             );
             ui.add_space(SPACE_XS);
             let tables: Vec<(String, String)> = self
+                .schema_explorer
                 .schema
                 .table_details
                 .iter()
@@ -566,6 +567,7 @@ impl DbProApp {
                 ui.checkbox(&mut self.masking_keyed, "Keyed hash");
                 if secondary_button(ui, "Suggest cols", self.theme).clicked() {
                     let names: Vec<String> = self
+                        .schema_explorer
                         .schema
                         .table_details
                         .first()
@@ -682,6 +684,7 @@ impl DbProApp {
             (String::new(), self.synthetic_table.clone())
         };
         let detail = self
+            .schema_explorer
             .schema
             .table_details
             .iter()
@@ -3476,9 +3479,10 @@ impl DbProApp {
             ui.label(
                 RichText::new(format!(
                     "{} · {}",
-                    plural_count(self.schema.table_details.len(), "table", "tables"),
+                    plural_count(self.schema_explorer.schema.table_details.len(), "table", "tables"),
                     plural_count(
-                        self.schema
+                        self.schema_explorer
+                            .schema
                             .table_details
                             .iter()
                             .map(|table| table.foreign_keys.len())

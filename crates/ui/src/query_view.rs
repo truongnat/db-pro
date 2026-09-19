@@ -281,8 +281,8 @@ impl DbProApp {
             .and_then(|d| d.connection_id.clone())
             .or_else(|| self.connection_lifecycle.active_connection_id.clone());
         let current_schema = self.active_query_schema().to_owned();
-        let available_schemas = if !self.schema.schemas.is_empty() {
-            self.schema.schemas.clone()
+        let available_schemas = if !self.schema_explorer.schema.schemas.is_empty() {
+            self.schema_explorer.schema.schemas.clone()
         } else if !self.query_capabilities().allows(|caps| caps.schema.schemas) {
             vec!["main".to_string()]
         } else {
@@ -847,8 +847,14 @@ impl DbProApp {
             }
             candidates.extend(self.active_schema_table_names());
             candidates.extend(self.active_schema_column_names());
-            candidates.extend(self.schema.views.iter().map(|view| view.name.clone()));
-            candidates.extend(self.schema.functions.iter().map(|function| function.name.clone()));
+            candidates.extend(self.schema_explorer.schema.views.iter().map(|view| view.name.clone()));
+            candidates.extend(
+                self.schema_explorer
+                    .schema
+                    .functions
+                    .iter()
+                    .map(|function| function.name.clone()),
+            );
             for keyword in candidates.iter() {
                 if ui
                     .selectable_label(false, keyword)

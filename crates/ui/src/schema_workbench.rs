@@ -136,10 +136,10 @@ impl SqlDialect for QuoteDialect {
 
 impl DbProApp {
     pub(crate) fn open_schema_workbench(&mut self) {
-        if let Some(schema) = self.selected_schema.clone() {
+        if let Some(schema) = self.schema_explorer.selected_schema.clone() {
             self.schema_workbench.schema = schema;
         }
-        if let Some(table) = self.selected_table.clone() {
+        if let Some(table) = self.schema_explorer.selected_table.clone() {
             self.schema_workbench.parent_table = table;
         }
         self.workspace.activity = Activity::Schema;
@@ -331,7 +331,7 @@ impl DbProApp {
 
     pub(crate) fn collect_ui_dependency_edges(&self) -> Vec<ObjectDependencyEdge> {
         let mut edges = Vec::new();
-        for table in &self.schema.table_details {
+        for table in &self.schema_explorer.schema.table_details {
             for fk in &table.foreign_keys {
                 edges.push(ObjectDependencyEdge {
                     from_kind: ObjectKind::Table,
@@ -344,7 +344,7 @@ impl DbProApp {
                 });
             }
         }
-        for trigger in &self.schema.triggers {
+        for trigger in &self.schema_explorer.schema.triggers {
             edges.push(ObjectDependencyEdge {
                 from_kind: ObjectKind::Trigger,
                 from_schema: Some(trigger.schema.clone()),
@@ -355,7 +355,7 @@ impl DbProApp {
                 relation: "trigger_on".into(),
             });
         }
-        for view in &self.schema.views {
+        for view in &self.schema_explorer.schema.views {
             edges.push(ObjectDependencyEdge {
                 from_kind: ObjectKind::View,
                 from_schema: Some(view.schema.clone()),
@@ -373,7 +373,7 @@ impl DbProApp {
         let mut out = String::from("# Schema documentation\n\n");
         out.push_str(&format!("Connection driver: `{}`\n\n", self.active_query_driver()));
         out.push_str("## Tables\n\n");
-        for table in &self.schema.table_details {
+        for table in &self.schema_explorer.schema.table_details {
             out.push_str(&format!("### `{}`.`{}`\n\n", table.schema, table.name));
             out.push_str("| Column | Type | Nullable | PK |\n| --- | --- | --- | --- |\n");
             for col in &table.columns {
@@ -387,9 +387,9 @@ impl DbProApp {
             }
             out.push('\n');
         }
-        if !self.schema.views.is_empty() {
+        if !self.schema_explorer.schema.views.is_empty() {
             out.push_str("## Views\n\n");
-            for view in &self.schema.views {
+            for view in &self.schema_explorer.schema.views {
                 out.push_str(&format!("- `{}`.`{}`\n", view.schema, view.name));
             }
         }

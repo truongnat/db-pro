@@ -659,7 +659,7 @@ impl DbProApp {
                 after_cursor,
                 doc.cursor.offset,
                 &active_schema,
-                &self.schema,
+                &self.schema_explorer.schema,
                 uses_positional_editor,
             );
             let document_version = doc.buffer.version();
@@ -717,7 +717,7 @@ impl DbProApp {
                 text_after_cursor: after_cursor,
                 cursor_offset: doc.cursor.offset,
                 active_schema: &active_schema,
-                schema_summary: &self.schema,
+                schema_summary: &self.schema_explorer.schema,
                 cached_tokens: Some(&doc.cached_tokens),
                 is_sqlite: uses_positional_editor,
                 is_manual_trigger,
@@ -741,7 +741,7 @@ impl DbProApp {
         // ── Signature help ─────────────────────────────────────────────────────
         // Show signature help only while actively typing inside a function call.
         let signature = if response.focused && !doc.completion.is_open {
-            self.schema_symbol_index.signature_help(
+            self.schema_explorer.schema_symbol_index.signature_help(
                 doc.buffer.text(),
                 doc.cursor.offset,
                 &active_schema,
@@ -776,10 +776,13 @@ impl DbProApp {
 
         if let Some(confirmed) = doc.hover_state.confirmed_token() {
             let sql = doc.buffer.text();
-            if let Some(rich) =
-                self.schema_symbol_index
-                    .rich_hover(sql, confirmed.range, &active_schema, dialect, &self.schema)
-            {
+            if let Some(rich) = self.schema_explorer.schema_symbol_index.rich_hover(
+                sql,
+                confirmed.range,
+                &active_schema,
+                dialect,
+                &self.schema_explorer.schema,
+            ) {
                 draw_rich_hover_popup(ui.ctx(), confirmed.anchor_rect, confirmed.range, &rich, &theme);
             }
         }

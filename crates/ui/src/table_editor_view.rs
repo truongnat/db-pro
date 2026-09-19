@@ -1057,7 +1057,7 @@ impl DbProApp {
     }
 
     pub(crate) fn submit_insert_row(&mut self) {
-        let Some(table) = self.selected_table.clone() else {
+        let Some(table) = self.schema_explorer.selected_table.clone() else {
             self.table_data.insert_row_error = "Select a table before inserting a row".to_owned();
             return;
         };
@@ -1557,7 +1557,7 @@ impl DbProApp {
     pub(crate) fn request_table_info(&mut self) {
         let (Some(connection_id), Some(table)) = (
             self.connection_lifecycle.active_connection_id.clone(),
-            self.selected_table.clone(),
+            self.schema_explorer.selected_table.clone(),
         ) else {
             return;
         };
@@ -1807,7 +1807,7 @@ impl DbProApp {
             self.table_data.data_edit_error = Some(self.runtime_message.clone());
             return false;
         };
-        if let Some(table) = self.selected_table.as_deref() {
+        if let Some(table) = self.schema_explorer.selected_table.as_deref() {
             self.table_mutation.staged_changes.ensure_target(table);
         }
         self.table_mutation.staged_changes.stage_update(StagedChange::Update {
@@ -1861,7 +1861,7 @@ impl DbProApp {
             self.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
-        if let Some(table) = self.selected_table.as_deref() {
+        if let Some(table) = self.schema_explorer.selected_table.as_deref() {
             self.table_mutation.staged_changes.ensure_target(table);
         }
         self.table_data.data_editing_cell = None;
@@ -2054,7 +2054,7 @@ impl DbProApp {
     pub(crate) fn request_table_row_reload(&mut self, identity: RowIdentity) {
         let (Some(connection_id), Some(table)) = (
             self.connection_lifecycle.active_connection_id.clone(),
-            self.selected_table.clone(),
+            self.schema_explorer.selected_table.clone(),
         ) else {
             self.runtime_message = "Connect to a database before reloading the row".to_owned();
             return;
@@ -2611,7 +2611,7 @@ impl DbProApp {
             self.runtime_message = "Connect to a database before applying changes".to_owned();
             return;
         };
-        let Some(table) = self.selected_table.clone() else {
+        let Some(table) = self.schema_explorer.selected_table.clone() else {
             self.runtime_message = "Select a table before applying changes".to_owned();
             return;
         };
@@ -2885,7 +2885,7 @@ impl DbProApp {
     pub(crate) fn request_table_ddl(&mut self) {
         let (Some(connection_id), Some(table)) = (
             self.connection_lifecycle.active_connection_id.clone(),
-            self.selected_table.clone(),
+            self.schema_explorer.selected_table.clone(),
         ) else {
             return;
         };
@@ -2904,13 +2904,12 @@ impl DbProApp {
         let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() else {
             return;
         };
-        let table = self
-            .selected_table
-            .clone()
-            .or_else(|| match self.selected_schema_object.as_ref() {
+        let table = self.schema_explorer.selected_table.clone().or_else(|| {
+            match self.schema_explorer.selected_schema_object.as_ref() {
                 Some(SchemaObjectSelection::View(name)) => Some(name.clone()),
                 _ => None,
-            });
+            }
+        });
         let Some(table) = table else {
             return;
         };

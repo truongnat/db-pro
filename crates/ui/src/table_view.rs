@@ -2,7 +2,7 @@ use super::*;
 
 impl DbProApp {
     pub(super) fn draw_table_workspace(&mut self, ui: &mut egui::Ui) {
-        let Some(table_name) = self.selected_table.clone() else {
+        let Some(table_name) = self.schema_explorer.selected_table.clone() else {
             self.activate_welcome_tab();
             return;
         };

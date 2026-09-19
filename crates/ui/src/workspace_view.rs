@@ -306,7 +306,7 @@ impl DbProApp {
                             }
 
                             // 3. Table Tab
-                            if let Some(table_name) = self.selected_table.clone() {
+                            if let Some(table_name) = self.schema_explorer.selected_table.clone() {
                                 let selected = self.workspace.active_tab == WorkspaceTab::Table;
                                 let unsaved = !self.table_mutation.staged_changes.is_empty();
                                 let mut close_table = false;
@@ -398,7 +398,7 @@ impl DbProApp {
                             }
 
                             // 4. Schema Object Tab (View, Trigger, Function)
-                            if let Some(selection) = self.selected_schema_object.clone() {
+                            if let Some(selection) = self.schema_explorer.selected_schema_object.clone() {
                                 let (icon, name) = match &selection {
                                     SchemaObjectSelection::View(name) => (Icon::Eye, name.clone()),
                                     SchemaObjectSelection::Trigger(name) => (Icon::Zap, name.clone()),

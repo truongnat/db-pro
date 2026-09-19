@@ -33,7 +33,7 @@ impl SqlDialect for QuoteDialect {
 
 impl DbProApp {
     pub(super) fn draw_schema_object_workspace(&mut self, ui: &mut egui::Ui) {
-        let Some(selection) = self.selected_schema_object.clone() else {
+        let Some(selection) = self.schema_explorer.selected_schema_object.clone() else {
             self.activate_welcome_tab();
             return;
         };
@@ -73,7 +73,7 @@ impl DbProApp {
         ui.add_space(SPACE_MD);
         if is_function {
             self.draw_routine_workbench(ui, &selection);
-        } else if is_view && self.schema_object_view == SchemaObjectView::Data {
+        } else if is_view && self.schema_explorer.schema_object_view == SchemaObjectView::Data {
             if self.table_state.table_data_result.is_none()
                 && self.table_state.table_data_request.is_none()
                 && self.table_state.table_data_error.is_none()
@@ -118,6 +118,7 @@ impl DbProApp {
             return;
         };
         let Some(function) = self
+            .schema_explorer
             .schema
             .functions
             .iter()
@@ -373,7 +374,13 @@ impl DbProApp {
     fn resolve_schema_object(&self, selection: &SchemaObjectSelection) -> Option<SchemaObjectDetails> {
         match selection {
             SchemaObjectSelection::View(name) => {
-                let view = self.schema.views.iter().find(|view| &view.name == name)?.clone();
+                let view = self
+                    .schema_explorer
+                    .schema
+                    .views
+                    .iter()
+                    .find(|view| &view.name == name)?
+                    .clone();
                 Some(SchemaObjectDetails {
                     icon: Icon::Eye,
                     kind: "VIEW".to_owned(),
@@ -386,6 +393,7 @@ impl DbProApp {
             }
             SchemaObjectSelection::Trigger(name) => {
                 let trigger = self
+                    .schema_explorer
                     .schema
                     .triggers
                     .iter()
@@ -409,6 +417,7 @@ impl DbProApp {
                 identity_arguments,
             } => {
                 let function = self
+                    .schema_explorer
                     .schema
                     .functions
                     .iter()
@@ -468,12 +477,12 @@ impl DbProApp {
             (SchemaObjectView::Definition, Icon::Code2, "Definition"),
             (SchemaObjectView::Data, Icon::Table2, "Data"),
         ] {
-            let selected = self.schema_object_view == view;
+            let selected = self.schema_explorer.schema_object_view == view;
             let tab = tab_frame(self.theme, selected).show(ui, |ui| {
                 ui.selectable_label(selected, icon_text(icon, label, self.theme.text_primary))
             });
             if tab.inner.clicked() {
-                self.schema_object_view = view;
+                self.schema_explorer.schema_object_view = view;
                 if view == SchemaObjectView::Data {
                     self.table_state.table_data_result = None;
                     self.table_state.table_data_total_rows = None;

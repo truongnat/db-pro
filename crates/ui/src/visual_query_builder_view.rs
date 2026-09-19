@@ -50,7 +50,7 @@ impl DbProApp {
                     &self.visual_query_add_table
                 })
                 .show_ui(ui, |ui| {
-                    for table in &self.schema.table_details {
+                    for table in &self.schema_explorer.schema.table_details {
                         let key = if table.schema.is_empty() {
                             table.name.clone()
                         } else {
@@ -62,7 +62,7 @@ impl DbProApp {
                             format!("{}.{}", table.schema, table.name),
                         );
                     }
-                    for view in &self.schema.views {
+                    for view in &self.schema_explorer.schema.views {
                         let key = if view.schema.is_empty() {
                             format!("view:{}", view.name)
                         } else {
@@ -267,6 +267,7 @@ impl DbProApp {
             return;
         };
         let Some(detail) = self
+            .schema_explorer
             .schema
             .table_details
             .iter()

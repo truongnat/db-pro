@@ -283,7 +283,7 @@ impl DbProApp {
 
                 // The field reads left to right whatever the row direction is.
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                    SearchInput::new(&mut self.explorer_search, "Filter objects…", self.theme).show(ui);
+                    SearchInput::new(&mut self.schema_explorer.explorer_search, "Filter objects…", self.theme).show(ui);
                 });
             });
         });
@@ -315,7 +315,7 @@ impl DbProApp {
     }
 
     pub(crate) fn draw_explorer_schema_feedback(&mut self, ui: &mut egui::Ui) {
-        let schema_error = self.schema_error.clone();
+        let schema_error = self.schema_explorer.schema_error.clone();
         if let Some(error) = schema_error.as_deref() {
             grid_frame(self.theme).show(ui, |ui| {
                 ui.horizontal(|ui| {
@@ -339,7 +339,7 @@ impl DbProApp {
                 });
             });
             ui.add_space(8.0);
-        } else if self.schema_request.is_some() {
+        } else if self.schema_explorer.schema_request.is_some() {
             grid_frame(self.theme).show(ui, |ui| {
                 ui.horizontal(|ui| {
                     if self.reduce_motion {
@@ -367,10 +367,10 @@ impl DbProApp {
             return;
         }
         self.connected = false;
-        self.schema = UiSchemaSummary::default();
-        self.schema_symbol_index = SchemaSymbolIndex::default();
-        self.selected_table = None;
-        self.selected_schema_object = None;
+        self.schema_explorer.schema = UiSchemaSummary::default();
+        self.schema_explorer.schema_symbol_index = SchemaSymbolIndex::default();
+        self.schema_explorer.selected_table = None;
+        self.schema_explorer.selected_schema_object = None;
         self.runtime_message = format!("Disconnected from {}", connection.name);
     }
 
@@ -396,18 +396,18 @@ impl DbProApp {
         self.connection_lifecycle.active_connection_id = Some(connection.id.clone());
         self.connection_lifecycle.pending_connection_id = Some(connection.id.clone());
         self.connection_lifecycle.clear_connection_error(&connection.id);
-        self.selected_schema = None;
-        self.schema = UiSchemaSummary::default();
-        self.schema_symbol_index = SchemaSymbolIndex::default();
-        self.selected_table = None;
-        self.selected_schema_object = None;
+        self.schema_explorer.selected_schema = None;
+        self.schema_explorer.schema = UiSchemaSummary::default();
+        self.schema_explorer.schema_symbol_index = SchemaSymbolIndex::default();
+        self.schema_explorer.selected_table = None;
+        self.schema_explorer.selected_schema_object = None;
         self.reset_table_workspace_state();
-        self.explorer_search.clear();
+        self.schema_explorer.explorer_search.clear();
         let request_id = self.task_bridge.next_request_id();
         self.connected = false;
         self.connection_lifecycle.pending_request = Some(request_id);
-        self.schema_request = None;
-        self.schema_error = None;
+        self.schema_explorer.schema_request = None;
+        self.schema_explorer.schema_error = None;
         self.dispatch_command(UiCommand::Connect {
             request_id,
             connection_id: connection.id.clone(),

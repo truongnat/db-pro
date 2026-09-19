@@ -3,7 +3,7 @@ use super::*;
 
 impl DbProApp {
     pub(crate) fn open_table(&mut self, table: String) {
-        if self.selected_table.as_deref() == Some(&table) {
+        if self.schema_explorer.selected_table.as_deref() == Some(&table) {
             self.workspace.active_tab = WorkspaceTab::Table;
             self.record_recent_table(&table);
             return;
@@ -17,7 +17,7 @@ impl DbProApp {
         self.workspace.pending_navigation_action = None;
         self.persist_current_grid_layout();
         self.record_recent_table(&table);
-        self.selected_table = Some(table);
+        self.schema_explorer.selected_table = Some(table);
         self.restore_grid_layout_for_active_table();
         self.request_table_info();
         self.request_table_data();
@@ -29,15 +29,15 @@ impl DbProApp {
         if table.is_empty() {
             return;
         }
-        self.recent_tables.retain(|item| item != table);
-        self.recent_tables.insert(0, table.to_owned());
-        if self.recent_tables.len() > RECENT_TABLES_MAX {
-            self.recent_tables.truncate(RECENT_TABLES_MAX);
+        self.schema_explorer.recent_tables.retain(|item| item != table);
+        self.schema_explorer.recent_tables.insert(0, table.to_owned());
+        if self.schema_explorer.recent_tables.len() > RECENT_TABLES_MAX {
+            self.schema_explorer.recent_tables.truncate(RECENT_TABLES_MAX);
         }
     }
 
     pub(crate) fn remove_recent_table(&mut self, table: &str) {
-        self.recent_tables.retain(|item| item != table);
+        self.schema_explorer.recent_tables.retain(|item| item != table);
     }
 
     pub(crate) fn request_open_workspace_folder(&mut self) {
@@ -211,7 +211,7 @@ impl DbProApp {
 
     pub(crate) fn export_live_schema_snapshot(&mut self) {
         let mut sql = String::from("-- DB Pro schema snapshot\n");
-        for table in &self.schema.table_details {
+        for table in &self.schema_explorer.schema.table_details {
             sql.push_str(&format!(
                 "-- table {}.{} ({} columns)\n",
                 table.schema,
@@ -266,6 +266,7 @@ impl DbProApp {
 
     pub(crate) fn refresh_schema_drift_watch(&mut self) {
         let names: Vec<String> = self
+            .schema_explorer
             .schema
             .table_details
             .iter()
@@ -377,7 +378,7 @@ impl DbProApp {
                     return;
                 }
                 self.workspace.pending_navigation_action = None;
-                self.selected_table = None;
+                self.schema_explorer.selected_table = None;
                 self.table_state.table_info = None;
                 self.table_state.table_ddl = None;
                 self.table_state.table_info_error = None;
@@ -405,8 +406,8 @@ impl DbProApp {
                 self.table_data.discard_changes_confirmation = false;
             }
             WorkspaceTab::SchemaObject => {
-                self.selected_schema_object = None;
-                self.schema_object_view = SchemaObjectView::Definition;
+                self.schema_explorer.selected_schema_object = None;
+                self.schema_explorer.schema_object_view = SchemaObjectView::Definition;
                 self.table_state.table_data_result = None;
                 self.table_state.table_data_total_rows = None;
                 self.table_state.table_data_request = None;

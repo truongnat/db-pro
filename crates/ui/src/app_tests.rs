@@ -496,7 +496,7 @@ fn table_edits_stage_until_explicit_apply() {
     }];
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
-    app.selected_table = Some("customers".to_owned());
+    app.schema_explorer.selected_table = Some("customers".to_owned());
     app.table_state.table_info = Some(UiTableInfo {
         schema: "public".to_owned(),
         name: "customers".to_owned(),
@@ -915,7 +915,10 @@ fn generated_column_is_never_staged_by_insert() {
                 environment: "Development".to_owned(),
             }],
         },
-        selected_table: Some("line_items".to_owned()),
+        schema_explorer: SchemaExplorerState {
+            selected_table: Some("line_items".to_owned()),
+            ..Default::default()
+        },
         table_state: TableState {
             table_info: Some(UiTableInfo {
                 schema: "public".to_owned(),
@@ -1002,7 +1005,10 @@ fn generated_column_is_never_staged_by_insert() {
                 environment: "Development".to_owned(),
             }],
         },
-        selected_table: Some("line_items".to_owned()),
+        schema_explorer: SchemaExplorerState {
+            selected_table: Some("line_items".to_owned()),
+            ..Default::default()
+        },
         table_state: TableState {
             table_info: app.table_state.table_info.clone(),
             ..Default::default()
@@ -1733,19 +1739,19 @@ fn quick_open_filters_workspaces_by_title_and_description() {
 #[test]
 fn active_schema_prefers_user_selection_and_loaded_schema_metadata() {
     let mut app = DbProApp::default();
-    app.schema.schemas = vec!["public".to_owned(), "tenant1".to_owned()];
+    app.schema_explorer.schema.schemas = vec!["public".to_owned(), "tenant1".to_owned()];
 
     assert_eq!(app.active_schema(), "public");
-    app.selected_schema = Some("tenant1".to_owned());
+    app.schema_explorer.selected_schema = Some("tenant1".to_owned());
     assert_eq!(app.active_schema(), "tenant1");
 }
 
 #[test]
 fn active_schema_columns_do_not_include_other_schemas() {
     let mut app = DbProApp::default();
-    app.schema.schemas = vec!["public".to_owned(), "tenant1".to_owned()];
-    app.schema.columns = vec!["legacy_global_column".to_owned()];
-    app.schema.table_details = vec![
+    app.schema_explorer.schema.schemas = vec!["public".to_owned(), "tenant1".to_owned()];
+    app.schema_explorer.schema.columns = vec!["legacy_global_column".to_owned()];
+    app.schema_explorer.schema.table_details = vec![
         UiTableSummary {
             schema: "public".to_owned(),
             name: "customers".to_owned(),
@@ -1773,7 +1779,7 @@ fn active_schema_columns_do_not_include_other_schemas() {
     ];
 
     assert_eq!(app.active_schema_column_names(), vec!["customer_id"]);
-    app.selected_schema = Some("tenant1".to_owned());
+    app.schema_explorer.selected_schema = Some("tenant1".to_owned());
     assert_eq!(app.active_schema_column_names(), vec!["order_id"]);
 }
 
@@ -2376,8 +2382,8 @@ fn explorer_search_matches_table_names_case_insensitively() {
 #[test]
 fn schema_matching_table_count_filters_without_materialising_names() {
     let mut app = DbProApp::default();
-    app.schema.schemas = vec!["public".into(), "other".into()];
-    app.schema.table_details = (0..250)
+    app.schema_explorer.schema.schemas = vec!["public".into(), "other".into()];
+    app.schema_explorer.schema.table_details = (0..250)
         .map(|index| UiTableSummary {
             schema: if index < 200 { "public".into() } else { "other".into() },
             name: format!("orders_{index}"),
@@ -2442,30 +2448,33 @@ fn quick_open_finds_schema_workbench_and_compare() {
 #[test]
 fn global_search_scopes_and_indexes_functions_with_invalidation() {
     let mut app = DbProApp {
-        selected_schema: Some("public".to_owned()),
-        schema: UiSchemaSummary {
-            schemas: vec!["public".to_owned()],
-            tables: vec!["orders".to_owned()],
-            columns: Vec::new(),
-            table_details: Vec::new(),
-            views: vec![UiViewSummary {
-                schema: "public".to_owned(),
-                name: "order_summary".to_owned(),
-                definition: "SELECT 1".to_owned(),
-            }],
-            triggers: Vec::new(),
-            functions: vec![UiFunctionSummary {
-                schema: "public".to_owned(),
-                name: "calc_total".to_owned(),
-                routine_type: "FUNCTION".to_owned(),
-                data_type: "numeric".to_owned(),
-                definition: "SELECT 1".to_owned(),
-                identity_arguments: "order_id integer".to_owned(),
-                language: "sql".to_owned(),
-                volatility: "volatile".to_owned(),
-                security_definer: false,
-                parameters: Vec::new(),
-            }],
+        schema_explorer: SchemaExplorerState {
+            selected_schema: Some("public".to_owned()),
+            schema: UiSchemaSummary {
+                schemas: vec!["public".to_owned()],
+                tables: vec!["orders".to_owned()],
+                columns: Vec::new(),
+                table_details: Vec::new(),
+                views: vec![UiViewSummary {
+                    schema: "public".to_owned(),
+                    name: "order_summary".to_owned(),
+                    definition: "SELECT 1".to_owned(),
+                }],
+                triggers: Vec::new(),
+                functions: vec![UiFunctionSummary {
+                    schema: "public".to_owned(),
+                    name: "calc_total".to_owned(),
+                    routine_type: "FUNCTION".to_owned(),
+                    data_type: "numeric".to_owned(),
+                    definition: "SELECT 1".to_owned(),
+                    identity_arguments: "order_id integer".to_owned(),
+                    language: "sql".to_owned(),
+                    volatility: "volatile".to_owned(),
+                    security_definer: false,
+                    parameters: Vec::new(),
+                }],
+            },
+            ..Default::default()
         },
         ..Default::default()
     };
@@ -3576,7 +3585,7 @@ fn query_failure_attaches_database_diagnostic_to_the_originating_document() {
 fn failed_schema_request_is_visible_and_retryable() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.schema_request = Some(crate::RequestId(7));
+    app.schema_explorer.schema_request = Some(crate::RequestId(7));
     event_tx
         .send(UiEvent::QueryFailed {
             request_id: crate::RequestId(7),
@@ -3586,8 +3595,11 @@ fn failed_schema_request_is_visible_and_retryable() {
 
     app.apply_runtime_events();
 
-    assert_eq!(app.schema_request, None);
-    assert_eq!(app.schema_error.as_deref(), Some("missing field `from_columns`"));
+    assert_eq!(app.schema_explorer.schema_request, None);
+    assert_eq!(
+        app.schema_explorer.schema_error.as_deref(),
+        Some("missing field `from_columns`")
+    );
     assert_eq!(
         app.runtime_message,
         "Schema introspection failed · missing field `from_columns`"
@@ -3598,8 +3610,8 @@ fn failed_schema_request_is_visible_and_retryable() {
 fn stale_schema_event_cannot_replace_the_selected_connection_schema() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.schema.tables = vec!["current_table".to_owned()];
-    app.schema_request = Some(crate::RequestId(2));
+    app.schema_explorer.schema.tables = vec!["current_table".to_owned()];
+    app.schema_explorer.schema_request = Some(crate::RequestId(2));
     event_tx
         .send(UiEvent::SchemaLoaded {
             request_id: crate::RequestId(1),
@@ -3617,8 +3629,8 @@ fn stale_schema_event_cannot_replace_the_selected_connection_schema() {
 
     app.apply_runtime_events();
 
-    assert_eq!(app.schema.tables, vec!["current_table"]);
-    assert_eq!(app.schema_request, Some(crate::RequestId(2)));
+    assert_eq!(app.schema_explorer.schema.tables, vec!["current_table"]);
+    assert_eq!(app.schema_explorer.schema_request, Some(crate::RequestId(2)));
 }
 
 #[test]
@@ -3667,7 +3679,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
         environment: "Development".to_owned(),
     }];
     app.connection_lifecycle.active_connection_id = Some("active".to_owned());
-    app.selected_table = Some("customers".to_owned());
+    app.schema_explorer.selected_table = Some("customers".to_owned());
     app.workspace.active_tab = WorkspaceTab::Table;
     app.table_state.refresh_table_info_after_schema = true;
     event_tx
@@ -3706,7 +3718,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
 fn schema_refresh_returns_to_welcome_when_selected_table_disappears() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.selected_table = Some("deleted_table".to_owned());
+    app.schema_explorer.selected_table = Some("deleted_table".to_owned());
     app.workspace.active_tab = WorkspaceTab::Table;
     event_tx
         .send(UiEvent::SchemaLoaded {
@@ -3725,7 +3737,7 @@ fn schema_refresh_returns_to_welcome_when_selected_table_disappears() {
 
     app.apply_runtime_events();
 
-    assert_eq!(app.selected_table, None);
+    assert_eq!(app.schema_explorer.selected_table, None);
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Welcome);
 }
 
@@ -3736,7 +3748,10 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
             active_tab: WorkspaceTab::Table,
             ..Default::default()
         },
-        selected_table: Some("customers".to_owned()),
+        schema_explorer: SchemaExplorerState {
+            selected_table: Some("customers".to_owned()),
+            ..Default::default()
+        },
         table_state: TableState {
             table_info_request: Some(crate::RequestId(1)),
             table_ddl_request: Some(crate::RequestId(2)),
@@ -3750,7 +3765,7 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
     app.request_close_workspace_tab(WorkspaceTab::Table);
 
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Welcome);
-    assert_eq!(app.selected_table, None);
+    assert_eq!(app.schema_explorer.selected_table, None);
     assert_eq!(app.table_state.table_info_request, None);
     assert_eq!(app.table_state.table_ddl_request, None);
     assert_eq!(app.table_state.table_data_request, None);
@@ -4068,7 +4083,10 @@ fn test_compare_ui_cells_typed_sorting() {
 #[test]
 fn test_open_table_blocked_with_unapplied_staged_changes() {
     let mut app = DbProApp {
-        selected_table: Some("users".to_owned()),
+        schema_explorer: SchemaExplorerState {
+            selected_table: Some("users".to_owned()),
+            ..Default::default()
+        },
         ..Default::default()
     };
     app.table_mutation.staged_changes.ensure_target("users");
@@ -4084,20 +4102,20 @@ fn test_open_table_blocked_with_unapplied_staged_changes() {
 
     // Opening another table should be blocked to prevent mutation retargeting
     app.open_table("orders".to_owned());
-    assert_eq!(app.selected_table, Some("users".to_owned()));
+    assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
     assert!(app.table_data.discard_changes_confirmation);
     assert!(app.runtime_message.contains("Apply or discard staged changes"));
 
     // Closing table tab with staged changes is guarded
     app.table_data.discard_changes_confirmation = false;
     app.request_close_workspace_tab(WorkspaceTab::Table);
-    assert_eq!(app.selected_table, Some("users".to_owned()));
+    assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
     assert!(app.table_data.discard_changes_confirmation);
 
     // Discarding changes allows opening a new table
     app.discard_staged_changes();
     app.open_table("orders".to_owned());
-    assert_eq!(app.selected_table, Some("orders".to_owned()));
+    assert_eq!(app.schema_explorer.selected_table, Some("orders".to_owned()));
 }
 
 #[test]
@@ -4156,7 +4174,10 @@ fn test_query_cancellation_capability_gate() {
 #[test]
 fn test_navigation_staged_changes_apply_discard_cancel_flows() {
     let mut app = DbProApp {
-        selected_table: Some("users".to_owned()),
+        schema_explorer: SchemaExplorerState {
+            selected_table: Some("users".to_owned()),
+            ..Default::default()
+        },
         ..Default::default()
     };
     app.table_mutation.staged_changes.ensure_target("users");
@@ -4177,12 +4198,12 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
         Some(PendingNavigationAction::OpenTable("orders".to_owned()))
     );
     assert!(app.table_data.discard_changes_confirmation);
-    assert_eq!(app.selected_table, Some("users".to_owned()));
+    assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
 
     // 2. Cancel retains current context and clears pending action
     app.table_data.discard_changes_confirmation = false;
     app.workspace.pending_navigation_action = None;
-    assert_eq!(app.selected_table, Some("users".to_owned()));
+    assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
     assert!(!app.table_mutation.staged_changes.is_empty());
 
     // 3. Staged apply success executes pending navigation action
@@ -4192,7 +4213,7 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
         Some(PendingNavigationAction::OpenTable("products".to_owned()))
     );
     app.staged_apply_completed();
-    assert_eq!(app.selected_table, Some("products".to_owned()));
+    assert_eq!(app.schema_explorer.selected_table, Some("products".to_owned()));
     assert!(app.table_mutation.staged_changes.is_empty());
     assert!(app.workspace.pending_navigation_action.is_none());
 }
@@ -5449,7 +5470,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
-    app.selected_table = Some("user_roles".to_owned());
+    app.schema_explorer.selected_table = Some("user_roles".to_owned());
     app.table_state.table_info = Some(UiTableInfo {
         schema: "public".to_owned(),
         name: "user_roles".to_owned(),
@@ -5559,7 +5580,7 @@ fn test_inserted_row_delete_removes_from_changeset_without_db_delete() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
-    app.selected_table = Some("users".to_owned());
+    app.schema_explorer.selected_table = Some("users".to_owned());
 
     let local_id = app.table_mutation.staged_changes.stage_insert(
         vec!["username".to_owned(), "email".to_owned()],
@@ -5961,17 +5982,20 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
 #[test]
 fn pinned_tables_toggle_appears_in_quick_open() {
     let mut app = DbProApp {
-        selected_table: Some("users".to_owned()),
+        schema_explorer: SchemaExplorerState {
+            selected_table: Some("users".to_owned()),
+            ..Default::default()
+        },
         ..DbProApp::default()
     };
     app.toggle_pinned_table(String::new());
-    assert_eq!(app.pinned_tables, vec!["users".to_owned()]);
+    assert_eq!(app.schema_explorer.pinned_tables, vec!["users".to_owned()]);
     assert!(app
         .filtered_palette_items(PaletteMode::QuickOpen)
         .iter()
         .any(|item| item.title == "users" && item.subtitle.contains("Pinned")));
     app.toggle_pinned_table("users".to_owned());
-    assert!(app.pinned_tables.is_empty());
+    assert!(app.schema_explorer.pinned_tables.is_empty());
 }
 
 #[test]
@@ -5980,13 +6004,16 @@ fn recent_tables_track_mru_and_appear_in_quick_open() {
     app.open_table("orders".to_owned());
     app.open_table("users".to_owned());
     app.open_table("orders".to_owned());
-    assert_eq!(app.recent_tables, vec!["orders".to_owned(), "users".to_owned()]);
+    assert_eq!(
+        app.schema_explorer.recent_tables,
+        vec!["orders".to_owned(), "users".to_owned()]
+    );
     assert!(app
         .filtered_palette_items(PaletteMode::QuickOpen)
         .iter()
         .any(|item| item.title == "orders" && item.subtitle.contains("Recent")));
     app.remove_recent_table("orders");
-    assert_eq!(app.recent_tables, vec!["users".to_owned()]);
+    assert_eq!(app.schema_explorer.recent_tables, vec!["users".to_owned()]);
 }
 
 #[test]
@@ -6053,7 +6080,10 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
             ..Default::default()
         },
         connected: true,
-        selected_schema: Some("public".to_owned()),
+        schema_explorer: SchemaExplorerState {
+            selected_schema: Some("public".to_owned()),
+            ..Default::default()
+        },
         ..Default::default()
     };
     app.open_workspace_folder(dir.clone());
@@ -6211,7 +6241,7 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     app.workspace.activity = Activity::Data;
     app.workspace.active_tab = WorkspaceTab::Query;
     app.connection_lifecycle.active_connection_id = Some("gone-conn".to_owned());
-    app.pinned_tables = vec!["public.orders".to_owned()];
+    app.schema_explorer.pinned_tables = vec!["public.orders".to_owned()];
     app.session_name_draft = "Focus pack".to_owned();
     app.save_named_workspace_session();
     assert_eq!(app.named_session_store.sessions.len(), 1);
@@ -6221,12 +6251,12 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     app.workspace.activity = Activity::Explorer;
     app.query_session_state.active_document_index = 0;
     app.connection_lifecycle.active_connection_id = Some("other".to_owned());
-    app.pinned_tables.clear();
+    app.schema_explorer.pinned_tables.clear();
     app.restore_named_workspace_session(&id);
 
     assert_eq!(app.workspace.activity, Activity::Data);
     assert_eq!(app.query_session_state.active_document_index, 1);
-    assert_eq!(app.pinned_tables, vec!["public.orders".to_owned()]);
+    assert_eq!(app.schema_explorer.pinned_tables, vec!["public.orders".to_owned()]);
     assert!(
         app.connection_lifecycle.active_connection_id.is_none(),
         "missing connection must not crash"

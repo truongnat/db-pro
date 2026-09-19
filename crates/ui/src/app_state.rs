@@ -116,14 +116,14 @@ impl DbProApp {
             }
             if let Some(pinned) = storage.get_string("dbpro.native.pinned-tables-v1") {
                 if let Ok(tables) = serde_json::from_str::<Vec<String>>(&pinned) {
-                    app.pinned_tables = tables;
+                    app.schema_explorer.pinned_tables = tables;
                 }
             }
             // Shell/layout restore after documents + pins so tab refs resolve (#222).
             app.restore_last_workspace_session_from_storage(storage);
             if let Some(recent) = storage.get_string("dbpro.native.recent-tables-v1") {
                 if let Ok(tables) = serde_json::from_str::<Vec<String>>(&recent) {
-                    app.recent_tables = tables;
+                    app.schema_explorer.recent_tables = tables;
                 }
             }
             if let Some(recent_ws) = storage.get_string("dbpro.native.workspace-recent-v1") {
@@ -246,16 +246,7 @@ impl Default for DbProApp {
             connection_catalog: ConnectionCatalogState::default(),
             saved_queries: Vec::new(),
             query_folders: Vec::new(),
-            schema: UiSchemaSummary::default(),
-            schema_symbol_index: SchemaSymbolIndex::default(),
-            selected_schema: None,
-            explorer_search: String::new(),
-            explorer_nav_cache: None,
-            schema_error: None,
-            schema_request: None,
-            selected_table: None,
-            pinned_tables: Vec::new(),
-            recent_tables: Vec::new(),
+            schema_explorer: SchemaExplorerState::default(),
             ide_workspace: ide_workspace::IdeWorkspaceState::default(),
             git_status: None,
             git_diff: None,
@@ -271,8 +262,6 @@ impl Default for DbProApp {
             workspace_refactor_from: String::new(),
             workspace_refactor_to: String::new(),
             workspace_context_items: Vec::new(),
-            selected_schema_object: None,
-            schema_object_view: SchemaObjectView::Definition,
             routine_source_draft: String::new(),
             routine_param_values: Vec::new(),
             routine_param_nulls: Vec::new(),

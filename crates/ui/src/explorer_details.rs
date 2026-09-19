@@ -163,7 +163,7 @@ fn table_row_context_menu(ui: &mut egui::Ui, response: &egui::Response, theme: D
 impl DbProApp {
     /// Renders an individual table item in the tree with selection and expandable details.
     pub(super) fn draw_dbeaver_table_item(&mut self, ui: &mut egui::Ui, table: &str) {
-        let is_selected = self.selected_table.as_deref() == Some(table);
+        let is_selected = self.schema_explorer.selected_table.as_deref() == Some(table);
         let table_details_id = ui.make_persistent_id(("codex_tbl_details", table));
         let has_details = is_selected && self.table_state.table_info.is_some();
 
@@ -329,15 +329,17 @@ impl DbProApp {
 
     /// Selects a table and resets the table workspace to a clean slate.
     pub(crate) fn select_table(&mut self, table: &str) {
-        if self.selected_table.as_deref() != Some(table) && !self.table_mutation.staged_changes.is_empty() {
+        if self.schema_explorer.selected_table.as_deref() != Some(table)
+            && !self.table_mutation.staged_changes.is_empty()
+        {
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
         self.persist_current_grid_layout();
-        self.selected_table = Some(table.to_owned());
+        self.schema_explorer.selected_table = Some(table.to_owned());
         self.record_recent_table(table);
-        self.selected_schema_object = None;
-        self.schema_object_view = SchemaObjectView::Definition;
+        self.schema_explorer.selected_schema_object = None;
+        self.schema_explorer.schema_object_view = SchemaObjectView::Definition;
         self.reset_table_workspace_state();
         self.restore_grid_layout_for_active_table();
         self.table_state.table_view = TableView::Data;

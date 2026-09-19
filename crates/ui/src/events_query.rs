@@ -430,15 +430,15 @@ impl DbProApp {
                 }
                 if !self.connection_dialog.open {
                     self.connected = false;
-                    self.schema_request = None;
-                    self.schema_error = None;
+                    self.schema_explorer.schema_request = None;
+                    self.schema_explorer.schema_error = None;
                 }
                 self.connection_dialog.error = message.clone();
                 self.runtime_message = format!("Connection failed · {message}");
             }
-        } else if self.schema_request == Some(request_id) {
-            self.schema_request = None;
-            self.schema_error = Some(message.clone());
+        } else if self.schema_explorer.schema_request == Some(request_id) {
+            self.schema_explorer.schema_request = None;
+            self.schema_explorer.schema_error = Some(message.clone());
             self.runtime_message = format!("Schema introspection failed · {message}");
         } else if self.table_mutation.staged_apply_request == Some(request_id) {
             // Older runtimes can still report the generic failure event. Keep

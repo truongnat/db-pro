@@ -158,11 +158,14 @@ pub(crate) use agent_state::AgentState;
 pub(crate) use query_output_state::QueryOutputState;
 pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
+pub(crate) use schema_explorer_state::SchemaExplorerState;
 pub(crate) use table_data_state::TableDataState;
 pub(crate) use table_mutation_state::TableMutationState;
 pub(crate) use table_state::TableState;
 #[path = "schema_compare.rs"]
 mod schema_compare;
+#[path = "schema_explorer_state.rs"]
+mod schema_explorer_state;
 #[path = "schema_object_view.rs"]
 mod schema_object_view;
 #[path = "schema_workbench.rs"]
@@ -280,19 +283,7 @@ pub struct DbProApp {
     connection_catalog: ConnectionCatalogState,
     saved_queries: Vec<UiSavedQuerySummary>,
     query_folders: Vec<UiQueryFolderSummary>,
-    schema: UiSchemaSummary,
-    schema_symbol_index: SchemaSymbolIndex,
-    selected_schema: Option<String>,
-    explorer_search: String,
-    /// Cached filtered table names for the open explorer schema folder.
-    explorer_nav_cache: Option<ExplorerNavCache>,
-    schema_error: Option<String>,
-    schema_request: Option<crate::RequestId>,
-    selected_table: Option<String>,
-    /// Table names pinned for quick reopen (#202 / #212). Persisted locally.
-    pinned_tables: Vec<String>,
-    /// Most-recently-opened tables for Data Activity (#212). Persisted locally.
-    recent_tables: Vec<String>,
+    schema_explorer: SchemaExplorerState,
     /// Local IDE workspace folder / file tree (#261–#264).
     ide_workspace: ide_workspace::IdeWorkspaceState,
     /// Optional Git status for the active workspace root (#255).
@@ -312,8 +303,6 @@ pub struct DbProApp {
     workspace_refactor_from: String,
     workspace_refactor_to: String,
     workspace_context_items: Vec<String>,
-    selected_schema_object: Option<SchemaObjectSelection>,
-    schema_object_view: SchemaObjectView,
     /// Editable CREATE body for the selected routine (#192).
     routine_source_draft: String,
     /// Values for IN/INOUT parameters in the execute form.
@@ -516,10 +505,10 @@ impl eframe::App for DbProApp {
         if let Ok(history) = serde_json::to_string(&self.query_history_entries) {
             storage.set_string("dbpro.native.query-history-v1", history);
         }
-        if let Ok(pinned) = serde_json::to_string(&self.pinned_tables) {
+        if let Ok(pinned) = serde_json::to_string(&self.schema_explorer.pinned_tables) {
             storage.set_string("dbpro.native.pinned-tables-v1", pinned);
         }
-        if let Ok(recent) = serde_json::to_string(&self.recent_tables) {
+        if let Ok(recent) = serde_json::to_string(&self.schema_explorer.recent_tables) {
             storage.set_string("dbpro.native.recent-tables-v1", recent);
         }
         if let Ok(recent_ws) = serde_json::to_string(
@@ -773,7 +762,7 @@ impl DbProApp {
     fn runtime_work_pending(&self) -> bool {
         self.connection_lifecycle.connections_request_pending
             || self.connection_lifecycle.pending_request.is_some()
-            || self.schema_request.is_some()
+            || self.schema_explorer.schema_request.is_some()
             || self
                 .query_session_state
                 .documents
@@ -804,8 +793,8 @@ impl DbProApp {
             connection_id,
             force_refresh,
         });
-        self.schema_request = Some(request_id);
-        self.schema_error = None;
+        self.schema_explorer.schema_request = Some(request_id);
+        self.schema_explorer.schema_error = None;
         self.runtime_message = if force_refresh {
             "Refreshing schema…"
         } else {
