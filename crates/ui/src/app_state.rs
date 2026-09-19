@@ -161,8 +161,6 @@ impl DbProApp {
 
 impl Default for DbProApp {
     fn default() -> Self {
-        let offline_provider = OfflineAgentProvider;
-        let offline_info = offline_provider.info();
         Self {
             theme: DbProTheme::default(),
             dark_mode: false,
@@ -234,18 +232,7 @@ impl Default for DbProApp {
             palette_selected: 0,
             palette_focus_requested: false,
             search_index: SearchIndex::default(),
-            agent_pending_prompt: None,
-            agent_pending_context: None,
-            agent_provider_label: offline_info.label.to_owned(),
-            agent_provider_detail: offline_info.detail.to_owned(),
-            agent_input: String::new(),
-            agent_messages: Vec::new(),
-            agent_sessions: HashMap::new(),
-            agent_auto_run_read_only: false,
-            agent_settings_open: false,
-            agent_api_key_draft: String::new(),
-            agent_api_key_show_password: false,
-            agent_configure_request: None,
+            agent: AgentState::default(),
             task_bridge: TaskBridge::default(),
             runtime_message: "Ready".to_owned(),
             toasts: crate::components::overlay::ToastManager::default(),

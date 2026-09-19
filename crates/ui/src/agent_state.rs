@@ -6,12 +6,49 @@ use db_pro_core::domain::agent_context::{
     AgentDiagnosticContext, AgentForeignKeyContext, AgentSchemaCatalog, AgentTableContext,
 };
 
+/// Owns agent workspace state independently from the shell and query session.
+#[derive(Debug)]
+pub(crate) struct AgentState {
+    pub(crate) pending_prompt: Option<String>,
+    pub(crate) pending_context: Option<AgentContext>,
+    pub(crate) provider_label: String,
+    pub(crate) provider_detail: String,
+    pub(crate) input: String,
+    pub(crate) messages: Vec<AgentMessage>,
+    pub(crate) sessions: HashMap<String, AgentUiSession>,
+    pub(crate) auto_run_read_only: bool,
+    pub(crate) settings_open: bool,
+    pub(crate) api_key_draft: String,
+    pub(crate) api_key_show_password: bool,
+    pub(crate) configure_request: Option<crate::RequestId>,
+}
+
+impl Default for AgentState {
+    fn default() -> Self {
+        let provider_info = OfflineAgentProvider.info();
+        Self {
+            pending_prompt: None,
+            pending_context: None,
+            provider_label: provider_info.label.to_owned(),
+            provider_detail: provider_info.detail.to_owned(),
+            input: String::new(),
+            messages: Vec::new(),
+            sessions: HashMap::new(),
+            auto_run_read_only: false,
+            settings_open: false,
+            api_key_draft: String::new(),
+            api_key_show_password: false,
+            configure_request: None,
+        }
+    }
+}
+
 impl DbProApp {
     pub(super) fn reset_agent_context(&mut self) {
-        self.agent_pending_prompt = None;
-        self.agent_pending_context = None;
-        self.agent_input.clear();
-        self.agent_messages.clear();
+        self.agent.pending_prompt = None;
+        self.agent.pending_context = None;
+        self.agent.input.clear();
+        self.agent.messages.clear();
     }
 
     pub(super) fn agent_context(&self) -> AgentContext {
@@ -55,7 +92,7 @@ impl DbProApp {
             self.runtime_message = "Trust the workspace before sending folder/file context to Agent".to_owned();
             return;
         }
-        let prompt = self.agent_input.trim().to_owned();
+        let prompt = self.agent.input.trim().to_owned();
         if prompt.is_empty() {
             return;
         }
@@ -71,7 +108,7 @@ impl DbProApp {
             self.runtime_message = "No query document is available for Agent".to_owned();
             return;
         };
-        if self.agent_provider_label == "Offline draft" {
+        if self.agent.provider_label == "Offline draft" {
             self.runtime_message = "AI provider is not configured. Enter an API key in Agent Settings.".to_owned();
             self.show_toast_error("Configure an API key in Agent Settings to start.");
             return;
@@ -89,7 +126,8 @@ impl DbProApp {
         let context = self.build_agent_context(&prompt, document, connection_id.as_deref(), schema.as_deref());
 
         let session = self
-            .agent_sessions
+            .agent
+            .sessions
             .entry(document_id.clone())
             .or_insert_with(|| AgentUiSession::for_document(&document_id, connection_id.clone(), schema.clone()));
         if session.session.is_none() {
@@ -122,8 +160,8 @@ impl DbProApp {
 
         let request_id = self.task_bridge.next_request_id();
         session.request_id = Some(request_id);
-        self.agent_input.clear();
-        self.runtime_message = format!("Sending request to {}…", self.agent_provider_label);
+        self.agent.input.clear();
+        self.runtime_message = format!("Sending request to {}…", self.agent.provider_label);
         if self
             .task_bridge
             .send(UiCommand::StartAgentRun {
@@ -132,7 +170,7 @@ impl DbProApp {
                 session: core_session,
                 document: snapshot,
                 mode,
-                allow_read_only_auto_run: self.agent_auto_run_read_only,
+                allow_read_only_auto_run: self.agent.auto_run_read_only,
                 context,
             })
             .is_err()
@@ -248,7 +286,7 @@ impl DbProApp {
             | AgentWorkflowEvent::Failed { document_id, .. }
             | AgentWorkflowEvent::Cancelled { document_id, .. } => document_id.clone(),
         };
-        let Some(session) = self.agent_sessions.get_mut(&document_id) else {
+        let Some(session) = self.agent.sessions.get_mut(&document_id) else {
             return;
         };
         let (session_id, run_id) = match &event {
@@ -294,7 +332,8 @@ impl DbProApp {
             return;
         };
         let Some(pending) = self
-            .agent_sessions
+            .agent
+            .sessions
             .get(&document_id)
             .and_then(|session| session.pending_confirmation.clone())
         else {
@@ -368,7 +407,7 @@ impl DbProApp {
             });
         }
         let request_id = self.task_bridge.next_request_id();
-        if let Some(session) = self.agent_sessions.get_mut(&pending.document_id) {
+        if let Some(session) = self.agent.sessions.get_mut(&pending.document_id) {
             session.pending_confirmation = None;
             session.request_id = Some(request_id);
             session.state = db_pro_core::domain::agent::AgentSessionState::Running;
@@ -391,7 +430,7 @@ impl DbProApp {
             return;
         };
         let document_id = document.id.clone();
-        let Some(session) = self.agent_sessions.get(&document_id) else {
+        let Some(session) = self.agent.sessions.get(&document_id) else {
             return;
         };
         let Some(tool_result) = session.tool_results.get(call_id) else {
@@ -447,7 +486,7 @@ impl DbProApp {
         else {
             return;
         };
-        let prompt = self.agent_sessions.get(&document_id).and_then(|session| {
+        let prompt = self.agent.sessions.get(&document_id).and_then(|session| {
             session
                 .messages
                 .iter()
@@ -470,7 +509,8 @@ impl DbProApp {
             return;
         };
         let Some(run_id) = self
-            .agent_sessions
+            .agent
+            .sessions
             .get(&document_id)
             .and_then(|session| session.active_run_id)
         else {

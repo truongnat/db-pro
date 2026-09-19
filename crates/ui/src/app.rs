@@ -154,6 +154,7 @@ mod workspace_actions;
 mod workspace_session;
 #[path = "workspace_shell.rs"]
 mod workspace_shell;
+pub(crate) use agent_state::AgentState;
 pub(crate) use query_output_state::QueryOutputState;
 pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
@@ -263,18 +264,7 @@ pub struct DbProApp {
     palette_selected: usize,
     palette_focus_requested: bool,
     search_index: SearchIndex,
-    agent_pending_prompt: Option<String>,
-    agent_pending_context: Option<AgentContext>,
-    agent_provider_label: String,
-    agent_provider_detail: String,
-    agent_input: String,
-    agent_messages: Vec<AgentMessage>,
-    agent_sessions: HashMap<String, AgentUiSession>,
-    pub(crate) agent_auto_run_read_only: bool,
-    agent_settings_open: bool,
-    agent_api_key_draft: String,
-    agent_api_key_show_password: bool,
-    agent_configure_request: Option<crate::RequestId>,
+    agent: AgentState,
     task_bridge: TaskBridge,
     runtime_message: String,
     toasts: crate::components::overlay::ToastManager,
@@ -766,7 +756,7 @@ impl DbProApp {
     }
 
     pub(crate) fn open_agent_prompt(&mut self, prompt: impl Into<String>, ctx: &egui::Context) {
-        self.agent_input = prompt.into();
+        self.agent.input = prompt.into();
         self.set_agent_open(true, ctx);
     }
 
@@ -795,7 +785,8 @@ impl DbProApp {
                 .iter()
                 .any(|d| d.explain_request.is_some())
             || self
-                .agent_sessions
+                .agent
+                .sessions
                 .values()
                 .any(|session| session.request_id.is_some() || session.active_run_id.is_some())
             || self.table_state.table_info_request.is_some()

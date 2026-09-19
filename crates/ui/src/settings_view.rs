@@ -15,7 +15,7 @@ impl DbProApp {
             "subtle" => PredictionMode::Subtle,
             _ => PredictionMode::Eager,
         };
-        self.agent_auto_run_read_only = self.settings.ai.auto_run_read_only;
+        self.agent.auto_run_read_only = self.settings.ai.auto_run_read_only;
         self.theme = if self.dark_mode {
             DbProTheme::dark()
         } else {
@@ -33,8 +33,8 @@ impl DbProApp {
             PredictionMode::Subtle => "subtle".to_owned(),
             PredictionMode::Eager => "eager".to_owned(),
         };
-        self.settings.ai.auto_run_read_only = self.agent_auto_run_read_only;
-        self.settings.ai.provider_label = self.agent_provider_label.clone();
+        self.settings.ai.auto_run_read_only = self.agent.auto_run_read_only;
+        self.settings.ai.provider_label = self.agent.provider_label.clone();
     }
 
     pub(super) fn draw_settings(&mut self, ui: &mut egui::Ui) {
@@ -286,9 +286,9 @@ impl DbProApp {
                 &mut self.settings.ai.auto_run_read_only,
                 "Allow Agent to auto-run read-only queries",
             );
-            self.agent_auto_run_read_only = self.settings.ai.auto_run_read_only;
+            self.agent.auto_run_read_only = self.settings.ai.auto_run_read_only;
             ui.label(
-                RichText::new(format!("Active provider: {}", self.agent_provider_label))
+                RichText::new(format!("Active provider: {}", self.agent.provider_label))
                     .small()
                     .color(self.theme.text_secondary),
             );

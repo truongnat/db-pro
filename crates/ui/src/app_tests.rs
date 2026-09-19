@@ -2693,10 +2693,10 @@ fn agent_provider_status_uses_runtime_provider_name() {
         .expect("provider status should be queued");
 
     app.apply_runtime_events();
-    app.agent_input = "show the active schema".to_owned();
+    app.agent.input = "show the active schema".to_owned();
     app.submit_agent_prompt();
 
-    assert_eq!(app.agent_provider_label, "Groq");
+    assert_eq!(app.agent.provider_label, "Groq");
     assert_eq!(app.runtime_message, "Sending request to Groq…");
     assert!(matches!(command_rx.try_recv(), Ok(UiCommand::StartAgentRun { .. })));
 }
@@ -2711,12 +2711,13 @@ fn typed_agent_events_are_scoped_to_the_origin_document() {
     let first_session = super::agent_workflow_state::AgentUiSession::for_document(&first_id, None, None);
     let session_id = first_session.session.as_ref().expect("session should exist").id;
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
-    app.agent_sessions.insert(first_id.clone(), first_session);
-    app.agent_sessions.insert(
+    app.agent.sessions.insert(first_id.clone(), first_session);
+    app.agent.sessions.insert(
         second_id.clone(),
         super::agent_workflow_state::AgentUiSession::for_document(&second_id, None, None),
     );
-    app.agent_sessions
+    app.agent
+        .sessions
         .get_mut(&first_id)
         .expect("first session should exist")
         .active_run_id = Some(run_id);
@@ -2731,8 +2732,8 @@ fn typed_agent_events_are_scoped_to_the_origin_document() {
         },
     });
 
-    assert_eq!(app.agent_sessions[&first_id].streaming_text, "Use the users table");
-    assert!(app.agent_sessions[&second_id].streaming_text.is_empty());
+    assert_eq!(app.agent.sessions[&first_id].streaming_text, "Use the users table");
+    assert!(app.agent.sessions[&second_id].streaming_text.is_empty());
 }
 
 #[test]
@@ -2744,8 +2745,9 @@ fn typed_agent_patch_confirmation_applies_one_document_edit_and_continues() {
     let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
     let session_id = session.session.as_ref().expect("session should exist").id;
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
-    app.agent_sessions.insert(document_id.clone(), session);
-    app.agent_sessions
+    app.agent.sessions.insert(document_id.clone(), session);
+    app.agent
+        .sessions
         .get_mut(&document_id)
         .expect("session should exist")
         .active_run_id = Some(run_id);
@@ -2794,8 +2796,8 @@ fn typed_agent_failure_clears_stale_confirmation_and_marks_activity_failed() {
     let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
     let _session_id = session.session.as_ref().expect("session should exist").id;
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
-    app.agent_sessions.insert(document_id.clone(), session);
-    let session = app.agent_sessions.get_mut(&document_id).expect("session should exist");
+    app.agent.sessions.insert(document_id.clone(), session);
+    let session = app.agent.sessions.get_mut(&document_id).expect("session should exist");
     session.active_run_id = Some(run_id);
     session.request_id = Some(crate::RequestId(17));
     session.activities.push(super::agent_workflow_state::AgentUiActivity {
@@ -2818,7 +2820,7 @@ fn typed_agent_failure_clears_stale_confirmation_and_marks_activity_failed() {
         message: "provider unavailable".to_owned(),
     });
 
-    let session = &app.agent_sessions[&document_id];
+    let session = &app.agent.sessions[&document_id];
     assert_eq!(session.state, db_pro_core::domain::agent::AgentSessionState::Failed);
     assert_eq!(session.active_run_id, None);
     assert_eq!(session.request_id, None);
@@ -2865,7 +2867,7 @@ fn typed_agent_open_result_in_workspace_populates_query_document() {
             status: super::agent_workflow_state::AgentUiActivityStatus::Success,
         },
     );
-    app.agent_sessions.insert(document_id, session);
+    app.agent.sessions.insert(document_id, session);
 
     app.open_agent_result_in_workspace("query-1");
 
@@ -2885,8 +2887,8 @@ fn typed_agent_cancellation_marks_session_and_activities_cancelled() {
     let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
     let session_id = session.session.as_ref().expect("session should exist").id;
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
-    app.agent_sessions.insert(document_id.clone(), session);
-    let session = app.agent_sessions.get_mut(&document_id).expect("session should exist");
+    app.agent.sessions.insert(document_id.clone(), session);
+    let session = app.agent.sessions.get_mut(&document_id).expect("session should exist");
     session.active_run_id = Some(run_id);
     session.state = db_pro_core::domain::agent::AgentSessionState::Running;
     session.activities.push(super::agent_workflow_state::AgentUiActivity {
@@ -2906,7 +2908,7 @@ fn typed_agent_cancellation_marks_session_and_activities_cancelled() {
         },
     });
 
-    let session = &app.agent_sessions[&document_id];
+    let session = &app.agent.sessions[&document_id];
     assert_eq!(session.state, db_pro_core::domain::agent::AgentSessionState::Cancelled);
     assert_eq!(session.active_run_id, None);
     assert_eq!(
@@ -2923,8 +2925,8 @@ fn late_agent_workflow_events_are_ignored_after_cancellation() {
     let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
     let session_id = session.session.as_ref().expect("session should exist").id;
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
-    app.agent_sessions.insert(document_id.clone(), session);
-    let session = app.agent_sessions.get_mut(&document_id).expect("session should exist");
+    app.agent.sessions.insert(document_id.clone(), session);
+    let session = app.agent.sessions.get_mut(&document_id).expect("session should exist");
     session.active_run_id = Some(run_id);
     session.state = db_pro_core::domain::agent::AgentSessionState::Cancelled;
 
@@ -2939,7 +2941,7 @@ fn late_agent_workflow_events_are_ignored_after_cancellation() {
         },
     });
 
-    let session = &app.agent_sessions[&document_id];
+    let session = &app.agent.sessions[&document_id];
     assert_eq!(session.state, db_pro_core::domain::agent::AgentSessionState::Cancelled);
     assert!(session.streaming_text.is_empty());
 }
@@ -2951,14 +2953,14 @@ fn closing_query_tab_cleans_up_agent_session_and_cancels_active_run() {
     let document_id = app.query_session_state.documents[0].id.clone();
     let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
-    app.agent_sessions.insert(document_id.clone(), session);
-    let session = app.agent_sessions.get_mut(&document_id).expect("session should exist");
+    app.agent.sessions.insert(document_id.clone(), session);
+    let session = app.agent.sessions.get_mut(&document_id).expect("session should exist");
     session.active_run_id = Some(run_id);
     session.state = db_pro_core::domain::agent::AgentSessionState::Running;
 
     app.close_query_document(0);
 
-    assert!(!app.agent_sessions.contains_key(&document_id));
+    assert!(!app.agent.sessions.contains_key(&document_id));
     let mut saw_cancel = false;
     while let Ok(cmd) = command_rx.try_recv() {
         if let UiCommand::CancelAgentRun { run_id: cancelled, .. } = cmd {
@@ -5100,7 +5102,7 @@ fn test_agent_multitab_isolation_and_close_tab_cancellation() {
     let run_a_id = db_pro_core::domain::agent::AgentRunId::new();
     session_a.state = db_pro_core::domain::agent::AgentSessionState::Running;
     session_a.active_run_id = Some(run_a_id);
-    app.agent_sessions.insert(doc_a_id.clone(), session_a);
+    app.agent.sessions.insert(doc_a_id.clone(), session_a);
 
     // Send ToolRequested for Tab A
     app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::ToolRequested {
@@ -5115,22 +5117,22 @@ fn test_agent_multitab_isolation_and_close_tab_cancellation() {
     });
 
     // Tab A has 1 activity
-    assert_eq!(app.agent_sessions.get(&doc_a_id).unwrap().activities.len(), 1);
+    assert_eq!(app.agent.sessions.get(&doc_a_id).unwrap().activities.len(), 1);
 
     // Switch to Tab B
     app.query_session_state.active_document_index = 1;
     let session_b = super::agent_workflow_state::AgentUiSession::for_document(&doc_b_id, None, None);
-    app.agent_sessions.insert(doc_b_id.clone(), session_b);
+    app.agent.sessions.insert(doc_b_id.clone(), session_b);
 
     // Tab B session is isolated from Tab A
-    assert_eq!(app.agent_sessions.get(&doc_b_id).unwrap().activities.len(), 0);
-    assert_eq!(app.agent_sessions.get(&doc_b_id).unwrap().messages.len(), 0);
+    assert_eq!(app.agent.sessions.get(&doc_b_id).unwrap().activities.len(), 0);
+    assert_eq!(app.agent.sessions.get(&doc_b_id).unwrap().messages.len(), 0);
 
     // Close Tab A
     app.close_query_document(0);
 
     // Tab A session was cleaned up
-    assert!(!app.agent_sessions.contains_key(&doc_a_id));
+    assert!(!app.agent.sessions.contains_key(&doc_a_id));
 
     // Cancel command was dispatched for Tab A's active run
     assert!(matches!(
@@ -5145,7 +5147,7 @@ fn test_agent_multitab_isolation_and_close_tab_cancellation() {
         document_id: doc_a_id.clone(),
         delta: "Late message".to_owned(),
     });
-    assert!(!app.agent_sessions.contains_key(&doc_a_id));
+    assert!(!app.agent.sessions.contains_key(&doc_a_id));
 }
 
 #[test]
@@ -5178,7 +5180,7 @@ fn test_agent_vietnamese_ime_input_and_patch_version_safety() {
         }),
         document_id: doc_id.clone(),
     });
-    app.agent_sessions.insert(doc_id.clone(), session);
+    app.agent.sessions.insert(doc_id.clone(), session);
 
     // User attempts to apply patch - rejected due to stale version from typing
     app.agent_confirmation_action(true);
@@ -5227,7 +5229,7 @@ fn test_agent_vietnamese_valid_patch_application_and_undo() {
         }),
         document_id: doc_id.clone(),
     });
-    app.agent_sessions.insert(doc_id.clone(), session);
+    app.agent.sessions.insert(doc_id.clone(), session);
 
     // Approve the patch
     app.agent_confirmation_action(true);
@@ -5274,7 +5276,7 @@ fn test_agent_event_routing_ignores_mismatched_session_and_document_and_run_ids(
     let mut session = super::agent_workflow_state::AgentUiSession::for_document(&doc_id, None, None);
     let real_session_id = session.session.as_ref().unwrap().id;
     session.active_run_id = Some(real_run_id);
-    app.agent_sessions.insert(doc_id.clone(), session);
+    app.agent.sessions.insert(doc_id.clone(), session);
 
     // 1. Mismatched document_id -> ignored
     let wrong_doc_id = "doc-nonexistent".to_owned();
@@ -5284,8 +5286,8 @@ fn test_agent_event_routing_ignores_mismatched_session_and_document_and_run_ids(
         document_id: wrong_doc_id.clone(),
         delta: "ignored text".to_owned(),
     });
-    assert!(!app.agent_sessions.contains_key(&wrong_doc_id));
-    assert!(app.agent_sessions.get(&doc_id).unwrap().streaming_text.is_empty());
+    assert!(!app.agent.sessions.contains_key(&wrong_doc_id));
+    assert!(app.agent.sessions.get(&doc_id).unwrap().streaming_text.is_empty());
 
     // 2. Mismatched run_id -> ignored
     let wrong_run_id = db_pro_core::domain::agent::AgentRunId::new();
@@ -5295,7 +5297,7 @@ fn test_agent_event_routing_ignores_mismatched_session_and_document_and_run_ids(
         document_id: doc_id.clone(),
         delta: "stale run text".to_owned(),
     });
-    assert!(app.agent_sessions.get(&doc_id).unwrap().streaming_text.is_empty());
+    assert!(app.agent.sessions.get(&doc_id).unwrap().streaming_text.is_empty());
 
     // 3. Matching IDs -> accepted
     app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
@@ -5304,7 +5306,7 @@ fn test_agent_event_routing_ignores_mismatched_session_and_document_and_run_ids(
         document_id: doc_id.clone(),
         delta: "valid delta".to_owned(),
     });
-    assert_eq!(app.agent_sessions.get(&doc_id).unwrap().streaming_text, "valid delta");
+    assert_eq!(app.agent.sessions.get(&doc_id).unwrap().streaming_text, "valid delta");
 
     // 4. Wrong session_id with matching doc/run -> ignored
     let wrong_session_id = db_pro_core::domain::agent::AgentSessionId::new();
@@ -5314,7 +5316,7 @@ fn test_agent_event_routing_ignores_mismatched_session_and_document_and_run_ids(
         document_id: doc_id.clone(),
         delta: "ignored session delta".to_owned(),
     });
-    assert_eq!(app.agent_sessions.get(&doc_id).unwrap().streaming_text, "valid delta");
+    assert_eq!(app.agent.sessions.get(&doc_id).unwrap().streaming_text, "valid delta");
 }
 
 #[test]
@@ -5339,7 +5341,7 @@ fn test_agent_db_cancellation_and_terminal_cleanup() {
         status: super::agent_workflow_state::AgentUiActivityStatus::Running,
         duration_ms: None,
     });
-    app.agent_sessions.insert(doc_id.clone(), session);
+    app.agent.sessions.insert(doc_id.clone(), session);
 
     // Cancel the active agent run
     app.cancel_active_agent_run();
@@ -5357,7 +5359,7 @@ fn test_agent_db_cancellation_and_terminal_cleanup() {
         document_id: doc_id.clone(),
     });
 
-    let finished_session = app.agent_sessions.get(&doc_id).unwrap();
+    let finished_session = app.agent.sessions.get(&doc_id).unwrap();
     assert_eq!(
         finished_session.state,
         db_pro_core::domain::agent::AgentSessionState::Cancelled
@@ -5376,7 +5378,7 @@ fn test_agent_db_cancellation_and_terminal_cleanup() {
         document_id: doc_id.clone(),
         delta: "Late output".to_owned(),
     });
-    let after_late = app.agent_sessions.get(&doc_id).unwrap();
+    let after_late = app.agent.sessions.get(&doc_id).unwrap();
     assert_eq!(
         after_late.state,
         db_pro_core::domain::agent::AgentSessionState::Cancelled
@@ -5394,7 +5396,7 @@ fn test_agent_retry_isolation_and_session_routing() {
     let session_1_id = session.session.as_ref().unwrap().id;
     session.active_run_id = Some(run_1);
     session.state = db_pro_core::domain::agent::AgentSessionState::Running;
-    app.agent_sessions.insert(doc_id.clone(), session);
+    app.agent.sessions.insert(doc_id.clone(), session);
 
     // Run 1 fails
     app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::Failed {
@@ -5404,7 +5406,7 @@ fn test_agent_retry_isolation_and_session_routing() {
         message: "API error".to_owned(),
     });
 
-    let failed_session = app.agent_sessions.get(&doc_id).unwrap();
+    let failed_session = app.agent.sessions.get(&doc_id).unwrap();
     assert_eq!(
         failed_session.state,
         db_pro_core::domain::agent::AgentSessionState::Failed
@@ -5418,7 +5420,7 @@ fn test_agent_retry_isolation_and_session_routing() {
     assert_ne!(session_1_id, session_2_id);
     session_2.active_run_id = Some(run_2);
     session_2.state = db_pro_core::domain::agent::AgentSessionState::Running;
-    app.agent_sessions.insert(doc_id.clone(), session_2);
+    app.agent.sessions.insert(doc_id.clone(), session_2);
 
     // Late event from Run 1 / Session 1 -> ignored
     app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
@@ -5427,7 +5429,7 @@ fn test_agent_retry_isolation_and_session_routing() {
         document_id: doc_id.clone(),
         delta: "stale message".to_owned(),
     });
-    assert!(app.agent_sessions.get(&doc_id).unwrap().streaming_text.is_empty());
+    assert!(app.agent.sessions.get(&doc_id).unwrap().streaming_text.is_empty());
 
     // Event from Run 2 / Session 2 -> accepted
     app.on_agent_workflow_event(db_pro_core::domain::agent_workflow::AgentWorkflowEvent::TextDelta {
@@ -5437,7 +5439,7 @@ fn test_agent_retry_isolation_and_session_routing() {
         delta: "active message".to_owned(),
     });
     assert_eq!(
-        app.agent_sessions.get(&doc_id).unwrap().streaming_text,
+        app.agent.sessions.get(&doc_id).unwrap().streaming_text,
         "active message"
     );
 }

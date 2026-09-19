@@ -74,14 +74,15 @@ impl DbProApp {
         let closed_id = self.query_session_state.documents[index].id.clone();
         let closed_title = self.query_session_state.documents[index].title.clone();
         if let Some(run_id) = self
-            .agent_sessions
+            .agent
+            .sessions
             .get(&closed_id)
             .and_then(|session| session.active_run_id)
         {
             let request_id = self.task_bridge.next_request_id();
             let _ = self.task_bridge.send(UiCommand::CancelAgentRun { request_id, run_id });
         }
-        self.agent_sessions.remove(&closed_id);
+        self.agent.sessions.remove(&closed_id);
         self.query_session_state.documents.remove(index);
         self.query_output_state.tabs_by_document.remove(&closed_id);
 

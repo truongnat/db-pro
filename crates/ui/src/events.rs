@@ -47,8 +47,8 @@ impl DbProApp {
                 message,
             } => self.on_agent_completed(request_id, provider, message),
             UiEvent::AgentProviderReady { provider, detail } => {
-                self.agent_provider_label = provider;
-                self.agent_provider_detail = detail;
+                self.agent.provider_label = provider;
+                self.agent.provider_detail = detail;
             }
             UiEvent::AgentFailed { request_id, message } => self.on_agent_failed(request_id, message),
             UiEvent::AgentToolCompleted { .. } | UiEvent::AgentToolFailed { .. } => {}
@@ -396,15 +396,16 @@ impl DbProApp {
 
     fn on_agent_completed(&mut self, _request_id: RequestId, provider: String, message: AgentMessage) {
         let provider_detail = format!("{provider} Responses API · SQL drafts stay unexecuted");
-        self.agent_provider_label = provider;
-        self.agent_provider_detail = provider_detail;
-        self.agent_messages.push(message);
+        self.agent.provider_label = provider;
+        self.agent.provider_detail = provider_detail;
+        self.agent.messages.push(message);
         self.runtime_message = "Agent response received".to_owned();
     }
 
     fn on_agent_failed(&mut self, request_id: RequestId, message: String) {
         if let Some(session) = self
-            .agent_sessions
+            .agent
+            .sessions
             .values_mut()
             .find(|session| session.request_id == Some(request_id))
         {
@@ -428,30 +429,30 @@ impl DbProApp {
     }
 
     fn on_agent_configured(&mut self, request_id: RequestId, provider: String, detail: String) {
-        if self.agent_configure_request != Some(request_id) {
+        if self.agent.configure_request != Some(request_id) {
             return;
         }
-        self.agent_configure_request = None;
-        self.agent_provider_label = provider.clone();
-        self.agent_provider_detail = detail;
-        self.agent_settings_open = false;
-        self.agent_api_key_draft.clear();
-        self.agent_api_key_show_password = false;
+        self.agent.configure_request = None;
+        self.agent.provider_label = provider.clone();
+        self.agent.provider_detail = detail;
+        self.agent.settings_open = false;
+        self.agent.api_key_draft.clear();
+        self.agent.api_key_show_password = false;
         let message = format!("{provider} API key saved · provider active");
         self.runtime_message = message.clone();
         self.show_toast_success(message);
     }
 
     fn on_agent_forgotten(&mut self, request_id: RequestId) {
-        if self.agent_configure_request != Some(request_id) {
+        if self.agent.configure_request != Some(request_id) {
             return;
         }
-        self.agent_configure_request = None;
-        self.agent_provider_label = "Offline draft".to_owned();
-        self.agent_provider_detail = "AI provider not configured · local drafts stay unexecuted".to_owned();
-        self.agent_settings_open = false;
-        self.agent_api_key_draft.clear();
-        self.agent_api_key_show_password = false;
+        self.agent.configure_request = None;
+        self.agent.provider_label = "Offline draft".to_owned();
+        self.agent.provider_detail = "AI provider not configured · local drafts stay unexecuted".to_owned();
+        self.agent.settings_open = false;
+        self.agent.api_key_draft.clear();
+        self.agent.api_key_show_password = false;
         let message = "API key forgotten · provider inactive".to_owned();
         self.runtime_message = message.clone();
         self.show_toast_success(message);

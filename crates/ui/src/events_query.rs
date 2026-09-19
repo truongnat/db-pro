@@ -407,8 +407,8 @@ impl DbProApp {
         position: Option<usize>,
         code: Option<String>,
     ) {
-        if self.agent_configure_request == Some(request_id) {
-            self.agent_configure_request = None;
+        if self.agent.configure_request == Some(request_id) {
+            self.agent.configure_request = None;
             self.runtime_message = format!("Agent key operation failed · {message}");
             self.show_toast_error(self.runtime_message.clone());
         } else if self.connection_lifecycle.pending_request == Some(request_id) {
