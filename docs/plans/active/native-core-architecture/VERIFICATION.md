@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `d05077ce`.
+Source checkpoint: `f1f2d0eb`.
 
 ## Current change
 
@@ -159,6 +159,9 @@ Source checkpoint: `d05077ce`.
 - Query document collection invariants now live on `QuerySessionState`; add,
   select, remove, keep-one, truncate-right and reset operations no longer
   mutate the document vector and active index ad hoc in `DbProApp` helpers.
+- Active query text, explain state, running request, result selection/count and
+  message projections now live on `QuerySessionState`; the root keeps only
+  cancellation, connection lookup and grid-invalidation orchestration.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

@@ -235,6 +235,9 @@ that explicit state API.
 Query document collection invariants now follow the same rule on
 `QuerySessionState`; document lifecycle helpers no longer edit the collection
 and active index independently through the composition root.
+Active query text, explain state, running request, result selection/count and
+message projections now follow the same rule on `QuerySessionState`; the root
+only coordinates cancellation, connection lookup and grid invalidation.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
