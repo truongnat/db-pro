@@ -143,6 +143,8 @@ over explicit state, with only root wrappers retained for orchestration. The
 connection lifecycle event reducer now follows the same explicit-state shape;
 `connection_events.rs` no longer implements methods on `DbProApp`, and the
 root only performs the follow-up connect/schema/query orchestration. The
+connection deletion confirmation is also isolated in `connection/delete_dialog.rs`
+with explicit overlay/catalog/lifecycle/runtime dependencies. The
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

@@ -15,6 +15,7 @@
 - [x] Connection dialog view/form/advanced panels use an explicit feature view context.
 - [x] Connection status/schema helpers use explicit state inputs instead of `DbProApp` methods.
 - [x] Connection lifecycle reducers use explicit state inputs instead of `DbProApp` methods.
+- [x] Connection deletion confirmation uses an explicit feature context.
 
 ## Remaining migrations
 
