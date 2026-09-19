@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `77a27f0c846a896b6e3452f905e1c15108cc4aa1`.
+Source checkpoint: `0fc757d841a63a31af545da808694ab975bde555`.
 
 ## Current change
 
@@ -19,15 +19,17 @@ Source checkpoint: `77a27f0c846a896b6e3452f905e1c15108cc4aa1`.
   overrides.
 - `TableDataState` now owns grid projection/layout, filtering/sorting,
   selection, cell editor, inspector and insert-row interaction state.
-- Unit tests for the new aggregates: 9 passed, 0 failed.
+- `TableState` now owns table metadata, table view, introspection/DDL/data
+  requests, paging, filters, metadata searches, details and row reload state.
+- Unit tests for the new aggregates: 10 passed, 0 failed.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 557 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 558 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1229 passed, 0 failed, 42 ignored.
+- `cargo test --workspace --no-fail-fast`: 1230 passed, 0 failed, 42 ignored.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 11 pass, 5 warnings, 0 failures; warnings are ratcheted size/cast/clone heuristics.
 

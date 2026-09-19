@@ -12,7 +12,9 @@
 
 - [x] Workspace shell/navigation aggregate.
 - [x] Query document/session aggregate.
-- [x] Table/data interaction aggregate (grid/editor state; metadata/mutation remains).
+- [x] Table/data interaction aggregate (grid/editor state).
+- [x] Table metadata/request aggregate (introspection, paging, filters and table view state).
+- [ ] Table mutation/change-set effects aggregate.
 - [ ] Agent/task aggregate.
 - [ ] Runtime event dispatch split by feature.
 - [ ] `DbProApp` reduced to composition root.
@@ -23,7 +25,7 @@
 - [x] `cargo fmt --all -- --check` (PASS)
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
-- [x] `cargo test -p db-pro-ui --lib` (555 passed)
-- [x] `cargo test --workspace --no-fail-fast` (1227 passed, 0 failed, 42 ignored)
+- [x] `cargo test -p db-pro-ui --lib` (558 passed)
+- [x] `cargo test --workspace --no-fail-fast` (1230 passed, 0 failed, 42 ignored)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [ ] Native runtime evidence for affected surfaces.

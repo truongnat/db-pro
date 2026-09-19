@@ -37,7 +37,8 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
 4. Query document/session state and output lifecycle — completed in
    `24f8692a`.
 5. Table/data editor state and mutation effects — grid/editor interaction state
-   completed in `77a27f0c`; table metadata and mutation effects remain.
+   completed in `77a27f0c`; table metadata/request state completed in
+   `0fc757d8`; mutation effects remain.
 6. Agent state and task lifecycle.
 7. Remove remaining feature fields from `DbProApp`; leave it as composition,
    persistence, event pump, and top-level orchestration only.

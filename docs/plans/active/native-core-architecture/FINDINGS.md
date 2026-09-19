@@ -80,3 +80,16 @@ Fix in `77a27f0c`: those interaction values now have one owner,
 mutation orchestration remain a separate follow-up.
 
 Severity: P1 boundary leak, resolved for interaction state.
+
+## F8 — Table metadata and request state was coupled to the composition root
+
+Evidence: table introspection, DDL/data requests, paging, table-data filters,
+metadata searches, table details, table view selection and row reload tracking
+were individual `DbProApp` fields consumed across table views and event
+handling.
+
+Fix in `0fc757d8`: those values now have one owner, `TableState`, with a
+default-state test. Mutation/change-set effects remain intentionally separate
+for the next migration slice.
+
+Severity: P1 boundary leak, resolved for metadata/request state.
