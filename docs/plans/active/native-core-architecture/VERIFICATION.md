@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `f2aa9c28`.
+Source checkpoint: `c3842bf6`.
 
 ## Current change
 
@@ -145,6 +145,9 @@ Source checkpoint: `f2aa9c28`.
   it allocates a request and dispatches provider work.
 - Transaction policy transitions now live on `QueryExecutionPolicyState` and
   return explicit SQL effects; the root only dispatches the returned effect.
+- The capture-only native entrypoint now uses the feature-owned new-connection
+  helper, so the capture-feature release build stays aligned with the dialog
+  lifecycle migration.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
@@ -194,7 +197,7 @@ Source checkpoint: `f2aa9c28`.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1259 passed, 0 failed, 42 ignored.
+- `cargo test --workspace --no-fail-fast`: 1261 passed, 0 failed, 42 ignored.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 11 pass, 5 warnings, 0 failures; warnings are ratcheted size/cast/clone heuristics.

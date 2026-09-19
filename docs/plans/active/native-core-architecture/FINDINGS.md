@@ -222,6 +222,8 @@ orchestration because it allocates a request and dispatches provider work.
 Transaction policy transitions now follow the same rule on
 `QueryExecutionPolicyState` and return explicit SQL effects; the root only
 dispatches the returned effect.
+The capture-only native entrypoint now uses the feature-owned new-connection
+helper, keeping the capture build aligned with the dialog lifecycle migration.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
