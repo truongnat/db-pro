@@ -98,7 +98,8 @@ impl DbProApp {
                 );
 
                 // Column title + data type + sort icon
-                let table_sort = (self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data)
+                let table_sort = (self.workspace.active_tab == WorkspaceTab::Table
+                    && self.table_view == TableView::Data)
                     .then(|| self.table_data_sorts.iter().find(|sort| sort.column == column.name))
                     .flatten();
                 let table_sort_priority = table_sort.and_then(|_| {
@@ -247,7 +248,7 @@ impl DbProApp {
                         self.set_table_or_grid_sort(result, col_idx, None);
                         *close_menu = true;
                     }
-                    if self.active_tab == WorkspaceTab::Table
+                    if self.workspace.active_tab == WorkspaceTab::Table
                         && self.table_view == TableView::Data
                         && ctx_menu_item(ui, Some(Icon::Filter), "Add Filter", None, theme.text_primary, theme)
                             .clicked()
@@ -343,7 +344,7 @@ impl DbProApp {
                 });
 
                 if col_resp.clicked() && !divider.dragged() {
-                    if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+                    if self.workspace.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
                         self.cycle_table_data_sort(result, col_idx, ui.input(|input| input.modifiers.shift));
                     } else if self.grid_sort_column == Some(col_idx) {
                         self.set_table_or_grid_sort(

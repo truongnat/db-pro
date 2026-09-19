@@ -320,8 +320,8 @@ impl DbProApp {
                     if let Some(doc) = self.query_documents.last_mut() {
                         doc.set_text(sql);
                     }
-                    self.active_tab = WorkspaceTab::Query;
-                    self.activity = Activity::Queries;
+                    self.workspace.active_tab = WorkspaceTab::Query;
+                    self.workspace.activity = Activity::Queries;
                 }
             });
         });

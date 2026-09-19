@@ -66,12 +66,12 @@ impl DbProApp {
         }
         if intent.new_query {
             self.new_query_document();
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
         if intent.open_draft_query {
             let draft = self.welcome_prompt.trim().to_owned();
             self.set_active_query_text(draft);
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
             self.runtime_message = "Opened draft in Query".to_owned();
         }
         if intent.open_palette {

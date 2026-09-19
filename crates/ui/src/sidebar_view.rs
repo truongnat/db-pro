@@ -20,7 +20,7 @@ impl DbProApp {
         // a dead gutter between our painted splitter and the workspace. Keep the
         // SidePanel allocation empty/exact, and draw interactive content in a
         // separate layer clipped to that width.
-        let sidebar_width = self.sidebar_width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
+        let sidebar_width = self.workspace.sidebar_width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
         let theme = self.theme;
         let response = egui::SidePanel::left("sidebar")
             .resizable(false)
@@ -214,7 +214,7 @@ impl DbProApp {
 
         if new_query_resp.clicked() {
             self.new_query_document();
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
         new_query_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
 
@@ -223,7 +223,7 @@ impl DbProApp {
         ui.add_space(SPACE_XS);
 
         // ── 3. Per-activity content ────────────────────────────────────
-        match self.activity {
+        match self.workspace.activity {
             Activity::Explorer => self.draw_explorer_sub_panes(ui),
             _ => {
                 let scroll_h = ui.available_height();
@@ -233,7 +233,7 @@ impl DbProApp {
                     .max_height(scroll_h)
                     .show(ui, |ui| {
                         ui.add_space(4.0);
-                        match self.activity {
+                        match self.workspace.activity {
                             Activity::Queries => self.draw_queries(ui),
                             Activity::Files => self.draw_files_activity(ui),
                             Activity::Data => self.draw_data_activity(ui),
@@ -276,7 +276,7 @@ impl DbProApp {
     /// Drag grip + separator locked to `sidebar_width` from the panel's left edge.
     fn draw_sidebar_resize_handle(&mut self, ctx: &egui::Context, panel_left: f32, y_range: egui::Rangef) {
         let theme = self.theme;
-        let sidebar_width = self.sidebar_width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
+        let sidebar_width = self.workspace.sidebar_width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
         let grip = ctx.style().interaction.resize_grab_radius_side.max(5.0);
         let edge_x = panel_left + sidebar_width;
         let resize_rect = Rect::from_x_y_ranges((edge_x - grip)..=(edge_x + grip), y_range);
@@ -299,7 +299,7 @@ impl DbProApp {
                 .pointer_interact_pos()
                 .or_else(|| drag_response.interact_pointer_pos())
             {
-                self.sidebar_width = (pointer.x - panel_left).clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
+                self.workspace.set_sidebar_width(pointer.x - panel_left);
                 ctx.request_repaint();
             }
         }

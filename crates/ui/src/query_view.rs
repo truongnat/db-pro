@@ -96,14 +96,16 @@ impl DbProApp {
                 }
 
                 let status_h = QUERY_STATUS_HEIGHT;
-                let dock_open = self.bottom_panel_open;
+                let dock_open = self.workspace.bottom_panel_open;
                 let available = ui.available_height();
                 let dock_h = if !dock_open {
                     0.0
                 } else if self.query_output_dock_maximized {
                     (available - status_h - 80.0).max(OUTPUT_MIN_HEIGHT)
                 } else {
-                    self.bottom_panel_height.clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT)
+                    self.workspace
+                        .bottom_panel_height
+                        .clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT)
                 };
                 let editor_h = if self.query_output_dock_maximized && dock_open {
                     80.0
@@ -377,8 +379,8 @@ impl DbProApp {
             },
         );
         if grip_resp.dragged() {
-            self.bottom_panel_height =
-                (self.bottom_panel_height - grip_resp.drag_delta().y).clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
+            self.workspace
+                .set_bottom_panel_height(self.workspace.bottom_panel_height - grip_resp.drag_delta().y);
             self.query_output_dock_maximized = false;
         }
         grip_resp.on_hover_cursor(egui::CursorIcon::ResizeVertical);
@@ -433,7 +435,7 @@ impl DbProApp {
                 ui.spacing_mut().item_spacing = egui::vec2(8.0, 0.0);
                 ui.add_space(SPACE_XS);
                 self.draw_query_run_stop_button(ui, connected, modifier);
-                if !self.bottom_panel_open
+                if !self.workspace.bottom_panel_open
                     && Button::new(self.theme)
                         .icon(Icon::PanelBottom)
                         .variant(ButtonVariant::Ghost)
@@ -442,7 +444,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.bottom_panel_open = true;
+                    self.workspace.bottom_panel_open = true;
                 }
 
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
@@ -500,7 +502,7 @@ impl DbProApp {
                             .sense(egui::Sense::click()),
                         );
                         if resp.clicked() {
-                            self.bottom_panel_open = true;
+                            self.workspace.bottom_panel_open = true;
                             if let Some(doc_id) = self
                                 .query_documents
                                 .get(self.active_query_document)
@@ -1171,7 +1173,7 @@ impl DbProApp {
             self.query_cursor_line = doc.cursor.line + 1;
             self.query_cursor_column = doc.cursor.col + 1;
         }
-        self.active_tab = WorkspaceTab::Query;
+        self.workspace.active_tab = WorkspaceTab::Query;
         self.refresh_diagnostics();
         self.runtime_message = "Snippet inserted".to_owned();
     }

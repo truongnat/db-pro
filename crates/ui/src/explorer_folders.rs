@@ -159,7 +159,7 @@ impl DbProApp {
                 format!("{}.{}", view.schema, view.name)
             };
             self.set_active_query_text(format!("SELECT *\nFROM {from}\nLIMIT 100;"));
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
     }
 
@@ -256,7 +256,7 @@ impl DbProApp {
         }
         if open_query {
             self.set_active_query_text(format!("SELECT * FROM {}.{}();", function.schema, function.name));
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
     }
 
@@ -350,7 +350,7 @@ impl DbProApp {
         self.table_info = None;
         self.table_ddl = None;
         self.table_view = TableView::Ddl;
-        self.active_tab = WorkspaceTab::SchemaObject;
+        self.workspace.active_tab = WorkspaceTab::SchemaObject;
         self.routine_drop_confirm = false;
         self.routine_ddl_preview = None;
         if let SchemaObjectSelection::Function {

@@ -66,7 +66,7 @@ impl DbProApp {
                     .clicked()
                 {
                     self.set_active_query_text(details.query.clone());
-                    self.active_tab = WorkspaceTab::Query;
+                    self.workspace.active_tab = WorkspaceTab::Query;
                 }
             });
         });
@@ -158,7 +158,7 @@ impl DbProApp {
                     self.preview_routine_mutation(&function, ObjectAction::Alter);
                     if let Some(sql) = self.routine_ddl_preview.clone() {
                         self.set_active_query_text(sql);
-                        self.active_tab = WorkspaceTab::Query;
+                        self.workspace.active_tab = WorkspaceTab::Query;
                         self.dispatch_query();
                     }
                 }
@@ -197,7 +197,7 @@ impl DbProApp {
                         self.preview_routine_mutation(&function, ObjectAction::Drop);
                         if let Some(sql) = self.routine_ddl_preview.clone() {
                             self.set_active_query_text(sql);
-                            self.active_tab = WorkspaceTab::Query;
+                            self.workspace.active_tab = WorkspaceTab::Query;
                             self.dispatch_query();
                         }
                         self.routine_drop_confirm = false;
@@ -301,7 +301,7 @@ impl DbProApp {
                     .clicked()
                 {
                     self.set_active_query_text(invoke_sql.clone());
-                    self.active_tab = WorkspaceTab::Query;
+                    self.workspace.active_tab = WorkspaceTab::Query;
                     self.dispatch_query();
                 }
                 if Button::new(self.theme)
@@ -313,7 +313,7 @@ impl DbProApp {
                     .clicked()
                 {
                     self.set_active_query_text(invoke_sql.clone());
-                    self.active_tab = WorkspaceTab::Query;
+                    self.workspace.active_tab = WorkspaceTab::Query;
                 }
             });
             if is_proc {

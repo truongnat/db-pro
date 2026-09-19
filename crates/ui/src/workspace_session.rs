@@ -168,8 +168,8 @@ fn parse_tab(label: &str) -> WorkspaceTab {
 impl DbProApp {
     pub(crate) fn capture_workspace_session(&self, name: impl Into<String>) -> WorkspaceSession {
         let mut session = WorkspaceSession::new_named(name);
-        session.activity = activity_label(self.activity).to_owned();
-        session.active_tab = tab_label(self.active_tab).to_owned();
+        session.activity = activity_label(self.workspace.activity).to_owned();
+        session.active_tab = tab_label(self.workspace.active_tab).to_owned();
         session.active_connection_id = self.connection_lifecycle.active_connection_id.clone();
         session.selected_schema = self.selected_schema.clone();
         session.open_document_ids = self.query_documents.iter().map(|d| d.id.clone()).collect();
@@ -178,25 +178,25 @@ impl DbProApp {
             .get(self.active_query_document)
             .map(|d| d.id.clone());
         session.pinned_tables = self.pinned_tables.clone();
-        session.sidebar_open = self.sidebar_open;
-        session.agent_open = self.agent_open;
-        session.sidebar_width = self.sidebar_width;
-        session.agent_width = self.agent_width;
-        session.bottom_panel_open = self.bottom_panel_open;
-        session.bottom_panel_height = self.bottom_panel_height;
+        session.sidebar_open = self.workspace.sidebar_open;
+        session.agent_open = self.workspace.agent_open;
+        session.sidebar_width = self.workspace.sidebar_width;
+        session.agent_width = self.workspace.agent_width;
+        session.bottom_panel_open = self.workspace.bottom_panel_open;
+        session.bottom_panel_height = self.workspace.bottom_panel_height;
         session
     }
 
     pub(crate) fn apply_workspace_session(&mut self, session: &WorkspaceSession) {
         let mut notes = Vec::new();
-        self.activity = parse_activity(&session.activity);
-        self.active_tab = parse_tab(&session.active_tab);
-        self.sidebar_open = session.sidebar_open;
-        self.agent_open = session.agent_open;
-        self.sidebar_width = session.sidebar_width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
-        self.agent_width = session.agent_width.clamp(AGENT_MIN_WIDTH, AGENT_MAX_WIDTH);
-        self.bottom_panel_open = session.bottom_panel_open;
-        self.bottom_panel_height = session.bottom_panel_height.clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
+        self.workspace.activity = parse_activity(&session.activity);
+        self.workspace.active_tab = parse_tab(&session.active_tab);
+        self.workspace.sidebar_open = session.sidebar_open;
+        self.workspace.agent_open = session.agent_open;
+        self.workspace.set_sidebar_width(session.sidebar_width);
+        self.workspace.set_agent_width(session.agent_width);
+        self.workspace.bottom_panel_open = session.bottom_panel_open;
+        self.workspace.set_bottom_panel_height(session.bottom_panel_height);
         self.pinned_tables = session.pinned_tables.clone();
         self.selected_schema = session.selected_schema.clone();
 

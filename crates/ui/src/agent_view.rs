@@ -18,7 +18,7 @@ impl DbProApp {
     pub(super) fn draw_agent_panel(&mut self, ctx: &egui::Context) {
         let mut submit = false;
         let mut copy_sql = None;
-        let agent_width = self.agent_width;
+        let agent_width = self.workspace.agent_width;
         let response = egui::SidePanel::right("agent_panel")
             .resizable(true)
             .default_width(agent_width)
@@ -39,7 +39,7 @@ impl DbProApp {
                     self.draw_agent_composer(ui, &mut submit);
                 }
             });
-        self.agent_width = response.response.rect.width().clamp(AGENT_MIN_WIDTH, AGENT_MAX_WIDTH);
+        self.workspace.set_agent_width(response.response.rect.width());
         if submit {
             self.submit_agent_prompt();
         }

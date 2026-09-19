@@ -23,12 +23,12 @@ impl DbProApp {
                 ui.set_min_size(ui.available_size());
                 ui.horizontal_centered(|ui| {
                     // 0. Toggle Sidebar Button (Codex style)
-                    let toggle_tooltip = if self.sidebar_open {
+                    let toggle_tooltip = if self.workspace.sidebar_open {
                         format!("Collapse Sidebar ({}B)", modifier)
                     } else {
                         format!("Expand Sidebar ({}B)", modifier)
                     };
-                    let toggle_icon = if self.sidebar_open {
+                    let toggle_icon = if self.workspace.sidebar_open {
                         Icon::PanelLeftClose
                     } else {
                         Icon::PanelLeft
@@ -41,7 +41,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        self.sidebar_open = !self.sidebar_open;
+                        self.workspace.sidebar_open = !self.workspace.sidebar_open;
                     }
                     ui.add_space(2.0);
 
@@ -133,12 +133,12 @@ impl DbProApp {
                             .show(ui)
                             .clicked()
                         {
-                            self.active_tab = WorkspaceTab::ComponentGallery;
+                            self.workspace.active_tab = WorkspaceTab::ComponentGallery;
                         }
                         // No shortcut is bound to the agent panel, so the tooltip must
                         // not advertise one (it previously claimed a hardcoded ⌘I that
                         // existed on no platform and in no handler).
-                        let agent_tooltip = if self.agent_open {
+                        let agent_tooltip = if self.workspace.agent_open {
                             "Close Copilot Panel"
                         } else {
                             "Open Copilot Assistant"
@@ -151,7 +151,7 @@ impl DbProApp {
                             .show(ui)
                             .clicked()
                         {
-                            self.set_agent_open(!self.agent_open, ctx);
+                            self.set_agent_open(!self.workspace.agent_open, ctx);
                         }
                         let theme_icon = if self.dark_mode { Icon::Sun } else { Icon::Moon };
                         let theme_tooltip = if self.dark_mode {
@@ -298,7 +298,7 @@ impl DbProApp {
                             .show(ui)
                             .clicked()
                         {
-                            self.bottom_panel_open = !self.bottom_panel_open;
+                            self.workspace.bottom_panel_open = !self.workspace.bottom_panel_open;
                         }
                         if self.shows_editor_status() {
                             ui.label(RichText::new("UTF-8").font(font_mono_sm()).color(self.theme.text_muted));
@@ -323,10 +323,10 @@ impl DbProApp {
     }
 
     pub(super) fn draw_output_panel(&mut self, ctx: &egui::Context) {
-        if !self.bottom_panel_open {
+        if !self.workspace.bottom_panel_open {
             return;
         }
-        let height = self.bottom_panel_height;
+        let height = self.workspace.bottom_panel_height;
         let response = TopBottomPanel::bottom("output_panel")
             .resizable(true)
             .default_height(height)
@@ -356,7 +356,7 @@ impl DbProApp {
                             .on_hover_text("Close output")
                             .clicked()
                         {
-                            self.bottom_panel_open = false;
+                            self.workspace.bottom_panel_open = false;
                         }
                     });
                 });
@@ -411,11 +411,7 @@ impl DbProApp {
                     }
                 }
             });
-        self.bottom_panel_height = response
-            .response
-            .rect
-            .height()
-            .clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
+        self.workspace.set_bottom_panel_height(response.response.rect.height());
     }
 
     /// Transfers activity: streaming job list + synthetic harness (#193).
@@ -437,9 +433,9 @@ impl DbProApp {
             );
             ui.add_space(6.0);
             if secondary_button_with_icon(ui, Icon::Archive, "Open Backup settings", self.theme).clicked() {
-                self.activity = Activity::Settings;
+                self.workspace.activity = Activity::Settings;
                 self.settings_section = SettingsSection::Backup;
-                self.sidebar_open = true;
+                self.workspace.sidebar_open = true;
             }
         });
         ui.add_space(SPACE_MD);
@@ -762,7 +758,7 @@ impl DbProApp {
         match db_pro_core::domain::synthetic_data::render_insert_sql(&plan, &rows) {
             Ok(sql) => {
                 self.set_active_query_text(sql);
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
                 self.synthetic_error = None;
                 self.runtime_message = format!("Synthetic INSERT SQL ({count} rows) exported to Query editor");
             }
@@ -1486,8 +1482,8 @@ impl DbProApp {
                             ui.horizontal(|ui| {
                                 if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
                                     self.set_active_query_text(query.clone());
-                                    self.active_tab = WorkspaceTab::Query;
-                                    self.activity = Activity::Explorer;
+                                    self.workspace.active_tab = WorkspaceTab::Query;
+                                    self.workspace.activity = Activity::Explorer;
                                 }
                                 if !session.is_current
                                     && secondary_button_with_icon(ui, Icon::Ban, "Cancel", self.theme).clicked()
@@ -1693,8 +1689,8 @@ impl DbProApp {
                             ui.label(RichText::new(short).monospace().small().color(self.theme.text_primary));
                             if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
                                 self.set_active_query_text(stmt.query.clone());
-                                self.active_tab = WorkspaceTab::Query;
-                                self.activity = Activity::Explorer;
+                                self.workspace.active_tab = WorkspaceTab::Query;
+                                self.workspace.activity = Activity::Explorer;
                             }
                         });
                         ui.add_space(SPACE_SM);
@@ -1794,8 +1790,8 @@ impl DbProApp {
                             ui.label(RichText::new(short).monospace().small().color(self.theme.text_muted));
                             if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
                                 self.set_active_query_text(q.clone());
-                                self.active_tab = WorkspaceTab::Query;
-                                self.activity = Activity::Explorer;
+                                self.workspace.active_tab = WorkspaceTab::Query;
+                                self.workspace.activity = Activity::Explorer;
                             }
                         }
                         ui.horizontal(|ui| {
@@ -3502,8 +3498,8 @@ impl DbProApp {
             );
             ui.add_space(10.0);
             if secondary_button_with_icon(ui, Icon::Database, "Back to Explorer", self.theme).clicked() {
-                self.activity = Activity::Explorer;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Explorer;
+                self.workspace.sidebar_open = true;
             }
         });
     }
@@ -3522,7 +3518,7 @@ impl DbProApp {
         }
         if compact_button_with_icon(ui, Icon::GitCompare, "Diff vs snapshot", self.theme).clicked() {
             self.diff_against_schema_snapshot();
-            self.active_tab = WorkspaceTab::SchemaCompare;
+            self.workspace.active_tab = WorkspaceTab::SchemaCompare;
         }
         ui.add_space(8.0);
         if let Some(snap) = &self.schema_snapshot {

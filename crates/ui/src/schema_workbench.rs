@@ -142,9 +142,9 @@ impl DbProApp {
         if let Some(table) = self.selected_table.clone() {
             self.schema_workbench.parent_table = table;
         }
-        self.activity = Activity::Schema;
-        self.active_tab = WorkspaceTab::SchemaWorkbench;
-        self.sidebar_open = true;
+        self.workspace.activity = Activity::Schema;
+        self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
+        self.workspace.sidebar_open = true;
     }
 
     pub(super) fn draw_schema_workbench_sidebar(&mut self, ui: &mut egui::Ui) {
@@ -175,7 +175,7 @@ impl DbProApp {
             let selected = self.schema_workbench.mode == mode;
             if sidebar_item(ui, icon, label, selected, self.theme).clicked() {
                 self.schema_workbench.mode = mode;
-                self.active_tab = WorkspaceTab::SchemaWorkbench;
+                self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
             }
             ui.add_space(2.0);
         }
@@ -317,7 +317,7 @@ impl DbProApp {
                 if let Some(doc) = self.query_documents.last_mut() {
                     doc.set_text(format!("-- Schema docs export\n/*\n{body}\n*/"));
                 }
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
             }
         });
         ui.add_space(6.0);

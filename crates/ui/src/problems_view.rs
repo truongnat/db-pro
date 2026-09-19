@@ -82,9 +82,9 @@ impl DbProApp {
         } else {
             self.selected_query.clear();
         }
-        self.activity = Activity::Problems;
-        self.sidebar_open = true;
-        self.active_tab = WorkspaceTab::Query;
+        self.workspace.activity = Activity::Problems;
+        self.workspace.sidebar_open = true;
+        self.workspace.active_tab = WorkspaceTab::Query;
         self.problems_selected = Some((doc.id.clone(), diagnostic_index));
         self.runtime_message = format!("Jumped to problem in {}", doc.title);
     }
@@ -116,7 +116,7 @@ impl DbProApp {
         self.query_cursor_line = doc.cursor.line + 1;
         self.query_cursor_column = doc.cursor.col + 1;
         let title = doc.title.clone();
-        self.active_tab = WorkspaceTab::Query;
+        self.workspace.active_tab = WorkspaceTab::Query;
         self.refresh_diagnostics();
         self.runtime_message = format!("Applied quick fix in {title}");
         true

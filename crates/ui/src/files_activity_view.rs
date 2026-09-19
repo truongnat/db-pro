@@ -153,7 +153,7 @@ impl DbProApp {
 
         ui.add_space(6.0);
         let tab_labels = ["Tree", "Search", "Migrations", "Tasks", "Graph", "Git"];
-        let selected_tab = match self.files_panel_tab {
+        let selected_tab = match self.workspace.files_panel_tab {
             FilesPanelTab::Tree => 0,
             FilesPanelTab::Search => 1,
             FilesPanelTab::Migrations => 2,
@@ -162,7 +162,7 @@ impl DbProApp {
             FilesPanelTab::Git => 5,
         };
         if let Some(next) = segmented_control(ui, &tab_labels, selected_tab, false, self.theme) {
-            self.files_panel_tab = match next {
+            self.workspace.files_panel_tab = match next {
                 1 => FilesPanelTab::Search,
                 2 => FilesPanelTab::Migrations,
                 3 => FilesPanelTab::Tasks,
@@ -170,13 +170,13 @@ impl DbProApp {
                 5 => FilesPanelTab::Git,
                 _ => FilesPanelTab::Tree,
             };
-            if self.files_panel_tab == FilesPanelTab::Git {
+            if self.workspace.files_panel_tab == FilesPanelTab::Git {
                 self.refresh_git_status();
             }
         }
         ui.add_space(6.0);
 
-        match self.files_panel_tab {
+        match self.workspace.files_panel_tab {
             FilesPanelTab::Tree => self.draw_files_tree_tab(ui),
             FilesPanelTab::Search => self.draw_files_search_tab(ui),
             FilesPanelTab::Migrations => self.draw_files_migrations_tab(ui),
@@ -861,7 +861,7 @@ impl DbProApp {
                 if find_refs {
                     let stem = node.name.trim_end_matches(".sql").to_owned();
                     self.workspace_search_query = stem;
-                    self.files_panel_tab = FilesPanelTab::Search;
+                    self.workspace.files_panel_tab = FilesPanelTab::Search;
                     self.run_workspace_search();
                 }
                 if delete_node {

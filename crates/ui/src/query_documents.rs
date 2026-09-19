@@ -11,9 +11,9 @@ impl DbProApp {
         self.active_query_document = self.query_documents.len() - 1;
         self.query_focus_editor_on_open = true;
         self.reset_query_cursor();
-        self.activity = Activity::Queries;
-        self.sidebar_open = true;
-        self.active_tab = WorkspaceTab::Query;
+        self.workspace.activity = Activity::Queries;
+        self.workspace.sidebar_open = true;
+        self.workspace.active_tab = WorkspaceTab::Query;
     }
 
     /// Disposable scratch tab for throwaway SQL (#211).
@@ -26,9 +26,9 @@ impl DbProApp {
         self.active_query_document = self.query_documents.len() - 1;
         self.query_focus_editor_on_open = true;
         self.reset_query_cursor();
-        self.activity = Activity::Queries;
-        self.sidebar_open = true;
-        self.active_tab = WorkspaceTab::Query;
+        self.workspace.activity = Activity::Queries;
+        self.workspace.sidebar_open = true;
+        self.workspace.active_tab = WorkspaceTab::Query;
         self.runtime_message = "Opened scratch SQL tab".to_owned();
     }
 
@@ -57,8 +57,8 @@ impl DbProApp {
         self.query_documents.push(document);
         self.active_query_document = self.query_documents.len() - 1;
         self.query_focus_editor_on_open = true;
-        self.activity = Activity::Queries;
-        self.active_tab = WorkspaceTab::Query;
+        self.workspace.activity = Activity::Queries;
+        self.workspace.active_tab = WorkspaceTab::Query;
         self.reset_query_cursor();
         if run {
             self.dispatch_query();
@@ -88,7 +88,7 @@ impl DbProApp {
         if self.query_documents.is_empty() {
             self.active_query_document = 0;
             self.reset_query_cursor();
-            if self.active_tab == WorkspaceTab::Query {
+            if self.workspace.active_tab == WorkspaceTab::Query {
                 self.activate_fallback_workspace_tab();
             }
             self.runtime_message = format!("Closed {closed_title}");
@@ -153,7 +153,7 @@ impl DbProApp {
         self.query_documents.push(new_doc);
         self.active_query_document = self.query_documents.len() - 1;
         self.query_focus_editor_on_open = true;
-        self.active_tab = WorkspaceTab::Query;
+        self.workspace.active_tab = WorkspaceTab::Query;
         self.runtime_message = format!("Duplicated {}", self.query_documents[index].title);
     }
 
@@ -190,35 +190,35 @@ impl DbProApp {
         for index in 0..self.query_documents.len() {
             self.cancel_prediction_for_document(index);
         }
-        self.welcome_open = true;
+        self.workspace.welcome_open = true;
         self.query_documents = vec![QueryDocument::new("query-1", "Query 1", String::new())];
         self.active_query_document = 0;
         self.selected_table = None;
         self.selected_schema_object = None;
-        self.active_tab = WorkspaceTab::Welcome;
+        self.workspace.active_tab = WorkspaceTab::Welcome;
         self.runtime_message = "Closed all tabs".to_owned();
     }
 
     pub(crate) fn close_welcome_tab(&mut self) {
-        self.welcome_open = false;
-        if self.active_tab == WorkspaceTab::Welcome {
+        self.workspace.welcome_open = false;
+        if self.workspace.active_tab == WorkspaceTab::Welcome {
             self.activate_fallback_workspace_tab();
         }
         self.runtime_message = "Closed Welcome".to_owned();
     }
 
     pub(crate) fn activate_welcome_tab(&mut self) {
-        self.welcome_open = true;
-        self.active_tab = WorkspaceTab::Welcome;
+        self.workspace.welcome_open = true;
+        self.workspace.active_tab = WorkspaceTab::Welcome;
     }
 
     pub(super) fn activate_fallback_workspace_tab(&mut self) {
         if !self.query_documents.is_empty() {
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         } else if self.selected_table.is_some() {
-            self.active_tab = WorkspaceTab::Table;
+            self.workspace.active_tab = WorkspaceTab::Table;
         } else if self.selected_schema_object.is_some() {
-            self.active_tab = WorkspaceTab::SchemaObject;
+            self.workspace.active_tab = WorkspaceTab::SchemaObject;
         } else {
             self.activate_welcome_tab();
         }

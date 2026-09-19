@@ -429,7 +429,7 @@ impl DbProApp {
                 }
                 self.connection_lifecycle.active_connection_id = Some(task.connection_id.clone());
                 self.set_active_query_text(sql);
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
                 // Task-level confirmation already satisfied destructive policy (#206).
                 let version = self.active_query_buffer_version();
                 let execution_range = (0, sql.len());
@@ -459,7 +459,7 @@ impl DbProApp {
                 if let Some(table) = table {
                     self.connection_lifecycle.active_connection_id = Some(task.connection_id.clone());
                     self.set_active_query_text(format!("SELECT * FROM {table} LIMIT 1000"));
-                    self.active_tab = WorkspaceTab::Query;
+                    self.workspace.active_tab = WorkspaceTab::Query;
                     self.dispatch_query();
                     Ok(format!(
                         "Opened export source for {table} ({fmt}) — use Export on results"
@@ -479,7 +479,7 @@ impl DbProApp {
                 };
                 self.connection_lifecycle.active_connection_id = Some(task.connection_id.clone());
                 self.set_active_query_text(&sql);
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
                 self.dispatch_query();
                 Ok(format!("Dispatched maintenance: {sql}"))
             }

@@ -48,7 +48,7 @@ impl DbProApp {
                         .clicked()
                     {
                         self.set_active_query_text(ddl.clone());
-                        self.active_tab = WorkspaceTab::Query;
+                        self.workspace.active_tab = WorkspaceTab::Query;
                         self.runtime_message = format!("Opened DDL for {schema}.{table_name} in Query editor");
                     }
 

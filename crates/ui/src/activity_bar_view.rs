@@ -42,36 +42,41 @@ impl DbProApp {
                         (Some(Activity::Tasks), Icon::ListTodo, "Saved tasks"),
                         (None, Icon::Bot, "Agent (Copilot)"),
                     ] {
-                        let active = activity.is_some_and(|value| self.activity == value)
-                            || (hint == "Queries" && self.active_tab == WorkspaceTab::Query)
-                            || (hint == "Agent (Copilot)" && self.agent_open);
+                        let active = activity.is_some_and(|value| self.workspace.activity == value)
+                            || (hint == "Queries" && self.workspace.active_tab == WorkspaceTab::Query)
+                            || (hint == "Agent (Copilot)" && self.workspace.agent_open);
                         let response = icon_button(ui, icon, active, self.theme);
                         if response.on_hover_text(hint).clicked() {
                             match (activity, hint) {
                                 (Some(value), _) => {
-                                    self.activity = value;
-                                    self.sidebar_open = true;
+                                    self.workspace.activity = value;
+                                    self.workspace.sidebar_open = true;
                                     if value == Activity::Queries {
-                                        self.active_tab = WorkspaceTab::Query;
+                                        self.workspace.active_tab = WorkspaceTab::Query;
                                     } else if value == Activity::Diagram {
-                                        self.active_tab = WorkspaceTab::Diagram;
+                                        self.workspace.active_tab = WorkspaceTab::Diagram;
                                     } else if value == Activity::Schema {
                                         self.open_schema_workbench();
                                     } else if value == Activity::Compare {
-                                        self.active_tab = WorkspaceTab::SchemaCompare;
+                                        self.workspace.active_tab = WorkspaceTab::SchemaCompare;
                                     }
                                 }
-                                (None, "Agent (Copilot)") => self.set_agent_open(!self.agent_open, ctx),
+                                (None, "Agent (Copilot)") => self.set_agent_open(!self.workspace.agent_open, ctx),
                                 _ => {}
                             }
                         }
                         ui.add_space(SPACE_XS);
                     }
                     ui.add_space((ui.available_height() - 44.0).max(0.0));
-                    let settings = icon_button(ui, Icon::Settings2, self.activity == Activity::Settings, self.theme);
+                    let settings = icon_button(
+                        ui,
+                        Icon::Settings2,
+                        self.workspace.activity == Activity::Settings,
+                        self.theme,
+                    );
                     if settings.on_hover_text("Settings").clicked() {
-                        self.activity = Activity::Settings;
-                        self.sidebar_open = true;
+                        self.workspace.activity = Activity::Settings;
+                        self.workspace.sidebar_open = true;
                     }
                     ui.add_space(SPACE_SM);
                 });

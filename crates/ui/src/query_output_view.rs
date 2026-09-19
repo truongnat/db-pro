@@ -17,7 +17,7 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.bottom_panel_open = false;
+                    self.workspace.bottom_panel_open = false;
                     self.query_output_dock_maximized = false;
                 }
                 let max_tip = if self.query_output_dock_maximized {

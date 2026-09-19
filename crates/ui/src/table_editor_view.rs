@@ -2114,14 +2114,14 @@ impl DbProApp {
             self.apply_staged_changes();
         } else if discard {
             self.discard_changes_confirmation = false;
-            let pending = self.pending_navigation_action.take();
+            let pending = self.workspace.pending_navigation_action.take();
             self.discard_staged_changes();
             if let Some(action) = pending {
                 self.execute_pending_navigation(action);
             }
         } else if cancel || !open {
             self.discard_changes_confirmation = false;
-            self.pending_navigation_action = None;
+            self.workspace.pending_navigation_action = None;
         }
     }
 
@@ -2732,7 +2732,7 @@ impl DbProApp {
         self.table_mutation_error = None;
         self.runtime_message = "All staged changes applied".to_owned();
         self.show_toast_success("All staged changes applied successfully");
-        if let Some(action) = self.pending_navigation_action.take() {
+        if let Some(action) = self.workspace.pending_navigation_action.take() {
             self.execute_pending_navigation(action);
             return;
         }
@@ -2743,7 +2743,7 @@ impl DbProApp {
     }
 
     pub(crate) fn staged_apply_failed(&mut self, statement_index: usize, code: &str, message: &str, rolled_back: bool) {
-        self.pending_navigation_action = None;
+        self.workspace.pending_navigation_action = None;
         self.staged_apply_request = None;
         self.table_mutation_request = None;
         self.table_mutation_retry_after_reload = false;

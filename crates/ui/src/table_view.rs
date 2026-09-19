@@ -95,7 +95,7 @@ impl DbProApp {
                         .clicked()
                     {
                         self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table_name}\nLIMIT 100;"));
-                        self.active_tab = WorkspaceTab::Query;
+                        self.workspace.active_tab = WorkspaceTab::Query;
                     }
                     if Button::new(self.theme)
                         .icon(Icon::RotateCcw)

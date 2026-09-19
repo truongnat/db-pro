@@ -147,7 +147,10 @@ fn grid_columns_fill_the_viewport_until_manually_resized() {
 fn grid_copy_uses_staged_values_only_for_data_editor() {
     let value = result();
     let mut app = DbProApp {
-        active_tab: WorkspaceTab::Table,
+        workspace: WorkspaceShellState {
+            active_tab: WorkspaceTab::Table,
+            ..Default::default()
+        },
         table_view: TableView::Data,
         table_info: Some(UiTableInfo {
             schema: "public".to_owned(),
@@ -176,7 +179,7 @@ fn grid_copy_uses_staged_values_only_for_data_editor() {
         app.copy_cell_value(&value, 0, 1),
         Some(UiCell::Text("Updated".to_owned()))
     );
-    app.active_tab = WorkspaceTab::Query;
+    app.workspace.active_tab = WorkspaceTab::Query;
     assert_eq!(app.copy_cell_value(&value, 0, 1), Some(UiCell::Text("Beta".to_owned())));
 }
 
@@ -1227,10 +1230,10 @@ fn closing_agent_restores_sidebar_state_after_narrow_window() {
     });
 
     app.set_agent_open(true, &ctx);
-    assert!(!app.sidebar_open);
+    assert!(!app.workspace.sidebar_open);
 
     app.set_agent_open(false, &ctx);
-    assert!(app.sidebar_open);
+    assert!(app.workspace.sidebar_open);
     let _ = ctx.end_pass();
 }
 
@@ -1289,19 +1292,22 @@ fn selected_connection_is_not_shown_as_connected() {
 #[test]
 fn editor_status_lives_on_query_strip_not_shell_statusbar() {
     let mut app = DbProApp {
-        active_tab: WorkspaceTab::Query,
+        workspace: WorkspaceShellState {
+            active_tab: WorkspaceTab::Query,
+            ..Default::default()
+        },
         ..Default::default()
     };
     // Shell statusbar no longer mirrors Ln/Col — the query status strip owns it.
     assert!(!app.shows_editor_status());
     assert_eq!(app.statusbar_context_label(), "SQL Editor");
 
-    app.active_tab = WorkspaceTab::Table;
+    app.workspace.active_tab = WorkspaceTab::Table;
     assert!(!app.shows_editor_status());
     assert_eq!(app.statusbar_context_label(), "Table Structure");
     app.table_view = TableView::Data;
     assert_eq!(app.statusbar_context_label(), "Data Editor");
-    app.active_tab = WorkspaceTab::Diagram;
+    app.workspace.active_tab = WorkspaceTab::Diagram;
     assert!(!app.shows_editor_status());
     assert_eq!(app.statusbar_context_label(), "ER Diagram");
 }
@@ -1309,7 +1315,10 @@ fn editor_status_lives_on_query_strip_not_shell_statusbar() {
 #[test]
 fn switching_query_documents_resets_editor_cursor_metadata() {
     let mut app = DbProApp {
-        active_tab: WorkspaceTab::Query,
+        workspace: WorkspaceShellState {
+            active_tab: WorkspaceTab::Query,
+            ..Default::default()
+        },
         query_cursor_line: 8,
         query_cursor_column: 13,
         ..Default::default()
@@ -1581,29 +1590,35 @@ fn closing_query_document_restores_the_next_valid_document() {
 #[test]
 fn closing_last_query_document_returns_to_welcome() {
     let mut app = DbProApp {
-        active_tab: WorkspaceTab::Query,
+        workspace: WorkspaceShellState {
+            active_tab: WorkspaceTab::Query,
+            ..Default::default()
+        },
         ..Default::default()
     };
 
     app.close_query_document(0);
 
     assert!(app.query_documents.is_empty());
-    assert_eq!(app.active_tab, WorkspaceTab::Welcome);
-    assert!(app.welcome_open);
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::Welcome);
+    assert!(app.workspace.welcome_open);
     assert!(app.active_query_text().is_empty());
 }
 
 #[test]
 fn closing_welcome_activates_the_existing_query_tab() {
     let mut app = DbProApp {
-        active_tab: WorkspaceTab::Welcome,
+        workspace: WorkspaceShellState {
+            active_tab: WorkspaceTab::Welcome,
+            ..Default::default()
+        },
         ..Default::default()
     };
 
     app.close_welcome_tab();
 
-    assert!(!app.welcome_open);
-    assert_eq!(app.active_tab, WorkspaceTab::Query);
+    assert!(!app.workspace.welcome_open);
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::Query);
 }
 
 #[test]
@@ -2287,7 +2302,7 @@ fn command_palette_new_query_keeps_a_query_entry_point() {
     let ctx = egui::Context::default();
     app.execute_palette_action(PaletteAction::NewQuery, &ctx);
 
-    assert_eq!(app.active_tab, WorkspaceTab::Query);
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::Query);
     assert_eq!(app.query_documents.len(), 2);
     assert!(app.palette_mode.is_none());
 }
@@ -2297,10 +2312,10 @@ fn command_palette_opens_problems_and_diagnostics() {
     let mut app = DbProApp::default();
     let ctx = egui::Context::default();
     app.execute_palette_action(PaletteAction::Problems, &ctx);
-    assert_eq!(app.activity, Activity::Problems);
-    assert!(app.sidebar_open);
+    assert_eq!(app.workspace.activity, Activity::Problems);
+    assert!(app.workspace.sidebar_open);
     app.execute_palette_action(PaletteAction::Diagnostics, &ctx);
-    assert_eq!(app.activity, Activity::Settings);
+    assert_eq!(app.workspace.activity, Activity::Settings);
     assert!(app.runtime_message.contains("Diagnostics"));
 }
 
@@ -2317,14 +2332,14 @@ fn quick_open_finds_schema_workbench_and_compare() {
         workbench.iter().map(|item| &item.title).collect::<Vec<_>>()
     );
     app.execute_palette_action(PaletteAction::SchemaWorkbench, &ctx);
-    assert_eq!(app.active_tab, WorkspaceTab::SchemaWorkbench);
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::SchemaWorkbench);
 
     app.palette_query = "Schema compare".to_owned();
     let compare = app.filtered_palette_items(PaletteMode::QuickOpen);
     assert!(compare.iter().any(|item| item.title == "Schema compare"));
     app.execute_palette_action(PaletteAction::SchemaCompare, &ctx);
-    assert_eq!(app.active_tab, WorkspaceTab::SchemaCompare);
-    assert_eq!(app.activity, Activity::Compare);
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::SchemaCompare);
+    assert_eq!(app.workspace.activity, Activity::Compare);
 }
 
 #[test]
@@ -2402,7 +2417,7 @@ fn command_palette_opens_saved_query_into_editor() {
         .iter()
         .any(|item| item.title == "Active users"));
     app.execute_palette_action(PaletteAction::OpenSavedQuery("sq-1".to_owned()), &ctx);
-    assert_eq!(app.active_tab, WorkspaceTab::Query);
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::Query);
     assert!(app.active_query_text().contains("SELECT 1"));
     assert_eq!(
         app.query_documents[app.active_query_document].saved_query_id.as_deref(),
@@ -3006,7 +3021,7 @@ fn global_panel_shortcuts_do_not_steal_text_input_combinations() {
 
     app.handle_shortcuts(&ctx);
 
-    assert!(app.sidebar_open);
+    assert!(app.workspace.sidebar_open);
     let _ = ctx.end_pass();
 }
 
@@ -3330,8 +3345,8 @@ fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
         .find(|e| e.source == crate::editor::DiagnosticSource::Lint)
         .expect("lint entry");
     app.navigate_to_problem(first_lint.document_index, first_lint.diagnostic_index);
-    assert_eq!(app.active_tab, WorkspaceTab::Query);
-    assert_eq!(app.activity, Activity::Problems);
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::Query);
+    assert_eq!(app.workspace.activity, Activity::Problems);
     let active = &app.query_documents[app.active_query_document];
     assert_eq!(active.cursor.offset, first_lint.range.0);
     assert_eq!(active.selection.normalized(), (first_lint.range.0, first_lint.range.1));
@@ -3543,7 +3558,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
     }];
     app.connection_lifecycle.active_connection_id = Some("active".to_owned());
     app.selected_table = Some("customers".to_owned());
-    app.active_tab = WorkspaceTab::Table;
+    app.workspace.active_tab = WorkspaceTab::Table;
     app.refresh_table_info_after_schema = true;
     event_tx
         .send(UiEvent::SchemaLoaded {
@@ -3582,7 +3597,7 @@ fn schema_refresh_returns_to_welcome_when_selected_table_disappears() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     app.selected_table = Some("deleted_table".to_owned());
-    app.active_tab = WorkspaceTab::Table;
+    app.workspace.active_tab = WorkspaceTab::Table;
     event_tx
         .send(UiEvent::SchemaLoaded {
             request_id: crate::RequestId(1),
@@ -3601,13 +3616,16 @@ fn schema_refresh_returns_to_welcome_when_selected_table_disappears() {
     app.apply_runtime_events();
 
     assert_eq!(app.selected_table, None);
-    assert_eq!(app.active_tab, WorkspaceTab::Welcome);
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::Welcome);
 }
 
 #[test]
 fn closing_workspace_tab_clears_its_resource_and_requests() {
     let mut app = DbProApp {
-        active_tab: WorkspaceTab::Table,
+        workspace: WorkspaceShellState {
+            active_tab: WorkspaceTab::Table,
+            ..Default::default()
+        },
         selected_table: Some("customers".to_owned()),
         table_info_request: Some(crate::RequestId(1)),
         table_ddl_request: Some(crate::RequestId(2)),
@@ -3618,7 +3636,7 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
 
     app.request_close_workspace_tab(WorkspaceTab::Table);
 
-    assert_eq!(app.active_tab, WorkspaceTab::Welcome);
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::Welcome);
     assert_eq!(app.selected_table, None);
     assert_eq!(app.table_info_request, None);
     assert_eq!(app.table_ddl_request, None);
@@ -4042,7 +4060,7 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
     // 1. Navigation Attempt sets pending_navigation_action
     app.open_table("orders".to_owned());
     assert_eq!(
-        app.pending_navigation_action,
+        app.workspace.pending_navigation_action,
         Some(PendingNavigationAction::OpenTable("orders".to_owned()))
     );
     assert!(app.discard_changes_confirmation);
@@ -4050,20 +4068,20 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
 
     // 2. Cancel retains current context and clears pending action
     app.discard_changes_confirmation = false;
-    app.pending_navigation_action = None;
+    app.workspace.pending_navigation_action = None;
     assert_eq!(app.selected_table, Some("users".to_owned()));
     assert!(!app.staged_changes.is_empty());
 
     // 3. Staged apply success executes pending navigation action
     app.open_table("products".to_owned());
     assert_eq!(
-        app.pending_navigation_action,
+        app.workspace.pending_navigation_action,
         Some(PendingNavigationAction::OpenTable("products".to_owned()))
     );
     app.staged_apply_completed();
     assert_eq!(app.selected_table, Some("products".to_owned()));
     assert!(app.staged_changes.is_empty());
-    assert!(app.pending_navigation_action.is_none());
+    assert!(app.workspace.pending_navigation_action.is_none());
 }
 
 #[test]
@@ -5809,12 +5827,15 @@ fn recent_tables_track_mru_and_appear_in_quick_open() {
 #[test]
 fn data_activity_palette_action_opens_sidebar() {
     let mut app = DbProApp {
-        sidebar_open: false,
+        workspace: WorkspaceShellState {
+            sidebar_open: false,
+            ..Default::default()
+        },
         ..DbProApp::default()
     };
     app.execute_palette_action(PaletteAction::Data, &egui::Context::default());
-    assert_eq!(app.activity, Activity::Data);
-    assert!(app.sidebar_open);
+    assert_eq!(app.workspace.activity, Activity::Data);
+    assert!(app.workspace.sidebar_open);
 }
 
 #[test]
@@ -5883,7 +5904,7 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
     assert!(doc.file_path.as_ref().is_some_and(|path| path.ends_with("demo.sql")));
     assert_eq!(doc.connection_id.as_deref(), Some("conn-1"));
     assert_eq!(doc.schema.as_deref(), Some("public"));
-    assert_eq!(app.active_tab, WorkspaceTab::Query);
+    assert_eq!(app.workspace.active_tab, WorkspaceTab::Query);
 
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -6018,8 +6039,8 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     app.query_documents.push(QueryDocument::new("doc-a", "A", "SELECT 1"));
     app.query_documents.push(QueryDocument::new("doc-b", "B", "SELECT 2"));
     app.active_query_document = 1;
-    app.activity = Activity::Data;
-    app.active_tab = WorkspaceTab::Query;
+    app.workspace.activity = Activity::Data;
+    app.workspace.active_tab = WorkspaceTab::Query;
     app.connection_lifecycle.active_connection_id = Some("gone-conn".to_owned());
     app.pinned_tables = vec!["public.orders".to_owned()];
     app.session_name_draft = "Focus pack".to_owned();
@@ -6028,13 +6049,13 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     let id = app.named_session_store.sessions[0].id.clone();
 
     // Mutate live state, then restore.
-    app.activity = Activity::Explorer;
+    app.workspace.activity = Activity::Explorer;
     app.active_query_document = 0;
     app.connection_lifecycle.active_connection_id = Some("other".to_owned());
     app.pinned_tables.clear();
     app.restore_named_workspace_session(&id);
 
-    assert_eq!(app.activity, Activity::Data);
+    assert_eq!(app.workspace.activity, Activity::Data);
     assert_eq!(app.active_query_document, 1);
     assert_eq!(app.pinned_tables, vec!["public.orders".to_owned()]);
     assert!(
@@ -6087,7 +6108,10 @@ fn painted_sidebar(sidebar_width: f32, connections: usize) -> Vec<egui::epaint::
         connection_catalog: ConnectionCatalogState {
             connections: (0..connections).map(badged_connection).collect(),
         },
-        sidebar_width,
+        workspace: WorkspaceShellState {
+            sidebar_width,
+            ..Default::default()
+        },
         ..DbProApp::default()
     };
     let ctx = egui::Context::default();

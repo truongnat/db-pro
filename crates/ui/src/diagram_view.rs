@@ -497,7 +497,7 @@ impl DbProApp {
             return;
         }
         self.set_active_query_text(self.er_design.preview_sql.clone());
-        self.active_tab = WorkspaceTab::Query;
+        self.workspace.active_tab = WorkspaceTab::Query;
         self.dispatch_query();
         self.runtime_message = "Design Mode mutation plan applied via query runtime".into();
         self.er_design.discard();
@@ -695,9 +695,9 @@ impl DbProApp {
         self.table_view = TableView::Structure;
         self.set_active_query_text(format!("SELECT *\nFROM {table}\nLIMIT 100;"));
         self.request_table_info();
-        self.activity = Activity::Explorer;
-        self.sidebar_open = true;
-        self.active_tab = WorkspaceTab::Table;
+        self.workspace.activity = Activity::Explorer;
+        self.workspace.sidebar_open = true;
+        self.workspace.active_tab = WorkspaceTab::Table;
     }
 }
 

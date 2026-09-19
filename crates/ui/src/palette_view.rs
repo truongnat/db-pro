@@ -570,53 +570,53 @@ impl DbProApp {
         match action {
             PaletteAction::Welcome => self.activate_welcome_tab(),
             PaletteAction::Query => {
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
             }
             PaletteAction::History => {
-                self.activity = Activity::History;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::History;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Data => {
-                self.activity = Activity::Data;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Data;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Files => {
-                self.activity = Activity::Files;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Files;
+                self.workspace.sidebar_open = true;
             }
-            PaletteAction::Diagram => self.active_tab = WorkspaceTab::Diagram,
+            PaletteAction::Diagram => self.workspace.active_tab = WorkspaceTab::Diagram,
             PaletteAction::SchemaWorkbench => self.open_schema_workbench(),
             PaletteAction::SchemaCompare => {
-                self.activity = Activity::Compare;
-                self.active_tab = WorkspaceTab::SchemaCompare;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Compare;
+                self.workspace.active_tab = WorkspaceTab::SchemaCompare;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Transfers => {
-                self.activity = Activity::Transfers;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Transfers;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Monitor => {
-                self.activity = Activity::Monitor;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Monitor;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Settings => {
-                self.activity = Activity::Settings;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Settings;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Agent => {
-                self.agent_open = true;
+                self.workspace.agent_open = true;
             }
             PaletteAction::Problems => {
-                self.activity = Activity::Problems;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Problems;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Diagnostics => {
-                self.activity = Activity::Settings;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Settings;
+                self.workspace.sidebar_open = true;
                 self.runtime_message = "Opened Settings → Diagnostics".to_owned();
             }
             PaletteAction::NewQuery => {
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
                 self.new_query_document();
                 self.runtime_message = "New query ready".to_owned();
             }
@@ -624,7 +624,7 @@ impl DbProApp {
                 self.open_new_connection();
             }
             PaletteAction::RefreshSchema => self.refresh_schema_palette(),
-            PaletteAction::ToggleExplorer => self.sidebar_open = !self.sidebar_open,
+            PaletteAction::ToggleExplorer => self.workspace.sidebar_open = !self.workspace.sidebar_open,
             PaletteAction::OpenTable(table) => self.open_table_from_palette(table),
             PaletteAction::OpenView(name) => {
                 let schema = self.active_schema().to_owned();
@@ -657,7 +657,7 @@ impl DbProApp {
                 }
             }
             PaletteAction::InsertColumn(column) => {
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
                 self.append_to_active_query(&column);
                 self.runtime_message = format!("Inserted column {column}");
             }
@@ -669,11 +669,11 @@ impl DbProApp {
             PaletteAction::ExplainQuery => self.explain_query(),
             PaletteAction::ExportResults => self.export_results_from_palette(),
             PaletteAction::RunQuery => {
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
                 self.dispatch_query();
             }
             PaletteAction::FormatSql => {
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
                 self.format_active_query();
                 self.runtime_message = "SQL formatted".to_owned();
             }
@@ -684,7 +684,7 @@ impl DbProApp {
                 self.toggle_pinned_table(table);
             }
             PaletteAction::ComponentGallery => {
-                self.active_tab = WorkspaceTab::ComponentGallery;
+                self.workspace.active_tab = WorkspaceTab::ComponentGallery;
             }
         }
     }
@@ -713,7 +713,7 @@ impl DbProApp {
         self.table_ddl = None;
         self.table_data_result = None;
         self.request_table_info();
-        self.active_tab = WorkspaceTab::Table;
+        self.workspace.active_tab = WorkspaceTab::Table;
         self.runtime_message = format!("Opening table {table}");
     }
 
@@ -729,7 +729,7 @@ impl DbProApp {
             doc.saved_query_id = Some(query.id.clone());
             doc.mark_saved();
         }
-        self.active_tab = WorkspaceTab::Query;
+        self.workspace.active_tab = WorkspaceTab::Query;
         self.runtime_message = format!("Opened saved query {}", query.name);
     }
 
@@ -756,7 +756,7 @@ impl DbProApp {
         if self.active_query_result().is_some() {
             self.output_tab = OutputTab::Results;
             self.export_open = true;
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         } else {
             self.runtime_message = "Run a query before exporting results".to_owned();
         }

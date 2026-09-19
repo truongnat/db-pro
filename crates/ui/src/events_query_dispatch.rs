@@ -33,7 +33,7 @@ impl DbProApp {
             return;
         }
         if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "view.toggle_sidebar")) {
-            self.sidebar_open = !self.sidebar_open;
+            self.workspace.sidebar_open = !self.workspace.sidebar_open;
         }
         if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "connection.new")) {
             self.open_new_connection();
@@ -41,7 +41,7 @@ impl DbProApp {
         }
         if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "query.new")) {
             self.new_query_document();
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
             return;
         }
         if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "editor.find")) {
@@ -50,7 +50,7 @@ impl DbProApp {
         if ctx.input(|i| {
             self.shortcut_pressed(i, "query.run")
                 || (self.query_editor_focused
-                    && !self.agent_open
+                    && !self.workspace.agent_open
                     && i.key_pressed(egui::Key::Enter)
                     && Self::primary_modifier_pressed(i))
         }) {

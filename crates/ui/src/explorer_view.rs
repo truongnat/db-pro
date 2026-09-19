@@ -380,7 +380,8 @@ impl DbProApp {
             return;
         }
         if !self.staged_changes.is_empty() {
-            self.pending_navigation_action = Some(PendingNavigationAction::ChangeConnection(connection.id.clone()));
+            self.workspace.pending_navigation_action =
+                Some(PendingNavigationAction::ChangeConnection(connection.id.clone()));
             self.discard_changes_confirmation = true;
             self.runtime_message = "Apply or discard staged changes before changing connection".to_owned();
             return;
@@ -390,7 +391,7 @@ impl DbProApp {
             self.runtime_message = "Commit or rollback the open transaction before changing connection".to_owned();
             return;
         }
-        self.pending_navigation_action = None;
+        self.workspace.pending_navigation_action = None;
         self.reset_agent_context();
         self.connection_lifecycle.active_connection_id = Some(connection.id.clone());
         self.connection_lifecycle.pending_connection_id = Some(connection.id.clone());

@@ -218,19 +218,19 @@ impl DbProApp {
 
         if actions.open_data {
             self.table_view = TableView::Data;
-            self.active_tab = WorkspaceTab::Table;
+            self.workspace.active_tab = WorkspaceTab::Table;
         }
         if actions.open_structure {
             self.table_view = TableView::Structure;
-            self.active_tab = WorkspaceTab::Table;
+            self.workspace.active_tab = WorkspaceTab::Table;
         }
         if actions.open_ddl {
             self.table_view = TableView::Ddl;
-            self.active_tab = WorkspaceTab::Table;
+            self.workspace.active_tab = WorkspaceTab::Table;
         }
         if actions.open_query {
             self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
         if actions.gen_sql_insert {
             let cols = if let Some(info) = self.table_info.as_ref() {
@@ -248,7 +248,7 @@ impl DbProApp {
                 "'value1', 'value2'".to_owned()
             };
             self.set_active_query_text(format!("INSERT INTO {schema}.{table} ({cols})\nVALUES ({vals});"));
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
         if actions.gen_sql_update {
             let set_clause = if let Some(info) = self.table_info.as_ref() {
@@ -273,7 +273,7 @@ impl DbProApp {
             self.set_active_query_text(format!(
                 "UPDATE {schema}.{table}\nSET\n{set_clause}\nWHERE {pk_clause};"
             ));
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
         if actions.gen_sql_delete {
             let pk_clause = if let Some(pk_cols) = self.table_info.as_ref().and_then(|i| i.primary_key.as_ref()) {
@@ -286,7 +286,7 @@ impl DbProApp {
                 "id = 1".to_owned()
             };
             self.set_active_query_text(format!("DELETE FROM {schema}.{table}\nWHERE {pk_clause};"));
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
         if actions.copy_qualified_name {
             let qname = format!("{schema}.{table}");
@@ -335,7 +335,7 @@ impl DbProApp {
         self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
         self.request_table_info();
         self.request_table_data();
-        self.active_tab = WorkspaceTab::Table;
+        self.workspace.active_tab = WorkspaceTab::Table;
     }
 
     /// Clears every table-workspace field. Shared by "select a table" and

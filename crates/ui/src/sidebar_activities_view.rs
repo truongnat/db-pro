@@ -25,7 +25,7 @@ impl DbProApp {
         ui.add_space(8.0);
 
         for (index, document) in self.query_documents.clone().into_iter().enumerate() {
-            let selected = self.active_tab == WorkspaceTab::Query && self.active_query_document == index;
+            let selected = self.workspace.active_tab == WorkspaceTab::Query && self.active_query_document == index;
             let unsaved = document.is_dirty();
             let title = if unsaved {
                 format!("{}  •", document.title)
@@ -56,7 +56,7 @@ impl DbProApp {
             });
             if response.clicked() && !is_ctx {
                 self.switch_query_document(index);
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
             }
             if duplicate_requested {
                 self.duplicate_query_document(index);
@@ -88,8 +88,8 @@ impl DbProApp {
                 .clicked()
             {
                 self.insert_snippet(snippet);
-                self.active_tab = WorkspaceTab::Query;
-                self.activity = Activity::Queries;
+                self.workspace.active_tab = WorkspaceTab::Query;
+                self.workspace.activity = Activity::Queries;
             }
         }
 
@@ -265,8 +265,8 @@ impl DbProApp {
             let schema = self.active_schema().to_owned();
             self.new_query_document();
             self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
-            self.active_tab = WorkspaceTab::Query;
-            self.activity = Activity::Queries;
+            self.workspace.active_tab = WorkspaceTab::Query;
+            self.workspace.activity = Activity::Queries;
             self.runtime_message = format!("Query ready for {table}");
         }
         if toggle_pin {
@@ -403,7 +403,7 @@ impl DbProApp {
                 if entry.document_index == usize::MAX {
                     // Workspace-indexed diagnostic (#269): open the SQL file if possible.
                     self.open_workspace_sql_file(entry.document_title.clone());
-                    self.files_panel_tab = FilesPanelTab::Search;
+                    self.workspace.files_panel_tab = FilesPanelTab::Search;
                 } else {
                     navigate = Some((entry.document_index, entry.diagnostic_index));
                 }
@@ -548,7 +548,7 @@ impl DbProApp {
         });
         if query_response.clicked() && !is_ctx {
             self.set_active_query_text(query.sql.clone());
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
         if copy_sql {
             ui.output_mut(|o| o.copied_text = query.sql.clone());
@@ -606,7 +606,7 @@ impl DbProApp {
                 .clicked()
             {
                 self.set_active_query_text(query.clone());
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
             }
             ui.add_space(12.0);
         }

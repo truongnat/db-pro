@@ -54,22 +54,22 @@ impl DbProApp {
                 .get_string("dbpro.native.sidebar-width")
                 .and_then(|value| value.parse::<f32>().ok())
             {
-                app.sidebar_width = width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
+                app.workspace.set_sidebar_width(width);
             }
             if let Some(width) = storage
                 .get_string("dbpro.native.agent-width")
                 .and_then(|value| value.parse::<f32>().ok())
             {
-                app.agent_width = width.clamp(AGENT_MIN_WIDTH, AGENT_MAX_WIDTH);
+                app.workspace.set_agent_width(width);
             }
-            app.bottom_panel_open = storage
+            app.workspace.bottom_panel_open = storage
                 .get_string("dbpro.native.output-open")
                 .is_some_and(|value| value == "true");
             if let Some(height) = storage
                 .get_string("dbpro.native.output-height")
                 .and_then(|value| value.parse::<f32>().ok())
             {
-                app.bottom_panel_height = height.clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
+                app.workspace.set_bottom_panel_height(height);
             }
             if let Some(height) = storage
                 .get_string("dbpro.native.connections-pane-height")
@@ -171,16 +171,7 @@ impl Default for DbProApp {
             keybindings_filter: String::new(),
             keybinding_edit_id: None,
             keybinding_edit_draft: String::new(),
-            activity: Activity::Explorer,
-            welcome_open: true,
-            active_tab: WorkspaceTab::Welcome,
-            sidebar_open: true,
-            sidebar_width: 260.0,
-            agent_open: false,
-            agent_width: 360.0,
-            bottom_panel_open: false,
-            bottom_panel_height: 180.0,
-            sidebar_open_before_agent: None,
+            workspace: WorkspaceShellState::default(),
             prediction_mode: PredictionMode::default(),
             welcome_prompt: String::new(),
             selected_query: String::new(),
@@ -293,7 +284,6 @@ impl Default for DbProApp {
             data_edit_error: None,
             data_delete_confirmation: false,
             discard_changes_confirmation: false,
-            pending_navigation_action: None,
             insert_row_open: false,
             insert_row_values: Vec::new(),
             insert_row_error: String::new(),
@@ -330,8 +320,6 @@ impl Default for DbProApp {
             workspace_refactor_from: String::new(),
             workspace_refactor_to: String::new(),
             workspace_context_items: Vec::new(),
-            split_editor_secondary: None,
-            files_panel_tab: FilesPanelTab::Tree,
             selected_schema_object: None,
             schema_object_view: SchemaObjectView::Definition,
             routine_source_draft: String::new(),

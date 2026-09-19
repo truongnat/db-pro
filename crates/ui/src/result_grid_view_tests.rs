@@ -74,7 +74,10 @@ fn select_all_visible_cells_covers_current_grid() {
 #[test]
 fn table_sort_cycles_and_shift_adds_prioritized_clauses() {
     let mut app = DbProApp {
-        active_tab: WorkspaceTab::Table,
+        workspace: WorkspaceShellState {
+            active_tab: WorkspaceTab::Table,
+            ..Default::default()
+        },
         table_view: TableView::Data,
         ..Default::default()
     };
@@ -210,7 +213,10 @@ fn persisted_layout_is_normalized_when_schema_changes() {
 #[test]
 fn sorting_is_blocked_while_staged_changes_are_present() {
     let mut app = DbProApp {
-        active_tab: WorkspaceTab::Table,
+        workspace: WorkspaceShellState {
+            active_tab: WorkspaceTab::Table,
+            ..Default::default()
+        },
         table_view: TableView::Data,
         staged_changes: ChangeSet::from(vec![StagedChange::Insert {
             local_id: 1,

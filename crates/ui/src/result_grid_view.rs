@@ -130,8 +130,9 @@ impl DbProApp {
         }
 
         let order = self.column_order_for_columns(&result.columns);
-        let editable =
-            self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data && self.can_edit_table_rows();
+        let editable = self.workspace.active_tab == WorkspaceTab::Table
+            && self.table_view == TableView::Data
+            && self.can_edit_table_rows();
         // The projection is memoized across frames: sorting a 200k-row result on a timestamp-shaped
         // column costs seconds per invocation in debug, so rebuilding it in the draw path is what
         // made a sorted large result unusable (crates/ui/src/result_grid.rs, `GridProjectionCache`).
@@ -146,7 +147,7 @@ impl DbProApp {
             .take(&projection_key, &order)
             .unwrap_or_else(|| GridSelectionLookup::new(&indexes, &order));
 
-        if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+        if self.workspace.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
             self.rebuild_row_identity_cache(result, &indexes);
         } else {
             self.grid_row_identity_cache.clear();
@@ -155,7 +156,7 @@ impl DbProApp {
 
         self.handle_grid_keyboard(ui, result, &indexes, &order, editable, &selection_lookup);
 
-        let is_table_data = self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data;
+        let is_table_data = self.workspace.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data;
         if !is_table_data {
             self.draw_grid_toolbar(ui, result, editable, indexes.len(), &indexes);
         }
@@ -326,7 +327,7 @@ impl DbProApp {
         column_index: usize,
         descending: Option<bool>,
     ) {
-        if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+        if self.workspace.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
             if !self.staged_changes.is_empty() {
                 self.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
                 return;

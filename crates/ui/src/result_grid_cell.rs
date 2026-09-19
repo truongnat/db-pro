@@ -574,7 +574,7 @@ impl DbProApp {
             self.request_delete_selected_data_rows(result);
         }
         if req.filter_this_val {
-            if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+            if self.workspace.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
                 self.table_data_filter_column = result
                     .columns
                     .get(column_index)

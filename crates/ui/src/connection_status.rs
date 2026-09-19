@@ -157,7 +157,7 @@ impl DbProApp {
     }
 
     pub(super) fn statusbar_context_label(&self) -> &'static str {
-        match self.active_tab {
+        match self.workspace.active_tab {
             WorkspaceTab::Welcome => "Workspace",
             WorkspaceTab::Query => "SQL Editor",
             WorkspaceTab::Table => match self.table_view {

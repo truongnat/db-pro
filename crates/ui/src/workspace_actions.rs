@@ -4,24 +4,24 @@ use super::*;
 impl DbProApp {
     pub(crate) fn open_table(&mut self, table: String) {
         if self.selected_table.as_deref() == Some(&table) {
-            self.active_tab = WorkspaceTab::Table;
+            self.workspace.active_tab = WorkspaceTab::Table;
             self.record_recent_table(&table);
             return;
         }
         if !self.staged_changes.is_empty() {
-            self.pending_navigation_action = Some(PendingNavigationAction::OpenTable(table));
+            self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable(table));
             self.discard_changes_confirmation = true;
             self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
-        self.pending_navigation_action = None;
+        self.workspace.pending_navigation_action = None;
         self.persist_current_grid_layout();
         self.record_recent_table(&table);
         self.selected_table = Some(table);
         self.restore_grid_layout_for_active_table();
         self.request_table_info();
         self.request_table_data();
-        self.active_tab = WorkspaceTab::Table;
+        self.workspace.active_tab = WorkspaceTab::Table;
     }
 
     /// Push `table` to the front of the MRU recent list (#212).
@@ -54,8 +54,8 @@ impl DbProApp {
         };
         match result {
             Ok(()) => {
-                self.activity = Activity::Files;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Files;
+                self.workspace.sidebar_open = true;
                 self.workspace_search_hits.clear();
                 self.ide_workspace.scan_diagnostics();
                 self.runtime_message = format!(
@@ -76,7 +76,7 @@ impl DbProApp {
         self.workspace_search_hits.clear();
         self.workspace_replace_previews.clear();
         self.workspace_context_items.clear();
-        self.split_editor_secondary = None;
+        self.workspace.split_editor_secondary = None;
         self.runtime_message = "Workspace closed".to_owned();
     }
 
@@ -107,7 +107,7 @@ impl DbProApp {
             .position(|doc| doc.file_path.as_deref() == Some(absolute_str.as_str()))
         {
             self.switch_query_document(index);
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
             return;
         }
         let content = match std::fs::read_to_string(&absolute) {
@@ -132,8 +132,8 @@ impl DbProApp {
         }
         self.query_documents.push(doc);
         self.active_query_document = self.query_documents.len() - 1;
-        self.activity = Activity::Queries;
-        self.active_tab = WorkspaceTab::Query;
+        self.workspace.activity = Activity::Queries;
+        self.workspace.active_tab = WorkspaceTab::Query;
         self.reset_query_cursor();
         self.runtime_message = format!("Opened {relative_path}");
     }
@@ -240,8 +240,8 @@ impl DbProApp {
     }
 
     pub(crate) fn toggle_split_editor(&mut self) {
-        if self.split_editor_secondary.is_some() {
-            self.split_editor_secondary = None;
+        if self.workspace.split_editor_secondary.is_some() {
+            self.workspace.split_editor_secondary = None;
             self.runtime_message = "Split editor closed".to_owned();
             return;
         }
@@ -254,7 +254,7 @@ impl DbProApp {
         } else {
             0
         };
-        self.split_editor_secondary = Some(secondary);
+        self.workspace.split_editor_secondary = Some(secondary);
         self.runtime_message = "Split editor enabled".to_owned();
     }
 
@@ -341,7 +341,7 @@ impl DbProApp {
             doc.set_text("SELECT u.id, u.email\nFROM users u\nWHERE u.active = true;\n");
             doc.dirty = false;
         }
-        self.bottom_panel_open = false;
+        self.workspace.bottom_panel_open = false;
         self.query_output_dock_maximized = false;
         self.query_params_panel_open = false;
         self.visual_query_builder_open = false;
@@ -361,12 +361,12 @@ impl DbProApp {
         match tab {
             WorkspaceTab::Table => {
                 if !self.staged_changes.is_empty() {
-                    self.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
+                    self.workspace.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
                     self.discard_changes_confirmation = true;
                     self.runtime_message = "Apply or discard staged changes before closing the table".to_owned();
                     return;
                 }
-                self.pending_navigation_action = None;
+                self.workspace.pending_navigation_action = None;
                 self.selected_table = None;
                 self.table_info = None;
                 self.table_ddl = None;
@@ -416,7 +416,7 @@ impl DbProApp {
             WorkspaceTab::ComponentGallery => {}
             WorkspaceTab::Welcome | WorkspaceTab::Query => return,
         }
-        if self.active_tab == tab {
+        if self.workspace.active_tab == tab {
             self.activate_welcome_tab();
         }
         self.runtime_message = "Workspace closed".to_owned();

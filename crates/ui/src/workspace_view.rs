@@ -56,8 +56,8 @@ impl DbProApp {
                             let mut close_welcome_requested = false;
 
                             // 1. Welcome Tab
-                            if self.welcome_open {
-                                let welcome_selected = self.active_tab == WorkspaceTab::Welcome;
+                            if self.workspace.welcome_open {
+                                let welcome_selected = self.workspace.active_tab == WorkspaceTab::Welcome;
                                 let welcome_action = draw_workspace_tab_item(
                                     ui,
                                     self.theme,
@@ -131,8 +131,8 @@ impl DbProApp {
 
                             for (index, title, content) in &documents {
                                 let idx = *index;
-                                let selected =
-                                    self.active_tab == WorkspaceTab::Query && self.active_query_document == idx;
+                                let selected = self.workspace.active_tab == WorkspaceTab::Query
+                                    && self.active_query_document == idx;
                                 let is_running = self
                                     .query_documents
                                     .get(idx)
@@ -277,7 +277,7 @@ impl DbProApp {
 
                             if let Some(idx) = switch_query_idx {
                                 self.switch_query_document(idx);
-                                self.active_tab = WorkspaceTab::Query;
+                                self.workspace.active_tab = WorkspaceTab::Query;
                             }
                             if let Some(idx) = close_query_idx {
                                 self.request_close_query_document(idx);
@@ -293,7 +293,7 @@ impl DbProApp {
                             }
                             if let Some(idx) = run_query_idx {
                                 self.switch_query_document(idx);
-                                self.active_tab = WorkspaceTab::Query;
+                                self.workspace.active_tab = WorkspaceTab::Query;
                                 self.dispatch_query();
                             }
                             if close_all_requested {
@@ -302,7 +302,7 @@ impl DbProApp {
 
                             // 3. Table Tab
                             if let Some(table_name) = self.selected_table.clone() {
-                                let selected = self.active_tab == WorkspaceTab::Table;
+                                let selected = self.workspace.active_tab == WorkspaceTab::Table;
                                 let unsaved = !self.staged_changes.is_empty();
                                 let mut close_table = false;
                                 let mut refresh_table = false;
@@ -385,7 +385,7 @@ impl DbProApp {
                                 if table_action.close_clicked || close_table {
                                     self.request_close_workspace_tab(WorkspaceTab::Table);
                                 } else if table_action.clicked {
-                                    self.active_tab = WorkspaceTab::Table;
+                                    self.workspace.active_tab = WorkspaceTab::Table;
                                 }
                                 if refresh_table {
                                     self.request_table_data();
@@ -399,7 +399,7 @@ impl DbProApp {
                                     SchemaObjectSelection::Trigger(name) => (Icon::Zap, name.clone()),
                                     SchemaObjectSelection::Function { name, .. } => (Icon::Code2, name.clone()),
                                 };
-                                let selected = self.active_tab == WorkspaceTab::SchemaObject;
+                                let selected = self.workspace.active_tab == WorkspaceTab::SchemaObject;
                                 let mut close_obj = false;
                                 let obj_action = draw_workspace_tab_item(
                                     ui,
@@ -451,12 +451,12 @@ impl DbProApp {
                                 if obj_action.close_clicked || close_obj {
                                     self.request_close_workspace_tab(WorkspaceTab::SchemaObject);
                                 } else if obj_action.clicked {
-                                    self.active_tab = WorkspaceTab::SchemaObject;
+                                    self.workspace.active_tab = WorkspaceTab::SchemaObject;
                                 }
                             }
 
                             // 5. ER Diagram Tab
-                            if self.active_tab == WorkspaceTab::Diagram {
+                            if self.workspace.active_tab == WorkspaceTab::Diagram {
                                 let mut close_diagram = false;
                                 let diagram_action = draw_workspace_tab_item(
                                     ui,
@@ -497,7 +497,7 @@ impl DbProApp {
                                 }
                             }
 
-                            if self.active_tab == WorkspaceTab::SchemaWorkbench {
+                            if self.workspace.active_tab == WorkspaceTab::SchemaWorkbench {
                                 let mut close_wb = false;
                                 let wb_action = draw_workspace_tab_item(
                                     ui,
@@ -538,7 +538,7 @@ impl DbProApp {
                                 }
                             }
 
-                            if self.active_tab == WorkspaceTab::SchemaCompare {
+                            if self.workspace.active_tab == WorkspaceTab::SchemaCompare {
                                 let mut close_cmp = false;
                                 let cmp_action = draw_workspace_tab_item(
                                     ui,
@@ -579,7 +579,7 @@ impl DbProApp {
                             }
 
                             // 6. Component Gallery Tab
-                            if self.active_tab == WorkspaceTab::ComponentGallery {
+                            if self.workspace.active_tab == WorkspaceTab::ComponentGallery {
                                 let mut close_gallery = false;
                                 let gallery_action = draw_workspace_tab_item(
                                     ui,
@@ -636,7 +636,7 @@ impl DbProApp {
 
     pub(super) fn draw_workspace(&mut self, ui: &mut egui::Ui) {
         self.draw_workspace_tabs(ui);
-        match self.active_tab {
+        match self.workspace.active_tab {
             WorkspaceTab::Welcome => self.draw_welcome(ui),
             WorkspaceTab::Query => self.draw_query(ui),
             WorkspaceTab::Table => self.draw_table_workspace(ui),

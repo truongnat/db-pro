@@ -92,6 +92,7 @@ pub(crate) use capability_lookup::CapabilityLookup;
 pub(crate) use settings_model::{
     default_keybinding_catalog, AppSettings, SettingsSection, SqlLintSettings, SETTINGS_STORAGE_KEY,
 };
+pub(crate) use workspace_shell::WorkspaceShellState;
 #[path = "activity_bar_view.rs"]
 mod activity_bar_view;
 #[path = "connection_status.rs"]
@@ -141,6 +142,8 @@ mod visual_query_builder_view;
 mod workspace_actions;
 #[path = "workspace_session.rs"]
 mod workspace_session;
+#[path = "workspace_shell.rs"]
+mod workspace_shell;
 pub(crate) use result_grid_view::GridSelectionCache;
 #[path = "schema_compare.rs"]
 mod schema_compare;
@@ -178,16 +181,7 @@ pub struct DbProApp {
     keybindings_filter: String,
     keybinding_edit_id: Option<String>,
     keybinding_edit_draft: String,
-    activity: Activity,
-    welcome_open: bool,
-    active_tab: WorkspaceTab,
-    sidebar_open: bool,
-    sidebar_width: f32,
-    agent_open: bool,
-    agent_width: f32,
-    bottom_panel_open: bool,
-    bottom_panel_height: f32,
-    sidebar_open_before_agent: Option<bool>,
+    workspace: WorkspaceShellState,
     pub prediction_mode: PredictionMode,
     welcome_prompt: String,
     selected_query: String,
@@ -313,7 +307,6 @@ pub struct DbProApp {
     data_edit_error: Option<String>,
     data_delete_confirmation: bool,
     discard_changes_confirmation: bool,
-    pub(crate) pending_navigation_action: Option<PendingNavigationAction>,
     insert_row_open: bool,
     insert_row_values: Vec<String>,
     insert_row_error: String,
@@ -359,8 +352,6 @@ pub struct DbProApp {
     workspace_refactor_from: String,
     workspace_refactor_to: String,
     workspace_context_items: Vec<String>,
-    split_editor_secondary: Option<usize>,
-    files_panel_tab: FilesPanelTab,
     selected_schema_object: Option<SchemaObjectSelection>,
     schema_object_view: SchemaObjectView,
     /// Editable CREATE body for the selected routine (#192).
@@ -638,10 +629,13 @@ impl eframe::App for DbProApp {
         if let Ok(prediction_mode) = serde_json::to_string(&self.prediction_mode) {
             storage.set_string("dbpro.native.prediction-mode", prediction_mode);
         }
-        storage.set_string("dbpro.native.sidebar-width", self.sidebar_width.to_string());
-        storage.set_string("dbpro.native.agent-width", self.agent_width.to_string());
-        storage.set_string("dbpro.native.output-open", self.bottom_panel_open.to_string());
-        storage.set_string("dbpro.native.output-height", self.bottom_panel_height.to_string());
+        storage.set_string("dbpro.native.sidebar-width", self.workspace.sidebar_width.to_string());
+        storage.set_string("dbpro.native.agent-width", self.workspace.agent_width.to_string());
+        storage.set_string("dbpro.native.output-open", self.workspace.bottom_panel_open.to_string());
+        storage.set_string(
+            "dbpro.native.output-height",
+            self.workspace.bottom_panel_height.to_string(),
+        );
         storage.set_string(
             "dbpro.native.connections-pane-height",
             self.connections_pane_height.to_string(),
@@ -689,17 +683,17 @@ impl eframe::App for DbProApp {
         self.handle_shortcuts(ctx);
         self.draw_topbar(ctx);
         // Query owns its rich output dock; the shell panel is for other tabs.
-        if self.active_tab != WorkspaceTab::Query {
+        if self.workspace.active_tab != WorkspaceTab::Query {
             self.draw_output_panel(ctx);
         }
         self.draw_statusbar(ctx);
         self.draw_activity_bar(ctx);
 
-        if self.sidebar_open {
+        if self.workspace.sidebar_open {
             self.draw_sidebar(ctx);
         }
 
-        if self.agent_open {
+        if self.workspace.agent_open {
             self.draw_agent_panel(ctx);
         }
 
@@ -824,17 +818,17 @@ impl DbProApp {
     // Close workspace tab: `workspace_actions.rs`.
 
     pub(crate) fn set_agent_open(&mut self, open: bool, ctx: &egui::Context) {
-        if open == self.agent_open {
+        if open == self.workspace.agent_open {
             return;
         }
-        self.agent_open = open;
+        self.workspace.agent_open = open;
         if open {
-            self.sidebar_open_before_agent = Some(self.sidebar_open);
+            self.workspace.sidebar_open_before_agent = Some(self.workspace.sidebar_open);
             if ctx.screen_rect().width() < AGENT_SIDEBAR_COLLAPSE_WIDTH {
-                self.sidebar_open = false;
+                self.workspace.sidebar_open = false;
             }
-        } else if let Some(sidebar_open) = self.sidebar_open_before_agent.take() {
-            self.sidebar_open = sidebar_open;
+        } else if let Some(sidebar_open) = self.workspace.sidebar_open_before_agent.take() {
+            self.workspace.sidebar_open = sidebar_open;
         }
     }
 

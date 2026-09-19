@@ -138,10 +138,10 @@ impl DbProApp {
             }
             if actions.new_script {
                 self.new_query_document();
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
             }
             if actions.er_diagram {
-                self.active_tab = WorkspaceTab::Diagram;
+                self.workspace.active_tab = WorkspaceTab::Diagram;
                 if !is_connected {
                     self.connect_to_connection(&connection);
                 }
@@ -161,7 +161,7 @@ impl DbProApp {
                     "-- Create table on database `{}`\nCREATE TABLE new_table (\n    id SERIAL PRIMARY KEY,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n",
                     connection.database
                 ));
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
             }
             if actions.copy_name {
                 ui.output_mut(|o| o.copied_text = connection.name.clone());
@@ -317,12 +317,12 @@ impl DbProApp {
             return;
         }
         if !self.staged_changes.is_empty() {
-            self.pending_navigation_action = Some(PendingNavigationAction::ChangeSchema(schema.to_owned()));
+            self.workspace.pending_navigation_action = Some(PendingNavigationAction::ChangeSchema(schema.to_owned()));
             self.discard_changes_confirmation = true;
             self.runtime_message = "Apply or discard staged changes before changing schema".to_owned();
             return;
         }
-        self.pending_navigation_action = None;
+        self.workspace.pending_navigation_action = None;
         self.selected_schema = Some(schema.to_owned());
         self.selected_table = None;
         self.selected_schema_object = None;

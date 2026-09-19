@@ -332,7 +332,7 @@ impl DbProApp {
         }
         if !self.selected_schema_object_exists() {
             self.selected_schema_object = None;
-            if self.active_tab == WorkspaceTab::SchemaObject {
+            if self.workspace.active_tab == WorkspaceTab::SchemaObject {
                 self.activate_welcome_tab();
             }
         }
@@ -343,7 +343,7 @@ impl DbProApp {
             self.schema.triggers.len(),
             self.schema.functions.len()
         );
-        if refresh_selected_table && self.active_tab == WorkspaceTab::Table && self.selected_table.is_some() {
+        if refresh_selected_table && self.workspace.active_tab == WorkspaceTab::Table && self.selected_table.is_some() {
             self.request_table_info();
         }
     }
@@ -370,7 +370,7 @@ impl DbProApp {
         self.table_info_request = None;
         self.table_ddl_request = None;
         self.table_data_request = None;
-        if self.active_tab == WorkspaceTab::Table {
+        if self.workspace.active_tab == WorkspaceTab::Table {
             self.activate_welcome_tab();
         }
     }
@@ -742,7 +742,7 @@ impl DbProApp {
             self.table_data_total_rows = None;
             self.table_data_error = None;
             self.table_data_request = None;
-            if self.active_tab == WorkspaceTab::Table {
+            if self.workspace.active_tab == WorkspaceTab::Table {
                 self.request_table_data();
             }
         }
