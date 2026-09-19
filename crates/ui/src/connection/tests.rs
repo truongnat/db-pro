@@ -20,7 +20,14 @@ fn rendered_texts(app: &mut DbProApp) -> Vec<String> {
     DbProTheme::install_fonts(&ctx);
     let output = ctx.run(Default::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
-            app.draw_postgres_connection_fields(ui);
+            ConnectionDialogView {
+                dialog: &mut app.connection_dialog,
+                lifecycle: &mut app.connection_lifecycle,
+                task_bridge: &mut app.task_bridge,
+                feedback: &mut app.feedback,
+                theme: app.theme,
+            }
+            .draw_postgres_connection_fields(ui);
         });
     });
 

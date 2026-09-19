@@ -10,9 +10,10 @@ use crate::{
     secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame, toolbar_frame, AgentContext,
     AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock, ColumnWritePolicy, DbProTheme, GridProjectionCache,
     GridProjectionKey, OfflineAgentProvider, TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary,
-    UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult,
-    UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput, UiTableDataFilter, UiTableDataSort,
-    UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
+    UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryHistoryEntry, UiQueryHistoryStatus,
+    UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput, UiTableDataFilter,
+    UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary,
+    UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
@@ -458,7 +459,14 @@ impl eframe::App for DbProApp {
             });
 
         if self.connection_dialog.is_open() {
-            self.draw_connection_dialog(ctx);
+            connection::view::draw_connection_dialog(
+                ctx,
+                self.theme,
+                &mut self.connection_dialog,
+                &mut self.connection_lifecycle,
+                &mut self.task_bridge,
+                &mut self.feedback,
+            );
         }
         if self.overlay.delete_confirmation_id.is_some() {
             self.draw_delete_confirmation(ctx);
@@ -483,6 +491,62 @@ impl eframe::App for DbProApp {
 // CapabilityLookup lives in `capability_lookup.rs`.
 
 impl DbProApp {
+    /// Apply a driver choice from the connection dialog.
+    pub fn select_connection_driver(&mut self, driver: UiDriver) {
+        connection::select_connection_driver(self.connection_dialog.draft_mut(), driver);
+    }
+
+    /// Open connection edit dialog from a saved summary.
+    pub fn open_edit_connection(&mut self, connection: &UiConnectionSummary) {
+        connection::open_edit_connection(&mut self.connection_dialog, &mut self.connection_lifecycle, connection);
+    }
+
+    /// Open a duplicate connection draft from a saved summary.
+    pub fn open_duplicate_connection(&mut self, connection: &UiConnectionSummary) {
+        connection::open_duplicate_connection(&mut self.connection_dialog, &mut self.connection_lifecycle, connection);
+    }
+
+    /// Save the active draft's SSH parameters as a reusable profile.
+    pub fn save_draft_as_ssh_profile(&mut self) {
+        match connection::save_draft_as_ssh_profile(&mut self.connection_dialog) {
+            Ok(id) => {
+                self.connection_dialog.draft_mut().ssh_profile_id = id;
+                self.feedback
+                    .set_runtime_message("SSH profile saved — reusable by other connections");
+            }
+            Err(err) => self.feedback.set_runtime_message(err),
+        }
+    }
+
+    /// Apply an existing SSH profile to the active draft.
+    pub fn apply_ssh_profile(&mut self, profile_id: &str) {
+        connection::apply_ssh_profile(&mut self.connection_dialog, profile_id);
+    }
+
+    /// Apply the selected cloud preset to the active draft.
+    pub fn apply_cloud_preset(&mut self) {
+        if let Err(err) = connection::apply_cloud_preset(&mut self.connection_dialog) {
+            self.connection_dialog.set_error(err);
+        }
+    }
+
+    /// Dispatch connection test or save command to the runtime worker.
+    pub fn dispatch_connection_command(&mut self, save: bool) {
+        connection::view::ConnectionDialogView {
+            dialog: &mut self.connection_dialog,
+            lifecycle: &mut self.connection_lifecycle,
+            task_bridge: &mut self.task_bridge,
+            feedback: &mut self.feedback,
+            theme: self.theme,
+        }
+        .dispatch_connection_command(save);
+    }
+
+    /// Refresh the diagnostic report for the active draft.
+    pub fn refresh_connection_diagnostics(&mut self, auth_ok: bool, auth_message: &str) {
+        connection::refresh_connection_diagnostics(&mut self.connection_dialog, auth_ok, auth_message);
+    }
+
     // Grid layout: `grid_layout.rs`.
 
     pub(crate) fn show_toast_error(&mut self, message: impl Into<String>) {

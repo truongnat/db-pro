@@ -90,6 +90,18 @@ if [[ -e "$repo_root/crates/ui/src/database_operations_state.rs" ]]; then
   echo "UI architecture check failed: database_operations_state.rs catch-all must stay deleted." >&2
   exit 1
 fi
+
+connection_renderers=(
+  "$repo_root/crates/ui/src/connection/view.rs"
+  "$repo_root/crates/ui/src/connection/form_fields.rs"
+  "$repo_root/crates/ui/src/connection/advanced_panels.rs"
+)
+for renderer in "${connection_renderers[@]}"; do
+  if rg -n '^impl DbProApp|\bDbProApp\b' "$renderer"; then
+    echo "UI architecture check failed: connection dialog renderers must depend on ConnectionDialogView, not DbProApp." >&2
+    exit 1
+  fi
+done
 if rg -n 'database_operations|DatabaseOperationsState' "$repo_root/crates/ui/src" --glob '*.rs'; then
   echo "UI architecture check failed: database-management state must use feature-owned aggregates." >&2
   exit 1

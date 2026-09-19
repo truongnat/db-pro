@@ -4,15 +4,15 @@ use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::input::{Input, PasswordInput};
 use crate::components::tabs::SegmentedTabs;
 use crate::tokens::*;
-use crate::{DbProApp, DbProTheme};
+use crate::DbProTheme;
 use egui::{FontFamily, FontId, RichText};
 use lucide_icons::Icon;
 
-impl DbProApp {
+impl<'a> super::view::ConnectionDialogView<'a> {
     /// Draw general connection profile fields (Name, Group, Favorite, Environment, Safety).
     pub(crate) fn draw_general_profile_fields(&mut self, ui: &mut egui::Ui) {
         let avail = ui.available_width();
-        let focus_name = self.connection_dialog.focus_name_on_open;
+        let focus_name = self.dialog.focus_name_on_open;
         let gap = SPACE_SM;
 
         ui.label(
@@ -31,7 +31,7 @@ impl DbProApp {
                 ui.set_width(name_w);
                 ui.set_max_width(name_w);
                 Input::new(
-                    &mut self.connection_dialog.draft.name,
+                    &mut self.dialog.draft.name,
                     t!("connection.connection_name_placeholder"),
                     self.theme,
                 )
@@ -47,7 +47,7 @@ impl DbProApp {
                 ui.set_width(group_w);
                 ui.set_max_width(group_w);
                 Input::new(
-                    &mut self.connection_dialog.draft.group,
+                    &mut self.dialog.draft.group,
                     t!("connection.folder_group_placeholder"),
                     self.theme,
                 )
@@ -68,7 +68,7 @@ impl DbProApp {
                         .color(self.theme.text_secondary),
                 );
                 ui.add_space(3.0);
-                let (fav_icon, fav_text) = if self.connection_dialog.draft.favorite {
+                let (fav_icon, fav_text) = if self.dialog.draft.favorite {
                     (Icon::Star, t!("connection.favorite_saved"))
                 } else {
                     (Icon::Star, t!("connection.favorite_off"))
@@ -76,7 +76,7 @@ impl DbProApp {
                 if Button::new(self.theme)
                     .icon(fav_icon)
                     .text(fav_text)
-                    .variant(if self.connection_dialog.draft.favorite {
+                    .variant(if self.dialog.draft.favorite {
                         ButtonVariant::Secondary
                     } else {
                         ButtonVariant::Ghost
@@ -85,12 +85,12 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.connection_dialog.draft.favorite = !self.connection_dialog.draft.favorite;
+                    self.dialog.draft.favorite = !self.dialog.draft.favorite;
                 }
             });
         });
         if focus_name {
-            self.connection_dialog.focus_name_on_open = false;
+            self.dialog.focus_name_on_open = false;
         }
         ui.add_space(SPACE_SM);
 
@@ -109,11 +109,11 @@ impl DbProApp {
                         .color(self.theme.text_secondary),
                 );
                 ui.add_space(SPACE_XXS);
-                let mut env_idx = environment_to_index(&self.connection_dialog.draft.environment);
+                let mut env_idx = environment_to_index(&self.dialog.draft.environment);
                 SegmentedTabs::new(&mut env_idx, ENVIRONMENT_OPTIONS, self.theme)
                     .focusable(false)
                     .show(ui);
-                self.connection_dialog.draft.environment = index_to_environment(env_idx).to_owned();
+                self.dialog.draft.environment = index_to_environment(env_idx).to_owned();
             });
             ui.vertical(|ui| {
                 ui.set_width(ro_w);
@@ -126,11 +126,8 @@ impl DbProApp {
                 );
                 ui.add_space(SPACE_XXS);
                 ui.horizontal(|ui| {
-                    ui.checkbox(
-                        &mut self.connection_dialog.draft.readonly,
-                        t!("connection.readonly_mode"),
-                    );
-                    if self.connection_dialog.draft.environment == "Production" {
+                    ui.checkbox(&mut self.dialog.draft.readonly, t!("connection.readonly_mode"));
+                    if self.dialog.draft.environment == "Production" {
                         ui.label(
                             RichText::new(t!("connection.production_guard"))
                                 .font(font_caption())
@@ -162,7 +159,7 @@ impl DbProApp {
             ui.vertical(|ui| {
                 ui.set_width(host_w);
                 ui.set_max_width(host_w);
-                Input::new(&mut self.connection_dialog.draft.host, "localhost", self.theme)
+                Input::new(&mut self.dialog.draft.host, "localhost", self.theme)
                     .label(t!("connection.host"))
                     .id_salt(focus_id::HOST)
                     .width(host_w)
@@ -172,8 +169,8 @@ impl DbProApp {
             ui.vertical(|ui| {
                 ui.set_width(port_w);
                 ui.set_max_width(port_w);
-                let default_port = default_port_for_driver(self.connection_dialog.draft.driver);
-                Input::new(&mut self.connection_dialog.draft.port, default_port, self.theme)
+                let default_port = default_port_for_driver(self.dialog.draft.driver);
+                Input::new(&mut self.dialog.draft.port, default_port, self.theme)
                     .label(t!("connection.port"))
                     .id_salt(focus_id::PORT)
                     .width(port_w)
@@ -190,8 +187,8 @@ impl DbProApp {
             ui.vertical(|ui| {
                 ui.set_width(half_w);
                 ui.set_max_width(half_w);
-                let default_db = default_database_for_driver(self.connection_dialog.draft.driver);
-                Input::new(&mut self.connection_dialog.draft.database, default_db, self.theme)
+                let default_db = default_database_for_driver(self.dialog.draft.driver);
+                Input::new(&mut self.dialog.draft.database, default_db, self.theme)
                     .label(t!("connection.database"))
                     .id_salt(focus_id::DATABASE)
                     .width(half_w)
@@ -202,8 +199,8 @@ impl DbProApp {
             ui.vertical(|ui| {
                 ui.set_width(half_w);
                 ui.set_max_width(half_w);
-                let default_user = default_username_for_driver(self.connection_dialog.draft.driver);
-                Input::new(&mut self.connection_dialog.draft.username, default_user, self.theme)
+                let default_user = default_username_for_driver(self.dialog.draft.driver);
+                Input::new(&mut self.dialog.draft.username, default_user, self.theme)
                     .label(t!("connection.username"))
                     .id_salt(focus_id::USERNAME)
                     .width(half_w)
@@ -219,22 +216,22 @@ impl DbProApp {
             ui.vertical(|ui| {
                 ui.set_width(half_w);
                 ui.set_max_width(half_w);
-                let pwd_placeholder = if self.connection_dialog.draft.auth_kind == "ephemeral_token" {
+                let pwd_placeholder = if self.dialog.draft.auth_kind == "ephemeral_token" {
                     t!("connection.password_token_placeholder")
-                } else if self.connection_dialog.editing_connection_id.is_some() {
+                } else if self.dialog.editing_connection_id.is_some() {
                     t!("connection.password_blank_keep")
                 } else {
                     t!("connection.password_blank_optional")
                 };
-                let pwd_label = if self.connection_dialog.draft.auth_kind == "ephemeral_token" {
+                let pwd_label = if self.dialog.draft.auth_kind == "ephemeral_token" {
                     t!("connection.access_token")
                 } else {
                     t!("connection.password")
                 };
                 PasswordInput::new(
-                    &mut self.connection_dialog.draft.password,
+                    &mut self.dialog.draft.password,
                     pwd_placeholder,
-                    &mut self.connection_dialog.show_password,
+                    &mut self.dialog.show_password,
                     self.theme,
                 )
                 .label(pwd_label)
@@ -252,13 +249,13 @@ impl DbProApp {
                         .color(self.theme.text_secondary),
                 );
                 ui.add_space(SPACE_XXS);
-                let mut ssl_idx = ssl_mode_to_index(self.connection_dialog.draft.ssl_mode);
+                let mut ssl_idx = ssl_mode_to_index(self.dialog.draft.ssl_mode);
                 SegmentedTabs::new(&mut ssl_idx, SSL_MODE_OPTIONS, self.theme)
                     .focusable(false)
                     .show(ui);
-                self.connection_dialog.draft.ssl_mode = index_to_ssl_mode(ssl_idx);
+                self.dialog.draft.ssl_mode = index_to_ssl_mode(ssl_idx);
                 ui.add_space(SPACE_XXS);
-                let guidance_color = match self.connection_dialog.draft.ssl_mode {
+                let guidance_color = match self.dialog.draft.ssl_mode {
                     crate::UiSslMode::Disable => self.theme.danger,
                     crate::UiSslMode::Require | crate::UiSslMode::VerifyCa => self.theme.warning,
                     crate::UiSslMode::VerifyFull => self.theme.text_muted,
@@ -267,7 +264,7 @@ impl DbProApp {
                 ui.add_sized(
                     egui::vec2(guidance_width, 28.0),
                     egui::Label::new(
-                        RichText::new(super::view::ssl_mode_guidance(self.connection_dialog.draft.ssl_mode))
+                        RichText::new(super::view::ssl_mode_guidance(self.dialog.draft.ssl_mode))
                             .size(10.0)
                             .color(guidance_color),
                     )
