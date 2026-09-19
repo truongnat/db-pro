@@ -309,7 +309,7 @@ impl DbProApp {
             );
             ui.add_space(12.0);
             if compact_button_with_icon(ui, Icon::Plus, "New connection", self.theme).clicked() {
-                self.open_new_connection();
+                self.connection.open_new();
             }
         });
     }

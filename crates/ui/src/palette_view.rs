@@ -637,7 +637,7 @@ impl DbProApp {
                 self.feedback.runtime_message = "New query ready".to_owned();
             }
             PaletteAction::NewConnection => {
-                self.open_new_connection();
+                self.connection.open_new();
             }
             PaletteAction::RefreshSchema => self.refresh_schema_palette(),
             PaletteAction::ToggleExplorer => self.workspace.sidebar_open = !self.workspace.sidebar_open,

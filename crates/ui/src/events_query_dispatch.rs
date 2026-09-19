@@ -36,7 +36,7 @@ impl DbProApp {
             self.workspace.sidebar_open = !self.workspace.sidebar_open;
         }
         if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "connection.new")) {
-            self.open_new_connection();
+            self.connection.open_new();
             return;
         }
         if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "query.new")) {

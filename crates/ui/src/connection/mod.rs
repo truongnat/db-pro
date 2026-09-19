@@ -41,6 +41,13 @@ impl Default for ConnectionFeatureState {
     }
 }
 
+impl ConnectionFeatureState {
+    pub(crate) fn open_new(&mut self) {
+        self.lifecycle.clear_pending_request();
+        self.dialog.transition(state::ConnectionDialogAction::OpenNew);
+    }
+}
+
 /// Apply a driver choice to the connection draft.
 pub(crate) fn select_connection_driver(draft: &mut UiConnectionDraft, driver: UiDriver) {
     logic::select_driver(draft, driver);

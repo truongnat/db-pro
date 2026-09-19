@@ -364,7 +364,7 @@ fn new_postgresql_connection_defaults_to_tls_require() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
 
-    app.open_new_connection();
+    app.connection.open_new();
 
     assert_eq!(app.connection.dialog.draft().driver, UiDriver::Postgres);
     assert_eq!(app.connection.dialog.draft().ssl_mode, UiSslMode::Require);
@@ -396,7 +396,7 @@ fn editing_a_disable_connection_keeps_disable_until_the_user_changes_it() {
 fn switching_sqlite_to_postgresql_initializes_tls_require() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.open_new_connection();
+    app.connection.open_new();
     app.connection.dialog.draft_mut().driver = UiDriver::Sqlite;
     app.connection.dialog.draft_mut().ssl_mode = UiSslMode::Disable;
 
@@ -410,7 +410,7 @@ fn switching_sqlite_to_postgresql_initializes_tls_require() {
 fn selecting_mysql_sets_port_and_tls_and_preserves_password_on_submit() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.open_new_connection();
+    app.connection.open_new();
     app.select_connection_driver(UiDriver::Mysql);
     assert_eq!(app.connection.dialog.draft().driver, UiDriver::Mysql);
     assert_eq!(app.connection.dialog.draft().port, "3306");
@@ -458,7 +458,7 @@ fn editing_a_mysql_connection_keeps_the_mysql_driver() {
 fn explicit_disable_selection_is_preserved_on_submit() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.open_new_connection();
+    app.connection.open_new();
     assert_eq!(app.connection.dialog.draft().ssl_mode, UiSslMode::Require);
 
     app.connection.dialog.draft_mut().ssl_mode = UiSslMode::Disable;

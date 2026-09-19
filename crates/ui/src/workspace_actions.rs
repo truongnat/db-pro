@@ -280,13 +280,6 @@ impl DbProApp {
         }
     }
 
-    pub fn open_new_connection(&mut self) {
-        self.connection
-            .dialog
-            .transition(super::connection::state::ConnectionDialogAction::OpenNew);
-        self.connection.lifecycle.clear_pending_request();
-    }
-
     /// Capture/evidence helper: keep the initial connection request pending so
     /// the Welcome surface can be documented in its loading state.
     pub fn prepare_loading_for_capture(&mut self) {
@@ -298,7 +291,7 @@ impl DbProApp {
     /// Capture/evidence helper: open the connection editor with a deterministic
     /// validation error, without requiring a live database.
     pub fn open_connection_error_for_capture(&mut self) {
-        self.open_new_connection();
+        self.connection.open_new();
         self.connection
             .dialog
             .set_error("Connection test failed: authentication rejected by the server.");

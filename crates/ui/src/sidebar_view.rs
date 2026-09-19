@@ -156,7 +156,7 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                self.open_new_connection();
+                self.connection.open_new();
             }
         });
         ui.add_space(SPACE_XS);

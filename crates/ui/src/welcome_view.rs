@@ -62,7 +62,7 @@ impl DbProApp {
 
     fn apply_welcome_intent(&mut self, intent: WelcomeIntent) {
         if intent.new_connection {
-            self.open_new_connection();
+            self.connection.open_new();
         }
         if intent.new_query {
             self.new_query_document();
