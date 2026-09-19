@@ -50,7 +50,7 @@ impl DbProApp {
                     self.draw_welcome_connections(ui, &mut intent);
                 }
 
-                if !self.welcome_prompt.trim().is_empty() {
+                if !self.welcome.prompt.trim().is_empty() {
                     ui.add_space(SPACE_XL);
                     self.draw_welcome_draft(ui, &mut intent);
                 }
@@ -69,10 +69,10 @@ impl DbProApp {
             self.workspace.active_tab = WorkspaceTab::Query;
         }
         if intent.open_draft_query {
-            let draft = self.welcome_prompt.trim().to_owned();
+            let draft = self.welcome.prompt.trim().to_owned();
             self.set_active_query_text(draft);
             self.workspace.active_tab = WorkspaceTab::Query;
-            self.runtime_message = "Opened draft in Query".to_owned();
+            self.feedback.runtime_message = "Opened draft in Query".to_owned();
         }
         if intent.open_palette {
             self.open_palette(PaletteMode::Commands);
@@ -411,7 +411,7 @@ impl DbProApp {
     }
 
     fn draw_welcome_draft(&self, ui: &mut egui::Ui, intent: &mut WelcomeIntent) {
-        let preview = self.welcome_prompt.trim();
+        let preview = self.welcome.prompt.trim();
         let preview = if preview.chars().count() > 72 {
             format!("{}…", preview.chars().take(72).collect::<String>())
         } else {

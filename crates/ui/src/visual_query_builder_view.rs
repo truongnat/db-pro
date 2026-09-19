@@ -419,7 +419,7 @@ impl DbProApp {
             return;
         }
         self.set_active_query_text(self.query_editor.visual_query_sql_preview.clone());
-        self.runtime_message = "Visual builder SQL applied to editor (not executed)".into();
+        self.feedback.runtime_message = "Visual builder SQL applied to editor (not executed)".into();
     }
 
     fn import_visual_builder_from_editor(&mut self) {
@@ -434,7 +434,7 @@ impl DbProApp {
                 self.query_editor.visual_query_model = model;
                 self.query_editor.visual_query_error = None;
                 self.refresh_visual_builder_preview();
-                self.runtime_message = "Imported supported SELECT into visual builder".into();
+                self.feedback.runtime_message = "Imported supported SELECT into visual builder".into();
             }
             Err(err) => {
                 self.query_editor.visual_query_error = Some(format!("Import refused (keeping text editor): {err}"));

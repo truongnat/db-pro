@@ -199,7 +199,7 @@ impl DbProApp {
                     (row_index, column_index),
                     modifiers.shift,
                 );
-                self.copy_status.clear();
+                self.feedback.copy_status.clear();
             }
         }
     }

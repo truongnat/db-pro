@@ -182,7 +182,7 @@ impl DbProApp {
         if self.connection_dialog.draft != draft_before {
             self.connection_dialog
                 .transition(super::state::ConnectionDialogAction::DraftChanged);
-            self.runtime_message = t!("status.connection_changed").to_string();
+            self.feedback.runtime_message = t!("status.connection_changed").to_string();
         }
         if !self.connection_dialog.open {
             self.connection_lifecycle.clear_pending_request();

@@ -7,7 +7,7 @@ use egui::RichText;
 impl DbProApp {
     /// Render connection deletion confirmation dialog.
     pub(crate) fn draw_delete_confirmation(&mut self, ctx: &egui::Context) {
-        let Some(connection_id) = self.delete_confirmation_id.clone() else {
+        let Some(connection_id) = self.overlay.delete_confirmation_id.clone() else {
             return;
         };
         let name = self
@@ -67,19 +67,20 @@ impl DbProApp {
             // spurious "Connection failed" on the active connection.
             self.connection_lifecycle.pending_request = Some(request_id);
             self.connection_lifecycle.pending_connection_id = Some(connection_id);
-            self.runtime_message = t!("status.deleting", name = name.as_str()).to_string();
-            self.delete_confirmation_id = None;
+            self.feedback.runtime_message = t!("status.deleting", name = name.as_str()).to_string();
+            self.overlay.delete_confirmation_id = None;
         } else if cancelled || !open {
-            self.delete_confirmation_id = None;
+            self.overlay.delete_confirmation_id = None;
         }
     }
 
     /// Render query folder deletion confirmation dialog.
     pub(crate) fn draw_folder_delete_confirmation(&mut self, ctx: &egui::Context) {
-        let Some(folder_id) = self.folder_delete_confirmation.clone() else {
+        let Some(folder_id) = self.overlay.folder_delete_confirmation.clone() else {
             return;
         };
         let folder_name = self
+            .query_library
             .query_folders
             .iter()
             .find(|folder| folder.id == folder_id)
@@ -131,9 +132,9 @@ impl DbProApp {
                 request_id,
                 id: folder_id,
             });
-            self.folder_delete_confirmation = None;
+            self.overlay.folder_delete_confirmation = None;
         } else if cancelled || !open {
-            self.folder_delete_confirmation = None;
+            self.overlay.folder_delete_confirmation = None;
         }
     }
 }

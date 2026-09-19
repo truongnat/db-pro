@@ -45,7 +45,7 @@ impl DbProApp {
         }
         if let Some(sql) = copy_sql {
             ctx.output_mut(|output| output.copied_text = sql);
-            self.copy_status = "Agent SQL copied".to_owned();
+            self.feedback.copy_status = "Agent SQL copied".to_owned();
         }
     }
 

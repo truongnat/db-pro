@@ -495,7 +495,7 @@ fn table_edits_stage_until_explicit_apply() {
         environment: "Development".to_owned(),
     }];
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.schema_explorer.selected_table = Some("customers".to_owned());
     app.table_state.table_info = Some(UiTableInfo {
         schema: "public".to_owned(),
@@ -573,14 +573,16 @@ fn apply_is_blocked_while_a_validation_error_exists() {
     app.apply_staged_changes();
 
     assert!(command_rx.try_recv().is_err());
-    assert_eq!(app.runtime_message, "Fix the validation error before applying changes");
+    assert_eq!(
+        app.feedback.runtime_message,
+        "Fix the validation error before applying changes"
+    );
     assert_eq!(app.table_mutation.staged_changes.counts().total(), 1);
 }
 
 #[test]
 fn editing_primary_key_stages_new_value_with_original_identity() {
     let mut app = DbProApp {
-        connected: true,
         connection_catalog: ConnectionCatalogState {
             connections: vec![UiConnectionSummary {
                 id: "conn-1".to_owned(),
@@ -599,6 +601,7 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
             }],
         },
         connection_lifecycle: ConnectionLifecycleState {
+            connected: true,
             active_connection_id: Some("conn-1".to_owned()),
             ..Default::default()
         },
@@ -650,8 +653,8 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
 #[test]
 fn no_primary_key_table_blocks_safe_row_mutations() {
     let app = DbProApp {
-        connected: true,
         connection_lifecycle: ConnectionLifecycleState {
+            connected: true,
             active_connection_id: Some("conn-1".to_owned()),
             ..Default::default()
         },
@@ -696,8 +699,8 @@ fn no_primary_key_table_blocks_safe_row_mutations() {
 #[test]
 fn binary_cell_edit_is_refused_with_a_reason() {
     let mut app = DbProApp {
-        connected: true,
         connection_lifecycle: ConnectionLifecycleState {
+            connected: true,
             active_connection_id: Some("conn-1".to_owned()),
             ..Default::default()
         },
@@ -779,9 +782,9 @@ fn binary_cell_edit_is_refused_with_a_reason() {
         "no editor may open for a blocked column"
     );
     assert!(
-        app.runtime_message.contains("read-only"),
+        app.feedback.runtime_message.contains("read-only"),
         "the reason must be visible: {}",
-        app.runtime_message
+        app.feedback.runtime_message
     );
     assert_eq!(app.table_mutation.staged_changes.counts().total(), 0);
 }
@@ -790,8 +793,8 @@ fn binary_cell_edit_is_refused_with_a_reason() {
 #[test]
 fn generated_column_edit_is_refused_before_staging() {
     let mut app = DbProApp {
-        connected: true,
         connection_lifecycle: ConnectionLifecycleState {
+            connected: true,
             active_connection_id: Some("conn-1".to_owned()),
             ..Default::default()
         },
@@ -883,9 +886,9 @@ fn generated_column_edit_is_refused_before_staging() {
         "nothing may be staged"
     );
     assert!(
-        app.runtime_message.contains("computed"),
+        app.feedback.runtime_message.contains("computed"),
         "the reason must be visible: {}",
-        app.runtime_message
+        app.feedback.runtime_message
     );
 }
 
@@ -893,8 +896,8 @@ fn generated_column_edit_is_refused_before_staging() {
 #[test]
 fn generated_column_is_never_staged_by_insert() {
     let mut app = DbProApp {
-        connected: true,
         connection_lifecycle: ConnectionLifecycleState {
+            connected: true,
             active_connection_id: Some("conn-1".to_owned()),
             ..Default::default()
         },
@@ -983,8 +986,8 @@ fn generated_column_is_never_staged_by_insert() {
 
     // A value for the generated column is refused deterministically, before staging.
     let mut second = DbProApp {
-        connected: true,
         connection_lifecycle: ConnectionLifecycleState {
+            connected: true,
             active_connection_id: Some("conn-1".to_owned()),
             ..Default::default()
         },
@@ -1032,8 +1035,8 @@ fn generated_column_is_never_staged_by_insert() {
 #[test]
 fn duplicated_row_leaves_blocked_columns_empty() {
     let mut app = DbProApp {
-        connected: true,
         connection_lifecycle: ConnectionLifecycleState {
+            connected: true,
             active_connection_id: Some("conn-1".to_owned()),
             ..Default::default()
         },
@@ -1159,6 +1162,7 @@ fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
         }) if columns == &vec![1, 3]
     ));
     assert!(app
+        .feedback
         .runtime_message
         .contains("Staged change #2 failed · transaction rolled back"));
 }
@@ -1231,7 +1235,7 @@ fn explain_query_uses_selected_connection_and_switches_output() {
         environment: "Development".to_owned(),
     }];
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.set_active_query_text("SELECT 1");
 
     app.explain_query();
@@ -1272,7 +1276,7 @@ fn explain_analyze_requires_explicit_confirm_before_dispatch() {
         environment: "Development".to_owned(),
     }];
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.set_active_query_text("SELECT 1");
 
     app.explain_query_analyze();
@@ -1350,10 +1354,10 @@ fn selected_connection_is_not_shown_as_connected() {
             connections: vec![connection],
         },
         connection_lifecycle: ConnectionLifecycleState {
+            connected: false,
             active_connection_id: Some("conn-1".to_owned()),
             ..Default::default()
         },
-        connected: false,
         ..Default::default()
     };
 
@@ -1364,7 +1368,7 @@ fn selected_connection_is_not_shown_as_connected() {
     );
     assert_eq!(app.statusbar_state().2, "Not connected");
     assert!(!app.can_mutate_active_connection());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     assert_eq!(
         app.connection_indicator(&app.connection_catalog.connections[0]).1,
         app.theme.success
@@ -1373,10 +1377,10 @@ fn selected_connection_is_not_shown_as_connected() {
     assert!(app.can_mutate_active_connection());
     app.connection_catalog.connections[0].readonly = true;
     assert!(!app.can_mutate_active_connection());
-    app.runtime_message = "Table data failed · timeout".to_owned();
+    app.feedback.runtime_message = "Table data failed · timeout".to_owned();
     assert!(app.has_runtime_error());
     assert_eq!(app.statusbar_state().2, "Connected");
-    app.connected = false;
+    app.connection_lifecycle.connected = false;
     assert_eq!(app.statusbar_state().2, "Runtime error");
 }
 
@@ -1690,7 +1694,7 @@ fn closing_query_document_restores_the_next_valid_document() {
     assert_eq!(app.query_session_state.documents.len(), 1);
     assert_eq!(app.query_session_state.active_document_index, 0);
     assert_eq!(app.active_query_text(), "select 2");
-    assert_eq!(app.runtime_message, "Closed Query 2");
+    assert_eq!(app.feedback.runtime_message, "Closed Query 2");
 }
 
 #[test]
@@ -2425,7 +2429,7 @@ fn command_palette_opens_problems_and_diagnostics() {
     assert!(app.workspace.sidebar_open);
     app.execute_palette_action(PaletteAction::Diagnostics, &ctx);
     assert_eq!(app.workspace.activity, Activity::Settings);
-    assert!(app.runtime_message.contains("Diagnostics"));
+    assert!(app.feedback.runtime_message.contains("Diagnostics"));
 }
 
 #[test]
@@ -2518,7 +2522,7 @@ fn global_search_scopes_and_indexes_functions_with_invalidation() {
 fn command_palette_opens_saved_query_into_editor() {
     let mut app = DbProApp::default();
     let ctx = egui::Context::default();
-    app.saved_queries = vec![crate::UiSavedQuerySummary {
+    app.query_library.saved_queries = vec![crate::UiSavedQuerySummary {
         id: "sq-1".to_owned(),
         name: "Active users".to_owned(),
         sql: "SELECT 1".to_owned(),
@@ -2580,7 +2584,7 @@ fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
         environment: "Development".to_owned(),
     }];
     app.connection_lifecycle.active_connection_id = Some("active".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     let ctx = egui::Context::default();
 
     app.execute_palette_action(PaletteAction::RefreshSchema, &ctx);
@@ -2595,7 +2599,7 @@ fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
     };
     assert_eq!(connection_id, "active");
     assert!(force_refresh);
-    assert_eq!(app.runtime_message, "Refreshing schema…");
+    assert_eq!(app.feedback.runtime_message, "Refreshing schema…");
 }
 
 #[test]
@@ -2712,7 +2716,7 @@ fn agent_provider_status_uses_runtime_provider_name() {
     app.submit_agent_prompt();
 
     assert_eq!(app.agent.provider_label, "Groq");
-    assert_eq!(app.runtime_message, "Sending request to Groq…");
+    assert_eq!(app.feedback.runtime_message, "Sending request to Groq…");
     assert!(matches!(command_rx.try_recv(), Ok(UiCommand::StartAgentRun { .. })));
 }
 
@@ -3188,7 +3192,7 @@ fn global_palette_shortcuts_do_not_steal_text_input_combinations() {
 fn failed_connection_request_clears_connecting_state_and_keeps_error() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.connection_lifecycle.pending_request = Some(crate::RequestId(42));
     event_tx
         .send(UiEvent::QueryFailed {
@@ -3199,10 +3203,10 @@ fn failed_connection_request_clears_connecting_state_and_keeps_error() {
 
     app.apply_runtime_events();
 
-    assert!(!app.connected);
+    assert!(!app.connection_lifecycle.connected);
     assert_eq!(app.connection_lifecycle.pending_request, None);
     assert_eq!(app.connection_dialog.error, "auth failed");
-    assert_eq!(app.runtime_message, "Connection failed · auth failed");
+    assert_eq!(app.feedback.runtime_message, "Connection failed · auth failed");
 }
 
 #[test]
@@ -3273,7 +3277,7 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
         },
     ];
     app.connection_lifecycle.active_connection_id = Some("conn-a".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.connection_lifecycle.pending_request = Some(crate::RequestId(21));
     app.connection_lifecycle.pending_connection_id = Some("conn-b".to_owned());
     app.connection_lifecycle.connections_requested = true;
@@ -3287,7 +3291,7 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
     app.apply_runtime_events();
 
     assert_eq!(app.connection_lifecycle.active_connection_id.as_deref(), Some("conn-a"));
-    assert!(app.connected);
+    assert!(app.connection_lifecycle.connected);
     assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ListConnections { .. })));
 
     // List refresh must not force a Connect when the active session is still up.
@@ -3300,7 +3304,7 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
     app.apply_runtime_events();
 
     assert_eq!(app.connection_lifecycle.active_connection_id.as_deref(), Some("conn-a"));
-    assert!(app.connected);
+    assert!(app.connection_lifecycle.connected);
     assert!(
         !matches!(command_rx.try_recv(), Ok(UiCommand::Connect { .. })),
         "active session must not reconnect after deleting a sibling"
@@ -3475,7 +3479,10 @@ fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
 #[test]
 fn diagnostics_summary_redacts_runtime_errors_and_lists_mysql() {
     let mut app = DbProApp {
-        runtime_message: "connection failed password=hunter2".to_owned(),
+        feedback: FeedbackState {
+            runtime_message: "connection failed password=hunter2".to_owned(),
+            ..Default::default()
+        },
         ..DbProApp::default()
     };
     app.connection_catalog.connections.push(crate::UiConnectionSummary {
@@ -3607,7 +3614,7 @@ fn failed_schema_request_is_visible_and_retryable() {
         Some("missing field `from_columns`")
     );
     assert_eq!(
-        app.runtime_message,
+        app.feedback.runtime_message,
         "Schema introspection failed · missing field `from_columns`"
     );
 }
@@ -3662,7 +3669,10 @@ fn connection_test_success_is_invalidated_when_the_draft_changes() {
     app.apply_runtime_events();
 
     assert!(!app.connection_dialog.test_valid);
-    assert_eq!(app.runtime_message, "Connection changed · test again before saving");
+    assert_eq!(
+        app.feedback.runtime_message,
+        "Connection changed · test again before saving"
+    );
 }
 
 #[test]
@@ -3815,7 +3825,7 @@ fn query_dispatch_uses_the_active_connection_not_the_first_connection() {
         },
     ];
     app.connection_lifecycle.active_connection_id = Some("active".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.dispatch_query();
 
     let UiCommand::RunQuery { connection_id, .. } = command_rx.try_recv().expect("query command expected") else {
@@ -3844,7 +3854,7 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
         environment: "Development".to_owned(),
     }];
     app.connection_lifecycle.active_connection_id = Some("active".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.table_state.table_ddl = Some("CREATE TABLE \"public\".\"audit\" (id INTEGER)".to_owned());
 
     app.submit_ddl();
@@ -3998,14 +4008,17 @@ fn test_export_result_writes_escaped_delimited_text() {
     let path = std::env::temp_dir().join(format!("db-pro-export-test-{}.csv", uuid::Uuid::new_v4()));
     let path_text = path.to_string_lossy().into_owned();
     let mut app = DbProApp {
-        export_format: "CSV".to_owned(),
-        export_path: path_text.clone(),
-        export_open: true,
+        overlay: OverlayState {
+            export_format: "CSV".to_owned(),
+            export_path: path_text.clone(),
+            export_open: true,
+            ..Default::default()
+        },
         ..Default::default()
     };
     app.export_result(&value);
-    assert!(!app.export_open, "the dialog closes after a successful export");
-    assert_eq!(app.runtime_message, format!("Exported 2 rows to {path_text}"));
+    assert!(!app.overlay.export_open, "the dialog closes after a successful export");
+    assert_eq!(app.feedback.runtime_message, format!("Exported 2 rows to {path_text}"));
 
     let written = std::fs::read_to_string(&path).expect("export file must exist");
     let _ = std::fs::remove_file(&path);
@@ -4110,7 +4123,7 @@ fn test_open_table_blocked_with_unapplied_staged_changes() {
     app.open_table("orders".to_owned());
     assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
     assert!(app.table_data.discard_changes_confirmation);
-    assert!(app.runtime_message.contains("Apply or discard staged changes"));
+    assert!(app.feedback.runtime_message.contains("Apply or discard staged changes"));
 
     // Closing table tab with staged changes is guarded
     app.table_data.discard_changes_confirmation = false;
@@ -4162,10 +4175,10 @@ fn test_query_cancellation_capability_gate() {
             connections: vec![postgres_conn, sqlite_conn],
         },
         connection_lifecycle: ConnectionLifecycleState {
+            connected: true,
             active_connection_id: Some("pg".to_owned()),
             ..Default::default()
         },
-        connected: true,
         ..Default::default()
     };
 
@@ -4684,7 +4697,7 @@ fn query_dispatch_allows_independent_documents_to_run_concurrently() {
         },
     ];
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.set_document_connection(0, Some("conn-1".to_owned()));
     app.set_active_query_text("SELECT 1;");
     app.dispatch_query();
@@ -4819,7 +4832,7 @@ fn test_multi_tab_explain_plan_routing() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.connection_catalog.connections = vec![UiConnectionSummary {
         id: "conn-1".to_owned(),
         name: "Test DB".to_owned(),
@@ -4888,7 +4901,7 @@ fn test_multi_tab_explain_plan_routing() {
 #[test]
 fn test_prediction_mode_defaults_and_options() {
     let app = DbProApp::default();
-    assert_eq!(app.prediction_mode, PredictionMode::Off);
+    assert_eq!(app.preferences.prediction_mode, PredictionMode::Off);
 
     let eager = PredictionMode::Eager;
     let off = PredictionMode::Off;
@@ -5215,7 +5228,7 @@ fn test_agent_vietnamese_ime_input_and_patch_version_safety() {
     // User attempts to apply patch - rejected due to stale version from typing
     app.agent_confirmation_action(true);
     assert_eq!(
-        app.runtime_message,
+        app.feedback.runtime_message,
         "This query changed since the suggestion was created."
     );
     // Text buffer unchanged and preserved
@@ -5790,19 +5803,19 @@ fn test_conflict_keep_mine_and_use_database_resolution_actions() {
 #[test]
 fn every_runtime_message_reaches_the_status_bar() {
     let mut app = DbProApp::default();
-    app.runtime_message.clear();
+    app.feedback.runtime_message.clear();
     assert!(app.runtime_status().is_none(), "an empty message renders nothing");
 
-    app.runtime_message = "Select a row before deleting".to_owned();
+    app.feedback.runtime_message = "Select a row before deleting".to_owned();
     let (message, color) = app.runtime_status().expect("a refusal must be shown");
     assert_eq!(message, "Select a row before deleting");
     assert_eq!(color, app.theme.text_secondary, "a refusal is not an error");
 
-    app.runtime_message = "Connect with write access to delete rows".to_owned();
+    app.feedback.runtime_message = "Connect with write access to delete rows".to_owned();
     let (_, color) = app.runtime_status().expect("a read-only refusal must be shown");
     assert_eq!(color, app.theme.text_secondary);
 
-    app.runtime_message = "Query failed: syntax error at or near SELECT".to_owned();
+    app.feedback.runtime_message = "Query failed: syntax error at or near SELECT".to_owned();
     let (_, color) = app.runtime_status().expect("an error must be shown");
     assert_eq!(color, app.theme.danger, "errors keep the danger colour");
 }
@@ -5830,7 +5843,7 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
         environment: "Development".to_owned(),
     }];
     app.connection_lifecycle.active_connection_id = Some("active".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.set_active_query_text("DROP TABLE users");
 
     app.dispatch_query();
@@ -5846,7 +5859,7 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
         .expect("the statement must be held for confirmation");
     assert_eq!(pending.sql, "DROP TABLE users");
     assert!(!pending.all_statements);
-    assert!(app.runtime_message.contains("held for confirmation"));
+    assert!(app.feedback.runtime_message.contains("held for confirmation"));
 
     app.confirm_pending_destructive_run();
 
@@ -5877,7 +5890,7 @@ fn cancelling_a_held_destructive_statement_sends_nothing() {
         environment: "Development".to_owned(),
     }];
     app.connection_lifecycle.active_connection_id = Some("active".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.set_active_query_text("TRUNCATE users");
 
     app.dispatch_query();
@@ -5889,7 +5902,7 @@ fn cancelling_a_held_destructive_statement_sends_nothing() {
         "a cancelled statement must never be dispatched"
     );
     assert!(app.query_execution.pending_destructive_run.is_none());
-    assert!(app.runtime_message.contains("cancelled"));
+    assert!(app.feedback.runtime_message.contains("cancelled"));
 }
 
 /// Reads, writes and plain DDL are not gated: the confirmation exists for the classes
@@ -5922,7 +5935,7 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
             environment: "Development".to_owned(),
         }];
         app.connection_lifecycle.active_connection_id = Some("active".to_owned());
-        app.connected = true;
+        app.connection_lifecycle.connected = true;
         app.set_active_query_text(sql);
 
         app.dispatch_query();
@@ -5963,7 +5976,7 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
         environment: "Development".to_owned(),
     }];
     app.connection_lifecycle.active_connection_id = Some("active".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.set_active_query_text("SELECT 1;\nDROP TABLE users;");
 
     app.dispatch_query_all();
@@ -6067,7 +6080,7 @@ fn dispatch_query_binds_named_parameters_for_postgres() {
         environment: "Development".to_owned(),
     }];
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     app.set_active_query_text("SELECT :id, :name".to_owned());
     if let Some(doc) = app.query_session_state.documents.get_mut(0) {
         doc.parameter_values.insert(":id".to_owned(), "7".to_owned());
@@ -6093,10 +6106,10 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
 
     let mut app = DbProApp {
         connection_lifecycle: ConnectionLifecycleState {
+            connected: true,
             active_connection_id: Some("conn-1".to_owned()),
             ..Default::default()
         },
-        connected: true,
         schema_explorer: SchemaExplorerState {
             selected_schema: Some("public".to_owned()),
             ..Default::default()
@@ -6176,17 +6189,17 @@ fn saved_task_persists_without_secrets_and_blocks_destructive_without_confirm() 
         environment: "Development".to_owned(),
     }];
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
-    app.connected = true;
-    app.settings.general.confirm_destructive_queries = true;
-    app.saved_task_store = store;
+    app.connection_lifecycle.connected = true;
+    app.preferences.settings.general.confirm_destructive_queries = true;
+    app.saved_tasks.store = store;
     app.run_saved_task(id, SavedTaskRunTrigger::Manual);
     assert!(command_rx.try_recv().is_err());
-    assert_eq!(app.pending_destructive_task_id, Some(id));
+    assert_eq!(app.saved_tasks.pending_destructive_task_id, Some(id));
 
-    app.saved_task_confirm_destructive = true;
+    app.saved_tasks.confirm_destructive = true;
     app.run_saved_task(id, SavedTaskRunTrigger::Manual);
     assert!(command_rx.try_recv().is_ok());
-    assert!(app.saved_task_store.tasks.iter().any(|t| t.last_run.is_some()));
+    assert!(app.saved_tasks.store.tasks.iter().any(|t| t.last_run.is_some()));
 }
 
 #[test]
@@ -6212,7 +6225,7 @@ fn scheduled_task_tick_dispatches_once_while_app_active() {
         environment: "Development".to_owned(),
     }];
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
-    app.connected = true;
+    app.connection_lifecycle.connected = true;
     let id = uuid::Uuid::new_v4();
     let now = chrono::Utc::now();
     let mut schedule = TaskSchedule::every_secs(30);
@@ -6231,14 +6244,14 @@ fn scheduled_task_tick_dispatches_once_while_app_active() {
             schedule: Some(schedule),
         })
         .unwrap();
-    app.saved_task_store = store;
+    app.saved_tasks.store = store;
     app.tick_saved_task_scheduler();
     let UiCommand::RunQuery { sql, .. } = command_rx.try_recv().expect("scheduled run") else {
         panic!("expected RunQuery");
     };
     assert_eq!(sql, "SELECT 1");
     assert_eq!(
-        app.saved_task_store.tasks[0].last_run.as_ref().unwrap().trigger,
+        app.saved_tasks.store.tasks[0].last_run.as_ref().unwrap().trigger,
         SavedTaskRunTrigger::Scheduled
     );
     app.tick_saved_task_scheduler();
@@ -6260,10 +6273,10 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     app.workspace.active_tab = WorkspaceTab::Query;
     app.connection_lifecycle.active_connection_id = Some("gone-conn".to_owned());
     app.schema_explorer.pinned_tables = vec!["public.orders".to_owned()];
-    app.session_name_draft = "Focus pack".to_owned();
+    app.workspace_sessions.name_draft = "Focus pack".to_owned();
     app.save_named_workspace_session();
-    assert_eq!(app.named_session_store.sessions.len(), 1);
-    let id = app.named_session_store.sessions[0].id.clone();
+    assert_eq!(app.workspace_sessions.store.sessions.len(), 1);
+    let id = app.workspace_sessions.store.sessions[0].id.clone();
 
     // Mutate live state, then restore.
     app.workspace.activity = Activity::Explorer;
@@ -6279,10 +6292,10 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
         app.connection_lifecycle.active_connection_id.is_none(),
         "missing connection must not crash"
     );
-    assert!(!app.last_session_restore_notes.is_empty());
+    assert!(!app.workspace_sessions.last_restore_notes.is_empty());
 
     app.duplicate_named_workspace_session(&id);
-    assert_eq!(app.named_session_store.sessions.len(), 2);
+    assert_eq!(app.workspace_sessions.store.sessions.len(), 2);
 }
 
 // ── Sidebar geometry ──────────────────────────────────────────────────────

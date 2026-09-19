@@ -150,7 +150,7 @@ impl DbProApp {
         }
         if copy_name {
             ui.output_mut(|o| o.copied_text = view.name.clone());
-            self.runtime_message = format!("Copied `{}` to clipboard", view.name);
+            self.feedback.runtime_message = format!("Copied `{}` to clipboard", view.name);
         }
         if open_query {
             let from = if view.schema.is_empty() {
@@ -252,7 +252,7 @@ impl DbProApp {
         }
         if copy_name {
             ui.output_mut(|o| o.copied_text = function.name.clone());
-            self.runtime_message = format!("Copied `{}` to clipboard", function.name);
+            self.feedback.runtime_message = format!("Copied `{}` to clipboard", function.name);
         }
         if open_query {
             self.set_active_query_text(format!("SELECT * FROM {}.{}();", function.schema, function.name));
@@ -331,7 +331,7 @@ impl DbProApp {
         }
         if copy_name {
             ui.output_mut(|o| o.copied_text = trigger.name.clone());
-            self.runtime_message = format!("Copied `{}` to clipboard", trigger.name);
+            self.feedback.runtime_message = format!("Copied `{}` to clipboard", trigger.name);
         }
     }
 
@@ -369,7 +369,7 @@ impl DbProApp {
                 self.sync_routine_workbench_from(&function);
             }
         }
-        self.runtime_message = if schema.is_empty() {
+        self.feedback.runtime_message = if schema.is_empty() {
             format!("Opened {kind} {name}")
         } else {
             format!("Opened {kind} {schema}.{name}")

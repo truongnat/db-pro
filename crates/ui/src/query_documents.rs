@@ -29,7 +29,7 @@ impl DbProApp {
         self.workspace.activity = Activity::Queries;
         self.workspace.sidebar_open = true;
         self.workspace.active_tab = WorkspaceTab::Query;
-        self.runtime_message = "Opened scratch SQL tab".to_owned();
+        self.feedback.runtime_message = "Opened scratch SQL tab".to_owned();
     }
 
     /// Cycle a simple numbered rename for the open query tab (#211).
@@ -46,7 +46,7 @@ impl DbProApp {
         } else {
             doc.title = format!("{} (renamed)", doc.title);
         }
-        self.runtime_message = format!("Renamed tab to {}", doc.title);
+        self.feedback.runtime_message = format!("Renamed tab to {}", doc.title);
     }
 
     pub(crate) fn open_history_entry(&mut self, entry: &UiQueryHistoryEntry, run: bool) {
@@ -92,7 +92,7 @@ impl DbProApp {
             if self.workspace.active_tab == WorkspaceTab::Query {
                 self.activate_fallback_workspace_tab();
             }
-            self.runtime_message = format!("Closed {closed_title}");
+            self.feedback.runtime_message = format!("Closed {closed_title}");
             return;
         }
 
@@ -113,7 +113,7 @@ impl DbProApp {
         } else {
             self.query_session_state.selected_text.clear();
         }
-        self.runtime_message = format!(
+        self.feedback.runtime_message = format!(
             "Closed {}",
             self.query_session_state.documents[self.query_session_state.active_document_index].title
         );
@@ -171,7 +171,7 @@ impl DbProApp {
         self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
         self.query_editor.query_focus_editor_on_open = true;
         self.workspace.active_tab = WorkspaceTab::Query;
-        self.runtime_message = format!("Duplicated {}", self.query_session_state.documents[index].title);
+        self.feedback.runtime_message = format!("Duplicated {}", self.query_session_state.documents[index].title);
     }
 
     pub(crate) fn close_other_query_documents(&mut self, keep_index: usize) {
@@ -186,7 +186,7 @@ impl DbProApp {
         let kept = self.query_session_state.documents[keep_index].clone();
         self.query_session_state.documents = vec![kept];
         self.query_session_state.active_document_index = 0;
-        self.runtime_message = "Closed other queries".to_owned();
+        self.feedback.runtime_message = "Closed other queries".to_owned();
     }
 
     pub(crate) fn close_query_documents_to_right(&mut self, index: usize) {
@@ -200,7 +200,7 @@ impl DbProApp {
         if self.query_session_state.active_document_index > index {
             self.query_session_state.active_document_index = index;
         }
-        self.runtime_message = "Closed queries to the right".to_owned();
+        self.feedback.runtime_message = "Closed queries to the right".to_owned();
     }
 
     pub(crate) fn close_all_tabs(&mut self) {
@@ -213,7 +213,7 @@ impl DbProApp {
         self.schema_explorer.selected_table = None;
         self.schema_explorer.selected_schema_object = None;
         self.workspace.active_tab = WorkspaceTab::Welcome;
-        self.runtime_message = "Closed all tabs".to_owned();
+        self.feedback.runtime_message = "Closed all tabs".to_owned();
     }
 
     pub(crate) fn close_welcome_tab(&mut self) {
@@ -221,7 +221,7 @@ impl DbProApp {
         if self.workspace.active_tab == WorkspaceTab::Welcome {
             self.activate_fallback_workspace_tab();
         }
-        self.runtime_message = "Closed Welcome".to_owned();
+        self.feedback.runtime_message = "Closed Welcome".to_owned();
     }
 
     pub(crate) fn activate_welcome_tab(&mut self) {

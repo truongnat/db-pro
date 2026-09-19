@@ -247,7 +247,7 @@ impl DbProApp {
                         ui.add_space(8.0);
 
                         // Live Light / Dark theme toggle
-                        let is_dark = self.dark_mode;
+                        let is_dark = self.preferences.dark_mode;
                         let theme_icon = if is_dark { Icon::Sun } else { Icon::Moon };
                         let theme_label = if is_dark { "Light Mode" } else { "Dark Mode" };
                         if Button::new(theme)
@@ -258,7 +258,7 @@ impl DbProApp {
                             .show(ui)
                             .clicked()
                         {
-                            self.dark_mode = !self.dark_mode;
+                            self.preferences.dark_mode = !self.preferences.dark_mode;
                         }
                     });
                 });

@@ -159,7 +159,7 @@ impl DbProApp {
                             .color(self.theme.text_muted),
                     );
                     if compact_button(ui, "Export", self.theme).clicked() {
-                        self.export_open = true;
+                        self.overlay.export_open = true;
                     }
                 }
             });
@@ -391,7 +391,7 @@ impl DbProApp {
                 if let Some(plan) = self.active_explain_plan() {
                     if compact_button(ui, "Copy plan", self.theme).clicked() {
                         ui.output_mut(|o| o.copied_text = plan.to_owned());
-                        self.runtime_message = "Query plan copied".to_owned();
+                        self.feedback.runtime_message = "Query plan copied".to_owned();
                     }
                 }
             });
@@ -500,7 +500,7 @@ impl DbProApp {
                 );
                 if compact_button(ui, "Clear History", self.theme).clicked() {
                     self.query_editor.query_history_entries.clear();
-                    self.runtime_message = "Query history cleared".to_owned();
+                    self.feedback.runtime_message = "Query history cleared".to_owned();
                 }
             });
             if self.query_editor.query_history_entries.is_empty() {

@@ -409,7 +409,7 @@ impl DbProApp {
                 self.table_state.table_data_filter_operator = UiTableFilterOperator::Equals;
                 self.table_state.table_data_filter_value.clear();
                 self.table_state.table_data_filter_editing = None;
-                self.runtime_message = format!("Filter draft ready for {}", column.name);
+                self.feedback.runtime_message = format!("Filter draft ready for {}", column.name);
             }
         }
         if show_columns_req {

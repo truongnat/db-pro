@@ -72,17 +72,17 @@ impl DbProApp {
     }
 
     pub(super) fn draw_export_dialog(&mut self, ui: &mut egui::Ui, result: Option<&UiQueryResult>) {
-        if !self.export_open {
+        if !self.overlay.export_open {
             return;
         }
         card_frame(self.theme).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label("Export results");
-                ui.selectable_value(&mut self.export_format, "CSV".to_owned(), "CSV");
-                ui.selectable_value(&mut self.export_format, "TSV".to_owned(), "TSV");
-                ui.selectable_value(&mut self.export_format, "SQL".to_owned(), "INSERT");
-                ui.selectable_value(&mut self.export_format, "COPY".to_owned(), "COPY");
-                input(ui, &mut self.export_path, "output path", 260.0, self.theme);
+                ui.selectable_value(&mut self.overlay.export_format, "CSV".to_owned(), "CSV");
+                ui.selectable_value(&mut self.overlay.export_format, "TSV".to_owned(), "TSV");
+                ui.selectable_value(&mut self.overlay.export_format, "SQL".to_owned(), "INSERT");
+                ui.selectable_value(&mut self.overlay.export_format, "COPY".to_owned(), "COPY");
+                input(ui, &mut self.overlay.export_path, "output path", 260.0, self.theme);
                 if Button::new(self.theme)
                     .text("Export")
                     .variant(ButtonVariant::Default)
@@ -101,15 +101,15 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.export_open = false;
-                    self.export_overwrite_pending = false;
+                    self.overlay.export_open = false;
+                    self.overlay.export_overwrite_pending = false;
                 }
             });
-            if self.export_overwrite_pending {
+            if self.overlay.export_overwrite_pending {
                 ui.add_space(SPACE_XS);
                 ui.colored_label(
                     self.theme.warning,
-                    format!("{} already exists. Overwrite it?", self.export_path.trim()),
+                    format!("{} already exists. Overwrite it?", self.overlay.export_path.trim()),
                 );
                 ui.horizontal(|ui| {
                     if Button::new(self.theme)
@@ -130,7 +130,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        self.export_overwrite_pending = false;
+                        self.overlay.export_overwrite_pending = false;
                     }
                 });
             }
@@ -151,11 +151,11 @@ impl DbProApp {
         }
         let lookup = self.query_capabilities();
         if let Some(reason) = lookup.feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Explain) {
-            self.runtime_message = format!("Explain is unavailable: {reason}");
+            self.feedback.runtime_message = format!("Explain is unavailable: {reason}");
             return;
         }
         let Some(connection_id) = self.active_query_connection_id().map(str::to_owned) else {
-            self.runtime_message = "Connect to a database before explaining a query".to_owned();
+            self.feedback.runtime_message = "Connect to a database before explaining a query".to_owned();
             return;
         };
         let sql = if self.query_session_state.selected_text.trim().is_empty() {
@@ -164,13 +164,14 @@ impl DbProApp {
             self.query_session_state.selected_text.trim().to_owned()
         };
         if sql.is_empty() {
-            self.runtime_message = "Enter a query before explaining it".to_owned();
+            self.feedback.runtime_message = "Enter a query before explaining it".to_owned();
             return;
         }
         if analyze && !self.query_execution.explain_analyze_confirmed {
             self.query_execution.pending_explain_analyze = true;
             self.set_active_query_output_tab(OutputTab::Explain);
-            self.runtime_message = "EXPLAIN ANALYZE executes the statement — confirm in the Explain pane".to_owned();
+            self.feedback.runtime_message =
+                "EXPLAIN ANALYZE executes the statement — confirm in the Explain pane".to_owned();
             return;
         }
         let request_id = self.task_bridge.next_request_id();
@@ -192,7 +193,7 @@ impl DbProApp {
             self.query_execution.pending_explain_analyze = false;
             self.query_execution.explain_analyze_confirmed = false;
             self.set_active_query_output_tab(OutputTab::Explain);
-            self.runtime_message = if analyze {
+            self.feedback.runtime_message = if analyze {
                 "EXPLAIN ANALYZE running (query executes)…".to_owned()
             } else {
                 "Explaining query…".to_owned()
@@ -215,19 +216,19 @@ impl DbProApp {
     /// asking, so a failed export cannot leave a truncated file that looks complete and a typo in the
     /// path cannot destroy an unrelated file.
     pub(super) fn export_result_to_disk(&mut self, result: &UiQueryResult, overwrite: bool) {
-        let path_text = self.export_path.trim().to_owned();
+        let path_text = self.overlay.export_path.trim().to_owned();
         if path_text.is_empty() {
-            self.runtime_message = "Choose an export path first".to_owned();
+            self.feedback.runtime_message = "Choose an export path first".to_owned();
             return;
         }
         let path = PathBuf::from(&path_text);
         if path.exists() && !overwrite {
-            self.export_overwrite_pending = true;
+            self.overlay.export_overwrite_pending = true;
             return;
         }
 
-        let delimiter = if self.export_format == "CSV" { "," } else { "\t" };
-        let output = match self.export_format.as_str() {
+        let delimiter = if self.overlay.export_format == "CSV" { "," } else { "\t" };
+        let output = match self.overlay.export_format.as_str() {
             "SQL" => DbProApp::format_result_sql_insert(result, "exported_rows"),
             "COPY" => DbProApp::format_result_copy(result, "exported_rows"),
             _ => DbProApp::format_result_delimited(result, delimiter),
@@ -237,7 +238,7 @@ impl DbProApp {
             Ok(()) => {
                 // Truthful row count: a capped result exports the rows it holds, not the rows the
                 // query matched, and the message has to say which one it is.
-                self.runtime_message = if result.row_count > exported_rows as u64 {
+                self.feedback.runtime_message = if result.row_count > exported_rows as u64 {
                     format!(
                         "Exported {exported_rows} rows to {path_text} ({} rows matched; the result holds the first {exported_rows})",
                         result.row_count
@@ -247,11 +248,11 @@ impl DbProApp {
                 };
             }
             Err(error) => {
-                self.runtime_message = format!("Export failed: {error} (no file was written)");
+                self.feedback.runtime_message = format!("Export failed: {error} (no file was written)");
             }
         }
-        self.export_overwrite_pending = false;
-        self.export_open = false;
+        self.overlay.export_overwrite_pending = false;
+        self.overlay.export_open = false;
     }
 
     pub(crate) fn format_active_query(&mut self) {
@@ -406,7 +407,7 @@ impl DbProApp {
             .and_then(|document| document.connection_id.clone())
             .or_else(|| self.connection_lifecycle.active_connection_id.clone())
         else {
-            self.runtime_message = "Create or select a connection first".to_owned();
+            self.feedback.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -437,12 +438,13 @@ impl DbProApp {
             saved_query_id,
             name,
             sql,
-            folder: (!self.query_folder.trim().is_empty()).then(|| self.query_folder.trim().to_owned()),
+            folder: (!self.query_library.query_folder.trim().is_empty())
+                .then(|| self.query_library.query_folder.trim().to_owned()),
         });
         if let Some(document_id) = document_id {
             self.query_session_state.save_requests.insert(request_id, document_id);
         }
-        self.runtime_message = "Saving query…".to_owned();
+        self.feedback.runtime_message = "Saving query…".to_owned();
     }
 
     pub(crate) fn open_save_as_dialog(&mut self) {
@@ -494,7 +496,7 @@ impl DbProApp {
         } else if save {
             let name = self.query_session_state.save_as_name.trim().to_owned();
             if name.is_empty() {
-                self.runtime_message = "Enter a name for the saved query".to_owned();
+                self.feedback.runtime_message = "Enter a name for the saved query".to_owned();
                 return;
             }
             let document_index = self.query_session_state.active_document_index;
@@ -778,7 +780,7 @@ impl DbProApp {
             }
         }
 
-        let lint = self.settings.editor.lint.clone();
+        let lint = self.preferences.settings.editor.lint.clone();
         if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
             let (raw_diags, structured) = Self::analyze_sql_diagnostics_with_lint(doc.text(), &driver, &lint);
             self.query_editor.diagnostics = raw_diags;

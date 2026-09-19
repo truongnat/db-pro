@@ -15,6 +15,8 @@ pub(crate) struct SchemaExplorerState {
     pub(crate) recent_tables: Vec<String>,
     pub(crate) selected_schema_object: Option<SchemaObjectSelection>,
     pub(crate) schema_object_view: SchemaObjectView,
+    pub(crate) connections_pane_height: f32,
+    pub(crate) schemas_pane_height: f32,
 }
 
 impl Default for SchemaExplorerState {
@@ -32,6 +34,8 @@ impl Default for SchemaExplorerState {
             recent_tables: Vec::new(),
             selected_schema_object: None,
             schema_object_view: SchemaObjectView::Definition,
+            connections_pane_height: 160.0,
+            schemas_pane_height: 90.0,
         }
     }
 }
@@ -49,5 +53,7 @@ mod tests {
         assert!(state.selected_table.is_none());
         assert!(state.schema_request.is_none());
         assert_eq!(state.schema_object_view, SchemaObjectView::Definition);
+        assert_eq!(state.connections_pane_height, 160.0);
+        assert_eq!(state.schemas_pane_height, 90.0);
     }
 }

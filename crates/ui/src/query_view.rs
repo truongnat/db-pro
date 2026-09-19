@@ -212,7 +212,7 @@ impl DbProApp {
     }
 
     fn draw_query_context_chip(&self, ui: &mut egui::Ui) -> egui::Response {
-        let connected = self.active_query_connection_id().is_some() && self.connected;
+        let connected = self.active_query_connection_id().is_some() && self.connection_lifecycle.connected;
         let conn_label = if connected {
             self.active_query_connection_name().to_owned()
         } else {
@@ -404,7 +404,7 @@ impl DbProApp {
 
     fn draw_query_status_bar(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
-        let connected = self.active_query_connection_id().is_some() && self.connected;
+        let connected = self.active_query_connection_id().is_some() && self.connection_lifecycle.connected;
         let driver = self.active_query_driver().to_owned();
         let schema = self.active_query_schema().to_owned();
         let param_key = (
@@ -580,11 +580,11 @@ impl DbProApp {
                 if cancel_supported {
                     self.cancel_query(request_id);
                 } else {
-                    self.runtime_message = cancel_reason
+                    self.feedback.runtime_message = cancel_reason
                         .unwrap_or_else(|| "Query cancellation is not supported for this provider".to_owned());
                 }
             } else if !connected {
-                self.runtime_message = "Connect to a database before running a query".to_owned();
+                self.feedback.runtime_message = "Connect to a database before running a query".to_owned();
             } else {
                 self.dispatch_query();
             }
@@ -1131,7 +1131,7 @@ impl DbProApp {
             self.query_editor.editor_font_size = (self.query_editor.editor_font_size + 1.0).min(24.0);
         }
         if menu_button_with_icon(ui, Icon::Bot, "Generate SQL Prediction", self.theme).clicked() {
-            if self.prediction_mode != PredictionMode::Off {
+            if self.preferences.prediction_mode != PredictionMode::Off {
                 if let Some(doc) = self
                     .query_session_state
                     .documents
@@ -1149,8 +1149,11 @@ impl DbProApp {
                 (PredictionMode::Subtle, "Subtle"),
                 (PredictionMode::Eager, "Eager"),
             ] {
-                if ui.selectable_label(self.prediction_mode == mode, label).clicked() {
-                    self.prediction_mode = mode;
+                if ui
+                    .selectable_label(self.preferences.prediction_mode == mode, label)
+                    .clicked()
+                {
+                    self.preferences.prediction_mode = mode;
                     if mode == PredictionMode::Off {
                         self.cancel_prediction_for_document(self.query_session_state.active_document_index);
                     }
@@ -1168,7 +1171,13 @@ impl DbProApp {
             close_menu = true;
         }
         ui.horizontal(|ui| {
-            input(ui, &mut self.query_folder, "folder (optional)", 150.0, self.theme);
+            input(
+                ui,
+                &mut self.query_library.query_folder,
+                "folder (optional)",
+                150.0,
+                self.theme,
+            );
             if Button::new(self.theme)
                 .text("New folder")
                 .variant(ButtonVariant::Secondary)
@@ -1187,16 +1196,16 @@ impl DbProApp {
         let Some(connection) = self.active_connection().cloned() else {
             return;
         };
-        if self.query_folder.trim().is_empty() {
+        if self.query_library.query_folder.trim().is_empty() {
             return;
         }
         let request_id = self.task_bridge.next_request_id();
         self.dispatch_command(UiCommand::CreateQueryFolder {
             request_id,
             connection_id: connection.id.clone(),
-            name: self.query_folder.trim().to_owned(),
+            name: self.query_library.query_folder.trim().to_owned(),
         });
-        self.runtime_message = "Creating query folder…".to_owned();
+        self.feedback.runtime_message = "Creating query folder…".to_owned();
     }
 
     pub(crate) fn insert_snippet(&mut self, snippet: &str) {
@@ -1222,7 +1231,7 @@ impl DbProApp {
         }
         self.workspace.active_tab = WorkspaceTab::Query;
         self.refresh_diagnostics();
-        self.runtime_message = "Snippet inserted".to_owned();
+        self.feedback.runtime_message = "Snippet inserted".to_owned();
     }
 }
 

@@ -49,7 +49,7 @@ impl DbProApp {
                     {
                         self.set_active_query_text(ddl.clone());
                         self.workspace.active_tab = WorkspaceTab::Query;
-                        self.runtime_message = format!("Opened DDL for {schema}.{table_name} in Query editor");
+                        self.feedback.runtime_message = format!("Opened DDL for {schema}.{table_name} in Query editor");
                     }
 
                     if Button::new(self.theme)
@@ -62,8 +62,10 @@ impl DbProApp {
                         .clicked()
                     {
                         ui.ctx().copy_text(ddl.clone());
-                        self.toasts.info("DDL copied to clipboard", ToastPosition::BottomRight);
-                        self.runtime_message = "DDL copied to clipboard".to_owned();
+                        self.feedback
+                            .toasts
+                            .info("DDL copied to clipboard", ToastPosition::BottomRight);
+                        self.feedback.runtime_message = "DDL copied to clipboard".to_owned();
                     }
                 });
             });

@@ -64,7 +64,7 @@ impl DbProApp {
             .is_some_and(|d| target_doc_id.as_ref() == Some(&d.id));
 
         if is_active_doc {
-            self.runtime_message = format!("Query completed · {} rows", result.row_count);
+            self.feedback.runtime_message = format!("Query completed · {} rows", result.row_count);
             self.table_data.grid_sort_column = None;
             self.table_data.grid_column_widths = vec![180.0; result.columns.len()];
             self.table_data.selected_cell = None;
@@ -72,7 +72,7 @@ impl DbProApp {
             self.table_data.selected_rows.clear();
             self.table_data.selection_anchor_row = None;
             self.table_data.selection_anchor_cell = None;
-            self.copy_status.clear();
+            self.feedback.copy_status.clear();
             if let Some(doc_id) = target_doc_id.as_deref() {
                 self.set_query_output_tab(doc_id, OutputTab::Results);
             }
@@ -194,7 +194,7 @@ impl DbProApp {
             .get(self.query_session_state.active_document_index)
             .is_some_and(|document| document.id == doc_id);
         if is_active_doc {
-            self.runtime_message = format!(
+            self.feedback.runtime_message = format!(
                 "Script completed · {} result{} · {} ms",
                 self.query_session_state
                     .documents
@@ -231,9 +231,9 @@ impl DbProApp {
                 }
             }
         }
-        self.saved_queries.retain(|saved| saved.id != query.id);
-        self.saved_queries.push(query);
-        self.runtime_message = "Query saved".to_owned();
+        self.query_library.saved_queries.retain(|saved| saved.id != query.id);
+        self.query_library.saved_queries.push(query);
+        self.feedback.runtime_message = "Query saved".to_owned();
         if let Some(index) = close_index {
             self.query_session_state.pending_close_after_save = None;
             self.close_query_document(index);
@@ -281,8 +281,8 @@ impl DbProApp {
         if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
             doc.explain_request = None;
             doc.explain_plan = Some(plan);
-            self.runtime_message = "Query plan ready".to_owned();
-            doc.query_messages.push(self.runtime_message.clone());
+            self.feedback.runtime_message = "Query plan ready".to_owned();
+            doc.query_messages.push(self.feedback.runtime_message.clone());
         }
     }
 
@@ -327,7 +327,7 @@ impl DbProApp {
                 .get(self.query_session_state.active_document_index)
                 .is_some_and(|doc| &doc.id == doc_id)
         }) {
-            self.runtime_message = "Query cancelled".to_owned();
+            self.feedback.runtime_message = "Query cancelled".to_owned();
         }
     }
 
@@ -413,8 +413,8 @@ impl DbProApp {
     ) {
         if self.agent.configure_request == Some(request_id) {
             self.agent.configure_request = None;
-            self.runtime_message = format!("Agent key operation failed · {message}");
-            self.show_toast_error(self.runtime_message.clone());
+            self.feedback.runtime_message = format!("Agent key operation failed · {message}");
+            self.show_toast_error(self.feedback.runtime_message.clone());
         } else if self.connection_lifecycle.pending_request == Some(request_id) {
             self.connection_lifecycle.clear_pending_request();
             let conn_id = self
@@ -422,10 +422,10 @@ impl DbProApp {
                 .pending_connection_id
                 .take()
                 .or_else(|| self.connection_lifecycle.active_connection_id.clone());
-            let is_delete = self.runtime_message.to_ascii_lowercase().contains("delet");
+            let is_delete = self.feedback.runtime_message.to_ascii_lowercase().contains("delet");
             if is_delete {
                 let formatted = format!("Delete failed · {message}");
-                self.runtime_message = formatted.clone();
+                self.feedback.runtime_message = formatted.clone();
                 self.show_toast_error(formatted);
             } else {
                 if let Some(cid) = conn_id {
@@ -433,17 +433,17 @@ impl DbProApp {
                     self.connection_lifecycle.errors.insert(cid, message.clone());
                 }
                 if !self.connection_dialog.open {
-                    self.connected = false;
+                    self.connection_lifecycle.connected = false;
                     self.schema_explorer.schema_request = None;
                     self.schema_explorer.schema_error = None;
                 }
                 self.connection_dialog.error = message.clone();
-                self.runtime_message = format!("Connection failed · {message}");
+                self.feedback.runtime_message = format!("Connection failed · {message}");
             }
         } else if self.schema_explorer.schema_request == Some(request_id) {
             self.schema_explorer.schema_request = None;
             self.schema_explorer.schema_error = Some(message.clone());
-            self.runtime_message = format!("Schema introspection failed · {message}");
+            self.feedback.runtime_message = format!("Schema introspection failed · {message}");
         } else if self.table_mutation.staged_apply_request == Some(request_id) {
             // Older runtimes can still report the generic failure event. Keep
             // the staged changes and surface it as an unmapped mutation.
@@ -455,36 +455,36 @@ impl DbProApp {
             self.table_data.data_edit_error = None;
             self.table_data.data_delete_confirmation = false;
             let formatted = format!("Row mutation failed · {message}");
-            self.runtime_message = formatted.clone();
+            self.feedback.runtime_message = formatted.clone();
             self.show_toast_error(formatted);
         } else if self.table_state.table_info_request == Some(request_id) {
             self.table_state.table_info_request = None;
             self.table_state.table_info_error = Some(message.clone());
-            self.runtime_message = format!("Table structure failed · {message}");
+            self.feedback.runtime_message = format!("Table structure failed · {message}");
         } else if self.table_state.table_ddl_request == Some(request_id) {
             self.table_state.table_ddl_request = None;
             self.table_state.table_ddl_error = Some(message.clone());
-            self.runtime_message = format!("Table DDL failed · {message}");
+            self.feedback.runtime_message = format!("Table DDL failed · {message}");
         } else if self.table_state.table_row_reload_request == Some(request_id) {
             self.table_state.table_row_reload_request = None;
             self.table_state.table_row_reload_identity = None;
             self.table_mutation.table_mutation_retry_after_reload = false;
             self.table_mutation.table_mutation_retry_target = None;
-            self.runtime_message = format!("Could not reload row: {message}");
+            self.feedback.runtime_message = format!("Could not reload row: {message}");
         } else if self.table_state.table_data_request == Some(request_id) {
             self.table_state.table_data_request = None;
             self.table_mutation.table_mutation_retry_after_reload = false;
             self.table_mutation.table_mutation_retry_target = None;
             self.table_state.table_data_error = Some(message.clone());
             let formatted = format!("Table data failed · {message}");
-            self.runtime_message = formatted.clone();
+            self.feedback.runtime_message = formatted.clone();
             self.show_toast_error(formatted);
         } else if self.table_state.ddl_execution_request == Some(request_id) {
             self.table_state.ddl_execution_request = None;
             self.table_state.ddl_execute_confirmation = false;
             self.table_state.table_ddl_error = Some(message.clone());
             let formatted = format!("DDL execution failed · {message}");
-            self.runtime_message = formatted.clone();
+            self.feedback.runtime_message = formatted.clone();
             self.show_toast_error(formatted);
         } else if let Some(document_id) = self.query_session_state.save_requests.remove(&request_id) {
             if self.query_session_state.pending_close_after_save.is_some_and(|index| {
@@ -495,7 +495,7 @@ impl DbProApp {
             }) {
                 self.query_session_state.pending_close_after_save = None;
             }
-            self.runtime_message = format!("Save failed · {message}");
+            self.feedback.runtime_message = format!("Save failed · {message}");
         } else if self.query_session_state.document_requests.contains_key(&request_id) {
             let target_doc_id = self.query_session_state.document_requests.remove(&request_id);
             let mut history = None;
@@ -552,7 +552,7 @@ impl DbProApp {
                 .is_some_and(|d| target_doc_id.as_ref() == Some(&d.id));
 
             if is_active_doc {
-                self.runtime_message = format!("Query failed · {message}");
+                self.feedback.runtime_message = format!("Query failed · {message}");
                 self.workspace.bottom_panel_open = true;
                 self.query_editor.query_output_dock_maximized = false;
                 if let Some(doc_id) = target_doc_id.as_deref() {
@@ -570,14 +570,14 @@ impl DbProApp {
             self.workspace.bottom_panel_open = true;
             self.query_editor.query_output_dock_maximized = false;
             let message = format!("Explain failed · {message}");
-            self.runtime_message = message;
+            self.feedback.runtime_message = message;
             if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
                 doc.explain_request = None;
                 doc.explain_plan = None;
-                doc.query_messages.push(self.runtime_message.clone());
+                doc.query_messages.push(self.feedback.runtime_message.clone());
             }
         } else {
-            self.runtime_message = format!("Operation failed · {message}");
+            self.feedback.runtime_message = format!("Operation failed · {message}");
         }
     }
 }

@@ -110,7 +110,7 @@ impl DbProApp {
         } else {
             self.query_session_state.selected_text.clear();
         }
-        self.runtime_message = format!("Opened {}", self.query_session_state.documents[index].title);
+        self.feedback.runtime_message = format!("Opened {}", self.query_session_state.documents[index].title);
     }
 
     // Problems / diagnostics: `problems_view.rs`.
@@ -125,12 +125,12 @@ impl DbProApp {
             label,
             &self.schema_explorer.schema,
         ));
-        self.runtime_message = "Schema snapshot captured".to_owned();
+        self.feedback.runtime_message = "Schema snapshot captured".to_owned();
     }
 
     pub(crate) fn diff_against_schema_snapshot(&mut self) {
         let Some(snapshot) = self.database_operations.schema_snapshot.clone() else {
-            self.runtime_message = "Take a schema snapshot before comparing".to_owned();
+            self.feedback.runtime_message = "Take a schema snapshot before comparing".to_owned();
             return;
         };
         let current = schema_compare::UiSchemaSnapshot::from_summary("current", &self.schema_explorer.schema);
@@ -139,14 +139,14 @@ impl DbProApp {
         self.database_operations.migration_preview_sql.clear();
         self.database_operations.migration_confirm_destructive = false;
         self.database_operations.migration_fingerprint_at_preview.clear();
-        self.runtime_message = "Schema diff ready".to_owned();
+        self.feedback.runtime_message = "Schema diff ready".to_owned();
     }
 
     pub(crate) fn plan_migration_from_schema_diff(&mut self) {
         use db_pro_core::application::MigrationPlanner;
 
         let Some(diff) = self.database_operations.schema_diff.clone() else {
-            self.runtime_message = "Diff a schema snapshot before planning a migration".into();
+            self.feedback.runtime_message = "Diff a schema snapshot before planning a migration".into();
             return;
         };
         let core_diff = schema_compare::to_core_schema_diff(&diff);
@@ -156,22 +156,22 @@ impl DbProApp {
         self.database_operations.migration_fingerprint_at_preview = plan.fingerprint.clone();
         self.database_operations.migration_confirm_destructive = false;
         self.database_operations.migration_plan = Some(plan);
-        self.runtime_message = "Migration plan ready — review SQL before apply".into();
+        self.feedback.runtime_message = "Migration plan ready — review SQL before apply".into();
     }
 
     pub(crate) fn apply_migration_preview(&mut self) {
         use db_pro_core::application::MigrationPlanner;
 
         let Some(plan) = self.database_operations.migration_plan.clone() else {
-            self.runtime_message = "Plan a migration before applying".into();
+            self.feedback.runtime_message = "Plan a migration before applying".into();
             return;
         };
         if !MigrationPlanner::verify_fingerprint(&plan, &self.database_operations.migration_fingerprint_at_preview) {
-            self.runtime_message = "Migration fingerprint changed — re-plan before apply".into();
+            self.feedback.runtime_message = "Migration fingerprint changed — re-plan before apply".into();
             return;
         }
         if plan.has_destructive && !self.database_operations.migration_confirm_destructive {
-            self.runtime_message = "Destructive migration requires explicit confirmation checkbox".into();
+            self.feedback.runtime_message = "Destructive migration requires explicit confirmation checkbox".into();
             return;
         }
         let sql = if plan.has_destructive && self.database_operations.migration_confirm_destructive {
@@ -180,7 +180,7 @@ impl DbProApp {
             MigrationPlanner::non_destructive_sql(&plan)
         };
         if sql.trim().is_empty() {
-            self.runtime_message = "No supported SQL operations to apply".into();
+            self.feedback.runtime_message = "No supported SQL operations to apply".into();
             return;
         }
         if self.table_state.ddl_execution_request.is_some() {
@@ -196,14 +196,15 @@ impl DbProApp {
             sql,
         });
         self.table_state.ddl_execution_request = Some(request_id);
-        self.runtime_message = "Applying migration plan…".into();
+        self.feedback.runtime_message = "Applying migration plan…".into();
     }
 
     pub(crate) fn handle_transaction_action(&mut self, action: crate::components::TransactionAction) {
         match action {
             crate::components::TransactionAction::ToggleAutoCommit(value) => {
                 if self.query_execution.query_in_transaction && value {
-                    self.runtime_message = "Commit or rollback the open transaction before enabling auto-commit".into();
+                    self.feedback.runtime_message =
+                        "Commit or rollback the open transaction before enabling auto-commit".into();
                     return;
                 }
                 self.query_execution.query_auto_commit = value;
@@ -233,7 +234,7 @@ impl DbProApp {
 
     pub(super) fn dispatch_transaction_sql(&mut self, sql: &str) {
         let Some(connection_id) = self.active_query_connection_id().map(str::to_owned) else {
-            self.runtime_message = "Connect before using transaction controls".into();
+            self.feedback.runtime_message = "Connect before using transaction controls".into();
             return;
         };
         // Reuse the normal run path so execution state / cancel / history stay consistent.
@@ -347,7 +348,7 @@ impl DbProApp {
     pub(crate) fn active_query_connection_name(&self) -> &str {
         self.active_query_connection()
             .map(|c| c.name.as_str())
-            .unwrap_or(self.connection_name.as_str())
+            .unwrap_or(self.connection_lifecycle.fallback_name.as_str())
     }
 
     pub(crate) fn active_query_driver(&self) -> &str {

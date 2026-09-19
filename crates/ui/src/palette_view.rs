@@ -62,7 +62,7 @@ impl DbProApp {
             views: self.schema_explorer.schema.views.len(),
             functions: self.schema_explorer.schema.functions.len(),
             columns: self.active_schema_column_names().len(),
-            saved_queries: self.saved_queries.len(),
+            saved_queries: self.query_library.saved_queries.len(),
             history: self.query_editor.query_history_entries.len(),
             connections: self.connection_catalog.connections.len(),
             workspace_files,
@@ -440,7 +440,8 @@ impl DbProApp {
     }
 
     fn saved_query_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.saved_queries
+        self.query_library
+            .saved_queries
             .iter()
             .take(40)
             .map(|query| {
@@ -626,12 +627,12 @@ impl DbProApp {
             PaletteAction::Diagnostics => {
                 self.workspace.activity = Activity::Settings;
                 self.workspace.sidebar_open = true;
-                self.runtime_message = "Opened Settings → Diagnostics".to_owned();
+                self.feedback.runtime_message = "Opened Settings → Diagnostics".to_owned();
             }
             PaletteAction::NewQuery => {
                 self.workspace.active_tab = WorkspaceTab::Query;
                 self.new_query_document();
-                self.runtime_message = "New query ready".to_owned();
+                self.feedback.runtime_message = "New query ready".to_owned();
             }
             PaletteAction::NewConnection => {
                 self.open_new_connection();
@@ -666,13 +667,13 @@ impl DbProApp {
                 if let Some(entry) = self.query_editor.query_history_entries.get(index).cloned() {
                     self.open_history_entry(&entry, false);
                 } else {
-                    self.runtime_message = "History entry is no longer available".to_owned();
+                    self.feedback.runtime_message = "History entry is no longer available".to_owned();
                 }
             }
             PaletteAction::InsertColumn(column) => {
                 self.workspace.active_tab = WorkspaceTab::Query;
                 self.append_to_active_query(&column);
-                self.runtime_message = format!("Inserted column {column}");
+                self.feedback.runtime_message = format!("Inserted column {column}");
             }
             PaletteAction::InsertSnippet(index) => {
                 if let Some((_, snippet)) = Self::builtin_sql_snippets().get(index) {
@@ -688,7 +689,7 @@ impl DbProApp {
             PaletteAction::FormatSql => {
                 self.workspace.active_tab = WorkspaceTab::Query;
                 self.format_active_query();
-                self.runtime_message = "SQL formatted".to_owned();
+                self.feedback.runtime_message = "SQL formatted".to_owned();
             }
             PaletteAction::SwitchConnection(connection_id) => {
                 self.switch_connection_from_palette(connection_id);
@@ -707,7 +708,7 @@ impl DbProApp {
             self.table_state.refresh_table_info_after_schema = self.schema_explorer.selected_table.is_some();
             self.request_schema_introspection(connection_id, true);
         } else {
-            self.runtime_message = "Connect to a database before refreshing schema".to_owned();
+            self.feedback.runtime_message = "Connect to a database before refreshing schema".to_owned();
         }
     }
 
@@ -715,7 +716,7 @@ impl DbProApp {
         if self.schema_explorer.selected_table.as_deref() != Some(table.as_str())
             && !self.table_mutation.staged_changes.is_empty()
         {
-            self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
+            self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
         self.persist_current_grid_layout();
@@ -729,12 +730,18 @@ impl DbProApp {
         self.table_state.table_data_result = None;
         self.request_table_info();
         self.workspace.active_tab = WorkspaceTab::Table;
-        self.runtime_message = format!("Opening table {table}");
+        self.feedback.runtime_message = format!("Opening table {table}");
     }
 
     fn open_saved_query_from_palette(&mut self, query_id: String) {
-        let Some(query) = self.saved_queries.iter().find(|item| item.id == query_id).cloned() else {
-            self.runtime_message = "Saved query is no longer available".to_owned();
+        let Some(query) = self
+            .query_library
+            .saved_queries
+            .iter()
+            .find(|item| item.id == query_id)
+            .cloned()
+        else {
+            self.feedback.runtime_message = "Saved query is no longer available".to_owned();
             return;
         };
         self.new_query_document();
@@ -749,7 +756,7 @@ impl DbProApp {
             doc.mark_saved();
         }
         self.workspace.active_tab = WorkspaceTab::Query;
-        self.runtime_message = format!("Opened saved query {}", query.name);
+        self.feedback.runtime_message = format!("Opened saved query {}", query.name);
     }
 
     pub(crate) fn toggle_pinned_table(&mut self, table: String) {
@@ -759,7 +766,7 @@ impl DbProApp {
             Some(table)
         };
         let Some(table) = target else {
-            self.runtime_message = "Select a table before pinning".to_owned();
+            self.feedback.runtime_message = "Select a table before pinning".to_owned();
             return;
         };
         if let Some(index) = self
@@ -769,20 +776,20 @@ impl DbProApp {
             .position(|item| item == &table)
         {
             self.schema_explorer.pinned_tables.remove(index);
-            self.runtime_message = format!("Unpinned table {table}");
+            self.feedback.runtime_message = format!("Unpinned table {table}");
         } else {
             self.schema_explorer.pinned_tables.push(table.clone());
-            self.runtime_message = format!("Pinned table {table}");
+            self.feedback.runtime_message = format!("Pinned table {table}");
         }
     }
 
     fn export_results_from_palette(&mut self) {
         if self.active_query_result().is_some() {
             self.query_output_state.active_tab = OutputTab::Results;
-            self.export_open = true;
+            self.overlay.export_open = true;
             self.workspace.active_tab = WorkspaceTab::Query;
         } else {
-            self.runtime_message = "Run a query before exporting results".to_owned();
+            self.feedback.runtime_message = "Run a query before exporting results".to_owned();
         }
     }
 
@@ -795,14 +802,14 @@ impl DbProApp {
             .cloned()
         {
             self.connection_lifecycle.active_connection_id = Some(connection.id.clone());
-            self.connected = false;
+            self.connection_lifecycle.connected = false;
             let request_id = self.task_bridge.next_request_id();
             self.connection_lifecycle.pending_request = Some(request_id);
             let _ = self.task_bridge.send(UiCommand::Connect {
                 request_id,
                 connection_id: connection.id,
             });
-            self.runtime_message = format!("Connecting to {}…", connection.name);
+            self.feedback.runtime_message = format!("Connecting to {}…", connection.name);
         }
     }
 

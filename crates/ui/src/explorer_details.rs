@@ -301,11 +301,11 @@ impl DbProApp {
         if actions.copy_qualified_name {
             let qname = format!("{schema}.{table}");
             ui.output_mut(|o| o.copied_text = qname.clone());
-            self.runtime_message = format!("Copied `{qname}` to clipboard");
+            self.feedback.runtime_message = format!("Copied `{qname}` to clipboard");
         }
         if actions.copy_name {
             ui.output_mut(|o| o.copied_text = table.to_owned());
-            self.runtime_message = format!("Copied `{table}` to clipboard");
+            self.feedback.runtime_message = format!("Copied `{table}` to clipboard");
         }
         if actions.ask_agent {
             self.open_agent_prompt(
@@ -332,7 +332,7 @@ impl DbProApp {
         if self.schema_explorer.selected_table.as_deref() != Some(table)
             && !self.table_mutation.staged_changes.is_empty()
         {
-            self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
+            self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
         self.persist_current_grid_layout();

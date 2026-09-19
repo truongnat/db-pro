@@ -154,8 +154,12 @@ impl DbProApp {
                         {
                             self.set_agent_open(!self.workspace.agent_open, ctx);
                         }
-                        let theme_icon = if self.dark_mode { Icon::Sun } else { Icon::Moon };
-                        let theme_tooltip = if self.dark_mode {
+                        let theme_icon = if self.preferences.dark_mode {
+                            Icon::Sun
+                        } else {
+                            Icon::Moon
+                        };
+                        let theme_tooltip = if self.preferences.dark_mode {
                             "Switch to Light Theme"
                         } else {
                             "Switch to Dark Theme"
@@ -168,7 +172,7 @@ impl DbProApp {
                             .show(ui)
                             .clicked()
                         {
-                            self.dark_mode = !self.dark_mode;
+                            self.preferences.dark_mode = !self.preferences.dark_mode;
                         }
 
                         ui.add_space(SPACE_SM);
@@ -252,7 +256,7 @@ impl DbProApp {
                             .color(self.theme.text_secondary),
                     );
                     ui.separator();
-                    if self.connected {
+                    if self.connection_lifecycle.connected {
                         ui.label(
                             RichText::new(self.active_connection_name())
                                 .font(font_caption())
@@ -442,7 +446,7 @@ impl DbProApp {
             ui.add_space(6.0);
             if secondary_button_with_icon(ui, Icon::Archive, "Open Backup settings", self.theme).clicked() {
                 self.workspace.activity = Activity::Settings;
-                self.settings_section = SettingsSection::Backup;
+                self.preferences.section = SettingsSection::Backup;
                 self.workspace.sidebar_open = true;
             }
         });
@@ -784,7 +788,7 @@ impl DbProApp {
                 self.set_active_query_text(sql);
                 self.workspace.active_tab = WorkspaceTab::Query;
                 self.database_operations.synthetic_error = None;
-                self.runtime_message = format!("Synthetic INSERT SQL ({count} rows) exported to Query editor");
+                self.feedback.runtime_message = format!("Synthetic INSERT SQL ({count} rows) exported to Query editor");
             }
             Err(err) => self.database_operations.synthetic_error = Some(err),
         }
@@ -804,12 +808,12 @@ impl DbProApp {
         if self.database_operations.synthetic_error.is_some() {
             return;
         }
-        if self.connection_lifecycle.active_connection_id.is_none() || !self.connected {
+        if self.connection_lifecycle.active_connection_id.is_none() || !self.connection_lifecycle.connected {
             self.database_operations.synthetic_error = Some("Connect to a database before applying seed".into());
             return;
         }
         self.dispatch_query();
-        self.runtime_message = "Synthetic seed INSERT dispatched via query runtime".into();
+        self.feedback.runtime_message = "Synthetic seed INSERT dispatched via query runtime".into();
     }
 
     pub(crate) fn preview_masking_sample(&mut self) {
@@ -962,7 +966,7 @@ impl DbProApp {
                 }
                 let mut source = MaskedSource { rows: masked, idx: 0 };
                 let _ = TransferService::run(&mut job, &mut source, &mut target, &cancel);
-                self.runtime_message = format!("Masked CSV written to {}", path.display());
+                self.feedback.runtime_message = format!("Masked CSV written to {}", path.display());
             }
             Err(err) => {
                 job.status = TransferStatus::Failed;
@@ -1002,7 +1006,7 @@ impl DbProApp {
         } else {
             let _ = TransferService::run_synthetic(&mut job, &cancel);
         }
-        self.runtime_message = format!(
+        self.feedback.runtime_message = format!(
             "Transfer {} · {:?} · wrote {}",
             job.id, job.status, job.progress.rows_written
         );
@@ -1051,7 +1055,7 @@ impl DbProApp {
                 job.error = Some(err.to_string());
             }
         }
-        self.runtime_message = format!("CSV transfer {} · {:?} · {}", job.id, job.status, path.display());
+        self.feedback.runtime_message = format!("CSV transfer {} · {:?} · {}", job.id, job.status, path.display());
         self.database_operations.transfer_jobs.insert(0, job);
         if self.database_operations.transfer_jobs.len() > 20 {
             self.database_operations.transfer_jobs.truncate(20);
@@ -1107,7 +1111,7 @@ impl DbProApp {
                 job.error = Some(err.to_string());
             }
         }
-        self.runtime_message = job.progress.message.clone();
+        self.feedback.runtime_message = job.progress.message.clone();
         self.database_operations.transfer_jobs.insert(0, job);
         if self.database_operations.transfer_jobs.len() > 20 {
             self.database_operations.transfer_jobs.truncate(20);
@@ -1144,7 +1148,7 @@ impl DbProApp {
                 job.error = Some(err.to_string());
             }
         }
-        self.runtime_message = format!("JSONL {} · {:?}", job.id, job.status);
+        self.feedback.runtime_message = format!("JSONL {} · {:?}", job.id, job.status);
         self.database_operations.transfer_jobs.insert(0, job);
         if self.database_operations.transfer_jobs.len() > 20 {
             self.database_operations.transfer_jobs.truncate(20);
@@ -1181,7 +1185,7 @@ impl DbProApp {
                 job.error = Some(err.to_string());
             }
         }
-        self.runtime_message = format!("Excel {} · {:?}", job.id, job.status);
+        self.feedback.runtime_message = format!("Excel {} · {:?}", job.id, job.status);
         self.database_operations.transfer_jobs.insert(0, job);
         if self.database_operations.transfer_jobs.len() > 20 {
             self.database_operations.transfer_jobs.truncate(20);
@@ -1228,16 +1232,16 @@ impl DbProApp {
         ) {
             Ok(plan) => plan,
             Err(err) => {
-                self.runtime_message = format!("DB→DB plan failed: {err}");
+                self.feedback.runtime_message = format!("DB→DB plan failed: {err}");
                 return;
             }
         };
         if let Err(err) = plan.ensure_runnable() {
-            self.runtime_message = format!("DB→DB blocked: {err}");
+            self.feedback.runtime_message = format!("DB→DB blocked: {err}");
             return;
         }
         if let Err(err) = assert_endpoint_capabilities(true, true, false, false) {
-            self.runtime_message = format!("DB→DB capability gate: {err}");
+            self.feedback.runtime_message = format!("DB→DB capability gate: {err}");
             return;
         }
 
@@ -1271,7 +1275,7 @@ impl DbProApp {
         let result = TransferService::run(&mut job, &mut source, &mut target, &cancel);
         job.progress.bytes_written = target.bytes_written;
         if result.status == TransferStatus::Succeeded || result.status == TransferStatus::Partial {
-            self.runtime_message = format!(
+            self.feedback.runtime_message = format!(
                 "DB→DB {} · {:?} · committed_batches={} · warnings={}",
                 job.id,
                 result.status,
@@ -1279,7 +1283,7 @@ impl DbProApp {
                 plan.warnings.len()
             );
         } else {
-            self.runtime_message = format!("DB→DB {} · {:?} · {:?}", job.id, result.status, job.error);
+            self.feedback.runtime_message = format!("DB→DB {} · {:?} · {:?}", job.id, result.status, job.error);
         }
         self.database_operations.transfer_jobs.insert(0, job);
         if self.database_operations.transfer_jobs.len() > 20 {
@@ -1292,7 +1296,7 @@ impl DbProApp {
         section_label(ui, "MONITOR", self.theme);
         ui.add_space(SPACE_SM);
 
-        let connected = self.connected && self.connection_lifecycle.active_connection_id.is_some();
+        let connected = self.connection_lifecycle.connected && self.connection_lifecycle.active_connection_id.is_some();
         let driver = self.active_driver().to_owned();
         let name = self.active_connection_name().to_owned();
 
@@ -2627,7 +2631,7 @@ impl DbProApp {
         self.database_operations.audit_export_preview =
             Some(db_pro_core::application::AuditService::export_selected(&selected));
         self.database_operations.audit_error = None;
-        self.runtime_message = format!(
+        self.feedback.runtime_message = format!(
             "Audit export preview · {} row(s) · {}",
             selected.len(),
             page.export_warning
@@ -2853,7 +2857,7 @@ impl DbProApp {
     pub(super) fn draw_security_activity(&mut self, ui: &mut egui::Ui) {
         section_label(ui, "SECURITY", self.theme);
         ui.add_space(SPACE_SM);
-        let connected = self.connected && self.connection_lifecycle.active_connection_id.is_some();
+        let connected = self.connection_lifecycle.connected && self.connection_lifecycle.active_connection_id.is_some();
         let is_pg = self.active_driver().eq_ignore_ascii_case("postgresql")
             || self.active_driver().eq_ignore_ascii_case("postgres");
 
@@ -3345,7 +3349,7 @@ impl DbProApp {
             );
             if primary_button_with_icon(ui, Icon::Play, "Apply preview SQL", self.theme).clicked() {
                 if !self.database_operations.security_rls_confirm_apply {
-                    self.runtime_message = "Confirm RLS apply checkbox first".into();
+                    self.feedback.runtime_message = "Confirm RLS apply checkbox first".into();
                 } else {
                     self.apply_security_rls_preview();
                 }
@@ -3389,7 +3393,7 @@ impl DbProApp {
         let schema = self.database_operations.security_rls_schema.trim().to_owned();
         let table = self.database_operations.security_rls_table.trim().to_owned();
         if schema.is_empty() || table.is_empty() {
-            self.runtime_message = "Schema and table are required for RLS inspect".into();
+            self.feedback.runtime_message = "Schema and table are required for RLS inspect".into();
             return;
         }
         let request_id = self.task_bridge.next_request_id();
@@ -3421,7 +3425,7 @@ impl DbProApp {
         let schema = self.database_operations.security_rls_schema.trim().to_owned();
         let table = self.database_operations.security_rls_table.trim().to_owned();
         if schema.is_empty() || table.is_empty() {
-            self.runtime_message = "Schema and table are required".into();
+            self.feedback.runtime_message = "Schema and table are required".into();
             return;
         }
         let request = ObjectMutationRequest {
@@ -3443,7 +3447,7 @@ impl DbProApp {
                 }
                 self.database_operations.security_rls_confirm_apply = false;
             }
-            Err(err) => self.runtime_message = err.to_string(),
+            Err(err) => self.feedback.runtime_message = err.to_string(),
         }
     }
 
@@ -3468,7 +3472,7 @@ impl DbProApp {
         let table = self.database_operations.security_rls_table.trim().to_owned();
         let name = self.database_operations.security_rls_policy_name.trim().to_owned();
         if schema.is_empty() || table.is_empty() || name.is_empty() {
-            self.runtime_message = "Schema, table, and policy name are required".into();
+            self.feedback.runtime_message = "Schema, table, and policy name are required".into();
             return;
         }
         let roles = self
@@ -3499,7 +3503,7 @@ impl DbProApp {
         match ObjectMutationService::plan(&request, &QuoteDialect) {
             Ok(preview) => {
                 if let Some(reason) = preview.unsupported_reason {
-                    self.runtime_message = reason;
+                    self.feedback.runtime_message = reason;
                     self.database_operations.security_rls_preview_sql.clear();
                 } else {
                     self.database_operations.security_rls_preview_sql = preview.statements.join(";\n");
@@ -3509,7 +3513,7 @@ impl DbProApp {
                     self.database_operations.security_rls_confirm_apply = false;
                 }
             }
-            Err(err) => self.runtime_message = err.to_string(),
+            Err(err) => self.feedback.runtime_message = err.to_string(),
         }
     }
 
@@ -3558,7 +3562,7 @@ impl DbProApp {
                 }
                 self.database_operations.security_rls_confirm_apply = false;
             }
-            Err(err) => self.runtime_message = err.to_string(),
+            Err(err) => self.feedback.runtime_message = err.to_string(),
         }
     }
 
@@ -3580,7 +3584,7 @@ impl DbProApp {
             sql,
         });
         self.table_state.ddl_execution_request = Some(request_id);
-        self.runtime_message = "Applying RLS mutation…".into();
+        self.feedback.runtime_message = "Applying RLS mutation…".into();
     }
 
     fn dispatch_alter_role(&mut self, name: &str, attributes: db_pro_core::domain::user::RoleAttributes) {
@@ -3862,17 +3866,17 @@ impl DbProApp {
 
     pub(crate) fn request_data_diff_keyed(&mut self) {
         let Some(source_id) = self.connection_lifecycle.active_connection_id.clone() else {
-            self.runtime_message = "Connect a source database first".into();
+            self.feedback.runtime_message = "Connect a source database first".into();
             return;
         };
         let target_id = self.database_operations.data_diff_target_id.trim().to_owned();
         if target_id.is_empty() {
-            self.runtime_message = "Target connection id is required".into();
+            self.feedback.runtime_message = "Target connection id is required".into();
             return;
         }
         let table = self.database_operations.data_diff_table.trim().to_owned();
         if table.is_empty() {
-            self.runtime_message = "Table is required".into();
+            self.feedback.runtime_message = "Table is required".into();
             return;
         }
         let key_columns = self
@@ -3883,7 +3887,7 @@ impl DbProApp {
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>();
         if key_columns.is_empty() {
-            self.runtime_message = "At least one key column is required".into();
+            self.feedback.runtime_message = "At least one key column is required".into();
             return;
         }
         let request_id = self.task_bridge.next_request_id();
@@ -3896,6 +3900,6 @@ impl DbProApp {
             key_columns,
             sample_limit: Some(1_000),
         });
-        self.runtime_message = "Running key-aware data compare…".into();
+        self.feedback.runtime_message = "Running key-aware data compare…".into();
     }
 }

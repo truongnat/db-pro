@@ -28,7 +28,7 @@ impl DbProApp {
         for index in 0..connection_count {
             let connection = self.connection_catalog.connections[index].clone();
             let is_active = self.connection_lifecycle.active_connection_id.as_deref() == Some(&connection.id);
-            let is_connected = self.connected && is_active;
+            let is_connected = self.connection_lifecycle.connected && is_active;
             let is_connecting = self.connection_lifecycle.pending_request.is_some()
                 && (self.connection_lifecycle.pending_connection_id.as_deref() == Some(&connection.id)
                     || (self.connection_lifecycle.pending_connection_id.is_none() && is_active));
@@ -165,12 +165,12 @@ impl DbProApp {
             }
             if actions.copy_name {
                 ui.output_mut(|o| o.copied_text = connection.name.clone());
-                self.runtime_message = format!("Copied `{}` to clipboard", connection.name);
+                self.feedback.runtime_message = format!("Copied `{}` to clipboard", connection.name);
             }
             if actions.copy_conn_string {
                 let conn_str = connection_display_uri(&connection);
                 ui.output_mut(|o| o.copied_text = conn_str);
-                self.runtime_message = "Copied connection string to clipboard".to_owned();
+                self.feedback.runtime_message = "Copied connection string to clipboard".to_owned();
             }
             if actions.edit {
                 self.open_edit_connection(&connection);
@@ -179,7 +179,7 @@ impl DbProApp {
                 self.open_duplicate_connection(&connection);
             }
             if actions.delete {
-                self.delete_confirmation_id = Some(connection.id.clone());
+                self.overlay.delete_confirmation_id = Some(connection.id.clone());
             }
             ui.add_space(2.0);
         }
@@ -319,7 +319,7 @@ impl DbProApp {
         if !self.table_mutation.staged_changes.is_empty() {
             self.workspace.pending_navigation_action = Some(PendingNavigationAction::ChangeSchema(schema.to_owned()));
             self.table_data.discard_changes_confirmation = true;
-            self.runtime_message = "Apply or discard staged changes before changing schema".to_owned();
+            self.feedback.runtime_message = "Apply or discard staged changes before changing schema".to_owned();
             return;
         }
         self.workspace.pending_navigation_action = None;

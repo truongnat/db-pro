@@ -69,7 +69,7 @@ impl DbProApp {
             .active_query_result()
             .or(self.table_state.table_data_result.as_ref())
             .map(|result| format!("{} rows returned in {} ms", result.row_count, result.duration_ms));
-        let last_error = self.has_runtime_error().then(|| self.runtime_message.clone());
+        let last_error = self.has_runtime_error().then(|| self.feedback.runtime_message.clone());
 
         AgentContext {
             connection_name,
@@ -90,7 +90,8 @@ impl DbProApp {
     pub(super) fn submit_agent_prompt(&mut self) {
         if !self.workspace_files.workspace_context_items.is_empty() && !self.workspace_files.ide_workspace.is_trusted()
         {
-            self.runtime_message = "Trust the workspace before sending folder/file context to Agent".to_owned();
+            self.feedback.runtime_message =
+                "Trust the workspace before sending folder/file context to Agent".to_owned();
             return;
         }
         let prompt = self.agent.input.trim().to_owned();
@@ -106,11 +107,12 @@ impl DbProApp {
             .documents
             .get(self.query_session_state.active_document_index)
         else {
-            self.runtime_message = "No query document is available for Agent".to_owned();
+            self.feedback.runtime_message = "No query document is available for Agent".to_owned();
             return;
         };
         if self.agent.provider_label == "Offline draft" {
-            self.runtime_message = "AI provider is not configured. Enter an API key in Agent Settings.".to_owned();
+            self.feedback.runtime_message =
+                "AI provider is not configured. Enter an API key in Agent Settings.".to_owned();
             self.show_toast_error("Configure an API key in Agent Settings to start.");
             return;
         }
@@ -135,12 +137,12 @@ impl DbProApp {
             *session = AgentUiSession::for_document(&document_id, connection_id.clone(), schema.clone());
         }
         if session.active_run_id.is_some() || session.request_id.is_some() {
-            self.runtime_message = "An Agent run is already active for this query".to_owned();
+            self.feedback.runtime_message = "An Agent run is already active for this query".to_owned();
             return;
         }
         let Some(mut core_session) = session.session.clone() else {
             session.state = db_pro_core::domain::agent::AgentSessionState::Failed;
-            self.runtime_message = "Agent session could not be initialized".to_owned();
+            self.feedback.runtime_message = "Agent session could not be initialized".to_owned();
             return;
         };
         core_session.connection_id = connection_id;
@@ -162,7 +164,7 @@ impl DbProApp {
         let request_id = self.task_bridge.next_request_id();
         session.request_id = Some(request_id);
         self.agent.input.clear();
-        self.runtime_message = format!("Sending request to {}…", self.agent.provider_label);
+        self.feedback.runtime_message = format!("Sending request to {}…", self.agent.provider_label);
         if self
             .task_bridge
             .send(UiCommand::StartAgentRun {
@@ -178,7 +180,7 @@ impl DbProApp {
         {
             session.request_id = None;
             session.state = db_pro_core::domain::agent::AgentSessionState::Failed;
-            self.runtime_message = "Agent runtime unavailable".to_owned();
+            self.feedback.runtime_message = "Agent runtime unavailable".to_owned();
         }
     }
 
@@ -356,14 +358,14 @@ impl DbProApp {
         let mut applied_patch = None;
         if approved && pending.kind == db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch {
             let Some(db_pro_core::domain::agent::AgentToolOutput::PatchPreview { patch, .. }) = pending.preview else {
-                self.runtime_message = "Agent patch preview is unavailable".to_owned();
+                self.feedback.runtime_message = "Agent patch preview is unavailable".to_owned();
                 return;
             };
             let Some(document) = self.query_session_state.documents.get_mut(target_doc_index) else {
                 return;
             };
             if document.id != patch.document_id || document.buffer.version() != patch.expected_version {
-                self.runtime_message = "This query changed since the suggestion was created.".to_owned();
+                self.feedback.runtime_message = "This query changed since the suggestion was created.".to_owned();
                 self.show_toast_error("The query changed since the suggestion was created.");
                 self.agent_confirmation_action(false);
                 return;
@@ -375,7 +377,7 @@ impl DbProApp {
                 .apply_to(&current.document_id, current.document_version, &current.sql)
                 .is_err()
             {
-                self.runtime_message = "Agent patch range is no longer valid".to_owned();
+                self.feedback.runtime_message = "Agent patch range is no longer valid".to_owned();
                 self.agent_confirmation_action(false);
                 return;
             }
@@ -473,9 +475,10 @@ impl DbProApp {
             // The agent's result replaces the rows behind the grid.
             self.invalidate_grid_projection();
             if total_rows > sample_len as u64 {
-                self.runtime_message = format!("Showing {sample_len} sampled rows of {total_rows} total rows.");
+                self.feedback.runtime_message =
+                    format!("Showing {sample_len} sampled rows of {total_rows} total rows.");
             } else {
-                self.runtime_message = format!("Opened Agent query result ({total_rows} rows)");
+                self.feedback.runtime_message = format!("Opened Agent query result ({total_rows} rows)");
             }
         }
     }

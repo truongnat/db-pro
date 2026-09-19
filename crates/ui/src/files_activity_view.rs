@@ -147,7 +147,7 @@ impl DbProApp {
                 let selected = self.workspace_files.ide_workspace.active_environment == index;
                 if ui.selectable_label(selected, &env.name).clicked() {
                     self.workspace_files.ide_workspace.set_active_environment(index);
-                    self.runtime_message = format!("Environment → {}", env.name);
+                    self.feedback.runtime_message = format!("Environment → {}", env.name);
                 }
             }
         });
@@ -341,7 +341,7 @@ impl DbProApp {
                             .unwrap_or_else(|| "untitled.sql".to_owned());
                         self.open_workspace_sql_file(relative);
                     }
-                    Err(error) => self.runtime_message = error,
+                    Err(error) => self.feedback.runtime_message = error,
                 }
             }
             if Button::new(self.theme)
@@ -352,7 +352,7 @@ impl DbProApp {
                 .clicked()
             {
                 if let Err(error) = self.workspace_files.ide_workspace.create_folder("", "new-folder") {
-                    self.runtime_message = error;
+                    self.feedback.runtime_message = error;
                 }
             }
         });
@@ -566,7 +566,7 @@ impl DbProApp {
                 },
             ];
             let results = ide_workspace::measure_local_benchmark(&cases, 5);
-            self.runtime_message = results
+            self.feedback.runtime_message = results
                 .into_iter()
                 .map(|result| format!("{}={}ms", result.name, result.avg_ms))
                 .collect::<Vec<_>>()

@@ -342,7 +342,7 @@ impl DbProApp {
         } else if self.schema_explorer.schema_request.is_some() {
             grid_frame(self.theme).show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    if self.reduce_motion {
+                    if self.preferences.reduce_motion {
                         ui.label(icon_text(Icon::LoaderCircle, "Loading schema…", self.theme.accent));
                     } else {
                         ui.spinner();
@@ -363,32 +363,36 @@ impl DbProApp {
     pub(crate) fn disconnect_from_connection(&mut self, connection: &UiConnectionSummary) {
         if self.query_execution.query_in_transaction {
             self.query_execution.disconnect_txn_guard = true;
-            self.runtime_message = "Open transaction detected — commit or rollback before disconnecting".to_owned();
+            self.feedback.runtime_message =
+                "Open transaction detected — commit or rollback before disconnecting".to_owned();
             return;
         }
-        self.connected = false;
+        self.connection_lifecycle.connected = false;
         self.schema_explorer.schema = UiSchemaSummary::default();
         self.schema_explorer.schema_symbol_index = SchemaSymbolIndex::default();
         self.schema_explorer.selected_table = None;
         self.schema_explorer.selected_schema_object = None;
-        self.runtime_message = format!("Disconnected from {}", connection.name);
+        self.feedback.runtime_message = format!("Disconnected from {}", connection.name);
     }
 
     /// Helper to initiate connection logic.
     pub(crate) fn connect_to_connection(&mut self, connection: &UiConnectionSummary) {
-        if self.connection_lifecycle.active_connection_id.as_deref() == Some(&connection.id) && self.connected {
+        if self.connection_lifecycle.active_connection_id.as_deref() == Some(&connection.id)
+            && self.connection_lifecycle.connected
+        {
             return;
         }
         if !self.table_mutation.staged_changes.is_empty() {
             self.workspace.pending_navigation_action =
                 Some(PendingNavigationAction::ChangeConnection(connection.id.clone()));
             self.table_data.discard_changes_confirmation = true;
-            self.runtime_message = "Apply or discard staged changes before changing connection".to_owned();
+            self.feedback.runtime_message = "Apply or discard staged changes before changing connection".to_owned();
             return;
         }
         if self.query_execution.query_in_transaction {
             self.query_execution.disconnect_txn_guard = true;
-            self.runtime_message = "Commit or rollback the open transaction before changing connection".to_owned();
+            self.feedback.runtime_message =
+                "Commit or rollback the open transaction before changing connection".to_owned();
             return;
         }
         self.workspace.pending_navigation_action = None;
@@ -404,7 +408,7 @@ impl DbProApp {
         self.reset_table_workspace_state();
         self.schema_explorer.explorer_search.clear();
         let request_id = self.task_bridge.next_request_id();
-        self.connected = false;
+        self.connection_lifecycle.connected = false;
         self.connection_lifecycle.pending_request = Some(request_id);
         self.schema_explorer.schema_request = None;
         self.schema_explorer.schema_error = None;
@@ -412,6 +416,6 @@ impl DbProApp {
             request_id,
             connection_id: connection.id.clone(),
         });
-        self.runtime_message = format!("Connecting to {}…", connection.name);
+        self.feedback.runtime_message = format!("Connecting to {}…", connection.name);
     }
 }

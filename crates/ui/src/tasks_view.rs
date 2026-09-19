@@ -14,13 +14,13 @@ impl DbProApp {
     pub(crate) fn load_saved_tasks_from_storage(&mut self, storage: &dyn eframe::Storage) {
         if let Some(raw) = storage.get_string(SAVED_TASKS_STORAGE_KEY) {
             if let Ok(store) = serde_json::from_str::<SavedTaskStore>(&raw) {
-                self.saved_task_store = store;
+                self.saved_tasks.store = store;
             }
         }
     }
 
     pub(crate) fn persist_saved_tasks(&self, storage: &mut dyn eframe::Storage) {
-        if let Ok(raw) = serde_json::to_string(&self.saved_task_store) {
+        if let Ok(raw) = serde_json::to_string(&self.saved_tasks.store) {
             storage.set_string(SAVED_TASKS_STORAGE_KEY, raw);
         }
     }
@@ -59,14 +59,14 @@ impl DbProApp {
         });
         ui.add_space(8.0);
 
-        if self.saved_task_draft.is_some() {
+        if self.saved_tasks.draft.is_some() {
             self.draw_task_draft_form(ui);
             ui.add_space(10.0);
             ui.separator();
             ui.add_space(8.0);
         }
 
-        if self.saved_task_store.tasks.is_empty() {
+        if self.saved_tasks.store.tasks.is_empty() {
             empty_state(
                 ui,
                 Icon::ListTodo,
@@ -77,7 +77,7 @@ impl DbProApp {
             return;
         }
 
-        let tasks = self.saved_task_store.tasks.clone();
+        let tasks = self.saved_tasks.store.tasks.clone();
         for task in tasks {
             ui.group(|ui| {
                 ui.horizontal(|ui| {
@@ -126,8 +126,8 @@ impl DbProApp {
                             .show(ui)
                             .clicked()
                         {
-                            let _ = self.saved_task_store.set_schedule_enabled(&task.id, false);
-                            self.saved_tasks_dirty = true;
+                            let _ = self.saved_tasks.store.set_schedule_enabled(&task.id, false);
+                            self.saved_tasks.dirty = true;
                         }
                     } else if Button::new(self.theme)
                         .text("Schedule 60s")
@@ -145,8 +145,8 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        self.saved_task_store.remove(&task.id);
-                        self.saved_tasks_dirty = true;
+                        self.saved_tasks.store.remove(&task.id);
+                        self.saved_tasks.dirty = true;
                     }
                 });
                 if let Some(schedule) = &task.schedule {
@@ -167,11 +167,11 @@ impl DbProApp {
             ui.add_space(6.0);
         }
 
-        if !self.saved_task_store.runs.is_empty() {
+        if !self.saved_tasks.store.runs.is_empty() {
             ui.separator();
             ui.add_space(6.0);
             section_label(ui, "RECENT RUNS", self.theme);
-            for run in self.saved_task_store.runs.iter().take(12) {
+            for run in self.saved_tasks.store.runs.iter().take(12) {
                 let status = match run.status {
                     SavedTaskRunStatus::Success => "OK",
                     SavedTaskRunStatus::Failed => "FAIL",
@@ -192,7 +192,7 @@ impl DbProApp {
     }
 
     fn draw_task_draft_form(&mut self, ui: &mut egui::Ui) {
-        let Some(draft) = self.saved_task_draft.as_mut() else {
+        let Some(draft) = self.saved_tasks.draft.as_mut() else {
             return;
         };
         ui.label(RichText::new("New task").strong().color(self.theme.text_primary));
@@ -253,7 +253,7 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                self.saved_task_draft = None;
+                self.saved_tasks.draft = None;
             }
         });
     }
@@ -270,7 +270,7 @@ impl DbProApp {
                     .map(|c| c.id.clone())
                     .unwrap_or_default()
             });
-        self.saved_task_draft = Some(SavedTask {
+        self.saved_tasks.draft = Some(SavedTask {
             id: Uuid::new_v4(),
             name: "SQL task".into(),
             description: String::new(),
@@ -297,7 +297,7 @@ impl DbProApp {
                     .map(|c| c.id.clone())
                     .unwrap_or_default()
             });
-        self.saved_task_draft = Some(SavedTask {
+        self.saved_tasks.draft = Some(SavedTask {
             id: Uuid::new_v4(),
             name: "Backup".into(),
             description: String::new(),
@@ -314,47 +314,49 @@ impl DbProApp {
     }
 
     fn commit_task_draft(&mut self) {
-        let Some(mut draft) = self.saved_task_draft.take() else {
+        let Some(mut draft) = self.saved_tasks.draft.take() else {
             return;
         };
         draft.updated_at = chrono::Utc::now();
-        match self.saved_task_store.upsert(draft) {
+        match self.saved_tasks.store.upsert(draft) {
             Ok(()) => {
-                self.saved_tasks_dirty = true;
-                self.runtime_message = "Saved task".to_owned();
+                self.saved_tasks.dirty = true;
+                self.feedback.runtime_message = "Saved task".to_owned();
             }
             Err(err) => {
-                self.runtime_message = err;
+                self.feedback.runtime_message = err;
             }
         }
     }
 
     pub(crate) fn enable_task_schedule(&mut self, task_id: Uuid, interval_secs: u64) {
-        let Some(task) = self.saved_task_store.tasks.iter_mut().find(|t| t.id == task_id) else {
+        let Some(task) = self.saved_tasks.store.tasks.iter_mut().find(|t| t.id == task_id) else {
             return;
         };
         let mut schedule = TaskSchedule::every_secs(interval_secs);
         if task.payload.is_destructive() {
-            self.runtime_message = "Destructive tasks cannot be scheduled without an explicit policy allow".to_owned();
+            self.feedback.runtime_message =
+                "Destructive tasks cannot be scheduled without an explicit policy allow".to_owned();
             return;
         }
         schedule.enabled = true;
         task.schedule = Some(schedule);
         task.updated_at = chrono::Utc::now();
-        self.saved_tasks_dirty = true;
-        self.runtime_message = format!("Schedule enabled every {interval_secs}s (app must stay open)");
+        self.saved_tasks.dirty = true;
+        self.feedback.runtime_message = format!("Schedule enabled every {interval_secs}s (app must stay open)");
     }
 
     pub(crate) fn tick_saved_task_scheduler(&mut self) {
-        let due = self.saved_task_store.due_scheduled_task_ids(chrono::Utc::now());
+        let due = self.saved_tasks.store.due_scheduled_task_ids(chrono::Utc::now());
         if due.is_empty() {
             return;
         }
-        self.saved_tasks_dirty = true;
+        self.saved_tasks.dirty = true;
         for task_id in due {
             let trigger = {
                 let retry = self
-                    .saved_task_store
+                    .saved_tasks
+                    .store
                     .tasks
                     .iter()
                     .find(|t| t.id == task_id)
@@ -371,17 +373,17 @@ impl DbProApp {
     }
 
     pub(crate) fn run_saved_task(&mut self, task_id: Uuid, trigger: SavedTaskRunTrigger) {
-        let Some(task) = self.saved_task_store.tasks.iter().find(|t| t.id == task_id).cloned() else {
-            self.runtime_message = "Saved task not found".to_owned();
+        let Some(task) = self.saved_tasks.store.tasks.iter().find(|t| t.id == task_id).cloned() else {
+            self.feedback.runtime_message = "Saved task not found".to_owned();
             return;
         };
         if trigger == SavedTaskRunTrigger::Manual
             && task.payload.is_destructive()
-            && self.settings.general.confirm_destructive_queries
-            && !self.saved_task_confirm_destructive
+            && self.preferences.settings.general.confirm_destructive_queries
+            && !self.saved_tasks.confirm_destructive
         {
-            self.pending_destructive_task_id = Some(task_id);
-            self.runtime_message =
+            self.saved_tasks.pending_destructive_task_id = Some(task_id);
+            self.feedback.runtime_message =
                 "Destructive task requires confirmation — check Confirm in the Tasks pane".to_owned();
             return;
         }
@@ -389,11 +391,11 @@ impl DbProApp {
             && task.payload.is_destructive()
             && !task.schedule.as_ref().is_some_and(|s| s.allow_destructive)
         {
-            self.runtime_message = "Scheduled destructive task blocked by policy".to_owned();
+            self.feedback.runtime_message = "Scheduled destructive task blocked by policy".to_owned();
             return;
         }
-        self.pending_destructive_task_id = None;
-        self.saved_task_confirm_destructive = false;
+        self.saved_tasks.pending_destructive_task_id = None;
+        self.saved_tasks.confirm_destructive = false;
 
         let started = chrono::Utc::now();
         let result = self.dispatch_saved_task_payload(&task);
@@ -403,7 +405,7 @@ impl DbProApp {
             Ok(msg) => (SavedTaskRunStatus::Success, msg),
             Err(msg) => (SavedTaskRunStatus::Failed, msg),
         };
-        self.saved_task_store.record_run(SavedTaskRun {
+        self.saved_tasks.store.record_run(SavedTaskRun {
             id: Uuid::new_v4(),
             task_id,
             status,
@@ -413,11 +415,11 @@ impl DbProApp {
             message: message.clone(),
             trigger,
         });
-        self.saved_tasks_dirty = true;
+        self.saved_tasks.dirty = true;
         if status == SavedTaskRunStatus::Failed && trigger != SavedTaskRunTrigger::Manual {
-            self.runtime_message = format!("Scheduled task failed: {message}");
+            self.feedback.runtime_message = format!("Scheduled task failed: {message}");
         } else {
-            self.runtime_message = message;
+            self.feedback.runtime_message = message;
         }
     }
 

@@ -144,7 +144,7 @@ impl DbProApp {
                         .clicked()
                     {
                         ui.ctx().copy_text(self.table_data.data_edit_value.clone());
-                        self.runtime_message = "Copied raw value".into();
+                        self.feedback.runtime_message = "Copied raw value".into();
                     }
                     if kind == cell_inspector::CellInspectorKind::Bytes
                         && Button::new(self.theme)
@@ -314,7 +314,7 @@ impl DbProApp {
         self.table_data.data_edit_error = None;
         self.table_data.data_edit_value = cell_inspector::cell_raw_text(cell);
         if let Some(reason) = write_block {
-            self.runtime_message = reason.reason().to_owned();
+            self.feedback.runtime_message = reason.reason().to_owned();
         }
     }
 
@@ -330,12 +330,13 @@ impl DbProApp {
                 ));
                 match std::fs::write(&path, &bytes) {
                     Ok(()) => {
-                        self.runtime_message = format!("Exported {} byte(s) → {}", bytes.len(), path.display());
+                        self.feedback.runtime_message =
+                            format!("Exported {} byte(s) → {}", bytes.len(), path.display());
                     }
-                    Err(err) => self.runtime_message = format!("Export failed: {err}"),
+                    Err(err) => self.feedback.runtime_message = format!("Export failed: {err}"),
                 }
             }
-            Err(err) => self.runtime_message = format!("Cannot export bytes: {err}"),
+            Err(err) => self.feedback.runtime_message = format!("Cannot export bytes: {err}"),
         }
     }
 

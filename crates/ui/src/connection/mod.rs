@@ -49,10 +49,10 @@ impl DbProApp {
         match logic::save_ssh_profile(&mut self.connection_dialog.ssh_profiles, &self.connection_dialog.draft) {
             Ok(id) => {
                 self.connection_dialog.draft.ssh_profile_id = id;
-                self.runtime_message = "SSH profile saved — reusable by other connections".to_owned();
+                self.feedback.runtime_message = "SSH profile saved — reusable by other connections".to_owned();
             }
             Err(err) => {
-                self.runtime_message = err;
+                self.feedback.runtime_message = err;
             }
         }
     }
@@ -115,7 +115,7 @@ impl DbProApp {
                 });
         }
         self.connection_dialog.error.clear();
-        self.runtime_message = if save {
+        self.feedback.runtime_message = if save {
             t!("status.saving").to_string()
         } else {
             t!("status.testing").to_string()

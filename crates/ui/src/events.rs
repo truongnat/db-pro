@@ -38,8 +38,8 @@ impl DbProApp {
     pub(crate) fn apply_runtime_event(&mut self, event: UiEvent) {
         match event {
             UiEvent::ConnectionsLoaded { connections, .. } => self.on_connections_loaded(connections),
-            UiEvent::SavedQueriesLoaded { queries, .. } => self.saved_queries = queries,
-            UiEvent::QueryFoldersLoaded { folders, .. } => self.query_folders = folders,
+            UiEvent::SavedQueriesLoaded { queries, .. } => self.query_library.saved_queries = queries,
+            UiEvent::QueryFoldersLoaded { folders, .. } => self.query_library.query_folders = folders,
             UiEvent::SchemaLoaded { request_id, schema } => self.on_schema_loaded(request_id, schema),
             UiEvent::AgentCompleted {
                 request_id,
@@ -68,14 +68,14 @@ impl DbProApp {
             } => self.on_table_data_loaded(request_id, result, total_rows),
             UiEvent::FilePicked { kind, path, .. } => self.on_file_picked(&kind, path),
             UiEvent::OperationProgress { operation, status, .. } => {
-                self.runtime_message = format!("{operation}: {status}");
+                self.feedback.runtime_message = format!("{operation}: {status}");
             }
             UiEvent::BackupCompleted {
                 output_path,
                 size_bytes,
                 ..
             } => {
-                self.runtime_message = format!("Backup completed · {output_path} · {size_bytes} bytes");
+                self.feedback.runtime_message = format!("Backup completed · {output_path} · {size_bytes} bytes");
             }
             UiEvent::MonitoringSnapshotLoaded { snapshot, .. } => {
                 if let Some(prev) = self.database_operations.monitoring_snapshot.take() {
@@ -83,7 +83,7 @@ impl DbProApp {
                 }
                 self.database_operations.monitoring_snapshot = Some(snapshot.clone());
                 self.database_operations.monitoring_error = None;
-                self.runtime_message = format!("Monitor · {}", snapshot.message);
+                self.feedback.runtime_message = format!("Monitor · {}", snapshot.message);
             }
             UiEvent::MonitoringWorkloadLoaded { workload, .. } => {
                 if let Some(snap) = self.database_operations.monitoring_snapshot.as_mut() {
@@ -91,12 +91,12 @@ impl DbProApp {
                     snap.workload = Some(workload.clone());
                 }
                 self.database_operations.monitoring_stat_sort = workload.sort;
-                self.runtime_message = format!("Workload · {}", workload.message);
+                self.feedback.runtime_message = format!("Workload · {}", workload.message);
             }
             UiEvent::AuditPageLoaded { page, .. } => {
                 self.database_operations.audit_page = Some(page.clone());
                 self.database_operations.audit_error = None;
-                self.runtime_message = format!(
+                self.feedback.runtime_message = format!(
                     "Audit · {} event(s) · {}",
                     page.events.len(),
                     page.source.guidance.chars().take(80).collect::<String>()
@@ -105,10 +105,10 @@ impl DbProApp {
             UiEvent::PgSettingsLoaded { snapshot, .. } => {
                 self.database_operations.pg_settings = Some(snapshot.clone());
                 self.database_operations.pg_settings_error = None;
-                self.runtime_message = format!("pg_settings · {}", snapshot.message);
+                self.feedback.runtime_message = format!("pg_settings · {}", snapshot.message);
             }
             UiEvent::PgSettingActionCompleted { action, name, .. } => {
-                self.runtime_message = format!("pg_settings {action} `{name}` ok");
+                self.feedback.runtime_message = format!("pg_settings {action} `{name}` ok");
                 if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                     let request_id = self.task_bridge.next_request_id();
                     self.dispatch_command(UiCommand::ListPgSettings {
@@ -120,10 +120,10 @@ impl DbProApp {
             UiEvent::FdwInventoryLoaded { inventory, .. } => {
                 self.database_operations.fdw_inventory = Some(inventory.clone());
                 self.database_operations.fdw_error = None;
-                self.runtime_message = format!("FDW · {}", inventory.message);
+                self.feedback.runtime_message = format!("FDW · {}", inventory.message);
             }
             UiEvent::FdwActionCompleted { action, name, .. } => {
-                self.runtime_message = format!("FDW {action} `{name}` ok");
+                self.feedback.runtime_message = format!("FDW {action} `{name}` ok");
                 self.database_operations.fdw_drop_confirm = None;
                 self.database_operations.fdw_ddl_preview = None;
                 if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
@@ -137,10 +137,10 @@ impl DbProApp {
             UiEvent::ReplicationInventoryLoaded { inventory, .. } => {
                 self.database_operations.replication_inventory = Some(inventory.clone());
                 self.database_operations.replication_error = None;
-                self.runtime_message = format!("Replication · {}", inventory.message);
+                self.feedback.runtime_message = format!("Replication · {}", inventory.message);
             }
             UiEvent::ReplicationActionCompleted { action, name, .. } => {
-                self.runtime_message = format!("Replication {action} `{name}` ok");
+                self.feedback.runtime_message = format!("Replication {action} `{name}` ok");
                 self.database_operations.replication_drop_publication = None;
                 self.database_operations.replication_drop_subscription = None;
                 self.database_operations.replication_ddl_preview = None;
@@ -155,10 +155,10 @@ impl DbProApp {
             UiEvent::EventTriggerInventoryLoaded { inventory, .. } => {
                 self.database_operations.event_trigger_inventory = Some(inventory.clone());
                 self.database_operations.event_trigger_error = None;
-                self.runtime_message = format!("Event triggers · {}", inventory.message);
+                self.feedback.runtime_message = format!("Event triggers · {}", inventory.message);
             }
             UiEvent::EventTriggerActionCompleted { action, name, .. } => {
-                self.runtime_message = format!("Event trigger {action} `{name}` ok");
+                self.feedback.runtime_message = format!("Event trigger {action} `{name}` ok");
                 self.database_operations.event_trigger_drop_confirm = None;
                 self.database_operations.event_trigger_ddl_preview = None;
                 if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
@@ -175,7 +175,7 @@ impl DbProApp {
                 succeeded,
                 ..
             } => {
-                self.runtime_message = format!(
+                self.feedback.runtime_message = format!(
                     "Monitor {action} pid={backend_id} · {}",
                     if succeeded { "ok" } else { "no-op" }
                 );
@@ -192,7 +192,8 @@ impl DbProApp {
             UiEvent::UsersLoaded { users, .. } => {
                 self.database_operations.security_users = users;
                 self.database_operations.security_error = None;
-                self.runtime_message = format!("Security · {} role(s)", self.database_operations.security_users.len());
+                self.feedback.runtime_message =
+                    format!("Security · {} role(s)", self.database_operations.security_users.len());
             }
             UiEvent::PrivilegesLoaded {
                 role_name, privileges, ..
@@ -209,11 +210,11 @@ impl DbProApp {
             UiEvent::TableRlsLoaded { state, .. } => {
                 self.database_operations.security_rls_state = Some(state);
                 self.database_operations.security_error = None;
-                self.runtime_message = "Security · RLS state loaded".into();
+                self.feedback.runtime_message = "Security · RLS state loaded".into();
             }
             UiEvent::DataDiffLoaded { diff, .. } => {
                 self.database_operations.data_diff_result = Some(diff);
-                self.runtime_message = "Data compare ready".into();
+                self.feedback.runtime_message = "Data compare ready".into();
             }
             UiEvent::DdlCompleted {
                 request_id,
@@ -232,7 +233,7 @@ impl DbProApp {
                 connection_id,
             } => self.on_connected(request_id, connection_id),
             UiEvent::QueryQueued { request_id } => {
-                self.runtime_message = format!("Query queued · request {}", request_id.0);
+                self.feedback.runtime_message = format!("Query queued · request {}", request_id.0);
             }
             UiEvent::QueryCompleted { request_id, result } => self.on_query_completed(request_id, result),
             UiEvent::QueryMultiCompleted { request_id, output } => self.on_query_multi_completed(request_id, output),
@@ -290,12 +291,12 @@ impl DbProApp {
                 .first()
                 .map(|connection| connection.id.clone());
         }
-        if !self.connected && self.connection_lifecycle.pending_request.is_none() {
+        if !self.connection_lifecycle.connected && self.connection_lifecycle.pending_request.is_none() {
             if let Some(active) = self.active_connection().cloned() {
                 self.connect_to_connection(&active);
             }
         }
-        self.runtime_message = format!("Loaded {} connections", self.connection_catalog.connections.len());
+        self.feedback.runtime_message = format!("Loaded {} connections", self.connection_catalog.connections.len());
     }
 
     /// Schema introspection result, revalidating the current schema/table/object selection.
@@ -343,7 +344,7 @@ impl DbProApp {
                 self.activate_welcome_tab();
             }
         }
-        self.runtime_message = format!(
+        self.feedback.runtime_message = format!(
             "Schema loaded · {} tables · {} views · {} triggers · {} functions",
             self.schema_explorer.schema.tables.len(),
             self.schema_explorer.schema.views.len(),
@@ -415,7 +416,7 @@ impl DbProApp {
         self.agent.provider_label = provider;
         self.agent.provider_detail = provider_detail;
         self.agent.messages.push(message);
-        self.runtime_message = "Agent response received".to_owned();
+        self.feedback.runtime_message = "Agent response received".to_owned();
     }
 
     fn on_agent_failed(&mut self, request_id: RequestId, message: String) {
@@ -440,7 +441,7 @@ impl DbProApp {
                 requires_confirmation: false,
             });
             super::agent_state::finish_agent_session(session, db_pro_core::domain::agent::AgentSessionState::Failed);
-            self.runtime_message = "Agent workflow failed".to_owned();
+            self.feedback.runtime_message = "Agent workflow failed".to_owned();
         }
     }
 
@@ -455,7 +456,7 @@ impl DbProApp {
         self.agent.api_key_draft.clear();
         self.agent.api_key_show_password = false;
         let message = format!("{provider} API key saved · provider active");
-        self.runtime_message = message.clone();
+        self.feedback.runtime_message = message.clone();
         self.show_toast_success(message);
     }
 
@@ -470,7 +471,7 @@ impl DbProApp {
         self.agent.api_key_draft.clear();
         self.agent.api_key_show_password = false;
         let message = "API key forgotten · provider inactive".to_owned();
-        self.runtime_message = message.clone();
+        self.feedback.runtime_message = message.clone();
         self.show_toast_success(message);
     }
 
@@ -503,7 +504,7 @@ impl DbProApp {
         self.invalidate_grid_row_caches();
         self.table_state.table_info_error = None;
         self.table_state.table_info_request = None;
-        self.runtime_message = "Table structure loaded".to_owned();
+        self.feedback.runtime_message = "Table structure loaded".to_owned();
     }
 
     fn on_table_ddl_loaded(&mut self, request_id: RequestId, sql: String) {
@@ -512,7 +513,7 @@ impl DbProApp {
             self.table_state.ddl_execute_confirmation = false;
             self.table_state.table_ddl_error = None;
             self.table_state.table_ddl_request = None;
-            self.runtime_message = "Table DDL loaded".to_owned();
+            self.feedback.runtime_message = "Table DDL loaded".to_owned();
         }
     }
 
@@ -552,7 +553,7 @@ impl DbProApp {
         }
         self.table_state.table_data_error = None;
         self.table_state.table_data_request = None;
-        self.runtime_message = format!("Table data loaded · {total_rows} rows");
+        self.feedback.runtime_message = format!("Table data loaded · {total_rows} rows");
         if self.table_mutation.table_mutation_retry_after_reload {
             self.table_mutation.table_mutation_retry_after_reload = false;
             self.apply_staged_changes();
@@ -565,7 +566,7 @@ impl DbProApp {
             return;
         };
         let Some(server_row) = result.rows.into_iter().next() else {
-            self.runtime_message = "Row was deleted".to_owned();
+            self.feedback.runtime_message = "Row was deleted".to_owned();
             if self.table_mutation.table_mutation_retry_after_reload {
                 self.table_mutation.table_mutation_retry_after_reload = false;
                 self.table_mutation.table_mutation_retry_target = None;
@@ -595,7 +596,7 @@ impl DbProApp {
             self.invalidate_grid_row_caches();
         }
         self.table_state.table_data_error = None;
-        self.runtime_message = "Row reloaded from database".to_owned();
+        self.feedback.runtime_message = "Row reloaded from database".to_owned();
         if self.table_mutation.table_mutation_retry_after_reload {
             self.table_mutation.table_mutation_retry_after_reload = false;
             self.apply_staged_changes();
@@ -627,9 +628,9 @@ impl DbProApp {
             } else if kind == "ssh-key" {
                 self.connection_dialog.draft.ssh_private_key = path;
             } else if kind == "backup" {
-                self.backup_output_path = path;
+                self.overlay.backup_output_path = path;
             } else if kind == "restore" {
-                self.restore_input_path = path;
+                self.overlay.restore_input_path = path;
             } else if kind == "workspace-folder" {
                 self.open_workspace_folder(std::path::PathBuf::from(path));
             }
@@ -639,7 +640,7 @@ impl DbProApp {
             self.connection_dialog.error = "File selection was cancelled".to_owned();
             self.connection_dialog.test_valid = false;
         } else if kind == "workspace-folder" {
-            self.runtime_message = "Workspace folder selection was cancelled".to_owned();
+            self.feedback.runtime_message = "Workspace folder selection was cancelled".to_owned();
         }
     }
 
@@ -650,7 +651,7 @@ impl DbProApp {
             self.table_state.ddl_execute_confirmation = false;
             self.table_state.table_ddl_error = None;
             self.table_state.refresh_table_info_after_schema = self.schema_explorer.selected_table.is_some();
-            self.runtime_message = format!("DDL applied · {affected_rows} affected rows");
+            self.feedback.runtime_message = format!("DDL applied · {affected_rows} affected rows");
             if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
                 self.request_schema_introspection(connection_id, true);
             }
@@ -671,7 +672,7 @@ impl DbProApp {
         {
             return;
         }
-        self.runtime_message = operation.clone();
+        self.feedback.runtime_message = operation.clone();
         if pending_connection_request {
             self.connection_lifecycle.clear_pending_request();
         }
@@ -705,7 +706,7 @@ impl DbProApp {
             self.refresh_connection_diagnostics(true, "Authentication succeeded");
             if self.connection_dialog.test_draft.as_ref() == Some(&self.connection_dialog.draft) {
                 self.connection_dialog.test_valid = true;
-                self.runtime_message = self
+                self.feedback.runtime_message = self
                     .connection_dialog
                     .diagnostics
                     .as_ref()
@@ -713,7 +714,7 @@ impl DbProApp {
                     .unwrap_or_else(|| "Connection test succeeded".to_owned());
             } else {
                 self.connection_dialog.test_valid = false;
-                self.runtime_message = "Connection changed · test again before saving".to_owned();
+                self.feedback.runtime_message = "Connection changed · test again before saving".to_owned();
             }
         }
         if operation.starts_with("table-row.") || operation == "table-changes.applied" {
@@ -740,7 +741,7 @@ impl DbProApp {
             // Deleting a sibling must not force a reconnect / schema reload of the open one.
             if deleted_was_active {
                 self.connection_lifecycle.active_connection_id = None;
-                self.connected = false;
+                self.connection_lifecycle.connected = false;
             }
         }
     }
@@ -788,9 +789,9 @@ impl DbProApp {
         self.connection_lifecycle.pending_request = None;
         self.connection_lifecycle.pending_connection_id = None;
         self.connection_lifecycle.active_connection_id = Some(connection_id.clone());
-        self.connected = true;
+        self.connection_lifecycle.connected = true;
         self.connection_lifecycle.clear_connection_error(&connection_id);
-        self.runtime_message = "Connection established".to_owned();
+        self.feedback.runtime_message = "Connection established".to_owned();
         if let Some(connection_id) = self.connection_lifecycle.active_connection_id.clone() {
             self.request_schema_introspection(connection_id.clone(), false);
             let request_id = self.task_bridge.next_request_id();
@@ -915,15 +916,15 @@ mod row_reload_tests {
         };
         app.on_table_data_loaded(RequestId(9), empty, 0);
 
-        assert_eq!(app.runtime_message, "Row was deleted");
+        assert_eq!(app.feedback.runtime_message, "Row was deleted");
         assert!(app.table_state.table_data_result.is_some());
     }
 
     #[test]
     fn deleting_non_active_connection_preserves_active_session() {
         let mut app = DbProApp {
-            connected: true,
             connection_lifecycle: ConnectionLifecycleState {
+                connected: true,
                 active_connection_id: Some("conn-a".to_owned()),
                 pending_request: Some(RequestId(11)),
                 pending_connection_id: Some("conn-b".to_owned()),
@@ -942,7 +943,7 @@ mod row_reload_tests {
         app.on_operation_completed(RequestId(11), "connection.deleted".to_owned());
 
         assert_eq!(app.connection_lifecycle.active_connection_id.as_deref(), Some("conn-a"));
-        assert!(app.connected);
+        assert!(app.connection_lifecycle.connected);
         assert!(app.connection_lifecycle.pending_connection_id.is_none());
         assert!(app.connection_lifecycle.failed_connection_ids.contains("conn-a"));
         assert!(!app.connection_lifecycle.failed_connection_ids.contains("conn-b"));
@@ -956,8 +957,8 @@ mod row_reload_tests {
     #[test]
     fn deleting_active_connection_clears_session() {
         let mut app = DbProApp {
-            connected: true,
             connection_lifecycle: ConnectionLifecycleState {
+                connected: true,
                 active_connection_id: Some("conn-a".to_owned()),
                 pending_request: Some(RequestId(12)),
                 pending_connection_id: Some("conn-a".to_owned()),
@@ -970,7 +971,7 @@ mod row_reload_tests {
         app.on_operation_completed(RequestId(12), "connection.deleted".to_owned());
 
         assert!(app.connection_lifecycle.active_connection_id.is_none());
-        assert!(!app.connected);
+        assert!(!app.connection_lifecycle.connected);
         assert!(app.connection_lifecycle.pending_connection_id.is_none());
         assert!(app.connection_lifecycle.failed_connection_ids.is_empty());
     }

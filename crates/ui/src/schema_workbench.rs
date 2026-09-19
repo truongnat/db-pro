@@ -458,7 +458,7 @@ impl DbProApp {
 
     pub(crate) fn apply_workbench_ddl(&mut self) {
         if !self.can_mutate_active_connection() {
-            self.runtime_message = "Connect with write access to apply DDL".into();
+            self.feedback.runtime_message = "Connect with write access to apply DDL".into();
             return;
         }
         if self.table_state.ddl_execution_request.is_some() {
@@ -466,11 +466,11 @@ impl DbProApp {
         }
         let sql = self.database_operations.schema_workbench.preview_sql.trim().to_owned();
         if sql.is_empty() {
-            self.runtime_message = "Plan a mutation before applying".into();
+            self.feedback.runtime_message = "Plan a mutation before applying".into();
             return;
         }
         let Some(connection) = self.active_connection().cloned() else {
-            self.runtime_message = "Connect to a database before applying DDL".into();
+            self.feedback.runtime_message = "Connect to a database before applying DDL".into();
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -480,7 +480,7 @@ impl DbProApp {
             sql,
         });
         self.table_state.ddl_execution_request = Some(request_id);
-        self.runtime_message = "Applying schema mutation…".into();
+        self.feedback.runtime_message = "Applying schema mutation…".into();
     }
 
     pub(crate) fn build_mutation_request(&self, action: ObjectAction) -> Result<ObjectMutationRequest, String> {

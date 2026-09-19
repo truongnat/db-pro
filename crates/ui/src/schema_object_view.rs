@@ -367,7 +367,7 @@ impl DbProApp {
         match ObjectMutationService::plan(&request, &QuoteDialect) {
             Ok(plan) => {
                 self.database_operations.routine_ddl_preview = Some(plan.statements.join(";\n"));
-                self.runtime_message = format!(
+                self.feedback.runtime_message = format!(
                     "Routine DDL preview · {} statement(s) · {}",
                     plan.statements.len(),
                     plan.safety
@@ -375,7 +375,7 @@ impl DbProApp {
             }
             Err(error) => {
                 self.database_operations.routine_ddl_preview = None;
-                self.runtime_message = format!("Routine plan failed: {error}");
+                self.feedback.runtime_message = format!("Routine plan failed: {error}");
             }
         }
     }

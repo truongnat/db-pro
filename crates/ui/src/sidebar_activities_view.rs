@@ -268,14 +268,14 @@ impl DbProApp {
             self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
             self.workspace.active_tab = WorkspaceTab::Query;
             self.workspace.activity = Activity::Queries;
-            self.runtime_message = format!("Query ready for {table}");
+            self.feedback.runtime_message = format!("Query ready for {table}");
         }
         if toggle_pin {
             self.toggle_pinned_table(table.to_owned());
         }
         if remove_recent {
             self.remove_recent_table(table);
-            self.runtime_message = format!("Removed {table} from recent");
+            self.feedback.runtime_message = format!("Removed {table} from recent");
         }
     }
 
@@ -443,11 +443,11 @@ impl DbProApp {
 
     /// Saved queries, grouped by folder, plus the pending-delete confirmation.
     fn draw_saved_queries_section(&mut self, ui: &mut egui::Ui) {
-        if self.saved_queries.is_empty() {
+        if self.query_library.saved_queries.is_empty() {
             self.draw_empty_saved_queries(ui);
             return;
         }
-        let saved = self.saved_queries.clone();
+        let saved = self.query_library.saved_queries.clone();
         let mut groups: Vec<(String, Vec<UiSavedQuerySummary>)> = Vec::new();
         for query in saved {
             let folder = query.folder.clone().unwrap_or_else(|| "Unfiled".to_owned());
@@ -485,6 +485,7 @@ impl DbProApp {
     /// One collapsible folder of saved queries, with a folder-level context menu.
     fn draw_saved_query_folder(&mut self, ui: &mut egui::Ui, folder: String, queries: Vec<UiSavedQuerySummary>) {
         let folder_id = self
+            .query_library
             .query_folders
             .iter()
             .find(|item| item.name == folder)
@@ -518,7 +519,7 @@ impl DbProApp {
             }
         });
         if delete_requested {
-            self.folder_delete_confirmation = folder_id;
+            self.overlay.folder_delete_confirmation = folder_id;
         }
     }
 
@@ -553,22 +554,22 @@ impl DbProApp {
         }
         if copy_sql {
             ui.output_mut(|o| o.copied_text = query.sql.clone());
-            self.runtime_message = format!("Copied SQL for `{}`", query.name);
+            self.feedback.runtime_message = format!("Copied SQL for `{}`", query.name);
         }
         if rename_requested {
             self.rename_saved_query(query);
         }
         if delete_requested {
-            self.delete_confirmation_id = Some(query.id.clone());
+            self.overlay.delete_confirmation_id = Some(query.id.clone());
         }
     }
 
     fn rename_saved_query(&mut self, query: &UiSavedQuerySummary) {
         let request_id = self.task_bridge.next_request_id();
-        let name = if self.query_folder.trim().is_empty() {
+        let name = if self.query_library.query_folder.trim().is_empty() {
             format!("{} (renamed)", query.name)
         } else {
-            self.query_folder.trim().to_owned()
+            self.query_library.query_folder.trim().to_owned()
         };
         self.dispatch_command(UiCommand::RenameSavedQuery {
             request_id,
@@ -578,7 +579,7 @@ impl DbProApp {
     }
 
     fn draw_delete_saved_query_confirmation(&mut self, ui: &mut egui::Ui) {
-        let Some(id) = self.delete_confirmation_id.clone() else {
+        let Some(id) = self.overlay.delete_confirmation_id.clone() else {
             return;
         };
         ui.colored_label(self.theme.warning, "Delete this saved query?");
@@ -586,10 +587,10 @@ impl DbProApp {
             if compact_button(ui, "Confirm delete", self.theme).clicked() {
                 let request_id = self.task_bridge.next_request_id();
                 self.dispatch_command(UiCommand::DeleteSavedQuery { request_id, id });
-                self.delete_confirmation_id = None;
+                self.overlay.delete_confirmation_id = None;
             }
             if compact_button(ui, "Cancel", self.theme).clicked() {
-                self.delete_confirmation_id = None;
+                self.overlay.delete_confirmation_id = None;
             }
         });
     }

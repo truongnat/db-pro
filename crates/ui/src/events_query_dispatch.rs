@@ -6,8 +6,8 @@ impl DbProApp {
     pub(super) fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         if self.palette.mode.is_some()
             || self.connection_dialog.open
-            || self.delete_confirmation_id.is_some()
-            || self.folder_delete_confirmation.is_some()
+            || self.overlay.delete_confirmation_id.is_some()
+            || self.overlay.folder_delete_confirmation.is_some()
             || self.table_data.insert_row_open
         {
             return;
@@ -61,7 +61,7 @@ impl DbProApp {
                 if self.query_capabilities().allows(|c| c.query.cancel) {
                     self.cancel_query(request_id);
                 } else {
-                    self.runtime_message = "Query cancellation is not supported for this provider".to_owned();
+                    self.feedback.runtime_message = "Query cancellation is not supported for this provider".to_owned();
                 }
             } else if self.query_editor.query_tools_open {
                 self.query_editor.query_tools_open = false;
@@ -74,13 +74,13 @@ impl DbProApp {
     }
 
     fn shortcut_pressed(&self, input: &egui::InputState, command_id: &str) -> bool {
-        let token = self.settings.keybindings.resolved(command_id);
+        let token = self.preferences.settings.keybindings.resolved(command_id);
         settings_model::match_shortcut_token(input, &token)
     }
 
     pub(super) fn cancel_query(&mut self, request_id: crate::RequestId) {
         self.dispatch_command(UiCommand::CancelQuery { request_id });
-        self.runtime_message = "Cancelling query…".to_owned();
+        self.feedback.runtime_message = "Cancelling query…".to_owned();
     }
 
     pub(super) fn dispatch_query(&mut self) {
@@ -92,7 +92,7 @@ impl DbProApp {
             .map(String::from)
             .or_else(|| self.active_connection().map(|connection| connection.id.clone()))
         else {
-            self.runtime_message = "Create or select a connection first".to_owned();
+            self.feedback.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
         let (sql, execution_range) = self
@@ -107,7 +107,7 @@ impl DbProApp {
                 )
             });
         if sql.trim().is_empty() {
-            self.runtime_message = "Query is empty".to_owned();
+            self.feedback.runtime_message = "Query is empty".to_owned();
             return;
         }
         let version = self.active_query_buffer_version();
@@ -126,7 +126,7 @@ impl DbProApp {
             .map(String::from)
             .or_else(|| self.active_connection().map(|connection| connection.id.clone()))
         else {
-            self.runtime_message = "Create or select a connection first".to_owned();
+            self.feedback.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
         let (sql, execution_range) = self
@@ -145,7 +145,7 @@ impl DbProApp {
                 )
             });
         if sql.is_empty() {
-            self.runtime_message = "Query is empty".to_owned();
+            self.feedback.runtime_message = "Query is empty".to_owned();
             return;
         }
         let version = self.active_query_buffer_version();
@@ -190,7 +190,7 @@ impl DbProApp {
             version,
             all_statements,
         });
-        self.runtime_message =
+        self.feedback.runtime_message =
             "Destructive statement held for confirmation — nothing was sent to the database".to_owned();
         true
     }
@@ -207,7 +207,7 @@ impl DbProApp {
             .map(String::from)
             .or_else(|| self.active_connection().map(|connection| connection.id.clone()))
         else {
-            self.runtime_message = "Create or select a connection first".to_owned();
+            self.feedback.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
         self.send_query_run(
@@ -222,7 +222,8 @@ impl DbProApp {
     /// Drop a held destructive statement without executing it.
     pub(super) fn cancel_pending_destructive_run(&mut self) {
         if self.query_execution.pending_destructive_run.take().is_some() {
-            self.runtime_message = "Destructive statement cancelled — nothing was sent to the database".to_owned();
+            self.feedback.runtime_message =
+                "Destructive statement cancelled — nothing was sent to the database".to_owned();
         }
     }
 
@@ -236,7 +237,7 @@ impl DbProApp {
     ) {
         let discovered = crate::query::discover_sql_parameters(&sql);
         if all_statements && !discovered.is_empty() {
-            self.runtime_message =
+            self.feedback.runtime_message =
                 "Parameterized scripts are not supported yet — run a single statement with bindings".to_owned();
             return;
         }
@@ -260,7 +261,7 @@ impl DbProApp {
             match crate::query::prepare_bound_sql(&sql, &values, style) {
                 Ok(prepared) => (prepared.sql, prepared.values),
                 Err(missing) => {
-                    self.runtime_message = format!("Fill parameter {missing} before running");
+                    self.feedback.runtime_message = format!("Fill parameter {missing} before running");
                     return;
                 }
             }
@@ -290,7 +291,7 @@ impl DbProApp {
                 .document_requests
                 .insert(request_id, doc.id.clone());
         }
-        self.runtime_message = if all_statements {
+        self.feedback.runtime_message = if all_statements {
             "Sending full script to runtime…".to_owned()
         } else {
             "Sending query to runtime…".to_owned()

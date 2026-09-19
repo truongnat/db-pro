@@ -11,7 +11,7 @@ impl DbProApp {
         if !self.table_mutation.staged_changes.is_empty() {
             self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable(table));
             self.table_data.discard_changes_confirmation = true;
-            self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
+            self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
         self.workspace.pending_navigation_action = None;
@@ -43,7 +43,7 @@ impl DbProApp {
     pub(crate) fn request_open_workspace_folder(&mut self) {
         let request_id = self.task_bridge.next_request_id();
         self.dispatch_command(UiCommand::PickWorkspaceFolder { request_id });
-        self.runtime_message = "Choose a workspace folder…".to_owned();
+        self.feedback.runtime_message = "Choose a workspace folder…".to_owned();
     }
 
     pub(crate) fn open_workspace_folder(&mut self, path: std::path::PathBuf) {
@@ -58,7 +58,7 @@ impl DbProApp {
                 self.workspace.sidebar_open = true;
                 self.workspace_files.workspace_search_hits.clear();
                 self.workspace_files.ide_workspace.scan_diagnostics();
-                self.runtime_message = format!(
+                self.feedback.runtime_message = format!(
                     "Opened workspace {} · {} files · {} roots",
                     self.workspace_files.ide_workspace.root_label(),
                     self.workspace_files.ide_workspace.index().len(),
@@ -66,7 +66,7 @@ impl DbProApp {
                 );
             }
             Err(error) => {
-                self.runtime_message = format!("Failed to open workspace: {error}");
+                self.feedback.runtime_message = format!("Failed to open workspace: {error}");
             }
         }
     }
@@ -77,27 +77,27 @@ impl DbProApp {
         self.workspace_files.workspace_replace_previews.clear();
         self.workspace_files.workspace_context_items.clear();
         self.workspace.split_editor_secondary = None;
-        self.runtime_message = "Workspace closed".to_owned();
+        self.feedback.runtime_message = "Workspace closed".to_owned();
     }
 
     pub(crate) fn refresh_workspace_folder(&mut self) {
         match self.workspace_files.ide_workspace.refresh() {
             Ok(()) => {
                 self.workspace_files.ide_workspace.scan_diagnostics();
-                self.runtime_message = format!(
+                self.feedback.runtime_message = format!(
                     "Workspace refreshed · {} files indexed",
                     self.workspace_files.ide_workspace.index().len()
                 );
             }
             Err(error) => {
-                self.runtime_message = format!("Workspace refresh failed: {error}");
+                self.feedback.runtime_message = format!("Workspace refresh failed: {error}");
             }
         }
     }
 
     pub(crate) fn open_workspace_sql_file(&mut self, relative_path: String) {
         let Some(absolute) = self.workspace_files.ide_workspace.absolute_for_relative(&relative_path) else {
-            self.runtime_message = "Open a workspace folder first".to_owned();
+            self.feedback.runtime_message = "Open a workspace folder first".to_owned();
             return;
         };
         let absolute_str = absolute.to_string_lossy().into_owned();
@@ -114,7 +114,7 @@ impl DbProApp {
         let content = match std::fs::read_to_string(&absolute) {
             Ok(text) => text,
             Err(error) => {
-                self.runtime_message = format!("Failed to read {}: {error}", absolute.display());
+                self.feedback.runtime_message = format!("Failed to read {}: {error}", absolute.display());
                 return;
             }
         };
@@ -136,7 +136,7 @@ impl DbProApp {
         self.workspace.activity = Activity::Queries;
         self.workspace.active_tab = WorkspaceTab::Query;
         self.reset_query_cursor();
-        self.runtime_message = format!("Opened {relative_path}");
+        self.feedback.runtime_message = format!("Opened {relative_path}");
     }
 
     pub(crate) fn save_active_workspace_file(&mut self) -> bool {
@@ -158,11 +158,11 @@ impl DbProApp {
                     self.workspace_files.workspace_file_mtimes.insert(path.clone(), mtime);
                 }
                 self.workspace_files.workspace_external_change = None;
-                self.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
+                self.feedback.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
                 true
             }
             Err(error) => {
-                self.runtime_message = format!("Save failed: {error}");
+                self.feedback.runtime_message = format!("Save failed: {error}");
                 false
             }
         }
@@ -171,14 +171,14 @@ impl DbProApp {
     pub(crate) fn run_workspace_search(&mut self) {
         if self.workspace_files.ide_workspace.roots.is_empty() {
             self.workspace_files.workspace_search_hits.clear();
-            self.runtime_message = "Open a workspace folder before searching".to_owned();
+            self.feedback.runtime_message = "Open a workspace folder before searching".to_owned();
             return;
         }
         self.workspace_files.workspace_search_hits = self
             .workspace_files
             .ide_workspace
             .search(&self.workspace_files.workspace_search_query, 100);
-        self.runtime_message = format!("{} matches", self.workspace_files.workspace_search_hits.len());
+        self.feedback.runtime_message = format!("{} matches", self.workspace_files.workspace_search_hits.len());
     }
 
     pub(crate) fn preview_workspace_replace(&mut self) {
@@ -186,7 +186,7 @@ impl DbProApp {
             &self.workspace_files.workspace_search_query,
             &self.workspace_files.workspace_replace_query,
         );
-        self.runtime_message = format!(
+        self.feedback.runtime_message = format!(
             "{} files would change",
             self.workspace_files.workspace_replace_previews.len()
         );
@@ -200,9 +200,9 @@ impl DbProApp {
             Ok(count) => {
                 self.preview_workspace_replace();
                 self.run_workspace_search();
-                self.runtime_message = format!("Replaced {count} occurrence(s)");
+                self.feedback.runtime_message = format!("Replaced {count} occurrence(s)");
             }
-            Err(error) => self.runtime_message = error,
+            Err(error) => self.feedback.runtime_message = error,
         }
     }
 
@@ -232,8 +232,8 @@ impl DbProApp {
             ));
         }
         match self.workspace_files.ide_workspace.export_schema_snapshot(&sql) {
-            Ok(path) => self.runtime_message = format!("Wrote schema snapshot {}", path.display()),
-            Err(error) => self.runtime_message = error,
+            Ok(path) => self.feedback.runtime_message = format!("Wrote schema snapshot {}", path.display()),
+            Err(error) => self.feedback.runtime_message = error,
         }
     }
 
@@ -241,9 +241,9 @@ impl DbProApp {
         let command = self.workspace_files.workspace_task_command.clone();
         match self.workspace_files.ide_workspace.run_task(&command) {
             Ok(result) => {
-                self.runtime_message = format!("Task exit {:?} · {}ms", result.exit_code, result.duration_ms);
+                self.feedback.runtime_message = format!("Task exit {:?} · {}ms", result.exit_code, result.duration_ms);
             }
-            Err(error) => self.runtime_message = error,
+            Err(error) => self.feedback.runtime_message = error,
         }
     }
 
@@ -251,19 +251,19 @@ impl DbProApp {
         let from = self.workspace_files.workspace_refactor_from.clone();
         let to = self.workspace_files.workspace_refactor_to.clone();
         match self.workspace_files.ide_workspace.rename_symbol_across_sql(&from, &to) {
-            Ok(count) => self.runtime_message = format!("Refactored {count} occurrence(s)"),
-            Err(error) => self.runtime_message = error,
+            Ok(count) => self.feedback.runtime_message = format!("Refactored {count} occurrence(s)"),
+            Err(error) => self.feedback.runtime_message = error,
         }
     }
 
     pub(crate) fn toggle_split_editor(&mut self) {
         if self.workspace.split_editor_secondary.is_some() {
             self.workspace.split_editor_secondary = None;
-            self.runtime_message = "Split editor closed".to_owned();
+            self.feedback.runtime_message = "Split editor closed".to_owned();
             return;
         }
         if self.query_session_state.documents.len() < 2 {
-            self.runtime_message = "Open a second document before splitting".to_owned();
+            self.feedback.runtime_message = "Open a second document before splitting".to_owned();
             return;
         }
         let secondary = if self.query_session_state.active_document_index + 1 < self.query_session_state.documents.len()
@@ -273,7 +273,7 @@ impl DbProApp {
             0
         };
         self.workspace.split_editor_secondary = Some(secondary);
-        self.runtime_message = "Split editor enabled".to_owned();
+        self.feedback.runtime_message = "Split editor enabled".to_owned();
     }
 
     pub(crate) fn refresh_schema_drift_watch(&mut self) {
@@ -289,7 +289,7 @@ impl DbProApp {
             .ide_workspace
             .update_schema_fingerprint(fingerprint);
         if let Some(message) = self.workspace_files.ide_workspace.schema_drift_message.clone() {
-            self.runtime_message = message;
+            self.feedback.runtime_message = message;
         }
     }
 
@@ -355,7 +355,7 @@ impl DbProApp {
 
     /// Capture/evidence helper: open a fresh untitled Query buffer (UI05 editor-first shots).
     pub fn open_query_workspace_for_capture(&mut self) {
-        self.dark_mode = true;
+        self.preferences.dark_mode = true;
         self.theme = DbProTheme::dark();
         self.new_query_document();
         if let Some(doc) = self
@@ -378,7 +378,7 @@ impl DbProApp {
     /// Capture helper: same as query workspace but force light theme.
     pub fn open_query_workspace_for_capture_light(&mut self) {
         self.open_query_workspace_for_capture();
-        self.dark_mode = false;
+        self.preferences.dark_mode = false;
         self.theme = DbProTheme::light();
     }
 
@@ -388,7 +388,8 @@ impl DbProApp {
                 if !self.table_mutation.staged_changes.is_empty() {
                     self.workspace.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
                     self.table_data.discard_changes_confirmation = true;
-                    self.runtime_message = "Apply or discard staged changes before closing the table".to_owned();
+                    self.feedback.runtime_message =
+                        "Apply or discard staged changes before closing the table".to_owned();
                     return;
                 }
                 self.workspace.pending_navigation_action = None;
@@ -444,7 +445,7 @@ impl DbProApp {
         if self.workspace.active_tab == tab {
             self.activate_welcome_tab();
         }
-        self.runtime_message = "Workspace closed".to_owned();
+        self.feedback.runtime_message = "Workspace closed".to_owned();
     }
 
     pub(crate) fn refresh_git_status(&mut self) {
@@ -465,7 +466,7 @@ impl DbProApp {
             Some(status.message.clone())
         };
         self.workspace_files.git_status = Some(status);
-        self.runtime_message = "Git status refreshed".into();
+        self.feedback.runtime_message = "Git status refreshed".into();
     }
 
     pub(crate) fn stage_git_path(&mut self, relative: &str) {
@@ -515,7 +516,7 @@ impl DbProApp {
             Ok(out) => {
                 self.workspace_files.git_commit_message.clear();
                 self.workspace_files.git_last_error = None;
-                self.runtime_message = out.lines().next().unwrap_or("Committed").to_owned();
+                self.feedback.runtime_message = out.lines().next().unwrap_or("Committed").to_owned();
                 self.refresh_git_status();
             }
             Err(err) => self.workspace_files.git_last_error = Some(err),
@@ -551,7 +552,7 @@ impl DbProApp {
 
     pub(crate) fn reload_workspace_file_from_disk(&mut self, path: &str) {
         let Ok(content) = std::fs::read_to_string(path) else {
-            self.runtime_message = format!("Could not reload {path}");
+            self.feedback.runtime_message = format!("Could not reload {path}");
             return;
         };
         if let Some(doc) = self
@@ -568,7 +569,7 @@ impl DbProApp {
                     .insert(path.to_owned(), mtime);
             }
             self.workspace_files.workspace_external_change = None;
-            self.runtime_message = format!("Reloaded {path}");
+            self.feedback.runtime_message = format!("Reloaded {path}");
         }
     }
 }

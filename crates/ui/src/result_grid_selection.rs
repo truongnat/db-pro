@@ -116,7 +116,7 @@ impl DbProApp {
         self.table_data.selection_anchor_cell = Some((first_row, first_column));
         self.table_data.selected_row = Some(last_row);
         self.table_data.selected_cell = Some((last_row, last_column));
-        self.copy_status.clear();
+        self.feedback.copy_status.clear();
     }
 
     pub(super) fn is_cell_selected(&self, lookup: &GridSelectionLookup, selection: (usize, usize)) -> bool {
@@ -237,7 +237,7 @@ impl DbProApp {
                     self.select_cell_range(indexes, &selection_lookup.row_positions, selection, false);
                     self.table_data.data_editing_cell = None;
                     self.table_data.data_edit_value.clear();
-                    self.copy_status.clear();
+                    self.feedback.copy_status.clear();
                 }
                 return;
             }
@@ -300,7 +300,7 @@ impl DbProApp {
                 );
                 self.table_data.data_editing_cell = None;
                 self.table_data.data_edit_value.clear();
-                self.copy_status.clear();
+                self.feedback.copy_status.clear();
             }
         } else if let Some(&first_row) = indexes.first() {
             self.select_single_cell((first_row, order[0]));

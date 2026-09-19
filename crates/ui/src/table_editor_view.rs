@@ -138,7 +138,7 @@ impl DbProApp {
                     if self.table_mutation.staged_changes.is_empty() {
                         self.request_table_data();
                     } else {
-                        self.runtime_message = "Apply or discard staged changes before refreshing".to_owned();
+                        self.feedback.runtime_message = "Apply or discard staged changes before refreshing".to_owned();
                     }
                 }
 
@@ -219,7 +219,7 @@ impl DbProApp {
                             }
                         }
                     }
-                } else if self.connected {
+                } else if self.connection_lifecycle.connected {
                     ui.separator();
                     ui.label(
                         RichText::new(if self.table_has_primary_key() {
@@ -602,7 +602,7 @@ impl DbProApp {
                                     self.table_data.grid_sort_column = None;
                                     self.reload_table_data_from_start();
                                 } else {
-                                    self.runtime_message =
+                                    self.feedback.runtime_message =
                                         "Apply or discard staged changes before changing sort".to_owned();
                                 }
                             }
@@ -615,7 +615,7 @@ impl DbProApp {
                                     == Some(col.as_str());
                                 if ui.selectable_label(is_sel, col.as_str()).clicked() {
                                     if !self.table_mutation.staged_changes.is_empty() {
-                                        self.runtime_message =
+                                        self.feedback.runtime_message =
                                             "Apply or discard staged changes before changing sort".to_owned();
                                     } else if is_sel {
                                         if let Some(sort) = self.table_state.table_data_sorts.first_mut() {
@@ -740,11 +740,11 @@ impl DbProApp {
 
     pub(crate) fn open_duplicate_row(&mut self, result: &UiQueryResult, row_index: usize) {
         if !self.can_mutate_active_connection() {
-            self.runtime_message = "Connect with write access to insert rows".to_owned();
+            self.feedback.runtime_message = "Connect with write access to insert rows".to_owned();
             return;
         }
         let Some(info) = self.table_state.table_info.clone() else {
-            self.runtime_message = "Table structure is still loading".to_owned();
+            self.feedback.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
         let Some(row) = result.rows.get(row_index) else {
@@ -777,11 +777,11 @@ impl DbProApp {
 
     fn open_insert_row(&mut self) {
         if !self.can_mutate_active_connection() {
-            self.runtime_message = "Connect with write access to insert rows".to_owned();
+            self.feedback.runtime_message = "Connect with write access to insert rows".to_owned();
             return;
         }
         let Some(info) = self.table_state.table_info.clone() else {
-            self.runtime_message = "Table structure is still loading".to_owned();
+            self.feedback.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
         self.table_data.insert_row_values = vec![String::new(); info.columns.len()];
@@ -1106,7 +1106,7 @@ impl DbProApp {
         self.table_mutation.staged_changes.stage_insert(columns, values);
         self.table_data.insert_row_open = false;
         self.table_data.insert_row_error.clear();
-        self.runtime_message = format!("Row staged for {}", table);
+        self.feedback.runtime_message = format!("Row staged for {}", table);
     }
 
     pub(super) fn draw_insert_row_dialog(&mut self, ctx: &egui::Context) {
@@ -1402,22 +1402,22 @@ impl DbProApp {
 
     pub(crate) fn submit_ddl(&mut self) {
         if !self.can_mutate_active_connection() {
-            self.runtime_message = "Connect with write access to execute DDL".to_owned();
+            self.feedback.runtime_message = "Connect with write access to execute DDL".to_owned();
             return;
         }
         if self.table_state.ddl_execution_request.is_some() {
             return;
         }
         let Some(sql) = self.table_state.table_ddl.clone() else {
-            self.runtime_message = "Load the table DDL before executing it".to_owned();
+            self.feedback.runtime_message = "Load the table DDL before executing it".to_owned();
             return;
         };
         if sql.trim().is_empty() {
-            self.runtime_message = "DDL cannot be empty".to_owned();
+            self.feedback.runtime_message = "DDL cannot be empty".to_owned();
             return;
         }
         let Some(connection) = self.active_connection().cloned() else {
-            self.runtime_message = "Connect to a database before executing DDL".to_owned();
+            self.feedback.runtime_message = "Connect to a database before executing DDL".to_owned();
             return;
         };
         let request_id = self.task_bridge.next_request_id();
@@ -1428,7 +1428,7 @@ impl DbProApp {
         });
         self.table_state.ddl_execution_request = Some(request_id);
         self.table_state.ddl_execute_confirmation = false;
-        self.runtime_message = "Executing DDL…".to_owned();
+        self.feedback.runtime_message = "Executing DDL…".to_owned();
     }
 
     /// Loading / failed placeholder shown while the DDL is not available.
@@ -1569,11 +1569,11 @@ impl DbProApp {
             schema: self.active_schema().to_owned(),
             table,
         });
-        self.runtime_message = "Loading table structure…".to_owned();
+        self.feedback.runtime_message = "Loading table structure…".to_owned();
     }
 
     pub(crate) fn can_mutate_active_connection(&self) -> bool {
-        self.connected && self.active_connection().is_some_and(|connection| !connection.readonly)
+        self.connection_lifecycle.connected && self.active_connection().is_some_and(|connection| !connection.readonly)
     }
 
     pub(crate) fn table_has_primary_key(&self) -> bool {
@@ -1693,18 +1693,18 @@ impl DbProApp {
     ) {
         if !self.can_edit_table_rows() {
             if self.can_mutate_active_connection() && !self.table_has_primary_key() {
-                self.runtime_message = "Table has no primary key; safe row editing is unavailable.".to_owned();
+                self.feedback.runtime_message = "Table has no primary key; safe row editing is unavailable.".to_owned();
             } else {
-                self.runtime_message = "Connect with write access to edit rows".to_owned();
+                self.feedback.runtime_message = "Connect with write access to edit rows".to_owned();
             }
             return;
         }
         if !self.can_mutate_active_connection() {
-            self.runtime_message = "Connect with write access to edit rows".to_owned();
+            self.feedback.runtime_message = "Connect with write access to edit rows".to_owned();
             return;
         }
         if self.staged_row_deleted(result, row_index) {
-            self.runtime_message = "Discard the staged delete before editing this row".to_owned();
+            self.feedback.runtime_message = "Discard the staged delete before editing this row".to_owned();
             return;
         }
         if let Some(block) = result
@@ -1715,7 +1715,7 @@ impl DbProApp {
         {
             // Still allow the advanced inspector for binary / blocked columns (#228).
             self.open_cell_inspector(result, row_index, column_index);
-            self.runtime_message = block.reason().to_owned();
+            self.feedback.runtime_message = block.reason().to_owned();
             return;
         }
         self.table_data.selected_cell = Some((row_index, column_index));
@@ -1745,7 +1745,7 @@ impl DbProApp {
                 _ => crate::cell_text(cell),
             };
         }
-        self.copy_status.clear();
+        self.feedback.copy_status.clear();
     }
 
     pub(crate) fn submit_data_cell_edit(
@@ -1755,7 +1755,7 @@ impl DbProApp {
         column_index: usize,
     ) -> bool {
         let Some(info) = self.table_state.table_info.clone() else {
-            self.runtime_message = "Table structure is still loading".to_owned();
+            self.feedback.runtime_message = "Table structure is still loading".to_owned();
             return false;
         };
         let Some(column) = result.columns.get(column_index).map(|column| column.name.clone()) else {
@@ -1763,35 +1763,35 @@ impl DbProApp {
             return false;
         };
         let Some(column_info) = info.columns.iter().find(|item| item.name == column) else {
-            self.runtime_message = "The selected column is not present in the table metadata".to_owned();
+            self.feedback.runtime_message = "The selected column is not present in the table metadata".to_owned();
             self.table_data.data_editing_cell = None;
             return false;
         };
         if let Some(block) = ColumnWritePolicy::read(column_info).write_block() {
             let error = block.reason().to_owned();
             self.table_data.data_edit_error = Some(error.clone());
-            self.runtime_message = format!("{}: {error}", column_info.name);
+            self.feedback.runtime_message = format!("{}: {error}", column_info.name);
             return false;
         }
         let value = match Self::parse_update_value(&self.table_data.data_edit_value, &column_info.data_type) {
             Ok(value) => value,
             Err(error) => {
-                self.runtime_message = format!("{}: {error}", column_info.name);
+                self.feedback.runtime_message = format!("{}: {error}", column_info.name);
                 self.table_data.data_edit_error = Some(error);
                 return false;
             }
         };
         if matches!(value, UiCell::Null) && !column_info.nullable {
             let error = format!("{} is NOT NULL; enter a value instead", column_info.name);
-            self.runtime_message = error.clone();
+            self.feedback.runtime_message = error.clone();
             self.table_data.data_edit_error = Some(error);
             return false;
         }
         let identity = match Self::row_identity(result, &info, row_index) {
             Ok(identity) => identity,
             Err(error) => {
-                self.runtime_message = error;
-                self.table_data.data_edit_error = Some(self.runtime_message.clone());
+                self.feedback.runtime_message = error;
+                self.table_data.data_edit_error = Some(self.feedback.runtime_message.clone());
                 return false;
             }
         };
@@ -1803,8 +1803,8 @@ impl DbProApp {
             .ok_or_else(|| "The selected cell is no longer available".to_owned());
         let Ok(original) = original else {
             self.table_data.data_editing_cell = None;
-            self.runtime_message = "The selected cell is no longer available".to_owned();
-            self.table_data.data_edit_error = Some(self.runtime_message.clone());
+            self.feedback.runtime_message = "The selected cell is no longer available".to_owned();
+            self.table_data.data_edit_error = Some(self.feedback.runtime_message.clone());
             return false;
         };
         if let Some(table) = self.schema_explorer.selected_table.as_deref() {
@@ -1825,7 +1825,7 @@ impl DbProApp {
         self.table_data.expanded_data_editor = None;
         self.table_data.data_edit_error = None;
         let counts = self.table_mutation.staged_changes.counts();
-        self.runtime_message = format!(
+        self.feedback.runtime_message = format!(
             "Staged edit · {} pending (+{} ~{} -{})",
             counts.total(),
             counts.inserts,
@@ -1838,14 +1838,14 @@ impl DbProApp {
     pub(crate) fn request_delete_selected_data_rows(&mut self, result: &UiQueryResult) {
         if !self.can_edit_table_rows() {
             if self.can_mutate_active_connection() && !self.table_has_primary_key() {
-                self.runtime_message = "Table has no primary key; safe row editing is unavailable.".to_owned();
+                self.feedback.runtime_message = "Table has no primary key; safe row editing is unavailable.".to_owned();
             } else {
-                self.runtime_message = "Connect with write access to delete rows".to_owned();
+                self.feedback.runtime_message = "Connect with write access to delete rows".to_owned();
             }
             return;
         }
         if !self.can_mutate_active_connection() {
-            self.runtime_message = "Connect with write access to delete rows".to_owned();
+            self.feedback.runtime_message = "Connect with write access to delete rows".to_owned();
             return;
         }
         let row_indexes: Vec<usize> = if self.table_data.selected_rows.is_empty() {
@@ -1854,11 +1854,11 @@ impl DbProApp {
             self.table_data.selected_rows.iter().copied().collect()
         };
         if row_indexes.is_empty() {
-            self.runtime_message = "Select a row before deleting".to_owned();
+            self.feedback.runtime_message = "Select a row before deleting".to_owned();
             return;
         }
         let Some(info) = self.table_state.table_info.clone() else {
-            self.runtime_message = "Table structure is still loading".to_owned();
+            self.feedback.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
         if let Some(table) = self.schema_explorer.selected_table.as_deref() {
@@ -1876,7 +1876,7 @@ impl DbProApp {
             let identity = match Self::row_identity(result, &info, row_index) {
                 Ok(identity) => identity,
                 Err(error) => {
-                    self.runtime_message = error;
+                    self.feedback.runtime_message = error;
                     return;
                 }
             };
@@ -1887,7 +1887,7 @@ impl DbProApp {
         }
         self.table_mutation.table_mutation_error = None;
         self.table_mutation.staged_apply_targets.clear();
-        self.runtime_message = format!(
+        self.feedback.runtime_message = format!(
             "{} row(s) marked for deletion · {} staged change(s)",
             self.table_mutation
                 .staged_changes
@@ -1929,7 +1929,7 @@ impl DbProApp {
         };
         if self.table_mutation.staged_changes.revert_cell(&identity, column_index) {
             self.clear_mutation_error_for_identity(&identity, Some(column_index));
-            self.runtime_message = "Cell change reverted".to_owned();
+            self.feedback.runtime_message = "Cell change reverted".to_owned();
         }
     }
 
@@ -1939,7 +1939,7 @@ impl DbProApp {
         };
         if self.table_mutation.staged_changes.revert_row(&identity) {
             self.clear_mutation_error_for_identity(&identity, None);
-            self.runtime_message = "Row changes reverted".to_owned();
+            self.feedback.runtime_message = "Row changes reverted".to_owned();
         }
     }
 
@@ -1969,7 +1969,7 @@ impl DbProApp {
 
     pub(crate) fn discard_staged_changes(&mut self) {
         if self.table_mutation.staged_apply_request.is_some() {
-            self.runtime_message = "Wait for the current database write before discarding".to_owned();
+            self.feedback.runtime_message = "Wait for the current database write before discarding".to_owned();
             return;
         }
         self.table_mutation.staged_changes.clear();
@@ -1984,7 +1984,7 @@ impl DbProApp {
         self.table_data.data_edit_value.clear();
         self.table_state.table_data_result = None;
         self.table_state.table_data_error = None;
-        self.runtime_message = "Staged changes discarded".to_owned();
+        self.feedback.runtime_message = "Staged changes discarded".to_owned();
         self.request_table_data();
     }
 
@@ -2043,7 +2043,7 @@ impl DbProApp {
             .as_ref()
             .and_then(|failure| failure.target.clone())
         else {
-            self.runtime_message = "This failure has no retryable mutation target".to_owned();
+            self.feedback.runtime_message = "This failure has no retryable mutation target".to_owned();
             return;
         };
         self.table_mutation.table_mutation_retry_target = Some(target);
@@ -2056,11 +2056,11 @@ impl DbProApp {
             self.connection_lifecycle.active_connection_id.clone(),
             self.schema_explorer.selected_table.clone(),
         ) else {
-            self.runtime_message = "Connect to a database before reloading the row".to_owned();
+            self.feedback.runtime_message = "Connect to a database before reloading the row".to_owned();
             return;
         };
         let Some(info) = self.table_state.table_info.as_ref() else {
-            self.runtime_message = "Table structure is still loading".to_owned();
+            self.feedback.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
         let mut filters = Vec::with_capacity(identity.original_pk_columns.len());
@@ -2071,7 +2071,7 @@ impl DbProApp {
                 .find(|candidate| candidate.name == *column)
                 .map(|candidate| candidate.data_type.clone())
             else {
-                self.runtime_message = format!("Primary-key metadata is missing for {column}");
+                self.feedback.runtime_message = format!("Primary-key metadata is missing for {column}");
                 return;
             };
             filters.push(UiTableDataFilter {
@@ -2094,7 +2094,7 @@ impl DbProApp {
             filters,
             sorts: Vec::new(),
         });
-        self.runtime_message = "Reloading row from database…".to_owned();
+        self.feedback.runtime_message = "Reloading row from database…".to_owned();
     }
 
     pub(crate) fn draw_discard_changes_confirmation(&mut self, ui: &mut egui::Ui) {
@@ -2604,20 +2604,20 @@ impl DbProApp {
             return;
         }
         if self.table_data.data_edit_error.is_some() {
-            self.runtime_message = "Fix the validation error before applying changes".to_owned();
+            self.feedback.runtime_message = "Fix the validation error before applying changes".to_owned();
             return;
         }
         let Some(connection) = self.active_connection().cloned() else {
-            self.runtime_message = "Connect to a database before applying changes".to_owned();
+            self.feedback.runtime_message = "Connect to a database before applying changes".to_owned();
             return;
         };
         let Some(table) = self.schema_explorer.selected_table.clone() else {
-            self.runtime_message = "Select a table before applying changes".to_owned();
+            self.feedback.runtime_message = "Select a table before applying changes".to_owned();
             return;
         };
         if let Some(target) = self.table_mutation.staged_changes.target_table() {
             if target != table {
-                self.runtime_message = format!("Staged changes belong to table `{target}`, not `{table}`");
+                self.feedback.runtime_message = format!("Staged changes belong to table `{target}`, not `{table}`");
                 return;
             }
         }
@@ -2713,7 +2713,7 @@ impl DbProApp {
         }
         if changes.is_empty() {
             self.table_mutation.table_mutation_retry_after_reload = false;
-            self.runtime_message = "The related staged change is no longer available".to_owned();
+            self.feedback.runtime_message = "The related staged change is no longer available".to_owned();
             return;
         }
         let request_id = self.task_bridge.next_request_id();
@@ -2730,7 +2730,7 @@ impl DbProApp {
             self.table_mutation.staged_apply_targets = targets;
             self.table_mutation.table_mutation_error = None;
             let counts = self.table_mutation.staged_changes.counts();
-            self.runtime_message = format!(
+            self.feedback.runtime_message = format!(
                 "Applying {} changes in one transaction (+{} ~{} -{})…",
                 counts.total(),
                 counts.inserts,
@@ -2738,7 +2738,7 @@ impl DbProApp {
                 counts.deletes
             );
         } else {
-            self.runtime_message = "Could not send staged change to runtime".to_owned();
+            self.feedback.runtime_message = "Could not send staged change to runtime".to_owned();
         }
     }
 
@@ -2771,7 +2771,7 @@ impl DbProApp {
         self.table_mutation.staged_changes.clear();
         self.table_mutation.staged_apply_targets.clear();
         self.table_mutation.table_mutation_error = None;
-        self.runtime_message = "All staged changes applied".to_owned();
+        self.feedback.runtime_message = "All staged changes applied".to_owned();
         self.show_toast_success("All staged changes applied successfully");
         if let Some(action) = self.workspace.pending_navigation_action.take() {
             self.execute_pending_navigation(action);
@@ -2866,7 +2866,7 @@ impl DbProApp {
         } else {
             format!("Staged changes failed · {outcome} · {display_message}")
         };
-        self.runtime_message = formatted.clone();
+        self.feedback.runtime_message = formatted.clone();
         self.show_toast_error(formatted);
     }
 
@@ -2897,7 +2897,7 @@ impl DbProApp {
             schema: self.active_schema().to_owned(),
             table,
         });
-        self.runtime_message = "Loading table DDL…".to_owned();
+        self.feedback.runtime_message = "Loading table DDL…".to_owned();
     }
 
     pub(crate) fn request_table_data(&mut self) {
@@ -2926,12 +2926,12 @@ impl DbProApp {
             filters: self.table_state.table_data_filters.clone(),
             sorts,
         });
-        self.runtime_message = "Loading table data…".to_owned();
+        self.feedback.runtime_message = "Loading table data…".to_owned();
     }
 
     pub(crate) fn commit_table_filter_draft(&mut self) {
         if !self.table_mutation.staged_changes.is_empty() {
-            self.runtime_message = "Apply or discard staged changes before changing filters".to_owned();
+            self.feedback.runtime_message = "Apply or discard staged changes before changing filters".to_owned();
             return;
         }
         let column = self.table_state.table_data_filter_column.trim();
@@ -2950,19 +2950,19 @@ impl DbProApp {
             .map(|item| item.data_type.clone())
             .unwrap_or_else(|| "text".to_owned());
         if !Self::filter_operator_supported(&data_type, &self.table_state.table_data_filter_operator) {
-            self.runtime_message = format!("That filter operator is not supported for {data_type}");
+            self.feedback.runtime_message = format!("That filter operator is not supported for {data_type}");
             return;
         }
         if !is_null_operator
             && self.table_state.table_data_filter_value.is_empty()
             && !Self::is_text_type(&data_type.to_ascii_lowercase())
         {
-            self.runtime_message = "Enter a filter value first".to_owned();
+            self.feedback.runtime_message = "Enter a filter value first".to_owned();
             return;
         }
         if !is_null_operator {
             if let Err(error) = Self::parse_update_value(&self.table_state.table_data_filter_value, &data_type) {
-                self.runtime_message = format!("Invalid filter for {column}: {error}");
+                self.feedback.runtime_message = format!("Invalid filter for {column}: {error}");
                 return;
             }
         }
@@ -2991,7 +2991,7 @@ impl DbProApp {
 
     pub(crate) fn remove_table_filter(&mut self, index: usize) {
         if !self.table_mutation.staged_changes.is_empty() {
-            self.runtime_message = "Apply or discard staged changes before changing filters".to_owned();
+            self.feedback.runtime_message = "Apply or discard staged changes before changing filters".to_owned();
             return;
         }
         if index < self.table_state.table_data_filters.len() {
@@ -3008,7 +3008,7 @@ impl DbProApp {
 
     pub(crate) fn clear_table_filters(&mut self) {
         if !self.table_mutation.staged_changes.is_empty() {
-            self.runtime_message = "Apply or discard staged changes before changing filters".to_owned();
+            self.feedback.runtime_message = "Apply or discard staged changes before changing filters".to_owned();
             return;
         }
         self.table_state.table_data_filters.clear();
@@ -3074,7 +3074,7 @@ impl DbProApp {
 
     pub(crate) fn reload_table_data_from_start(&mut self) {
         if !self.table_mutation.staged_changes.is_empty() {
-            self.runtime_message = "Apply or discard staged changes before reloading".to_owned();
+            self.feedback.runtime_message = "Apply or discard staged changes before reloading".to_owned();
             return;
         }
         self.table_state.table_data_offset = 0;

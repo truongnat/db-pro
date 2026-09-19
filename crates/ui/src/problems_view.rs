@@ -92,7 +92,7 @@ impl DbProApp {
         self.workspace.sidebar_open = true;
         self.workspace.active_tab = WorkspaceTab::Query;
         self.query_editor.problems_selected = Some((doc.id.clone(), diagnostic_index));
-        self.runtime_message = format!("Jumped to problem in {}", doc.title);
+        self.feedback.runtime_message = format!("Jumped to problem in {}", doc.title);
     }
 
     /// Apply a deterministic lint quick-fix as one undoable buffer replace (#257).
@@ -124,7 +124,7 @@ impl DbProApp {
         let title = doc.title.clone();
         self.workspace.active_tab = WorkspaceTab::Query;
         self.refresh_diagnostics();
-        self.runtime_message = format!("Applied quick fix in {title}");
+        self.feedback.runtime_message = format!("Applied quick fix in {title}");
         true
     }
 
@@ -162,11 +162,11 @@ impl DbProApp {
                 )
             })
             .count();
-        if self.has_runtime_error() && !self.runtime_message.trim().is_empty() {
+        if self.has_runtime_error() && !self.feedback.runtime_message.trim().is_empty() {
             summary.recent_errors.push(ErrorDiagnostic {
                 timestamp: chrono::Utc::now().to_rfc3339(),
                 error_code: "UI_RUNTIME".to_owned(),
-                message: redact_sensitive(&self.runtime_message),
+                message: redact_sensitive(&self.feedback.runtime_message),
                 module: "ui".to_owned(),
             });
         }
@@ -186,8 +186,8 @@ impl DbProApp {
         let json = serde_json::to_string_pretty(&summary).map_err(|e| e.to_string())?;
         let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
         let file_name = format!("db-pro-support-bundle-{stamp}.json");
-        let path = if !self.backup_output_path.trim().is_empty() {
-            let parent = std::path::Path::new(self.backup_output_path.trim())
+        let path = if !self.overlay.backup_output_path.trim().is_empty() {
+            let parent = std::path::Path::new(self.overlay.backup_output_path.trim())
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new("."));
             parent.join(&file_name)

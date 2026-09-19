@@ -549,7 +549,7 @@ impl DbProApp {
         .with_search(&search_query, doc.search.active_match_index)
         .with_completion_open(is_completion_open)
         .with_execution_range(execution_range)
-        .with_prediction_visible(self.prediction_mode == PredictionMode::Eager || doc.prediction_reveal);
+        .with_prediction_visible(self.preferences.prediction_mode == PredictionMode::Eager || doc.prediction_reveal);
         editor.font_size = font_size;
 
         let response = editor.show(ui, available_size);
@@ -634,14 +634,14 @@ impl DbProApp {
         // a prediction mode; the user must deliberately request an AI prediction.
         if EditorInteractionPolicy::should_schedule_prediction(
             &response,
-            self.prediction_mode,
+            self.preferences.prediction_mode,
             doc.selection.is_empty(),
             cursor_in_string_or_comment,
         ) {
             doc.schedule_prediction_with_mode(Instant::now(), true);
         }
 
-        if self.prediction_mode != PredictionMode::Off
+        if self.preferences.prediction_mode != PredictionMode::Off
             && doc.prediction_is_due(Instant::now())
             && doc.pending_prediction_request.is_none()
             && !doc.completion.is_open

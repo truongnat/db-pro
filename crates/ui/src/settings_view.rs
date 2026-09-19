@@ -6,17 +6,17 @@ use lucide_icons::Icon;
 
 impl DbProApp {
     pub(crate) fn apply_settings_to_runtime(&mut self) {
-        self.settings.general.language.apply();
-        self.dark_mode = self.settings.appearance.dark_mode;
-        self.reduce_motion = self.settings.appearance.reduce_motion;
-        self.query_editor.editor_font_size = self.settings.editor.font_size;
-        self.prediction_mode = match self.settings.editor.prediction_mode.as_str() {
+        self.preferences.settings.general.language.apply();
+        self.preferences.dark_mode = self.preferences.settings.appearance.dark_mode;
+        self.preferences.reduce_motion = self.preferences.settings.appearance.reduce_motion;
+        self.query_editor.editor_font_size = self.preferences.settings.editor.font_size;
+        self.preferences.prediction_mode = match self.preferences.settings.editor.prediction_mode.as_str() {
             "off" => PredictionMode::Off,
             "subtle" => PredictionMode::Subtle,
             _ => PredictionMode::Eager,
         };
-        self.agent.auto_run_read_only = self.settings.ai.auto_run_read_only;
-        self.theme = if self.dark_mode {
+        self.agent.auto_run_read_only = self.preferences.settings.ai.auto_run_read_only;
+        self.theme = if self.preferences.dark_mode {
             DbProTheme::dark()
         } else {
             DbProTheme::light()
@@ -24,17 +24,17 @@ impl DbProApp {
     }
 
     pub(crate) fn sync_settings_from_runtime(&mut self) {
-        self.settings.version = settings_model::SETTINGS_VERSION;
-        self.settings.appearance.dark_mode = self.dark_mode;
-        self.settings.appearance.reduce_motion = self.reduce_motion;
-        self.settings.editor.font_size = self.query_editor.editor_font_size;
-        self.settings.editor.prediction_mode = match self.prediction_mode {
+        self.preferences.settings.version = settings_model::SETTINGS_VERSION;
+        self.preferences.settings.appearance.dark_mode = self.preferences.dark_mode;
+        self.preferences.settings.appearance.reduce_motion = self.preferences.reduce_motion;
+        self.preferences.settings.editor.font_size = self.query_editor.editor_font_size;
+        self.preferences.settings.editor.prediction_mode = match self.preferences.prediction_mode {
             PredictionMode::Off => "off".to_owned(),
             PredictionMode::Subtle => "subtle".to_owned(),
             PredictionMode::Eager => "eager".to_owned(),
         };
-        self.settings.ai.auto_run_read_only = self.agent.auto_run_read_only;
-        self.settings.ai.provider_label = self.agent.provider_label.clone();
+        self.preferences.settings.ai.auto_run_read_only = self.agent.auto_run_read_only;
+        self.preferences.settings.ai.provider_label = self.agent.provider_label.clone();
     }
 
     pub(super) fn draw_settings(&mut self, ui: &mut egui::Ui) {
@@ -42,19 +42,19 @@ impl DbProApp {
             ui.vertical(|ui| {
                 ui.set_width(128.0);
                 for section in SettingsSection::all() {
-                    let selected = self.settings_section == *section;
+                    let selected = self.preferences.section == *section;
                     let label = RichText::new(section.label()).color(if selected {
                         self.theme.accent
                     } else {
                         self.theme.text_secondary
                     });
                     if ui.selectable_label(selected, label).clicked() {
-                        self.settings_section = *section;
+                        self.preferences.section = *section;
                     }
                 }
             });
             ui.separator();
-            ui.vertical(|ui| match self.settings_section {
+            ui.vertical(|ui| match self.preferences.section {
                 SettingsSection::General => self.draw_general_settings(ui),
                 SettingsSection::Appearance => self.draw_appearance_settings(ui),
                 SettingsSection::Editor => self.draw_editor_settings(ui),
@@ -79,21 +79,21 @@ impl DbProApp {
                 ui.label(RichText::new("Language").color(self.theme.text_secondary));
                 for lang in crate::UiLanguage::ALL {
                     if ui
-                        .selectable_label(self.settings.general.language == *lang, lang.label())
+                        .selectable_label(self.preferences.settings.general.language == *lang, lang.label())
                         .clicked()
                     {
-                        self.settings.general.language = *lang;
+                        self.preferences.settings.general.language = *lang;
                         lang.apply();
                     }
                 }
             });
             ui.add_space(8.0);
             ui.checkbox(
-                &mut self.settings.general.confirm_destructive_queries,
+                &mut self.preferences.settings.general.confirm_destructive_queries,
                 "Confirm destructive queries",
             );
             ui.checkbox(
-                &mut self.settings.general.restore_tabs_on_startup,
+                &mut self.preferences.settings.general.restore_tabs_on_startup,
                 "Restore query tabs on startup",
             );
             ui.add_space(12.0);
@@ -106,7 +106,7 @@ impl DbProApp {
                 .small()
                 .color(self.theme.text_muted),
             );
-            input_full_width(ui, &mut self.session_name_draft, "Session name", self.theme);
+            input_full_width(ui, &mut self.workspace_sessions.name_draft, "Session name", self.theme);
             ui.horizontal(|ui| {
                 if Button::new(self.theme)
                     .text("Save workspace")
@@ -119,12 +119,12 @@ impl DbProApp {
                 }
             });
             ui.add_space(SPACE_SM);
-            let sessions = self.named_session_store.sessions.clone();
+            let sessions = self.workspace_sessions.store.sessions.clone();
             for session in sessions {
                 ui.horizontal(|ui| {
-                    let selected = self.selected_named_session_id.as_deref() == Some(session.id.as_str());
+                    let selected = self.workspace_sessions.selected_id.as_deref() == Some(session.id.as_str());
                     if ui.selectable_label(selected, &session.name).clicked() {
-                        self.selected_named_session_id = Some(session.id.clone());
+                        self.workspace_sessions.selected_id = Some(session.id.clone());
                     }
                     if Button::new(self.theme)
                         .text("Restore")
@@ -151,13 +151,13 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        self.named_session_store.remove(&session.id);
+                        self.workspace_sessions.store.remove(&session.id);
                     }
                 });
             }
-            if !self.last_session_restore_notes.is_empty() {
+            if !self.workspace_sessions.last_restore_notes.is_empty() {
                 ui.add_space(6.0);
-                for note in &self.last_session_restore_notes {
+                for note in &self.workspace_sessions.last_restore_notes {
                     ui.label(RichText::new(note).small().color(self.theme.warning));
                 }
             }
@@ -172,7 +172,7 @@ impl DbProApp {
                 ui.label(RichText::new("Font size").color(self.theme.text_secondary));
                 if compact_button(ui, "−", self.theme).clicked() {
                     self.query_editor.editor_font_size = (self.query_editor.editor_font_size - 1.0).max(10.0);
-                    self.settings.editor.font_size = self.query_editor.editor_font_size;
+                    self.preferences.settings.editor.font_size = self.query_editor.editor_font_size;
                 }
                 ui.label(
                     RichText::new(format!("{:.0} px", self.query_editor.editor_font_size))
@@ -180,16 +180,22 @@ impl DbProApp {
                 );
                 if compact_button(ui, "+", self.theme).clicked() {
                     self.query_editor.editor_font_size = (self.query_editor.editor_font_size + 1.0).min(24.0);
-                    self.settings.editor.font_size = self.query_editor.editor_font_size;
+                    self.preferences.settings.editor.font_size = self.query_editor.editor_font_size;
                 }
             });
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Tab width").color(self.theme.text_secondary));
-                ui.add(egui::DragValue::new(&mut self.settings.editor.tab_width).range(2..=8));
+                ui.add(egui::DragValue::new(&mut self.preferences.settings.editor.tab_width).range(2..=8));
             });
-            ui.checkbox(&mut self.settings.editor.completion_enabled, "Schema completion");
-            ui.checkbox(&mut self.settings.editor.format_on_save, "Format SQL on save");
+            ui.checkbox(
+                &mut self.preferences.settings.editor.completion_enabled,
+                "Schema completion",
+            );
+            ui.checkbox(
+                &mut self.preferences.settings.editor.format_on_save,
+                "Format SQL on save",
+            );
             ui.add_space(8.0);
             ui.label(RichText::new("AI prediction").color(self.theme.text_secondary));
             ui.horizontal_wrapped(|ui| {
@@ -198,9 +204,12 @@ impl DbProApp {
                     (PredictionMode::Subtle, "Subtle"),
                     (PredictionMode::Eager, "Eager"),
                 ] {
-                    if ui.selectable_label(self.prediction_mode == mode, label).clicked() {
-                        self.prediction_mode = mode;
-                        self.settings.editor.prediction_mode = label.to_ascii_lowercase();
+                    if ui
+                        .selectable_label(self.preferences.prediction_mode == mode, label)
+                        .clicked()
+                    {
+                        self.preferences.prediction_mode = mode;
+                        self.preferences.settings.editor.prediction_mode = label.to_ascii_lowercase();
                     }
                 }
             });
@@ -214,28 +223,37 @@ impl DbProApp {
             ui.add_space(12.0);
             section_label(ui, "SQL LINT", self.theme);
             ui.add_space(6.0);
-            ui.checkbox(&mut self.settings.editor.lint.enabled, "Enable SQL lint warnings");
-            ui.add_enabled_ui(self.settings.editor.lint.enabled, |ui| {
-                ui.checkbox(&mut self.settings.editor.lint.select_star, "Warn on SELECT *");
-                ui.checkbox(&mut self.settings.editor.lint.null_compare, "Warn on = NULL / != NULL");
+            ui.checkbox(
+                &mut self.preferences.settings.editor.lint.enabled,
+                "Enable SQL lint warnings",
+            );
+            ui.add_enabled_ui(self.preferences.settings.editor.lint.enabled, |ui| {
                 ui.checkbox(
-                    &mut self.settings.editor.lint.delete_no_where,
+                    &mut self.preferences.settings.editor.lint.select_star,
+                    "Warn on SELECT *",
+                );
+                ui.checkbox(
+                    &mut self.preferences.settings.editor.lint.null_compare,
+                    "Warn on = NULL / != NULL",
+                );
+                ui.checkbox(
+                    &mut self.preferences.settings.editor.lint.delete_no_where,
                     "Warn on DELETE without WHERE",
                 );
                 ui.checkbox(
-                    &mut self.settings.editor.lint.update_no_where,
+                    &mut self.preferences.settings.editor.lint.update_no_where,
                     "Warn on UPDATE without WHERE",
                 );
                 ui.checkbox(
-                    &mut self.settings.editor.lint.order_by_ordinal,
+                    &mut self.preferences.settings.editor.lint.order_by_ordinal,
                     "Warn on ORDER BY ordinal",
                 );
                 ui.checkbox(
-                    &mut self.settings.editor.lint.comma_join,
+                    &mut self.preferences.settings.editor.lint.comma_join,
                     "Warn on comma / cartesian joins",
                 );
                 ui.checkbox(
-                    &mut self.settings.editor.lint.duplicate_alias,
+                    &mut self.preferences.settings.editor.lint.duplicate_alias,
                     "Warn on duplicate projection aliases",
                 );
             });
@@ -253,10 +271,16 @@ impl DbProApp {
             ui.add_space(10.0);
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Page size").color(self.theme.text_secondary));
-                ui.add(egui::DragValue::new(&mut self.settings.data_grid.page_size).range(25..=1_000));
+                ui.add(egui::DragValue::new(&mut self.preferences.settings.data_grid.page_size).range(25..=1_000));
             });
-            ui.checkbox(&mut self.settings.data_grid.show_row_numbers, "Show row numbers");
-            ui.checkbox(&mut self.settings.data_grid.wrap_cell_text, "Wrap cell text");
+            ui.checkbox(
+                &mut self.preferences.settings.data_grid.show_row_numbers,
+                "Show row numbers",
+            );
+            ui.checkbox(
+                &mut self.preferences.settings.data_grid.wrap_cell_text,
+                "Wrap cell text",
+            );
         });
     }
 
@@ -265,11 +289,11 @@ impl DbProApp {
             section_label(ui, "CONNECTIONS", self.theme);
             ui.add_space(10.0);
             ui.checkbox(
-                &mut self.settings.connections.auto_connect_last,
+                &mut self.preferences.settings.connections.auto_connect_last,
                 "Reconnect last connection on startup",
             );
             ui.checkbox(
-                &mut self.settings.connections.default_ssl_prefer,
+                &mut self.preferences.settings.connections.default_ssl_prefer,
                 "Prefer TLS for new server connections",
             );
             ui.label(
@@ -284,12 +308,12 @@ impl DbProApp {
         card_frame(self.theme).show(ui, |ui| {
             section_label(ui, "AI PROVIDERS", self.theme);
             ui.add_space(10.0);
-            ui.checkbox(&mut self.settings.ai.enabled, "Enable Agent workspace");
+            ui.checkbox(&mut self.preferences.settings.ai.enabled, "Enable Agent workspace");
             ui.checkbox(
-                &mut self.settings.ai.auto_run_read_only,
+                &mut self.preferences.settings.ai.auto_run_read_only,
                 "Allow Agent to auto-run read-only queries",
             );
-            self.agent.auto_run_read_only = self.settings.ai.auto_run_read_only;
+            self.agent.auto_run_read_only = self.preferences.settings.ai.auto_run_read_only;
             ui.label(
                 RichText::new(format!("Active provider: {}", self.agent.provider_label))
                     .small()
@@ -307,16 +331,21 @@ impl DbProApp {
         card_frame(self.theme).show(ui, |ui| {
             section_label(ui, "KEYBINDINGS", self.theme);
             ui.add_space(10.0);
-            input_full_width(ui, &mut self.keybindings_filter, "Search commands…", self.theme);
+            input_full_width(
+                ui,
+                &mut self.preferences.keybindings_filter,
+                "Search commands…",
+                self.theme,
+            );
             ui.add_space(6.0);
             ui.horizontal(|ui| {
                 if compact_button(ui, "Reset all to defaults", self.theme).clicked() {
-                    self.settings.keybindings.reset_all();
-                    self.keybinding_edit_id = None;
-                    self.runtime_message = "Keybindings reset to defaults".to_owned();
+                    self.preferences.settings.keybindings.reset_all();
+                    self.preferences.keybinding_edit_id = None;
+                    self.feedback.runtime_message = "Keybindings reset to defaults".to_owned();
                 }
             });
-            let conflicts = self.settings.keybindings.conflict_ids();
+            let conflicts = self.preferences.settings.keybindings.conflict_ids();
             if !conflicts.is_empty() {
                 ui.colored_label(
                     self.theme.warning,
@@ -324,7 +353,7 @@ impl DbProApp {
                 );
             }
             ui.add_space(8.0);
-            let filter = self.keybindings_filter.trim().to_ascii_lowercase();
+            let filter = self.preferences.keybindings_filter.trim().to_ascii_lowercase();
             let catalog: Vec<_> = default_keybinding_catalog()
                 .iter()
                 .filter(|cmd| {
@@ -334,9 +363,9 @@ impl DbProApp {
                 .collect();
             egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
                 for cmd in catalog {
-                    let resolved = self.settings.keybindings.resolved(cmd.id);
+                    let resolved = self.preferences.settings.keybindings.resolved(cmd.id);
                     let is_conflict = conflicts.contains(cmd.id);
-                    let editing = self.keybinding_edit_id.as_deref() == Some(cmd.id);
+                    let editing = self.preferences.keybinding_edit_id.as_deref() == Some(cmd.id);
                     ui.horizontal(|ui| {
                         ui.label(RichText::new(cmd.title).color(if is_conflict {
                             self.theme.warning
@@ -346,33 +375,37 @@ impl DbProApp {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if editing {
                                 let response = ui.add(
-                                    egui::TextEdit::singleline(&mut self.keybinding_edit_draft)
+                                    egui::TextEdit::singleline(&mut self.preferences.keybinding_edit_draft)
                                         .desired_width(120.0)
                                         .hint_text("mod+k"),
                                 );
                                 if (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
                                     || compact_button(ui, "Save", self.theme).clicked()
                                 {
-                                    let draft = self.keybinding_edit_draft.trim().to_ascii_lowercase();
+                                    let draft = self.preferences.keybinding_edit_draft.trim().to_ascii_lowercase();
                                     if draft.is_empty() || draft == cmd.default_shortcut {
-                                        self.settings.keybindings.reset_one(cmd.id);
+                                        self.preferences.settings.keybindings.reset_one(cmd.id);
                                     } else {
-                                        self.settings.keybindings.overrides.insert(cmd.id.to_owned(), draft);
+                                        self.preferences
+                                            .settings
+                                            .keybindings
+                                            .overrides
+                                            .insert(cmd.id.to_owned(), draft);
                                     }
-                                    self.keybinding_edit_id = None;
+                                    self.preferences.keybinding_edit_id = None;
                                 }
                                 if compact_button(ui, "Cancel", self.theme).clicked() {
-                                    self.keybinding_edit_id = None;
+                                    self.preferences.keybinding_edit_id = None;
                                 }
                             } else {
                                 if compact_button(ui, "Edit", self.theme).clicked() {
-                                    self.keybinding_edit_id = Some(cmd.id.to_owned());
-                                    self.keybinding_edit_draft = resolved.clone();
+                                    self.preferences.keybinding_edit_id = Some(cmd.id.to_owned());
+                                    self.preferences.keybinding_edit_draft = resolved.clone();
                                 }
-                                if self.settings.keybindings.overrides.contains_key(cmd.id)
+                                if self.preferences.settings.keybindings.overrides.contains_key(cmd.id)
                                     && compact_button(ui, "Reset", self.theme).clicked()
                                 {
-                                    self.settings.keybindings.reset_one(cmd.id);
+                                    self.preferences.settings.keybindings.reset_one(cmd.id);
                                 }
                                 ui.label(RichText::new(resolved).monospace().color(self.theme.text_secondary));
                             }
@@ -389,11 +422,11 @@ impl DbProApp {
             section_label(ui, "SECURITY", self.theme);
             ui.add_space(10.0);
             ui.checkbox(
-                &mut self.settings.security.redact_secrets_in_logs,
+                &mut self.preferences.settings.security.redact_secrets_in_logs,
                 "Redact secrets in diagnostics and logs",
             );
             ui.checkbox(
-                &mut self.settings.security.lock_secret_export,
+                &mut self.preferences.settings.security.lock_secret_export,
                 "Block secret export by default",
             );
         });
@@ -404,15 +437,15 @@ impl DbProApp {
             section_label(ui, "ADVANCED", self.theme);
             ui.add_space(10.0);
             ui.checkbox(
-                &mut self.settings.advanced.verbose_runtime_log,
+                &mut self.preferences.settings.advanced.verbose_runtime_log,
                 "Verbose runtime logging",
             );
             ui.checkbox(
-                &mut self.settings.advanced.experimental_features,
+                &mut self.preferences.settings.advanced.experimental_features,
                 "Experimental features",
             );
             ui.label(
-                RichText::new(format!("Settings schema version {}", self.settings.version))
+                RichText::new(format!("Settings schema version {}", self.preferences.settings.version))
                     .small()
                     .color(self.theme.text_muted),
             );
@@ -504,16 +537,17 @@ impl DbProApp {
                 if compact_button_with_icon(ui, Icon::Copy, "Copy diagnostics summary", self.theme).clicked() {
                     if let Ok(json) = serde_json::to_string_pretty(&summary) {
                         ui.ctx().copy_text(json);
-                        self.runtime_message = "Diagnostics summary copied (secrets redacted)".to_owned();
+                        self.feedback.runtime_message = "Diagnostics summary copied (secrets redacted)".to_owned();
                     }
                 }
                 if compact_button_with_icon(ui, Icon::Download, "Export support bundle", self.theme).clicked() {
                     match self.export_support_bundle() {
                         Ok(path) => {
-                            self.runtime_message = format!("Support bundle written to {path} (secrets redacted)");
+                            self.feedback.runtime_message =
+                                format!("Support bundle written to {path} (secrets redacted)");
                         }
                         Err(error) => {
-                            self.runtime_message = format!("Support bundle export failed: {error}");
+                            self.feedback.runtime_message = format!("Support bundle export failed: {error}");
                         }
                     }
                 }
@@ -532,16 +566,26 @@ impl DbProApp {
             ui.add_space(10.0);
             ui.horizontal_wrapped(|ui| {
                 ui.label(icon_text(
-                    if self.dark_mode { Icon::Moon } else { Icon::Sun },
+                    if self.preferences.dark_mode {
+                        Icon::Moon
+                    } else {
+                        Icon::Sun
+                    },
                     "",
                     self.theme.accent,
                 ));
-                if ui.selectable_value(&mut self.dark_mode, false, "Light").changed() {
-                    self.settings.appearance.dark_mode = false;
+                if ui
+                    .selectable_value(&mut self.preferences.dark_mode, false, "Light")
+                    .changed()
+                {
+                    self.preferences.settings.appearance.dark_mode = false;
                     self.theme = DbProTheme::light();
                 }
-                if ui.selectable_value(&mut self.dark_mode, true, "Dark").changed() {
-                    self.settings.appearance.dark_mode = true;
+                if ui
+                    .selectable_value(&mut self.preferences.dark_mode, true, "Dark")
+                    .changed()
+                {
+                    self.preferences.settings.appearance.dark_mode = true;
                     self.theme = DbProTheme::dark();
                 }
             });
@@ -552,8 +596,11 @@ impl DbProApp {
                 .small()
                 .color(self.theme.text_muted),
             );
-            if ui.checkbox(&mut self.reduce_motion, "Reduce motion").changed() {
-                self.settings.appearance.reduce_motion = self.reduce_motion;
+            if ui
+                .checkbox(&mut self.preferences.reduce_motion, "Reduce motion")
+                .changed()
+            {
+                self.preferences.settings.appearance.reduce_motion = self.preferences.reduce_motion;
             }
             ui.label(
                 RichText::new("Loading states keep a static status icon instead of a spinner.")
@@ -576,7 +623,7 @@ impl DbProApp {
         );
         input_full_width(
             ui,
-            &mut self.backup_output_path,
+            &mut self.overlay.backup_output_path,
             "Choose a .sql backup path",
             self.theme,
         );
@@ -591,7 +638,7 @@ impl DbProApp {
                     self.dispatch_command(UiCommand::Backup {
                         request_id,
                         connection_id: connection.id,
-                        output_path: self.backup_output_path.clone(),
+                        output_path: self.overlay.backup_output_path.clone(),
                         custom_format: false,
                     });
                 }
@@ -605,17 +652,22 @@ impl DbProApp {
                 .small()
                 .color(self.theme.text_secondary),
         );
-        input_full_width(ui, &mut self.restore_input_path, "Choose a backup file", self.theme);
+        input_full_width(
+            ui,
+            &mut self.overlay.restore_input_path,
+            "Choose a backup file",
+            self.theme,
+        );
         ui.horizontal_wrapped(|ui| {
             if compact_button_with_icon(ui, Icon::FolderOpen, "Choose file", self.theme).clicked() {
                 let request_id = self.task_bridge.next_request_id();
                 self.dispatch_command(UiCommand::PickRestoreFile { request_id });
             }
             if secondary_button_with_icon(ui, Icon::RotateCcw, "Restore database", self.theme).clicked() {
-                self.restore_confirmation = true;
+                self.overlay.restore_confirmation = true;
             }
         });
-        if self.restore_confirmation {
+        if self.overlay.restore_confirmation {
             ui.add_space(10.0);
             ui.colored_label(self.theme.warning, "Overwrite the active database?");
             ui.horizontal(|ui| {
@@ -625,14 +677,14 @@ impl DbProApp {
                         self.dispatch_command(UiCommand::Restore {
                             request_id,
                             connection_id: connection.id,
-                            input_path: self.restore_input_path.clone(),
+                            input_path: self.overlay.restore_input_path.clone(),
                             custom_format: false,
                         });
                     }
-                    self.restore_confirmation = false;
+                    self.overlay.restore_confirmation = false;
                 }
                 if ghost_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                    self.restore_confirmation = false;
+                    self.overlay.restore_confirmation = false;
                 }
             });
         }

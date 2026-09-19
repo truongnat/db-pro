@@ -7,6 +7,8 @@ use std::collections::{HashMap, HashSet};
 /// migration step because it is also used as the explorer's read model.
 #[derive(Debug, Default)]
 pub(crate) struct ConnectionLifecycleState {
+    pub(crate) fallback_name: String,
+    pub(crate) connected: bool,
     pub(crate) active_connection_id: Option<String>,
     pub(crate) pending_connection_id: Option<String>,
     pub(crate) pending_request: Option<RequestId>,
@@ -43,5 +45,16 @@ mod tests {
 
         assert!(state.errors.is_empty());
         assert!(state.failed_connection_ids.is_empty());
+    }
+
+    #[test]
+    fn default_lifecycle_starts_disconnected_with_a_local_fallback_name() {
+        let state = ConnectionLifecycleState {
+            fallback_name: "Local PostgreSQL".to_owned(),
+            ..Default::default()
+        };
+
+        assert!(!state.connected);
+        assert_eq!(state.fallback_name, "Local PostgreSQL");
     }
 }

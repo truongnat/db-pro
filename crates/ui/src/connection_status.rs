@@ -13,7 +13,7 @@ impl DbProApp {
     pub(super) fn active_connection_name(&self) -> &str {
         self.active_connection()
             .map(|connection| connection.name.as_str())
-            .unwrap_or(self.connection_name.as_str())
+            .unwrap_or(self.connection_lifecycle.fallback_name.as_str())
     }
 
     pub(super) fn active_driver(&self) -> &str {
@@ -122,10 +122,10 @@ impl DbProApp {
     }
 
     pub(super) fn has_runtime_error(&self) -> bool {
-        self.runtime_message.contains("failed")
-            || self.runtime_message.contains("Failed")
-            || self.runtime_message.contains("error")
-            || self.runtime_message.contains("Error")
+        self.feedback.runtime_message.contains("failed")
+            || self.feedback.runtime_message.contains("Failed")
+            || self.feedback.runtime_message.contains("error")
+            || self.feedback.runtime_message.contains("Error")
     }
 
     /// The status-bar message and the colour it is rendered in.
@@ -136,20 +136,20 @@ impl DbProApp {
     /// Restricting the bar to strings containing "failed"/"error" hid every refusal,
     /// gate and informational message the app sets.
     pub(super) fn runtime_status(&self) -> Option<(String, Color32)> {
-        if self.runtime_message.trim().is_empty() {
+        if self.feedback.runtime_message.trim().is_empty() {
             None
         } else if self.has_runtime_error() {
-            Some((self.runtime_message.clone(), self.theme.danger))
+            Some((self.feedback.runtime_message.clone(), self.theme.danger))
         } else {
-            Some((self.runtime_message.clone(), self.theme.text_secondary))
+            Some((self.feedback.runtime_message.clone(), self.theme.text_secondary))
         }
     }
 
     pub(super) fn statusbar_state(&self) -> (Icon, Color32, &'static str) {
-        if self.connected && self.connection_lifecycle.active_connection_id.is_some() {
+        if self.connection_lifecycle.connected && self.connection_lifecycle.active_connection_id.is_some() {
             return (Icon::CircleCheck, self.theme.success, "Connected");
         }
-        if self.runtime_message.starts_with("Connecting") {
+        if self.feedback.runtime_message.starts_with("Connecting") {
             return (Icon::Circle, self.theme.accent, "Connecting…");
         }
         if self.has_runtime_error() {
@@ -187,7 +187,7 @@ impl DbProApp {
 
     pub(super) fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, Color32) {
         let is_active = self.connection_lifecycle.active_connection_id.as_deref() == Some(connection.id.as_str());
-        let is_connected = is_active && self.connected;
+        let is_connected = is_active && self.connection_lifecycle.connected;
         let is_failed = self.connection_lifecycle.failed_connection_ids.contains(&connection.id);
         let icon = if is_connected {
             Icon::CircleCheck

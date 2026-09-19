@@ -10,10 +10,9 @@ use crate::{
     secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame, toolbar_frame, AgentContext,
     AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock, ColumnWritePolicy, DbProTheme, GridProjectionCache,
     GridProjectionKey, OfflineAgentProvider, TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary,
-    UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry,
-    UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput,
-    UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary,
-    UiTriggerSummary, UiViewSummary,
+    UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult,
+    UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput, UiTableDataFilter, UiTableDataSort,
+    UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 use bigdecimal::BigDecimal;
 use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
@@ -80,6 +79,8 @@ mod explorer_folders;
 mod explorer_tree;
 #[path = "explorer_view.rs"]
 mod explorer_view;
+#[path = "feedback_state.rs"]
+mod feedback_state;
 #[path = "files_activity_view.rs"]
 mod files_activity_view;
 #[path = "git_workspace.rs"]
@@ -88,10 +89,18 @@ mod git_workspace;
 mod ide_workspace;
 #[path = "navigation_view.rs"]
 mod navigation_view;
+#[path = "overlay_state.rs"]
+mod overlay_state;
 #[path = "palette_state.rs"]
 mod palette_state;
+#[path = "preferences_state.rs"]
+mod preferences_state;
 #[path = "query_execution_state.rs"]
 mod query_execution_state;
+#[path = "query_library_state.rs"]
+mod query_library_state;
+#[path = "saved_task_state.rs"]
+mod saved_task_state;
 #[path = "settings_model.rs"]
 mod settings_model;
 #[path = "settings_view.rs"]
@@ -99,8 +108,13 @@ mod settings_view;
 pub(crate) use capability_lookup::CapabilityLookup;
 pub(crate) use database_operations_state::DatabaseOperationsState;
 pub(crate) use diagram_state::DiagramState;
+pub(crate) use feedback_state::FeedbackState;
+pub(crate) use overlay_state::OverlayState;
 pub(crate) use palette_state::PaletteState;
+pub(crate) use preferences_state::PreferencesState;
 pub(crate) use query_execution_state::QueryExecutionPolicyState;
+pub(crate) use query_library_state::QueryLibraryState;
+pub(crate) use saved_task_state::SavedTaskState;
 pub(crate) use settings_model::{
     default_keybinding_catalog, AppSettings, SettingsSection, SqlLintSettings, SETTINGS_STORAGE_KEY,
 };
@@ -162,12 +176,16 @@ mod table_state;
 mod tasks_view;
 #[path = "visual_query_builder_view.rs"]
 mod visual_query_builder_view;
+#[path = "welcome_state.rs"]
+mod welcome_state;
 #[path = "workspace_actions.rs"]
 mod workspace_actions;
 #[path = "workspace_files_state.rs"]
 mod workspace_files_state;
 #[path = "workspace_session.rs"]
 mod workspace_session;
+#[path = "workspace_session_state.rs"]
+mod workspace_session_state;
 #[path = "workspace_shell.rs"]
 mod workspace_shell;
 pub(crate) use agent_state::AgentState;
@@ -179,7 +197,9 @@ pub(crate) use schema_explorer_state::SchemaExplorerState;
 pub(crate) use table_data_state::TableDataState;
 pub(crate) use table_mutation_state::TableMutationState;
 pub(crate) use table_state::TableState;
+pub(crate) use welcome_state::WelcomeState;
 pub(crate) use workspace_files_state::WorkspaceFilesState;
+pub(crate) use workspace_session_state::WorkspaceSessionState;
 #[path = "schema_compare.rs"]
 mod schema_compare;
 #[path = "schema_explorer_state.rs"]
@@ -211,65 +231,31 @@ pub(crate) use app_types::*;
 
 pub struct DbProApp {
     theme: DbProTheme,
-    dark_mode: bool,
-    reduce_motion: bool,
-    settings: AppSettings,
-    settings_section: SettingsSection,
-    keybindings_filter: String,
-    keybinding_edit_id: Option<String>,
-    keybinding_edit_draft: String,
+    preferences: PreferencesState,
     workspace: WorkspaceShellState,
-    pub prediction_mode: PredictionMode,
-    welcome_prompt: String,
+    pub(crate) welcome: WelcomeState,
     query_session_state: QuerySessionState,
     query_editor: QueryEditorState,
-    connection_name: String,
-    connected: bool,
     palette: PaletteState,
     agent: AgentState,
     task_bridge: TaskBridge,
-    runtime_message: String,
-    toasts: crate::components::overlay::ToastManager,
+    feedback: FeedbackState,
     query_output_state: QueryOutputState,
     table_data: TableDataState,
-    copy_status: String,
-    export_open: bool,
-    export_format: String,
-    export_path: String,
-    /// Set when the export dialog was asked to write over an existing file and is waiting for the
-    /// user to confirm it (#244, E-1).
-    export_overwrite_pending: bool,
+    overlay: OverlayState,
     connection_catalog: ConnectionCatalogState,
-    saved_queries: Vec<UiSavedQuerySummary>,
-    query_folders: Vec<UiQueryFolderSummary>,
+    query_library: QueryLibraryState,
     schema_explorer: SchemaExplorerState,
     workspace_files: WorkspaceFilesState,
     database_operations: DatabaseOperationsState,
     query_execution: QueryExecutionPolicyState,
-    saved_task_store: db_pro_core::domain::saved_task::SavedTaskStore,
-    saved_task_draft: Option<db_pro_core::domain::saved_task::SavedTask>,
-    saved_tasks_dirty: bool,
-    saved_task_confirm_destructive: bool,
-    pending_destructive_task_id: Option<uuid::Uuid>,
-    named_session_store: workspace_session::NamedSessionStore,
-    session_name_draft: String,
-    selected_named_session_id: Option<String>,
-    last_session_restore_notes: Vec<String>,
+    saved_tasks: SavedTaskState,
+    workspace_sessions: WorkspaceSessionState,
     diagram: DiagramState,
     table_state: TableState,
     table_mutation: TableMutationState,
-    query_folder: String,
-    backup_output_path: String,
-    restore_input_path: String,
-    restore_confirmation: bool,
     connection_lifecycle: ConnectionLifecycleState,
     connection_dialog: ConnectionDialogState,
-    delete_confirmation_id: Option<String>,
-    folder_delete_confirmation: Option<String>,
-    /// Persisted height of the Connections sub-pane inside the Explorer sidebar.
-    connections_pane_height: f32,
-    /// Persisted height of the Schemas sub-pane inside the Explorer sidebar.
-    schemas_pane_height: f32,
     /// Counter for initial render frames to ensure window is maximized on startup.
     initial_frames_count: u8,
     pub gallery_state: component_gallery_view::ComponentGalleryState,
@@ -285,7 +271,7 @@ impl eframe::App for DbProApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         self.persist_current_grid_layout();
         self.sync_settings_from_runtime();
-        if let Ok(settings) = serde_json::to_string(&self.settings) {
+        if let Ok(settings) = serde_json::to_string(&self.preferences.settings) {
             storage.set_string(SETTINGS_STORAGE_KEY, settings);
         }
         self.persist_saved_tasks(storage);
@@ -342,9 +328,9 @@ impl eframe::App for DbProApp {
             self.workspace_files.ide_workspace.is_trusted().to_string(),
         );
         storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
-        storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
-        storage.set_string("dbpro.native.reduce-motion", self.reduce_motion.to_string());
-        if let Ok(prediction_mode) = serde_json::to_string(&self.prediction_mode) {
+        storage.set_string("dbpro.native.dark-mode", self.preferences.dark_mode.to_string());
+        storage.set_string("dbpro.native.reduce-motion", self.preferences.reduce_motion.to_string());
+        if let Ok(prediction_mode) = serde_json::to_string(&self.preferences.prediction_mode) {
             storage.set_string("dbpro.native.prediction-mode", prediction_mode);
         }
         storage.set_string("dbpro.native.sidebar-width", self.workspace.sidebar_width.to_string());
@@ -356,9 +342,12 @@ impl eframe::App for DbProApp {
         );
         storage.set_string(
             "dbpro.native.connections-pane-height",
-            self.connections_pane_height.to_string(),
+            self.schema_explorer.connections_pane_height.to_string(),
         );
-        storage.set_string("dbpro.native.schemas-pane-height", self.schemas_pane_height.to_string());
+        storage.set_string(
+            "dbpro.native.schemas-pane-height",
+            self.schema_explorer.schemas_pane_height.to_string(),
+        );
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -385,14 +374,15 @@ impl eframe::App for DbProApp {
         self.tick_saved_task_scheduler();
         if self.runtime_work_pending()
             || self
-                .saved_task_store
+                .saved_tasks
+                .store
                 .tasks
                 .iter()
                 .any(|t| t.schedule.as_ref().is_some_and(|s| s.enabled))
         {
             ctx.request_repaint_after(Duration::from_millis(50));
         }
-        self.theme = if self.dark_mode {
+        self.theme = if self.preferences.dark_mode {
             DbProTheme::dark()
         } else {
             DbProTheme::light()
@@ -439,10 +429,10 @@ impl eframe::App for DbProApp {
         if self.connection_dialog.open {
             self.draw_connection_dialog(ctx);
         }
-        if self.delete_confirmation_id.is_some() {
+        if self.overlay.delete_confirmation_id.is_some() {
             self.draw_delete_confirmation(ctx);
         }
-        if self.folder_delete_confirmation.is_some() {
+        if self.overlay.folder_delete_confirmation.is_some() {
             self.draw_folder_delete_confirmation(ctx);
         }
         if self.table_data.insert_row_open {
@@ -452,8 +442,8 @@ impl eframe::App for DbProApp {
             self.draw_palette(ctx);
         }
 
-        self.toasts.render_ctx(ctx, self.theme);
-        if !self.toasts.is_empty() {
+        self.feedback.toasts.render_ctx(ctx, self.theme);
+        if !self.feedback.toasts.is_empty() {
             ctx.request_repaint_after(Duration::from_millis(50));
         }
     }
@@ -465,19 +455,22 @@ impl DbProApp {
     // Grid layout: `grid_layout.rs`.
 
     pub(crate) fn show_toast_error(&mut self, message: impl Into<String>) {
-        self.toasts
+        self.feedback
+            .toasts
             .error(message, crate::components::overlay::ToastPosition::BottomRight);
     }
 
     pub(crate) fn show_toast_success(&mut self, message: impl Into<String>) {
-        self.toasts
+        self.feedback
+            .toasts
             .success(message, crate::components::overlay::ToastPosition::BottomRight);
     }
 
     // Kept as a public runtime entry point for future informational notifications.
     #[allow(dead_code)]
     pub(crate) fn show_toast_info(&mut self, message: impl Into<String>) {
-        self.toasts
+        self.feedback
+            .toasts
             .info(message, crate::components::overlay::ToastPosition::BottomRight);
     }
 
@@ -601,7 +594,7 @@ impl DbProApp {
         });
         self.schema_explorer.schema_request = Some(request_id);
         self.schema_explorer.schema_error = None;
-        self.runtime_message = if force_refresh {
+        self.feedback.runtime_message = if force_refresh {
             "Refreshing schema…"
         } else {
             "Loading schema…"

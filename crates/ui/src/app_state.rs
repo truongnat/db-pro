@@ -16,7 +16,7 @@ impl DbProApp {
             ..Self::default()
         };
         if let Some(storage) = storage {
-            app.dark_mode =
+            app.preferences.dark_mode =
                 if storage.get_string("dbpro.native.theme-version").as_deref() == Some(THEME_STORAGE_VERSION) {
                     storage
                         .get_string("dbpro.native.dark-mode")
@@ -25,19 +25,19 @@ impl DbProApp {
                 } else {
                     false
                 };
-            app.reduce_motion = storage
+            app.preferences.reduce_motion = storage
                 .get_string("dbpro.native.reduce-motion")
                 .is_some_and(|value| value == "true");
             if let Some(mode) = storage
                 .get_string("dbpro.native.prediction-mode")
                 .and_then(|value| serde_json::from_str::<PredictionMode>(&value).ok())
             {
-                app.prediction_mode = mode;
+                app.preferences.prediction_mode = mode;
             }
             // Typed settings blob wins when present (#205).
             if let Some(raw) = storage.get_string(SETTINGS_STORAGE_KEY) {
                 if let Some(settings) = AppSettings::from_json(&raw) {
-                    app.settings = settings;
+                    app.preferences.settings = settings;
                     app.apply_settings_to_runtime();
                 }
             } else {
@@ -75,15 +75,15 @@ impl DbProApp {
                 .get_string("dbpro.native.connections-pane-height")
                 .and_then(|value| value.parse::<f32>().ok())
             {
-                app.connections_pane_height = height.clamp(80.0, 400.0);
+                app.schema_explorer.connections_pane_height = height.clamp(80.0, 400.0);
             }
             if let Some(height) = storage
                 .get_string("dbpro.native.schemas-pane-height")
                 .and_then(|value| value.parse::<f32>().ok())
             {
-                app.schemas_pane_height = height.clamp(60.0, 200.0);
+                app.schema_explorer.schemas_pane_height = height.clamp(60.0, 200.0);
             }
-            app.theme = if app.dark_mode {
+            app.theme = if app.preferences.dark_mode {
                 DbProTheme::dark()
             } else {
                 DbProTheme::light()
@@ -164,51 +164,32 @@ impl Default for DbProApp {
     fn default() -> Self {
         Self {
             theme: DbProTheme::default(),
-            dark_mode: false,
-            reduce_motion: false,
-            settings: AppSettings::default(),
-            settings_section: SettingsSection::General,
-            keybindings_filter: String::new(),
-            keybinding_edit_id: None,
-            keybinding_edit_draft: String::new(),
+            preferences: PreferencesState::default(),
             workspace: WorkspaceShellState::default(),
-            prediction_mode: PredictionMode::default(),
-            welcome_prompt: String::new(),
+            welcome: WelcomeState::default(),
             query_session_state: QuerySessionState {
                 documents: vec![QueryDocument::new("query-1", "Query 1", DEFAULT_QUERY)],
                 ..Default::default()
             },
             query_editor: QueryEditorState::default(),
-            connection_name: "Local PostgreSQL".to_owned(),
-            connected: false,
             palette: PaletteState::default(),
             agent: AgentState::default(),
             task_bridge: TaskBridge::default(),
-            runtime_message: "Ready".to_owned(),
-            toasts: crate::components::overlay::ToastManager::default(),
+            feedback: FeedbackState {
+                runtime_message: "Ready".to_owned(),
+                ..Default::default()
+            },
             query_output_state: QueryOutputState::default(),
             table_data: TableDataState::default(),
-            copy_status: String::new(),
-            export_open: false,
-            export_format: "CSV".to_owned(),
-            export_path: String::new(),
-            export_overwrite_pending: false,
+            overlay: OverlayState::default(),
             connection_catalog: ConnectionCatalogState::default(),
-            saved_queries: Vec::new(),
-            query_folders: Vec::new(),
+            query_library: QueryLibraryState::default(),
             schema_explorer: SchemaExplorerState::default(),
             workspace_files: WorkspaceFilesState::default(),
             database_operations: DatabaseOperationsState::default(),
             query_execution: QueryExecutionPolicyState::default(),
-            saved_task_store: db_pro_core::domain::saved_task::SavedTaskStore::new(),
-            saved_task_draft: None,
-            saved_tasks_dirty: false,
-            saved_task_confirm_destructive: false,
-            pending_destructive_task_id: None,
-            named_session_store: workspace_session::NamedSessionStore::new(),
-            session_name_draft: String::new(),
-            selected_named_session_id: None,
-            last_session_restore_notes: Vec::new(),
+            saved_tasks: SavedTaskState::default(),
+            workspace_sessions: WorkspaceSessionState::default(),
             diagram: DiagramState::default(),
             table_state: TableState {
                 table_dependency_filter: "all".to_owned(),
@@ -216,16 +197,11 @@ impl Default for DbProApp {
                 ..Default::default()
             },
             table_mutation: TableMutationState::default(),
-            query_folder: String::new(),
-            backup_output_path: String::new(),
-            restore_input_path: String::new(),
-            restore_confirmation: false,
-            connection_lifecycle: ConnectionLifecycleState::default(),
+            connection_lifecycle: ConnectionLifecycleState {
+                fallback_name: "Local PostgreSQL".to_owned(),
+                ..Default::default()
+            },
             connection_dialog: ConnectionDialogState::default(),
-            delete_confirmation_id: None,
-            folder_delete_confirmation: None,
-            connections_pane_height: 160.0,
-            schemas_pane_height: 90.0,
             initial_frames_count: 0,
             gallery_state: ComponentGalleryState::default(),
         }
@@ -266,7 +242,7 @@ mod tests {
 
         let app = DbProApp::with_task_bridge_and_storage(TaskBridge::default(), Some(&storage));
 
-        assert!(!app.dark_mode);
+        assert!(!app.preferences.dark_mode);
         assert!(!app.theme.dark_mode);
     }
 
@@ -283,7 +259,7 @@ mod tests {
 
         let app = DbProApp::with_task_bridge_and_storage(TaskBridge::default(), Some(&storage));
 
-        assert!(!app.dark_mode);
+        assert!(!app.preferences.dark_mode);
         assert!(!app.theme.dark_mode);
     }
 }

@@ -346,7 +346,7 @@ impl DbProApp {
     ) {
         if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
             if !self.table_mutation.staged_changes.is_empty() {
-                self.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
+                self.feedback.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
                 return;
             }
             self.table_state.table_data_sorts = descending
@@ -372,7 +372,7 @@ impl DbProApp {
     /// clause and cycles ASC -> DESC -> none.
     pub(crate) fn cycle_table_data_sort(&mut self, result: &UiQueryResult, column_index: usize, additive: bool) {
         if !self.table_mutation.staged_changes.is_empty() {
-            self.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
+            self.feedback.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
             return;
         }
         let Some(column) = result.columns.get(column_index).map(|column| column.name.clone()) else {
@@ -446,7 +446,7 @@ impl DbProApp {
             self.table_data.selected_rows.clear();
             self.table_data.selection_anchor_row = None;
             self.table_data.selection_anchor_cell = None;
-            self.copy_status.clear();
+            self.feedback.copy_status.clear();
             return;
         }
 
@@ -500,7 +500,7 @@ impl DbProApp {
     pub(crate) fn handle_grid_edit_input(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, pasted: Option<String>) {
         if let (Some((row_index, column_index)), Some(text)) = (self.table_data.selected_cell, pasted) {
             if let Some(block) = self.blocked_write_for_cell(result, column_index) {
-                self.copy_status = block.reason().to_owned();
+                self.feedback.copy_status = block.reason().to_owned();
                 return;
             }
             self.table_data.data_editing_cell = Some((row_index, column_index));
@@ -640,8 +640,8 @@ impl DbProApp {
                     }
                 }
 
-                if !self.copy_status.is_empty() {
-                    crate::components::badge::Badge::new(&self.copy_status, self.theme)
+                if !self.feedback.copy_status.is_empty() {
+                    crate::components::badge::Badge::new(&self.feedback.copy_status, self.theme)
                         .variant(crate::components::badge::BadgeVariant::Success)
                         .compact(true)
                         .show(ui);
@@ -779,7 +779,7 @@ impl DbProApp {
                 self.table_data.selection_anchor_cell = None;
                 self.table_data.data_editing_cell = None;
                 self.table_data.data_edit_value.clear();
-                self.copy_status.clear();
+                self.feedback.copy_status.clear();
             }
 
             for &column_index in rows.order {

@@ -267,7 +267,7 @@ fn sorting_is_blocked_while_staged_changes_are_present() {
     app.cycle_table_data_sort(&result, 0, false);
 
     assert!(app.table_state.table_data_sorts.is_empty());
-    assert!(app.runtime_message.contains("staged changes"));
+    assert!(app.feedback.runtime_message.contains("staged changes"));
 }
 
 fn projection_test_result() -> UiQueryResult {

@@ -252,11 +252,11 @@ impl DbProApp {
         }
 
         self.schema_explorer.pinned_tables.retain(|t| !t.trim().is_empty());
-        self.last_session_restore_notes = notes.clone();
+        self.workspace_sessions.last_restore_notes = notes.clone();
         if notes.is_empty() {
-            self.runtime_message = format!("Restored workspace `{}`", session.name);
+            self.feedback.runtime_message = format!("Restored workspace `{}`", session.name);
         } else {
-            self.runtime_message = format!(
+            self.feedback.runtime_message = format!(
                 "Restored workspace `{}` with {} recovery note(s)",
                 session.name,
                 notes.len()
@@ -265,39 +265,39 @@ impl DbProApp {
     }
 
     pub(crate) fn save_named_workspace_session(&mut self) {
-        let name = self.session_name_draft.trim();
+        let name = self.workspace_sessions.name_draft.trim();
         let name = if name.is_empty() {
             format!("Workspace {}", chrono::Utc::now().format("%Y-%m-%d %H:%M"))
         } else {
             name.to_owned()
         };
         let session = self.capture_workspace_session(name);
-        self.session_name_draft.clear();
-        self.selected_named_session_id = Some(session.id.clone());
-        self.named_session_store.upsert(session);
-        self.runtime_message = "Named workspace session saved".to_owned();
+        self.workspace_sessions.name_draft.clear();
+        self.workspace_sessions.selected_id = Some(session.id.clone());
+        self.workspace_sessions.store.upsert(session);
+        self.feedback.runtime_message = "Named workspace session saved".to_owned();
     }
 
     pub(crate) fn restore_named_workspace_session(&mut self, id: &str) {
-        let Some(session) = self.named_session_store.get(id).cloned() else {
-            self.runtime_message = "Named session not found".to_owned();
+        let Some(session) = self.workspace_sessions.store.get(id).cloned() else {
+            self.feedback.runtime_message = "Named session not found".to_owned();
             return;
         };
         self.apply_workspace_session(&session);
     }
 
     pub(crate) fn duplicate_named_workspace_session(&mut self, id: &str) {
-        let Some(mut session) = self.named_session_store.get(id).cloned() else {
-            self.runtime_message = "Named session not found".to_owned();
+        let Some(mut session) = self.workspace_sessions.store.get(id).cloned() else {
+            self.feedback.runtime_message = "Named session not found".to_owned();
             return;
         };
         session.id = Uuid::new_v4().to_string();
         session.name = format!("{} (copy)", session.name);
         session.updated_at = chrono::Utc::now().to_rfc3339();
         let new_id = session.id.clone();
-        self.named_session_store.upsert(session);
-        self.selected_named_session_id = Some(new_id);
-        self.runtime_message = "Duplicated workspace session".to_owned();
+        self.workspace_sessions.store.upsert(session);
+        self.workspace_sessions.selected_id = Some(new_id);
+        self.feedback.runtime_message = "Duplicated workspace session".to_owned();
     }
 
     pub(crate) fn persist_workspace_sessions(&self, storage: &mut dyn eframe::Storage) {
@@ -305,7 +305,7 @@ impl DbProApp {
         if let Ok(raw) = serde_json::to_string(&last) {
             storage.set_string(LAST_SESSION_STORAGE_KEY, raw);
         }
-        if let Ok(raw) = serde_json::to_string(&self.named_session_store) {
+        if let Ok(raw) = serde_json::to_string(&self.workspace_sessions.store) {
             storage.set_string(NAMED_SESSIONS_STORAGE_KEY, raw);
         }
     }
@@ -315,13 +315,13 @@ impl DbProApp {
             if let Ok(mut store) = serde_json::from_str::<NamedSessionStore>(&raw) {
                 store.version = SESSION_VERSION;
                 store.sessions = store.sessions.into_iter().map(WorkspaceSession::migrate).collect();
-                self.named_session_store = store;
+                self.workspace_sessions.store = store;
             }
         }
     }
 
     pub(crate) fn restore_last_workspace_session_from_storage(&mut self, storage: &dyn eframe::Storage) {
-        if !self.settings.general.restore_tabs_on_startup {
+        if !self.preferences.settings.general.restore_tabs_on_startup {
             return;
         }
         if let Some(raw) = storage.get_string(LAST_SESSION_STORAGE_KEY) {

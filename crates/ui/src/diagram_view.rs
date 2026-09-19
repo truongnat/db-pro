@@ -508,14 +508,14 @@ impl DbProApp {
                 return;
             }
         }
-        if self.connection_lifecycle.active_connection_id.is_none() || !self.connected {
+        if self.connection_lifecycle.active_connection_id.is_none() || !self.connection_lifecycle.connected {
             self.diagram.design.error = Some("connect before applying design plan".into());
             return;
         }
         self.set_active_query_text(self.diagram.design.preview_sql.clone());
         self.workspace.active_tab = WorkspaceTab::Query;
         self.dispatch_query();
-        self.runtime_message = "Design Mode mutation plan applied via query runtime".into();
+        self.feedback.runtime_message = "Design Mode mutation plan applied via query runtime".into();
         self.diagram.design.discard();
     }
 }
@@ -675,7 +675,7 @@ impl DbProApp {
         if self.schema_explorer.selected_table.as_deref() != Some(table)
             && !self.table_mutation.staged_changes.is_empty()
         {
-            self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
+            self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
         self.persist_current_grid_layout();
