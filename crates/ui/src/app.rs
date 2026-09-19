@@ -114,6 +114,8 @@ mod query_library_events;
 mod query_library_state;
 #[path = "query_prediction_events.rs"]
 mod query_prediction_events;
+#[path = "query_queue_events.rs"]
+mod query_queue_events;
 #[path = "query_save_events.rs"]
 mod query_save_events;
 #[path = "saved_task_state.rs"]
@@ -565,6 +567,10 @@ impl DbProApp {
 
     fn record_query_history(&mut self, record: QueryHistoryRecord) {
         query_history_events::record_query_history(&mut self.query_editor, record);
+    }
+
+    pub(super) fn on_query_queued(&mut self, request_id: RequestId) {
+        query_queue_events::on_query_queued(&mut self.feedback, request_id);
     }
 
     pub(super) fn handle_schema_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {

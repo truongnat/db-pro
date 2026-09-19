@@ -4,10 +4,6 @@ use super::*;
 use crate::RequestId;
 
 impl DbProApp {
-    pub(super) fn on_query_queued(&mut self, request_id: RequestId) {
-        self.feedback.runtime_message = format!("Query queued · request {}", request_id.0);
-    }
-
     pub(super) fn on_query_completed(&mut self, request_id: RequestId, result: UiQueryResult) {
         let target_doc_id = self.query_session_state.document_requests.remove(&request_id);
         // A new result set replaces the rows behind the grid, so nothing the projection cache holds
