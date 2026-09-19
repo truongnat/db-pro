@@ -1,6 +1,7 @@
 //! Feature-owned lifecycle state for query documents and their shell requests.
 
-use super::QueryDocument;
+use super::{QueryDocument, QueryExecutionState};
+use crate::runtime::UiQueryResult;
 use crate::RequestId;
 use std::collections::HashMap;
 
@@ -20,6 +21,87 @@ pub(crate) struct QuerySessionState {
 impl QuerySessionState {
     pub(crate) fn active_document(&self) -> Option<&QueryDocument> {
         self.documents.get(self.active_document_index)
+    }
+
+    pub(crate) fn active_document_mut(&mut self) -> Option<&mut QueryDocument> {
+        self.documents.get_mut(self.active_document_index)
+    }
+
+    pub(crate) fn active_text(&self) -> &str {
+        self.active_document().map(QueryDocument::text).unwrap_or("")
+    }
+
+    pub(crate) fn set_active_text(&mut self, text: impl Into<String>) -> bool {
+        let Some(document) = self.active_document_mut() else {
+            return false;
+        };
+        document.set_text(text);
+        true
+    }
+
+    pub(crate) fn append_active_text(&mut self, text: &str) -> bool {
+        let Some(document) = self.active_document_mut() else {
+            return false;
+        };
+        let mut current = document.text().to_owned();
+        if !current.trim().is_empty() {
+            current.push_str("\n\n");
+        }
+        current.push_str(text);
+        document.set_text(current);
+        true
+    }
+
+    pub(crate) fn active_explain_plan(&self) -> Option<&str> {
+        self.active_document()
+            .and_then(|document| document.explain_plan.as_deref())
+    }
+
+    pub(crate) fn active_explain_request(&self) -> Option<RequestId> {
+        self.active_document().and_then(|document| document.explain_request)
+    }
+
+    pub(crate) fn active_running_request(&self) -> Option<RequestId> {
+        self.active_document()
+            .and_then(|document| match document.execution_state {
+                QueryExecutionState::Running(request_id) => Some(request_id),
+                _ => None,
+            })
+    }
+
+    pub(crate) fn active_result(&self) -> Option<&UiQueryResult> {
+        self.active_document().and_then(|document| {
+            document
+                .query_results
+                .get(document.active_result_index)
+                .or(document.query_result.as_ref())
+        })
+    }
+
+    pub(crate) fn active_result_count(&self) -> usize {
+        self.active_document().map_or(0, |document| {
+            document
+                .query_results
+                .len()
+                .max(usize::from(document.query_result.is_some()))
+        })
+    }
+
+    pub(crate) fn set_active_result(&mut self, index: usize) -> bool {
+        let Some(document) = self.active_document_mut() else {
+            return false;
+        };
+        if index >= document.query_results.len() || document.active_result_index == index {
+            return false;
+        }
+        document.active_result_index = index;
+        true
+    }
+
+    pub(crate) fn active_messages(&self) -> &[String] {
+        self.active_document()
+            .map(|document| document.query_messages.as_slice())
+            .unwrap_or(&[])
     }
 
     pub(crate) fn add_document(&mut self, document: QueryDocument) -> usize {
@@ -124,5 +206,19 @@ mod tests {
         assert_eq!(state.documents.len(), 1);
         assert_eq!(state.active_document().map(|doc| doc.id.as_str()), Some("query-1"));
         assert!(!state.keep_document(4));
+    }
+
+    #[test]
+    fn active_document_projections_are_owned_by_query_session_state() {
+        let mut state = QuerySessionState::default();
+        state.add_document(QueryDocument::new("query-1", "Query 1", "SELECT 1"));
+
+        assert_eq!(state.active_text(), "SELECT 1");
+        assert!(state.append_active_text("SELECT 2"));
+        assert_eq!(state.active_text(), "SELECT 1\n\nSELECT 2");
+        assert_eq!(state.active_result_count(), 0);
+        assert!(state.active_result().is_none());
+        assert!(state.active_messages().is_empty());
+        assert!(!state.set_active_result(0));
     }
 }
