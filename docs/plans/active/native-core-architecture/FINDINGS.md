@@ -196,6 +196,9 @@ invalidation, history and output presentation no longer live in the root.
 Multi-statement query completion now follows the same boundary in
 `query_multi_result_events.rs`; diagnostics, history status and result
 presentation remain request-scoped outside the root.
+Query-local failure handling now follows the same boundary in
+`query_failure_events.rs`; the mixed `events_query.rs` module is deleted and
+cross-feature routing remains explicit at the composition root.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

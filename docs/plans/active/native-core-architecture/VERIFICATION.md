@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `e964c337`.
+Source checkpoint: `735deb29`.
 
 ## Current change
 
@@ -121,6 +121,10 @@ Source checkpoint: `e964c337`.
 - Multi-statement query completion now lives in
   `query_multi_result_events.rs` behind the same explicit state boundary;
   diagnostics, history status and result presentation remain request-scoped.
+- Query-local failure handling now lives in `query_failure_events.rs`; the
+  root only routes failures to other feature reducers before invoking the
+  explicit query failure context. The old mixed `events_query.rs` module is
+  deleted.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
