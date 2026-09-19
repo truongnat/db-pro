@@ -161,6 +161,10 @@ Agent provider/workflow events now follow the same boundary: `agent_events.rs`
 reduces explicit `AgentState` and `FeedbackState`, including request-scoped
 configuration failures and provider readiness, with the root limited to event
 composition.
+Table runtime events now follow the same boundary: `table_events.rs` owns
+request matching and table/grid state transitions, returning typed effects for
+cache invalidation and staged-change retry instead of reaching through the
+composition root.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
