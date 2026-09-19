@@ -174,6 +174,9 @@ with the query-session state instead of the composition root.
 Saved-query completion now follows the same boundary in
 `query_save_events.rs`; it returns an explicit close-document transition while
 the root performs only tab orchestration.
+Query-history retention now follows the same boundary in
+`query_history_events.rs`; the 500-entry cap is owned by the editor-state
+reducer rather than the composition root.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

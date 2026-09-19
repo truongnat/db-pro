@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `c7b99344`.
+Source checkpoint: `9ecaa49c`.
 
 ## Current change
 
@@ -100,6 +100,9 @@ Source checkpoint: `c7b99344`.
 - Saved-query completion now lives in `query_save_events.rs`; the reducer
   returns an explicit close-document transition and the root performs only the
   resulting tab orchestration.
+- Query-history retention now lives in `query_history_events.rs`; the reducer
+  owns the 500-entry cap and only receives `QueryEditorState` plus a history
+  record.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
