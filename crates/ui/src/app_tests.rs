@@ -3329,7 +3329,7 @@ fn sidebar_header_launcher_opens_full_command_palette() {
     let mut app = DbProApp::with_task_bridge(bridge);
 
     // Header name+search is one control → full palette (connections + commands).
-    app.open_palette(PaletteMode::Commands);
+    app.palette.open(PaletteMode::Commands);
 
     assert_eq!(app.palette.mode, Some(PaletteMode::Commands));
     assert_eq!(app.palette.scope, SearchScope::All);

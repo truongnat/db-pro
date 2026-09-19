@@ -22,14 +22,14 @@ impl DbProApp {
         }
         let text_input_has_focus = ctx.wants_keyboard_input();
         if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "palette.commands")) {
-            self.open_palette(PaletteMode::Commands);
+            self.palette.open(PaletteMode::Commands);
             return;
         }
         if !text_input_has_focus
             && (ctx.input(|i| self.shortcut_pressed(i, "palette.quick_open_alt"))
                 || ctx.input(|i| self.shortcut_pressed(i, "palette.quick_open")))
         {
-            self.open_palette(PaletteMode::QuickOpen);
+            self.palette.open(PaletteMode::QuickOpen);
             return;
         }
         if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "view.toggle_sidebar")) {

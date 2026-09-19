@@ -124,7 +124,7 @@ impl DbProApp {
                             .show(ui)
                             .clicked()
                         {
-                            self.open_palette(PaletteMode::Commands);
+                            self.palette.open(PaletteMode::Commands);
                         }
                         if Button::new(self.theme)
                             .icon(Icon::Palette)
@@ -227,7 +227,7 @@ impl DbProApp {
                         );
 
                         if resp.clicked() {
-                            self.open_palette(PaletteMode::QuickOpen);
+                            self.palette.open(PaletteMode::QuickOpen);
                         }
                     });
                 });

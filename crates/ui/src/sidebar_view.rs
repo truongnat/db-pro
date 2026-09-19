@@ -141,7 +141,7 @@ impl DbProApp {
                 .galley(search_pos, search_galley, self.theme.text_secondary);
 
             if sel_resp.clicked() {
-                self.open_palette(PaletteMode::Commands);
+                self.palette.open(PaletteMode::Commands);
             }
             sel_resp.on_hover_text(format!(
                 "{active_name}\nCommand Palette ({})",

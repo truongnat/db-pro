@@ -75,7 +75,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Opened draft in Query".to_owned();
         }
         if intent.open_palette {
-            self.open_palette(PaletteMode::Commands);
+            self.palette.open(PaletteMode::Commands);
         }
         if let Some(id) = intent.connect_id {
             let connection = self.connection.catalog.find(&id).cloned();

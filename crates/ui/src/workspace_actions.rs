@@ -280,19 +280,6 @@ impl DbProApp {
         }
     }
 
-    pub(super) fn open_palette(&mut self, mode: PaletteMode) {
-        self.open_palette_with_scope(mode, SearchScope::All);
-    }
-
-    pub(super) fn open_palette_with_scope(&mut self, mode: PaletteMode, scope: SearchScope) {
-        self.palette.mode = Some(mode);
-        self.palette.query.clear();
-        self.palette.scope = scope;
-        self.palette.selected = 0;
-        self.palette.focus_requested = true;
-        self.palette.search_index.invalidate();
-    }
-
     pub fn open_new_connection(&mut self) {
         self.connection
             .dialog
