@@ -470,16 +470,6 @@ pub enum UiCommand {
         columns: Vec<String>,
         values: Vec<UiCell>,
     },
-    RunAgent {
-        request_id: RequestId,
-        prompt: String,
-        context: crate::AgentContext,
-    },
-    ExecuteAgentTool {
-        request_id: RequestId,
-        request: db_pro_core::domain::agent::AgentToolRequest,
-        context: db_pro_core::domain::agent_workflow::AgentExecutionContext,
-    },
     StartAgentRun {
         request_id: RequestId,
         prompt: String,
@@ -1033,11 +1023,6 @@ pub enum UiEvent {
     QueryCancelled {
         request_id: RequestId,
     },
-    AgentCompleted {
-        request_id: RequestId,
-        provider: String,
-        message: crate::AgentMessage,
-    },
     AgentProviderReady {
         provider: String,
         detail: String,
@@ -1045,20 +1030,6 @@ pub enum UiEvent {
     AgentFailed {
         request_id: RequestId,
         message: String,
-    },
-    AgentToolCompleted {
-        request_id: RequestId,
-        session_id: db_pro_core::domain::agent::AgentSessionId,
-        run_id: db_pro_core::domain::agent::AgentRunId,
-        document_id: String,
-        result: db_pro_core::domain::agent::AgentToolResult,
-    },
-    AgentToolFailed {
-        request_id: RequestId,
-        session_id: db_pro_core::domain::agent::AgentSessionId,
-        run_id: db_pro_core::domain::agent::AgentRunId,
-        document_id: String,
-        error: db_pro_core::domain::agent_workflow::AgentToolError,
     },
     AgentWorkflow {
         request_id: RequestId,

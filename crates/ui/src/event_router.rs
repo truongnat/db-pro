@@ -12,14 +12,8 @@ impl DbProApp {
             UiEvent::SavedQueriesLoaded { queries, .. } => self.on_saved_queries_loaded(queries),
             UiEvent::QueryFoldersLoaded { folders, .. } => self.on_query_folders_loaded(folders),
             UiEvent::SchemaLoaded { request_id, schema } => self.on_schema_loaded(request_id, schema),
-            UiEvent::AgentCompleted {
-                request_id,
-                provider,
-                message,
-            } => self.on_agent_completed(request_id, provider, message),
             UiEvent::AgentProviderReady { provider, detail } => self.on_agent_provider_ready(provider, detail),
             UiEvent::AgentFailed { request_id, message } => self.on_agent_failed(request_id, message),
-            UiEvent::AgentToolCompleted { .. } | UiEvent::AgentToolFailed { .. } => {}
             UiEvent::AgentWorkflow { event, .. } => self.on_agent_workflow_event(event),
             UiEvent::AgentConfigured {
                 request_id,

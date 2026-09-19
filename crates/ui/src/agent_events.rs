@@ -19,14 +19,6 @@ impl DbProApp {
         self.agent.provider_detail = detail;
     }
 
-    pub(super) fn on_agent_completed(&mut self, _request_id: RequestId, provider: String, message: AgentMessage) {
-        let provider_detail = format!("{provider} Responses API · SQL drafts stay unexecuted");
-        self.agent.provider_label = provider;
-        self.agent.provider_detail = provider_detail;
-        self.agent.messages.push(message);
-        self.feedback.runtime_message = "Agent response received".to_owned();
-    }
-
     pub(super) fn on_agent_failed(&mut self, request_id: RequestId, message: String) {
         if let Some(session) = self
             .agent
