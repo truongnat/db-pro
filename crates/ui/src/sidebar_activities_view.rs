@@ -24,8 +24,9 @@ impl DbProApp {
         });
         ui.add_space(8.0);
 
-        for (index, document) in self.query_documents.clone().into_iter().enumerate() {
-            let selected = self.workspace.active_tab == WorkspaceTab::Query && self.active_query_document == index;
+        for (index, document) in self.query_session_state.documents.clone().into_iter().enumerate() {
+            let selected = self.workspace.active_tab == WorkspaceTab::Query
+                && self.query_session_state.active_document_index == index;
             let unsaved = document.is_dirty();
             let title = if unsaved {
                 format!("{}  •", document.title)
@@ -47,7 +48,7 @@ impl DbProApp {
                     rename_requested = true;
                     *close_menu = true;
                 }
-                if self.query_documents.len() > 1
+                if self.query_session_state.documents.len() > 1
                     && ctx_menu_item(ui, Some(Icon::Trash2), "Close query", None, theme.danger, theme).clicked()
                 {
                     close_requested = true;

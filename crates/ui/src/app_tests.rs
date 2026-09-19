@@ -1202,7 +1202,8 @@ fn explain_analyze_requires_explicit_confirm_before_dispatch() {
 #[test]
 fn query_output_tab_is_scoped_to_each_document() {
     let mut app = DbProApp::default();
-    app.query_documents
+    app.query_session_state
+        .documents
         .push(QueryDocument::new("query-2", "Query 2", "SELECT 2"));
 
     app.set_active_query_output_tab(OutputTab::Explain);
@@ -1332,13 +1333,24 @@ fn switching_query_documents_resets_editor_cursor_metadata() {
 #[test]
 fn new_query_identity_skips_restored_document_ids() {
     let mut app = DbProApp::default();
-    app.query_documents
+    app.query_session_state
+        .documents
         .push(QueryDocument::new("query-2", "Restored query", "SELECT restored;"));
 
     app.new_query_document();
 
-    assert_eq!(app.query_documents.last().map(|doc| doc.id.as_str()), Some("query-3"));
-    assert_eq!(app.query_documents.iter().filter(|doc| doc.id == "query-3").count(), 1);
+    assert_eq!(
+        app.query_session_state.documents.last().map(|doc| doc.id.as_str()),
+        Some("query-3")
+    );
+    assert_eq!(
+        app.query_session_state
+            .documents
+            .iter()
+            .filter(|doc| doc.id == "query-3")
+            .count(),
+        1
+    );
 }
 
 #[test]
@@ -1568,7 +1580,8 @@ fn query_capabilities_follow_the_bound_connection_and_do_not_default_to_postgres
     assert!(app.query_capabilities().allows(|caps| caps.features.server_sessions));
 
     // The active query document's connection wins over the active connection.
-    app.query_documents[app.active_query_document].connection_id = Some("sqlite".to_owned());
+    app.query_session_state.documents[app.query_session_state.active_document_index].connection_id =
+        Some("sqlite".to_owned());
     assert!(!app.query_capabilities().allows(|caps| caps.features.server_sessions));
     assert!(app.query_capabilities().allows(|caps| caps.query.cancel));
 }
@@ -1581,8 +1594,8 @@ fn closing_query_document_restores_the_next_valid_document() {
 
     app.close_query_document(0);
 
-    assert_eq!(app.query_documents.len(), 1);
-    assert_eq!(app.active_query_document, 0);
+    assert_eq!(app.query_session_state.documents.len(), 1);
+    assert_eq!(app.query_session_state.active_document_index, 0);
     assert_eq!(app.active_query_text(), "select 2");
     assert_eq!(app.runtime_message, "Closed Query 2");
 }
@@ -1599,7 +1612,7 @@ fn closing_last_query_document_returns_to_welcome() {
 
     app.close_query_document(0);
 
-    assert!(app.query_documents.is_empty());
+    assert!(app.query_session_state.documents.is_empty());
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Welcome);
     assert!(app.workspace.welcome_open);
     assert!(app.active_query_text().is_empty());
@@ -2303,7 +2316,7 @@ fn command_palette_new_query_keeps_a_query_entry_point() {
     app.execute_palette_action(PaletteAction::NewQuery, &ctx);
 
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Query);
-    assert_eq!(app.query_documents.len(), 2);
+    assert_eq!(app.query_session_state.documents.len(), 2);
     assert!(app.palette_mode.is_none());
 }
 
@@ -2420,7 +2433,9 @@ fn command_palette_opens_saved_query_into_editor() {
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Query);
     assert!(app.active_query_text().contains("SELECT 1"));
     assert_eq!(
-        app.query_documents[app.active_query_document].saved_query_id.as_deref(),
+        app.query_session_state.documents[app.query_session_state.active_document_index]
+            .saved_query_id
+            .as_deref(),
         Some("sq-1")
     );
 }
@@ -2428,20 +2443,21 @@ fn command_palette_opens_saved_query_into_editor() {
 #[test]
 fn sql_snippet_insert_is_one_undoable_buffer_edit() {
     let mut app = DbProApp::default();
-    app.query_documents.clear();
-    app.query_documents
+    app.query_session_state.documents.clear();
+    app.query_session_state
+        .documents
         .push(crate::query::query_document::QueryDocument::new(
             "doc-snip",
             "Query",
             "SELECT 1;",
         ));
-    app.active_query_document = 0;
+    app.query_session_state.active_document_index = 0;
     let before = app.active_query_text().to_owned();
     app.insert_snippet("SELECT 2;");
     assert!(app.active_query_text().contains("SELECT 2;"));
     assert_ne!(app.active_query_text(), before);
-    assert!(app.query_documents[0].buffer.undo_stack.can_undo());
-    app.query_documents[0].buffer.undo();
+    assert!(app.query_session_state.documents[0].buffer.undo_stack.can_undo());
+    app.query_session_state.documents[0].buffer.undo();
     assert_eq!(app.active_query_text(), before);
 }
 
@@ -2606,8 +2622,8 @@ fn typed_agent_events_are_scoped_to_the_origin_document() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     app.new_query_document();
-    let first_id = app.query_documents[0].id.clone();
-    let second_id = app.query_documents[1].id.clone();
+    let first_id = app.query_session_state.documents[0].id.clone();
+    let second_id = app.query_session_state.documents[1].id.clone();
     let first_session = super::agent_workflow_state::AgentUiSession::for_document(&first_id, None, None);
     let session_id = first_session.session.as_ref().expect("session should exist").id;
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
@@ -2639,8 +2655,8 @@ fn typed_agent_events_are_scoped_to_the_origin_document() {
 fn typed_agent_patch_confirmation_applies_one_document_edit_and_continues() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.query_documents[0].set_text("SELECT old");
-    let document_id = app.query_documents[0].id.clone();
+    app.query_session_state.documents[0].set_text("SELECT old");
+    let document_id = app.query_session_state.documents[0].id.clone();
     let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
     let session_id = session.session.as_ref().expect("session should exist").id;
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
@@ -2651,7 +2667,7 @@ fn typed_agent_patch_confirmation_applies_one_document_edit_and_continues() {
         .active_run_id = Some(run_id);
     let patch = db_pro_core::domain::agent::AgentSqlPatch {
         document_id: document_id.clone(),
-        expected_version: app.query_documents[0].buffer.version(),
+        expected_version: app.query_session_state.documents[0].buffer.version(),
         range: (7, 10),
         replacement: "users".to_owned(),
     };
@@ -2673,7 +2689,7 @@ fn typed_agent_patch_confirmation_applies_one_document_edit_and_continues() {
 
     app.agent_confirmation_action(true);
 
-    assert_eq!(app.query_documents[0].text(), "SELECT users");
+    assert_eq!(app.query_session_state.documents[0].text(), "SELECT users");
     assert!(matches!(
         command_rx.try_recv(),
         Ok(UiCommand::ContinueAgentRun {
@@ -2682,15 +2698,15 @@ fn typed_agent_patch_confirmation_applies_one_document_edit_and_continues() {
             ..
         })
     ));
-    app.query_documents[0].buffer.undo();
-    assert_eq!(app.query_documents[0].text(), "SELECT old");
+    app.query_session_state.documents[0].buffer.undo();
+    assert_eq!(app.query_session_state.documents[0].text(), "SELECT old");
 }
 
 #[test]
 fn typed_agent_failure_clears_stale_confirmation_and_marks_activity_failed() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    let document_id = app.query_documents[0].id.clone();
+    let document_id = app.query_session_state.documents[0].id.clone();
     let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
     let _session_id = session.session.as_ref().expect("session should exist").id;
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
@@ -2733,7 +2749,7 @@ fn typed_agent_failure_clears_stale_confirmation_and_marks_activity_failed() {
 fn typed_agent_open_result_in_workspace_populates_query_document() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    let document_id = app.query_documents[0].id.clone();
+    let document_id = app.query_session_state.documents[0].id.clone();
     let mut session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
     let summary = db_pro_core::domain::agent_context::AgentResultSummary {
         columns: vec![
@@ -2769,8 +2785,8 @@ fn typed_agent_open_result_in_workspace_populates_query_document() {
 
     app.open_agent_result_in_workspace("query-1");
 
-    assert!(app.query_documents[0].query_result.is_some());
-    let res = app.query_documents[0].query_result.as_ref().unwrap();
+    assert!(app.query_session_state.documents[0].query_result.is_some());
+    let res = app.query_session_state.documents[0].query_result.as_ref().unwrap();
     assert_eq!(res.columns.len(), 2);
     assert_eq!(res.rows.len(), 1);
     assert_eq!(res.duration_ms, 42);
@@ -2781,7 +2797,7 @@ fn typed_agent_open_result_in_workspace_populates_query_document() {
 fn typed_agent_cancellation_marks_session_and_activities_cancelled() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    let document_id = app.query_documents[0].id.clone();
+    let document_id = app.query_session_state.documents[0].id.clone();
     let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
     let session_id = session.session.as_ref().expect("session should exist").id;
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
@@ -2819,7 +2835,7 @@ fn typed_agent_cancellation_marks_session_and_activities_cancelled() {
 fn late_agent_workflow_events_are_ignored_after_cancellation() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    let document_id = app.query_documents[0].id.clone();
+    let document_id = app.query_session_state.documents[0].id.clone();
     let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
     let session_id = session.session.as_ref().expect("session should exist").id;
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
@@ -2848,7 +2864,7 @@ fn late_agent_workflow_events_are_ignored_after_cancellation() {
 fn closing_query_tab_cleans_up_agent_session_and_cancels_active_run() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    let document_id = app.query_documents[0].id.clone();
+    let document_id = app.query_session_state.documents[0].id.clone();
     let session = super::agent_workflow_state::AgentUiSession::for_document(&document_id, None, None);
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
     app.agent_sessions.insert(document_id.clone(), session);
@@ -3248,12 +3264,12 @@ fn sql_lint_warns_on_select_star_and_null_compare() {
 #[test]
 fn sql_lint_null_compare_quick_fix_is_one_undoable_replace() {
     let mut app = DbProApp::default();
-    app.query_documents.clear();
+    app.query_session_state.documents.clear();
     let mut doc =
         crate::query::query_document::QueryDocument::new("doc-fix", "Query fix", "SELECT 1 FROM t WHERE id = NULL");
     let (_, structured) = DbProApp::analyze_sql_diagnostics(doc.text(), "PostgreSQL");
     doc.diagnostics = structured;
-    app.query_documents.push(doc);
+    app.query_session_state.documents.push(doc);
 
     let entry = app
         .collect_problem_entries()
@@ -3261,12 +3277,15 @@ fn sql_lint_null_compare_quick_fix_is_one_undoable_replace() {
         .find(|e| e.has_fix)
         .expect("null-compare fix");
     assert!(app.apply_problem_fix(entry.document_index, entry.diagnostic_index));
-    let text = app.query_documents[0].text().to_owned();
+    let text = app.query_session_state.documents[0].text().to_owned();
     assert!(text.contains("IS NULL"), "fixed text was {text}");
     assert!(!text.to_lowercase().contains("= null"));
-    assert!(app.query_documents[0].buffer.undo_stack.can_undo());
-    app.query_documents[0].buffer.undo();
-    assert!(app.query_documents[0].text().to_lowercase().contains("= null"));
+    assert!(app.query_session_state.documents[0].buffer.undo_stack.can_undo());
+    app.query_session_state.documents[0].buffer.undo();
+    assert!(app.query_session_state.documents[0]
+        .text()
+        .to_lowercase()
+        .contains("= null"));
 }
 
 #[test]
@@ -3326,11 +3345,11 @@ fn sql_lint_respects_disabled_and_suppressed_rules() {
 #[test]
 fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
     let mut app = DbProApp::default();
-    app.query_documents.clear();
+    app.query_session_state.documents.clear();
     let mut doc = crate::query::query_document::QueryDocument::new("doc-1", "Query 1", "SELECT * FROM t");
     let (_, structured) = DbProApp::analyze_sql_diagnostics(doc.text(), "PostgreSQL");
     doc.diagnostics = structured;
-    app.query_documents.push(doc);
+    app.query_session_state.documents.push(doc);
 
     let entries = app.collect_problem_entries();
     assert!(!entries.is_empty());
@@ -3347,7 +3366,7 @@ fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
     app.navigate_to_problem(first_lint.document_index, first_lint.diagnostic_index);
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Query);
     assert_eq!(app.workspace.activity, Activity::Problems);
-    let active = &app.query_documents[app.active_query_document];
+    let active = &app.query_session_state.documents[app.query_session_state.active_document_index];
     assert_eq!(active.cursor.offset, first_lint.range.0);
     assert_eq!(active.selection.normalized(), (first_lint.range.0, first_lint.range.1));
 }
@@ -3440,8 +3459,10 @@ fn query_failure_attaches_database_diagnostic_to_the_originating_document() {
     doc.executing_range = Some((0, doc.text().len()));
     doc.executing_sql = Some(doc.text().to_owned());
     doc.executing_version = Some(doc.buffer.version());
-    app.query_documents = vec![doc];
-    app.query_document_requests.insert(request_id, "query-1".to_owned());
+    app.query_session_state.documents = vec![doc];
+    app.query_session_state
+        .document_requests
+        .insert(request_id, "query-1".to_owned());
 
     event_tx
         .send(UiEvent::QueryFailedDetailed {
@@ -3453,13 +3474,16 @@ fn query_failure_attaches_database_diagnostic_to_the_originating_document() {
         .expect("query failure should be queued");
     app.apply_runtime_events();
 
-    let diagnostic = app.query_documents[0]
+    let diagnostic = app.query_session_state.documents[0]
         .execution_diagnostic
         .as_ref()
         .expect("query failure should attach a diagnostic");
     assert_eq!(diagnostic.source, crate::editor::DiagnosticSource::Database);
     assert_eq!(diagnostic.range, (7, 8));
-    assert_eq!(app.query_documents[0].execution_state, QueryExecutionState::Failed);
+    assert_eq!(
+        app.query_session_state.documents[0].execution_state,
+        QueryExecutionState::Failed
+    );
 }
 
 #[test]
@@ -4198,22 +4222,26 @@ fn test_multi_tab_query_result_routing() {
     let mut app = DbProApp::with_task_bridge(bridge);
 
     // Create 2 query documents
-    app.query_documents = vec![
+    app.query_session_state.documents = vec![
         QueryDocument::new("query-1", "Query 1", "SELECT 1;"),
         QueryDocument::new("query-2", "Query 2", "SELECT 2;"),
     ];
-    app.active_query_document = 0;
+    app.query_session_state.active_document_index = 0;
 
     // Simulate Tab 1 running request 101
     let req1 = crate::RequestId(101);
-    app.query_documents[0].execution_state = QueryExecutionState::Running(req1);
-    app.query_document_requests.insert(req1, "query-1".to_owned());
+    app.query_session_state.documents[0].execution_state = QueryExecutionState::Running(req1);
+    app.query_session_state
+        .document_requests
+        .insert(req1, "query-1".to_owned());
 
     // Switch to Tab 2 and simulate Tab 2 running request 102
     app.switch_query_document(1);
     let req2 = crate::RequestId(102);
-    app.query_documents[1].execution_state = QueryExecutionState::Running(req2);
-    app.query_document_requests.insert(req2, "query-2".to_owned());
+    app.query_session_state.documents[1].execution_state = QueryExecutionState::Running(req2);
+    app.query_session_state
+        .document_requests
+        .insert(req2, "query-2".to_owned());
 
     // Tab 1 query completes while user is on Tab 2
     let result1 = UiQueryResult {
@@ -4237,11 +4265,17 @@ fn test_multi_tab_query_result_routing() {
 
     // Tab 1 should have received its result and message, but Tab 2 is active and has no result yet
     assert_eq!(
-        app.query_documents[0].query_result.as_ref().map(|r| r.row_count),
+        app.query_session_state.documents[0]
+            .query_result
+            .as_ref()
+            .map(|r| r.row_count),
         Some(1)
     );
-    assert_eq!(app.query_documents[0].execution_state, QueryExecutionState::Idle);
-    assert!(app.query_documents[0]
+    assert_eq!(
+        app.query_session_state.documents[0].execution_state,
+        QueryExecutionState::Idle
+    );
+    assert!(app.query_session_state.documents[0]
         .query_messages
         .iter()
         .any(|m| m.contains("1 rows")));
@@ -4275,7 +4309,10 @@ fn test_multi_tab_query_result_routing() {
         }),
         Some("2")
     );
-    assert_eq!(app.query_documents[1].execution_state, QueryExecutionState::Idle);
+    assert_eq!(
+        app.query_session_state.documents[1].execution_state,
+        QueryExecutionState::Idle
+    );
 
     // Switch back to Tab 1 -> active_query_result() returns Tab 1's result
     app.switch_query_document(0);
@@ -4292,11 +4329,13 @@ fn test_multi_tab_query_result_routing() {
 fn multi_result_completion_keeps_statement_order_and_active_tab_state() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.query_documents = vec![QueryDocument::new("query-1", "Query 1", "SELECT 1; SELECT 2;")];
+    app.query_session_state.documents = vec![QueryDocument::new("query-1", "Query 1", "SELECT 1; SELECT 2;")];
     let request_id = crate::RequestId(301);
-    app.query_documents[0].execution_state = QueryExecutionState::Running(request_id);
-    app.query_documents[0].execution_started_at = Some(std::time::Instant::now());
-    app.query_document_requests.insert(request_id, "query-1".to_owned());
+    app.query_session_state.documents[0].execution_state = QueryExecutionState::Running(request_id);
+    app.query_session_state.documents[0].execution_started_at = Some(std::time::Instant::now());
+    app.query_session_state
+        .document_requests
+        .insert(request_id, "query-1".to_owned());
 
     let make_result = |value: &str| UiQueryResult {
         columns: vec![crate::UiColumn {
@@ -4336,11 +4375,11 @@ fn multi_result_completion_keeps_statement_order_and_active_tab_state() {
         .unwrap();
     app.apply_runtime_events();
 
-    assert_eq!(app.query_documents[0].query_results.len(), 2);
+    assert_eq!(app.query_session_state.documents[0].query_results.len(), 2);
     app.set_active_query_result(1);
-    assert_eq!(app.query_documents[0].active_result_index, 1);
+    assert_eq!(app.query_session_state.documents[0].active_result_index, 1);
     assert_eq!(
-        app.query_documents[0].query_results[1].rows[0][0],
+        app.query_session_state.documents[0].query_results[1].rows[0][0],
         UiCell::Number("2".to_owned())
     );
 }
@@ -4350,11 +4389,13 @@ fn query_history_uses_execution_start_time() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     let request_id = crate::RequestId(304);
-    app.query_documents[0].execution_state = QueryExecutionState::Running(request_id);
-    app.query_documents[0].execution_started_at = Some(std::time::Instant::now());
-    app.query_documents[0].execution_started_wall_time = Some("2026-09-13T01:02:03Z".to_owned());
-    app.query_documents[0].executing_sql = Some("SELECT 1".to_owned());
-    app.query_document_requests.insert(request_id, "query-1".to_owned());
+    app.query_session_state.documents[0].execution_state = QueryExecutionState::Running(request_id);
+    app.query_session_state.documents[0].execution_started_at = Some(std::time::Instant::now());
+    app.query_session_state.documents[0].execution_started_wall_time = Some("2026-09-13T01:02:03Z".to_owned());
+    app.query_session_state.documents[0].executing_sql = Some("SELECT 1".to_owned());
+    app.query_session_state
+        .document_requests
+        .insert(request_id, "query-1".to_owned());
 
     event_tx
         .send(UiEvent::QueryCompleted {
@@ -4372,7 +4413,7 @@ fn query_history_uses_execution_start_time() {
 fn multi_result_failure_attaches_database_diagnostic_to_failed_statement() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    let document = &mut app.query_documents[0];
+    let document = &mut app.query_session_state.documents[0];
     document.set_text("SELECT 1;\nSELECT bad;");
     let request_id = crate::RequestId(305);
     let document_id = document.id.clone();
@@ -4383,7 +4424,9 @@ fn multi_result_failure_attaches_database_diagnostic_to_failed_statement() {
     document.executing_range = Some((0, end));
     document.executing_sql = Some(document.text().to_owned());
     document.executing_version = Some(version);
-    app.query_document_requests.insert(request_id, document_id);
+    app.query_session_state
+        .document_requests
+        .insert(request_id, document_id);
 
     event_tx
         .send(UiEvent::QueryMultiCompleted {
@@ -4419,22 +4462,27 @@ fn multi_result_failure_attaches_database_diagnostic_to_failed_statement() {
         .unwrap();
     app.apply_runtime_events();
 
-    let diagnostic = app.query_documents[0]
+    let diagnostic = app.query_session_state.documents[0]
         .execution_diagnostic
         .as_ref()
         .expect("failed statement should have a database diagnostic");
     assert_eq!(diagnostic.source, crate::editor::DiagnosticSource::Database);
-    assert_eq!(diagnostic.range, app.query_documents[0].analysis.statements[1].range);
+    assert_eq!(
+        diagnostic.range,
+        app.query_session_state.documents[0].analysis.statements[1].range
+    );
 }
 
 #[test]
 fn saved_query_event_resets_dirty_baseline_and_failed_save_keeps_it() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.query_documents[0].set_text("SELECT changed;");
-    assert!(app.query_documents[0].is_dirty());
+    app.query_session_state.documents[0].set_text("SELECT changed;");
+    assert!(app.query_session_state.documents[0].is_dirty());
     let save_request = crate::RequestId(302);
-    app.query_save_requests.insert(save_request, "query-1".to_owned());
+    app.query_session_state
+        .save_requests
+        .insert(save_request, "query-1".to_owned());
     event_tx
         .send(UiEvent::QuerySaved {
             request_id: save_request,
@@ -4447,12 +4495,16 @@ fn saved_query_event_resets_dirty_baseline_and_failed_save_keeps_it() {
         })
         .unwrap();
     app.apply_runtime_events();
-    assert!(!app.query_documents[0].is_dirty());
-    assert_eq!(app.query_documents[0].saved_query_id.as_deref(), Some("saved-1"));
+    assert!(!app.query_session_state.documents[0].is_dirty());
+    assert_eq!(
+        app.query_session_state.documents[0].saved_query_id.as_deref(),
+        Some("saved-1")
+    );
 
-    app.query_documents[0].set_text("SELECT failed;");
+    app.query_session_state.documents[0].set_text("SELECT failed;");
     let failed_save_request = crate::RequestId(303);
-    app.query_save_requests
+    app.query_session_state
+        .save_requests
         .insert(failed_save_request, "query-1".to_owned());
     event_tx
         .send(UiEvent::QueryFailed {
@@ -4461,19 +4513,19 @@ fn saved_query_event_resets_dirty_baseline_and_failed_save_keeps_it() {
         })
         .unwrap();
     app.apply_runtime_events();
-    assert!(app.query_documents[0].is_dirty());
+    assert!(app.query_session_state.documents[0].is_dirty());
 }
 
 #[test]
 fn dirty_query_close_is_deferred_until_user_decision() {
     let (bridge, _command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.query_documents[0].set_text("SELECT changed;");
+    app.query_session_state.documents[0].set_text("SELECT changed;");
 
     app.request_close_query_document(0);
 
-    assert_eq!(app.query_documents.len(), 1);
-    assert_eq!(app.pending_dirty_close, Some(0));
+    assert_eq!(app.query_session_state.documents.len(), 1);
+    assert_eq!(app.query_session_state.pending_dirty_close, Some(0));
 }
 
 #[test]
@@ -4542,11 +4594,11 @@ fn query_dispatch_allows_independent_documents_to_run_concurrently() {
 
     assert_ne!(first_request, second_request);
     assert!(matches!(
-        app.query_documents[0].execution_state,
+        app.query_session_state.documents[0].execution_state,
         QueryExecutionState::Running(request) if request == first_request
     ));
     assert!(matches!(
-        app.query_documents[1].execution_state,
+        app.query_session_state.documents[1].execution_state,
         QueryExecutionState::Running(request) if request == second_request
     ));
 }
@@ -4582,24 +4634,27 @@ fn test_tab_switching_preserves_completion_and_prediction_isolation() {
     let doc2 = QueryDocument::new("query-2", "Query 2", "SELECT 2;");
 
     let mut app = DbProApp {
-        query_documents: vec![doc1, doc2],
-        active_query_document: 0,
+        query_session_state: QuerySessionState {
+            documents: vec![doc1, doc2],
+            active_document_index: 0,
+            ..Default::default()
+        },
         ..Default::default()
     };
 
     // Doc 1 has open completion and prediction
-    assert!(app.query_documents[0].completion.is_open);
-    assert!(app.query_documents[0].prediction.is_some());
+    assert!(app.query_session_state.documents[0].completion.is_open);
+    assert!(app.query_session_state.documents[0].prediction.is_some());
 
     // Switch to Doc 2
     app.switch_query_document(1);
-    assert!(!app.query_documents[1].completion.is_open);
-    assert!(app.query_documents[1].prediction.is_none());
+    assert!(!app.query_session_state.documents[1].completion.is_open);
+    assert!(app.query_session_state.documents[1].prediction.is_none());
 
     // Switch back to Doc 1
     app.switch_query_document(0);
-    assert!(app.query_documents[0].completion.is_open);
-    assert!(app.query_documents[0].prediction.is_some());
+    assert!(app.query_session_state.documents[0].completion.is_open);
+    assert!(app.query_session_state.documents[0].prediction.is_some());
 }
 
 #[test]
@@ -4664,17 +4719,20 @@ fn test_multi_tab_explain_plan_routing() {
 
     // Tab 1
     app.set_active_query_text("SELECT count(*) FROM users");
-    let doc1_id = app.query_documents[0].id.clone();
+    let doc1_id = app.query_session_state.documents[0].id.clone();
 
     // Trigger explain on Tab 1
     app.explain_query();
     let explain_req_id = app.active_explain_request().expect("explain request id must be set");
-    assert_eq!(app.query_documents[0].explain_request, Some(explain_req_id));
+    assert_eq!(
+        app.query_session_state.documents[0].explain_request,
+        Some(explain_req_id)
+    );
 
     // Create and switch to Tab 2
     app.new_query_document();
     app.set_active_query_text("SELECT * FROM orders");
-    assert_eq!(app.active_query_document, 1);
+    assert_eq!(app.query_session_state.active_document_index, 1);
     assert!(app.active_explain_request().is_none());
     assert!(app.active_explain_plan().is_none());
 
@@ -4688,7 +4746,12 @@ fn test_multi_tab_explain_plan_routing() {
     assert!(app.active_explain_plan().is_none());
 
     // Tab 1 must have the plan received and request cleared
-    let doc1 = app.query_documents.iter().find(|d| d.id == doc1_id).unwrap();
+    let doc1 = app
+        .query_session_state
+        .documents
+        .iter()
+        .find(|d| d.id == doc1_id)
+        .unwrap();
     assert!(doc1.explain_request.is_none());
     assert_eq!(
         doc1.explain_plan.as_deref(),
@@ -4765,7 +4828,7 @@ fn test_per_document_connection_and_schema_isolation() {
 
     // Tab 2: create and switch connection to SQLite
     app.new_query_document();
-    assert_eq!(app.active_query_document, 1);
+    assert_eq!(app.query_session_state.active_document_index, 1);
     app.set_document_connection(1, Some("conn-sqlite".to_owned()));
     app.set_document_schema(1, Some("main".to_owned()));
 
@@ -4881,7 +4944,7 @@ fn test_async_prediction_routing_and_stale_rejection() {
     let mut app = DbProApp::default();
     app.new_query_document();
 
-    let doc = &mut app.query_documents[0];
+    let doc = &mut app.query_session_state.documents[0];
     doc.set_text("SELECT * FROM users ");
     doc.cursor.offset = doc.buffer.len_bytes();
     let current_version = doc.buffer.version();
@@ -4891,17 +4954,17 @@ fn test_async_prediction_routing_and_stale_rejection() {
     // Apply prediction ready event for matching request & version
     app.apply_runtime_event(UiEvent::SqlPredictionReady {
         request_id: req_id,
-        document_id: app.query_documents[0].id.clone(),
+        document_id: app.query_session_state.documents[0].id.clone(),
         document_version: current_version,
-        anchor: app.query_documents[0].cursor.offset,
+        anchor: app.query_session_state.documents[0].cursor.offset,
         replacement_range: (
-            app.query_documents[0].cursor.offset,
-            app.query_documents[0].cursor.offset,
+            app.query_session_state.documents[0].cursor.offset,
+            app.query_session_state.documents[0].cursor.offset,
         ),
         prediction: "WHERE active = true".to_owned(),
     });
 
-    let doc = &app.query_documents[0];
+    let doc = &app.query_session_state.documents[0];
     assert!(doc.pending_prediction_request.is_none());
     assert!(doc.prediction.is_some());
     let pred = doc.prediction.as_ref().unwrap();
@@ -4912,8 +4975,8 @@ fn test_async_prediction_routing_and_stale_rejection() {
 #[test]
 fn stale_prediction_event_does_not_mutate_a_newer_document_version() {
     let mut app = DbProApp::default();
-    let document_id = app.query_documents[0].id.clone();
-    let doc = &mut app.query_documents[0];
+    let document_id = app.query_session_state.documents[0].id.clone();
+    let doc = &mut app.query_session_state.documents[0];
     doc.set_text("SELECT 1");
     doc.cursor.set_offset(&doc.buffer, doc.buffer.len_bytes());
     let request_id = crate::RequestId(88);
@@ -4930,7 +4993,7 @@ fn stale_prediction_event_does_not_mutate_a_newer_document_version() {
         prediction: "WHERE stale = true".to_owned(),
     });
 
-    let doc = &app.query_documents[0];
+    let doc = &app.query_session_state.documents[0];
     assert!(doc.pending_prediction_request.is_none());
     assert!(doc.prediction.is_none());
 }
@@ -4940,11 +5003,11 @@ fn test_agent_multitab_isolation_and_close_tab_cancellation() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
     app.new_query_document(); // creates tab 1 (index 1)
-    let doc_a_id = app.query_documents[0].id.clone();
-    let doc_b_id = app.query_documents[1].id.clone();
+    let doc_a_id = app.query_session_state.documents[0].id.clone();
+    let doc_b_id = app.query_session_state.documents[1].id.clone();
 
     // Start agent workflow on Tab A
-    app.active_query_document = 0;
+    app.query_session_state.active_document_index = 0;
     let mut session_a = super::agent_workflow_state::AgentUiSession::for_document(&doc_a_id, None, None);
     let session_a_id = session_a.session.as_ref().unwrap().id;
     let run_a_id = db_pro_core::domain::agent::AgentRunId::new();
@@ -4968,7 +5031,7 @@ fn test_agent_multitab_isolation_and_close_tab_cancellation() {
     assert_eq!(app.agent_sessions.get(&doc_a_id).unwrap().activities.len(), 1);
 
     // Switch to Tab B
-    app.active_query_document = 1;
+    app.query_session_state.active_document_index = 1;
     let session_b = super::agent_workflow_state::AgentUiSession::for_document(&doc_b_id, None, None);
     app.agent_sessions.insert(doc_b_id.clone(), session_b);
 
@@ -5001,12 +5064,12 @@ fn test_agent_multitab_isolation_and_close_tab_cancellation() {
 #[test]
 fn test_agent_vietnamese_ime_input_and_patch_version_safety() {
     let mut app = DbProApp::default();
-    let doc_id = app.query_documents[0].id.clone();
-    let initial_version = app.query_documents[0].buffer.version();
+    let doc_id = app.query_session_state.documents[0].id.clone();
+    let initial_version = app.query_session_state.documents[0].buffer.version();
 
     // User types Vietnamese query with IME into editor
-    app.query_documents[0].set_text("SELECT * FROM người_dùng WHERE tên = 'Nguyễn Văn A'");
-    let typed_version = app.query_documents[0].buffer.version();
+    app.query_session_state.documents[0].set_text("SELECT * FROM người_dùng WHERE tên = 'Nguyễn Văn A'");
+    let typed_version = app.query_session_state.documents[0].buffer.version();
     assert!(typed_version > initial_version);
 
     // Setup Agent session with pending patch targeted at initial_version
@@ -5038,7 +5101,7 @@ fn test_agent_vietnamese_ime_input_and_patch_version_safety() {
     );
     // Text buffer unchanged and preserved
     assert_eq!(
-        app.query_documents[0].text(),
+        app.query_session_state.documents[0].text(),
         "SELECT * FROM người_dùng WHERE tên = 'Nguyễn Văn A'"
     );
 }
@@ -5047,12 +5110,12 @@ fn test_agent_vietnamese_ime_input_and_patch_version_safety() {
 fn test_agent_vietnamese_valid_patch_application_and_undo() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    let doc_id = app.query_documents[0].id.clone();
+    let doc_id = app.query_session_state.documents[0].id.clone();
 
     // Set Vietnamese Unicode query text
     let initial_text = "SELECT tên FROM người_dùng";
-    app.query_documents[0].set_text(initial_text);
-    let expected_version = app.query_documents[0].buffer.version();
+    app.query_session_state.documents[0].set_text(initial_text);
+    let expected_version = app.query_session_state.documents[0].buffer.version();
 
     // "SELECT " is 7 bytes; "tên" is 4 bytes (t: 1 byte, ê: 2 bytes, n: 1 byte) -> range (7, 11)
     let start_byte = 7;
@@ -5083,7 +5146,10 @@ fn test_agent_vietnamese_valid_patch_application_and_undo() {
     app.agent_confirmation_action(true);
 
     // Verify document text was updated cleanly without byte index slicing panic
-    assert_eq!(app.query_documents[0].text(), "SELECT ho_ten FROM người_dùng");
+    assert_eq!(
+        app.query_session_state.documents[0].text(),
+        "SELECT ho_ten FROM người_dùng"
+    );
 
     // Verify ContinueAgentRun command was dispatched with PatchApplied outcome
     match command_rx.try_recv() {
@@ -5108,14 +5174,14 @@ fn test_agent_vietnamese_valid_patch_application_and_undo() {
     }
 
     // Verify undo restores the exact original Vietnamese text
-    assert!(app.query_documents[0].buffer.undo().is_some());
-    assert_eq!(app.query_documents[0].text(), initial_text);
+    assert!(app.query_session_state.documents[0].buffer.undo().is_some());
+    assert_eq!(app.query_session_state.documents[0].text(), initial_text);
 }
 
 #[test]
 fn test_agent_event_routing_ignores_mismatched_session_and_document_and_run_ids() {
     let mut app = DbProApp::default();
-    let doc_id = app.query_documents[0].id.clone();
+    let doc_id = app.query_session_state.documents[0].id.clone();
     let real_run_id = db_pro_core::domain::agent::AgentRunId::new();
 
     let mut session = super::agent_workflow_state::AgentUiSession::for_document(&doc_id, None, None);
@@ -5168,7 +5234,7 @@ fn test_agent_event_routing_ignores_mismatched_session_and_document_and_run_ids(
 fn test_agent_db_cancellation_and_terminal_cleanup() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    let doc_id = app.query_documents[0].id.clone();
+    let doc_id = app.query_session_state.documents[0].id.clone();
     let run_id = db_pro_core::domain::agent::AgentRunId::new();
 
     let mut session = super::agent_workflow_state::AgentUiSession::for_document(
@@ -5234,7 +5300,7 @@ fn test_agent_db_cancellation_and_terminal_cleanup() {
 #[test]
 fn test_agent_retry_isolation_and_session_routing() {
     let mut app = DbProApp::default();
-    let doc_id = app.query_documents[0].id.clone();
+    let doc_id = app.query_session_state.documents[0].id.clone();
     let run_1 = db_pro_core::domain::agent::AgentRunId::new();
 
     let mut session = super::agent_workflow_state::AgentUiSession::for_document(&doc_id, None, None);
@@ -5784,7 +5850,7 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
 
     // Removing the destructive statement makes the same script dispatch immediately.
     app.set_active_query_text("SELECT 1;\nSELECT 2;");
-    app.query_documents[0].execution_state = QueryExecutionState::Idle;
+    app.query_session_state.documents[0].execution_state = QueryExecutionState::Idle;
     app.dispatch_query_all();
     assert!(app.pending_destructive_run.is_none());
     assert!(
@@ -5860,7 +5926,7 @@ fn dispatch_query_binds_named_parameters_for_postgres() {
     app.connection_lifecycle.active_connection_id = Some("conn-1".to_owned());
     app.connected = true;
     app.set_active_query_text("SELECT :id, :name".to_owned());
-    if let Some(doc) = app.query_documents.get_mut(0) {
+    if let Some(doc) = app.query_session_state.documents.get_mut(0) {
         doc.parameter_values.insert(":id".to_owned(), "7".to_owned());
         doc.parameter_values.insert(":name".to_owned(), "Ada".to_owned());
     }
@@ -5899,7 +5965,7 @@ fn workspace_folder_opens_sql_as_file_backed_document() {
         .iter()
         .any(|entry| entry.relative_path == "sql/demo.sql"));
     app.open_workspace_sql_file("sql/demo.sql".to_owned());
-    let doc = app.query_documents.last().expect("file doc");
+    let doc = app.query_session_state.documents.last().expect("file doc");
     assert_eq!(doc.text(), "SELECT 42;");
     assert!(doc.file_path.as_ref().is_some_and(|path| path.ends_with("demo.sql")));
     assert_eq!(doc.connection_id.as_deref(), Some("conn-1"));
@@ -6035,10 +6101,14 @@ fn scheduled_task_tick_dispatches_once_while_app_active() {
 #[test]
 fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
     let mut app = DbProApp::default();
-    app.query_documents.clear();
-    app.query_documents.push(QueryDocument::new("doc-a", "A", "SELECT 1"));
-    app.query_documents.push(QueryDocument::new("doc-b", "B", "SELECT 2"));
-    app.active_query_document = 1;
+    app.query_session_state.documents.clear();
+    app.query_session_state
+        .documents
+        .push(QueryDocument::new("doc-a", "A", "SELECT 1"));
+    app.query_session_state
+        .documents
+        .push(QueryDocument::new("doc-b", "B", "SELECT 2"));
+    app.query_session_state.active_document_index = 1;
     app.workspace.activity = Activity::Data;
     app.workspace.active_tab = WorkspaceTab::Query;
     app.connection_lifecycle.active_connection_id = Some("gone-conn".to_owned());
@@ -6050,13 +6120,13 @@ fn named_workspace_session_restores_layout_and_tolerates_missing_connection() {
 
     // Mutate live state, then restore.
     app.workspace.activity = Activity::Explorer;
-    app.active_query_document = 0;
+    app.query_session_state.active_document_index = 0;
     app.connection_lifecycle.active_connection_id = Some("other".to_owned());
     app.pinned_tables.clear();
     app.restore_named_workspace_session(&id);
 
     assert_eq!(app.workspace.activity, Activity::Data);
-    assert_eq!(app.active_query_document, 1);
+    assert_eq!(app.query_session_state.active_document_index, 1);
     assert_eq!(app.pinned_tables, vec!["public.orders".to_owned()]);
     assert!(
         app.connection_lifecycle.active_connection_id.is_none(),

@@ -317,7 +317,7 @@ impl DbProApp {
                 {
                     let sql = self.schema_workbench.preview_sql.clone();
                     self.new_query_document();
-                    if let Some(doc) = self.query_documents.last_mut() {
+                    if let Some(doc) = self.query_session_state.documents.last_mut() {
                         doc.set_text(sql);
                     }
                     self.workspace.active_tab = WorkspaceTab::Query;

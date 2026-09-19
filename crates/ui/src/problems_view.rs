@@ -4,7 +4,7 @@ use super::*;
 impl DbProApp {
     pub(crate) fn collect_problem_entries(&self) -> Vec<ProblemEntry> {
         let mut entries = Vec::new();
-        for (document_index, document) in self.query_documents.iter().enumerate() {
+        for (document_index, document) in self.query_session_state.documents.iter().enumerate() {
             for (diagnostic_index, diagnostic) in document.diagnostics.iter().enumerate() {
                 let cursor = crate::editor::CursorPosition::from_offset(&document.buffer, diagnostic.range.0);
                 entries.push(ProblemEntry {
@@ -61,16 +61,16 @@ impl DbProApp {
     }
 
     pub(crate) fn navigate_to_problem(&mut self, document_index: usize, diagnostic_index: usize) {
-        let Some(document) = self.query_documents.get(document_index) else {
+        let Some(document) = self.query_session_state.documents.get(document_index) else {
             return;
         };
         let Some(diagnostic) = document.diagnostics.get(diagnostic_index).cloned() else {
             return;
         };
-        if document_index != self.active_query_document {
-            self.active_query_document = document_index;
+        if document_index != self.query_session_state.active_document_index {
+            self.query_session_state.active_document_index = document_index;
         }
-        let doc = &mut self.query_documents[document_index];
+        let doc = &mut self.query_session_state.documents[document_index];
         let start = diagnostic.range.0.min(doc.buffer.len_bytes());
         let end = diagnostic.range.1.min(doc.buffer.len_bytes()).max(start);
         doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, start);
@@ -78,9 +78,9 @@ impl DbProApp {
         self.query_cursor_line = doc.cursor.line + 1;
         self.query_cursor_column = doc.cursor.col + 1;
         if start != end {
-            self.selected_query = doc.buffer.slice(start, end).to_owned();
+            self.query_session_state.selected_text = doc.buffer.slice(start, end).to_owned();
         } else {
-            self.selected_query.clear();
+            self.query_session_state.selected_text.clear();
         }
         self.workspace.activity = Activity::Problems;
         self.workspace.sidebar_open = true;
@@ -91,7 +91,7 @@ impl DbProApp {
 
     /// Apply a deterministic lint quick-fix as one undoable buffer replace (#257).
     pub(crate) fn apply_problem_fix(&mut self, document_index: usize, diagnostic_index: usize) -> bool {
-        let Some(document) = self.query_documents.get(document_index) else {
+        let Some(document) = self.query_session_state.documents.get(document_index) else {
             return false;
         };
         let Some(diagnostic) = document.diagnostics.get(diagnostic_index).cloned() else {
@@ -104,10 +104,10 @@ impl DbProApp {
         if start > end || end > document.buffer.len_bytes() {
             return false;
         }
-        if document_index != self.active_query_document {
-            self.active_query_document = document_index;
+        if document_index != self.query_session_state.active_document_index {
+            self.query_session_state.active_document_index = document_index;
         }
-        let doc = &mut self.query_documents[document_index];
+        let doc = &mut self.query_session_state.documents[document_index];
         doc.buffer.replace(start, end, &fix);
         let new_end = start + fix.len();
         doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, new_end);
@@ -146,7 +146,8 @@ impl DbProApp {
             .collect();
         summary.runtime.active_connections = usize::from(self.connection_lifecycle.active_connection_id.is_some());
         summary.runtime.active_executions = self
-            .query_documents
+            .query_session_state
+            .documents
             .iter()
             .filter(|doc| {
                 matches!(

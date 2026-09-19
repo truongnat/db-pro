@@ -5,13 +5,13 @@ use crate::RequestId;
 
 impl DbProApp {
     pub(super) fn on_query_completed(&mut self, request_id: RequestId, result: UiQueryResult) {
-        let target_doc_id = self.query_document_requests.remove(&request_id);
+        let target_doc_id = self.query_session_state.document_requests.remove(&request_id);
         // A new result set replaces the rows behind the grid, so nothing the projection cache holds
         // may survive it.
         self.invalidate_grid_projection();
         let mut history = None;
         if let Some(doc_id) = &target_doc_id {
-            if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
+            if let Some(doc) = self.query_session_state.documents.iter_mut().find(|d| &d.id == doc_id) {
                 let (started_at, duration_ms) = doc.take_execution_timing(result.duration_ms);
                 history = Some((
                     doc.executing_sql.clone().unwrap_or_else(|| doc.text().to_owned()),
@@ -58,8 +58,9 @@ impl DbProApp {
             });
         }
         let is_active_doc = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .is_some_and(|d| target_doc_id.as_ref() == Some(&d.id));
 
         if is_active_doc {
@@ -81,14 +82,19 @@ impl DbProApp {
     }
 
     pub(super) fn on_query_multi_completed(&mut self, request_id: RequestId, output: UiQueryExecutionOutput) {
-        let target_doc_id = self.query_document_requests.remove(&request_id);
+        let target_doc_id = self.query_session_state.document_requests.remove(&request_id);
         let Some(doc_id) = target_doc_id else {
             return;
         };
         // Same as the single-statement path: the result sets behind the grid are being replaced.
         self.invalidate_grid_projection();
         let mut history = None;
-        if let Some(doc) = self.query_documents.iter_mut().find(|doc| doc.id == doc_id) {
+        if let Some(doc) = self
+            .query_session_state
+            .documents
+            .iter_mut()
+            .find(|doc| doc.id == doc_id)
+        {
             let (started_at, duration_ms) = doc.take_execution_timing(output.total_duration_ms);
             history = Some((
                 doc.executing_sql.clone().unwrap_or_else(|| doc.text().to_owned()),
@@ -183,14 +189,16 @@ impl DbProApp {
             });
         }
         let is_active_doc = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .is_some_and(|document| document.id == doc_id);
         if is_active_doc {
             self.runtime_message = format!(
                 "Script completed · {} result{} · {} ms",
-                self.query_documents
-                    .get(self.active_query_document)
+                self.query_session_state
+                    .documents
+                    .get(self.query_session_state.active_document_index)
                     .map_or(0, |document| document.query_results.len()),
                 if self.active_query_result_count() == 1 { "" } else { "s" },
                 output.total_duration_ms,
@@ -206,18 +214,19 @@ impl DbProApp {
     }
 
     pub(super) fn on_query_saved(&mut self, request_id: RequestId, query: UiSavedQuerySummary) {
-        let document_id = self.query_save_requests.remove(&request_id);
+        let document_id = self.query_session_state.save_requests.remove(&request_id);
         let mut close_index = None;
         if let Some(document_id) = document_id {
             if let Some((index, doc)) = self
-                .query_documents
+                .query_session_state
+                .documents
                 .iter_mut()
                 .enumerate()
                 .find(|(_, doc)| doc.id == document_id)
             {
                 doc.saved_query_id = Some(query.id.clone());
                 doc.mark_saved();
-                if self.pending_close_after_save == Some(index) {
+                if self.query_session_state.pending_close_after_save == Some(index) {
                     close_index = Some(index);
                 }
             }
@@ -226,7 +235,7 @@ impl DbProApp {
         self.saved_queries.push(query);
         self.runtime_message = "Query saved".to_owned();
         if let Some(index) = close_index {
-            self.pending_close_after_save = None;
+            self.query_session_state.pending_close_after_save = None;
             self.close_query_document(index);
         }
     }
@@ -254,17 +263,18 @@ impl DbProApp {
 
     pub(super) fn on_explain_completed(&mut self, request_id: RequestId, plan: String) {
         let Some(doc_index) = self
-            .query_documents
+            .query_session_state
+            .documents
             .iter()
             .position(|doc| doc.explain_request == Some(request_id))
         else {
             return;
         };
-        let doc_id = self.query_documents[doc_index].id.clone();
+        let doc_id = self.query_session_state.documents[doc_index].id.clone();
         self.set_query_output_tab(&doc_id, OutputTab::Explain);
         self.workspace.bottom_panel_open = true;
         self.query_output_dock_maximized = false;
-        if let Some(doc) = self.query_documents.get_mut(doc_index) {
+        if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
             doc.explain_request = None;
             doc.explain_plan = Some(plan);
             self.runtime_message = "Query plan ready".to_owned();
@@ -273,10 +283,10 @@ impl DbProApp {
     }
 
     pub(super) fn on_query_cancelled(&mut self, request_id: RequestId) {
-        let target_doc_id = self.query_document_requests.remove(&request_id);
+        let target_doc_id = self.query_session_state.document_requests.remove(&request_id);
         let mut history = None;
         if let Some(doc_id) = &target_doc_id {
-            if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
+            if let Some(doc) = self.query_session_state.documents.iter_mut().find(|d| &d.id == doc_id) {
                 let (started_at, duration_ms) = doc.take_execution_timing(0);
                 history = Some((
                     doc.executing_sql.clone().unwrap_or_else(|| doc.text().to_owned()),
@@ -308,8 +318,9 @@ impl DbProApp {
             });
         }
         if target_doc_id.as_ref().is_some_and(|doc_id| {
-            self.query_documents
-                .get(self.active_query_document)
+            self.query_session_state
+                .documents
+                .get(self.query_session_state.active_document_index)
                 .is_some_and(|doc| &doc.id == doc_id)
         }) {
             self.runtime_message = "Query cancelled".to_owned();
@@ -325,7 +336,12 @@ impl DbProApp {
         replacement_range: (usize, usize),
         prediction_text: String,
     ) {
-        let Some(doc) = self.query_documents.iter_mut().find(|doc| doc.id == document_id) else {
+        let Some(doc) = self
+            .query_session_state
+            .documents
+            .iter_mut()
+            .find(|doc| doc.id == document_id)
+        else {
             return;
         };
         if doc.pending_prediction_request != Some(request_id) {
@@ -373,7 +389,8 @@ impl DbProApp {
         _message: String,
     ) {
         if let Some(doc) = self
-            .query_documents
+            .query_session_state
+            .documents
             .iter_mut()
             .find(|doc| doc.id == document_id && doc.pending_prediction_request == Some(request_id))
         {
@@ -465,20 +482,21 @@ impl DbProApp {
             let formatted = format!("DDL execution failed · {message}");
             self.runtime_message = formatted.clone();
             self.show_toast_error(formatted);
-        } else if let Some(document_id) = self.query_save_requests.remove(&request_id) {
-            if self.pending_close_after_save.is_some_and(|index| {
-                self.query_documents
+        } else if let Some(document_id) = self.query_session_state.save_requests.remove(&request_id) {
+            if self.query_session_state.pending_close_after_save.is_some_and(|index| {
+                self.query_session_state
+                    .documents
                     .get(index)
                     .is_some_and(|document| document.id == document_id)
             }) {
-                self.pending_close_after_save = None;
+                self.query_session_state.pending_close_after_save = None;
             }
             self.runtime_message = format!("Save failed · {message}");
-        } else if self.query_document_requests.contains_key(&request_id) {
-            let target_doc_id = self.query_document_requests.remove(&request_id);
+        } else if self.query_session_state.document_requests.contains_key(&request_id) {
+            let target_doc_id = self.query_session_state.document_requests.remove(&request_id);
             let mut history = None;
             if let Some(doc_id) = &target_doc_id {
-                if let Some(doc) = self.query_documents.iter_mut().find(|d| &d.id == doc_id) {
+                if let Some(doc) = self.query_session_state.documents.iter_mut().find(|d| &d.id == doc_id) {
                     let execution_range = doc.executing_range.take();
                     let execution_sql = doc.executing_sql.take();
                     let execution_version = doc.executing_version.take();
@@ -524,8 +542,9 @@ impl DbProApp {
                 });
             }
             let is_active_doc = self
-                .query_documents
-                .get(self.active_query_document)
+                .query_session_state
+                .documents
+                .get(self.query_session_state.active_document_index)
                 .is_some_and(|d| target_doc_id.as_ref() == Some(&d.id));
 
             if is_active_doc {
@@ -537,17 +556,18 @@ impl DbProApp {
                 }
             }
         } else if let Some(doc_index) = self
-            .query_documents
+            .query_session_state
+            .documents
             .iter()
             .position(|doc| doc.explain_request == Some(request_id))
         {
-            let doc_id = self.query_documents[doc_index].id.clone();
+            let doc_id = self.query_session_state.documents[doc_index].id.clone();
             self.set_query_output_tab(&doc_id, OutputTab::Messages);
             self.workspace.bottom_panel_open = true;
             self.query_output_dock_maximized = false;
             let message = format!("Explain failed · {message}");
             self.runtime_message = message;
-            if let Some(doc) = self.query_documents.get_mut(doc_index) {
+            if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
                 doc.explain_request = None;
                 doc.explain_plan = None;
                 doc.query_messages.push(self.runtime_message.clone());

@@ -51,8 +51,9 @@ impl DbProApp {
 
     fn draw_agent_header(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         let typed_session_busy = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .and_then(|document| self.agent_sessions.get(&document.id))
             .is_some_and(|session| {
                 session.active_run_id.is_some()
@@ -63,8 +64,9 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
             if let Some(document_id) = self
-                .query_documents
-                .get(self.active_query_document)
+                .query_session_state
+                .documents
+                .get(self.query_session_state.active_document_index)
                 .map(|document| document.id.clone())
             {
                 let session = self.agent_sessions.entry(document_id).or_default();
@@ -91,8 +93,9 @@ impl DbProApp {
             }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let typed_has_messages = self
-                    .query_documents
-                    .get(self.active_query_document)
+                    .query_session_state
+                    .documents
+                    .get(self.query_session_state.active_document_index)
                     .and_then(|document| self.agent_sessions.get(&document.id))
                     .is_some_and(|session| !session.messages.is_empty());
                 if can_clear_conversation
@@ -106,7 +109,11 @@ impl DbProApp {
                         .clicked()
                 {
                     self.agent_messages.clear();
-                    if let Some(document) = self.query_documents.get(self.active_query_document) {
+                    if let Some(document) = self
+                        .query_session_state
+                        .documents
+                        .get(self.query_session_state.active_document_index)
+                    {
                         if let Some(session) = self.agent_sessions.get_mut(&document.id) {
                             session.messages.clear();
                             session.activities.clear();
@@ -382,20 +389,23 @@ impl DbProApp {
 
     fn draw_typed_agent_thread(&mut self, ui: &mut egui::Ui) -> bool {
         let Some(document_id) = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|document| document.id.clone())
         else {
             return false;
         };
         let connection_id = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .and_then(|d| d.connection_id.clone())
             .or_else(|| self.connection_lifecycle.active_connection_id.clone());
         let schema = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .and_then(|d| d.schema.clone())
             .or_else(|| Some(self.active_schema().to_owned()));
         let session = self.agent_sessions.entry(document_id.clone()).or_insert_with(|| {
@@ -694,8 +704,9 @@ impl DbProApp {
 
     fn draw_agent_composer(&mut self, ui: &mut egui::Ui, submit: &mut bool) {
         let active_mode = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .and_then(|document| self.agent_sessions.get(&document.id))
             .map(|session| session.mode);
         let composer_mode = match active_mode {
@@ -705,8 +716,9 @@ impl DbProApp {
             None => AgentMode::Code,
         };
         let is_generating = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .and_then(|document| self.agent_sessions.get(&document.id))
             .is_some_and(|session| session.active_run_id.is_some() || session.request_id.is_some());
         let action = AgentComposer::new(

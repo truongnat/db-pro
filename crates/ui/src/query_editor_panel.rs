@@ -502,7 +502,7 @@ impl DbProApp {
         // Editor owns the allocated region from draw_query — no permanent output reserve.
         let editor_height = ui.available_height().max(120.0);
 
-        if self.active_query_document >= self.query_documents.len() {
+        if self.query_session_state.active_document_index >= self.query_session_state.documents.len() {
             return;
         }
 
@@ -525,8 +525,8 @@ impl DbProApp {
 
         let available_size = egui::vec2(editor_width.max(280.0), editor_height);
 
-        let doc_index = self.active_query_document;
-        let doc = &mut self.query_documents[doc_index];
+        let doc_index = self.query_session_state.active_document_index;
+        let doc = &mut self.query_session_state.documents[doc_index];
 
         let search_query = self.editor_search.clone();
         let is_completion_open = doc.completion.is_open;
@@ -615,17 +615,17 @@ impl DbProApp {
             doc.execution_diagnostic = None;
             if !doc.selection.is_empty() {
                 let (start, end) = doc.selection.normalized();
-                self.selected_query = doc.buffer.slice(start, end).to_owned();
+                self.query_session_state.selected_text = doc.buffer.slice(start, end).to_owned();
             } else {
-                self.selected_query.clear();
+                self.query_session_state.selected_text.clear();
             }
         }
         if response.wants_format {
             if !doc.selection.is_empty() {
                 let (start, end) = doc.selection.normalized();
-                self.selected_query = doc.buffer.slice(start, end).to_owned();
+                self.query_session_state.selected_text = doc.buffer.slice(start, end).to_owned();
             } else {
-                self.selected_query.clear();
+                self.query_session_state.selected_text.clear();
             }
         }
 
@@ -802,7 +802,11 @@ impl DbProApp {
         };
         let theme = self.theme;
 
-        let Some(doc) = self.query_documents.get_mut(self.active_query_document) else {
+        let Some(doc) = self
+            .query_session_state
+            .documents
+            .get_mut(self.query_session_state.active_document_index)
+        else {
             return;
         };
 

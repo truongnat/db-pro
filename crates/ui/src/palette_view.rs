@@ -723,7 +723,11 @@ impl DbProApp {
             return;
         };
         self.new_query_document();
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+        if let Some(doc) = self
+            .query_session_state
+            .documents
+            .get_mut(self.query_session_state.active_document_index)
+        {
             doc.set_text(query.sql.clone());
             doc.title = query.name.clone();
             doc.saved_query_id = Some(query.id.clone());

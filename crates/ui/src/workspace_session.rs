@@ -172,10 +172,16 @@ impl DbProApp {
         session.active_tab = tab_label(self.workspace.active_tab).to_owned();
         session.active_connection_id = self.connection_lifecycle.active_connection_id.clone();
         session.selected_schema = self.selected_schema.clone();
-        session.open_document_ids = self.query_documents.iter().map(|d| d.id.clone()).collect();
+        session.open_document_ids = self
+            .query_session_state
+            .documents
+            .iter()
+            .map(|d| d.id.clone())
+            .collect();
         session.active_document_id = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|d| d.id.clone());
         session.pinned_tables = self.pinned_tables.clone();
         session.sidebar_open = self.workspace.sidebar_open;
@@ -216,25 +222,30 @@ impl DbProApp {
         if !session.open_document_ids.is_empty() {
             let mut reordered = Vec::new();
             for id in &session.open_document_ids {
-                if let Some(doc) = self.query_documents.iter().find(|d| d.id == *id).cloned() {
+                if let Some(doc) = self.query_session_state.documents.iter().find(|d| d.id == *id).cloned() {
                     reordered.push(doc);
                 } else {
                     notes.push(format!("Query tab `{id}` was not found in persisted documents"));
                 }
             }
-            for doc in &self.query_documents {
+            for doc in &self.query_session_state.documents {
                 if !reordered.iter().any(|d| d.id == doc.id) {
                     reordered.push(doc.clone());
                 }
             }
             if !reordered.is_empty() {
-                self.query_documents = reordered;
+                self.query_session_state.documents = reordered;
             }
         }
 
         if let Some(active_id) = &session.active_document_id {
-            if let Some(idx) = self.query_documents.iter().position(|d| d.id == *active_id) {
-                self.active_query_document = idx;
+            if let Some(idx) = self
+                .query_session_state
+                .documents
+                .iter()
+                .position(|d| d.id == *active_id)
+            {
+                self.query_session_state.active_document_index = idx;
             } else {
                 notes.push(format!("Active document `{active_id}` missing — kept current tab"));
             }

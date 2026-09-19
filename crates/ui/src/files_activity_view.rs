@@ -246,7 +246,11 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                if let Some(doc) = self.query_documents.get(self.active_query_document) {
+                if let Some(doc) = self
+                    .query_session_state
+                    .documents
+                    .get(self.query_session_state.active_document_index)
+                {
                     if let Some(path) = doc.file_path.clone() {
                         self.add_workspace_context_item(path);
                     } else {
@@ -262,7 +266,7 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                let selected = self.selected_query.clone();
+                let selected = self.query_session_state.selected_text.clone();
                 if !selected.trim().is_empty() {
                     self.add_workspace_context_item(format!(
                         "selection:{}",
@@ -345,8 +349,9 @@ impl DbProApp {
         ui.add_space(6.0);
         // Breadcrumb for active file-backed document (#266).
         if let Some(path) = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .and_then(|doc| doc.file_path.clone())
         {
             ui.label(RichText::new(path).small().monospace().color(self.theme.text_muted));
@@ -794,8 +799,9 @@ impl DbProApp {
                     Icon::FileText
                 };
                 let selected = self
-                    .query_documents
-                    .get(self.active_query_document)
+                    .query_session_state
+                    .documents
+                    .get(self.query_session_state.active_document_index)
                     .and_then(|doc| doc.file_path.as_ref())
                     .is_some_and(|path| path == &node.absolute_path.to_string_lossy());
                 let response =

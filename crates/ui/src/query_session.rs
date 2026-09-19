@@ -3,22 +3,31 @@ use super::*;
 
 impl DbProApp {
     pub(crate) fn active_query_text(&self) -> &str {
-        self.query_documents
-            .get(self.active_query_document)
+        self.query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|doc| doc.text())
             .unwrap_or("")
     }
 
     pub(crate) fn set_active_query_text(&mut self, text: impl Into<String>) {
-        self.cancel_prediction_for_document(self.active_query_document);
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+        self.cancel_prediction_for_document(self.query_session_state.active_document_index);
+        if let Some(doc) = self
+            .query_session_state
+            .documents
+            .get_mut(self.query_session_state.active_document_index)
+        {
             doc.set_text(text);
         }
     }
 
     pub(crate) fn append_to_active_query(&mut self, text: &str) {
-        self.cancel_prediction_for_document(self.active_query_document);
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+        self.cancel_prediction_for_document(self.query_session_state.active_document_index);
+        if let Some(doc) = self
+            .query_session_state
+            .documents
+            .get_mut(self.query_session_state.active_document_index)
+        {
             let mut current = doc.text().to_owned();
             if !current.trim().is_empty() {
                 current.push_str("\n\n");
@@ -29,20 +38,23 @@ impl DbProApp {
     }
 
     pub(crate) fn active_explain_plan(&self) -> Option<&str> {
-        self.query_documents
-            .get(self.active_query_document)
+        self.query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .and_then(|d| d.explain_plan.as_deref())
     }
 
     pub(crate) fn active_explain_request(&self) -> Option<crate::RequestId> {
-        self.query_documents
-            .get(self.active_query_document)
+        self.query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .and_then(|d| d.explain_request)
     }
 
     pub(crate) fn active_query_output_tab(&self) -> OutputTab {
-        self.query_documents
-            .get(self.active_query_document)
+        self.query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .and_then(|doc| self.query_output_tabs.get(&doc.id).copied())
             .unwrap_or(OutputTab::Results)
     }
@@ -50,8 +62,9 @@ impl DbProApp {
     pub(crate) fn set_active_query_output_tab(&mut self, tab: OutputTab) {
         self.output_tab = tab;
         if let Some(doc_id) = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|doc| doc.id.clone())
         {
             self.query_output_tabs.insert(doc_id, tab);
@@ -61,8 +74,9 @@ impl DbProApp {
     pub(crate) fn set_query_output_tab(&mut self, document_id: &str, tab: OutputTab) {
         self.query_output_tabs.insert(document_id.to_owned(), tab);
         if self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .is_some_and(|doc| doc.id == document_id)
         {
             self.output_tab = tab;
@@ -70,8 +84,9 @@ impl DbProApp {
     }
 
     pub(crate) fn active_query_running_request(&self) -> Option<crate::RequestId> {
-        self.query_documents
-            .get(self.active_query_document)
+        self.query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .and_then(|doc| match doc.execution_state {
                 QueryExecutionState::Running(request_id) => Some(request_id),
                 _ => None,
@@ -79,20 +94,21 @@ impl DbProApp {
     }
 
     pub(crate) fn switch_query_document(&mut self, index: usize) {
-        if index >= self.query_documents.len() || index == self.active_query_document {
+        if index >= self.query_session_state.documents.len() || index == self.query_session_state.active_document_index
+        {
             return;
         }
-        self.active_query_document = index;
-        let doc = &self.query_documents[index];
+        self.query_session_state.active_document_index = index;
+        let doc = &self.query_session_state.documents[index];
         self.query_cursor_line = doc.cursor.line + 1;
         self.query_cursor_column = doc.cursor.col + 1;
         if !doc.selection.is_empty() {
             let (start, end) = doc.selection.normalized();
-            self.selected_query = doc.buffer.slice(start, end).to_owned();
+            self.query_session_state.selected_text = doc.buffer.slice(start, end).to_owned();
         } else {
-            self.selected_query.clear();
+            self.query_session_state.selected_text.clear();
         }
-        self.runtime_message = format!("Opened {}", self.query_documents[index].title);
+        self.runtime_message = format!("Opened {}", self.query_session_state.documents[index].title);
     }
 
     // Problems / diagnostics: `problems_view.rs`.
@@ -221,23 +237,33 @@ impl DbProApp {
     }
 
     pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {
-        self.query_documents.get(self.active_query_document).and_then(|doc| {
-            doc.query_results
-                .get(doc.active_result_index)
-                .or(doc.query_result.as_ref())
-        })
+        self.query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
+            .and_then(|doc| {
+                doc.query_results
+                    .get(doc.active_result_index)
+                    .or(doc.query_result.as_ref())
+            })
     }
 
     pub(crate) fn active_query_result_count(&self) -> usize {
-        self.query_documents.get(self.active_query_document).map_or(0, |doc| {
-            doc.query_results
-                .len()
-                .max(if doc.query_result.is_some() { 1 } else { 0 })
-        })
+        self.query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
+            .map_or(0, |doc| {
+                doc.query_results
+                    .len()
+                    .max(if doc.query_result.is_some() { 1 } else { 0 })
+            })
     }
 
     pub(crate) fn set_active_query_result(&mut self, index: usize) {
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+        if let Some(doc) = self
+            .query_session_state
+            .documents
+            .get_mut(self.query_session_state.active_document_index)
+        {
             if index < doc.query_results.len() && doc.active_result_index != index {
                 doc.active_result_index = index;
                 self.invalidate_grid_projection();
@@ -277,15 +303,17 @@ impl DbProApp {
     }
 
     pub(crate) fn active_query_messages(&self) -> &[String] {
-        self.query_documents
-            .get(self.active_query_document)
+        self.query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|doc| doc.query_messages.as_slice())
             .unwrap_or(&[])
     }
 
     pub(crate) fn active_query_connection_id(&self) -> Option<&str> {
-        self.query_documents
-            .get(self.active_query_document)
+        self.query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .and_then(|doc| doc.connection_id.as_deref())
             .or(self.connection_lifecycle.active_connection_id.as_deref())
     }
@@ -324,15 +352,16 @@ impl DbProApp {
     }
 
     pub(crate) fn active_query_schema(&self) -> &str {
-        self.query_documents
-            .get(self.active_query_document)
+        self.query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .and_then(|doc| doc.schema.as_deref())
             .unwrap_or_else(|| self.active_schema())
     }
 
     pub(crate) fn set_document_connection(&mut self, doc_index: usize, connection_id: Option<String>) {
         self.cancel_prediction_for_document(doc_index);
-        if let Some(doc) = self.query_documents.get_mut(doc_index) {
+        if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
             doc.connection_id = connection_id;
             doc.completion.clear();
         }
@@ -340,7 +369,7 @@ impl DbProApp {
 
     pub(crate) fn set_document_schema(&mut self, doc_index: usize, schema: Option<String>) {
         self.cancel_prediction_for_document(doc_index);
-        if let Some(doc) = self.query_documents.get_mut(doc_index) {
+        if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
             doc.schema = schema;
             doc.completion.clear();
         }
@@ -348,13 +377,14 @@ impl DbProApp {
 
     pub(crate) fn cancel_prediction_for_document(&mut self, doc_index: usize) {
         let request_id = self
-            .query_documents
+            .query_session_state
+            .documents
             .get(doc_index)
             .and_then(|doc| doc.pending_prediction_request);
         if let Some(request_id) = request_id {
             self.dispatch_command(UiCommand::CancelSqlPrediction { request_id });
         }
-        if let Some(doc) = self.query_documents.get_mut(doc_index) {
+        if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
             if request_id.is_some() {
                 doc.prediction_requests_cancelled = doc.prediction_requests_cancelled.saturating_add(1);
             }

@@ -116,6 +116,8 @@ mod query_editor_panel;
 mod query_output_view;
 #[path = "query_session.rs"]
 mod query_session;
+#[path = "query_state.rs"]
+mod query_state;
 #[path = "query_view.rs"]
 mod query_view;
 #[path = "result_grid_cell.rs"]
@@ -144,6 +146,7 @@ mod workspace_actions;
 mod workspace_session;
 #[path = "workspace_shell.rs"]
 mod workspace_shell;
+pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
 #[path = "schema_compare.rs"]
 mod schema_compare;
@@ -184,9 +187,7 @@ pub struct DbProApp {
     workspace: WorkspaceShellState,
     pub prediction_mode: PredictionMode,
     welcome_prompt: String,
-    selected_query: String,
-    query_documents: Vec<QueryDocument>,
-    active_query_document: usize,
+    query_session_state: QuerySessionState,
     editor_search: String,
     editor_search_open: bool,
     query_editor_focused: bool,
@@ -263,12 +264,6 @@ pub struct DbProApp {
     agent_api_key_show_password: bool,
     agent_configure_request: Option<crate::RequestId>,
     task_bridge: TaskBridge,
-    pub(crate) query_document_requests: HashMap<crate::RequestId, String>,
-    query_save_requests: HashMap<crate::RequestId, String>,
-    pending_dirty_close: Option<usize>,
-    pending_close_after_save: Option<usize>,
-    save_as_name: String,
-    save_as_open: bool,
     runtime_message: String,
     toasts: crate::components::overlay::ToastManager,
     output_tab: OutputTab,
@@ -587,7 +582,7 @@ impl eframe::App for DbProApp {
             "dbpro.native.grid-widths-customized",
             self.grid_columns_user_resized.to_string(),
         );
-        if let Ok(documents) = serde_json::to_string(&self.query_documents) {
+        if let Ok(documents) = serde_json::to_string(&self.query_session_state.documents) {
             storage.set_string("dbpro.native.query-documents", documents);
         }
         if let Ok(history) = serde_json::to_string(&self.query_history_entries) {
@@ -852,10 +847,15 @@ impl DbProApp {
             || self.connection_lifecycle.pending_request.is_some()
             || self.schema_request.is_some()
             || self
-                .query_documents
+                .query_session_state
+                .documents
                 .iter()
                 .any(|d| d.pending_prediction_request.is_some() || d.prediction_debounce_deadline.is_some())
-            || self.query_documents.iter().any(|d| d.explain_request.is_some())
+            || self
+                .query_session_state
+                .documents
+                .iter()
+                .any(|d| d.explain_request.is_some())
             || self
                 .agent_sessions
                 .values()

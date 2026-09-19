@@ -46,8 +46,9 @@ impl DbProApp {
                     ui.add_space(2.0);
 
                     // 1. History Navigation (Back / Forward)
-                    let can_go_back = self.active_query_document > 0;
-                    let can_go_forward = self.active_query_document + 1 < self.query_documents.len();
+                    let can_go_back = self.query_session_state.active_document_index > 0;
+                    let can_go_forward =
+                        self.query_session_state.active_document_index + 1 < self.query_session_state.documents.len();
                     if Button::new(self.theme)
                         .icon(Icon::ArrowLeft)
                         .variant(ButtonVariant::Ghost)
@@ -56,9 +57,9 @@ impl DbProApp {
                         .tooltip("Previous Document")
                         .show(ui)
                         .clicked()
-                        && self.active_query_document > 0
+                        && self.query_session_state.active_document_index > 0
                     {
-                        self.switch_query_document(self.active_query_document - 1);
+                        self.switch_query_document(self.query_session_state.active_document_index - 1);
                     }
                     if Button::new(self.theme)
                         .icon(Icon::ArrowRight)
@@ -68,9 +69,9 @@ impl DbProApp {
                         .tooltip("Next Document")
                         .show(ui)
                         .clicked()
-                        && self.active_query_document + 1 < self.query_documents.len()
+                        && self.query_session_state.active_document_index + 1 < self.query_session_state.documents.len()
                     {
-                        self.switch_query_document(self.active_query_document + 1);
+                        self.switch_query_document(self.query_session_state.active_document_index + 1);
                     }
 
                     ui.add_space(SPACE_SM);

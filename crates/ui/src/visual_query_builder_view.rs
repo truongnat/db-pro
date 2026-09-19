@@ -381,8 +381,9 @@ impl DbProApp {
 
     fn import_visual_builder_from_editor(&mut self) {
         let sql = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|d| d.buffer.text().to_owned())
             .unwrap_or_default();
         match try_import_select(&sql, self.visual_builder_dialect()) {

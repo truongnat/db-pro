@@ -22,10 +22,10 @@ impl DbProApp {
             .as_ref()
             .map(|info| info.columns.iter().map(|column| column.name.clone()).collect())
             .unwrap_or_default();
-        let current_sql = if self.selected_query.trim().is_empty() {
+        let current_sql = if self.query_session_state.selected_text.trim().is_empty() {
             self.active_query_text().to_owned()
         } else {
-            self.selected_query.clone()
+            self.query_session_state.selected_text.clone()
         };
         let result_summary = self
             .active_query_result()
@@ -62,7 +62,11 @@ impl DbProApp {
     }
 
     fn submit_typed_agent_prompt(&mut self, prompt: String) {
-        let Some(document) = self.query_documents.get(self.active_query_document) else {
+        let Some(document) = self
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
+        else {
             self.runtime_message = "No query document is available for Agent".to_owned();
             return;
         };
@@ -281,8 +285,9 @@ impl DbProApp {
 
     pub(super) fn agent_confirmation_action(&mut self, approved: bool) {
         let Some(document_id) = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|document| document.id.clone())
         else {
             return;
@@ -295,12 +300,14 @@ impl DbProApp {
             return;
         };
         let target_doc_index = self
-            .query_documents
+            .query_session_state
+            .documents
             .iter()
             .position(|doc| doc.id == pending.document_id)
-            .unwrap_or(self.active_query_document);
+            .unwrap_or(self.query_session_state.active_document_index);
         let current_document = self
-            .query_documents
+            .query_session_state
+            .documents
             .get(target_doc_index)
             .map(|document| self.agent_document_snapshot(document));
         let mut applied_patch = None;
@@ -309,7 +316,7 @@ impl DbProApp {
                 self.runtime_message = "Agent patch preview is unavailable".to_owned();
                 return;
             };
-            let Some(document) = self.query_documents.get_mut(target_doc_index) else {
+            let Some(document) = self.query_session_state.documents.get_mut(target_doc_index) else {
                 return;
             };
             if document.id != patch.document_id || document.buffer.version() != patch.expected_version {
@@ -375,7 +382,11 @@ impl DbProApp {
     }
 
     pub(super) fn open_agent_result_in_workspace(&mut self, call_id: &str) {
-        let Some(document) = self.query_documents.get_mut(self.active_query_document) else {
+        let Some(document) = self
+            .query_session_state
+            .documents
+            .get_mut(self.query_session_state.active_document_index)
+        else {
             return;
         };
         let document_id = document.id.clone();
@@ -428,8 +439,9 @@ impl DbProApp {
 
     pub(super) fn retry_agent_run(&mut self) {
         let Some(document_id) = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|document| document.id.clone())
         else {
             return;
@@ -449,8 +461,9 @@ impl DbProApp {
 
     pub(super) fn cancel_active_agent_run(&mut self) {
         let Some(document_id) = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|document| document.id.clone())
         else {
             return;

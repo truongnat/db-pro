@@ -17,7 +17,7 @@ impl DbProApp {
             return;
         }
         if ctx.input(|input| self.shortcut_pressed(input, "query.save")) {
-            self.save_query_document_at(self.active_query_document);
+            self.save_query_document_at(self.query_session_state.active_document_index);
             return;
         }
         let text_input_has_focus = ctx.wants_keyboard_input();
@@ -96,8 +96,9 @@ impl DbProApp {
             return;
         };
         let (sql, execution_range) = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|doc| doc.resolve_executable_range())
             .unwrap_or_else(|| {
                 (
@@ -129,8 +130,9 @@ impl DbProApp {
             return;
         };
         let (sql, execution_range) = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|doc| {
                 let text = doc.text().trim().to_owned();
                 let leading = doc.text().len().saturating_sub(doc.text().trim_start().len());
@@ -156,8 +158,9 @@ impl DbProApp {
     /// Buffer version of the active query document, so an execution stays bound to the
     /// text it was started from.
     pub(crate) fn active_query_buffer_version(&self) -> u64 {
-        self.query_documents
-            .get(self.active_query_document)
+        self.query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|doc| doc.buffer.version())
             .unwrap_or(0)
     }
@@ -246,8 +249,9 @@ impl DbProApp {
             crate::query::PlaceholderStyle::QuestionMark
         };
         let values = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|doc| doc.parameter_values.clone())
             .unwrap_or_default();
         let (sql, params) = if discovered.is_empty() {
@@ -269,7 +273,11 @@ impl DbProApp {
             }
         }
         let request_id = self.task_bridge.next_request_id();
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+        if let Some(doc) = self
+            .query_session_state
+            .documents
+            .get_mut(self.query_session_state.active_document_index)
+        {
             doc.execution_state = QueryExecutionState::Running(request_id);
             doc.execution_started_at = Some(Instant::now());
             doc.execution_started_wall_time = Some(chrono::Utc::now().to_rfc3339());
@@ -278,7 +286,9 @@ impl DbProApp {
             doc.executing_version = Some(version);
             doc.last_executed_range = Some(execution_range);
             doc.execution_diagnostic = None;
-            self.query_document_requests.insert(request_id, doc.id.clone());
+            self.query_session_state
+                .document_requests
+                .insert(request_id, doc.id.clone());
         }
         self.runtime_message = if all_statements {
             "Sending full script to runtime…".to_owned()

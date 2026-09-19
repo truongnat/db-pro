@@ -146,9 +146,10 @@ impl DbProApp {
     /// Returns anchors for the context picker and overflow menu.
     fn draw_query_context_strip(&mut self, ui: &mut egui::Ui) -> QueryChromeAnchors {
         let mut anchors = QueryChromeAnchors::default();
-        let doc_idx = self.active_query_document;
+        let doc_idx = self.query_session_state.active_document_index;
         let file_path = self
-            .query_documents
+            .query_session_state
+            .documents
             .get(doc_idx)
             .and_then(|document| document.file_path.clone());
 
@@ -272,9 +273,10 @@ impl DbProApp {
     }
 
     fn draw_query_context_picker(&mut self, ctx: &egui::Context, anchor: egui::Rect) {
-        let doc_idx = self.active_query_document;
+        let doc_idx = self.query_session_state.active_document_index;
         let current_conn_id = self
-            .query_documents
+            .query_session_state
+            .documents
             .get(doc_idx)
             .and_then(|d| d.connection_id.clone())
             .or_else(|| self.connection_lifecycle.active_connection_id.clone());
@@ -402,7 +404,10 @@ impl DbProApp {
         let connected = self.active_query_connection_id().is_some() && self.connected;
         let driver = self.active_query_driver().to_owned();
         let schema = self.active_query_schema().to_owned();
-        let param_key = (self.active_query_document, self.active_query_buffer_version());
+        let param_key = (
+            self.query_session_state.active_document_index,
+            self.active_query_buffer_version(),
+        );
         if self.param_count_cache_key != Some(param_key) {
             self.param_count_cache_key = Some(param_key);
             self.param_count_cache = crate::query::discover_sql_parameters(self.active_query_text()).len();
@@ -504,8 +509,9 @@ impl DbProApp {
                         if resp.clicked() {
                             self.workspace.bottom_panel_open = true;
                             if let Some(doc_id) = self
-                                .query_documents
-                                .get(self.active_query_document)
+                                .query_session_state
+                                .documents
+                                .get(self.query_session_state.active_document_index)
                                 .map(|d| d.id.clone())
                             {
                                 self.set_query_output_tab(&doc_id, OutputTab::Messages);
@@ -518,13 +524,14 @@ impl DbProApp {
     }
 
     fn draw_query_run_stop_button(&mut self, ui: &mut egui::Ui, connected: bool, modifier: &str) {
-        let active_doc_running =
-            self.query_documents
-                .get(self.active_query_document)
-                .and_then(|doc| match doc.execution_state {
-                    QueryExecutionState::Running(req) => Some(req),
-                    _ => None,
-                });
+        let active_doc_running = self
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
+            .and_then(|doc| match doc.execution_state {
+                QueryExecutionState::Running(req) => Some(req),
+                _ => None,
+            });
         let running = active_doc_running.is_some();
         let cancel_supported = self.query_capabilities().allows(|c| c.query.cancel);
         let cancel_reason = self
@@ -626,7 +633,11 @@ impl DbProApp {
                 }
                 .show(ui, |ui| {
                     ui.set_width(width);
-                    if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+                    if let Some(doc) = self
+                        .query_session_state
+                        .documents
+                        .get_mut(self.query_session_state.active_document_index)
+                    {
                         ui.horizontal(|ui| {
                             let prev_search = self.editor_search.clone();
                             input(ui, &mut self.editor_search, "Search…", 160.0, self.theme);
@@ -706,7 +717,11 @@ impl DbProApp {
         if close_search {
             self.editor_search_open = false;
             self.editor_search.clear();
-            if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            if let Some(doc) = self
+                .query_session_state
+                .documents
+                .get_mut(self.query_session_state.active_document_index)
+            {
                 doc.search.query.clear();
                 doc.search.matches.clear();
                 doc.search.active_match_index = 0;
@@ -721,7 +736,11 @@ impl DbProApp {
         let mut goto_range = None;
         let mut close_search = false;
 
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+        if let Some(doc) = self
+            .query_session_state
+            .documents
+            .get_mut(self.query_session_state.active_document_index)
+        {
             ui.horizontal(|ui| {
                 let prev_search = self.editor_search.clone();
                 input(ui, &mut self.editor_search, "Find in SQL…", 240.0, self.theme);
@@ -905,7 +924,7 @@ impl DbProApp {
             return;
         }
         let supports_parameters = self.query_capabilities().allows(|caps| caps.query.parameters);
-        let doc_index = self.active_query_document;
+        let doc_index = self.query_session_state.active_document_index;
         ui.add_space(SPACE_XS);
         ui.horizontal(|ui| {
             ui.colored_label(self.theme.accent, format!("Parameters · {}", params.len()));
@@ -919,12 +938,14 @@ impl DbProApp {
         });
         for param in params {
             let mut value = self
-                .query_documents
+                .query_session_state
+                .documents
                 .get(doc_index)
                 .and_then(|doc| doc.parameter_values.get(&param.name).cloned())
                 .unwrap_or_default();
             let mut is_secret = self
-                .query_documents
+                .query_session_state
+                .documents
                 .get(doc_index)
                 .is_some_and(|doc| doc.parameter_secrets.contains(&param.name));
             ui.horizontal(|ui| {
@@ -946,7 +967,7 @@ impl DbProApp {
                 ui.add(edit.desired_width(180.0));
                 ui.checkbox(&mut is_secret, "secret");
             });
-            if let Some(doc) = self.query_documents.get_mut(doc_index) {
+            if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
                 doc.parameter_values.insert(param.name.clone(), value);
                 if is_secret {
                     doc.parameter_secrets.insert(param.name.clone());
@@ -1018,7 +1039,7 @@ impl DbProApp {
         if menu_button_with_icon(
             ui,
             Icon::Play,
-            if self.selected_query.is_empty() {
+            if self.query_session_state.selected_text.is_empty() {
                 "Run query"
             } else {
                 "Run selection"
@@ -1040,7 +1061,7 @@ impl DbProApp {
         }
         if menu_button_with_icon(ui, Icon::Bot, "Ask Agent", self.theme).clicked() {
             self.open_agent_prompt(
-                if self.selected_query.trim().is_empty() {
+                if self.query_session_state.selected_text.trim().is_empty() {
                     "Explain the current SQL and suggest improvements"
                 } else {
                     "Explain the selected SQL and suggest improvements"
@@ -1093,7 +1114,11 @@ impl DbProApp {
         }
         if menu_button_with_icon(ui, Icon::Bot, "Generate SQL Prediction", self.theme).clicked() {
             if self.prediction_mode != PredictionMode::Off {
-                if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+                if let Some(doc) = self
+                    .query_session_state
+                    .documents
+                    .get_mut(self.query_session_state.active_document_index)
+                {
                     doc.schedule_prediction_with_mode(Instant::now(), true);
                 }
             }
@@ -1109,7 +1134,7 @@ impl DbProApp {
                 if ui.selectable_label(self.prediction_mode == mode, label).clicked() {
                     self.prediction_mode = mode;
                     if mode == PredictionMode::Off {
-                        self.cancel_prediction_for_document(self.active_query_document);
+                        self.cancel_prediction_for_document(self.query_session_state.active_document_index);
                     }
                 }
             }
@@ -1157,8 +1182,12 @@ impl DbProApp {
     }
 
     pub(crate) fn insert_snippet(&mut self, snippet: &str) {
-        self.cancel_prediction_for_document(self.active_query_document);
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+        self.cancel_prediction_for_document(self.query_session_state.active_document_index);
+        if let Some(doc) = self
+            .query_session_state
+            .documents
+            .get_mut(self.query_session_state.active_document_index)
+        {
             let offset = doc.cursor.offset.min(doc.buffer.len_bytes());
             let insertion = if offset > 0 && !doc.buffer.text()[..offset].ends_with('\n') {
                 format!("\n{snippet}")

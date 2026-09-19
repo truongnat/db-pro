@@ -137,8 +137,9 @@ impl DbProApp {
             if result_count > 1 {
                 ui.horizontal(|ui| {
                     let active_index = self
-                        .query_documents
-                        .get(self.active_query_document)
+                        .query_session_state
+                        .documents
+                        .get(self.query_session_state.active_document_index)
                         .map_or(0, |doc| doc.active_result_index);
                     for index in 0..result_count {
                         if ui
@@ -229,13 +230,13 @@ impl DbProApp {
                 return;
             }
 
-            let doc_index = self.active_query_document;
+            let doc_index = self.query_session_state.active_document_index;
             let column_names: Vec<String> = result.columns.iter().map(|c| c.name.clone()).collect();
             let column_types: Vec<String> = result.columns.iter().map(|c| c.data_type.clone()).collect();
 
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Type").small().color(self.theme.text_secondary));
-                if let Some(doc) = self.query_documents.get_mut(doc_index) {
+                if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
                     egui::ComboBox::from_id_salt("chart_type")
                         .selected_text(doc.chart_config.chart_type.to_string())
                         .show_ui(ui, |ui| {
@@ -256,7 +257,7 @@ impl DbProApp {
                 }
 
                 ui.label(RichText::new("X").small().color(self.theme.text_secondary));
-                if let Some(doc) = self.query_documents.get_mut(doc_index) {
+                if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
                     let x_label = doc
                         .chart_config
                         .x_column
@@ -273,7 +274,7 @@ impl DbProApp {
                 }
 
                 ui.label(RichText::new("Y").small().color(self.theme.text_secondary));
-                if let Some(doc) = self.query_documents.get_mut(doc_index) {
+                if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
                     let numeric_idxs: Vec<usize> = column_types
                         .iter()
                         .enumerate()
@@ -305,7 +306,7 @@ impl DbProApp {
                 }
 
                 ui.label(RichText::new("Agg").small().color(self.theme.text_secondary));
-                if let Some(doc) = self.query_documents.get_mut(doc_index) {
+                if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
                     egui::ComboBox::from_id_salt("chart_agg")
                         .selected_text(doc.chart_config.aggregation.to_string())
                         .show_ui(ui, |ui| {
@@ -323,7 +324,7 @@ impl DbProApp {
                 }
 
                 ui.label(RichText::new("Series").small().color(self.theme.text_secondary));
-                if let Some(doc) = self.query_documents.get_mut(doc_index) {
+                if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
                     let series_label = doc
                         .chart_config
                         .series_column
@@ -344,7 +345,8 @@ impl DbProApp {
             ui.add_space(8.0);
 
             let config = self
-                .query_documents
+                .query_session_state
+                .documents
                 .get(doc_index)
                 .map(|doc| doc.chart_config.clone())
                 .unwrap_or_default();

@@ -104,7 +104,7 @@ impl DbProApp {
             if let Some(documents) = storage.get_string("dbpro.native.query-documents") {
                 if let Ok(documents) = serde_json::from_str::<Vec<QueryDocument>>(&documents) {
                     if !documents.is_empty() {
-                        app.query_documents = documents;
+                        app.query_session_state.documents = documents;
                     }
                 }
             }
@@ -174,9 +174,10 @@ impl Default for DbProApp {
             workspace: WorkspaceShellState::default(),
             prediction_mode: PredictionMode::default(),
             welcome_prompt: String::new(),
-            selected_query: String::new(),
-            query_documents: vec![QueryDocument::new("query-1", "Query 1", DEFAULT_QUERY)],
-            active_query_document: 0,
+            query_session_state: QuerySessionState {
+                documents: vec![QueryDocument::new("query-1", "Query 1", DEFAULT_QUERY)],
+                ..Default::default()
+            },
             editor_search: String::new(),
             editor_search_open: false,
             query_editor_focused: false,
@@ -245,12 +246,6 @@ impl Default for DbProApp {
             agent_api_key_show_password: false,
             agent_configure_request: None,
             task_bridge: TaskBridge::default(),
-            query_document_requests: HashMap::new(),
-            query_save_requests: HashMap::new(),
-            pending_dirty_close: None,
-            pending_close_after_save: None,
-            save_as_name: String::new(),
-            save_as_open: false,
             runtime_message: "Ready".to_owned(),
             toasts: crate::components::overlay::ToastManager::default(),
             output_tab: OutputTab::Results,
