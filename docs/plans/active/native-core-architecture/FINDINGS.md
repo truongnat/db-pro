@@ -224,6 +224,14 @@ Transaction policy transitions now follow the same rule on
 dispatches the returned effect.
 The capture-only native entrypoint now uses the feature-owned new-connection
 helper, keeping the capture build aligned with the dialog lifecycle migration.
+Named-session store mutations and persistence now follow the same rule on
+`WorkspaceSessionState`; capture/restore of cross-feature layout remains
+explicit composition-root orchestration.
+Query output-tab override and active-tab mutations now follow the same rule on
+`QueryOutputState`; the root only resolves the active document identity.
+Grid projection epoch and row-identity cache invalidation now follow the same
+rule on `TableDataState`; query/result reducers and table orchestration call
+that explicit state API.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

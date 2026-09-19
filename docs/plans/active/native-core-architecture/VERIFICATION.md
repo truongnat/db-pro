@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `4cb55f57`.
+Source checkpoint: `9442a9c1`.
 
 ## Current change
 
@@ -148,6 +148,14 @@ Source checkpoint: `4cb55f57`.
 - The capture-only native entrypoint now uses the feature-owned new-connection
   helper, so the capture-feature release build stays aligned with the dialog
   lifecycle migration.
+- Named-session store mutations and persistence now live on
+  `WorkspaceSessionState`; capture/restore of cross-feature layout remains
+  explicit composition-root orchestration.
+- Query output-tab override and active-tab mutations now live on
+  `QueryOutputState`; the root only resolves the active document identity.
+- Grid projection epoch and row-identity cache invalidation now live on
+  `TableDataState`; query/result reducers and table event orchestration call
+  that explicit state API.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
@@ -193,11 +201,11 @@ Source checkpoint: `4cb55f57`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 589 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 592 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1261 passed, 0 failed, 42 ignored.
+- `cargo test --workspace --no-fail-fast`: 1264 passed, 0 failed, 42 ignored.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 11 pass, 5 warnings, 0 failures; warnings are ratcheted size/cast/clone heuristics.
