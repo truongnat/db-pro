@@ -6,15 +6,15 @@ use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub(crate) struct QuerySessionState {
-    pub(crate) documents: Vec<QueryDocument>,
-    pub(crate) active_document_index: usize,
-    pub(crate) selected_text: String,
-    pub(crate) document_requests: HashMap<RequestId, String>,
-    pub(crate) save_requests: HashMap<RequestId, String>,
-    pub(crate) pending_dirty_close: Option<usize>,
-    pub(crate) pending_close_after_save: Option<usize>,
-    pub(crate) save_as_name: String,
-    pub(crate) save_as_open: bool,
+    pub(super) documents: Vec<QueryDocument>,
+    pub(super) active_document_index: usize,
+    pub(super) selected_text: String,
+    pub(super) document_requests: HashMap<RequestId, String>,
+    pub(super) save_requests: HashMap<RequestId, String>,
+    pub(super) pending_dirty_close: Option<usize>,
+    pub(super) pending_close_after_save: Option<usize>,
+    pub(super) save_as_name: String,
+    pub(super) save_as_open: bool,
 }
 
 #[cfg(test)]

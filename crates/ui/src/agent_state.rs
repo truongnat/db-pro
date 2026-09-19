@@ -9,18 +9,18 @@ use db_pro_core::domain::agent_context::{
 /// Owns agent workspace state independently from the shell and query session.
 #[derive(Debug)]
 pub(crate) struct AgentState {
-    pub(crate) pending_prompt: Option<String>,
-    pub(crate) pending_context: Option<AgentContext>,
-    pub(crate) provider_label: String,
-    pub(crate) provider_detail: String,
-    pub(crate) input: String,
-    pub(crate) messages: Vec<AgentMessage>,
-    pub(crate) sessions: HashMap<String, AgentUiSession>,
-    pub(crate) auto_run_read_only: bool,
-    pub(crate) settings_open: bool,
-    pub(crate) api_key_draft: String,
-    pub(crate) api_key_show_password: bool,
-    pub(crate) configure_request: Option<crate::RequestId>,
+    pub(super) pending_prompt: Option<String>,
+    pub(super) pending_context: Option<AgentContext>,
+    pub(super) provider_label: String,
+    pub(super) provider_detail: String,
+    pub(super) input: String,
+    pub(super) messages: Vec<AgentMessage>,
+    pub(super) sessions: HashMap<String, AgentUiSession>,
+    pub(super) auto_run_read_only: bool,
+    pub(super) settings_open: bool,
+    pub(super) api_key_draft: String,
+    pub(super) api_key_show_password: bool,
+    pub(super) configure_request: Option<crate::RequestId>,
 }
 
 impl Default for AgentState {

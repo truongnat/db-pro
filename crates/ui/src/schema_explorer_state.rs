@@ -3,20 +3,20 @@ use super::*;
 /// Owns database schema navigation, selection and explorer read-model state.
 #[derive(Debug)]
 pub(crate) struct SchemaExplorerState {
-    pub(crate) schema: UiSchemaSummary,
-    pub(crate) schema_symbol_index: SchemaSymbolIndex,
-    pub(crate) selected_schema: Option<String>,
-    pub(crate) explorer_search: String,
-    pub(crate) explorer_nav_cache: Option<ExplorerNavCache>,
-    pub(crate) schema_error: Option<String>,
-    pub(crate) schema_request: Option<crate::RequestId>,
-    pub(crate) selected_table: Option<String>,
-    pub(crate) pinned_tables: Vec<String>,
-    pub(crate) recent_tables: Vec<String>,
-    pub(crate) selected_schema_object: Option<SchemaObjectSelection>,
-    pub(crate) schema_object_view: SchemaObjectView,
-    pub(crate) connections_pane_height: f32,
-    pub(crate) schemas_pane_height: f32,
+    pub(super) schema: UiSchemaSummary,
+    pub(super) schema_symbol_index: SchemaSymbolIndex,
+    pub(super) selected_schema: Option<String>,
+    pub(super) explorer_search: String,
+    pub(super) explorer_nav_cache: Option<ExplorerNavCache>,
+    pub(super) schema_error: Option<String>,
+    pub(super) schema_request: Option<crate::RequestId>,
+    pub(super) selected_table: Option<String>,
+    pub(super) pinned_tables: Vec<String>,
+    pub(super) recent_tables: Vec<String>,
+    pub(super) selected_schema_object: Option<SchemaObjectSelection>,
+    pub(super) schema_object_view: SchemaObjectView,
+    pub(super) connections_pane_height: f32,
+    pub(super) schemas_pane_height: f32,
 }
 
 impl Default for SchemaExplorerState {

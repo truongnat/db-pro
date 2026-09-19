@@ -5,8 +5,8 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub(crate) struct QueryOutputState {
-    pub(crate) active_tab: OutputTab,
-    pub(crate) tabs_by_document: HashMap<String, OutputTab>,
+    pub(super) active_tab: OutputTab,
+    pub(super) tabs_by_document: HashMap<String, OutputTab>,
 }
 
 impl Default for QueryOutputState {

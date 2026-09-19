@@ -8,7 +8,7 @@ use db_pro_core::ports::SqlDialect;
 use egui::RichText;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(crate) enum SchemaWorkbenchMode {
+pub(super) enum SchemaWorkbenchMode {
     #[default]
     Table,
     Column,
@@ -27,7 +27,7 @@ pub(crate) enum SchemaWorkbenchMode {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct SchemaWorkbenchState {
+pub(super) struct SchemaWorkbenchState {
     pub mode: SchemaWorkbenchMode,
     pub schema: String,
     pub name: String,
@@ -69,7 +69,7 @@ pub(crate) struct SchemaWorkbenchState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(crate) enum ConstraintKindUi {
+pub(super) enum ConstraintKindUi {
     #[default]
     PrimaryKey,
     Unique,

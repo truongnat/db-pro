@@ -3,12 +3,12 @@ use super::*;
 /// State owned by the command palette and global quick-open search.
 #[derive(Debug)]
 pub(crate) struct PaletteState {
-    pub(crate) mode: Option<PaletteMode>,
-    pub(crate) query: String,
-    pub(crate) scope: SearchScope,
-    pub(crate) selected: usize,
-    pub(crate) focus_requested: bool,
-    pub(crate) search_index: SearchIndex,
+    pub(super) mode: Option<PaletteMode>,
+    pub(super) query: String,
+    pub(super) scope: SearchScope,
+    pub(super) selected: usize,
+    pub(super) focus_requested: bool,
+    pub(super) search_index: SearchIndex,
 }
 
 impl Default for PaletteState {

@@ -5,15 +5,15 @@ use super::*;
 /// Editor content belongs to `QuerySessionState`/`QueryEditorState`; this
 /// aggregate owns execution safety, transaction presentation and explain mode.
 pub(crate) struct QueryExecutionPolicyState {
-    pub(crate) pending_explain_analyze: bool,
-    pub(crate) explain_analyze_confirmed: bool,
-    pub(crate) explain_show_raw_json: bool,
-    pub(crate) query_auto_commit: bool,
-    pub(crate) query_in_transaction: bool,
-    pub(crate) query_txn_pending: usize,
-    pub(crate) disconnect_txn_guard: bool,
-    pub(crate) query_txn_bar_open: bool,
-    pub(crate) pending_destructive_run: Option<events::PendingDestructiveRun>,
+    pub(super) pending_explain_analyze: bool,
+    pub(super) explain_analyze_confirmed: bool,
+    pub(super) explain_show_raw_json: bool,
+    pub(super) query_auto_commit: bool,
+    pub(super) query_in_transaction: bool,
+    pub(super) query_txn_pending: usize,
+    pub(super) disconnect_txn_guard: bool,
+    pub(super) query_txn_bar_open: bool,
+    pub(super) pending_destructive_run: Option<events::PendingDestructiveRun>,
 }
 
 impl Default for QueryExecutionPolicyState {

@@ -3,19 +3,19 @@
 use super::schema_compare::{UiSchemaDiffResult, UiSchemaSnapshot};
 
 /// State owned by the schema-comparison workspace and its migration preview.
-pub(crate) struct SchemaCompareState {
-    pub(crate) schema_snapshot: Option<UiSchemaSnapshot>,
-    pub(crate) schema_diff: Option<UiSchemaDiffResult>,
-    pub(crate) migration_plan: Option<db_pro_core::domain::migration::MigrationPlan>,
-    pub(crate) migration_preview_sql: String,
-    pub(crate) migration_confirm_destructive: bool,
-    pub(crate) migration_fingerprint_at_preview: String,
-    pub(crate) data_diff_target_id: String,
-    pub(crate) data_diff_schema: String,
-    pub(crate) data_diff_table: String,
-    pub(crate) data_diff_keys: String,
-    pub(crate) data_diff_result: Option<db_pro_core::domain::cross_connection::DataDiff>,
-    pub(crate) data_diff_filter: String,
+pub(super) struct SchemaCompareState {
+    pub(super) schema_snapshot: Option<UiSchemaSnapshot>,
+    pub(super) schema_diff: Option<UiSchemaDiffResult>,
+    pub(super) migration_plan: Option<db_pro_core::domain::migration::MigrationPlan>,
+    pub(super) migration_preview_sql: String,
+    pub(super) migration_confirm_destructive: bool,
+    pub(super) migration_fingerprint_at_preview: String,
+    pub(super) data_diff_target_id: String,
+    pub(super) data_diff_schema: String,
+    pub(super) data_diff_table: String,
+    pub(super) data_diff_keys: String,
+    pub(super) data_diff_result: Option<db_pro_core::domain::cross_connection::DataDiff>,
+    pub(super) data_diff_filter: String,
 }
 
 impl Default for SchemaCompareState {

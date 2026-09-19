@@ -3,15 +3,15 @@ use super::*;
 /// Owns the local table-edit transaction and its asynchronous apply lifecycle.
 #[derive(Debug)]
 pub(crate) struct TableMutationState {
-    pub(crate) table_mutation_request: Option<crate::RequestId>,
-    pub(crate) staged_changes: ChangeSet,
-    pub(crate) pending_changes_open: bool,
-    pub(crate) staged_apply_request: Option<crate::RequestId>,
-    pub(crate) staged_apply_targets: Vec<MutationTarget>,
-    pub(crate) table_mutation_retry_after_reload: bool,
-    pub(crate) table_mutation_retry_target: Option<MutationTarget>,
-    pub(crate) table_mutation_error: Option<MutationFailure>,
-    pub(crate) conflict_dialog_open: bool,
+    pub(super) table_mutation_request: Option<crate::RequestId>,
+    pub(super) staged_changes: ChangeSet,
+    pub(super) pending_changes_open: bool,
+    pub(super) staged_apply_request: Option<crate::RequestId>,
+    pub(super) staged_apply_targets: Vec<MutationTarget>,
+    pub(super) table_mutation_retry_after_reload: bool,
+    pub(super) table_mutation_retry_target: Option<MutationTarget>,
+    pub(super) table_mutation_error: Option<MutationFailure>,
+    pub(super) conflict_dialog_open: bool,
 }
 
 impl Default for TableMutationState {

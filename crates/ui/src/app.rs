@@ -112,7 +112,7 @@ mod settings_model;
 #[path = "settings_view.rs"]
 mod settings_view;
 pub(crate) use capability_lookup::CapabilityLookup;
-pub(crate) use database_feature_states::{
+use database_feature_states::{
     AuditState, EventTriggerState, FdwState, MaskingState, MonitoringState, PgSettingsState, ReplicationState,
     RoutineState, SecurityState, SyntheticDataState, TransferState,
 };
@@ -206,7 +206,7 @@ pub(crate) use query_editor_state::QueryEditorState;
 pub(crate) use query_output_state::QueryOutputState;
 pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
-pub(crate) use schema_compare_state::SchemaCompareState;
+use schema_compare_state::SchemaCompareState;
 pub(crate) use schema_explorer_state::SchemaExplorerState;
 pub(crate) use table_data_state::TableDataState;
 pub(crate) use table_mutation_state::TableMutationState;
