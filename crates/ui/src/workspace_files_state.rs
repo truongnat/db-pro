@@ -130,6 +130,94 @@ impl WorkspaceFilesState {
             feedback.set_runtime_message(message);
         }
     }
+
+    pub(super) fn refresh_git_status(&mut self, feedback: &mut FeedbackState) {
+        let Some(root) = self.ide_workspace.primary_path().map(std::path::PathBuf::from) else {
+            self.git_status = None;
+            self.git_last_error = Some("Open a workspace folder first".into());
+            return;
+        };
+        let status = git_workspace::probe_git_status(&root);
+        self.git_last_error = if status.available {
+            None
+        } else {
+            Some(status.message.clone())
+        };
+        self.git_status = Some(status);
+        feedback.set_runtime_message("Git status refreshed");
+    }
+
+    pub(super) fn stage_git_path(&mut self, relative: &str, feedback: &mut FeedbackState) {
+        let Some(root) = self.ide_workspace.primary_path() else {
+            return;
+        };
+        match git_workspace::stage_path(root, relative) {
+            Ok(()) => {
+                self.git_last_error = None;
+                self.refresh_git_status(feedback);
+            }
+            Err(error) => self.git_last_error = Some(error),
+        }
+    }
+
+    pub(super) fn unstage_git_path(&mut self, relative: &str, feedback: &mut FeedbackState) {
+        let Some(root) = self.ide_workspace.primary_path() else {
+            return;
+        };
+        match git_workspace::unstage_path(root, relative) {
+            Ok(()) => {
+                self.git_last_error = None;
+                self.refresh_git_status(feedback);
+            }
+            Err(error) => self.git_last_error = Some(error),
+        }
+    }
+
+    pub(super) fn diff_git_path(&mut self, relative: &str) {
+        let Some(root) = self.ide_workspace.primary_path() else {
+            return;
+        };
+        match git_workspace::diff_against_head(root, relative) {
+            Ok(diff) => {
+                self.git_diff = Some(diff);
+                self.git_last_error = None;
+            }
+            Err(error) => self.git_last_error = Some(error),
+        }
+    }
+
+    pub(super) fn commit_git_staged(&mut self, feedback: &mut FeedbackState) {
+        let Some(root) = self.ide_workspace.primary_path() else {
+            return;
+        };
+        match git_workspace::commit_paths(root, &self.git_commit_message) {
+            Ok(output) => {
+                self.git_commit_message.clear();
+                self.git_last_error = None;
+                feedback.set_runtime_message(output.lines().next().unwrap_or("Committed"));
+                self.refresh_git_status(feedback);
+            }
+            Err(error) => self.git_last_error = Some(error),
+        }
+    }
+
+    pub(super) fn check_external_file_changes(&mut self, documents: &[(String, String, bool)]) {
+        for (path, buffer, dirty) in documents {
+            let path_buf = std::path::PathBuf::from(path);
+            let Some(mtime) = git_workspace::disk_mtime_secs(&path_buf) else {
+                continue;
+            };
+            let known = self.workspace_file_mtimes.get(path).copied();
+            if known == Some(mtime) {
+                continue;
+            }
+            if *dirty && git_workspace::disk_diverged_from_buffer(&path_buf, buffer) {
+                self.workspace_external_change = Some(path.clone());
+            } else if !dirty {
+                self.workspace_file_mtimes.insert(path.clone(), mtime);
+            }
+        }
+    }
 }
 
 #[cfg(test)]

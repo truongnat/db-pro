@@ -181,7 +181,7 @@ impl DbProApp {
                 _ => FilesPanelTab::Tree,
             };
             if self.workspace.files_panel_tab == FilesPanelTab::Git {
-                self.refresh_git_status();
+                self.workspace.files.refresh_git_status(&mut self.feedback);
             }
         }
         ui.add_space(6.0);
@@ -622,12 +622,21 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.refresh_git_status();
+                    self.workspace.files.refresh_git_status(&mut self.feedback);
                 }
             });
         });
         ui.add_space(4.0);
-        self.check_external_file_changes();
+        let documents: Vec<(String, String, bool)> = self
+            .query_session_state
+            .documents
+            .iter()
+            .filter_map(|doc| {
+                let path = doc.file_path.clone()?;
+                Some((path, doc.text().to_owned(), doc.dirty))
+            })
+            .collect();
+        self.workspace.files.check_external_file_changes(&documents);
         if let Some(path) = self.workspace.files.workspace_external_change.clone() {
             ui.colored_label(
                 self.theme.warning,
@@ -693,7 +702,7 @@ impl DbProApp {
             .show(ui)
             .clicked()
         {
-            self.commit_git_staged();
+            self.workspace.files.commit_git_staged(&mut self.feedback);
         }
         ui.add_space(8.0);
         if status.entries.is_empty() {
@@ -721,7 +730,7 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.stage_git_path(&entry.path);
+                    self.workspace.files.stage_git_path(&entry.path, &mut self.feedback);
                 }
                 if Button::new(self.theme)
                     .icon(Icon::Minus)
@@ -731,7 +740,7 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.unstage_git_path(&entry.path);
+                    self.workspace.files.unstage_git_path(&entry.path, &mut self.feedback);
                 }
                 if Button::new(self.theme)
                     .icon(Icon::GitCompare)
@@ -741,7 +750,7 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.diff_git_path(&entry.path);
+                    self.workspace.files.diff_git_path(&entry.path);
                 }
                 if Button::new(self.theme)
                     .icon(Icon::FileCode2)
