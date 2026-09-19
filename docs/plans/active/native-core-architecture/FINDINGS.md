@@ -137,10 +137,12 @@ also hides pending-request, pending-target and failure storage behind lifecycle
 methods. `ConnectionDialogView<'a>` now owns the connection dialog renderer's
 explicit dependencies, and the renderer guard rejects `DbProApp` from the
 dialog view/form/advanced-panel modules. The root field allowlist and
-visibility guard are enforced in CI. The remaining architectural slice is to
-move the other view and reducer APIs from `impl DbProApp` onto feature-owned
-contexts, so sibling features cannot use the composition root as a shared
-mutable facade.
+visibility guard are enforced in CI. `connection_status.rs` now follows the
+same rule: active-connection, schema and status helpers are pure functions
+over explicit state, with only root wrappers retained for orchestration. The
+remaining architectural slice is to move the other view and reducer APIs from
+`impl DbProApp` onto feature-owned contexts, so sibling features cannot use
+the composition root as a shared mutable facade.
 
 ## F13 — Database management state was grouped behind a catch-all aggregate
 

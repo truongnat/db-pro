@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `390f9f9e`.
+Source checkpoint: `20203752`.
 
 ## Current change
 
@@ -52,6 +52,9 @@ Source checkpoint: `390f9f9e`.
 - Connection dialog rendering is now driven by `ConnectionDialogView<'a>` with
   explicit state/runtime/feedback dependencies; `view.rs`, `form_fields.rs`
   and `advanced_panels.rs` no longer implement methods on `DbProApp`.
+- Active connection, schema and statusbar helpers are pure functions in
+  `connection_status.rs`; the module no longer implements methods on
+  `DbProApp`, and the architecture guard enforces that boundary.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
