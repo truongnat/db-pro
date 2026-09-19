@@ -138,6 +138,8 @@ pub(crate) mod result_grid_view;
 mod sidebar_activities_view;
 #[path = "sidebar_view.rs"]
 mod sidebar_view;
+#[path = "table_data_state.rs"]
+mod table_data_state;
 #[path = "tasks_view.rs"]
 mod tasks_view;
 #[path = "visual_query_builder_view.rs"]
@@ -151,6 +153,7 @@ mod workspace_shell;
 pub(crate) use query_output_state::QueryOutputState;
 pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
+pub(crate) use table_data_state::TableDataState;
 #[path = "schema_compare.rs"]
 mod schema_compare;
 #[path = "schema_object_view.rs"]
@@ -270,43 +273,7 @@ pub struct DbProApp {
     runtime_message: String,
     toasts: crate::components::overlay::ToastManager,
     query_output_state: QueryOutputState,
-    grid_filter: String,
-    grid_sort_column: Option<usize>,
-    grid_sort_desc: bool,
-    grid_column_widths: Vec<f32>,
-    grid_column_order: Vec<usize>,
-    grid_hidden_columns: BTreeSet<usize>,
-    grid_layout_preferences: HashMap<String, PersistedGridLayout>,
-    grid_pending_named_layout: Option<Vec<PersistedGridColumnLayout>>,
-    grid_legacy_layout_pending: bool,
-    grid_layout_column_names: Vec<String>,
-    grid_row_identity_cache: HashMap<usize, RowIdentity>,
-    grid_row_identity_cache_ready: bool,
-    /// Monotonic id for the row data behind the grid. Everything that replaces the displayed result
-    /// set, or edits a displayed row in place, must advance it through
-    /// `invalidate_grid_projection`, or the grid keeps drawing the previous filtered/sorted
-    /// projection (see `GridProjectionCache`).
-    grid_projection_epoch: u64,
-    grid_projection_cache: GridProjectionCache,
-    grid_selection_cache: GridSelectionCache,
-    grid_columns_user_resized: bool,
-    selected_cell: Option<(usize, usize)>,
-    selected_row: Option<usize>,
-    selected_rows: BTreeSet<usize>,
-    selection_anchor_row: Option<usize>,
-    selection_anchor_cell: Option<(usize, usize)>,
-    data_editing_cell: Option<(usize, usize)>,
-    expanded_data_editor: Option<(usize, usize)>,
-    /// Value inspector mode for expanded cell / record panel (#228).
-    cell_inspector_mode: cell_inspector::CellInspectorMode,
-    record_inspector_open: bool,
-    data_edit_value: String,
-    data_edit_error: Option<String>,
-    data_delete_confirmation: bool,
-    discard_changes_confirmation: bool,
-    insert_row_open: bool,
-    insert_row_values: Vec<String>,
-    insert_row_error: String,
+    table_data: TableDataState,
     copy_status: String,
     export_open: bool,
     export_format: String,
@@ -574,15 +541,15 @@ impl eframe::App for DbProApp {
         if let Ok(raw) = serde_json::to_string(&self.connection_dialog.ssh_profiles) {
             storage.set_string("dbpro.native.ssh-profiles-v1", raw);
         }
-        if let Ok(layouts) = serde_json::to_string(&self.grid_layout_preferences) {
+        if let Ok(layouts) = serde_json::to_string(&self.table_data.grid_layout_preferences) {
             storage.set_string("dbpro.native.grid-layouts", layouts);
         }
-        if let Ok(widths) = serde_json::to_string(&self.grid_column_widths) {
+        if let Ok(widths) = serde_json::to_string(&self.table_data.grid_column_widths) {
             storage.set_string("dbpro.native.grid-widths", widths);
         }
         storage.set_string(
             "dbpro.native.grid-widths-customized",
-            self.grid_columns_user_resized.to_string(),
+            self.table_data.grid_columns_user_resized.to_string(),
         );
         if let Ok(documents) = serde_json::to_string(&self.query_session_state.documents) {
             storage.set_string("dbpro.native.query-documents", documents);
@@ -724,7 +691,7 @@ impl eframe::App for DbProApp {
         if self.folder_delete_confirmation.is_some() {
             self.draw_folder_delete_confirmation(ctx);
         }
-        if self.insert_row_open {
+        if self.table_data.insert_row_open {
             self.draw_insert_row_dialog(ctx);
         }
         if self.palette_mode.is_some() {

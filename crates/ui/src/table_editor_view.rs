@@ -180,7 +180,8 @@ impl DbProApp {
                         {
                             self.pending_changes_open = true;
                         }
-                        let apply_enabled = self.staged_apply_request.is_none() && self.data_edit_error.is_none();
+                        let apply_enabled =
+                            self.staged_apply_request.is_none() && self.table_data.data_edit_error.is_none();
                         if Button::new(self.theme)
                             .text("Apply")
                             .icon(Icon::Check)
@@ -209,7 +210,7 @@ impl DbProApp {
                             .clicked()
                         {
                             if self.staged_changes.counts().total() > 1 {
-                                self.discard_changes_confirmation = true;
+                                self.table_data.discard_changes_confirmation = true;
                             } else {
                                 self.discard_staged_changes();
                             }
@@ -298,9 +299,9 @@ impl DbProApp {
                     }
                 }
 
-                if self.selected_rows.len() > 1 {
+                if self.table_data.selected_rows.len() > 1 {
                     crate::components::badge::Badge::new(
-                        format!("{} rows selected", self.selected_rows.len()),
+                        format!("{} rows selected", self.table_data.selected_rows.len()),
                         self.theme,
                     )
                     .variant(crate::components::badge::BadgeVariant::Secondary)
@@ -353,7 +354,7 @@ impl DbProApp {
                                         .clicked()
                                     {
                                         self.table_data_filter_operator = UiTableFilterOperator::default();
-                                        self.grid_filter = self.table_data_filter_value.clone();
+                                        self.table_data.grid_filter = self.table_data_filter_value.clone();
                                     }
                                     for col in &column_names {
                                         ui.selectable_value(
@@ -444,7 +445,7 @@ impl DbProApp {
                             };
 
                             let edit_target = if is_all_cols {
-                                &mut self.grid_filter
+                                &mut self.table_data.grid_filter
                             } else {
                                 &mut self.table_data_filter_value
                             };
@@ -468,7 +469,7 @@ impl DbProApp {
 
                             // Trailing clear button
                             let has_text = if is_all_cols {
-                                !self.grid_filter.is_empty()
+                                !self.table_data.grid_filter.is_empty()
                             } else {
                                 !self.table_data_filter_value.is_empty()
                             };
@@ -483,7 +484,7 @@ impl DbProApp {
                                     .clicked()
                             {
                                 if is_all_cols {
-                                    self.grid_filter.clear();
+                                    self.table_data.grid_filter.clear();
                                 } else {
                                     let filter_column = self.table_data_filter_column.clone();
                                     self.table_data_filters.retain(|filter| filter.column != filter_column);
@@ -553,7 +554,7 @@ impl DbProApp {
                     }
 
                     // Compact Sort Selector
-                    let sort_active = !self.table_data_sorts.is_empty() || self.grid_sort_column.is_some();
+                    let sort_active = !self.table_data_sorts.is_empty() || self.table_data.grid_sort_column.is_some();
                     let sort_label = if !self.table_data_sorts.is_empty() {
                         let clauses = self
                             .table_data_sorts
@@ -569,9 +570,9 @@ impl DbProApp {
                             })
                             .collect::<Vec<_>>();
                         format!("Sort: {}", clauses.join(", "))
-                    } else if let Some(idx) = self.grid_sort_column {
+                    } else if let Some(idx) = self.table_data.grid_sort_column {
                         if let Some(col) = column_names.get(idx) {
-                            format!("Sort: {col} {}", if self.grid_sort_desc { "↓" } else { "↑" })
+                            format!("Sort: {col} {}", if self.table_data.grid_sort_desc { "↓" } else { "↑" })
                         } else {
                             "Sort".to_owned()
                         }
@@ -590,7 +591,7 @@ impl DbProApp {
                             if ui.selectable_label(!sort_active, "Default (None)").clicked() {
                                 if self.staged_changes.is_empty() {
                                     self.table_data_sorts.clear();
-                                    self.grid_sort_column = None;
+                                    self.table_data.grid_sort_column = None;
                                     self.reload_table_data_from_start();
                                 } else {
                                     self.runtime_message =
@@ -728,7 +729,7 @@ impl DbProApp {
         let Some(row) = result.rows.get(row_index) else {
             return;
         };
-        self.insert_row_values = info
+        self.table_data.insert_row_values = info
             .columns
             .iter()
             .enumerate()
@@ -749,8 +750,8 @@ impl DbProApp {
                 }
             })
             .collect();
-        self.insert_row_error.clear();
-        self.insert_row_open = true;
+        self.table_data.insert_row_error.clear();
+        self.table_data.insert_row_open = true;
     }
 
     fn open_insert_row(&mut self) {
@@ -762,9 +763,9 @@ impl DbProApp {
             self.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
-        self.insert_row_values = vec![String::new(); info.columns.len()];
-        self.insert_row_error.clear();
-        self.insert_row_open = true;
+        self.table_data.insert_row_values = vec![String::new(); info.columns.len()];
+        self.table_data.insert_row_error.clear();
+        self.table_data.insert_row_open = true;
     }
 
     pub(crate) fn generate_sample_value(column_name: &str, data_type: &str) -> String {
@@ -1036,16 +1037,16 @@ impl DbProApp {
 
     pub(crate) fn submit_insert_row(&mut self) {
         let Some(table) = self.selected_table.clone() else {
-            self.insert_row_error = "Select a table before inserting a row".to_owned();
+            self.table_data.insert_row_error = "Select a table before inserting a row".to_owned();
             return;
         };
         let Some(info) = self.table_info.clone() else {
-            self.insert_row_error = "Table structure is still loading".to_owned();
+            self.table_data.insert_row_error = "Table structure is still loading".to_owned();
             return;
         };
         let mut columns = Vec::new();
         let mut values = Vec::new();
-        for (column, raw) in info.columns.iter().zip(&self.insert_row_values) {
+        for (column, raw) in info.columns.iter().zip(&self.table_data.insert_row_values) {
             let write_block = ColumnWritePolicy::read(column).write_block();
             if raw.trim().is_empty() && write_block.is_some() {
                 // A blocked column left empty contributes nothing: a generated column
@@ -1053,11 +1054,11 @@ impl DbProApp {
                 continue;
             }
             if let Some(block) = write_block {
-                self.insert_row_error = format!("{}: {}", column.name, block.reason());
+                self.table_data.insert_row_error = format!("{}: {}", column.name, block.reason());
                 return;
             }
             if raw.trim().is_empty() && !column.nullable && column.default.is_none() {
-                self.insert_row_error = format!("{} is required", column.name);
+                self.table_data.insert_row_error = format!("{} is required", column.name);
                 return;
             }
             match Self::parse_insert_value(raw, &column.data_type) {
@@ -1067,35 +1068,35 @@ impl DbProApp {
                 }
                 Ok(None) => {}
                 Err(error) => {
-                    self.insert_row_error = format!("{}: {error}", column.name);
+                    self.table_data.insert_row_error = format!("{}: {error}", column.name);
                     return;
                 }
             }
             if matches!(values.last(), Some(UiCell::Null)) && !column.nullable {
-                self.insert_row_error = format!("{} is NOT NULL; enter a value instead", column.name);
+                self.table_data.insert_row_error = format!("{} is NOT NULL; enter a value instead", column.name);
                 return;
             }
         }
         if columns.is_empty() {
-            self.insert_row_error = "Enter at least one value; leave defaulted columns empty".to_owned();
+            self.table_data.insert_row_error = "Enter at least one value; leave defaulted columns empty".to_owned();
             return;
         }
         self.staged_changes.ensure_target(&table);
         self.staged_changes.stage_insert(columns, values);
-        self.insert_row_open = false;
-        self.insert_row_error.clear();
+        self.table_data.insert_row_open = false;
+        self.table_data.insert_row_error.clear();
         self.runtime_message = format!("Row staged for {}", table);
     }
 
     pub(super) fn draw_insert_row_dialog(&mut self, ctx: &egui::Context) {
         let Some(info) = self.table_info.clone() else {
-            self.insert_row_open = false;
+            self.table_data.insert_row_open = false;
             return;
         };
-        if self.insert_row_values.len() != info.columns.len() {
-            self.insert_row_values = vec![String::new(); info.columns.len()];
+        if self.table_data.insert_row_values.len() != info.columns.len() {
+            self.table_data.insert_row_values = vec![String::new(); info.columns.len()];
         }
-        let mut open = self.insert_row_open;
+        let mut open = self.table_data.insert_row_open;
         let mut submit = false;
         let mut cancel = false;
         let title = format!("Insert Row · {}", info.name);
@@ -1124,7 +1125,7 @@ impl DbProApp {
                             .on_hover_text("Clear all field inputs")
                             .clicked()
                         {
-                            for val in &mut self.insert_row_values {
+                            for val in &mut self.table_data.insert_row_values {
                                 val.clear();
                             }
                         }
@@ -1141,9 +1142,9 @@ impl DbProApp {
                             for (index, column) in info.columns.iter().enumerate() {
                                 if !column.nullable
                                     && column.default.is_none()
-                                    && self.insert_row_values[index].trim().is_empty()
+                                    && self.table_data.insert_row_values[index].trim().is_empty()
                                 {
-                                    self.insert_row_values[index] =
+                                    self.table_data.insert_row_values[index] =
                                         Self::generate_sample_value(&column.name, &column.data_type);
                                 }
                             }
@@ -1159,8 +1160,8 @@ impl DbProApp {
                             .clicked()
                         {
                             for (index, column) in info.columns.iter().enumerate() {
-                                if self.insert_row_values[index].trim().is_empty() {
-                                    self.insert_row_values[index] =
+                                if self.table_data.insert_row_values[index].trim().is_empty() {
+                                    self.table_data.insert_row_values[index] =
                                         Self::generate_sample_value(&column.name, &column.data_type);
                                 }
                             }
@@ -1231,25 +1232,25 @@ impl DbProApp {
                                     // Per-field actions
                                     if ColumnWritePolicy::read(column).is_writable() {
                                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                            if !self.insert_row_values[index].is_empty() {
+                                            if !self.table_data.insert_row_values[index].is_empty() {
                                                 let clear_btn = Button::new(self.theme)
                                                     .icon(Icon::X)
                                                     .size(ButtonSize::IconSm)
                                                     .variant(ButtonVariant::Ghost)
                                                     .show(ui);
                                                 if clear_btn.on_hover_text("Clear this field").clicked() {
-                                                    self.insert_row_values[index].clear();
+                                                    self.table_data.insert_row_values[index].clear();
                                                 }
                                             }
 
-                                            if column.nullable && self.insert_row_values[index] != "NULL" {
+                                            if column.nullable && self.table_data.insert_row_values[index] != "NULL" {
                                                 let null_btn = Button::new(self.theme)
                                                     .text("NULL")
                                                     .size(ButtonSize::Sm)
                                                     .variant(ButtonVariant::Ghost)
                                                     .show(ui);
                                                 if null_btn.on_hover_text("Set value to literal NULL").clicked() {
-                                                    self.insert_row_values[index] = "NULL".to_owned();
+                                                    self.table_data.insert_row_values[index] = "NULL".to_owned();
                                                 }
                                             }
 
@@ -1270,7 +1271,7 @@ impl DbProApp {
                                             let tooltip =
                                                 format!("Generate sample {} for {}", column.data_type, column.name);
                                             if gen_btn.on_hover_text(tooltip).clicked() {
-                                                self.insert_row_values[index] =
+                                                self.table_data.insert_row_values[index] =
                                                     Self::generate_sample_value(&column.name, &column.data_type);
                                             }
                                         });
@@ -1279,7 +1280,9 @@ impl DbProApp {
 
                                 ui.add_space(4.0);
 
-                                let is_null_val = self.insert_row_values[index].trim().eq_ignore_ascii_case("null");
+                                let is_null_val = self.table_data.insert_row_values[index]
+                                    .trim()
+                                    .eq_ignore_ascii_case("null");
                                 let write_block = ColumnWritePolicy::read(column).write_block();
                                 if let Some(block) = write_block {
                                     ui.label(
@@ -1296,7 +1299,7 @@ impl DbProApp {
                                         "Enter value or click Gen..."
                                     };
 
-                                    let val_ref = &mut self.insert_row_values[index];
+                                    let val_ref = &mut self.table_data.insert_row_values[index];
                                     let edit = egui::TextEdit::singleline(val_ref)
                                         .hint_text(
                                             RichText::new(placeholder)
@@ -1334,9 +1337,9 @@ impl DbProApp {
                         }
                     });
 
-                if !self.insert_row_error.is_empty() {
+                if !self.table_data.insert_row_error.is_empty() {
                     ui.add_space(8.0);
-                    Alert::new("Cannot Stage Insert", &self.insert_row_error, self.theme)
+                    Alert::new("Cannot Stage Insert", &self.table_data.insert_row_error, self.theme)
                         .variant(AlertVariant::Destructive)
                         .icon(Icon::AlertCircle)
                         .show(ui);
@@ -1371,8 +1374,8 @@ impl DbProApp {
             self.submit_insert_row();
         }
         if cancel || !open {
-            self.insert_row_open = false;
-            self.insert_row_error.clear();
+            self.table_data.insert_row_open = false;
+            self.table_data.insert_row_error.clear();
         }
     }
 
@@ -1628,12 +1631,12 @@ impl DbProApp {
     }
 
     pub(crate) fn rebuild_row_identity_cache(&mut self, result: &UiQueryResult, _row_indexes: &[usize]) {
-        if self.grid_row_identity_cache_ready {
+        if self.table_data.grid_row_identity_cache_ready {
             return;
         }
-        self.grid_row_identity_cache.clear();
+        self.table_data.grid_row_identity_cache.clear();
         let Some(primary_key) = self.table_info.as_ref().and_then(|info| info.primary_key.clone()) else {
-            self.grid_row_identity_cache_ready = true;
+            self.table_data.grid_row_identity_cache_ready = true;
             return;
         };
         let column_indexes: std::collections::HashMap<&str, usize> = result
@@ -1647,10 +1650,10 @@ impl DbProApp {
                 continue;
             };
             if let Ok(identity) = Self::row_identity_from_row(row, &primary_key, &column_indexes) {
-                self.grid_row_identity_cache.insert(row_index, identity);
+                self.table_data.grid_row_identity_cache.insert(row_index, identity);
             }
         }
-        self.grid_row_identity_cache_ready = true;
+        self.table_data.grid_row_identity_cache_ready = true;
     }
 
     pub(crate) fn begin_data_cell_edit(
@@ -1687,16 +1690,16 @@ impl DbProApp {
             self.runtime_message = block.reason().to_owned();
             return;
         }
-        self.selected_cell = Some((row_index, column_index));
-        self.selected_row = Some(row_index);
-        self.selected_rows.clear();
-        self.selected_rows.insert(row_index);
-        self.selection_anchor_row = Some(row_index);
-        self.selection_anchor_cell = Some((row_index, column_index));
+        self.table_data.selected_cell = Some((row_index, column_index));
+        self.table_data.selected_row = Some(row_index);
+        self.table_data.selected_rows.clear();
+        self.table_data.selected_rows.insert(row_index);
+        self.table_data.selection_anchor_row = Some(row_index);
+        self.table_data.selection_anchor_cell = Some((row_index, column_index));
         if let Some(identity) = self.row_identity_for_result(result, row_index) {
             self.clear_mutation_error_for_identity(&identity, Some(column_index));
         }
-        self.data_editing_cell = Some((row_index, column_index));
+        self.table_data.data_editing_cell = Some((row_index, column_index));
         let should_expand = result.columns.get(column_index).is_some_and(|column| {
             let data_type = column.data_type.to_ascii_lowercase();
             data_type.contains("json")
@@ -1707,9 +1710,9 @@ impl DbProApp {
         if should_expand {
             self.open_cell_inspector(result, row_index, column_index);
         } else {
-            self.expanded_data_editor = None;
-            self.data_edit_error = None;
-            self.data_edit_value = match cell {
+            self.table_data.expanded_data_editor = None;
+            self.table_data.data_edit_error = None;
+            self.table_data.data_edit_value = match cell {
                 UiCell::Null => "NULL".to_owned(),
                 _ => crate::cell_text(cell),
             };
@@ -1728,39 +1731,39 @@ impl DbProApp {
             return false;
         };
         let Some(column) = result.columns.get(column_index).map(|column| column.name.clone()) else {
-            self.data_editing_cell = None;
+            self.table_data.data_editing_cell = None;
             return false;
         };
         let Some(column_info) = info.columns.iter().find(|item| item.name == column) else {
             self.runtime_message = "The selected column is not present in the table metadata".to_owned();
-            self.data_editing_cell = None;
+            self.table_data.data_editing_cell = None;
             return false;
         };
         if let Some(block) = ColumnWritePolicy::read(column_info).write_block() {
             let error = block.reason().to_owned();
-            self.data_edit_error = Some(error.clone());
+            self.table_data.data_edit_error = Some(error.clone());
             self.runtime_message = format!("{}: {error}", column_info.name);
             return false;
         }
-        let value = match Self::parse_update_value(&self.data_edit_value, &column_info.data_type) {
+        let value = match Self::parse_update_value(&self.table_data.data_edit_value, &column_info.data_type) {
             Ok(value) => value,
             Err(error) => {
                 self.runtime_message = format!("{}: {error}", column_info.name);
-                self.data_edit_error = Some(error);
+                self.table_data.data_edit_error = Some(error);
                 return false;
             }
         };
         if matches!(value, UiCell::Null) && !column_info.nullable {
             let error = format!("{} is NOT NULL; enter a value instead", column_info.name);
             self.runtime_message = error.clone();
-            self.data_edit_error = Some(error);
+            self.table_data.data_edit_error = Some(error);
             return false;
         }
         let identity = match Self::row_identity(result, &info, row_index) {
             Ok(identity) => identity,
             Err(error) => {
                 self.runtime_message = error;
-                self.data_edit_error = Some(self.runtime_message.clone());
+                self.table_data.data_edit_error = Some(self.runtime_message.clone());
                 return false;
             }
         };
@@ -1771,9 +1774,9 @@ impl DbProApp {
             .cloned()
             .ok_or_else(|| "The selected cell is no longer available".to_owned());
         let Ok(original) = original else {
-            self.data_editing_cell = None;
+            self.table_data.data_editing_cell = None;
             self.runtime_message = "The selected cell is no longer available".to_owned();
-            self.data_edit_error = Some(self.runtime_message.clone());
+            self.table_data.data_edit_error = Some(self.runtime_message.clone());
             return false;
         };
         if let Some(table) = self.selected_table.as_deref() {
@@ -1790,9 +1793,9 @@ impl DbProApp {
         });
         self.table_mutation_error = None;
         self.staged_apply_targets.clear();
-        self.data_editing_cell = None;
-        self.expanded_data_editor = None;
-        self.data_edit_error = None;
+        self.table_data.data_editing_cell = None;
+        self.table_data.expanded_data_editor = None;
+        self.table_data.data_edit_error = None;
         let counts = self.staged_changes.counts();
         self.runtime_message = format!(
             "Staged edit · {} pending (+{} ~{} -{})",
@@ -1817,10 +1820,10 @@ impl DbProApp {
             self.runtime_message = "Connect with write access to delete rows".to_owned();
             return;
         }
-        let row_indexes: Vec<usize> = if self.selected_rows.is_empty() {
-            self.selected_row.into_iter().collect()
+        let row_indexes: Vec<usize> = if self.table_data.selected_rows.is_empty() {
+            self.table_data.selected_row.into_iter().collect()
         } else {
-            self.selected_rows.iter().copied().collect()
+            self.table_data.selected_rows.iter().copied().collect()
         };
         if row_indexes.is_empty() {
             self.runtime_message = "Select a row before deleting".to_owned();
@@ -1833,11 +1836,11 @@ impl DbProApp {
         if let Some(table) = self.selected_table.as_deref() {
             self.staged_changes.ensure_target(table);
         }
-        self.data_editing_cell = None;
-        self.expanded_data_editor = None;
-        self.data_edit_value.clear();
-        self.data_edit_error = None;
-        self.data_delete_confirmation = false;
+        self.table_data.data_editing_cell = None;
+        self.table_data.expanded_data_editor = None;
+        self.table_data.data_edit_value.clear();
+        self.table_data.data_edit_error = None;
+        self.table_data.data_delete_confirmation = false;
         for row_index in row_indexes {
             if self.staged_row_deleted(result, row_index) {
                 continue;
@@ -1867,7 +1870,7 @@ impl DbProApp {
     }
 
     pub(crate) fn row_identity_for_result(&self, result: &UiQueryResult, row_index: usize) -> Option<RowIdentity> {
-        if let Some(identity) = self.grid_row_identity_cache.get(&row_index) {
+        if let Some(identity) = self.table_data.grid_row_identity_cache.get(&row_index) {
             return Some(identity.clone());
         }
         let info = self.table_info.as_ref()?;
@@ -1942,13 +1945,13 @@ impl DbProApp {
         self.staged_changes.clear();
         self.staged_apply_targets.clear();
         self.table_mutation_error = None;
-        self.data_editing_cell = None;
-        self.expanded_data_editor = None;
-        self.data_edit_error = None;
-        self.data_delete_confirmation = false;
-        self.discard_changes_confirmation = false;
+        self.table_data.data_editing_cell = None;
+        self.table_data.expanded_data_editor = None;
+        self.table_data.data_edit_error = None;
+        self.table_data.data_delete_confirmation = false;
+        self.table_data.discard_changes_confirmation = false;
         self.pending_changes_open = false;
-        self.data_edit_value.clear();
+        self.table_data.data_edit_value.clear();
         self.table_data_result = None;
         self.table_data_error = None;
         self.runtime_message = "Staged changes discarded".to_owned();
@@ -2062,7 +2065,7 @@ impl DbProApp {
     }
 
     pub(crate) fn draw_discard_changes_confirmation(&mut self, ui: &mut egui::Ui) {
-        if !self.discard_changes_confirmation {
+        if !self.table_data.discard_changes_confirmation {
             return;
         }
         let counts = self.staged_changes.counts();
@@ -2110,17 +2113,17 @@ impl DbProApp {
                 });
             });
         if apply {
-            self.discard_changes_confirmation = false;
+            self.table_data.discard_changes_confirmation = false;
             self.apply_staged_changes();
         } else if discard {
-            self.discard_changes_confirmation = false;
+            self.table_data.discard_changes_confirmation = false;
             let pending = self.workspace.pending_navigation_action.take();
             self.discard_staged_changes();
             if let Some(action) = pending {
                 self.execute_pending_navigation(action);
             }
         } else if cancel || !open {
-            self.discard_changes_confirmation = false;
+            self.table_data.discard_changes_confirmation = false;
             self.workspace.pending_navigation_action = None;
         }
     }
@@ -2168,7 +2171,7 @@ impl DbProApp {
                 ui.horizontal(|ui| {
                     ui.label(format!("{} row group(s)", groups.len()));
                     if ui.small_button("Discard All").clicked() {
-                        self.discard_changes_confirmation = true;
+                        self.table_data.discard_changes_confirmation = true;
                     }
                 });
                 egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
@@ -2562,7 +2565,7 @@ impl DbProApp {
         if self.staged_changes.is_empty() {
             return;
         }
-        if self.data_edit_error.is_some() {
+        if self.table_data.data_edit_error.is_some() {
             self.runtime_message = "Fix the validation error before applying changes".to_owned();
             return;
         }
@@ -2758,13 +2761,13 @@ impl DbProApp {
                     columns,
                 } => {
                     let row_index = self.current_row_index_for_identity(identity, *current_row_index);
-                    self.selected_row = row_index;
-                    self.selected_rows.clear();
+                    self.table_data.selected_row = row_index;
+                    self.table_data.selected_rows.clear();
                     if let Some(row_index) = row_index {
-                        self.selected_rows.insert(row_index);
+                        self.table_data.selected_rows.insert(row_index);
                         if let Some(column_index) = columns.first().copied() {
-                            self.selected_cell = Some((row_index, column_index));
-                            self.selection_anchor_cell = Some((row_index, column_index));
+                            self.table_data.selected_cell = Some((row_index, column_index));
+                            self.table_data.selection_anchor_cell = Some((row_index, column_index));
                         }
                     }
                 }
@@ -2773,13 +2776,13 @@ impl DbProApp {
                     current_row_index,
                 } => {
                     let row_index = self.current_row_index_for_identity(identity, *current_row_index);
-                    self.selected_row = row_index;
-                    self.selected_rows.clear();
+                    self.table_data.selected_row = row_index;
+                    self.table_data.selected_rows.clear();
                     if let Some(row_index) = row_index {
-                        self.selected_rows.insert(row_index);
+                        self.table_data.selected_rows.insert(row_index);
                     }
-                    self.selected_cell = None;
-                    self.selection_anchor_cell = None;
+                    self.table_data.selected_cell = None;
+                    self.table_data.selection_anchor_cell = None;
                 }
                 MutationTarget::Insert => {}
             }

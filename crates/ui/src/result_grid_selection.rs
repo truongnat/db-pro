@@ -16,52 +16,58 @@ impl DbProApp {
         };
 
         if extend {
-            let anchor = self.selection_anchor_row.or(self.selected_row).unwrap_or(row_index);
+            let anchor = self
+                .table_data
+                .selection_anchor_row
+                .or(self.table_data.selected_row)
+                .unwrap_or(row_index);
             let anchor_position = row_positions.get(&anchor).copied().unwrap_or(position);
             let (start, end) = if anchor_position <= position {
                 (anchor_position, position)
             } else {
                 (position, anchor_position)
             };
-            self.selected_rows.clear();
-            self.selected_rows.extend(indexes[start..=end].iter().copied());
+            self.table_data.selected_rows.clear();
+            self.table_data
+                .selected_rows
+                .extend(indexes[start..=end].iter().copied());
         } else if toggle {
-            if !self.selected_rows.remove(&row_index) {
-                self.selected_rows.insert(row_index);
+            if !self.table_data.selected_rows.remove(&row_index) {
+                self.table_data.selected_rows.insert(row_index);
             }
-            if self.selected_rows.is_empty() {
-                self.selected_rows.insert(row_index);
+            if self.table_data.selected_rows.is_empty() {
+                self.table_data.selected_rows.insert(row_index);
             }
         } else {
-            self.selected_rows.clear();
-            self.selected_rows.insert(row_index);
+            self.table_data.selected_rows.clear();
+            self.table_data.selected_rows.insert(row_index);
         }
 
-        self.selected_row = if self.selected_rows.contains(&row_index) {
+        self.table_data.selected_row = if self.table_data.selected_rows.contains(&row_index) {
             Some(row_index)
         } else {
-            self.selected_rows.iter().next().copied()
+            self.table_data.selected_rows.iter().next().copied()
         };
         if !extend {
-            self.selection_anchor_row = Some(row_index);
+            self.table_data.selection_anchor_row = Some(row_index);
         }
     }
 
     pub(super) fn select_single_row(&mut self, row_index: usize) {
-        self.selected_rows.clear();
-        self.selected_rows.insert(row_index);
-        self.selected_row = Some(row_index);
-        self.selection_anchor_row = Some(row_index);
-        self.selection_anchor_cell = None;
+        self.table_data.selected_rows.clear();
+        self.table_data.selected_rows.insert(row_index);
+        self.table_data.selected_row = Some(row_index);
+        self.table_data.selection_anchor_row = Some(row_index);
+        self.table_data.selection_anchor_cell = None;
     }
 
     pub(super) fn select_single_cell(&mut self, selection: (usize, usize)) {
-        self.selected_cell = Some(selection);
-        self.selected_rows.clear();
-        self.selected_rows.insert(selection.0);
-        self.selected_row = Some(selection.0);
-        self.selection_anchor_row = Some(selection.0);
-        self.selection_anchor_cell = Some(selection);
+        self.table_data.selected_cell = Some(selection);
+        self.table_data.selected_rows.clear();
+        self.table_data.selected_rows.insert(selection.0);
+        self.table_data.selected_row = Some(selection.0);
+        self.table_data.selection_anchor_row = Some(selection.0);
+        self.table_data.selection_anchor_cell = Some(selection);
     }
 
     pub(super) fn select_cell_range(
@@ -76,7 +82,11 @@ impl DbProApp {
             return;
         }
 
-        let anchor = self.selection_anchor_cell.or(self.selected_cell).unwrap_or(focus);
+        let anchor = self
+            .table_data
+            .selection_anchor_cell
+            .or(self.table_data.selected_cell)
+            .unwrap_or(focus);
         let anchor_row = row_positions.get(&anchor.0).copied().unwrap_or(0);
         let focus_row = row_positions.get(&focus.0).copied().unwrap_or(anchor_row);
         let (row_start, row_end) = if anchor_row <= focus_row {
@@ -84,12 +94,14 @@ impl DbProApp {
         } else {
             (focus_row, anchor_row)
         };
-        self.selected_rows.clear();
-        self.selected_rows.extend(indexes[row_start..=row_end].iter().copied());
-        self.selected_row = Some(focus.0);
-        self.selected_cell = Some(focus);
-        self.selection_anchor_row = Some(anchor.0);
-        self.selection_anchor_cell = Some(anchor);
+        self.table_data.selected_rows.clear();
+        self.table_data
+            .selected_rows
+            .extend(indexes[row_start..=row_end].iter().copied());
+        self.table_data.selected_row = Some(focus.0);
+        self.table_data.selected_cell = Some(focus);
+        self.table_data.selection_anchor_row = Some(anchor.0);
+        self.table_data.selection_anchor_cell = Some(anchor);
     }
 
     pub(super) fn select_all_visible_cells(&mut self, indexes: &[usize], order: &[usize]) {
@@ -98,24 +110,24 @@ impl DbProApp {
         else {
             return;
         };
-        self.selected_rows.clear();
-        self.selected_rows.extend(indexes.iter().copied());
-        self.selection_anchor_row = Some(first_row);
-        self.selection_anchor_cell = Some((first_row, first_column));
-        self.selected_row = Some(last_row);
-        self.selected_cell = Some((last_row, last_column));
+        self.table_data.selected_rows.clear();
+        self.table_data.selected_rows.extend(indexes.iter().copied());
+        self.table_data.selection_anchor_row = Some(first_row);
+        self.table_data.selection_anchor_cell = Some((first_row, first_column));
+        self.table_data.selected_row = Some(last_row);
+        self.table_data.selected_cell = Some((last_row, last_column));
         self.copy_status.clear();
     }
 
     pub(super) fn is_cell_selected(&self, lookup: &GridSelectionLookup, selection: (usize, usize)) -> bool {
-        let Some(anchor) = self.selection_anchor_cell else {
-            return self.selected_cell == Some(selection);
+        let Some(anchor) = self.table_data.selection_anchor_cell else {
+            return self.table_data.selected_cell == Some(selection);
         };
-        let Some(focus) = self.selected_cell else {
+        let Some(focus) = self.table_data.selected_cell else {
             return false;
         };
         let Some(&anchor_row) = lookup.row_positions.get(&anchor.0) else {
-            return self.selected_cell == Some(selection);
+            return self.table_data.selected_cell == Some(selection);
         };
         let Some(&focus_row) = lookup.row_positions.get(&focus.0) else {
             return false;
@@ -124,7 +136,7 @@ impl DbProApp {
             return false;
         };
         let Some(&anchor_column) = lookup.column_positions.get(&anchor.1) else {
-            return self.selected_cell == Some(selection);
+            return self.table_data.selected_cell == Some(selection);
         };
         let Some(&focus_column) = lookup.column_positions.get(&focus.1) else {
             return false;
@@ -193,8 +205,8 @@ impl DbProApp {
         let is_shift_tab = is_tab && ui.input(|input| input.modifiers.shift);
 
         if is_tab {
-            if let Some((curr_row, curr_col)) = self.selected_cell {
-                if editable && self.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+            if let Some((curr_row, curr_col)) = self.table_data.selected_cell {
+                if editable && self.table_data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
                 let visual_col = selection_lookup.column_positions.get(&curr_col).copied().unwrap_or(0);
@@ -223,8 +235,8 @@ impl DbProApp {
                 };
                 if let Some(selection) = next_cell {
                     self.select_cell_range(indexes, &selection_lookup.row_positions, selection, false);
-                    self.data_editing_cell = None;
-                    self.data_edit_value.clear();
+                    self.table_data.data_editing_cell = None;
+                    self.table_data.data_edit_value.clear();
                     self.copy_status.clear();
                 }
                 return;
@@ -247,7 +259,7 @@ impl DbProApp {
             return;
         };
 
-        if let Some((curr_row, curr_col)) = self.selected_cell {
+        if let Some((curr_row, curr_col)) = self.table_data.selected_cell {
             let row_pos = selection_lookup.row_positions.get(&curr_row).copied().unwrap_or(0);
             let visual_col = selection_lookup.column_positions.get(&curr_col).copied().unwrap_or(0);
 
@@ -286,8 +298,8 @@ impl DbProApp {
                     selection,
                     ui.input(|input| input.modifiers.shift),
                 );
-                self.data_editing_cell = None;
-                self.data_edit_value.clear();
+                self.table_data.data_editing_cell = None;
+                self.table_data.data_edit_value.clear();
                 self.copy_status.clear();
             }
         } else if let Some(&first_row) = indexes.first() {

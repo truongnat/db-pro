@@ -3,7 +3,7 @@ use super::*;
 
 impl DbProApp {
     pub(super) fn copy_selected_cell(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let Some((row_index, column_index)) = self.selected_cell else {
+        let Some((row_index, column_index)) = self.table_data.selected_cell else {
             self.copy_status = "Select a cell first".to_owned();
             return;
         };
@@ -39,7 +39,7 @@ impl DbProApp {
     }
 
     pub(super) fn copy_selected_row(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let Some(row_index) = self.selected_row else {
+        let Some(row_index) = self.table_data.selected_row else {
             self.copy_status = "Select a row first".to_owned();
             return;
         };
@@ -69,10 +69,10 @@ impl DbProApp {
     }
 
     pub(super) fn selected_row_indexes(&self) -> Vec<usize> {
-        if self.selected_rows.is_empty() {
-            self.selected_row.into_iter().collect()
+        if self.table_data.selected_rows.is_empty() {
+            self.table_data.selected_row.into_iter().collect()
         } else {
-            self.selected_rows.iter().copied().collect()
+            self.table_data.selected_rows.iter().copied().collect()
         }
     }
 

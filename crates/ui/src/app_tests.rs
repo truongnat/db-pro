@@ -53,12 +53,20 @@ fn primary_key_identity(value: &str) -> RowIdentity {
 #[test]
 fn filter_returns_original_row_indexes() {
     let app = DbProApp {
-        grid_filter: "gamma".to_owned(),
+        table_data: TableDataState {
+            grid_filter: "gamma".to_owned(),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let value = result();
     assert_eq!(
-        crate::filtered_sorted_indexes(&value, &app.grid_filter, app.grid_sort_column, app.grid_sort_desc),
+        crate::filtered_sorted_indexes(
+            &value,
+            &app.table_data.grid_filter,
+            app.table_data.grid_sort_column,
+            app.table_data.grid_sort_desc
+        ),
         vec![2]
     );
 }
@@ -66,17 +74,30 @@ fn filter_returns_original_row_indexes() {
 #[test]
 fn sort_is_stable_over_filtered_indexes() {
     let mut app = DbProApp {
-        grid_sort_column: Some(0),
+        table_data: TableDataState {
+            grid_sort_column: Some(0),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let value = result();
     assert_eq!(
-        crate::filtered_sorted_indexes(&value, &app.grid_filter, app.grid_sort_column, app.grid_sort_desc),
+        crate::filtered_sorted_indexes(
+            &value,
+            &app.table_data.grid_filter,
+            app.table_data.grid_sort_column,
+            app.table_data.grid_sort_desc
+        ),
         vec![1, 0, 2]
     );
-    app.grid_sort_desc = true;
+    app.table_data.grid_sort_desc = true;
     assert_eq!(
-        crate::filtered_sorted_indexes(&value, &app.grid_filter, app.grid_sort_column, app.grid_sort_desc),
+        crate::filtered_sorted_indexes(
+            &value,
+            &app.table_data.grid_filter,
+            app.table_data.grid_sort_column,
+            app.table_data.grid_sort_desc
+        ),
         vec![2, 0, 1]
     );
 }
@@ -138,8 +159,8 @@ fn grid_columns_fill_the_viewport_until_manually_resized() {
     let widths = app.column_widths(3, 1200.0);
     assert!(widths.iter().all(|width| (*width - 380.0).abs() < 0.01));
 
-    app.grid_column_widths = vec![240.0, 320.0, 180.0];
-    app.grid_columns_user_resized = true;
+    app.table_data.grid_column_widths = vec![240.0, 320.0, 180.0];
+    app.table_data.grid_columns_user_resized = true;
     assert_eq!(app.column_widths(3, 1200.0), vec![240.0, 320.0, 180.0]);
 }
 
@@ -498,7 +519,7 @@ fn table_edits_stage_until_explicit_apply() {
         check_constraints: Vec::new(),
         dependencies: Vec::new(),
     });
-    app.data_edit_value = "Updated".to_owned();
+    app.table_data.data_edit_value = "Updated".to_owned();
     let value = UiQueryResult {
         columns: vec![
             crate::UiColumn {
@@ -541,7 +562,7 @@ fn apply_is_blocked_while_a_validation_error_exists() {
         original: UiCell::Text("Original".to_owned()),
         value: UiCell::Text("Updated".to_owned()),
     });
-    app.data_edit_error = Some("invalid value".to_owned());
+    app.table_data.data_edit_error = Some("invalid value".to_owned());
 
     app.apply_staged_changes();
 
@@ -593,7 +614,10 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
             check_constraints: Vec::new(),
             dependencies: Vec::new(),
         }),
-        data_edit_value: "2".to_owned(),
+        table_data: TableDataState {
+            data_edit_value: "2".to_owned(),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let result = UiQueryResult {
@@ -736,7 +760,7 @@ fn binary_cell_edit_is_refused_with_a_reason() {
     app.begin_data_cell_edit(&result, 0, 1, &result.rows[0][1]);
 
     assert!(
-        app.data_editing_cell.is_none(),
+        app.table_data.data_editing_cell.is_none(),
         "no editor may open for a blocked column"
     );
     assert!(
@@ -802,7 +826,10 @@ fn generated_column_edit_is_refused_before_staging() {
             check_constraints: Vec::new(),
             dependencies: Vec::new(),
         }),
-        data_edit_value: "99.99".to_owned(),
+        table_data: TableDataState {
+            data_edit_value: "99.99".to_owned(),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let result = UiQueryResult {
@@ -826,7 +853,12 @@ fn generated_column_edit_is_refused_before_staging() {
     let accepted = app.submit_data_cell_edit(&result, 0, 1);
 
     assert!(!accepted, "the generated column must refuse the edit");
-    assert!(app.data_edit_error.as_deref().unwrap_or_default().contains("computed"));
+    assert!(app
+        .table_data
+        .data_edit_error
+        .as_deref()
+        .unwrap_or_default()
+        .contains("computed"));
     assert_eq!(app.staged_changes.counts().total(), 0, "nothing may be staged");
     assert!(
         app.runtime_message.contains("computed"),
@@ -899,7 +931,10 @@ fn generated_column_is_never_staged_by_insert() {
             check_constraints: Vec::new(),
             dependencies: Vec::new(),
         }),
-        insert_row_values: vec!["1".to_owned(), "2".to_owned(), String::new()],
+        table_data: TableDataState {
+            insert_row_values: vec!["1".to_owned(), "2".to_owned(), String::new()],
+            ..Default::default()
+        },
         ..Default::default()
     };
 
@@ -914,7 +949,7 @@ fn generated_column_is_never_staged_by_insert() {
         "the generated column must be skipped"
     );
     assert!(
-        app.insert_row_error.is_empty(),
+        app.table_data.insert_row_error.is_empty(),
         "skipping a generated column is not an error"
     );
 
@@ -944,14 +979,17 @@ fn generated_column_is_never_staged_by_insert() {
         },
         selected_table: Some("line_items".to_owned()),
         table_info: app.table_info.clone(),
-        insert_row_values: vec!["1".to_owned(), "2".to_owned(), "3.0".to_owned()],
+        table_data: TableDataState {
+            insert_row_values: vec!["1".to_owned(), "2".to_owned(), "3.0".to_owned()],
+            ..Default::default()
+        },
         ..Default::default()
     };
     second.submit_insert_row();
     assert!(
-        second.insert_row_error.contains("computed"),
+        second.table_data.insert_row_error.contains("computed"),
         "the refusal must be visible: {}",
-        second.insert_row_error
+        second.table_data.insert_row_error
     );
     assert_eq!(second.staged_changes.counts().total(), 0);
 }
@@ -1033,9 +1071,9 @@ fn duplicated_row_leaves_blocked_columns_empty() {
 
     app.open_duplicate_row(&result, 0);
 
-    assert_eq!(app.insert_row_values, vec![String::new(), String::new()]);
-    assert!(app.insert_row_open);
-    assert!(app.insert_row_error.is_empty());
+    assert_eq!(app.table_data.insert_row_values, vec![String::new(), String::new()]);
+    assert!(app.table_data.insert_row_open);
+    assert!(app.table_data.insert_row_error.is_empty());
 }
 
 #[test]
@@ -1071,7 +1109,7 @@ fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
 
     assert_eq!(app.staged_apply_request, None);
     assert_eq!(app.staged_changes.counts().updates, 1);
-    assert_eq!(app.selected_cell, Some((2, 1)));
+    assert_eq!(app.table_data.selected_cell, Some((2, 1)));
     assert!(matches!(
         app.table_mutation_error.as_ref().and_then(|failure| failure.target.as_ref()),
         Some(MutationTarget::Update {
@@ -3754,10 +3792,10 @@ fn test_column_order_and_move_column() {
     assert_eq!(order, vec![0, 1, 2, 3]);
 
     app.move_column(0, 2, 4);
-    assert_eq!(app.grid_column_order, vec![1, 2, 0, 3]);
+    assert_eq!(app.table_data.grid_column_order, vec![1, 2, 0, 3]);
 
     app.move_column(3, 1, 4);
-    assert_eq!(app.grid_column_order, vec![1, 3, 2, 0]);
+    assert_eq!(app.table_data.grid_column_order, vec![1, 3, 2, 0]);
 
     // Invalid persisted indexes are removed while valid order is preserved.
     let new_order = app.column_order(2);
@@ -3996,14 +4034,14 @@ fn test_open_table_blocked_with_unapplied_staged_changes() {
     // Opening another table should be blocked to prevent mutation retargeting
     app.open_table("orders".to_owned());
     assert_eq!(app.selected_table, Some("users".to_owned()));
-    assert!(app.discard_changes_confirmation);
+    assert!(app.table_data.discard_changes_confirmation);
     assert!(app.runtime_message.contains("Apply or discard staged changes"));
 
     // Closing table tab with staged changes is guarded
-    app.discard_changes_confirmation = false;
+    app.table_data.discard_changes_confirmation = false;
     app.request_close_workspace_tab(WorkspaceTab::Table);
     assert_eq!(app.selected_table, Some("users".to_owned()));
-    assert!(app.discard_changes_confirmation);
+    assert!(app.table_data.discard_changes_confirmation);
 
     // Discarding changes allows opening a new table
     app.discard_staged_changes();
@@ -4087,11 +4125,11 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
         app.workspace.pending_navigation_action,
         Some(PendingNavigationAction::OpenTable("orders".to_owned()))
     );
-    assert!(app.discard_changes_confirmation);
+    assert!(app.table_data.discard_changes_confirmation);
     assert_eq!(app.selected_table, Some("users".to_owned()));
 
     // 2. Cancel retains current context and clears pending action
-    app.discard_changes_confirmation = false;
+    app.table_data.discard_changes_confirmation = false;
     app.workspace.pending_navigation_action = None;
     assert_eq!(app.selected_table, Some("users".to_owned()));
     assert!(!app.staged_changes.is_empty());
@@ -4187,7 +4225,7 @@ fn test_grid_layout_schema_reconciliation() {
         },
     ];
 
-    app.grid_pending_named_layout = Some(vec![
+    app.table_data.grid_pending_named_layout = Some(vec![
         PersistedGridColumnLayout {
             column_name: "email".to_owned(),
             width: 240.0,
@@ -4212,8 +4250,8 @@ fn test_grid_layout_schema_reconciliation() {
     let order = app.column_order_for_columns(&initial_columns);
     // email was index 1, id was index 0
     assert_eq!(order, vec![1, 0]);
-    assert_eq!(app.grid_column_widths[1], 240.0);
-    assert_eq!(app.grid_column_widths[0], 100.0);
+    assert_eq!(app.table_data.grid_column_widths[1], 240.0);
+    assert_eq!(app.table_data.grid_column_widths[0], 100.0);
 }
 
 #[test]
@@ -5587,8 +5625,8 @@ fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
     assert_eq!(app.staged_changes.counts().deletes, 1);
 
     // 3. Focus moves to failed row and cell
-    assert_eq!(app.selected_row, Some(1));
-    assert_eq!(app.selected_cell, Some((1, 1)));
+    assert_eq!(app.table_data.selected_row, Some(1));
+    assert_eq!(app.table_data.selected_cell, Some((1, 1)));
 
     // 4. Conflict resolution dialog opened
     assert!(app.conflict_dialog_open);

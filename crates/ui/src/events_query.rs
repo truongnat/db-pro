@@ -65,13 +65,13 @@ impl DbProApp {
 
         if is_active_doc {
             self.runtime_message = format!("Query completed · {} rows", result.row_count);
-            self.grid_sort_column = None;
-            self.grid_column_widths = vec![180.0; result.columns.len()];
-            self.selected_cell = None;
-            self.selected_row = None;
-            self.selected_rows.clear();
-            self.selection_anchor_row = None;
-            self.selection_anchor_cell = None;
+            self.table_data.grid_sort_column = None;
+            self.table_data.grid_column_widths = vec![180.0; result.columns.len()];
+            self.table_data.selected_cell = None;
+            self.table_data.selected_row = None;
+            self.table_data.selected_rows.clear();
+            self.table_data.selection_anchor_row = None;
+            self.table_data.selection_anchor_cell = None;
             self.copy_status.clear();
             if let Some(doc_id) = target_doc_id.as_deref() {
                 self.set_query_output_tab(doc_id, OutputTab::Results);
@@ -204,10 +204,10 @@ impl DbProApp {
                 output.total_duration_ms,
             );
             self.set_query_output_tab(&doc_id, OutputTab::Results);
-            self.grid_sort_column = None;
-            self.selected_cell = None;
-            self.selected_row = None;
-            self.selected_rows.clear();
+            self.table_data.grid_sort_column = None;
+            self.table_data.selected_cell = None;
+            self.table_data.selected_row = None;
+            self.table_data.selected_rows.clear();
             self.workspace.bottom_panel_open = true;
             self.query_output_dock_maximized = false;
         }
@@ -446,10 +446,10 @@ impl DbProApp {
             self.staged_apply_failed(usize::MAX, "UNKNOWN", &message, false);
         } else if self.table_mutation_request == Some(request_id) {
             self.table_mutation_request = None;
-            self.data_editing_cell = None;
-            self.data_edit_value.clear();
-            self.data_edit_error = None;
-            self.data_delete_confirmation = false;
+            self.table_data.data_editing_cell = None;
+            self.table_data.data_edit_value.clear();
+            self.table_data.data_edit_error = None;
+            self.table_data.data_delete_confirmation = false;
             let formatted = format!("Row mutation failed · {message}");
             self.runtime_message = formatted.clone();
             self.show_toast_error(formatted);

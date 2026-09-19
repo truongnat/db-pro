@@ -90,15 +90,16 @@ impl DbProApp {
             };
             if let Some(widths) = storage.get_string("dbpro.native.grid-widths") {
                 if let Ok(widths) = serde_json::from_str::<Vec<f32>>(&widths) {
-                    app.grid_column_widths = widths.into_iter().map(|width| width.clamp(90.0, 520.0)).collect();
+                    app.table_data.grid_column_widths =
+                        widths.into_iter().map(|width| width.clamp(90.0, 520.0)).collect();
                 }
             }
             if let Some(layouts) = storage.get_string("dbpro.native.grid-layouts") {
                 if let Ok(layouts) = serde_json::from_str(&layouts) {
-                    app.grid_layout_preferences = layouts;
+                    app.table_data.grid_layout_preferences = layouts;
                 }
             }
-            app.grid_columns_user_resized = storage
+            app.table_data.grid_columns_user_resized = storage
                 .get_string("dbpro.native.grid-widths-customized")
                 .is_some_and(|value| value == "true");
             if let Some(documents) = storage.get_string("dbpro.native.query-documents") {
@@ -249,38 +250,7 @@ impl Default for DbProApp {
             runtime_message: "Ready".to_owned(),
             toasts: crate::components::overlay::ToastManager::default(),
             query_output_state: QueryOutputState::default(),
-            grid_filter: String::new(),
-            grid_sort_column: None,
-            grid_sort_desc: false,
-            grid_column_widths: Vec::new(),
-            grid_column_order: Vec::new(),
-            grid_hidden_columns: std::collections::BTreeSet::new(),
-            grid_layout_preferences: std::collections::HashMap::new(),
-            grid_pending_named_layout: None,
-            grid_legacy_layout_pending: false,
-            grid_layout_column_names: Vec::new(),
-            grid_row_identity_cache: std::collections::HashMap::new(),
-            grid_row_identity_cache_ready: false,
-            grid_projection_epoch: 0,
-            grid_projection_cache: crate::GridProjectionCache::default(),
-            grid_selection_cache: GridSelectionCache::default(),
-            grid_columns_user_resized: false,
-            selected_cell: None,
-            selected_row: None,
-            selected_rows: std::collections::BTreeSet::new(),
-            selection_anchor_row: None,
-            selection_anchor_cell: None,
-            data_editing_cell: None,
-            expanded_data_editor: None,
-            cell_inspector_mode: cell_inspector::CellInspectorMode::Raw,
-            record_inspector_open: false,
-            data_edit_value: String::new(),
-            data_edit_error: None,
-            data_delete_confirmation: false,
-            discard_changes_confirmation: false,
-            insert_row_open: false,
-            insert_row_values: Vec::new(),
-            insert_row_error: String::new(),
+            table_data: TableDataState::default(),
             copy_status: String::new(),
             export_open: false,
             export_format: "CSV".to_owned(),

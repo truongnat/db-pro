@@ -15,11 +15,12 @@ impl DbProApp {
         let Some(scope) = self.grid_layout_scope() else {
             return;
         };
-        let column_names = self.grid_layout_column_names.clone();
-        if column_names.len() != self.grid_column_order.len() {
+        let column_names = self.table_data.grid_layout_column_names.clone();
+        if column_names.len() != self.table_data.grid_column_order.len() {
             return;
         }
         let columns = self
+            .table_data
             .grid_column_order
             .iter()
             .enumerate()
@@ -27,13 +28,18 @@ impl DbProApp {
                 let column_name = column_names.get(column_index)?.clone();
                 Some(PersistedGridColumnLayout {
                     column_name,
-                    width: self.grid_column_widths.get(column_index).copied().unwrap_or(180.0),
+                    width: self
+                        .table_data
+                        .grid_column_widths
+                        .get(column_index)
+                        .copied()
+                        .unwrap_or(180.0),
                     order,
-                    hidden: self.grid_hidden_columns.contains(&column_index),
+                    hidden: self.table_data.grid_hidden_columns.contains(&column_index),
                 })
             })
             .collect();
-        self.grid_layout_preferences.insert(
+        self.table_data.grid_layout_preferences.insert(
             scope,
             PersistedGridLayout {
                 columns,
@@ -46,22 +52,22 @@ impl DbProApp {
         let Some(scope) = self.grid_layout_scope() else {
             return;
         };
-        let Some(layout) = self.grid_layout_preferences.get(&scope).cloned() else {
-            self.grid_column_widths.clear();
-            self.grid_column_order.clear();
-            self.grid_hidden_columns.clear();
-            self.grid_pending_named_layout = None;
-            self.grid_legacy_layout_pending = false;
-            self.grid_columns_user_resized = false;
+        let Some(layout) = self.table_data.grid_layout_preferences.get(&scope).cloned() else {
+            self.table_data.grid_column_widths.clear();
+            self.table_data.grid_column_order.clear();
+            self.table_data.grid_hidden_columns.clear();
+            self.table_data.grid_pending_named_layout = None;
+            self.table_data.grid_legacy_layout_pending = false;
+            self.table_data.grid_columns_user_resized = false;
             return;
         };
-        self.grid_layout_column_names.clear();
-        self.grid_pending_named_layout = (!layout.columns.is_empty()).then_some(layout.columns);
-        self.grid_legacy_layout_pending = self.grid_pending_named_layout.is_none()
+        self.table_data.grid_layout_column_names.clear();
+        self.table_data.grid_pending_named_layout = (!layout.columns.is_empty()).then_some(layout.columns);
+        self.table_data.grid_legacy_layout_pending = self.table_data.grid_pending_named_layout.is_none()
             && (!layout.widths.is_empty() || !layout.order.is_empty() || !layout.hidden_columns.is_empty());
-        self.grid_column_widths = layout.widths;
-        self.grid_column_order = layout.order;
-        self.grid_hidden_columns = layout.hidden_columns.into_iter().collect();
-        self.grid_columns_user_resized = !self.grid_column_widths.is_empty();
+        self.table_data.grid_column_widths = layout.widths;
+        self.table_data.grid_column_order = layout.order;
+        self.table_data.grid_hidden_columns = layout.hidden_columns.into_iter().collect();
+        self.table_data.grid_columns_user_resized = !self.table_data.grid_column_widths.is_empty();
     }
 }

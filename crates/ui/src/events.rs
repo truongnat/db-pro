@@ -527,11 +527,11 @@ impl DbProApp {
         self.invalidate_grid_row_caches();
         self.table_data_total_rows = Some(total_rows);
         if self.staged_changes.is_empty() {
-            self.selected_cell = None;
-            self.selected_row = None;
-            self.selected_rows.clear();
-            self.selection_anchor_row = None;
-            self.selection_anchor_cell = None;
+            self.table_data.selected_cell = None;
+            self.table_data.selected_row = None;
+            self.table_data.selected_rows.clear();
+            self.table_data.selection_anchor_row = None;
+            self.table_data.selection_anchor_cell = None;
         }
         self.table_data_error = None;
         self.table_data_request = None;
@@ -730,10 +730,10 @@ impl DbProApp {
 
     /// Row mutation follow-up: finalise a staged apply, or refresh the grid.
     fn on_table_row_operation_completed(&mut self, request_id: RequestId) {
-        self.data_editing_cell = None;
-        self.data_edit_value.clear();
-        self.data_edit_error = None;
-        self.data_delete_confirmation = false;
+        self.table_data.data_editing_cell = None;
+        self.table_data.data_edit_value.clear();
+        self.table_data.data_edit_error = None;
+        self.table_data.data_delete_confirmation = false;
         if self.staged_apply_request == Some(request_id) {
             self.staged_apply_completed();
         } else if self.table_mutation_request == Some(request_id) {

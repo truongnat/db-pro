@@ -366,16 +366,16 @@ impl DbProApp {
         self.table_mutation_retry_after_reload = false;
         self.table_mutation_retry_target = None;
         self.table_mutation_error = None;
-        self.selected_cell = None;
-        self.selected_row = None;
-        self.selected_rows.clear();
-        self.selection_anchor_row = None;
-        self.selection_anchor_cell = None;
-        self.data_editing_cell = None;
-        self.data_edit_value.clear();
-        self.data_edit_error = None;
-        self.data_delete_confirmation = false;
-        self.discard_changes_confirmation = false;
+        self.table_data.selected_cell = None;
+        self.table_data.selected_row = None;
+        self.table_data.selected_rows.clear();
+        self.table_data.selection_anchor_row = None;
+        self.table_data.selection_anchor_cell = None;
+        self.table_data.data_editing_cell = None;
+        self.table_data.data_edit_value.clear();
+        self.table_data.data_edit_error = None;
+        self.table_data.data_delete_confirmation = false;
+        self.table_data.discard_changes_confirmation = false;
         self.table_view = TableView::Data;
     }
 

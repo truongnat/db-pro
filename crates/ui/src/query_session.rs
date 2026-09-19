@@ -279,7 +279,7 @@ impl DbProApp {
     /// results, loading table data, reloading one row, switching the active result set. Missing a
     /// call does not corrupt data, but the grid would keep drawing the previous order and filter.
     pub(crate) fn invalidate_grid_projection(&mut self) {
-        self.grid_projection_epoch = self.grid_projection_epoch.wrapping_add(1);
+        self.table_data.grid_projection_epoch = self.table_data.grid_projection_epoch.wrapping_add(1);
     }
 
     /// Drop the per-row identity cache and the projection built from those rows.
@@ -287,18 +287,18 @@ impl DbProApp {
     /// The two are invalidated together on purpose: every site that changes row data needs both, and
     /// keeping them in one call is what makes "no site was forgotten" checkable by grep.
     pub(crate) fn invalidate_grid_row_caches(&mut self) {
-        self.grid_row_identity_cache.clear();
-        self.grid_row_identity_cache_ready = false;
+        self.table_data.grid_row_identity_cache.clear();
+        self.table_data.grid_row_identity_cache_ready = false;
         self.invalidate_grid_projection();
     }
 
     /// The projection key for the result currently being drawn.
     pub(super) fn grid_projection_key(&self, result: &UiQueryResult) -> GridProjectionKey {
         GridProjectionKey {
-            epoch: self.grid_projection_epoch,
-            filter: self.grid_filter.clone(),
-            sort_column: self.grid_sort_column,
-            sort_desc: self.grid_sort_desc,
+            epoch: self.table_data.grid_projection_epoch,
+            filter: self.table_data.grid_filter.clone(),
+            sort_column: self.table_data.grid_sort_column,
+            sort_desc: self.table_data.grid_sort_desc,
             row_count: result.row_count,
             column_count: result.columns.len(),
         }

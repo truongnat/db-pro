@@ -44,8 +44,8 @@ impl DbProApp {
         let staged_cell = self.staged_cell_value(result, row_index, column_index);
         let display_cell = staged_cell.as_ref().unwrap_or(cell);
         let cell_selected = self.is_cell_selected(selection_lookup, (row_index, column_index));
-        let editing = editable && self.data_editing_cell == Some((row_index, column_index));
-        let validation_error = editing && self.data_edit_error.is_some();
+        let editing = editable && self.table_data.data_editing_cell == Some((row_index, column_index));
+        let validation_error = editing && self.table_data.data_edit_error.is_some();
         let conflict_error = (cell_mutation_error || row_mutation_error)
             && self
                 .table_mutation_error
@@ -97,7 +97,7 @@ impl DbProApp {
                 Rounding::ZERO,
                 Stroke::new(1.5, self.theme.danger),
             );
-            if let Some(error) = self.data_edit_error.as_deref() {
+            if let Some(error) = self.table_data.data_edit_error.as_deref() {
                 cell_resp.clone().on_hover_text(error);
             }
         }
@@ -183,12 +183,12 @@ impl DbProApp {
             );
 
             if cell_resp.double_clicked() && editable {
-                if self.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+                if self.table_data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
                 self.begin_data_cell_edit(result, row_index, column_index, display_cell);
             } else if cell_resp.clicked() && !is_ctx {
-                if self.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+                if self.table_data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
                 let modifiers = ui.input(|input| input.modifiers);
@@ -459,6 +459,7 @@ impl DbProApp {
 
         if is_ctx
             && self
+                .table_data
                 .data_editing_cell
                 .is_some_and(|editing_cell| editing_cell != (row_index, column_index))
             && !self.commit_active_data_edit(result)
@@ -474,11 +475,11 @@ impl DbProApp {
             if !is_inside_range {
                 self.select_single_cell((row_index, column_index));
             }
-            if !self.selected_rows.contains(&row_index) {
+            if !self.table_data.selected_rows.contains(&row_index) {
                 self.select_single_row(row_index);
             } else if !is_inside_range {
-                self.selected_row = Some(row_index);
-                self.selection_anchor_row = Some(row_index);
+                self.table_data.selected_row = Some(row_index);
+                self.table_data.selection_anchor_row = Some(row_index);
             }
         }
         self.apply_grid_cell_menu_requests(
@@ -518,44 +519,44 @@ impl DbProApp {
             self.copy_selected_row(ui, result);
         }
         if req.copy_selected_rows {
-            if !self.selected_rows.contains(&row_index) {
+            if !self.table_data.selected_rows.contains(&row_index) {
                 self.select_single_row(row_index);
             }
             self.copy_selected_rows(ui, result);
         }
         if req.copy_selected_rows_headers {
-            if !self.selected_rows.contains(&row_index) {
+            if !self.table_data.selected_rows.contains(&row_index) {
                 self.select_single_row(row_index);
             }
             self.copy_selected_rows_with_headers(ui, result);
         }
         if req.copy_selected_rows_json {
-            if !self.selected_rows.contains(&row_index) {
+            if !self.table_data.selected_rows.contains(&row_index) {
                 self.select_single_row(row_index);
             }
             self.copy_selected_rows_as_json(ui, result);
         }
         if req.copy_selected_rows_insert {
-            if !self.selected_rows.contains(&row_index) {
+            if !self.table_data.selected_rows.contains(&row_index) {
                 self.select_single_row(row_index);
             }
             self.copy_selected_rows_as_insert(ui, result);
         }
         if req.copy_json {
-            self.selected_row = Some(row_index);
+            self.table_data.selected_row = Some(row_index);
             self.copy_row_as_json(ui, result, row_index);
         }
         if req.copy_csv {
-            self.selected_row = Some(row_index);
+            self.table_data.selected_row = Some(row_index);
             self.copy_row_as_csv(ui, result, row_index);
         }
         if req.edit_cell && editable {
             self.begin_data_cell_edit(result, row_index, column_index, display_cell);
         }
         if req.set_null && editable {
-            self.data_editing_cell = Some((row_index, column_index));
-            self.data_edit_value = "NULL".to_owned();
-            self.data_edit_error = None;
+            self.table_data.data_editing_cell = Some((row_index, column_index));
+            self.table_data.data_edit_value = "NULL".to_owned();
+            self.table_data.data_edit_error = None;
             self.submit_data_cell_edit(result, row_index, column_index);
         }
         if req.revert_cell && editable {
@@ -568,7 +569,7 @@ impl DbProApp {
             self.open_duplicate_row(result, row_index);
         }
         if req.delete_row && editable {
-            if !self.selected_rows.contains(&row_index) {
+            if !self.table_data.selected_rows.contains(&row_index) {
                 self.select_single_row(row_index);
             }
             self.request_delete_selected_data_rows(result);
@@ -589,7 +590,7 @@ impl DbProApp {
                 }
                 self.commit_table_filter_draft();
             } else {
-                self.grid_filter = crate::cell_text(display_cell);
+                self.table_data.grid_filter = crate::cell_text(display_cell);
             }
         }
         if req.sort_asc {
