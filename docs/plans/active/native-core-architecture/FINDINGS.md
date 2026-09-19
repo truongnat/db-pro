@@ -39,7 +39,8 @@ query, navigation, task, schema and event code.
 
 Fix in `13dedb61`: those lifecycle values now have one owner,
 `ConnectionLifecycleState`, with explicit clearing behavior for pending
-requests and connection errors. The saved-connection collection is still a
-read model in `DbProApp` and is intentionally the next migration step.
+requests and connection errors. Fix in `d9ff6b00`: the saved-connection read
+model now has one owner, `ConnectionCatalogState`, including replacement and
+lookup behavior.
 
 Severity: P1 boundary leak, partially resolved.

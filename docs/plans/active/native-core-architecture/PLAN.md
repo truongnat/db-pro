@@ -32,7 +32,7 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
 
 1. Connection dialog state aggregate — completed in `f8a091eb`.
 2. Connection session state and lifecycle transitions — lifecycle completed in
-   `13dedb61`; saved-connection read model remains for the next slice.
+   `13dedb61`; saved-connection read model completed in `d9ff6b00`.
 3. Workspace shell state and navigation reducer.
 4. Query document/session state and output lifecycle.
 5. Table/data editor state and mutation effects.
