@@ -135,3 +135,17 @@ aggregates, shell composition state, presentation context and the task bridge;
 the allowlist is enforced in CI. The deeper privacy boundary between sibling
 feature modules (private aggregate fields plus reducer-only APIs) remains the
 last architectural hardening slice.
+
+## F12 — Legacy agent command/event path bypassed the workflow boundary
+
+Evidence at discovery: `RunAgent` and `ExecuteAgentTool` remained in the UI and
+runtime command enums, while the UI router ignored the corresponding tool
+completion events. The active agent surface already used `AgentWorkflow`, so the
+legacy path could emit runtime events with no state transition consumer.
+
+Fix in `a096664e`: removed the legacy commands, runtime events, translation
+branches and no-op router arm. Agent execution now has one runtime boundary:
+`StartAgentWorkflow` / `ContinueAgentWorkflow` / `CancelAgentWorkflow` and
+`AgentWorkflow` events.
+
+Severity: P1 event-contract correctness, resolved.

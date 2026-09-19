@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `b128ffb1`.
+Source checkpoint: `a096664e`.
 
 ## Current change
 
@@ -49,6 +49,9 @@ Source checkpoint: `b128ffb1`.
   `sync_channel(256)` and retries asynchronously when the UI queue is full.
 - Runtime command sends are centralized through the dispatch adapter; closed
   command boundaries are logged and surfaced as a user-visible runtime error.
+- Legacy `RunAgent`/`ExecuteAgentTool` commands and ignored tool completion
+  events were removed; the runtime now exposes one agent workflow command/event
+  contract.
 - `scripts/check-ui-architecture.sh`: PASS; it allowlists the composition-root
   fields, rejects event handlers in `events.rs`, rejects direct state access in
   `event_router.rs`, requires bounded event draining, and rejects feature code
@@ -57,15 +60,16 @@ Source checkpoint: `b128ffb1`.
   inside the safe viewport, gives the body its own scroll budget, and renders a
   full-width separated header with the close action aligned to the right.
 - Deterministic native capture of the affected New Connection modal: PASS at
-  logical `1280x800` (`/tmp/db-pro-modal-evdl0N/new-connection-1280x800.png`).
+  logical `1280x800` (`/tmp/db-pro-evidence-core-error-1280x800.png`).
   The inspected framebuffer shows balanced vertical margins, a separated
   header, right-aligned close action, independently scrolling body and sticky
   footer.
-- Deterministic state captures at logical `1280x800`: loading Welcome state
-  (`/tmp/db-pro-evidence-wRPixZ/loading-1280x800.png`) and New Connection
-  error state (`/tmp/db-pro-evidence-u7x4vI/error-1280x800.png`). The error
-  alert is visible immediately below the separated header instead of being
-  hidden at the end of the scroll body.
+- Deterministic state captures at logical `1280x800`: normal Welcome state
+  (`/tmp/db-pro-evidence-core-normal-1280x800.png`), loading Welcome state
+  (`/tmp/db-pro-evidence-core-loading-1280x800.png`) and New Connection error
+  state (`/tmp/db-pro-evidence-core-error-1280x800.png`). The error alert is
+  visible immediately below the separated header instead of being hidden at the
+  end of the scroll body.
 - Release runtime smoke: PASS; `target/release/db-pro-native` launched from
   the verified HEAD and rendered the Welcome/empty state in a `1440x870` DB Pro
   window. Capture was inspected from the native window after startup settled.
@@ -87,4 +91,3 @@ Source checkpoint: `b128ffb1`.
   `1920x1080` logical heights remains host-limited: macOS capture clamps both
   to a logical height of `838`. The required normal/loading/error/empty states
   are now captured at exact logical `1280x800`.
-- Native screenshot/runtime evidence for all affected states.

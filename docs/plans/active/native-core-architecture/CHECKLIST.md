@@ -25,6 +25,7 @@
 - [x] Runtime event dispatch table isolated from feature handlers.
 - [x] Agent and table runtime handlers split into feature event modules.
 - [x] Connection, schema and operation reducers split out of `events.rs`.
+- [x] Legacy agent command/event path removed; agent runtime uses one workflow contract.
 - [x] `DbProApp` reduced to composition root (event pump and cross-feature orchestration only).
 - [x] Architecture boundary check in CI (`scripts/check-ui-architecture.sh`).
 
@@ -33,7 +34,7 @@
 - [x] `cargo fmt --all -- --check` (PASS)
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
-- [x] `cargo test -p db-pro-ui --lib` (573 passed)
+- [x] `cargo test -p db-pro-ui --lib` (576 passed)
 - [x] `cargo test --workspace --no-fail-fast` (1248 passed, 0 failed, 42 ignored)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [x] New Connection modal runtime capture at logical `1280x800` (centered
