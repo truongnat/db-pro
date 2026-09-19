@@ -111,6 +111,8 @@ mod query_library_events;
 mod query_library_state;
 #[path = "query_prediction_events.rs"]
 mod query_prediction_events;
+#[path = "query_save_events.rs"]
+mod query_save_events;
 #[path = "saved_task_state.rs"]
 mod saved_task_state;
 #[path = "settings_model.rs"]
@@ -544,6 +546,18 @@ impl DbProApp {
 
     pub(super) fn on_sql_prediction_failed(&mut self, request_id: RequestId, document_id: String) {
         query_prediction_events::on_sql_prediction_failed(&mut self.query_session_state, request_id, document_id);
+    }
+
+    pub(super) fn on_query_saved(&mut self, request_id: RequestId, query: UiSavedQuerySummary) {
+        if let Some(index) = query_save_events::on_query_saved(
+            &mut self.query_session_state,
+            &mut self.query_library,
+            &mut self.feedback,
+            request_id,
+            query,
+        ) {
+            self.close_query_document(index);
+        }
     }
 
     pub(super) fn handle_schema_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {

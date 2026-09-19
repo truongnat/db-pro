@@ -106,7 +106,8 @@ for reducer in \
   "$repo_root/crates/ui/src/schema_events.rs" \
   "$repo_root/crates/ui/src/table_events.rs" \
   "$repo_root/crates/ui/src/query_library_events.rs" \
-  "$repo_root/crates/ui/src/query_prediction_events.rs"; do
+  "$repo_root/crates/ui/src/query_prediction_events.rs" \
+  "$repo_root/crates/ui/src/query_save_events.rs"; do
   if rg -n '^impl DbProApp|\bDbProApp\b' "$reducer"; then
     echo "UI architecture check failed: feature event reducers must depend on explicit state, not DbProApp." >&2
     exit 1
@@ -138,7 +139,7 @@ if [[ -n "$connection_dialog_boundary_leaks" ]]; then
   exit 1
 fi
 
-for module in event_router agent_events connection_events operation_events schema_events table_events query_library_events query_prediction_events; do
+for module in event_router agent_events connection_events operation_events schema_events table_events query_library_events query_prediction_events query_save_events; do
   test -f "$repo_root/crates/ui/src/${module}.rs" || {
     echo "UI architecture check failed: missing event module ${module}.rs." >&2
     exit 1

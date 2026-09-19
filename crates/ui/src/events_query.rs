@@ -217,33 +217,6 @@ impl DbProApp {
         }
     }
 
-    pub(super) fn on_query_saved(&mut self, request_id: RequestId, query: UiSavedQuerySummary) {
-        let document_id = self.query_session_state.save_requests.remove(&request_id);
-        let mut close_index = None;
-        if let Some(document_id) = document_id {
-            if let Some((index, doc)) = self
-                .query_session_state
-                .documents
-                .iter_mut()
-                .enumerate()
-                .find(|(_, doc)| doc.id == document_id)
-            {
-                doc.saved_query_id = Some(query.id.clone());
-                doc.mark_saved();
-                if self.query_session_state.pending_close_after_save == Some(index) {
-                    close_index = Some(index);
-                }
-            }
-        }
-        self.query_library.saved_queries.retain(|saved| saved.id != query.id);
-        self.query_library.saved_queries.push(query);
-        self.feedback.runtime_message = "Query saved".to_owned();
-        if let Some(index) = close_index {
-            self.query_session_state.pending_close_after_save = None;
-            self.close_query_document(index);
-        }
-    }
-
     pub(super) fn record_query_history(&mut self, record: QueryHistoryRecord) {
         self.query_editor.query_history_entries.push(UiQueryHistoryEntry {
             id: uuid::Uuid::new_v4().to_string(),
