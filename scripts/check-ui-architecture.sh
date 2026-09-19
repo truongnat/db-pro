@@ -103,6 +103,8 @@ done
 for reducer in \
   "$repo_root/crates/ui/src/agent_events.rs" \
   "$repo_root/crates/ui/src/connection_events.rs" \
+  "$repo_root/crates/ui/src/ddl_events.rs" \
+  "$repo_root/crates/ui/src/file_picker_events.rs" \
   "$repo_root/crates/ui/src/management_events.rs" \
   "$repo_root/crates/ui/src/schema_events.rs" \
   "$repo_root/crates/ui/src/table_events.rs" \
@@ -142,7 +144,7 @@ if [[ -n "$connection_dialog_boundary_leaks" ]]; then
   exit 1
 fi
 
-for module in event_router agent_events connection_events management_events operation_events schema_events table_events query_library_events query_prediction_events query_save_events query_history_events query_queue_events; do
+for module in event_router agent_events connection_events ddl_events file_picker_events management_events operation_events schema_events table_events query_library_events query_prediction_events query_save_events query_history_events query_queue_events; do
   test -f "$repo_root/crates/ui/src/${module}.rs" || {
     echo "UI architecture check failed: missing event module ${module}.rs." >&2
     exit 1

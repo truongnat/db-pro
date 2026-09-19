@@ -148,45 +148,35 @@ impl DbProApp {
 
     /// A native file picker returned (or was cancelled).
     pub(super) fn on_file_picked(&mut self, kind: &str, path: Option<String>) {
-        if let Some(path) = path {
-            if kind == "sqlite" {
-                self.connection.dialog.draft_mut().database = path;
-            } else if kind == "ssh-key" {
-                self.connection.dialog.draft_mut().ssh_private_key = path;
-            } else if kind == "backup" {
-                self.overlay.backup_output_path = path;
-            } else if kind == "restore" {
-                self.overlay.restore_input_path = path;
-            } else if kind == "workspace-folder" {
-                self.open_workspace_folder(std::path::PathBuf::from(path));
-            }
-            self.connection.dialog.clear_error();
-            self.connection.dialog.set_test_valid(false);
-        } else if kind == "sqlite" || kind == "ssh-key" {
-            self.connection.dialog.set_error("File selection was cancelled");
-            self.connection.dialog.set_test_valid(false);
-        } else if kind == "workspace-folder" {
-            self.feedback
-                .set_runtime_message("Workspace folder selection was cancelled");
+        if let Some(folder) = file_picker_events::on_file_picked(
+            &mut self.connection.dialog,
+            &mut self.overlay,
+            &mut self.feedback,
+            kind,
+            path,
+        ) {
+            self.open_workspace_folder(folder);
         }
     }
 
     /// DDL applied; re-introspect so the tree and table view pick up the change.
     pub(super) fn on_ddl_completed(&mut self, request_id: RequestId, affected_rows: u64) {
-        if self.table_state.ddl_execution_request == Some(request_id) {
-            self.table_state.ddl_execution_request = None;
-            self.table_state.ddl_execute_confirmation = false;
-            self.table_state.table_ddl_error = None;
-            self.table_state.refresh_table_info_after_schema = self.schema_explorer.selected_table.is_some();
-            self.feedback
-                .set_runtime_message(format!("DDL applied · {affected_rows} affected rows"));
-            if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-                self.request_schema_introspection(connection_id, true);
+        if let Some(transition) = ddl_events::on_ddl_completed(
+            &mut self.table_state,
+            &mut self.security,
+            &mut self.feedback,
+            request_id,
+            affected_rows,
+            self.schema_explorer.selected_table.is_some(),
+        ) {
+            if transition.refresh_schema {
+                if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+                    self.request_schema_introspection(connection_id, true);
+                }
             }
-            if !self.security.security_rls_table.trim().is_empty() {
+            if transition.refresh_rls {
                 self.request_security_rls();
             }
-            self.security.security_rls_confirm_apply = false;
         }
     }
 

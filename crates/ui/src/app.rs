@@ -64,6 +64,8 @@ pub use component_gallery_view::ComponentGalleryState;
 mod capability_lookup;
 #[path = "database_feature_states.rs"]
 mod database_feature_states;
+#[path = "ddl_events.rs"]
+mod ddl_events;
 #[path = "diagram_state.rs"]
 mod diagram_state;
 #[path = "diagram_view.rs"]
@@ -88,6 +90,8 @@ mod explorer_tree;
 mod explorer_view;
 #[path = "feedback_state.rs"]
 mod feedback_state;
+#[path = "file_picker_events.rs"]
+mod file_picker_events;
 #[path = "files_activity_view.rs"]
 mod files_activity_view;
 #[path = "git_workspace.rs"]
