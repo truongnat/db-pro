@@ -171,6 +171,9 @@ adapters and the reducer tests cover replacement semantics.
 SQL prediction ready/failed handling now follows the same boundary in
 `query_prediction_events.rs`; stale request and document-version checks stay
 with the query-session state instead of the composition root.
+Saved-query completion now follows the same boundary in
+`query_save_events.rs`; it returns an explicit close-document transition while
+the root performs only tab orchestration.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
