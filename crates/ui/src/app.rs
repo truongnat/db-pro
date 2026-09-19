@@ -63,6 +63,8 @@ mod database_operations_state;
 mod diagram_state;
 #[path = "diagram_view.rs"]
 mod diagram_view;
+#[path = "event_router.rs"]
+mod event_router;
 #[path = "events.rs"]
 mod events;
 #[path = "events_query.rs"]
