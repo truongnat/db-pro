@@ -758,7 +758,7 @@ impl DbProApp {
 
     fn export_results_from_palette(&mut self) {
         if self.active_query_result().is_some() {
-            self.output_tab = OutputTab::Results;
+            self.query_output_state.active_tab = OutputTab::Results;
             self.export_open = true;
             self.workspace.active_tab = WorkspaceTab::Query;
         } else {

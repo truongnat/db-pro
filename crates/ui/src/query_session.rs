@@ -55,31 +55,33 @@ impl DbProApp {
         self.query_session_state
             .documents
             .get(self.query_session_state.active_document_index)
-            .and_then(|doc| self.query_output_tabs.get(&doc.id).copied())
+            .and_then(|doc| self.query_output_state.tabs_by_document.get(&doc.id).copied())
             .unwrap_or(OutputTab::Results)
     }
 
     pub(crate) fn set_active_query_output_tab(&mut self, tab: OutputTab) {
-        self.output_tab = tab;
+        self.query_output_state.active_tab = tab;
         if let Some(doc_id) = self
             .query_session_state
             .documents
             .get(self.query_session_state.active_document_index)
             .map(|doc| doc.id.clone())
         {
-            self.query_output_tabs.insert(doc_id, tab);
+            self.query_output_state.tabs_by_document.insert(doc_id, tab);
         }
     }
 
     pub(crate) fn set_query_output_tab(&mut self, document_id: &str, tab: OutputTab) {
-        self.query_output_tabs.insert(document_id.to_owned(), tab);
+        self.query_output_state
+            .tabs_by_document
+            .insert(document_id.to_owned(), tab);
         if self
             .query_session_state
             .documents
             .get(self.query_session_state.active_document_index)
             .is_some_and(|doc| doc.id == document_id)
         {
-            self.output_tab = tab;
+            self.query_output_state.active_tab = tab;
         }
     }
 

@@ -426,7 +426,7 @@ impl DbProApp {
             document.query_result = Some(ui_result.clone());
             document.query_results = vec![ui_result];
             document.active_result_index = 0;
-            self.output_tab = OutputTab::Results;
+            self.query_output_state.active_tab = OutputTab::Results;
             // The agent's result replaces the rows behind the grid.
             self.invalidate_grid_projection();
             if total_rows > sample_len as u64 {

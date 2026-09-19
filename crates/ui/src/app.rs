@@ -112,6 +112,8 @@ mod query_dialogs_view;
 mod query_documents;
 #[path = "query_editor_panel.rs"]
 mod query_editor_panel;
+#[path = "query_output_state.rs"]
+mod query_output_state;
 #[path = "query_output_view.rs"]
 mod query_output_view;
 #[path = "query_session.rs"]
@@ -146,6 +148,7 @@ mod workspace_actions;
 mod workspace_session;
 #[path = "workspace_shell.rs"]
 mod workspace_shell;
+pub(crate) use query_output_state::QueryOutputState;
 pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
 #[path = "schema_compare.rs"]
@@ -266,8 +269,7 @@ pub struct DbProApp {
     task_bridge: TaskBridge,
     runtime_message: String,
     toasts: crate::components::overlay::ToastManager,
-    output_tab: OutputTab,
-    query_output_tabs: HashMap<String, OutputTab>,
+    query_output_state: QueryOutputState,
     grid_filter: String,
     grid_sort_column: Option<usize>,
     grid_sort_desc: bool,

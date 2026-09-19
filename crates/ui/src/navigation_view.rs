@@ -344,12 +344,14 @@ impl DbProApp {
                         (OutputTab::Explain, "Explain"),
                         (OutputTab::History, "History"),
                     ] {
-                        if tab_frame(self.theme, self.output_tab == tab)
-                            .show(ui, |ui| ui.selectable_label(self.output_tab == tab, label))
+                        if tab_frame(self.theme, self.query_output_state.active_tab == tab)
+                            .show(ui, |ui| {
+                                ui.selectable_label(self.query_output_state.active_tab == tab, label)
+                            })
                             .inner
                             .clicked()
                         {
-                            self.output_tab = tab;
+                            self.query_output_state.active_tab = tab;
                         }
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -362,7 +364,7 @@ impl DbProApp {
                     });
                 });
                 ui.separator();
-                match self.output_tab {
+                match self.query_output_state.active_tab {
                     OutputTab::Results => {
                         let result = self.active_query_result().or(self.table_data_result.as_ref());
                         ui.label(

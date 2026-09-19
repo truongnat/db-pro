@@ -2790,7 +2790,7 @@ fn typed_agent_open_result_in_workspace_populates_query_document() {
     assert_eq!(res.columns.len(), 2);
     assert_eq!(res.rows.len(), 1);
     assert_eq!(res.duration_ms, 42);
-    assert_eq!(app.output_tab, crate::app::OutputTab::Results);
+    assert_eq!(app.query_output_state.active_tab, crate::app::OutputTab::Results);
 }
 
 #[test]

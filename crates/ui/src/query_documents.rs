@@ -83,7 +83,7 @@ impl DbProApp {
         }
         self.agent_sessions.remove(&closed_id);
         self.query_session_state.documents.remove(index);
-        self.query_output_tabs.remove(&closed_id);
+        self.query_output_state.tabs_by_document.remove(&closed_id);
 
         if self.query_session_state.documents.is_empty() {
             self.query_session_state.active_document_index = 0;
