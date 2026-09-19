@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `735deb29`.
+Source checkpoint: `35e341f6`.
 
 ## Current change
 
@@ -125,6 +125,8 @@ Source checkpoint: `735deb29`.
   root only routes failures to other feature reducers before invoking the
   explicit query failure context. The old mixed `events_query.rs` module is
   deleted.
+- Recent-table MRU ownership now lives on `SchemaExplorerState`; workspace,
+  palette, explorer and tests use the state API instead of a root facade.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
@@ -170,11 +172,11 @@ Source checkpoint: `735deb29`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 585 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 586 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1257 passed, 0 failed, 42 ignored.
+- `cargo test --workspace --no-fail-fast`: 1258 passed, 0 failed, 42 ignored.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 11 pass, 5 warnings, 0 failures; warnings are ratcheted size/cast/clone heuristics.

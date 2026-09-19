@@ -199,6 +199,9 @@ presentation remain request-scoped outside the root.
 Query-local failure handling now follows the same boundary in
 `query_failure_events.rs`; the mixed `events_query.rs` module is deleted and
 cross-feature routing remains explicit at the composition root.
+Recent-table MRU ownership now follows the state-owner rule on
+`SchemaExplorerState`; workspace, palette and explorer consumers no longer
+depend on a `DbProApp` recent-table facade.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
