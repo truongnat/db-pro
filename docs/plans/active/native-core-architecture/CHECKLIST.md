@@ -19,9 +19,10 @@
 
 ## Gates
 
-- [x] `cargo fmt --all -- --check` (formatting executed after the slice)
-- [ ] `cargo check --workspace`
+- [x] `cargo fmt --all -- --check` (PASS)
+- [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
 - [x] `cargo test -p db-pro-ui --lib` (550 passed)
+- [x] `cargo test --workspace --no-fail-fast` (1222 passed, 0 failed, 42 ignored)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [ ] Native runtime evidence for affected surfaces.
