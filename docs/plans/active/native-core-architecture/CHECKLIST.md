@@ -33,6 +33,6 @@
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
 - [x] `cargo test -p db-pro-ui --lib` (573 passed)
-- [x] `cargo test --workspace --no-fail-fast` (1230 passed, 0 failed, 42 ignored)
+- [x] `cargo test --workspace --no-fail-fast` (1247 passed, 0 failed, 42 ignored)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [ ] Native runtime evidence for affected surfaces.

@@ -37,7 +37,7 @@ Source checkpoint: `5ce727ab8770c86859c3062a31d86781e093ba04`.
   `SchemaExplorerState` owns persisted explorer pane heights.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
-- Unit tests for the extracted aggregates: 25 passed, 0 failed.
+- Unit tests for the extracted aggregates: 27 passed, 0 failed.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
@@ -45,7 +45,7 @@ Source checkpoint: `5ce727ab8770c86859c3062a31d86781e093ba04`.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1230 passed, 0 failed, 42 ignored.
+- `cargo test --workspace --no-fail-fast`: 1247 passed, 0 failed, 42 ignored.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 11 pass, 5 warnings, 0 failures; warnings are ratcheted size/cast/clone heuristics.
 
