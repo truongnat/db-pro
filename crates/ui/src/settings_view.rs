@@ -151,7 +151,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        self.workspace.sessions.store.remove(&session.id);
+                        self.workspace.sessions.remove(&session.id);
                     }
                 });
             }
