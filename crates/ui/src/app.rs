@@ -529,6 +529,26 @@ impl DbProApp {
         }
     }
 
+    pub(super) fn handle_agent_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
+        agent_events::handle_agent_request_failure(&mut self.agent, &mut self.feedback, request_id, message)
+    }
+
+    pub(super) fn on_agent_provider_ready(&mut self, provider: String, detail: String) {
+        agent_events::on_agent_provider_ready(&mut self.agent, provider, detail);
+    }
+
+    pub(super) fn on_agent_failed(&mut self, request_id: RequestId, message: String) {
+        agent_events::on_agent_failed(&mut self.agent, &mut self.feedback, request_id, message);
+    }
+
+    pub(super) fn on_agent_configured(&mut self, request_id: RequestId, provider: String, detail: String) {
+        agent_events::on_agent_configured(&mut self.agent, &mut self.feedback, request_id, provider, detail);
+    }
+
+    pub(super) fn on_agent_forgotten(&mut self, request_id: RequestId) {
+        agent_events::on_agent_forgotten(&mut self.agent, &mut self.feedback, request_id);
+    }
+
     /// Apply a driver choice from the connection dialog.
     pub fn select_connection_driver(&mut self, driver: UiDriver) {
         connection::select_connection_driver(self.connection.dialog.draft_mut(), driver);

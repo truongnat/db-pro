@@ -101,6 +101,7 @@ for renderer in "${connection_renderers[@]}"; do
   fi
 done
 for reducer in \
+  "$repo_root/crates/ui/src/agent_events.rs" \
   "$repo_root/crates/ui/src/connection_events.rs" \
   "$repo_root/crates/ui/src/schema_events.rs"; do
   if rg -n '^impl DbProApp|\bDbProApp\b' "$reducer"; then
