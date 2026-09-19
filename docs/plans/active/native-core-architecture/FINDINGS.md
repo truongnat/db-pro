@@ -213,6 +213,15 @@ Workspace close/refresh lifecycle now follows the feature-owner rule on
 Workspace search/replace, task, refactor, context, schema snapshot and drift
 transitions now follow the same rule on `WorkspaceFilesState`; the root only
 composes the schema input required by snapshot and drift operations.
+Workspace Git status/stage/unstage/diff/commit transitions and external-file
+change detection now follow the same rule on `WorkspaceFilesState`; query
+documents are passed in as an explicit snapshot at the view boundary.
+Schema compare snapshot, diff and migration-plan transitions now follow the
+same rule on `SchemaCompareState`; only migration apply remains root
+orchestration because it allocates a request and dispatches provider work.
+Transaction policy transitions now follow the same rule on
+`QueryExecutionPolicyState` and return explicit SQL effects; the root only
+dispatches the returned effect.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

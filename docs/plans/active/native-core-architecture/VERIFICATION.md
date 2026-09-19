@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `ddb2ce15`.
+Source checkpoint: `f2aa9c28`.
 
 ## Current change
 
@@ -137,6 +137,14 @@ Source checkpoint: `ddb2ce15`.
 - Workspace search/replace, task, refactor, context, schema snapshot and drift
   transitions now live on `WorkspaceFilesState`; the root only composes the
   schema input needed by snapshot/drift operations.
+- Workspace Git status/stage/unstage/diff/commit transitions and external-file
+  change detection now live on `WorkspaceFilesState`; query documents are
+  passed in as an explicit snapshot at the view boundary.
+- Schema compare snapshot, diff and migration-plan transitions now live on
+  `SchemaCompareState`; only migration apply remains root orchestration because
+  it allocates a request and dispatches provider work.
+- Transaction policy transitions now live on `QueryExecutionPolicyState` and
+  return explicit SQL effects; the root only dispatches the returned effect.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
@@ -182,7 +190,7 @@ Source checkpoint: `ddb2ce15`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 587 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 589 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
