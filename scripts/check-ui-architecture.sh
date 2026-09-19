@@ -10,17 +10,25 @@ events_file="$repo_root/crates/ui/src/events.rs"
 # belongs in the owning feature state module.
 expected_fields=$(cat <<'EOF'
 agent
+audit
 connection_catalog
 connection_dialog
 connection_lifecycle
-database_operations
 diagram
+event_trigger
+fdw
 feedback
 gallery_state
 initial_frames_count
 overlay
 palette
 preferences
+masking
+monitoring
+pg_settings
+replication
+routine
+security
 query_editor
 query_execution
 query_library
@@ -28,11 +36,15 @@ query_output_state
 query_session_state
 saved_tasks
 schema_explorer
+schema_workbench
+schema_compare
+synthetic_data
 table_data
 table_mutation
 table_state
 task_bridge
 theme
+transfer
 welcome
 workspace
 workspace_files
@@ -71,6 +83,15 @@ direct_sends=$(rg -n 'task_bridge\.send\(' "$repo_root/crates/ui/src" --glob '*.
 if [[ -n "$direct_sends" ]]; then
   echo "$direct_sends" >&2
   echo "UI architecture check failed: feature code bypasses the command dispatch adapter." >&2
+  exit 1
+fi
+
+if [[ -e "$repo_root/crates/ui/src/database_operations_state.rs" ]]; then
+  echo "UI architecture check failed: database_operations_state.rs catch-all must stay deleted." >&2
+  exit 1
+fi
+if rg -n 'database_operations|DatabaseOperationsState' "$repo_root/crates/ui/src" --glob '*.rs'; then
+  echo "UI architecture check failed: database-management state must use feature-owned aggregates." >&2
   exit 1
 fi
 

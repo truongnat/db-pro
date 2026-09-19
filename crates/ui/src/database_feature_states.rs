@@ -1,16 +1,20 @@
-use super::*;
+//! Feature-owned state for database-management surfaces.
 
-/// UI state for database-management surfaces outside the primary query/table flow.
-///
-/// This aggregate keeps management drafts, inventories, previews, confirmations
-/// and errors together so those surfaces do not expand the application root.
-pub(crate) struct DatabaseOperationsState {
+#[derive(Default)]
+pub(crate) struct RoutineState {
     pub(crate) routine_source_draft: String,
     pub(crate) routine_param_values: Vec<String>,
     pub(crate) routine_param_nulls: Vec<bool>,
     pub(crate) routine_ddl_preview: Option<String>,
     pub(crate) routine_drop_confirm: bool,
+}
+
+#[derive(Default)]
+pub(crate) struct TransferState {
     pub(crate) transfer_jobs: Vec<db_pro_core::domain::transfer::TransferJob>,
+}
+
+pub(crate) struct SyntheticDataState {
     pub(crate) synthetic_table: String,
     pub(crate) synthetic_row_count: String,
     pub(crate) synthetic_seed: String,
@@ -18,11 +22,43 @@ pub(crate) struct DatabaseOperationsState {
     pub(crate) synthetic_preview: Option<db_pro_core::domain::synthetic_data::SyntheticPreview>,
     pub(crate) synthetic_error: Option<String>,
     pub(crate) synthetic_production_confirm: bool,
+}
+
+impl Default for SyntheticDataState {
+    fn default() -> Self {
+        Self {
+            synthetic_table: String::new(),
+            synthetic_row_count: "10".to_owned(),
+            synthetic_seed: "42".to_owned(),
+            synthetic_null_pct: "0".to_owned(),
+            synthetic_preview: None,
+            synthetic_error: None,
+            synthetic_production_confirm: false,
+        }
+    }
+}
+
+pub(crate) struct MaskingState {
     pub(crate) masking_columns_csv: String,
     pub(crate) masking_rule: db_pro_core::domain::masking::MaskRule,
     pub(crate) masking_keyed: bool,
     pub(crate) masking_preview: Option<db_pro_core::domain::masking::MaskingPreview>,
     pub(crate) masking_error: Option<String>,
+}
+
+impl Default for MaskingState {
+    fn default() -> Self {
+        Self {
+            masking_columns_csv: "email,phone".to_owned(),
+            masking_rule: db_pro_core::domain::masking::MaskRule::PartialReveal,
+            masking_keyed: true,
+            masking_preview: None,
+            masking_error: None,
+        }
+    }
+}
+
+pub(crate) struct MonitoringState {
     pub(crate) monitoring_snapshot: Option<db_pro_core::domain::monitoring::MonitoringSnapshot>,
     pub(crate) monitoring_error: Option<String>,
     pub(crate) monitoring_poll: bool,
@@ -34,6 +70,28 @@ pub(crate) struct DatabaseOperationsState {
     pub(crate) monitoring_reset_stats_confirm: bool,
     pub(crate) monitoring_workload_prev: Option<db_pro_core::domain::monitoring::StatStatementsSnapshot>,
     pub(crate) monitoring_workload_filter: String,
+}
+
+impl Default for MonitoringState {
+    fn default() -> Self {
+        Self {
+            monitoring_snapshot: None,
+            monitoring_error: None,
+            monitoring_poll: true,
+            monitoring_last_poll: None,
+            monitoring_terminate_confirm: None,
+            monitoring_filter_active_only: true,
+            monitoring_maintenance_confirm: None,
+            monitoring_stat_sort: db_pro_core::domain::monitoring::StatStatementSort::TotalTime,
+            monitoring_reset_stats_confirm: false,
+            monitoring_workload_prev: None,
+            monitoring_workload_filter: String::new(),
+        }
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct AuditState {
     pub(crate) audit_page: Option<db_pro_core::domain::audit::AuditPage>,
     pub(crate) audit_error: Option<String>,
     pub(crate) audit_filter_text: String,
@@ -43,12 +101,19 @@ pub(crate) struct DatabaseOperationsState {
     pub(crate) audit_bookmarks: std::collections::HashSet<String>,
     pub(crate) audit_selected: std::collections::HashSet<String>,
     pub(crate) audit_export_preview: Option<String>,
+}
+
+#[derive(Default)]
+pub(crate) struct PgSettingsState {
     pub(crate) pg_settings: Option<db_pro_core::domain::pg_settings::PgSettingsSnapshot>,
     pub(crate) pg_settings_filter: String,
     pub(crate) pg_settings_edit_name: String,
     pub(crate) pg_settings_edit_value: String,
     pub(crate) pg_settings_preview: Option<db_pro_core::domain::pg_settings::PgSettingPreviewSql>,
     pub(crate) pg_settings_error: Option<String>,
+}
+
+pub(crate) struct FdwState {
     pub(crate) fdw_inventory: Option<db_pro_core::domain::fdw::FdwInventory>,
     pub(crate) fdw_error: Option<String>,
     pub(crate) fdw_create_name: String,
@@ -58,12 +123,35 @@ pub(crate) struct DatabaseOperationsState {
     pub(crate) fdw_create_port: String,
     pub(crate) fdw_ddl_preview: Option<String>,
     pub(crate) fdw_drop_confirm: Option<String>,
+}
+
+impl Default for FdwState {
+    fn default() -> Self {
+        Self {
+            fdw_inventory: None,
+            fdw_error: None,
+            fdw_create_name: String::new(),
+            fdw_create_wrapper: "postgres_fdw".to_owned(),
+            fdw_create_host: String::new(),
+            fdw_create_dbname: String::new(),
+            fdw_create_port: "5432".to_owned(),
+            fdw_ddl_preview: None,
+            fdw_drop_confirm: None,
+        }
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct ReplicationState {
     pub(crate) replication_inventory: Option<db_pro_core::domain::replication::ReplicationInventory>,
     pub(crate) replication_error: Option<String>,
     pub(crate) replication_create_name: String,
     pub(crate) replication_ddl_preview: Option<String>,
     pub(crate) replication_drop_publication: Option<String>,
     pub(crate) replication_drop_subscription: Option<String>,
+}
+
+pub(crate) struct EventTriggerState {
     pub(crate) event_trigger_inventory: Option<db_pro_core::domain::event_trigger::EventTriggerInventory>,
     pub(crate) event_trigger_error: Option<String>,
     pub(crate) event_trigger_create_name: String,
@@ -72,6 +160,24 @@ pub(crate) struct DatabaseOperationsState {
     pub(crate) event_trigger_create_tags: String,
     pub(crate) event_trigger_ddl_preview: Option<String>,
     pub(crate) event_trigger_drop_confirm: Option<String>,
+}
+
+impl Default for EventTriggerState {
+    fn default() -> Self {
+        Self {
+            event_trigger_inventory: None,
+            event_trigger_error: None,
+            event_trigger_create_name: String::new(),
+            event_trigger_create_event: "ddl_command_end".to_owned(),
+            event_trigger_create_function: String::new(),
+            event_trigger_create_tags: String::new(),
+            event_trigger_ddl_preview: None,
+            event_trigger_drop_confirm: None,
+        }
+    }
+}
+
+pub(crate) struct SecurityState {
     pub(crate) security_users: Vec<db_pro_core::domain::user::DatabaseUser>,
     pub(crate) security_selected_role: Option<String>,
     pub(crate) security_privileges: Vec<db_pro_core::domain::user::Privilege>,
@@ -96,91 +202,11 @@ pub(crate) struct DatabaseOperationsState {
     pub(crate) security_rls_confirm_apply: bool,
     pub(crate) security_drop_confirm: Option<String>,
     pub(crate) security_error: Option<String>,
-    pub(crate) schema_workbench: schema_workbench::SchemaWorkbenchState,
-    pub(crate) schema_snapshot: Option<schema_compare::UiSchemaSnapshot>,
-    pub(crate) schema_diff: Option<schema_compare::UiSchemaDiffResult>,
-    pub(crate) migration_plan: Option<db_pro_core::domain::migration::MigrationPlan>,
-    pub(crate) migration_preview_sql: String,
-    pub(crate) migration_confirm_destructive: bool,
-    pub(crate) migration_fingerprint_at_preview: String,
-    pub(crate) data_diff_target_id: String,
-    pub(crate) data_diff_schema: String,
-    pub(crate) data_diff_table: String,
-    pub(crate) data_diff_keys: String,
-    pub(crate) data_diff_result: Option<db_pro_core::domain::cross_connection::DataDiff>,
-    pub(crate) data_diff_filter: String,
 }
 
-impl Default for DatabaseOperationsState {
+impl Default for SecurityState {
     fn default() -> Self {
         Self {
-            routine_source_draft: String::new(),
-            routine_param_values: Vec::new(),
-            routine_param_nulls: Vec::new(),
-            routine_ddl_preview: None,
-            routine_drop_confirm: false,
-            transfer_jobs: Vec::new(),
-            synthetic_table: String::new(),
-            synthetic_row_count: "10".to_owned(),
-            synthetic_seed: "42".to_owned(),
-            synthetic_null_pct: "0".to_owned(),
-            synthetic_preview: None,
-            synthetic_error: None,
-            synthetic_production_confirm: false,
-            masking_columns_csv: "email,phone".to_owned(),
-            masking_rule: db_pro_core::domain::masking::MaskRule::PartialReveal,
-            masking_keyed: true,
-            masking_preview: None,
-            masking_error: None,
-            monitoring_snapshot: None,
-            monitoring_error: None,
-            monitoring_poll: true,
-            monitoring_last_poll: None,
-            monitoring_terminate_confirm: None,
-            monitoring_filter_active_only: true,
-            monitoring_maintenance_confirm: None,
-            monitoring_stat_sort: db_pro_core::domain::monitoring::StatStatementSort::TotalTime,
-            monitoring_reset_stats_confirm: false,
-            monitoring_workload_prev: None,
-            monitoring_workload_filter: String::new(),
-            audit_page: None,
-            audit_error: None,
-            audit_filter_text: String::new(),
-            audit_filter_database: String::new(),
-            audit_filter_username: String::new(),
-            audit_filter_severity: String::new(),
-            audit_bookmarks: std::collections::HashSet::new(),
-            audit_selected: std::collections::HashSet::new(),
-            audit_export_preview: None,
-            pg_settings: None,
-            pg_settings_filter: String::new(),
-            pg_settings_edit_name: String::new(),
-            pg_settings_edit_value: String::new(),
-            pg_settings_preview: None,
-            pg_settings_error: None,
-            fdw_inventory: None,
-            fdw_error: None,
-            fdw_create_name: String::new(),
-            fdw_create_wrapper: "postgres_fdw".to_owned(),
-            fdw_create_host: String::new(),
-            fdw_create_dbname: String::new(),
-            fdw_create_port: "5432".to_owned(),
-            fdw_ddl_preview: None,
-            fdw_drop_confirm: None,
-            replication_inventory: None,
-            replication_error: None,
-            replication_create_name: String::new(),
-            replication_ddl_preview: None,
-            replication_drop_publication: None,
-            replication_drop_subscription: None,
-            event_trigger_inventory: None,
-            event_trigger_error: None,
-            event_trigger_create_name: String::new(),
-            event_trigger_create_event: "ddl_command_end".to_owned(),
-            event_trigger_create_function: String::new(),
-            event_trigger_create_tags: String::new(),
-            event_trigger_ddl_preview: None,
-            event_trigger_drop_confirm: None,
             security_users: Vec::new(),
             security_selected_role: None,
             security_privileges: Vec::new(),
@@ -205,35 +231,30 @@ impl Default for DatabaseOperationsState {
             security_rls_confirm_apply: false,
             security_drop_confirm: None,
             security_error: None,
-            schema_workbench: schema_workbench::SchemaWorkbenchState::default(),
-            schema_snapshot: None,
-            schema_diff: None,
-            migration_plan: None,
-            migration_preview_sql: String::new(),
-            migration_confirm_destructive: false,
-            migration_fingerprint_at_preview: String::new(),
-            data_diff_target_id: String::new(),
-            data_diff_schema: "public".to_owned(),
-            data_diff_table: String::new(),
-            data_diff_keys: "id".to_owned(),
-            data_diff_result: None,
-            data_diff_filter: "all".to_owned(),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::DatabaseOperationsState;
+    use super::{MonitoringState, SecurityState, SyntheticDataState};
 
     #[test]
-    fn defaults_are_safe_for_destructive_management_surfaces() {
-        let state = DatabaseOperationsState::default();
+    fn destructive_management_defaults_are_safe() {
+        let synthetic = SyntheticDataState::default();
+        let security = SecurityState::default();
 
-        assert!(state.synthetic_preview.is_none());
-        assert!(!state.synthetic_production_confirm);
-        assert!(state.security_users.is_empty());
-        assert_eq!(state.security_rls_schema, "public");
-        assert_eq!(state.data_diff_filter, "all");
+        assert!(!synthetic.synthetic_production_confirm);
+        assert!(security.security_users.is_empty());
+        assert_eq!(security.security_rls_schema, "public");
+    }
+
+    #[test]
+    fn monitoring_starts_with_bounded_default_filters() {
+        let monitoring = MonitoringState::default();
+
+        assert!(monitoring.monitoring_poll);
+        assert!(monitoring.monitoring_filter_active_only);
+        assert!(monitoring.monitoring_snapshot.is_none());
     }
 }

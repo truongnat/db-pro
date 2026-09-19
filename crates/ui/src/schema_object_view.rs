@@ -87,7 +87,7 @@ impl DbProApp {
     }
 
     pub(crate) fn sync_routine_workbench_from(&mut self, function: &UiFunctionSummary) {
-        self.database_operations.routine_source_draft = function.definition.clone();
+        self.routine.routine_source_draft = function.definition.clone();
         let inputs: Vec<_> = function
             .parameters
             .iter()
@@ -96,7 +96,7 @@ impl DbProApp {
                 mode == "IN" || mode == "INOUT" || mode == "VARIADIC" || mode.is_empty()
             })
             .collect();
-        self.database_operations.routine_param_values = inputs
+        self.routine.routine_param_values = inputs
             .iter()
             .map(|p| {
                 if p.has_default {
@@ -106,7 +106,7 @@ impl DbProApp {
                 }
             })
             .collect();
-        self.database_operations.routine_param_nulls = vec![false; inputs.len()];
+        self.routine.routine_param_nulls = vec![false; inputs.len()];
     }
 
     fn draw_routine_workbench(&mut self, ui: &mut egui::Ui, selection: &SchemaObjectSelection) {
@@ -133,7 +133,7 @@ impl DbProApp {
             section_label(ui, format!("{} SOURCE", function.routine_type), self.theme);
             ui.add_space(SPACE_SM);
             ui.add(
-                egui::TextEdit::multiline(&mut self.database_operations.routine_source_draft)
+                egui::TextEdit::multiline(&mut self.routine.routine_source_draft)
                     .code_editor()
                     .desired_width(ui.available_width())
                     .desired_rows(12),
@@ -159,7 +159,7 @@ impl DbProApp {
                     .clicked()
                 {
                     self.preview_routine_mutation(&function, ObjectAction::Alter);
-                    if let Some(sql) = self.database_operations.routine_ddl_preview.clone() {
+                    if let Some(sql) = self.routine.routine_ddl_preview.clone() {
                         self.set_active_query_text(sql);
                         self.workspace.active_tab = WorkspaceTab::Query;
                         self.dispatch_query();
@@ -172,15 +172,15 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.database_operations.routine_drop_confirm = true;
+                    self.routine.routine_drop_confirm = true;
                 }
             });
-            if let Some(preview) = &self.database_operations.routine_ddl_preview {
+            if let Some(preview) = &self.routine.routine_ddl_preview {
                 ui.add_space(SPACE_SM);
                 ui.label(RichText::new("DDL preview").small().color(self.theme.text_secondary));
                 CodeBlock::new(preview, self.theme).language("sql").show(ui);
             }
-            if self.database_operations.routine_drop_confirm {
+            if self.routine.routine_drop_confirm {
                 ui.add_space(SPACE_SM);
                 ui.colored_label(
                     self.theme.warning,
@@ -198,12 +198,12 @@ impl DbProApp {
                         .clicked()
                     {
                         self.preview_routine_mutation(&function, ObjectAction::Drop);
-                        if let Some(sql) = self.database_operations.routine_ddl_preview.clone() {
+                        if let Some(sql) = self.routine.routine_ddl_preview.clone() {
                             self.set_active_query_text(sql);
                             self.workspace.active_tab = WorkspaceTab::Query;
                             self.dispatch_query();
                         }
-                        self.database_operations.routine_drop_confirm = false;
+                        self.routine.routine_drop_confirm = false;
                     }
                     if Button::new(self.theme)
                         .icon(Icon::X)
@@ -213,7 +213,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        self.database_operations.routine_drop_confirm = false;
+                        self.routine.routine_drop_confirm = false;
                     }
                 });
             }
@@ -239,7 +239,7 @@ impl DbProApp {
                 })
                 .cloned()
                 .collect();
-            if self.database_operations.routine_param_values.len() != inputs.len() {
+            if self.routine.routine_param_values.len() != inputs.len() {
                 self.sync_routine_workbench_from(&function);
             }
             if inputs.is_empty() {
@@ -265,20 +265,15 @@ impl DbProApp {
                         }
                     });
                     ui.horizontal(|ui| {
-                        let is_null = self
-                            .database_operations
-                            .routine_param_nulls
-                            .get(idx)
-                            .copied()
-                            .unwrap_or(false);
+                        let is_null = self.routine.routine_param_nulls.get(idx).copied().unwrap_or(false);
                         let mut null_flag = is_null;
                         if ui.checkbox(&mut null_flag, "NULL").changed() {
-                            if let Some(slot) = self.database_operations.routine_param_nulls.get_mut(idx) {
+                            if let Some(slot) = self.routine.routine_param_nulls.get_mut(idx) {
                                 *slot = null_flag;
                             }
                         }
                         ui.add_enabled_ui(!null_flag, |ui| {
-                            if let Some(value) = self.database_operations.routine_param_values.get_mut(idx) {
+                            if let Some(value) = self.routine.routine_param_values.get_mut(idx) {
                                 ui.add(
                                     egui::TextEdit::singleline(value)
                                         .desired_width(ui.available_width())
@@ -297,8 +292,8 @@ impl DbProApp {
             ui.add_space(SPACE_SM);
             let invoke_sql = build_routine_invoke_sql(
                 &function,
-                &self.database_operations.routine_param_values,
-                &self.database_operations.routine_param_nulls,
+                &self.routine.routine_param_values,
+                &self.routine.routine_param_nulls,
             );
             ui.label(RichText::new("Generated SQL").small().color(self.theme.text_secondary));
             CodeBlock::new(&invoke_sql, self.theme).language("sql").show(ui);
@@ -344,7 +339,7 @@ impl DbProApp {
             name: function.name.clone(),
             routine_type: function.routine_type.clone(),
             identity_arguments: function.identity_arguments.clone(),
-            definition_sql: self.database_operations.routine_source_draft.clone(),
+            definition_sql: self.routine.routine_source_draft.clone(),
             replace: true,
         };
         let request = ObjectMutationRequest {
@@ -366,7 +361,7 @@ impl DbProApp {
         };
         match ObjectMutationService::plan(&request, &QuoteDialect) {
             Ok(plan) => {
-                self.database_operations.routine_ddl_preview = Some(plan.statements.join(";\n"));
+                self.routine.routine_ddl_preview = Some(plan.statements.join(";\n"));
                 self.feedback.runtime_message = format!(
                     "Routine DDL preview · {} statement(s) · {}",
                     plan.statements.len(),
@@ -374,7 +369,7 @@ impl DbProApp {
                 );
             }
             Err(error) => {
-                self.database_operations.routine_ddl_preview = None;
+                self.routine.routine_ddl_preview = None;
                 self.feedback.runtime_message = format!("Routine plan failed: {error}");
             }
         }

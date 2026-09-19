@@ -450,10 +450,10 @@ impl DbProApp {
                 self.diagram.pan_origin = None;
             }
             WorkspaceTab::SchemaWorkbench => {
-                self.database_operations.schema_workbench.apply_confirmation = false;
+                self.schema_workbench.apply_confirmation = false;
             }
             WorkspaceTab::SchemaCompare => {
-                self.database_operations.schema_diff = None;
+                self.schema_compare.schema_diff = None;
             }
             WorkspaceTab::ComponentGallery => {}
             WorkspaceTab::Welcome | WorkspaceTab::Query => return,

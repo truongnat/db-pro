@@ -351,8 +351,8 @@ impl DbProApp {
         self.table_state.table_ddl = None;
         self.table_state.table_view = TableView::Ddl;
         self.workspace.active_tab = WorkspaceTab::SchemaObject;
-        self.database_operations.routine_drop_confirm = false;
-        self.database_operations.routine_ddl_preview = None;
+        self.routine.routine_drop_confirm = false;
+        self.routine.routine_ddl_preview = None;
         if let SchemaObjectSelection::Function {
             name: fn_name,
             identity_arguments,

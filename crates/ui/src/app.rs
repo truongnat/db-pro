@@ -59,8 +59,8 @@ pub mod connection;
 pub use component_gallery_view::ComponentGalleryState;
 #[path = "capability_lookup.rs"]
 mod capability_lookup;
-#[path = "database_operations_state.rs"]
-mod database_operations_state;
+#[path = "database_feature_states.rs"]
+mod database_feature_states;
 #[path = "diagram_state.rs"]
 mod diagram_state;
 #[path = "diagram_view.rs"]
@@ -112,7 +112,10 @@ mod settings_model;
 #[path = "settings_view.rs"]
 mod settings_view;
 pub(crate) use capability_lookup::CapabilityLookup;
-pub(crate) use database_operations_state::DatabaseOperationsState;
+pub(crate) use database_feature_states::{
+    AuditState, EventTriggerState, FdwState, MaskingState, MonitoringState, PgSettingsState, ReplicationState,
+    RoutineState, SecurityState, SyntheticDataState, TransferState,
+};
 pub(crate) use diagram_state::DiagramState;
 pub(crate) use feedback_state::FeedbackState;
 pub(crate) use overlay_state::OverlayState;
@@ -203,6 +206,7 @@ pub(crate) use query_editor_state::QueryEditorState;
 pub(crate) use query_output_state::QueryOutputState;
 pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
+pub(crate) use schema_compare_state::SchemaCompareState;
 pub(crate) use schema_explorer_state::SchemaExplorerState;
 pub(crate) use table_data_state::TableDataState;
 pub(crate) use table_mutation_state::TableMutationState;
@@ -212,6 +216,8 @@ pub(crate) use workspace_files_state::WorkspaceFilesState;
 pub(crate) use workspace_session_state::WorkspaceSessionState;
 #[path = "schema_compare.rs"]
 mod schema_compare;
+#[path = "schema_compare_state.rs"]
+mod schema_compare_state;
 #[path = "schema_events.rs"]
 mod schema_events;
 #[path = "schema_explorer_state.rs"]
@@ -259,7 +265,19 @@ pub struct DbProApp {
     query_library: QueryLibraryState,
     schema_explorer: SchemaExplorerState,
     workspace_files: WorkspaceFilesState,
-    database_operations: DatabaseOperationsState,
+    audit: AuditState,
+    event_trigger: EventTriggerState,
+    fdw: FdwState,
+    masking: MaskingState,
+    monitoring: MonitoringState,
+    pg_settings: PgSettingsState,
+    replication: ReplicationState,
+    routine: RoutineState,
+    security: SecurityState,
+    synthetic_data: SyntheticDataState,
+    transfer: TransferState,
+    schema_workbench: schema_workbench::SchemaWorkbenchState,
+    schema_compare: SchemaCompareState,
     query_execution: QueryExecutionPolicyState,
     saved_tasks: SavedTaskState,
     workspace_sessions: WorkspaceSessionState,
