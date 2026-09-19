@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `9c3cdc34`.
+Source checkpoint: `ddb2ce15`.
 
 ## Current change
 
@@ -134,6 +134,9 @@ Source checkpoint: `9c3cdc34`.
   shell entry points call the feature transition directly.
 - Workspace close/refresh lifecycle now lives on `WorkspaceFilesState`; only
   the native folder-picker command remains in the composition root.
+- Workspace search/replace, task, refactor, context, schema snapshot and drift
+  transitions now live on `WorkspaceFilesState`; the root only composes the
+  schema input needed by snapshot/drift operations.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and

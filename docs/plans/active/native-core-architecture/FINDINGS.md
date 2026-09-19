@@ -210,6 +210,9 @@ New-connection dialog opening now follows the feature-owner rule on
 `open_new_connection` facade.
 Workspace close/refresh lifecycle now follows the feature-owner rule on
 `WorkspaceFilesState`; the root retains only the native folder-picker command.
+Workspace search/replace, task, refactor, context, schema snapshot and drift
+transitions now follow the same rule on `WorkspaceFilesState`; the root only
+composes the schema input required by snapshot and drift operations.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
