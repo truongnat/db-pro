@@ -215,6 +215,64 @@ impl TableDataState {
         row_in_range && column_in_range
     }
 
+    pub(crate) fn navigation_target(
+        &self,
+        indexes: &[usize],
+        order: &[usize],
+        lookup: &super::result_grid_view::GridSelectionLookup,
+        key: egui::Key,
+        backwards: bool,
+    ) -> Option<(usize, usize)> {
+        let (&first_row, &first_column) = (indexes.first()?, order.first()?);
+        let Some((current_row, current_column)) = self.selected_cell else {
+            return (key != egui::Key::Tab).then_some((first_row, first_column));
+        };
+
+        let row_position = lookup.row_positions.get(&current_row).copied().unwrap_or(0);
+        let column_position = lookup.column_positions.get(&current_column).copied().unwrap_or(0);
+        match key {
+            egui::Key::Tab if backwards => {
+                if column_position > 0 {
+                    Some((current_row, order[column_position - 1]))
+                } else if row_position > 0 {
+                    Some((indexes[row_position - 1], *order.last()?))
+                } else {
+                    Some((current_row, current_column))
+                }
+            }
+            egui::Key::Tab => {
+                if column_position + 1 < order.len() {
+                    Some((current_row, order[column_position + 1]))
+                } else if row_position + 1 < indexes.len() {
+                    Some((indexes[row_position + 1], first_column))
+                } else {
+                    Some((current_row, current_column))
+                }
+            }
+            egui::Key::ArrowUp => Some((indexes[row_position.saturating_sub(1)], current_column)),
+            egui::Key::ArrowDown => Some((indexes[(row_position + 1).min(indexes.len() - 1)], current_column)),
+            egui::Key::ArrowLeft => Some((
+                current_row,
+                if column_position > 0 {
+                    order[column_position - 1]
+                } else {
+                    current_column
+                },
+            )),
+            egui::Key::ArrowRight => Some((
+                current_row,
+                if column_position + 1 < order.len() {
+                    order[column_position + 1]
+                } else {
+                    current_column
+                },
+            )),
+            egui::Key::Home => Some((current_row, first_column)),
+            egui::Key::End => Some((current_row, *order.last()?)),
+            _ => None,
+        }
+    }
+
     pub(super) fn invalidate_grid_projection(&mut self) {
         self.grid_projection_epoch = self.grid_projection_epoch.wrapping_add(1);
     }
@@ -258,5 +316,31 @@ mod tests {
         assert!(state.grid_row_identity_cache.is_empty());
         assert!(!state.grid_row_identity_cache_ready);
         assert_eq!(state.grid_projection_epoch, 1);
+    }
+
+    #[test]
+    fn navigation_target_follows_visual_row_and_column_order() {
+        let mut state = TableDataState::default();
+        let indexes = [4, 1, 7];
+        let order = [2, 0, 1];
+        let lookup = super::result_grid_view::GridSelectionLookup::new(&indexes, &order);
+        assert_eq!(
+            state.navigation_target(&indexes, &order, &lookup, egui::Key::Tab, false),
+            None
+        );
+        state.select_single_cell((1, 0));
+
+        assert_eq!(
+            state.navigation_target(&indexes, &order, &lookup, egui::Key::Tab, false),
+            Some((1, 1))
+        );
+        assert_eq!(
+            state.navigation_target(&indexes, &order, &lookup, egui::Key::Tab, true),
+            Some((1, 2))
+        );
+        assert_eq!(
+            state.navigation_target(&indexes, &order, &lookup, egui::Key::ArrowDown, false),
+            Some((7, 0))
+        );
     }
 }
