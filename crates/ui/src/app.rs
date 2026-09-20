@@ -32,6 +32,8 @@ mod agent_context;
 mod agent_events;
 #[path = "agent_state.rs"]
 mod agent_state;
+#[path = "agent_thread_view.rs"]
+mod agent_thread_view;
 #[path = "agent_view.rs"]
 mod agent_view;
 #[path = "agent_workflow_state.rs"]

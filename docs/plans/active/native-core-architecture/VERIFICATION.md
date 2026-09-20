@@ -570,6 +570,12 @@ Source checkpoint: `0070d374`.
   clean scan and diff checks PASS. The timing-sensitive diagram benchmark
   failed once during the first full run, then passed in isolation and in the
   subsequent full UI run.
+- Agent thread ownership follow-up: message/activity/result rendering,
+  confirmation preview/actions, empty state and retry/thinking controls now
+  live in `agent_thread_view.rs`; panel/settings/context composition remains in
+  `agent_view.rs`. Focused UI tests (632 passed), UI clippy, architecture
+  guard, clean scan (15 pass, 1 ratcheted legacy function-size warning) and
+  diff checks PASS.
 
 ## Not yet proven
 

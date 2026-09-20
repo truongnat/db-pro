@@ -529,6 +529,20 @@ re-exports/API.
 
 Severity: P2 feature-boundary maintainability risk, resolved.
 
+## F46 — Agent panel mixed thread rendering with panel composition
+
+Evidence: `agent_view.rs` combined side-panel composition, settings/context
+controls and a long message/activity/confirmation thread renderer. The thread
+has its own rendering lifecycle and confirmation/result interaction surface.
+
+Fix in the current refactor: moved the thread into
+`agent_thread_view.rs`, then split empty state, messages, activities/results,
+confirmation preview/actions and retry/thinking into focused render helpers.
+The panel facade still owns submission, close/settings and context actions.
+
+Severity: P1 feature-boundary risk and P2 maintainability, resolved for the
+agent thread surface.
+
 ## F38 — Palette catalog and action routing were embedded in the palette view
 
 Evidence at discovery: `palette_view.rs` combined static command/catalog data,
