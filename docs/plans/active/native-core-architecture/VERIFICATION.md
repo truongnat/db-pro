@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `332540d9`.
+Source checkpoint: `487adf58`.
 
 ## Current change
 
@@ -188,6 +188,9 @@ Source checkpoint: `332540d9`.
   the composition boundary.
 - Active query buffer-version projection now lives on `QuerySessionState`; query
   dispatchers consume the state API instead of a root helper.
+- Active query running-request projection now also lives on
+  `QuerySessionState`; query cancellation/dispatch checks read the owning
+  session directly.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.

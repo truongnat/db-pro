@@ -273,6 +273,9 @@ concern at the composition boundary.
 Active query buffer-version projection now follows the same rule on
 `QuerySessionState`; query dispatchers consume the state API instead of a root
 helper.
+Active query running-request projection now follows the same rule on
+`QuerySessionState`; query cancellation and dispatch checks read the owning
+session directly.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
