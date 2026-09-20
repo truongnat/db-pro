@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `25fee7f0`.
+Source checkpoint: `d0113906`.
 
 ## Current change
 
@@ -24,6 +24,9 @@ Source checkpoint: `25fee7f0`.
 - Active query text edits, document connection/schema binding and prediction
   cancellation now use the same context; the root retains only cross-aggregate
   result-grid invalidation and command-level orchestration.
+- Query connection/schema/capability resolution now uses a read-only
+  `QueryConnectionContext` over the query session, connection catalog/lifecycle
+  and schema explorer instead of embedding the lookup algorithm in the root.
 - `QueryOutputState` now owns the active output tab and per-document output-tab
   overrides.
 - `TableDataState` now owns grid projection/layout, filtering/sorting,

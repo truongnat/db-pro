@@ -73,6 +73,8 @@ lifecycle orchestration now runs through `QueryDocumentContext`, which receives
 explicit aggregate dependencies, keeps switching/cursor synchronization in the
 same boundary, owns active-document text/binding mutations and leaves query
 execution plus cross-aggregate grid invalidation at the composition root.
+Query connection/schema/capability lookup is now isolated in the read-only
+`QueryConnectionContext` rather than being implemented inline by root methods.
 
 Severity: P1 boundary leak, resolved for document lifecycle.
 
