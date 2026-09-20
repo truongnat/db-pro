@@ -2,6 +2,18 @@
 use super::*;
 
 impl DbProApp {
+    pub(crate) fn apply_diagram_action(&mut self, action: diagram_view::DiagramAction) {
+        match action {
+            diagram_view::DiagramAction::OpenTable(table) => self.open_table(table),
+            diagram_view::DiagramAction::ExecuteQuery(sql) => {
+                self.set_active_query_text(sql);
+                self.workspace.active_tab = WorkspaceTab::Query;
+                self.dispatch_query();
+                self.feedback.runtime_message = "Design Mode mutation plan applied via query runtime".into();
+            }
+        }
+    }
+
     pub(crate) fn open_table(&mut self, table: String) {
         if self.schema.explorer.selected_table.as_deref() == Some(&table) {
             self.workspace.active_tab = WorkspaceTab::Table;
