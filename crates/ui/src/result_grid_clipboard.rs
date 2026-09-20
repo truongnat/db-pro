@@ -53,7 +53,7 @@ impl DbProApp {
     }
 
     pub(super) fn copy_selected_rows(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let row_indexes = self.selected_row_indexes();
+        let row_indexes = self.table_data.selected_row_indexes();
         if row_indexes.is_empty() {
             self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;
@@ -68,16 +68,8 @@ impl DbProApp {
         self.feedback.copy_status = format!("{} rows copied", rows.len());
     }
 
-    pub(super) fn selected_row_indexes(&self) -> Vec<usize> {
-        if self.table_data.selected_rows.is_empty() {
-            self.table_data.selected_row.into_iter().collect()
-        } else {
-            self.table_data.selected_rows.iter().copied().collect()
-        }
-    }
-
     pub(super) fn copy_selected_rows_with_headers(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let row_indexes = self.selected_row_indexes();
+        let row_indexes = self.table_data.selected_row_indexes();
         if row_indexes.is_empty() {
             self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;
@@ -101,12 +93,12 @@ impl DbProApp {
     }
 
     pub(super) fn copy_selected_rows_as_json(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let indexes = self.selected_row_indexes();
+        let indexes = self.table_data.selected_row_indexes();
         self.copy_all_as_json(ui, result, &indexes);
     }
 
     pub(super) fn copy_selected_rows_as_insert(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let indexes = self.selected_row_indexes();
+        let indexes = self.table_data.selected_row_indexes();
         if indexes.is_empty() {
             self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;

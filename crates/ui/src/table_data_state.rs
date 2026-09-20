@@ -331,6 +331,14 @@ impl TableDataState {
         self.selected_cell = Some((last_row, last_column));
     }
 
+    pub(crate) fn selected_row_indexes(&self) -> Vec<usize> {
+        if self.selected_rows.is_empty() {
+            self.selected_row.into_iter().collect()
+        } else {
+            self.selected_rows.iter().copied().collect()
+        }
+    }
+
     pub(crate) fn is_cell_selected(
         &self,
         lookup: &super::result_grid_view::GridSelectionLookup,
