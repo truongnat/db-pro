@@ -530,6 +530,21 @@ the error and schedules the table-data request.
 Severity: P2 feature-boundary maintainability risk, resolved for table-data
 loading/error presentation.
 
+## F71 — Table-data pagination controls lived inside the mutation toolbar
+
+Evidence at discovery: `table_data_view.rs` owned the page navigation, page-size
+selector and offset mutation inline with refresh, filters and staged-change
+actions. The toolbar therefore mixed three independent interaction lifecycles
+and scheduled data reloads from widget code.
+
+Fix in the current refactor: moved pagination rendering into
+`table_data_pagination_view.rs`. It receives explicit theme/query/paging state,
+mutates only pagination-local values, and returns `RequestData` or `ResetPage`
+intents for the root to execute.
+
+Severity: P2 feature-boundary maintainability risk, resolved for table-data
+pagination.
+
 ## F48 — Runtime transport adapter was embedded in the protocol module
 
 Source SHA: `b85d65da`.

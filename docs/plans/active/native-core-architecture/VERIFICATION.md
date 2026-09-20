@@ -716,6 +716,11 @@ Source checkpoint: `5d42d5e9`.
   intent; the root remains the request executor. Focused UI check, clippy, 630
   UI tests, architecture guard and clean scan PASS. Release/runtime evidence
   is pending until the next native rebuild.
+- Table-data pagination follow-up at source SHA `eb03c668`: page navigation and
+  page-size selection now consume explicit pagination context and return typed
+  request/reset intents. Focused UI check, clippy, 630 UI tests, architecture
+  guard and clean scan PASS. Release/runtime evidence is pending until the next
+  native rebuild.
 
 ## Not yet proven
 
