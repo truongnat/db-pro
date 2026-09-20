@@ -262,6 +262,8 @@ mod query_output_tabs_view;
 mod query_output_view;
 #[path = "query_results_pane_view.rs"]
 mod query_results_pane_view;
+#[path = "query_run_control_view.rs"]
+mod query_run_control_view;
 #[path = "query_search_view.rs"]
 mod query_search_view;
 #[path = "query_session.rs"]

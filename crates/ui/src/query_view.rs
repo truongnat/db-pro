@@ -357,7 +357,7 @@ impl DbProApp {
                 ui.set_min_height(QUERY_STATUS_HEIGHT);
                 ui.spacing_mut().item_spacing = egui::vec2(8.0, 0.0);
                 ui.add_space(SPACE_XS);
-                self.draw_query_run_stop_button(ui, connected, modifier);
+                self.draw_query_run_control(ui, connected, modifier);
                 if !self.workspace.bottom_panel_open
                     && Button::new(self.theme)
                         .icon(Icon::PanelBottom)
@@ -449,68 +449,38 @@ impl DbProApp {
         });
     }
 
-    fn draw_query_run_stop_button(&mut self, ui: &mut egui::Ui, connected: bool, modifier: &str) {
-        let active_doc_running = self
+    fn draw_query_run_control(&mut self, ui: &mut egui::Ui, connected: bool, modifier: &str) {
+        let active_request_id = self
             .query
             .session
             .documents
             .get(self.query.session.active_document_index)
-            .and_then(|doc| match doc.execution_state {
-                QueryExecutionState::Running(req) => Some(req),
+            .and_then(|document| match document.execution_state {
+                QueryExecutionState::Running(request_id) => Some(request_id),
                 _ => None,
             });
-        let running = active_doc_running.is_some();
-        let cancel_supported = self.query_capabilities().allows(|c| c.query.cancel);
-        let cancel_reason = self
-            .query_capabilities()
-            .feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Cancel);
-        let run_button = if running {
-            if cancel_supported {
-                Button::new(self.theme)
-                    .text("Stop")
-                    .icon(Icon::Square)
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .tooltip("Stop query (Esc)")
-                    .show(ui)
-            } else {
-                let tip = cancel_reason
-                    .as_deref()
-                    .unwrap_or("Query running (cancellation is unsupported by this provider)");
-                Button::new(self.theme)
-                    .text("Running…")
-                    .icon(Icon::Loader)
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .tooltip(tip)
-                    .show(ui)
-            }
-        } else {
-            let tip = if !connected {
-                "Connect to a database before running".to_owned()
-            } else {
-                format!("Run query ({modifier}↵)")
-            };
-            Button::new(self.theme)
-                .text("Run")
-                .icon(Icon::Play)
-                .variant(ButtonVariant::Default)
-                .size(ButtonSize::Sm)
-                .tooltip(tip)
-                .show(ui)
+        let capabilities = self.query_capabilities();
+        let cancel_reason =
+            capabilities.feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Cancel);
+        let context = query_run_control_view::QueryRunControlContext {
+            theme: self.theme,
+            connected,
+            active_request_id,
+            cancel_supported: capabilities.allows(|value| value.query.cancel),
+            cancel_reason: cancel_reason.as_deref(),
+            modifier,
         };
-        if run_button.clicked() {
-            if let Some(request_id) = active_doc_running {
-                if cancel_supported {
-                    self.cancel_query(request_id);
-                } else {
-                    self.feedback.runtime_message = cancel_reason
-                        .unwrap_or_else(|| "Query cancellation is not supported for this provider".to_owned());
-                }
-            } else if !connected {
+        let Some(action) = query_run_control_view::draw_run_control(&context, ui) else {
+            return;
+        };
+        match action {
+            query_run_control_view::QueryRunControlAction::Run => self.dispatch_query(),
+            query_run_control_view::QueryRunControlAction::Cancel(request_id) => self.cancel_query(request_id),
+            query_run_control_view::QueryRunControlAction::ReportUnsupportedCancel(reason) => {
+                self.feedback.runtime_message = reason;
+            }
+            query_run_control_view::QueryRunControlAction::ReportDisconnected => {
                 self.feedback.runtime_message = "Connect to a database before running a query".to_owned();
-            } else {
-                self.dispatch_query();
             }
         }
     }
