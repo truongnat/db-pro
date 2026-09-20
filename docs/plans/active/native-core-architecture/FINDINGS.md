@@ -101,6 +101,9 @@ only coordinates state, feedback and command dispatch.
 Fix in `932f15d4`: keyed data-diff request validation and command planning now
 live in `SchemaCompareState`; navigation only resolves the active source,
 allocates request identity, dispatches the effect and reports feedback.
+Fix in `c8d8a81d`: monitoring state and snapshot/workload/session-control
+command planning now live in `monitoring_state.rs`; navigation only adapts
+active connection/request identity and dispatches feature-owned effects.
 The architecture guard now enforces that the extracted table-editor context
 and value modules cannot regress to a root dependency.
 

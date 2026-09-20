@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `932f15d4`.
+Source checkpoint: `c8d8a81d`.
 
 ## Current change
 
@@ -56,6 +56,11 @@ Source checkpoint: `932f15d4`.
 - Schema compare keyed data-diff request validation and effect construction now
   live in `SchemaCompareState`; tests cover required target/table/key fields and
   normalized schema/key payloads.
+- Monitoring state and snapshot/workload/session-control command planning now
+  live in `monitoring_state.rs`; tests cover bounded workload requests and
+  explicit confirmation flags for destructive commands.
+- The architecture guard now freezes `monitoring_state.rs` as an explicit-state
+  module that may not depend on the composition-root type.
 - The architecture guard now freezes `table_editor_context.rs` and
   `table_editor_values.rs` as explicit-state modules that may not depend on
   the composition-root type.
@@ -328,11 +333,11 @@ Source checkpoint: `932f15d4`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 618 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 620 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1290 passed, 0 failed, 42 ignored;
+- `cargo test --workspace --no-fail-fast`: 1292 passed, 0 failed, 42 ignored;
   all workspace doc-tests passed with 0 tests.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.
