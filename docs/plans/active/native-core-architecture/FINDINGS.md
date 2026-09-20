@@ -104,6 +104,12 @@ allocates request identity, dispatches the effect and reports feedback.
 Fix in `c8d8a81d`: monitoring state and snapshot/workload/session-control
 command planning now live in `monitoring_state.rs`; navigation only adapts
 active connection/request identity and dispatches feature-owned effects.
+Fix in `2f16e922`: audit filter construction and selected/bookmarked export
+planning now live in `audit_state.rs`; navigation only dispatches the load
+effect or reports the aggregate's export result.
+Fix in `a03f7a17`: the database-management state catch-all was removed; routine,
+transfer, synthetic-data, masking, PostgreSQL settings, FDW, replication,
+event-trigger and security aggregates now have explicit feature modules.
 The architecture guard now enforces that the extracted table-editor context
 and value modules cannot regress to a root dependency.
 
