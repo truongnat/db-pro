@@ -147,6 +147,18 @@ impl TableDataState {
         self.grid_row_identity_cache_ready = true;
     }
 
+    pub(crate) fn row_identity_for_result(
+        &self,
+        result: &UiQueryResult,
+        info: Option<&UiTableInfo>,
+        row_index: usize,
+    ) -> Option<RowIdentity> {
+        self.grid_row_identity_cache
+            .get(&row_index)
+            .cloned()
+            .or_else(|| info.and_then(|info| Self::row_identity(result, info, row_index).ok()))
+    }
+
     pub(crate) fn projection_key(&self, result: &UiQueryResult) -> GridProjectionKey {
         GridProjectionKey {
             epoch: self.grid_projection_epoch,

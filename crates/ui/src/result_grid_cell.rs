@@ -368,7 +368,8 @@ impl DbProApp {
                     *close_menu = true;
                 }
                 let has_row_change = self
-                    .row_identity_for_result(result, row_index)
+                    .table_data
+                    .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
                     .as_ref()
                     .map(|identity| self.table_mutation.staged_changes.row_has_changes(identity))
                     .unwrap_or(false);

@@ -1647,7 +1647,10 @@ impl DbProApp {
         self.table_data.selected_rows.insert(row_index);
         self.table_data.selection_anchor_row = Some(row_index);
         self.table_data.selection_anchor_cell = Some((row_index, column_index));
-        if let Some(identity) = self.row_identity_for_result(result, row_index) {
+        if let Some(identity) =
+            self.table_data
+                .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
+        {
             self.clear_mutation_error_for_identity(&identity, Some(column_index));
         }
         self.table_data.data_editing_cell = Some((row_index, column_index));
@@ -1821,33 +1824,33 @@ impl DbProApp {
         );
     }
 
-    pub(crate) fn row_identity_for_result(&self, result: &UiQueryResult, row_index: usize) -> Option<RowIdentity> {
-        if let Some(identity) = self.table_data.grid_row_identity_cache.get(&row_index) {
-            return Some(identity.clone());
-        }
-        let info = self.table_state.table_info.as_ref()?;
-        TableDataState::row_identity(result, info, row_index).ok()
-    }
-
     pub(crate) fn staged_cell_value(
         &self,
         result: &UiQueryResult,
         row_index: usize,
         column_index: usize,
     ) -> Option<UiCell> {
-        let identity = self.row_identity_for_result(result, row_index)?;
+        let identity =
+            self.table_data
+                .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)?;
         self.table_mutation.staged_changes.cell_value(&identity, column_index)
     }
 
     pub(crate) fn staged_row_deleted(&self, result: &UiQueryResult, row_index: usize) -> bool {
-        let Some(identity) = self.row_identity_for_result(result, row_index) else {
+        let Some(identity) =
+            self.table_data
+                .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
+        else {
             return false;
         };
         self.table_mutation.staged_changes.row_deleted(&identity)
     }
 
     pub(crate) fn revert_staged_cell(&mut self, result: &UiQueryResult, row_index: usize, column_index: usize) {
-        let Some(identity) = self.row_identity_for_result(result, row_index) else {
+        let Some(identity) =
+            self.table_data
+                .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
+        else {
             return;
         };
         if self.table_mutation.staged_changes.revert_cell(&identity, column_index) {
@@ -1857,7 +1860,10 @@ impl DbProApp {
     }
 
     pub(crate) fn revert_staged_row(&mut self, result: &UiQueryResult, row_index: usize) {
-        let Some(identity) = self.row_identity_for_result(result, row_index) else {
+        let Some(identity) =
+            self.table_data
+                .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
+        else {
             return;
         };
         if self.table_mutation.staged_changes.revert_row(&identity) {
@@ -2799,7 +2805,12 @@ impl DbProApp {
             .as_ref()
             .and_then(|result| {
                 result.rows.iter().enumerate().find_map(|(row_index, _)| {
-                    (self.row_identity_for_result(result, row_index).as_ref() == Some(identity)).then_some(row_index)
+                    (self
+                        .table_data
+                        .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
+                        .as_ref()
+                        == Some(identity))
+                    .then_some(row_index)
                 })
             })
             .or(fallback)

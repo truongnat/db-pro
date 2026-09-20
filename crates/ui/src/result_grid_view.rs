@@ -728,7 +728,8 @@ impl DbProApp {
             || (0..result.columns.len())
                 .any(|column_index| self.staged_cell_value(result, row_index, column_index).is_some());
         let row_mutation_error = self
-            .row_identity_for_result(result, row_index)
+            .table_data
+            .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
             .is_some_and(|identity| self.table_mutation.mutation_error_for_identity(&identity));
 
         ui.horizontal(|ui| {
@@ -801,9 +802,12 @@ impl DbProApp {
                         row_selected,
                         row_dirty,
                         row_mutation_error,
-                        cell_mutation_error: self.row_identity_for_result(result, row_index).is_some_and(|identity| {
-                            self.table_mutation.mutation_error_for_cell(&identity, column_index)
-                        }),
+                        cell_mutation_error: self
+                            .table_data
+                            .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
+                            .is_some_and(|identity| {
+                                self.table_mutation.mutation_error_for_cell(&identity, column_index)
+                            }),
                         editable: rows.editable,
                         width,
                         cell,
