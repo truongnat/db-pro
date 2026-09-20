@@ -24,16 +24,22 @@ fn connection_display_uri(connection: &UiConnectionSummary) -> String {
 
 impl DbProApp {
     pub(super) fn draw_dbeaver_connections_tree(&mut self, ui: &mut egui::Ui) {
-        let connection_count = self.connections.len();
+        let connection_count = self.connection.catalog.len();
         for index in 0..connection_count {
-            let connection = self.connections[index].clone();
-            let is_active = self.active_connection_id.as_deref() == Some(&connection.id);
-            let is_connected = self.connected && is_active;
-            let is_connecting = self.pending_connection_request.is_some()
-                && (self.pending_connection_id.as_deref() == Some(&connection.id)
-                    || (self.pending_connection_id.is_none() && is_active));
-            let is_failed = self.failed_connection_ids.contains(&connection.id);
-            let err_msg = self.connection_errors.get(&connection.id).cloned();
+            let Some(connection) = self.connection.catalog.get(index).cloned() else {
+                continue;
+            };
+            let is_active = self.connection.lifecycle.active_connection_id() == Some(&connection.id);
+            let is_connected = self.connection.lifecycle.is_connected() && is_active;
+            let is_connecting = self.connection.lifecycle.pending_request().is_some()
+                && (self.connection.lifecycle.pending_connection_id() == Some(connection.id.as_str())
+                    || (self.connection.lifecycle.pending_connection_id().is_none() && is_active));
+            let is_failed = self.connection.lifecycle.has_failed_connection(&connection.id);
+            let err_msg = self
+                .connection
+                .lifecycle
+                .connection_error(&connection.id)
+                .map(str::to_owned);
             let id = ui.make_persistent_id(("codex_conn_node", &connection.id));
 
             let mut collapsing = egui::collapsing_header::CollapsingState::load_with_default_open(
@@ -138,10 +144,10 @@ impl DbProApp {
             }
             if actions.new_script {
                 self.new_query_document();
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
             }
             if actions.er_diagram {
-                self.active_tab = WorkspaceTab::Diagram;
+                self.workspace.active_tab = WorkspaceTab::Diagram;
                 if !is_connected {
                     self.connect_to_connection(&connection);
                 }
@@ -161,16 +167,16 @@ impl DbProApp {
                     "-- Create table on database `{}`\nCREATE TABLE new_table (\n    id SERIAL PRIMARY KEY,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n",
                     connection.database
                 ));
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
             }
             if actions.copy_name {
                 ui.output_mut(|o| o.copied_text = connection.name.clone());
-                self.runtime_message = format!("Copied `{}` to clipboard", connection.name);
+                self.feedback.runtime_message = format!("Copied `{}` to clipboard", connection.name);
             }
             if actions.copy_conn_string {
                 let conn_str = connection_display_uri(&connection);
                 ui.output_mut(|o| o.copied_text = conn_str);
-                self.runtime_message = "Copied connection string to clipboard".to_owned();
+                self.feedback.runtime_message = "Copied connection string to clipboard".to_owned();
             }
             if actions.edit {
                 self.open_edit_connection(&connection);
@@ -179,7 +185,7 @@ impl DbProApp {
                 self.open_duplicate_connection(&connection);
             }
             if actions.delete {
-                self.delete_confirmation_id = Some(connection.id.clone());
+                self.overlay.delete_confirmation_id = Some(connection.id.clone());
             }
             ui.add_space(2.0);
         }
@@ -227,14 +233,14 @@ impl DbProApp {
         }
 
         if collapsing.is_open() {
-            let schema_count = self.schema.schemas.len();
+            let schema_count = self.schema_explorer.schema.schemas.len();
             if schema_count == 0 {
                 // Flat tables/views (e.g. SQLite)
                 self.draw_dbeaver_schema_objects(ui, "");
             } else {
                 // Nested Schemas (e.g. PostgreSQL: public, information_schema, etc.)
                 for index in 0..schema_count {
-                    let schema = self.schema.schemas[index].clone();
+                    let schema = self.schema_explorer.schema.schemas[index].clone();
                     if !is_user_visible_schema(&schema) {
                         continue;
                     }
@@ -313,53 +319,53 @@ impl DbProApp {
 
     /// Activates a schema and clears the workspace state that depended on the old one.
     pub(crate) fn activate_schema(&mut self, schema: &str) {
-        if self.selected_schema.as_deref() == Some(schema) {
+        if self.schema_explorer.selected_schema.as_deref() == Some(schema) {
             return;
         }
-        if !self.staged_changes.is_empty() {
-            self.pending_navigation_action = Some(PendingNavigationAction::ChangeSchema(schema.to_owned()));
-            self.discard_changes_confirmation = true;
-            self.runtime_message = "Apply or discard staged changes before changing schema".to_owned();
+        if !self.table.mutation.staged_changes.is_empty() {
+            self.workspace.pending_navigation_action = Some(PendingNavigationAction::ChangeSchema(schema.to_owned()));
+            self.table.data.discard_changes_confirmation = true;
+            self.feedback.runtime_message = "Apply or discard staged changes before changing schema".to_owned();
             return;
         }
-        self.pending_navigation_action = None;
-        self.selected_schema = Some(schema.to_owned());
-        self.selected_table = None;
-        self.selected_schema_object = None;
-        self.table_info = None;
-        self.table_ddl = None;
-        self.table_data_result = None;
-        self.staged_changes.clear();
-        self.staged_apply_targets.clear();
-        self.table_mutation_error = None;
-        self.explorer_nav_cache = None;
+        self.workspace.pending_navigation_action = None;
+        self.schema_explorer.selected_schema = Some(schema.to_owned());
+        self.schema_explorer.selected_table = None;
+        self.schema_explorer.selected_schema_object = None;
+        self.table.state.table_info = None;
+        self.table.state.table_ddl = None;
+        self.table.data_query.result = None;
+        self.table.mutation.staged_changes.clear();
+        self.table.mutation.staged_apply_targets.clear();
+        self.table.mutation.table_mutation_error = None;
+        self.schema_explorer.explorer_nav_cache = None;
         self.activate_welcome_tab();
     }
 
     /// Renders the folders for a schema: Tables, Views, Functions, Triggers.
     pub(super) fn draw_dbeaver_schema_objects(&mut self, ui: &mut egui::Ui, schema: &str) {
-        let search_query = self.explorer_search.trim().to_ascii_lowercase();
+        let search_query = self.schema_explorer.explorer_search.trim().to_ascii_lowercase();
         // Counts are O(n) but allocate nothing; materialised lists are deferred until a
         // folder is actually open (see folder bodies below / Tables drawer).
         let total_tables = self.schema_table_count(schema);
         self.draw_tables_folder(ui, schema, total_tables, &search_query);
 
-        let view_count = self.count_by_schema(&self.schema.views, schema, |v| &v.schema);
+        let view_count = self.count_by_schema(&self.schema_explorer.schema.views, schema, |v| &v.schema);
         self.draw_dbeaver_views_folder_lazy(ui, schema, view_count);
 
         if self.active_capabilities().allows(|c| c.schema.functions) {
-            let function_count = self.count_by_schema(&self.schema.functions, schema, |f| &f.schema);
+            let function_count = self.count_by_schema(&self.schema_explorer.schema.functions, schema, |f| &f.schema);
             self.draw_dbeaver_functions_folder_lazy(ui, schema, function_count);
         }
 
-        let trigger_count = self.count_by_schema(&self.schema.triggers, schema, |t| &t.schema);
+        let trigger_count = self.count_by_schema(&self.schema_explorer.schema.triggers, schema, |t| &t.schema);
         self.draw_dbeaver_triggers_folder_lazy(ui, schema, trigger_count);
     }
 
     /// Narrows schema-scoped objects to `schema`. When the backend reports no schema
     /// list (e.g. SQLite) everything belongs to a single flat namespace.
     pub(super) fn filter_by_schema<T: Clone>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> Vec<T> {
-        if self.schema.schemas.is_empty() || schema.is_empty() {
+        if self.schema_explorer.schema.schemas.is_empty() || schema.is_empty() {
             all.to_vec()
         } else {
             all.iter().filter(|item| schema_of(item) == schema).cloned().collect()
@@ -367,7 +373,7 @@ impl DbProApp {
     }
 
     pub(super) fn count_by_schema<T>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> usize {
-        if self.schema.schemas.is_empty() || schema.is_empty() {
+        if self.schema_explorer.schema.schemas.is_empty() || schema.is_empty() {
             all.len()
         } else {
             all.iter().filter(|item| schema_of(item) == schema).count()
@@ -376,8 +382,13 @@ impl DbProApp {
 
     /// Returns cached visible table names for `schema` + current search.
     fn cached_explorer_tables(&mut self, schema: &str, search_query: &str) -> (usize, usize, Vec<String>) {
-        let connection_id = self.active_connection_id.clone().unwrap_or_default();
-        if let Some(cache) = self.explorer_nav_cache.as_ref() {
+        let connection_id = self
+            .connection
+            .lifecycle
+            .active_connection_id()
+            .map(str::to_owned)
+            .unwrap_or_default();
+        if let Some(cache) = self.schema_explorer.explorer_nav_cache.as_ref() {
             if cache.connection_id == connection_id && cache.schema == schema && cache.search == search_query {
                 return (cache.total_count, cache.matching_count, cache.visible.clone());
             }
@@ -386,7 +397,7 @@ impl DbProApp {
         let all_tables = self.schema_table_names(schema);
         let (matching_count, visible) = filtered_explorer_tables(&all_tables, search_query);
         let total_count = all_tables.len();
-        self.explorer_nav_cache = Some(ExplorerNavCache {
+        self.schema_explorer.explorer_nav_cache = Some(ExplorerNavCache {
             connection_id,
             schema: schema.to_owned(),
             search: search_query.to_owned(),
@@ -409,10 +420,10 @@ impl DbProApp {
         let folder_id = ui.make_persistent_id(("codex_tbl_folder", schema));
         let matching_table_count = if search_query.is_empty() {
             total_tables
-        } else if let Some(cache) = self.explorer_nav_cache.as_ref().filter(|cache| {
+        } else if let Some(cache) = self.schema_explorer.explorer_nav_cache.as_ref().filter(|cache| {
             cache.schema == schema
                 && cache.search == search_query
-                && cache.connection_id == self.active_connection_id.as_deref().unwrap_or_default()
+                && cache.connection_id == self.connection.lifecycle.active_connection_id().unwrap_or_default()
         }) {
             cache.matching_count
         } else {

@@ -33,6 +33,7 @@ pub struct CompletionItem {
 pub struct CompletionState {
     pub is_open: bool,
     pub anchor_offset: usize,
+    pub document_version: u64,
     pub popup_position: Pos2,
     pub query_prefix: String,
     pub filter_text: String,
@@ -49,6 +50,7 @@ impl CompletionState {
     pub fn open(
         &mut self,
         anchor_offset: usize,
+        document_version: u64,
         popup_position: Pos2,
         query_prefix: String,
         items: Vec<CompletionItem>,
@@ -56,6 +58,7 @@ impl CompletionState {
     ) {
         self.is_open = !items.is_empty();
         self.anchor_offset = anchor_offset;
+        self.document_version = document_version;
         self.popup_position = popup_position;
         self.query_prefix = query_prefix.clone();
         self.filter_text = query_prefix;
@@ -66,6 +69,7 @@ impl CompletionState {
 
     pub fn close(&mut self) {
         self.is_open = false;
+        self.document_version = 0;
         self.items.clear();
         self.query_prefix.clear();
         self.filter_text.clear();
@@ -103,6 +107,10 @@ impl CompletionState {
         if !self.items.is_empty() {
             self.selected_index = self.selected_index.saturating_sub(page_size);
         }
+    }
+
+    pub fn can_apply_to_version(&self, document_version: u64) -> bool {
+        self.is_open && self.document_version == document_version
     }
 
     pub fn current_item(&self) -> Option<&CompletionItem> {
@@ -153,12 +161,15 @@ mod tests {
 
         state.open(
             2,
+            7,
             Pos2::new(10.0, 20.0),
             "us".to_owned(),
             items,
             CompletionTriggerKind::Automatic,
         );
         assert!(state.is_open);
+        assert!(state.can_apply_to_version(7));
+        assert!(!state.can_apply_to_version(8));
         assert_eq!(state.selected_index, 0);
         assert_eq!(state.current_item().unwrap().label, "users");
 

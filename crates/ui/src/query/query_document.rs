@@ -3,6 +3,7 @@ use crate::editor::completion::CompletionState;
 use crate::editor::cursor::CursorPosition;
 use crate::editor::diagnostics::Diagnostic;
 use crate::editor::document::SqlDocumentAnalysis;
+use crate::editor::hover::HoverState;
 use crate::editor::prediction::EditPrediction;
 use crate::editor::selection::SelectionRange;
 use crate::editor::syntax::{CachedSqlTokens, SqlDialect};
@@ -146,6 +147,8 @@ pub struct QueryDocument {
     /// Wall-clock start time for local query history. Kept separate from the
     /// monotonic timer used for duration measurement and is never persisted.
     pub execution_started_wall_time: Option<String>,
+    /// Per-document hover state machine (500 ms delay before tooltip shows).
+    pub hover_state: HoverState,
 }
 
 impl QueryDocument {
@@ -211,6 +214,7 @@ impl QueryDocument {
             execution_diagnostic: None,
             execution_started_at: None,
             execution_started_wall_time: None,
+            hover_state: HoverState::new(),
         }
     }
 

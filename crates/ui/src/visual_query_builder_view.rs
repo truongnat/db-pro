@@ -1,20 +1,15 @@
 //! Visual query builder panel UI (#247).
 
 use super::*;
-use crate::query::visual_builder::{
-    try_import_select, BuilderColumn, BuilderDialect, BuilderJoin, BuilderPredicate, BuilderTable,
-};
+use crate::query::visual_builder::BuilderDialect;
 
 impl DbProApp {
     pub(super) fn visual_builder_dialect(&self) -> BuilderDialect {
-        if self.active_driver().to_ascii_lowercase().contains("sqlite") {
-            BuilderDialect::Sqlite
-        } else {
-            BuilderDialect::Postgres
-        }
+        visual_query_builder_state::VisualQueryBuilderState::dialect_for_driver(self.active_driver())
     }
 
     pub(super) fn draw_visual_query_builder(&mut self, ui: &mut egui::Ui) {
+        let dialect = self.visual_builder_dialect();
         ui.add_space(SPACE_SM);
         ui.label(
             RichText::new("SELECT-only · generates SQL until you Run · unsupported SQL stays in the text editor")
@@ -30,12 +25,10 @@ impl DbProApp {
                 self.import_visual_builder_from_editor();
             }
             if ghost_button(ui, "Clear", self.theme).clicked() {
-                self.visual_query_model.clear();
-                self.visual_query_error = None;
-                self.visual_query_sql_preview.clear();
+                self.query.editor.visual_builder.clear();
             }
         });
-        if let Some(error) = &self.visual_query_error {
+        if let Some(error) = &self.query.editor.visual_builder.error {
             ui.colored_label(self.theme.warning, error);
         }
 
@@ -44,43 +37,51 @@ impl DbProApp {
         ui.add_space(SPACE_XS);
         ui.horizontal(|ui| {
             egui::ComboBox::from_id_salt("vqb_add_table")
-                .selected_text(if self.visual_query_add_table.is_empty() {
+                .selected_text(if self.query.editor.visual_builder.add_table.is_empty() {
                     "Select table…"
                 } else {
-                    &self.visual_query_add_table
+                    &self.query.editor.visual_builder.add_table
                 })
                 .show_ui(ui, |ui| {
-                    for table in &self.schema.table_details {
+                    for table in &self.schema_explorer.schema.table_details {
                         let key = if table.schema.is_empty() {
                             table.name.clone()
                         } else {
                             format!("{}.{}", table.schema, table.name)
                         };
                         ui.selectable_value(
-                            &mut self.visual_query_add_table,
+                            &mut self.query.editor.visual_builder.add_table,
                             key,
                             format!("{}.{}", table.schema, table.name),
                         );
                     }
-                    for view in &self.schema.views {
+                    for view in &self.schema_explorer.schema.views {
                         let key = if view.schema.is_empty() {
                             format!("view:{}", view.name)
                         } else {
                             format!("view:{}.{}", view.schema, view.name)
                         };
                         ui.selectable_value(
-                            &mut self.visual_query_add_table,
+                            &mut self.query.editor.visual_builder.add_table,
                             key,
                             format!("view {}.{}", view.schema, view.name),
                         );
                     }
                 });
             if secondary_button(ui, "Add", self.theme).clicked() {
-                self.visual_builder_add_selected_table();
+                self.query.editor.visual_builder.add_selected_table(dialect);
             }
         });
-
-        for (idx, table) in self.visual_query_model.tables.clone().into_iter().enumerate() {
+        for (idx, table) in self
+            .query
+            .editor
+            .visual_builder
+            .model
+            .tables
+            .clone()
+            .into_iter()
+            .enumerate()
+        {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(format!(
@@ -95,8 +96,7 @@ impl DbProApp {
                     badge(ui, "FROM", self.theme.surface_active, self.theme.text_secondary);
                 }
                 if ghost_button(ui, "Remove", self.theme).clicked() {
-                    self.visual_query_model.tables.remove(idx);
-                    self.refresh_visual_builder_preview();
+                    self.query.editor.visual_builder.remove_table(idx, dialect);
                 }
             });
         }
@@ -105,17 +105,36 @@ impl DbProApp {
         section_label(ui, "JOINS", self.theme);
         ui.add_space(SPACE_XS);
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.visual_query_join_table).hint_text("schema.table"));
-            ui.add(egui::TextEdit::singleline(&mut self.visual_query_join_left).hint_text("left_alias.col"));
-            ui.add(egui::TextEdit::singleline(&mut self.visual_query_join_right).hint_text("right_alias.col"));
+            ui.add(
+                egui::TextEdit::singleline(&mut self.query.editor.visual_builder.join_table).hint_text("schema.table"),
+            );
+            ui.add(
+                egui::TextEdit::singleline(&mut self.query.editor.visual_builder.join_left).hint_text("left_alias.col"),
+            );
+            ui.add(
+                egui::TextEdit::singleline(&mut self.query.editor.visual_builder.join_right)
+                    .hint_text("right_alias.col"),
+            );
             if secondary_button(ui, "Add INNER JOIN", self.theme).clicked() {
-                self.visual_builder_add_join();
+                self.query.editor.visual_builder.add_join(dialect);
             }
             if ghost_button(ui, "FK join hint", self.theme).clicked() {
-                self.visual_builder_suggest_fk_join();
+                self.query
+                    .editor
+                    .visual_builder
+                    .suggest_fk_join(&self.schema_explorer.schema.table_details, dialect);
             }
         });
-        for (idx, join) in self.visual_query_model.joins.clone().into_iter().enumerate() {
+        for (idx, join) in self
+            .query
+            .editor
+            .visual_builder
+            .model
+            .joins
+            .clone()
+            .into_iter()
+            .enumerate()
+        {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(format!(
@@ -132,24 +151,32 @@ impl DbProApp {
                     .small(),
                 );
                 if ghost_button(ui, "×", self.theme).clicked() {
-                    self.visual_query_model.joins.remove(idx);
-                    self.refresh_visual_builder_preview();
+                    self.query.editor.visual_builder.remove_join(idx, dialect);
                 }
             });
         }
 
         ui.add_space(SPACE_SM);
         section_label(ui, "COLUMNS", self.theme);
-        ui.checkbox(&mut self.visual_query_model.select_star, "SELECT *");
+        ui.checkbox(&mut self.query.editor.visual_builder.model.select_star, "SELECT *");
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.visual_query_col_ref).hint_text("alias.column"));
-            ui.add(egui::TextEdit::singleline(&mut self.visual_query_col_alias).hint_text("AS alias"));
-            ui.add(egui::TextEdit::singleline(&mut self.visual_query_col_agg).hint_text("AGG optional"));
+            ui.add(egui::TextEdit::singleline(&mut self.query.editor.visual_builder.col_ref).hint_text("alias.column"));
+            ui.add(egui::TextEdit::singleline(&mut self.query.editor.visual_builder.col_alias).hint_text("AS alias"));
+            ui.add(egui::TextEdit::singleline(&mut self.query.editor.visual_builder.col_agg).hint_text("AGG optional"));
             if secondary_button(ui, "Add column", self.theme).clicked() {
-                self.visual_builder_add_column();
+                self.query.editor.visual_builder.add_column(dialect);
             }
         });
-        for (idx, col) in self.visual_query_model.columns.clone().into_iter().enumerate() {
+        for (idx, col) in self
+            .query
+            .editor
+            .visual_builder
+            .model
+            .columns
+            .clone()
+            .into_iter()
+            .enumerate()
+        {
             ui.horizontal(|ui| {
                 let mut label = if let Some(agg) = &col.aggregate {
                     format!("{}({}.{})", agg, col.table_alias, col.column)
@@ -161,8 +188,7 @@ impl DbProApp {
                 }
                 ui.label(RichText::new(label).monospace().small());
                 if ghost_button(ui, "×", self.theme).clicked() {
-                    self.visual_query_model.columns.remove(idx);
-                    self.refresh_visual_builder_preview();
+                    self.query.editor.visual_builder.remove_column(idx, dialect);
                 }
             });
         }
@@ -170,14 +196,23 @@ impl DbProApp {
         ui.add_space(SPACE_SM);
         section_label(ui, "WHERE / HAVING / ORDER / LIMIT", self.theme);
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.visual_query_where_left).hint_text("alias.col"));
-            ui.add(egui::TextEdit::singleline(&mut self.visual_query_where_op).hint_text("="));
-            ui.add(egui::TextEdit::singleline(&mut self.visual_query_where_value).hint_text("value"));
+            ui.add(egui::TextEdit::singleline(&mut self.query.editor.visual_builder.where_left).hint_text("alias.col"));
+            ui.add(egui::TextEdit::singleline(&mut self.query.editor.visual_builder.where_op).hint_text("="));
+            ui.add(egui::TextEdit::singleline(&mut self.query.editor.visual_builder.where_value).hint_text("value"));
             if secondary_button(ui, "Add WHERE", self.theme).clicked() {
-                self.visual_builder_add_where();
+                self.query.editor.visual_builder.add_where(dialect);
             }
         });
-        for (idx, pred) in self.visual_query_model.where_clauses.clone().into_iter().enumerate() {
+        for (idx, pred) in self
+            .query
+            .editor
+            .visual_builder
+            .model
+            .where_clauses
+            .clone()
+            .into_iter()
+            .enumerate()
+        {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(format!(
@@ -188,212 +223,59 @@ impl DbProApp {
                     .small(),
                 );
                 if ghost_button(ui, "×", self.theme).clicked() {
-                    self.visual_query_model.where_clauses.remove(idx);
-                    self.refresh_visual_builder_preview();
+                    self.query.editor.visual_builder.remove_predicate(idx, dialect);
                 }
             });
         }
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.visual_query_order).hint_text("alias.col"));
-            ui.checkbox(&mut self.visual_query_order_desc, "DESC");
+            ui.add(egui::TextEdit::singleline(&mut self.query.editor.visual_builder.order).hint_text("alias.col"));
+            ui.checkbox(&mut self.query.editor.visual_builder.order_desc, "DESC");
             if secondary_button(ui, "Add ORDER", self.theme).clicked() {
-                self.visual_builder_add_order();
+                self.query.editor.visual_builder.add_order(dialect);
             }
             ui.label("LIMIT");
-            ui.add(egui::TextEdit::singleline(&mut self.visual_query_limit).desired_width(60.0));
+            ui.add(egui::TextEdit::singleline(&mut self.query.editor.visual_builder.limit).desired_width(60.0));
             ui.label("OFFSET");
-            ui.add(egui::TextEdit::singleline(&mut self.visual_query_offset).desired_width(60.0));
+            ui.add(egui::TextEdit::singleline(&mut self.query.editor.visual_builder.offset).desired_width(60.0));
             if ghost_button(ui, "Apply limit", self.theme).clicked() {
-                // allow: parse error means limit/offset is not a valid integer — model retains None (no
-                // LIMIT/OFFSET clause) and SQL preview updates immediately for user correction.
-                self.visual_query_model.limit = self.visual_query_limit.parse().ok();
-                self.visual_query_model.offset = self.visual_query_offset.parse().ok();
-                self.refresh_visual_builder_preview();
+                self.query.editor.visual_builder.apply_limit_offset();
+                self.query.editor.visual_builder.refresh_preview(dialect);
             }
         });
 
         ui.add_space(SPACE_SM);
         section_label(ui, "GENERATED SQL", self.theme);
-        self.refresh_visual_builder_preview();
+        self.query.editor.visual_builder.refresh_preview(dialect);
         egui::ScrollArea::vertical().max_height(160.0).show(ui, |ui| {
-            ui.label(RichText::new(&self.visual_query_sql_preview).monospace());
+            ui.label(RichText::new(&self.query.editor.visual_builder.sql_preview).monospace());
         });
-    }
-
-    fn visual_builder_add_selected_table(&mut self) {
-        let raw = self.visual_query_add_table.clone();
-        if raw.is_empty() {
-            return;
-        }
-        let (schema, name) = if let Some(rest) = raw.strip_prefix("view:") {
-            split_schema_table(rest)
-        } else {
-            split_schema_table(&raw)
-        };
-        self.visual_query_model.add_table(&schema, &name);
-        self.visual_query_add_table.clear();
-        self.refresh_visual_builder_preview();
-    }
-
-    fn visual_builder_add_join(&mut self) {
-        let (schema, name) = split_schema_table(&self.visual_query_join_table);
-        let Some((left_alias, left_column)) = split_alias_col(&self.visual_query_join_left) else {
-            self.visual_query_error = Some("join left must be alias.column".into());
-            return;
-        };
-        let Some((right_alias, right_column)) = split_alias_col(&self.visual_query_join_right) else {
-            self.visual_query_error = Some("join right must be alias.column".into());
-            return;
-        };
-        let alias = self.visual_query_model.next_alias(&name);
-        self.visual_query_model.joins.push(BuilderJoin {
-            table: BuilderTable {
-                schema,
-                name,
-                alias: alias.clone(),
-            },
-            join_type: "INNER".into(),
-            left_alias,
-            left_column,
-            right_alias: if right_alias.is_empty() { alias } else { right_alias },
-            right_column,
-        });
-        self.refresh_visual_builder_preview();
-    }
-
-    fn visual_builder_suggest_fk_join(&mut self) {
-        let Some(primary) = self.visual_query_model.tables.first().cloned() else {
-            self.visual_query_error = Some("add a primary table first".into());
-            return;
-        };
-        let Some(detail) = self
-            .schema
-            .table_details
-            .iter()
-            .find(|t| t.name == primary.name && (primary.schema.is_empty() || t.schema == primary.schema))
-        else {
-            self.visual_query_error = Some("primary table metadata not loaded".into());
-            return;
-        };
-        let Some(fk) = detail.foreign_keys.first() else {
-            self.visual_query_error = Some("no FK discovered on primary table".into());
-            return;
-        };
-        let alias = self.visual_query_model.next_alias(&fk.to_table);
-        self.visual_query_model.joins.push(BuilderJoin {
-            table: BuilderTable {
-                schema: fk.to_schema.clone(),
-                name: fk.to_table.clone(),
-                alias: alias.clone(),
-            },
-            join_type: "INNER".into(),
-            left_alias: primary.alias,
-            left_column: fk.from_columns.first().cloned().unwrap_or_default(),
-            right_alias: alias,
-            right_column: fk.to_columns.first().cloned().unwrap_or_default(),
-        });
-        self.visual_query_error = None;
-        self.refresh_visual_builder_preview();
-    }
-
-    fn visual_builder_add_column(&mut self) {
-        let Some((table_alias, column)) = split_alias_col(&self.visual_query_col_ref) else {
-            self.visual_query_error = Some("column must be alias.column".into());
-            return;
-        };
-        let alias = if self.visual_query_col_alias.trim().is_empty() {
-            None
-        } else {
-            Some(self.visual_query_col_alias.trim().to_owned())
-        };
-        let aggregate = if self.visual_query_col_agg.trim().is_empty() {
-            None
-        } else {
-            Some(self.visual_query_col_agg.trim().to_ascii_uppercase())
-        };
-        self.visual_query_model.columns.push(BuilderColumn {
-            table_alias,
-            column,
-            alias,
-            aggregate,
-        });
-        self.visual_query_model.select_star = false;
-        self.refresh_visual_builder_preview();
-    }
-
-    fn visual_builder_add_where(&mut self) {
-        let Some((left_alias, left_column)) = split_alias_col(&self.visual_query_where_left) else {
-            self.visual_query_error = Some("WHERE left must be alias.column".into());
-            return;
-        };
-        let op = if self.visual_query_where_op.trim().is_empty() {
-            "=".to_owned()
-        } else {
-            self.visual_query_where_op.trim().to_owned()
-        };
-        let is_null_check = op.eq_ignore_ascii_case("IS NULL") || op.eq_ignore_ascii_case("IS NOT NULL");
-        self.visual_query_model.where_clauses.push(BuilderPredicate {
-            left_alias,
-            left_column,
-            op,
-            value: self.visual_query_where_value.clone(),
-            is_null_check,
-        });
-        self.refresh_visual_builder_preview();
-    }
-
-    fn visual_builder_add_order(&mut self) {
-        let Some((alias, col)) = split_alias_col(&self.visual_query_order) else {
-            self.visual_query_error = Some("ORDER BY must be alias.column".into());
-            return;
-        };
-        self.visual_query_model
-            .order_by
-            .push((alias, col, self.visual_query_order_desc));
-        self.refresh_visual_builder_preview();
-    }
-
-    fn refresh_visual_builder_preview(&mut self) {
-        match self.visual_query_model.generate_sql(self.visual_builder_dialect()) {
-            Ok(sql) => {
-                self.visual_query_sql_preview = sql;
-                self.visual_query_error = None;
-            }
-            Err(err) => {
-                self.visual_query_sql_preview.clear();
-                if self.visual_query_model.tables.is_empty() {
-                    self.visual_query_error = None;
-                } else {
-                    self.visual_query_error = Some(err);
-                }
-            }
-        }
     }
 
     fn apply_visual_builder_sql(&mut self) {
-        self.refresh_visual_builder_preview();
-        if self.visual_query_sql_preview.is_empty() {
+        let dialect = self.visual_builder_dialect();
+        self.query.editor.visual_builder.refresh_preview(dialect);
+        if self.query.editor.visual_builder.sql_preview.is_empty() {
             return;
         }
-        self.set_active_query_text(self.visual_query_sql_preview.clone());
-        self.runtime_message = "Visual builder SQL applied to editor (not executed)".into();
+        self.set_active_query_text(self.query.editor.visual_builder.sql_preview.clone());
+        self.feedback.runtime_message = "Visual builder SQL applied to editor (not executed)".into();
     }
 
     fn import_visual_builder_from_editor(&mut self) {
         let sql = self
-            .query_documents
-            .get(self.active_query_document)
-            .map(|d| d.buffer.text().to_owned())
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+            .map(|document| document.buffer.text().to_owned())
             .unwrap_or_default();
-        match try_import_select(&sql, self.visual_builder_dialect()) {
-            Ok(model) => {
-                self.visual_query_model = model;
-                self.visual_query_error = None;
-                self.refresh_visual_builder_preview();
-                self.runtime_message = "Imported supported SELECT into visual builder".into();
+        let dialect = self.visual_builder_dialect();
+        match self.query.editor.visual_builder.import_sql(&sql, dialect) {
+            Ok(()) => {
+                self.feedback.runtime_message = "Imported supported SELECT into visual builder".into();
             }
             Err(err) => {
-                self.visual_query_error = Some(format!("Import refused (keeping text editor): {err}"));
+                self.query.editor.visual_builder.error = Some(format!("Import refused (keeping text editor): {err}"));
             }
         }
     }
@@ -405,20 +287,4 @@ fn qualify_name(schema: &str, name: &str) -> String {
     } else {
         format!("{schema}.{name}")
     }
-}
-
-fn split_schema_table(raw: &str) -> (String, String) {
-    if let Some((schema, table)) = raw.split_once('.') {
-        (schema.to_owned(), table.to_owned())
-    } else {
-        (String::new(), raw.to_owned())
-    }
-}
-
-fn split_alias_col(raw: &str) -> Option<(String, String)> {
-    let (alias, col) = raw.split_once('.')?;
-    if alias.is_empty() || col.is_empty() {
-        return None;
-    }
-    Some((alias.to_owned(), col.to_owned()))
 }

@@ -33,7 +33,7 @@ impl SqlDialect for QuoteDialect {
 
 impl DbProApp {
     pub(super) fn draw_schema_object_workspace(&mut self, ui: &mut egui::Ui) {
-        let Some(selection) = self.selected_schema_object.clone() else {
+        let Some(selection) = self.schema_explorer.selected_schema_object.clone() else {
             self.activate_welcome_tab();
             return;
         };
@@ -66,15 +66,17 @@ impl DbProApp {
                     .clicked()
                 {
                     self.set_active_query_text(details.query.clone());
-                    self.active_tab = WorkspaceTab::Query;
+                    self.workspace.active_tab = WorkspaceTab::Query;
                 }
             });
         });
         ui.add_space(SPACE_MD);
         if is_function {
             self.draw_routine_workbench(ui, &selection);
-        } else if is_view && self.schema_object_view == SchemaObjectView::Data {
-            if self.table_data_result.is_none() && self.table_data_request.is_none() && self.table_data_error.is_none()
+        } else if is_view && self.schema_explorer.schema_object_view == SchemaObjectView::Data {
+            if self.table.data_query.result.is_none()
+                && self.table.data_query.request.is_none()
+                && self.table.data_query.error.is_none()
             {
                 self.request_table_data();
             }
@@ -85,7 +87,7 @@ impl DbProApp {
     }
 
     pub(crate) fn sync_routine_workbench_from(&mut self, function: &UiFunctionSummary) {
-        self.routine_source_draft = function.definition.clone();
+        self.routine.routine_source_draft = function.definition.clone();
         let inputs: Vec<_> = function
             .parameters
             .iter()
@@ -94,7 +96,7 @@ impl DbProApp {
                 mode == "IN" || mode == "INOUT" || mode == "VARIADIC" || mode.is_empty()
             })
             .collect();
-        self.routine_param_values = inputs
+        self.routine.routine_param_values = inputs
             .iter()
             .map(|p| {
                 if p.has_default {
@@ -104,7 +106,7 @@ impl DbProApp {
                 }
             })
             .collect();
-        self.routine_param_nulls = vec![false; inputs.len()];
+        self.routine.routine_param_nulls = vec![false; inputs.len()];
     }
 
     fn draw_routine_workbench(&mut self, ui: &mut egui::Ui, selection: &SchemaObjectSelection) {
@@ -116,6 +118,7 @@ impl DbProApp {
             return;
         };
         let Some(function) = self
+            .schema_explorer
             .schema
             .functions
             .iter()
@@ -130,7 +133,7 @@ impl DbProApp {
             section_label(ui, format!("{} SOURCE", function.routine_type), self.theme);
             ui.add_space(SPACE_SM);
             ui.add(
-                egui::TextEdit::multiline(&mut self.routine_source_draft)
+                egui::TextEdit::multiline(&mut self.routine.routine_source_draft)
                     .code_editor()
                     .desired_width(ui.available_width())
                     .desired_rows(12),
@@ -156,9 +159,9 @@ impl DbProApp {
                     .clicked()
                 {
                     self.preview_routine_mutation(&function, ObjectAction::Alter);
-                    if let Some(sql) = self.routine_ddl_preview.clone() {
+                    if let Some(sql) = self.routine.routine_ddl_preview.clone() {
                         self.set_active_query_text(sql);
-                        self.active_tab = WorkspaceTab::Query;
+                        self.workspace.active_tab = WorkspaceTab::Query;
                         self.dispatch_query();
                     }
                 }
@@ -169,15 +172,15 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.routine_drop_confirm = true;
+                    self.routine.routine_drop_confirm = true;
                 }
             });
-            if let Some(preview) = &self.routine_ddl_preview {
+            if let Some(preview) = &self.routine.routine_ddl_preview {
                 ui.add_space(SPACE_SM);
                 ui.label(RichText::new("DDL preview").small().color(self.theme.text_secondary));
                 CodeBlock::new(preview, self.theme).language("sql").show(ui);
             }
-            if self.routine_drop_confirm {
+            if self.routine.routine_drop_confirm {
                 ui.add_space(SPACE_SM);
                 ui.colored_label(
                     self.theme.warning,
@@ -195,12 +198,12 @@ impl DbProApp {
                         .clicked()
                     {
                         self.preview_routine_mutation(&function, ObjectAction::Drop);
-                        if let Some(sql) = self.routine_ddl_preview.clone() {
+                        if let Some(sql) = self.routine.routine_ddl_preview.clone() {
                             self.set_active_query_text(sql);
-                            self.active_tab = WorkspaceTab::Query;
+                            self.workspace.active_tab = WorkspaceTab::Query;
                             self.dispatch_query();
                         }
-                        self.routine_drop_confirm = false;
+                        self.routine.routine_drop_confirm = false;
                     }
                     if Button::new(self.theme)
                         .icon(Icon::X)
@@ -210,7 +213,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        self.routine_drop_confirm = false;
+                        self.routine.routine_drop_confirm = false;
                     }
                 });
             }
@@ -236,7 +239,7 @@ impl DbProApp {
                 })
                 .cloned()
                 .collect();
-            if self.routine_param_values.len() != inputs.len() {
+            if self.routine.routine_param_values.len() != inputs.len() {
                 self.sync_routine_workbench_from(&function);
             }
             if inputs.is_empty() {
@@ -262,15 +265,15 @@ impl DbProApp {
                         }
                     });
                     ui.horizontal(|ui| {
-                        let is_null = self.routine_param_nulls.get(idx).copied().unwrap_or(false);
+                        let is_null = self.routine.routine_param_nulls.get(idx).copied().unwrap_or(false);
                         let mut null_flag = is_null;
                         if ui.checkbox(&mut null_flag, "NULL").changed() {
-                            if let Some(slot) = self.routine_param_nulls.get_mut(idx) {
+                            if let Some(slot) = self.routine.routine_param_nulls.get_mut(idx) {
                                 *slot = null_flag;
                             }
                         }
                         ui.add_enabled_ui(!null_flag, |ui| {
-                            if let Some(value) = self.routine_param_values.get_mut(idx) {
+                            if let Some(value) = self.routine.routine_param_values.get_mut(idx) {
                                 ui.add(
                                     egui::TextEdit::singleline(value)
                                         .desired_width(ui.available_width())
@@ -287,7 +290,11 @@ impl DbProApp {
                 }
             }
             ui.add_space(SPACE_SM);
-            let invoke_sql = build_routine_invoke_sql(&function, &self.routine_param_values, &self.routine_param_nulls);
+            let invoke_sql = build_routine_invoke_sql(
+                &function,
+                &self.routine.routine_param_values,
+                &self.routine.routine_param_nulls,
+            );
             ui.label(RichText::new("Generated SQL").small().color(self.theme.text_secondary));
             CodeBlock::new(&invoke_sql, self.theme).language("sql").show(ui);
             ui.add_space(SPACE_SM);
@@ -301,7 +308,7 @@ impl DbProApp {
                     .clicked()
                 {
                     self.set_active_query_text(invoke_sql.clone());
-                    self.active_tab = WorkspaceTab::Query;
+                    self.workspace.active_tab = WorkspaceTab::Query;
                     self.dispatch_query();
                 }
                 if Button::new(self.theme)
@@ -313,7 +320,7 @@ impl DbProApp {
                     .clicked()
                 {
                     self.set_active_query_text(invoke_sql.clone());
-                    self.active_tab = WorkspaceTab::Query;
+                    self.workspace.active_tab = WorkspaceTab::Query;
                 }
             });
             if is_proc {
@@ -332,7 +339,7 @@ impl DbProApp {
             name: function.name.clone(),
             routine_type: function.routine_type.clone(),
             identity_arguments: function.identity_arguments.clone(),
-            definition_sql: self.routine_source_draft.clone(),
+            definition_sql: self.routine.routine_source_draft.clone(),
             replace: true,
         };
         let request = ObjectMutationRequest {
@@ -354,16 +361,16 @@ impl DbProApp {
         };
         match ObjectMutationService::plan(&request, &QuoteDialect) {
             Ok(plan) => {
-                self.routine_ddl_preview = Some(plan.statements.join(";\n"));
-                self.runtime_message = format!(
+                self.routine.routine_ddl_preview = Some(plan.statements.join(";\n"));
+                self.feedback.runtime_message = format!(
                     "Routine DDL preview · {} statement(s) · {}",
                     plan.statements.len(),
                     plan.safety
                 );
             }
             Err(error) => {
-                self.routine_ddl_preview = None;
-                self.runtime_message = format!("Routine plan failed: {error}");
+                self.routine.routine_ddl_preview = None;
+                self.feedback.runtime_message = format!("Routine plan failed: {error}");
             }
         }
     }
@@ -371,7 +378,13 @@ impl DbProApp {
     fn resolve_schema_object(&self, selection: &SchemaObjectSelection) -> Option<SchemaObjectDetails> {
         match selection {
             SchemaObjectSelection::View(name) => {
-                let view = self.schema.views.iter().find(|view| &view.name == name)?.clone();
+                let view = self
+                    .schema_explorer
+                    .schema
+                    .views
+                    .iter()
+                    .find(|view| &view.name == name)?
+                    .clone();
                 Some(SchemaObjectDetails {
                     icon: Icon::Eye,
                     kind: "VIEW".to_owned(),
@@ -384,6 +397,7 @@ impl DbProApp {
             }
             SchemaObjectSelection::Trigger(name) => {
                 let trigger = self
+                    .schema_explorer
                     .schema
                     .triggers
                     .iter()
@@ -407,6 +421,7 @@ impl DbProApp {
                 identity_arguments,
             } => {
                 let function = self
+                    .schema_explorer
                     .schema
                     .functions
                     .iter()
@@ -466,17 +481,17 @@ impl DbProApp {
             (SchemaObjectView::Definition, Icon::Code2, "Definition"),
             (SchemaObjectView::Data, Icon::Table2, "Data"),
         ] {
-            let selected = self.schema_object_view == view;
+            let selected = self.schema_explorer.schema_object_view == view;
             let tab = tab_frame(self.theme, selected).show(ui, |ui| {
                 ui.selectable_label(selected, icon_text(icon, label, self.theme.text_primary))
             });
             if tab.inner.clicked() {
-                self.schema_object_view = view;
+                self.schema_explorer.schema_object_view = view;
                 if view == SchemaObjectView::Data {
-                    self.table_data_result = None;
-                    self.table_data_total_rows = None;
-                    self.table_data_error = None;
-                    self.table_data_offset = 0;
+                    self.table.data_query.result = None;
+                    self.table.data_query.total_rows = None;
+                    self.table.data_query.error = None;
+                    self.table.data_query.offset = 0;
                     self.request_table_data();
                 }
             }

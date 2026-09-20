@@ -3,9 +3,11 @@ use super::buffer::{EditorSnapshot, TextBuffer};
 use super::cursor::CursorPosition;
 use super::decorations::DiagnosticSeverity;
 use super::diagnostics::Diagnostic;
+use super::hover::HoveredSqlToken;
 use super::prediction::EditPrediction;
 use super::selection::SelectionRange;
-use super::syntax::{CachedSqlTokens, SqlDialect, SqlHighlighter};
+use super::syntax::{CachedSqlTokens, SqlDialect, SqlHighlighter, SyntaxTokenKind};
+use crate::components::interact::text_input_info;
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
@@ -37,8 +39,10 @@ pub struct SqlEditorResponse {
     pub wants_execute_statement: bool,
     pub wants_execute_all: bool,
     pub wants_format: bool,
+    pub wants_save: bool,
     pub wants_dismiss_prediction: bool,
     pub accepted_prediction_len: Option<usize>,
+    pub hovered_token: Option<HoveredSqlToken>,
     pub focused: bool,
 }
 
@@ -54,8 +58,10 @@ impl Default for SqlEditorResponse {
             wants_execute_statement: false,
             wants_execute_all: false,
             wants_format: false,
+            wants_save: false,
             wants_dismiss_prediction: false,
             accepted_prediction_len: None,
+            hovered_token: None,
             focused: false,
         }
     }
@@ -81,6 +87,7 @@ pub struct SqlEditor<'a> {
     pub search_query: &'a str,
     pub active_search_match_index: usize,
     pub completion_open: bool,
+    pub auto_focus: bool,
     pub execution_range: Option<(usize, usize)>,
     pub font_size: f32,
     pub id_salt: &'a str,
@@ -113,6 +120,7 @@ impl<'a> SqlEditor<'a> {
             search_query: "",
             active_search_match_index: 0,
             completion_open: false,
+            auto_focus: false,
             execution_range: None,
             font_size: FONT_SIZE,
             id_salt,
@@ -142,6 +150,11 @@ impl<'a> SqlEditor<'a> {
 
     pub fn with_execution_range(mut self, range: Option<(usize, usize)>) -> Self {
         self.execution_range = range;
+        self
+    }
+
+    pub fn with_auto_focus(mut self, auto_focus: bool) -> Self {
+        self.auto_focus = auto_focus;
         self
     }
 
@@ -175,9 +188,10 @@ impl<'a> SqlEditor<'a> {
         let (viewport, _) = ui.allocate_exact_size(available_size, Sense::hover());
         response.rect = viewport;
         let resp = ui.interact(viewport, editor_id, Sense::click_and_drag());
-        if resp.clicked() {
+        if self.auto_focus || resp.clicked() {
             resp.request_focus();
         }
+        resp.widget_info(|| text_input_info(true, "SQL query editor"));
         let focused = resp.has_focus();
         response.focused = focused;
 
@@ -450,13 +464,16 @@ impl<'a> SqlEditor<'a> {
                                     response.changed = true;
                                 }
                             }
-                            Key::Space if event_mods.ctrl && event_mods.alt => {
+                            Key::Space if is_cmd && event_mods.alt => {
                                 response.wants_manual_prediction = true;
                             }
                             Key::F if is_cmd && shift => {
                                 response.wants_format = true;
                             }
-                            Key::Space if event_mods.ctrl => {
+                            Key::S if is_cmd => {
+                                response.wants_save = true;
+                            }
+                            Key::Space if is_cmd => {
                                 response.wants_completion = true;
                                 response.wants_manual_completion = true;
                             }
@@ -478,14 +495,14 @@ impl<'a> SqlEditor<'a> {
                         }
                         self.type_text(&text);
                         response.changed = true;
-                        if text == "." || text.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                        if text == "." {
                             response.wants_completion = true;
                         }
                     }
                     Event::Ime(egui::ImeEvent::Commit(text)) if !text.is_empty() => {
                         self.type_text(&text);
                         response.changed = true;
-                        if text == "." || text.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                        if text == "." {
                             response.wants_completion = true;
                         }
                     }
@@ -696,6 +713,45 @@ impl<'a> SqlEditor<'a> {
         } else {
             highlighter.tokenize(self.buffer.text())
         };
+
+        if resp.hovered() && !self.completion_open {
+            if let Some(pointer) = ui.input(|input| input.pointer.hover_pos()) {
+                if pointer.x >= rect.min.x + gutter_w {
+                    let offset =
+                        self.screen_pos_to_offset(self.buffer, pointer, rect.min, gutter_w, line_height, char_width);
+                    if let Some(token) = tokens.iter().find(|token| {
+                        offset >= token.range.0
+                            && offset < token.range.1
+                            && matches!(
+                                token.kind,
+                                SyntaxTokenKind::Identifier
+                                    | SyntaxTokenKind::Function
+                                    | SyntaxTokenKind::Type
+                                    | SyntaxTokenKind::Keyword
+                            )
+                    }) {
+                        let anchor_rect = self
+                            .range_to_screen_rects(
+                                self.buffer,
+                                token.range.0,
+                                token.range.1,
+                                rect.min,
+                                gutter_w,
+                                line_height,
+                                char_width,
+                            )
+                            .into_iter()
+                            .next();
+                        if let Some(anchor_rect) = anchor_rect {
+                            response.hovered_token = Some(HoveredSqlToken {
+                                range: token.range,
+                                anchor_rect,
+                            });
+                        }
+                    }
+                }
+            }
+        }
 
         // Virtualized visible lines (viewport ∩ scrolled content).
         let first_visible_line = (((scroll.y - PADDING_TOP) / line_height).floor() as isize).max(0) as usize;

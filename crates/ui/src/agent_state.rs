@@ -1,37 +1,72 @@
 use super::*;
 
-use db_pro_core::domain::agent::{AgentDocumentSnapshot, AgentObjectRef};
-use db_pro_core::domain::agent_context::{
-    AgentColumnContext, AgentContext as CoreAgentContext, AgentContextBuilder, AgentContextRequest,
-    AgentDiagnosticContext, AgentForeignKeyContext, AgentSchemaCatalog, AgentTableContext,
-};
+/// Owns agent workspace state independently from the shell and query session.
+#[derive(Debug)]
+pub(crate) struct AgentState {
+    pub(super) pending_prompt: Option<String>,
+    pub(super) pending_context: Option<AgentContext>,
+    pub(super) provider_label: String,
+    pub(super) provider_detail: String,
+    pub(super) input: String,
+    pub(super) messages: Vec<AgentMessage>,
+    pub(super) sessions: HashMap<String, AgentUiSession>,
+    pub(super) auto_run_read_only: bool,
+    pub(super) settings_open: bool,
+    pub(super) api_key_draft: String,
+    pub(super) api_key_show_password: bool,
+    pub(super) configure_request: Option<crate::RequestId>,
+}
+
+impl Default for AgentState {
+    fn default() -> Self {
+        let provider_info = OfflineAgentProvider.info();
+        Self {
+            pending_prompt: None,
+            pending_context: None,
+            provider_label: provider_info.label.to_owned(),
+            provider_detail: provider_info.detail.to_owned(),
+            input: String::new(),
+            messages: Vec::new(),
+            sessions: HashMap::new(),
+            auto_run_read_only: false,
+            settings_open: false,
+            api_key_draft: String::new(),
+            api_key_show_password: false,
+            configure_request: None,
+        }
+    }
+}
 
 impl DbProApp {
     pub(super) fn reset_agent_context(&mut self) {
-        self.agent_pending_prompt = None;
-        self.agent_pending_context = None;
-        self.agent_input.clear();
-        self.agent_messages.clear();
+        self.agent.pending_prompt = None;
+        self.agent.pending_context = None;
+        self.agent.input.clear();
+        self.agent.messages.clear();
     }
 
     pub(super) fn agent_context(&self) -> AgentContext {
         let connection_name = Some(self.active_connection_name().to_owned());
         let driver = self.active_driver().to_owned();
         let selected_columns = self
+            .table
+            .state
             .table_info
             .as_ref()
             .map(|info| info.columns.iter().map(|column| column.name.clone()).collect())
             .unwrap_or_default();
-        let current_sql = if self.selected_query.trim().is_empty() {
-            self.active_query_text().to_owned()
+        let current_sql = if self.query.session.selected_text.trim().is_empty() {
+            self.query.session.active_text().to_owned()
         } else {
-            self.selected_query.clone()
+            self.query.session.selected_text.clone()
         };
         let result_summary = self
-            .active_query_result()
-            .or(self.table_data_result.as_ref())
+            .query
+            .session
+            .active_result()
+            .or(self.table.data_query.result.as_ref())
             .map(|result| format!("{} rows returned in {} ms", result.row_count, result.duration_ms));
-        let last_error = self.has_runtime_error().then(|| self.runtime_message.clone());
+        let last_error = self.has_runtime_error().then(|| self.feedback.runtime_message.clone());
 
         AgentContext {
             connection_name,
@@ -39,22 +74,24 @@ impl DbProApp {
             tables: self.active_schema_table_names(),
             columns: self.active_schema_column_names(),
             schema: Some(self.active_schema().to_owned()),
-            selected_table: self.selected_table.clone(),
+            selected_table: self.schema_explorer.selected_table.clone(),
             selected_columns,
             current_sql,
             result_summary,
-            explain_plan: self.active_explain_plan().map(|p| p.to_owned()),
+            explain_plan: self.query.session.active_explain_plan().map(str::to_owned),
             last_error,
-            workspace_files: self.workspace_context_items.clone(),
+            workspace_files: self.workspace.files.workspace_context_items.clone(),
         }
     }
 
     pub(super) fn submit_agent_prompt(&mut self) {
-        if !self.workspace_context_items.is_empty() && !self.ide_workspace.is_trusted() {
-            self.runtime_message = "Trust the workspace before sending folder/file context to Agent".to_owned();
+        if !self.workspace.files.workspace_context_items.is_empty() && !self.workspace.files.ide_workspace.is_trusted()
+        {
+            self.feedback.runtime_message =
+                "Trust the workspace before sending folder/file context to Agent".to_owned();
             return;
         }
-        let prompt = self.agent_input.trim().to_owned();
+        let prompt = self.agent.input.trim().to_owned();
         if prompt.is_empty() {
             return;
         }
@@ -62,41 +99,55 @@ impl DbProApp {
     }
 
     fn submit_typed_agent_prompt(&mut self, prompt: String) {
-        let Some(document) = self.query_documents.get(self.active_query_document) else {
-            self.runtime_message = "No query document is available for Agent".to_owned();
+        let Some(document) = self
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+        else {
+            self.feedback.runtime_message = "No query document is available for Agent".to_owned();
             return;
         };
-        if self.agent_provider_label == "Offline draft" {
-            self.runtime_message = "AI provider is not configured. Enter an API key in Agent Settings.".to_owned();
-            self.show_toast_error("Configure an API key in Agent Settings to start.");
+        if self.agent.provider_label == "Offline draft" {
+            self.feedback.runtime_message =
+                "AI provider is not configured. Enter an API key in Agent Settings.".to_owned();
+            self.feedback
+                .show_error_toast("Configure an API key in Agent Settings to start.");
             return;
         }
         let document_id = document.id.clone();
         let connection_id = document
             .connection_id
             .clone()
-            .or_else(|| self.active_connection_id.clone());
+            .or_else(|| self.connection.lifecycle.active_connection_id().map(str::to_owned));
         let schema = document
             .schema
             .clone()
             .or_else(|| Some(self.active_schema().to_owned()));
-        let snapshot = self.agent_document_snapshot(document);
-        let context = self.build_agent_context(&prompt, document, connection_id.as_deref(), schema.as_deref());
+        let snapshot = agent_context::document_snapshot(document);
+        let context = agent_context::build_context(
+            &prompt,
+            document,
+            connection_id.as_deref(),
+            schema.as_deref(),
+            &self.schema_explorer.schema.table_details,
+        );
 
         let session = self
-            .agent_sessions
+            .agent
+            .sessions
             .entry(document_id.clone())
             .or_insert_with(|| AgentUiSession::for_document(&document_id, connection_id.clone(), schema.clone()));
         if session.session.is_none() {
             *session = AgentUiSession::for_document(&document_id, connection_id.clone(), schema.clone());
         }
         if session.active_run_id.is_some() || session.request_id.is_some() {
-            self.runtime_message = "An Agent run is already active for this query".to_owned();
+            self.feedback.runtime_message = "An Agent run is already active for this query".to_owned();
             return;
         }
         let Some(mut core_session) = session.session.clone() else {
             session.state = db_pro_core::domain::agent::AgentSessionState::Failed;
-            self.runtime_message = "Agent session could not be initialized".to_owned();
+            self.feedback.runtime_message = "Agent session could not be initialized".to_owned();
             return;
         };
         core_session.connection_id = connection_id;
@@ -117,8 +168,8 @@ impl DbProApp {
 
         let request_id = self.task_bridge.next_request_id();
         session.request_id = Some(request_id);
-        self.agent_input.clear();
-        self.runtime_message = format!("Sending request to {}…", self.agent_provider_label);
+        self.agent.input.clear();
+        self.feedback.runtime_message = format!("Sending request to {}…", self.agent.provider_label);
         if self
             .task_bridge
             .send(UiCommand::StartAgentRun {
@@ -127,194 +178,65 @@ impl DbProApp {
                 session: core_session,
                 document: snapshot,
                 mode,
-                allow_read_only_auto_run: self.agent_auto_run_read_only,
+                allow_read_only_auto_run: self.agent.auto_run_read_only,
                 context,
             })
             .is_err()
         {
             session.request_id = None;
             session.state = db_pro_core::domain::agent::AgentSessionState::Failed;
-            self.runtime_message = "Agent runtime unavailable".to_owned();
+            self.feedback.runtime_message = "Agent runtime unavailable".to_owned();
         }
-    }
-
-    fn agent_document_snapshot(&self, document: &crate::query::QueryDocument) -> AgentDocumentSnapshot {
-        let selection = (!document.selection.is_empty()).then(|| document.selection.normalized());
-        AgentDocumentSnapshot {
-            document_id: document.id.clone(),
-            document_version: document.buffer.version(),
-            sql: document.text().to_owned(),
-            cursor_offset: document.cursor.offset,
-            selection,
-            current_statement: document
-                .analysis
-                .current_statement_at(document.cursor.offset)
-                .map(|statement| statement.text.clone()),
-        }
-    }
-
-    fn build_agent_context(
-        &self,
-        prompt: &str,
-        document: &crate::query::QueryDocument,
-        connection_id: Option<&str>,
-        schema: Option<&str>,
-    ) -> CoreAgentContext {
-        let tables = self
-            .schema
-            .table_details
-            .iter()
-            .map(|table| AgentTableContext {
-                object: AgentObjectRef {
-                    schema: Some(table.schema.clone()),
-                    name: table.name.clone(),
-                },
-                columns: table
-                    .columns
-                    .iter()
-                    .enumerate()
-                    .map(|(ordinal, column)| AgentColumnContext {
-                        name: column.name.clone(),
-                        data_type: column.data_type.clone(),
-                        nullable: column.nullable,
-                        ordinal,
-                        default: None,
-                        is_primary_key: column.is_primary_key,
-                        is_unique: false,
-                        is_identity: false,
-                        is_generated: false,
-                    })
-                    .collect(),
-            })
-            .collect::<Vec<_>>();
-        let foreign_keys = self
-            .schema
-            .table_details
-            .iter()
-            .flat_map(|table| {
-                table.foreign_keys.iter().map(|foreign_key| AgentForeignKeyContext {
-                    name: foreign_key.name.clone(),
-                    source: AgentObjectRef {
-                        schema: Some(table.schema.clone()),
-                        name: table.name.clone(),
-                    },
-                    source_columns: foreign_key.from_columns.clone(),
-                    target: AgentObjectRef {
-                        schema: Some(foreign_key.to_schema.clone()),
-                        name: foreign_key.to_table.clone(),
-                    },
-                    target_columns: foreign_key.to_columns.clone(),
-                })
-            })
-            .collect::<Vec<_>>();
-        let catalog = AgentSchemaCatalog { tables, foreign_keys };
-        let diagnostics = document
-            .diagnostics
-            .iter()
-            .map(|diagnostic| AgentDiagnosticContext {
-                message: diagnostic.message.clone(),
-                range: Some(diagnostic.range),
-            })
-            .collect::<Vec<_>>();
-        AgentContextBuilder::default().build(&AgentContextRequest {
-            document_id: &document.id,
-            document_version: document.buffer.version(),
-            connection_id,
-            schema,
-            current_sql: document.text(),
-            selected_range: (!document.selection.is_empty()).then(|| document.selection.normalized()),
-            user_request: prompt,
-            diagnostics: &diagnostics,
-            result_summary: None,
-            catalog: &catalog,
-        })
     }
 
     pub(super) fn on_agent_workflow_event(&mut self, event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent) {
-        use db_pro_core::domain::agent_workflow::AgentWorkflowEvent;
-
-        let document_id = match &event {
-            AgentWorkflowEvent::TextDelta { document_id, .. }
-            | AgentWorkflowEvent::ToolRequested { document_id, .. }
-            | AgentWorkflowEvent::ToolCompleted { document_id, .. }
-            | AgentWorkflowEvent::ToolFailed { document_id, .. }
-            | AgentWorkflowEvent::ConfirmationRequired { document_id, .. }
-            | AgentWorkflowEvent::Completed { document_id, .. }
-            | AgentWorkflowEvent::Failed { document_id, .. }
-            | AgentWorkflowEvent::Cancelled { document_id, .. } => document_id.clone(),
-        };
-        let Some(session) = self.agent_sessions.get_mut(&document_id) else {
-            return;
-        };
-        let (session_id, run_id) = match &event {
-            AgentWorkflowEvent::TextDelta { session_id, run_id, .. }
-            | AgentWorkflowEvent::ToolRequested { session_id, run_id, .. }
-            | AgentWorkflowEvent::ToolCompleted { session_id, run_id, .. }
-            | AgentWorkflowEvent::ToolFailed { session_id, run_id, .. }
-            | AgentWorkflowEvent::ConfirmationRequired { session_id, run_id, .. }
-            | AgentWorkflowEvent::Completed { session_id, run_id, .. }
-            | AgentWorkflowEvent::Failed { session_id, run_id, .. }
-            | AgentWorkflowEvent::Cancelled { session_id, run_id, .. } => (*session_id, *run_id),
-        };
-        if session.session.as_ref().map(|value| value.id) != Some(session_id)
-            || session.active_run_id.is_some_and(|active| active != run_id)
-        {
-            return;
-        }
-        if matches!(
-            session.state,
-            db_pro_core::domain::agent::AgentSessionState::Completed
-                | db_pro_core::domain::agent::AgentSessionState::Failed
-                | db_pro_core::domain::agent::AgentSessionState::Cancelled
-        ) {
-            return;
-        }
-        if session.active_run_id.is_none() {
-            if session.state != db_pro_core::domain::agent::AgentSessionState::Running {
-                return;
-            }
-            session.active_run_id = Some(run_id);
-        }
-
-        apply_agent_workflow_event(session, event, run_id);
+        agent_events::on_agent_workflow_event(&mut self.agent, event);
     }
 
     pub(super) fn agent_confirmation_action(&mut self, approved: bool) {
         let Some(document_id) = self
-            .query_documents
-            .get(self.active_query_document)
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
             .map(|document| document.id.clone())
         else {
             return;
         };
         let Some(pending) = self
-            .agent_sessions
+            .agent
+            .sessions
             .get(&document_id)
             .and_then(|session| session.pending_confirmation.clone())
         else {
             return;
         };
         let target_doc_index = self
-            .query_documents
+            .query
+            .session
+            .documents
             .iter()
             .position(|doc| doc.id == pending.document_id)
-            .unwrap_or(self.active_query_document);
+            .unwrap_or(self.query.session.active_document_index);
         let current_document = self
-            .query_documents
+            .query
+            .session
+            .documents
             .get(target_doc_index)
-            .map(|document| self.agent_document_snapshot(document));
+            .map(agent_context::document_snapshot);
         let mut applied_patch = None;
         if approved && pending.kind == db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch {
             let Some(db_pro_core::domain::agent::AgentToolOutput::PatchPreview { patch, .. }) = pending.preview else {
-                self.runtime_message = "Agent patch preview is unavailable".to_owned();
+                self.feedback.runtime_message = "Agent patch preview is unavailable".to_owned();
                 return;
             };
-            let Some(document) = self.query_documents.get_mut(target_doc_index) else {
+            let Some(document) = self.query.session.documents.get_mut(target_doc_index) else {
                 return;
             };
             if document.id != patch.document_id || document.buffer.version() != patch.expected_version {
-                self.runtime_message = "This query changed since the suggestion was created.".to_owned();
-                self.show_toast_error("The query changed since the suggestion was created.");
+                self.feedback.runtime_message = "This query changed since the suggestion was created.".to_owned();
+                self.feedback
+                    .show_error_toast("The query changed since the suggestion was created.");
                 self.agent_confirmation_action(false);
                 return;
             }
@@ -325,7 +247,7 @@ impl DbProApp {
                 .apply_to(&current.document_id, current.document_version, &current.sql)
                 .is_err()
             {
-                self.runtime_message = "Agent patch range is no longer valid".to_owned();
+                self.feedback.runtime_message = "Agent patch range is no longer valid".to_owned();
                 self.agent_confirmation_action(false);
                 return;
             }
@@ -360,12 +282,12 @@ impl DbProApp {
             });
         }
         let request_id = self.task_bridge.next_request_id();
-        if let Some(session) = self.agent_sessions.get_mut(&pending.document_id) {
+        if let Some(session) = self.agent.sessions.get_mut(&pending.document_id) {
             session.pending_confirmation = None;
             session.request_id = Some(request_id);
             session.state = db_pro_core::domain::agent::AgentSessionState::Running;
         }
-        let _ = self.task_bridge.send(UiCommand::ContinueAgentRun {
+        self.send_command_best_effort(UiCommand::ContinueAgentRun {
             request_id,
             run_id: pending.run_id,
             approved,
@@ -375,11 +297,16 @@ impl DbProApp {
     }
 
     pub(super) fn open_agent_result_in_workspace(&mut self, call_id: &str) {
-        let Some(document) = self.query_documents.get_mut(self.active_query_document) else {
+        let Some(document) = self
+            .query
+            .session
+            .documents
+            .get_mut(self.query.session.active_document_index)
+        else {
             return;
         };
         let document_id = document.id.clone();
-        let Some(session) = self.agent_sessions.get(&document_id) else {
+        let Some(session) = self.agent.sessions.get(&document_id) else {
             return;
         };
         let Some(tool_result) = session.tool_results.get(call_id) else {
@@ -415,26 +342,29 @@ impl DbProApp {
             document.query_result = Some(ui_result.clone());
             document.query_results = vec![ui_result];
             document.active_result_index = 0;
-            self.output_tab = OutputTab::Results;
+            self.query.output.active_tab = OutputTab::Results;
             // The agent's result replaces the rows behind the grid.
-            self.invalidate_grid_projection();
+            self.table.data.invalidate_grid_projection();
             if total_rows > sample_len as u64 {
-                self.runtime_message = format!("Showing {sample_len} sampled rows of {total_rows} total rows.");
+                self.feedback.runtime_message =
+                    format!("Showing {sample_len} sampled rows of {total_rows} total rows.");
             } else {
-                self.runtime_message = format!("Opened Agent query result ({total_rows} rows)");
+                self.feedback.runtime_message = format!("Opened Agent query result ({total_rows} rows)");
             }
         }
     }
 
     pub(super) fn retry_agent_run(&mut self) {
         let Some(document_id) = self
-            .query_documents
-            .get(self.active_query_document)
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
             .map(|document| document.id.clone())
         else {
             return;
         };
-        let prompt = self.agent_sessions.get(&document_id).and_then(|session| {
+        let prompt = self.agent.sessions.get(&document_id).and_then(|session| {
             session
                 .messages
                 .iter()
@@ -449,21 +379,24 @@ impl DbProApp {
 
     pub(super) fn cancel_active_agent_run(&mut self) {
         let Some(document_id) = self
-            .query_documents
-            .get(self.active_query_document)
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
             .map(|document| document.id.clone())
         else {
             return;
         };
         let Some(run_id) = self
-            .agent_sessions
+            .agent
+            .sessions
             .get(&document_id)
             .and_then(|session| session.active_run_id)
         else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        let _ = self.task_bridge.send(UiCommand::CancelAgentRun { request_id, run_id });
+        self.send_command_best_effort(UiCommand::CancelAgentRun { request_id, run_id });
     }
 }
 
@@ -479,7 +412,7 @@ fn flush_agent_stream(session: &mut super::agent_workflow_state::AgentUiSession)
     });
 }
 
-fn apply_agent_workflow_event(
+pub(super) fn apply_agent_workflow_event(
     session: &mut super::agent_workflow_state::AgentUiSession,
     event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent,
     run_id: db_pro_core::domain::agent::AgentRunId,
@@ -649,5 +582,22 @@ fn agent_tool_label(tool: db_pro_core::domain::agent::AgentTool) -> String {
         AgentTool::ExplainQuery => "Explaining query".to_owned(),
         AgentTool::SuggestIndexes => "Suggesting indexes".to_owned(),
         AgentTool::MonitoringRead => "Reading monitoring snapshot".to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_agent_state_starts_in_offline_draft_mode() {
+        let state = AgentState::default();
+
+        assert_eq!(state.provider_label, "Offline draft");
+        assert!(state.provider_detail.contains("unexecuted"));
+        assert!(state.sessions.is_empty());
+        assert!(state.input.is_empty());
+        assert!(!state.settings_open);
+        assert!(state.configure_request.is_none());
     }
 }

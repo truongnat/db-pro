@@ -8,7 +8,7 @@ use db_pro_core::ports::SqlDialect;
 use egui::RichText;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(crate) enum SchemaWorkbenchMode {
+pub(super) enum SchemaWorkbenchMode {
     #[default]
     Table,
     Column,
@@ -27,49 +27,49 @@ pub(crate) enum SchemaWorkbenchMode {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct SchemaWorkbenchState {
-    pub mode: SchemaWorkbenchMode,
-    pub schema: String,
-    pub name: String,
-    pub parent_table: String,
-    pub data_type: String,
-    pub select_sql: String,
-    pub columns_csv: String,
-    pub unique: bool,
-    pub nullable: bool,
-    pub is_pk: bool,
-    pub default_expr: String,
-    pub new_name: String,
-    pub materialized: bool,
-    pub constraint_kind: ConstraintKindUi,
-    pub expression: String,
-    pub ref_schema: String,
-    pub ref_table: String,
-    pub ref_columns_csv: String,
-    pub on_delete: String,
-    pub timing: String,
-    pub event: String,
-    pub body: String,
-    pub enum_values_csv: String,
-    pub start: String,
-    pub increment: String,
-    pub cycle: bool,
-    pub cascade: bool,
-    pub comment_text: String,
-    pub partition_bound: String,
-    pub extension_schema: String,
-    pub preview_sql: String,
-    pub preview_safety: String,
-    pub preview_fingerprint: String,
-    pub preview_error: Option<String>,
-    pub apply_confirmation: bool,
-    pub docs_markdown: String,
-    pub docs_format_html: bool,
-    pub dependency_filter: String,
+pub(super) struct SchemaWorkbenchState {
+    pub(super) mode: SchemaWorkbenchMode,
+    pub(super) schema: String,
+    pub(super) name: String,
+    pub(super) parent_table: String,
+    pub(super) data_type: String,
+    pub(super) select_sql: String,
+    pub(super) columns_csv: String,
+    pub(super) unique: bool,
+    pub(super) nullable: bool,
+    pub(super) is_pk: bool,
+    pub(super) default_expr: String,
+    pub(super) new_name: String,
+    pub(super) materialized: bool,
+    pub(super) constraint_kind: ConstraintKindUi,
+    pub(super) expression: String,
+    pub(super) ref_schema: String,
+    pub(super) ref_table: String,
+    pub(super) ref_columns_csv: String,
+    pub(super) on_delete: String,
+    pub(super) timing: String,
+    pub(super) event: String,
+    pub(super) body: String,
+    pub(super) enum_values_csv: String,
+    pub(super) start: String,
+    pub(super) increment: String,
+    pub(super) cycle: bool,
+    pub(super) cascade: bool,
+    pub(super) comment_text: String,
+    pub(super) partition_bound: String,
+    pub(super) extension_schema: String,
+    pub(super) preview_sql: String,
+    pub(super) preview_safety: String,
+    pub(super) preview_fingerprint: String,
+    pub(super) preview_error: Option<String>,
+    pub(super) apply_confirmation: bool,
+    pub(super) docs_markdown: String,
+    pub(super) docs_format_html: bool,
+    pub(super) dependency_filter: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(crate) enum ConstraintKindUi {
+pub(super) enum ConstraintKindUi {
     #[default]
     PrimaryKey,
     Unique,
@@ -122,6 +122,20 @@ impl Default for SchemaWorkbenchState {
     }
 }
 
+impl SchemaWorkbenchState {
+    pub(super) fn apply_ddl_command(&self, request_id: RequestId, connection_id: String) -> Result<UiCommand, String> {
+        let sql = self.preview_sql.trim();
+        if sql.is_empty() {
+            return Err("Plan a mutation before applying".to_owned());
+        }
+        Ok(UiCommand::ExecuteDdl {
+            request_id,
+            connection_id,
+            sql: sql.to_owned(),
+        })
+    }
+}
+
 struct QuoteDialect;
 
 impl SqlDialect for QuoteDialect {
@@ -136,15 +150,15 @@ impl SqlDialect for QuoteDialect {
 
 impl DbProApp {
     pub(crate) fn open_schema_workbench(&mut self) {
-        if let Some(schema) = self.selected_schema.clone() {
+        if let Some(schema) = self.schema_explorer.selected_schema.clone() {
             self.schema_workbench.schema = schema;
         }
-        if let Some(table) = self.selected_table.clone() {
+        if let Some(table) = self.schema_explorer.selected_table.clone() {
             self.schema_workbench.parent_table = table;
         }
-        self.activity = Activity::Schema;
-        self.active_tab = WorkspaceTab::SchemaWorkbench;
-        self.sidebar_open = true;
+        self.workspace.activity = Activity::Schema;
+        self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
+        self.workspace.sidebar_open = true;
     }
 
     pub(super) fn draw_schema_workbench_sidebar(&mut self, ui: &mut egui::Ui) {
@@ -175,7 +189,7 @@ impl DbProApp {
             let selected = self.schema_workbench.mode == mode;
             if sidebar_item(ui, icon, label, selected, self.theme).clicked() {
                 self.schema_workbench.mode = mode;
-                self.active_tab = WorkspaceTab::SchemaWorkbench;
+                self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
             }
             ui.add_space(2.0);
         }
@@ -314,10 +328,10 @@ impl DbProApp {
             {
                 let body = self.schema_workbench.docs_markdown.clone();
                 self.new_query_document();
-                if let Some(doc) = self.query_documents.last_mut() {
+                if let Some(doc) = self.query.session.documents.last_mut() {
                     doc.set_text(format!("-- Schema docs export\n/*\n{body}\n*/"));
                 }
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
             }
         });
         ui.add_space(6.0);
@@ -331,7 +345,7 @@ impl DbProApp {
 
     pub(crate) fn collect_ui_dependency_edges(&self) -> Vec<ObjectDependencyEdge> {
         let mut edges = Vec::new();
-        for table in &self.schema.table_details {
+        for table in &self.schema_explorer.schema.table_details {
             for fk in &table.foreign_keys {
                 edges.push(ObjectDependencyEdge {
                     from_kind: ObjectKind::Table,
@@ -344,7 +358,7 @@ impl DbProApp {
                 });
             }
         }
-        for trigger in &self.schema.triggers {
+        for trigger in &self.schema_explorer.schema.triggers {
             edges.push(ObjectDependencyEdge {
                 from_kind: ObjectKind::Trigger,
                 from_schema: Some(trigger.schema.clone()),
@@ -355,7 +369,7 @@ impl DbProApp {
                 relation: "trigger_on".into(),
             });
         }
-        for view in &self.schema.views {
+        for view in &self.schema_explorer.schema.views {
             edges.push(ObjectDependencyEdge {
                 from_kind: ObjectKind::View,
                 from_schema: Some(view.schema.clone()),
@@ -373,7 +387,7 @@ impl DbProApp {
         let mut out = String::from("# Schema documentation\n\n");
         out.push_str(&format!("Connection driver: `{}`\n\n", self.active_query_driver()));
         out.push_str("## Tables\n\n");
-        for table in &self.schema.table_details {
+        for table in &self.schema_explorer.schema.table_details {
             out.push_str(&format!("### `{}`.`{}`\n\n", table.schema, table.name));
             out.push_str("| Column | Type | Nullable | PK |\n| --- | --- | --- | --- |\n");
             for col in &table.columns {
@@ -387,9 +401,9 @@ impl DbProApp {
             }
             out.push('\n');
         }
-        if !self.schema.views.is_empty() {
+        if !self.schema_explorer.schema.views.is_empty() {
             out.push_str("## Views\n\n");
-            for view in &self.schema.views {
+            for view in &self.schema_explorer.schema.views {
                 out.push_str(&format!("- `{}`.`{}`\n", view.schema, view.name));
             }
         }
@@ -454,29 +468,27 @@ impl DbProApp {
 
     pub(crate) fn apply_workbench_ddl(&mut self) {
         if !self.can_mutate_active_connection() {
-            self.runtime_message = "Connect with write access to apply DDL".into();
+            self.feedback.runtime_message = "Connect with write access to apply DDL".into();
             return;
         }
-        if self.ddl_execution_request.is_some() {
-            return;
-        }
-        let sql = self.schema_workbench.preview_sql.trim().to_owned();
-        if sql.is_empty() {
-            self.runtime_message = "Plan a mutation before applying".into();
+        if self.table.state.ddl_execution_request.is_some() {
             return;
         }
         let Some(connection) = self.active_connection().cloned() else {
-            self.runtime_message = "Connect to a database before applying DDL".into();
+            self.feedback.runtime_message = "Connect to a database before applying DDL".into();
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ExecuteDdl {
-            request_id,
-            connection_id: connection.id,
-            sql,
-        });
-        self.ddl_execution_request = Some(request_id);
-        self.runtime_message = "Applying schema mutation…".into();
+        let command = match self.schema_workbench.apply_ddl_command(request_id, connection.id) {
+            Ok(command) => command,
+            Err(error) => {
+                self.feedback.runtime_message = error;
+                return;
+            }
+        };
+        self.dispatch_command(command);
+        self.table.state.ddl_execution_request = Some(request_id);
+        self.feedback.runtime_message = "Applying schema mutation…".into();
     }
 
     pub(crate) fn build_mutation_request(&self, action: ObjectAction) -> Result<ObjectMutationRequest, String> {
@@ -779,5 +791,15 @@ mod tests {
         assert_eq!(cols.len(), 2);
         assert!(cols[0].is_pk);
         assert!(!cols[0].nullable);
+    }
+
+    #[test]
+    fn apply_ddl_command_requires_a_preview() {
+        let state = SchemaWorkbenchState::default();
+
+        assert_eq!(
+            state.apply_ddl_command(RequestId(1), "source".to_owned()),
+            Err("Plan a mutation before applying".to_owned())
+        );
     }
 }

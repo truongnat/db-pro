@@ -41,6 +41,7 @@ pub struct Button<'a> {
     pub(crate) full_width: bool,
     pub(crate) access_label: Option<Cow<'a, str>>,
     pub(crate) tooltip: Option<Cow<'a, str>>,
+    pub(crate) focusable: bool,
     pub(crate) theme: DbProTheme,
 }
 
@@ -164,6 +165,7 @@ impl<'a> Button<'a> {
             theme,
             enabled: true,
             tooltip: None,
+            focusable: true,
             loading: false,
             full_width: false,
             access_label: None,
@@ -202,6 +204,11 @@ impl<'a> Button<'a> {
 
     pub fn loading(mut self, loading: bool) -> Self {
         self.loading = loading;
+        self
+    }
+
+    pub fn focusable(mut self, focusable: bool) -> Self {
+        self.focusable = focusable;
         self
     }
 
@@ -340,7 +347,15 @@ impl<'a> Button<'a> {
         let galley = ui.fonts(|fonts| fonts.layout_job(job));
         let width = tokens.calculate_width(galley.size().x, self.full_width, ui.available_width());
 
-        let sense = if self.enabled { Sense::click() } else { Sense::hover() };
+        let sense = if self.enabled {
+            Sense {
+                click: true,
+                drag: false,
+                focusable: self.focusable,
+            }
+        } else {
+            Sense::hover()
+        };
         let (rect, mut response) = ui.allocate_exact_size(Vec2::new(width, tokens.min_height), sense);
         response.widget_info(|| button_info(self.enabled, &name));
         if self.enabled {

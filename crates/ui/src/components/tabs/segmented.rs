@@ -4,9 +4,10 @@ use super::config::{
     SEGMENTED_ITEM_GAP, SEGMENTED_ITEM_HEIGHT, SEGMENTED_ITEM_MIN_WIDTH, SEGMENTED_LABEL_PAD_X, SEGMENTED_PILL_RADIUS,
     SEGMENTED_TRACK_PAD, SEGMENTED_TRACK_RADIUS,
 };
-use super::layout::{apply_selection, collect_tab_row, track_id, TabHit};
+use super::layout::{apply_keyboard_selection, apply_selection, collect_tab_row, track_id, TabHit};
 use super::style::{TabItemStyle, TabKind};
 use super::track::TabTrackerAnimation;
+use crate::components::interact::radio_info;
 use crate::DbProTheme;
 use egui::{Align2, CursorIcon, Frame, Margin, Rect, Rounding, Sense, Stroke, Ui, Vec2};
 
@@ -14,11 +15,22 @@ pub struct SegmentedTabs<'a> {
     selected: &'a mut usize,
     tabs: &'a [&'a str],
     theme: DbProTheme,
+    focusable: bool,
 }
 
 impl<'a> SegmentedTabs<'a> {
     pub fn new(selected: &'a mut usize, tabs: &'a [&'a str], theme: DbProTheme) -> Self {
-        Self { selected, tabs, theme }
+        Self {
+            selected,
+            tabs,
+            theme,
+            focusable: true,
+        }
+    }
+
+    pub fn focusable(mut self, focusable: bool) -> Self {
+        self.focusable = focusable;
+        self
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -35,7 +47,7 @@ impl<'a> SegmentedTabs<'a> {
             let track_origin_x = ui.max_rect().left();
             let pill_shape_idx = ui.painter().add(egui::Shape::Noop);
 
-            let (tab_rects, clicked_idx) = collect_tab_row(
+            let (tab_rects, clicked_idx, focused_idx) = collect_tab_row(
                 ui,
                 self.tabs,
                 *self.selected,
@@ -43,6 +55,7 @@ impl<'a> SegmentedTabs<'a> {
                 |ui, name, is_active| self.paint_item(ui, name, is_active),
             );
             apply_selection(self.selected, clicked_idx);
+            apply_keyboard_selection(ui, self.selected, focused_idx, self.tabs.len());
 
             if let Some(target) = tab_rects.get(*self.selected).copied() {
                 let pill = TabTrackerAnimation::animate_pill(ui.ctx(), track_id, track_origin_x, target);
@@ -61,8 +74,17 @@ impl<'a> SegmentedTabs<'a> {
         });
 
         let item_width = (text_width + SEGMENTED_LABEL_PAD_X).max(SEGMENTED_ITEM_MIN_WIDTH);
-        let (rect, resp) = ui.allocate_exact_size(Vec2::new(item_width, SEGMENTED_ITEM_HEIGHT), Sense::click());
+        let sense = Sense {
+            click: true,
+            drag: false,
+            focusable: self.focusable,
+        };
+        let (rect, resp) = ui.allocate_exact_size(Vec2::new(item_width, SEGMENTED_ITEM_HEIGHT), sense);
         let resp = resp.on_hover_cursor(CursorIcon::PointingHand);
+        if self.focusable && resp.clicked() {
+            ui.memory_mut(|memory| memory.request_focus(resp.id));
+        }
+        resp.widget_info(|| radio_info(true, is_active, tab_name));
 
         let style = TabItemStyle::new(TabKind::Segmented, is_active, resp.hovered(), &self.theme);
         ui.painter().text(
@@ -76,6 +98,7 @@ impl<'a> SegmentedTabs<'a> {
         TabHit {
             rect,
             clicked: resp.clicked(),
+            focused: resp.has_focus(),
         }
     }
 

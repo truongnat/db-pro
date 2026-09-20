@@ -114,6 +114,9 @@ jobs:
       - name: Clean code scan
         run: bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci
 
+      - name: Native UI architecture boundary
+        run: bash scripts/check-ui-architecture.sh
+
       - name: cargo fmt
         run: cargo fmt --all --check
 

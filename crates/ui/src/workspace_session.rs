@@ -165,87 +165,107 @@ fn parse_tab(label: &str) -> WorkspaceTab {
     }
 }
 
-impl DbProApp {
-    pub(crate) fn capture_workspace_session(&self, name: impl Into<String>) -> WorkspaceSession {
+pub(crate) struct WorkspaceSessionContext<'a> {
+    pub(super) workspace: &'a mut WorkspaceFeatureState,
+    pub(super) connection: &'a mut ConnectionFeatureState,
+    pub(super) schema_explorer: &'a mut SchemaExplorerState,
+    pub(super) query_session_state: &'a mut QuerySessionState,
+    pub(super) feedback: &'a mut FeedbackState,
+    pub(super) preferences: &'a PreferencesState,
+}
+
+impl WorkspaceSessionContext<'_> {
+    pub(crate) fn capture(&self, name: impl Into<String>) -> WorkspaceSession {
         let mut session = WorkspaceSession::new_named(name);
-        session.activity = activity_label(self.activity).to_owned();
-        session.active_tab = tab_label(self.active_tab).to_owned();
-        session.active_connection_id = self.active_connection_id.clone();
-        session.selected_schema = self.selected_schema.clone();
-        session.open_document_ids = self.query_documents.iter().map(|d| d.id.clone()).collect();
+        session.activity = activity_label(self.workspace.activity).to_owned();
+        session.active_tab = tab_label(self.workspace.active_tab).to_owned();
+        session.active_connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        session.selected_schema = self.schema_explorer.selected_schema.clone();
+        session.open_document_ids = self
+            .query_session_state
+            .documents
+            .iter()
+            .map(|d| d.id.clone())
+            .collect();
         session.active_document_id = self
-            .query_documents
-            .get(self.active_query_document)
+            .query_session_state
+            .documents
+            .get(self.query_session_state.active_document_index)
             .map(|d| d.id.clone());
-        session.pinned_tables = self.pinned_tables.clone();
-        session.sidebar_open = self.sidebar_open;
-        session.agent_open = self.agent_open;
-        session.sidebar_width = self.sidebar_width;
-        session.agent_width = self.agent_width;
-        session.bottom_panel_open = self.bottom_panel_open;
-        session.bottom_panel_height = self.bottom_panel_height;
+        session.pinned_tables = self.schema_explorer.pinned_tables.clone();
+        session.sidebar_open = self.workspace.sidebar_open;
+        session.agent_open = self.workspace.agent_open;
+        session.sidebar_width = self.workspace.sidebar_width;
+        session.agent_width = self.workspace.agent_width;
+        session.bottom_panel_open = self.workspace.bottom_panel_open;
+        session.bottom_panel_height = self.workspace.bottom_panel_height;
         session
     }
 
-    pub(crate) fn apply_workspace_session(&mut self, session: &WorkspaceSession) {
+    pub(crate) fn apply(&mut self, session: &WorkspaceSession) {
         let mut notes = Vec::new();
-        self.activity = parse_activity(&session.activity);
-        self.active_tab = parse_tab(&session.active_tab);
-        self.sidebar_open = session.sidebar_open;
-        self.agent_open = session.agent_open;
-        self.sidebar_width = session.sidebar_width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
-        self.agent_width = session.agent_width.clamp(AGENT_MIN_WIDTH, AGENT_MAX_WIDTH);
-        self.bottom_panel_open = session.bottom_panel_open;
-        self.bottom_panel_height = session.bottom_panel_height.clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
-        self.pinned_tables = session.pinned_tables.clone();
-        self.selected_schema = session.selected_schema.clone();
+        self.workspace.activity = parse_activity(&session.activity);
+        self.workspace.active_tab = parse_tab(&session.active_tab);
+        self.workspace.sidebar_open = session.sidebar_open;
+        self.workspace.agent_open = session.agent_open;
+        self.workspace.set_sidebar_width(session.sidebar_width);
+        self.workspace.set_agent_width(session.agent_width);
+        self.workspace.bottom_panel_open = session.bottom_panel_open;
+        self.workspace.set_bottom_panel_height(session.bottom_panel_height);
+        self.schema_explorer.pinned_tables = session.pinned_tables.clone();
+        self.schema_explorer.selected_schema = session.selected_schema.clone();
 
         if let Some(conn_id) = &session.active_connection_id {
-            if self.connections.iter().any(|c| c.id == *conn_id) {
-                self.active_connection_id = Some(conn_id.clone());
+            if self.connection.catalog.iter().any(|c| c.id == *conn_id) {
+                *self.connection.lifecycle.active_connection_id_mut() = Some(conn_id.clone());
             } else {
-                self.active_connection_id = None;
+                *self.connection.lifecycle.active_connection_id_mut() = None;
                 notes.push(format!(
                     "Connection `{conn_id}` is missing — left disconnected without crashing"
                 ));
             }
         } else {
-            self.active_connection_id = None;
+            *self.connection.lifecycle.active_connection_id_mut() = None;
         }
 
         if !session.open_document_ids.is_empty() {
             let mut reordered = Vec::new();
             for id in &session.open_document_ids {
-                if let Some(doc) = self.query_documents.iter().find(|d| d.id == *id).cloned() {
+                if let Some(doc) = self.query_session_state.documents.iter().find(|d| d.id == *id).cloned() {
                     reordered.push(doc);
                 } else {
                     notes.push(format!("Query tab `{id}` was not found in persisted documents"));
                 }
             }
-            for doc in &self.query_documents {
+            for doc in &self.query_session_state.documents {
                 if !reordered.iter().any(|d| d.id == doc.id) {
                     reordered.push(doc.clone());
                 }
             }
             if !reordered.is_empty() {
-                self.query_documents = reordered;
+                self.query_session_state.documents = reordered;
             }
         }
 
         if let Some(active_id) = &session.active_document_id {
-            if let Some(idx) = self.query_documents.iter().position(|d| d.id == *active_id) {
-                self.active_query_document = idx;
+            if let Some(idx) = self
+                .query_session_state
+                .documents
+                .iter()
+                .position(|d| d.id == *active_id)
+            {
+                self.query_session_state.active_document_index = idx;
             } else {
                 notes.push(format!("Active document `{active_id}` missing — kept current tab"));
             }
         }
 
-        self.pinned_tables.retain(|t| !t.trim().is_empty());
-        self.last_session_restore_notes = notes.clone();
+        self.schema_explorer.pinned_tables.retain(|t| !t.trim().is_empty());
+        self.workspace.sessions.last_restore_notes = notes.clone();
         if notes.is_empty() {
-            self.runtime_message = format!("Restored workspace `{}`", session.name);
+            self.feedback.runtime_message = format!("Restored workspace `{}`", session.name);
         } else {
-            self.runtime_message = format!(
+            self.feedback.runtime_message = format!(
                 "Restored workspace `{}` with {} recovery note(s)",
                 session.name,
                 notes.len()
@@ -253,69 +273,54 @@ impl DbProApp {
         }
     }
 
-    pub(crate) fn save_named_workspace_session(&mut self) {
-        let name = self.session_name_draft.trim();
+    pub(crate) fn save_named(&mut self) {
+        let name = self.workspace.sessions.name_draft.trim();
         let name = if name.is_empty() {
             format!("Workspace {}", chrono::Utc::now().format("%Y-%m-%d %H:%M"))
         } else {
             name.to_owned()
         };
-        let session = self.capture_workspace_session(name);
-        self.session_name_draft.clear();
-        self.selected_named_session_id = Some(session.id.clone());
-        self.named_session_store.upsert(session);
-        self.runtime_message = "Named workspace session saved".to_owned();
+        let session = self.capture(name);
+        self.workspace.sessions.name_draft.clear();
+        self.workspace.sessions.upsert(session);
+        self.feedback.runtime_message = "Named workspace session saved".to_owned();
     }
 
-    pub(crate) fn restore_named_workspace_session(&mut self, id: &str) {
-        let Some(session) = self.named_session_store.get(id).cloned() else {
-            self.runtime_message = "Named session not found".to_owned();
+    pub(crate) fn restore_named(&mut self, id: &str) {
+        let Some(session) = self.workspace.sessions.store.get(id).cloned() else {
+            self.feedback.runtime_message = "Named session not found".to_owned();
             return;
         };
-        self.apply_workspace_session(&session);
+        self.apply(&session);
     }
 
-    pub(crate) fn duplicate_named_workspace_session(&mut self, id: &str) {
-        let Some(mut session) = self.named_session_store.get(id).cloned() else {
-            self.runtime_message = "Named session not found".to_owned();
+    pub(crate) fn duplicate_named(&mut self, id: &str) {
+        if self.workspace.sessions.duplicate(id).is_none() {
+            self.feedback.runtime_message = "Named session not found".to_owned();
             return;
-        };
-        session.id = Uuid::new_v4().to_string();
-        session.name = format!("{} (copy)", session.name);
-        session.updated_at = chrono::Utc::now().to_rfc3339();
-        let new_id = session.id.clone();
-        self.named_session_store.upsert(session);
-        self.selected_named_session_id = Some(new_id);
-        self.runtime_message = "Duplicated workspace session".to_owned();
+        }
+        self.feedback.runtime_message = "Duplicated workspace session".to_owned();
     }
 
-    pub(crate) fn persist_workspace_sessions(&self, storage: &mut dyn eframe::Storage) {
-        let last = self.capture_workspace_session("Last session");
+    pub(crate) fn persist(&self, storage: &mut dyn eframe::Storage) {
+        let last = self.capture("Last session");
         if let Ok(raw) = serde_json::to_string(&last) {
             storage.set_string(LAST_SESSION_STORAGE_KEY, raw);
         }
-        if let Ok(raw) = serde_json::to_string(&self.named_session_store) {
-            storage.set_string(NAMED_SESSIONS_STORAGE_KEY, raw);
-        }
+        self.workspace.sessions.persist_named_store(storage);
     }
 
-    pub(crate) fn load_named_sessions_from_storage(&mut self, storage: &dyn eframe::Storage) {
-        if let Some(raw) = storage.get_string(NAMED_SESSIONS_STORAGE_KEY) {
-            if let Ok(mut store) = serde_json::from_str::<NamedSessionStore>(&raw) {
-                store.version = SESSION_VERSION;
-                store.sessions = store.sessions.into_iter().map(WorkspaceSession::migrate).collect();
-                self.named_session_store = store;
-            }
-        }
+    pub(crate) fn load_named_sessions(&mut self, storage: &dyn eframe::Storage) {
+        self.workspace.sessions.load_named_store(storage);
     }
 
-    pub(crate) fn restore_last_workspace_session_from_storage(&mut self, storage: &dyn eframe::Storage) {
-        if !self.settings.general.restore_tabs_on_startup {
+    pub(crate) fn restore_last(&mut self, storage: &dyn eframe::Storage) {
+        if !self.preferences.settings.general.restore_tabs_on_startup {
             return;
         }
         if let Some(raw) = storage.get_string(LAST_SESSION_STORAGE_KEY) {
             if let Ok(session) = serde_json::from_str::<WorkspaceSession>(&raw) {
-                self.apply_workspace_session(&session.migrate());
+                self.apply(&session.migrate());
             }
         }
     }

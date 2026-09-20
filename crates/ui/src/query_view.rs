@@ -37,7 +37,7 @@ impl DbProApp {
             })
             .show(ui, |ui| {
                 self.refresh_diagnostics();
-                if let Some(deadline) = self.diagnostics_debounce_at {
+                if let Some(deadline) = self.query.editor.diagnostics_debounce_at {
                     let remaining = deadline.saturating_duration_since(Instant::now());
                     if !remaining.is_zero() {
                         ui.ctx().request_repaint_after(remaining);
@@ -45,29 +45,32 @@ impl DbProApp {
                 }
 
                 let more_anchor = self.draw_query_context_strip(ui);
-                if self.query_context_picker_open {
+                if self.query.editor.query_context_picker_open {
                     if let Some(anchor) = more_anchor.context_anchor {
                         self.draw_query_context_picker(ui.ctx(), anchor);
                     }
                 }
-                if self.query_tools_open {
+                if self.query.editor.query_tools_open {
                     if let Some(anchor) = more_anchor.more_anchor {
                         self.draw_query_actions_menu(ui.ctx(), anchor);
                     }
                 }
 
                 // Transaction chrome only when relevant — never a permanent form row.
-                if self.query_txn_bar_open || self.query_in_transaction {
+                if self.query.execution.query_txn_bar_open || self.query.execution.query_in_transaction {
                     ui.add_space(4.0);
-                    if let Some(action) =
-                        TransactionBar::new(self.query_in_transaction, self.query_txn_pending, self.theme)
-                            .auto_commit(self.query_auto_commit)
-                            .show(ui)
+                    if let Some(action) = TransactionBar::new(
+                        self.query.execution.query_in_transaction,
+                        self.query.execution.query_txn_pending,
+                        self.theme,
+                    )
+                    .auto_commit(self.query.execution.query_auto_commit)
+                    .show(ui)
                     {
                         self.handle_transaction_action(action);
                     }
                 }
-                if self.disconnect_txn_guard {
+                if self.query.execution.disconnect_txn_guard {
                     ui.colored_label(
                         self.theme.warning,
                         "Open transaction blocks disconnect — Commit or Rollback first.",
@@ -79,13 +82,13 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        self.disconnect_txn_guard = false;
+                        self.query.execution.disconnect_txn_guard = false;
                     }
                 }
 
                 // Builder stays secondary: prefer a compact side/bottom split later;
                 // for now keep it out of the default vertical stack unless opened.
-                if self.visual_query_builder_open {
+                if self.query.editor.visual_builder.open {
                     ui.add_space(SPACE_XS);
                     egui::CollapsingHeader::new("Visual query builder")
                         .default_open(true)
@@ -96,16 +99,18 @@ impl DbProApp {
                 }
 
                 let status_h = QUERY_STATUS_HEIGHT;
-                let dock_open = self.bottom_panel_open;
+                let dock_open = self.workspace.bottom_panel_open;
                 let available = ui.available_height();
                 let dock_h = if !dock_open {
                     0.0
-                } else if self.query_output_dock_maximized {
+                } else if self.query.editor.query_output_dock_maximized {
                     (available - status_h - 80.0).max(OUTPUT_MIN_HEIGHT)
                 } else {
-                    self.bottom_panel_height.clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT)
+                    self.workspace
+                        .bottom_panel_height
+                        .clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT)
                 };
-                let editor_h = if self.query_output_dock_maximized && dock_open {
+                let editor_h = if self.query.editor.query_output_dock_maximized && dock_open {
                     80.0
                 } else {
                     (available - dock_h - status_h).max(120.0)
@@ -123,10 +128,10 @@ impl DbProApp {
 
                 // Snippets remain opt-in via More; keep them out of the default stack
                 // unless the user opened them (floating-ish card is acceptable for now).
-                if self.snippets_open {
+                if self.query.editor.snippets_open {
                     self.draw_sql_snippets(ui);
                 }
-                if self.query_params_panel_open {
+                if self.query.editor.query_params_panel_open {
                     self.draw_sql_parameters_panel(ui);
                 }
 
@@ -144,9 +149,11 @@ impl DbProApp {
     /// Returns anchors for the context picker and overflow menu.
     fn draw_query_context_strip(&mut self, ui: &mut egui::Ui) -> QueryChromeAnchors {
         let mut anchors = QueryChromeAnchors::default();
-        let doc_idx = self.active_query_document;
+        let doc_idx = self.query.session.active_document_index;
         let file_path = self
-            .query_documents
+            .query
+            .session
+            .documents
             .get(doc_idx)
             .and_then(|document| document.file_path.clone());
 
@@ -158,7 +165,7 @@ impl DbProApp {
             ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
             let chip_resp = self.draw_query_context_chip(ui);
             if chip_resp.clicked() {
-                self.query_context_picker_open = !self.query_context_picker_open;
+                self.query.editor.query_context_picker_open = !self.query.editor.query_context_picker_open;
             }
             anchors.context_anchor = Some(chip_resp.rect);
 
@@ -170,7 +177,7 @@ impl DbProApp {
                     .tooltip("More query actions")
                     .show(ui);
                 if more_response.clicked() {
-                    self.query_tools_open = !self.query_tools_open;
+                    self.query.editor.query_tools_open = !self.query.editor.query_tools_open;
                 }
                 anchors.more_anchor = Some(more_response.rect);
             });
@@ -206,7 +213,7 @@ impl DbProApp {
     }
 
     fn draw_query_context_chip(&self, ui: &mut egui::Ui) -> egui::Response {
-        let connected = self.active_query_connection_id().is_some() && self.connected;
+        let connected = self.active_query_connection_id().is_some() && self.connection.lifecycle.is_connected();
         let conn_label = if connected {
             self.active_query_connection_name().to_owned()
         } else {
@@ -270,22 +277,25 @@ impl DbProApp {
     }
 
     fn draw_query_context_picker(&mut self, ctx: &egui::Context, anchor: egui::Rect) {
-        let doc_idx = self.active_query_document;
+        let doc_idx = self.query.session.active_document_index;
         let current_conn_id = self
-            .query_documents
+            .query
+            .session
+            .documents
             .get(doc_idx)
             .and_then(|d| d.connection_id.clone())
-            .or_else(|| self.active_connection_id.clone());
+            .or_else(|| self.connection.lifecycle.active_connection_id().map(str::to_owned));
         let current_schema = self.active_query_schema().to_owned();
-        let available_schemas = if !self.schema.schemas.is_empty() {
-            self.schema.schemas.clone()
+        let available_schemas = if !self.schema_explorer.schema.schemas.is_empty() {
+            self.schema_explorer.schema.schemas.clone()
         } else if !self.query_capabilities().allows(|caps| caps.schema.schemas) {
             vec!["main".to_string()]
         } else {
             vec!["public".to_string()]
         };
         let connections: Vec<(String, String, String)> = self
-            .connections
+            .connection
+            .catalog
             .iter()
             .map(|c| (c.id.clone(), c.name.clone(), c.environment.clone()))
             .collect();
@@ -357,7 +367,7 @@ impl DbProApp {
                     .is_some_and(|position| !menu.response.rect.contains(position) && !anchor.contains(position))
         });
         if clicked_outside || close {
-            self.query_context_picker_open = false;
+            self.query.editor.query_context_picker_open = false;
         }
     }
 
@@ -376,9 +386,9 @@ impl DbProApp {
             },
         );
         if grip_resp.dragged() {
-            self.bottom_panel_height =
-                (self.bottom_panel_height - grip_resp.drag_delta().y).clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
-            self.query_output_dock_maximized = false;
+            let next_height = self.workspace.bottom_panel_height - grip_resp.drag_delta().y;
+            self.workspace.set_bottom_panel_height(next_height);
+            self.query.editor.query_output_dock_maximized = false;
         }
         grip_resp.on_hover_cursor(egui::CursorIcon::ResizeVertical);
 
@@ -388,7 +398,7 @@ impl DbProApp {
             Layout::top_down(Align::Min),
             |ui| {
                 self.draw_output_tabs(ui, true);
-                let result = self.active_query_result().cloned();
+                let result = self.query.session.active_result().cloned();
                 self.draw_output_pane(ui, result.as_ref());
             },
         );
@@ -396,19 +406,23 @@ impl DbProApp {
 
     fn draw_query_status_bar(&mut self, ui: &mut egui::Ui) {
         let modifier = Self::primary_modifier_label();
-        let connected = self.active_query_connection_id().is_some() && self.connected;
+        let connected = self.active_query_connection_id().is_some() && self.connection.lifecycle.is_connected();
         let driver = self.active_query_driver().to_owned();
         let schema = self.active_query_schema().to_owned();
-        let param_key = (self.active_query_document, self.active_query_buffer_version());
-        if self.param_count_cache_key != Some(param_key) {
-            self.param_count_cache_key = Some(param_key);
-            self.param_count_cache = crate::query::discover_sql_parameters(self.active_query_text()).len();
+        let param_key = (
+            self.query.session.active_document_index,
+            self.query.session.active_buffer_version(),
+        );
+        if self.query.editor.param_count_cache_key != Some(param_key) {
+            self.query.editor.param_count_cache_key = Some(param_key);
+            self.query.editor.param_count_cache =
+                crate::query::discover_sql_parameters(self.query.session.active_text()).len();
         }
-        let param_count = self.param_count_cache;
-        let diagnostic_count = self.diagnostics.len();
-        let txn_label = if self.query_in_transaction {
-            format!("Transaction · {} pending", self.query_txn_pending)
-        } else if self.query_auto_commit {
+        let param_count = self.query.editor.param_count_cache;
+        let diagnostic_count = self.query.editor.diagnostics.len();
+        let txn_label = if self.query.execution.query_in_transaction {
+            format!("Transaction · {} pending", self.query.execution.query_txn_pending)
+        } else if self.query.execution.query_auto_commit {
             "Auto-commit".to_owned()
         } else {
             "Manual".to_owned()
@@ -432,7 +446,7 @@ impl DbProApp {
                 ui.spacing_mut().item_spacing = egui::vec2(8.0, 0.0);
                 ui.add_space(SPACE_XS);
                 self.draw_query_run_stop_button(ui, connected, modifier);
-                if !self.bottom_panel_open
+                if !self.workspace.bottom_panel_open
                     && Button::new(self.theme)
                         .icon(Icon::PanelBottom)
                         .variant(ButtonVariant::Ghost)
@@ -441,7 +455,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.bottom_panel_open = true;
+                    self.workspace.bottom_panel_open = true;
                 }
 
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
@@ -450,7 +464,7 @@ impl DbProApp {
                     ui.label(
                         RichText::new(format!(
                             "Ln {}, Col {}",
-                            self.query_cursor_line, self.query_cursor_column
+                            self.query.editor.query_cursor_line, self.query.editor.query_cursor_column
                         ))
                         .font(font_mono_sm())
                         .color(self.theme.text_muted),
@@ -460,7 +474,7 @@ impl DbProApp {
 
                     let txn_resp = ui.add(
                         egui::Label::new(RichText::new(&txn_label).font(font_caption()).color(
-                            if self.query_in_transaction {
+                            if self.query.execution.query_in_transaction {
                                 self.theme.warning
                             } else {
                                 self.theme.text_muted
@@ -469,7 +483,7 @@ impl DbProApp {
                         .sense(egui::Sense::click()),
                     );
                     if txn_resp.clicked() {
-                        self.query_txn_bar_open = !self.query_txn_bar_open;
+                        self.query.execution.query_txn_bar_open = !self.query.execution.query_txn_bar_open;
                     }
                     txn_resp.on_hover_text("Toggle transaction controls");
 
@@ -484,7 +498,7 @@ impl DbProApp {
                                 .sense(egui::Sense::click()),
                         );
                         if resp.clicked() {
-                            self.query_params_panel_open = !self.query_params_panel_open;
+                            self.query.editor.query_params_panel_open = !self.query.editor.query_params_panel_open;
                         }
                         resp.on_hover_text("Edit bind parameters");
                     }
@@ -499,13 +513,22 @@ impl DbProApp {
                             .sense(egui::Sense::click()),
                         );
                         if resp.clicked() {
-                            self.bottom_panel_open = true;
+                            self.workspace.bottom_panel_open = true;
                             if let Some(doc_id) = self
-                                .query_documents
-                                .get(self.active_query_document)
+                                .query
+                                .session
+                                .documents
+                                .get(self.query.session.active_document_index)
                                 .map(|d| d.id.clone())
                             {
-                                self.set_query_output_tab(&doc_id, OutputTab::Messages);
+                                self.query.output.set_for_document_and_activate_if_active(
+                                    &doc_id,
+                                    self.query
+                                        .session
+                                        .active_document()
+                                        .map(|document| document.id.as_str()),
+                                    OutputTab::Messages,
+                                );
                             }
                         }
                     }
@@ -515,13 +538,15 @@ impl DbProApp {
     }
 
     fn draw_query_run_stop_button(&mut self, ui: &mut egui::Ui, connected: bool, modifier: &str) {
-        let active_doc_running =
-            self.query_documents
-                .get(self.active_query_document)
-                .and_then(|doc| match doc.execution_state {
-                    QueryExecutionState::Running(req) => Some(req),
-                    _ => None,
-                });
+        let active_doc_running = self
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+            .and_then(|doc| match doc.execution_state {
+                QueryExecutionState::Running(req) => Some(req),
+                _ => None,
+            });
         let running = active_doc_running.is_some();
         let cancel_supported = self.query_capabilities().allows(|c| c.query.cancel);
         let cancel_reason = self
@@ -567,11 +592,11 @@ impl DbProApp {
                 if cancel_supported {
                     self.cancel_query(request_id);
                 } else {
-                    self.runtime_message = cancel_reason
+                    self.feedback.runtime_message = cancel_reason
                         .unwrap_or_else(|| "Query cancellation is not supported for this provider".to_owned());
                 }
             } else if !connected {
-                self.runtime_message = "Connect to a database before running a query".to_owned();
+                self.feedback.runtime_message = "Connect to a database before running a query".to_owned();
             } else {
                 self.dispatch_query();
             }
@@ -594,10 +619,10 @@ impl DbProApp {
 
     /// Floating find overlay anchored to the top-right of the editor.
     fn draw_editor_search_overlay(&mut self, ctx: &egui::Context) {
-        if !self.editor_search_open {
+        if !self.query.editor.editor_search_open {
             return;
         }
-        let editor_rect = self.query_editor_rect;
+        let editor_rect = self.query.editor.query_editor_rect;
         if !editor_rect.is_positive() {
             return;
         }
@@ -623,12 +648,17 @@ impl DbProApp {
                 }
                 .show(ui, |ui| {
                     ui.set_width(width);
-                    if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+                    if let Some(doc) = self
+                        .query
+                        .session
+                        .documents
+                        .get_mut(self.query.session.active_document_index)
+                    {
                         ui.horizontal(|ui| {
-                            let prev_search = self.editor_search.clone();
-                            input(ui, &mut self.editor_search, "Search…", 160.0, self.theme);
-                            if self.editor_search != prev_search {
-                                doc.search.query = self.editor_search.clone();
+                            let prev_search = self.query.editor.editor_search.clone();
+                            input(ui, &mut self.query.editor.editor_search, "Search…", 160.0, self.theme);
+                            if self.query.editor.editor_search != prev_search {
+                                doc.search.query = self.query.editor.editor_search.clone();
                                 doc.search.update_matches(doc.buffer.text());
                                 if let Some(first_match) = doc.search.matches.first().copied() {
                                     doc.search.active_match_index = 0;
@@ -636,7 +666,7 @@ impl DbProApp {
                                 }
                             }
 
-                            if !self.editor_search.is_empty() {
+                            if !self.query.editor.editor_search.is_empty() {
                                 let total = doc.search.matches.len();
                                 let current = if total == 0 {
                                     0
@@ -701,9 +731,14 @@ impl DbProApp {
             });
 
         if close_search {
-            self.editor_search_open = false;
-            self.editor_search.clear();
-            if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            self.query.editor.editor_search_open = false;
+            self.query.editor.editor_search.clear();
+            if let Some(doc) = self
+                .query
+                .session
+                .documents
+                .get_mut(self.query.session.active_document_index)
+            {
                 doc.search.query.clear();
                 doc.search.matches.clear();
                 doc.search.active_match_index = 0;
@@ -718,12 +753,23 @@ impl DbProApp {
         let mut goto_range = None;
         let mut close_search = false;
 
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+        if let Some(doc) = self
+            .query
+            .session
+            .documents
+            .get_mut(self.query.session.active_document_index)
+        {
             ui.horizontal(|ui| {
-                let prev_search = self.editor_search.clone();
-                input(ui, &mut self.editor_search, "Find in SQL…", 240.0, self.theme);
-                if self.editor_search != prev_search {
-                    doc.search.query = self.editor_search.clone();
+                let prev_search = self.query.editor.editor_search.clone();
+                input(
+                    ui,
+                    &mut self.query.editor.editor_search,
+                    "Find in SQL…",
+                    240.0,
+                    self.theme,
+                );
+                if self.query.editor.editor_search != prev_search {
+                    doc.search.query = self.query.editor.editor_search.clone();
                     doc.search.update_matches(doc.buffer.text());
                     if let Some(first_match) = doc.search.matches.first().copied() {
                         doc.search.active_match_index = 0;
@@ -731,7 +777,7 @@ impl DbProApp {
                     }
                 }
 
-                if !self.editor_search.is_empty() {
+                if !self.query.editor.editor_search.is_empty() {
                     let total = doc.search.matches.len();
                     let current = if total == 0 {
                         0
@@ -794,7 +840,7 @@ impl DbProApp {
         }
 
         if close_search {
-            self.editor_search_open = false;
+            self.query.editor.editor_search_open = false;
         }
     }
 
@@ -825,8 +871,14 @@ impl DbProApp {
             }
             candidates.extend(self.active_schema_table_names());
             candidates.extend(self.active_schema_column_names());
-            candidates.extend(self.schema.views.iter().map(|view| view.name.clone()));
-            candidates.extend(self.schema.functions.iter().map(|function| function.name.clone()));
+            candidates.extend(self.schema_explorer.schema.views.iter().map(|view| view.name.clone()));
+            candidates.extend(
+                self.schema_explorer
+                    .schema
+                    .functions
+                    .iter()
+                    .map(|function| function.name.clone()),
+            );
             for keyword in candidates.iter() {
                 if ui
                     .selectable_label(false, keyword)
@@ -834,7 +886,7 @@ impl DbProApp {
                     .clicked()
                 {
                     self.append_to_active_query(keyword);
-                    self.completion_open = false;
+                    self.query.editor.completion_open = false;
                 }
             }
         });
@@ -853,7 +905,7 @@ impl DbProApp {
                     .clicked()
                 {
                     self.insert_snippet(snippet);
-                    self.snippets_open = false;
+                    self.query.editor.snippets_open = false;
                 }
             }
         });
@@ -885,24 +937,27 @@ impl DbProApp {
     /// Parser diagnostics for the current SQL (legacy list — gutter + status count are canonical).
     #[allow(dead_code)]
     fn draw_diagnostics(&mut self, ui: &mut egui::Ui) {
-        if self.diagnostics.is_empty() {
+        if self.query.editor.diagnostics.is_empty() {
             return;
         }
-        ui.colored_label(self.theme.warning, format!("Diagnostics · {}", self.diagnostics.len()));
-        for diagnostic in &self.diagnostics {
+        ui.colored_label(
+            self.theme.warning,
+            format!("Diagnostics · {}", self.query.editor.diagnostics.len()),
+        );
+        for diagnostic in &self.query.editor.diagnostics {
             ui.colored_label(self.theme.warning, format!("• {diagnostic}"));
         }
     }
 
     /// Discovered bind placeholders for the active document (#225 discovery slice).
     fn draw_sql_parameters_panel(&mut self, ui: &mut egui::Ui) {
-        let sql = self.active_query_text().to_owned();
+        let sql = self.query.session.active_text().to_owned();
         let params = crate::query::discover_sql_parameters(&sql);
         if params.is_empty() {
             return;
         }
         let supports_parameters = self.query_capabilities().allows(|caps| caps.query.parameters);
-        let doc_index = self.active_query_document;
+        let doc_index = self.query.session.active_document_index;
         ui.add_space(SPACE_XS);
         ui.horizontal(|ui| {
             ui.colored_label(self.theme.accent, format!("Parameters · {}", params.len()));
@@ -916,12 +971,16 @@ impl DbProApp {
         });
         for param in params {
             let mut value = self
-                .query_documents
+                .query
+                .session
+                .documents
                 .get(doc_index)
                 .and_then(|doc| doc.parameter_values.get(&param.name).cloned())
                 .unwrap_or_default();
             let mut is_secret = self
-                .query_documents
+                .query
+                .session
+                .documents
                 .get(doc_index)
                 .is_some_and(|doc| doc.parameter_secrets.contains(&param.name));
             ui.horizontal(|ui| {
@@ -943,7 +1002,7 @@ impl DbProApp {
                 ui.add(edit.desired_width(180.0));
                 ui.checkbox(&mut is_secret, "secret");
             });
-            if let Some(doc) = self.query_documents.get_mut(doc_index) {
+            if let Some(doc) = self.query.session.documents.get_mut(doc_index) {
                 doc.parameter_values.insert(param.name.clone(), value);
                 if is_secret {
                     doc.parameter_secrets.insert(param.name.clone());
@@ -990,7 +1049,7 @@ impl DbProApp {
                     ui.add_space(4.0);
                     close_menu |= self.draw_query_editor_actions(ui);
                     ui.label(
-                        RichText::new(format!("Editor font · {} px", self.editor_font_size))
+                        RichText::new(format!("Editor font · {} px", self.query.editor.editor_font_size))
                             .small()
                             .color(self.theme.text_muted),
                     );
@@ -1004,7 +1063,7 @@ impl DbProApp {
                     .is_some_and(|position| !menu.response.rect.contains(position) && !anchor.contains(position))
         });
         if clicked_outside || close_menu {
-            self.query_tools_open = false;
+            self.query.editor.query_tools_open = false;
         }
     }
 
@@ -1015,7 +1074,7 @@ impl DbProApp {
         if menu_button_with_icon(
             ui,
             Icon::Play,
-            if self.selected_query.is_empty() {
+            if self.query.session.selected_text.is_empty() {
                 "Run query"
             } else {
                 "Run selection"
@@ -1037,7 +1096,7 @@ impl DbProApp {
         }
         if menu_button_with_icon(ui, Icon::Bot, "Ask Agent", self.theme).clicked() {
             self.open_agent_prompt(
-                if self.selected_query.trim().is_empty() {
+                if self.query.session.selected_text.trim().is_empty() {
                     "Explain the current SQL and suggest improvements"
                 } else {
                     "Explain the selected SQL and suggest improvements"
@@ -1054,13 +1113,13 @@ impl DbProApp {
             self.open_save_as_dialog();
             close_menu = true;
         }
-        let builder_label = if self.visual_query_builder_open {
+        let builder_label = if self.query.editor.visual_builder.open {
             "Hide visual query builder"
         } else {
             "Visual query builder"
         };
         if menu_button_with_icon(ui, Icon::LayoutTemplate, builder_label, self.theme).clicked() {
-            self.visual_query_builder_open = !self.visual_query_builder_open;
+            self.query.editor.visual_builder.open = !self.query.editor.visual_builder.open;
             close_menu = true;
         }
         close_menu
@@ -1070,27 +1129,32 @@ impl DbProApp {
     fn draw_query_editor_actions(&mut self, ui: &mut egui::Ui) -> bool {
         let mut close_menu = false;
         if menu_button_with_icon(ui, Icon::Search, "Find in SQL", self.theme).clicked() {
-            self.editor_search_open = !self.editor_search_open;
+            self.query.editor.editor_search_open = !self.query.editor.editor_search_open;
             close_menu = true;
         }
-        let txn_label = if self.query_txn_bar_open {
+        let txn_label = if self.query.execution.query_txn_bar_open {
             "Hide transaction controls"
         } else {
             "Show transaction controls"
         };
         if menu_button_with_icon(ui, Icon::GitBranch, txn_label, self.theme).clicked() {
-            self.query_txn_bar_open = !self.query_txn_bar_open;
+            self.query.execution.query_txn_bar_open = !self.query.execution.query_txn_bar_open;
             close_menu = true;
         }
         if menu_button_with_icon(ui, Icon::Minus, "Decrease font size", self.theme).clicked() {
-            self.editor_font_size = (self.editor_font_size - 1.0).max(10.0);
+            self.query.editor.editor_font_size = (self.query.editor.editor_font_size - 1.0).max(10.0);
         }
         if menu_button_with_icon(ui, Icon::Plus, "Increase font size", self.theme).clicked() {
-            self.editor_font_size = (self.editor_font_size + 1.0).min(24.0);
+            self.query.editor.editor_font_size = (self.query.editor.editor_font_size + 1.0).min(24.0);
         }
         if menu_button_with_icon(ui, Icon::Bot, "Generate SQL Prediction", self.theme).clicked() {
-            if self.prediction_mode != PredictionMode::Off {
-                if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+            if self.preferences.prediction_mode != PredictionMode::Off {
+                if let Some(doc) = self
+                    .query
+                    .session
+                    .documents
+                    .get_mut(self.query.session.active_document_index)
+                {
                     doc.schedule_prediction_with_mode(Instant::now(), true);
                 }
             }
@@ -1103,10 +1167,13 @@ impl DbProApp {
                 (PredictionMode::Subtle, "Subtle"),
                 (PredictionMode::Eager, "Eager"),
             ] {
-                if ui.selectable_label(self.prediction_mode == mode, label).clicked() {
-                    self.prediction_mode = mode;
+                if ui
+                    .selectable_label(self.preferences.prediction_mode == mode, label)
+                    .clicked()
+                {
+                    self.preferences.prediction_mode = mode;
                     if mode == PredictionMode::Off {
-                        self.cancel_prediction_for_document(self.active_query_document);
+                        self.cancel_prediction_for_document(self.query.session.active_document_index);
                     }
                 }
             }
@@ -1118,11 +1185,17 @@ impl DbProApp {
         );
         ui.add_space(4.0);
         if menu_button_with_icon(ui, Icon::FileCode2, "SQL snippets", self.theme).clicked() {
-            self.snippets_open = !self.snippets_open;
+            self.query.editor.snippets_open = !self.query.editor.snippets_open;
             close_menu = true;
         }
         ui.horizontal(|ui| {
-            input(ui, &mut self.query_folder, "folder (optional)", 150.0, self.theme);
+            input(
+                ui,
+                &mut self.query.library.query_folder,
+                "folder (optional)",
+                150.0,
+                self.theme,
+            );
             if Button::new(self.theme)
                 .text("New folder")
                 .variant(ButtonVariant::Secondary)
@@ -1141,21 +1214,26 @@ impl DbProApp {
         let Some(connection) = self.active_connection().cloned() else {
             return;
         };
-        if self.query_folder.trim().is_empty() {
-            return;
-        }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::CreateQueryFolder {
-            request_id,
-            connection_id: connection.id.clone(),
-            name: self.query_folder.trim().to_owned(),
-        });
-        self.runtime_message = "Creating query folder…".to_owned();
+        let command = match self.query.library.create_folder_command(request_id, connection.id) {
+            Ok(command) => command,
+            Err(error) => {
+                self.feedback.runtime_message = error;
+                return;
+            }
+        };
+        self.dispatch_command(command);
+        self.feedback.runtime_message = "Creating query folder…".to_owned();
     }
 
     pub(crate) fn insert_snippet(&mut self, snippet: &str) {
-        self.cancel_prediction_for_document(self.active_query_document);
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+        self.cancel_prediction_for_document(self.query.session.active_document_index);
+        if let Some(doc) = self
+            .query
+            .session
+            .documents
+            .get_mut(self.query.session.active_document_index)
+        {
             let offset = doc.cursor.offset.min(doc.buffer.len_bytes());
             let insertion = if offset > 0 && !doc.buffer.text()[..offset].ends_with('\n') {
                 format!("\n{snippet}")
@@ -1167,12 +1245,12 @@ impl DbProApp {
             doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, new_offset);
             doc.selection = crate::editor::SelectionRange::point(new_offset);
             doc.dirty = true;
-            self.query_cursor_line = doc.cursor.line + 1;
-            self.query_cursor_column = doc.cursor.col + 1;
+            self.query.editor.query_cursor_line = doc.cursor.line + 1;
+            self.query.editor.query_cursor_column = doc.cursor.col + 1;
         }
-        self.active_tab = WorkspaceTab::Query;
+        self.workspace.active_tab = WorkspaceTab::Query;
         self.refresh_diagnostics();
-        self.runtime_message = "Snippet inserted".to_owned();
+        self.feedback.runtime_message = "Snippet inserted".to_owned();
     }
 }
 

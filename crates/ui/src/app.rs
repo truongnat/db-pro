@@ -1,5 +1,8 @@
+use self::connection::ConnectionFeatureState;
+pub(crate) use self::connection::{ConnectionCatalogState, ConnectionDialogState, ConnectionLifecycleState};
 use crate::components::*;
 use crate::editor::PredictionMode;
+use crate::query::SchemaSymbolIndex;
 use crate::tokens::*;
 use crate::{
     agent_message_frame, badge, card_frame, compact_button, compact_button_with_icon, compact_icon_button,
@@ -7,13 +10,12 @@ use crate::{
     input_full_width, menu_button_with_icon, panel_frame, primary_button, primary_button_with_icon, secondary_button,
     secondary_button_with_icon, section_label, sidebar_frame, sidebar_item, tab_frame, toolbar_frame, AgentContext,
     AgentMessage, AgentProvider, AgentRole, ColumnWriteBlock, ColumnWritePolicy, DbProTheme, GridProjectionCache,
-    GridProjectionKey, OfflineAgentProvider, TaskBridge, UiCell, UiCommand, UiConnectionDraft, UiConnectionSummary,
-    UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryHistoryEntry,
-    UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary, UiStatementOutput,
-    UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation, UiTableSummary,
-    UiTriggerSummary, UiViewSummary,
+    GridProjectionKey, OfflineAgentProvider, RequestId, TaskBridge, UiCell, UiCommand, UiConnectionDraft,
+    UiConnectionSummary, UiDriver, UiEvent, UiFunctionSummary, UiQueryExecutionOutput, UiQueryFolderSummary,
+    UiQueryHistoryEntry, UiQueryHistoryStatus, UiQueryResult, UiSavedQuerySummary, UiSchemaForeignKey, UiSchemaSummary,
+    UiStatementOutput, UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation,
+    UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
-use bigdecimal::BigDecimal;
 use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
 use lucide_icons::Icon;
 use sqlparser::dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect};
@@ -24,6 +26,10 @@ use std::time::{Duration, Instant};
 use agent_workflow_state::AgentUiSession;
 use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
 
+#[path = "agent_context.rs"]
+mod agent_context;
+#[path = "agent_events.rs"]
+mod agent_events;
 #[path = "agent_state.rs"]
 mod agent_state;
 #[path = "agent_view.rs"]
@@ -34,6 +40,8 @@ mod agent_workflow_state;
 mod app_state;
 #[path = "app_types.rs"]
 mod app_types;
+#[path = "audit_state.rs"]
+mod audit_state;
 #[path = "cell_inspector.rs"]
 mod cell_inspector;
 #[path = "change_set.rs"]
@@ -54,14 +62,24 @@ mod component_gallery_view;
 pub mod connection;
 
 pub use component_gallery_view::ComponentGalleryState;
+#[path = "audit_activity_view.rs"]
+mod audit_activity_view;
 #[path = "capability_lookup.rs"]
 mod capability_lookup;
+#[path = "ddl_events.rs"]
+mod ddl_events;
+#[path = "diagram_state.rs"]
+mod diagram_state;
 #[path = "diagram_view.rs"]
 mod diagram_view;
+#[path = "event_router.rs"]
+mod event_router;
+#[path = "event_trigger_activity_view.rs"]
+mod event_trigger_activity_view;
+#[path = "event_trigger_state.rs"]
+mod event_trigger_state;
 #[path = "events.rs"]
 mod events;
-#[path = "events_query.rs"]
-mod events_query;
 #[path = "events_query_dispatch.rs"]
 mod events_query_dispatch;
 #[path = "explorer_connections.rs"]
@@ -74,28 +92,118 @@ mod explorer_folders;
 mod explorer_tree;
 #[path = "explorer_view.rs"]
 mod explorer_view;
+#[path = "fdw_activity_view.rs"]
+mod fdw_activity_view;
+#[path = "fdw_state.rs"]
+mod fdw_state;
+#[path = "feedback_state.rs"]
+mod feedback_state;
+#[path = "file_picker_events.rs"]
+mod file_picker_events;
 #[path = "files_activity_view.rs"]
 mod files_activity_view;
 #[path = "git_workspace.rs"]
 mod git_workspace;
 #[path = "ide_workspace.rs"]
 mod ide_workspace;
+#[path = "maintenance_activity_view.rs"]
+mod maintenance_activity_view;
+#[path = "management_events.rs"]
+mod management_events;
+#[path = "masking.rs"]
+mod masking;
+#[path = "masking_state.rs"]
+mod masking_state;
+#[path = "monitoring_activity_view.rs"]
+mod monitoring_activity_view;
+#[path = "monitoring_state.rs"]
+mod monitoring_state;
 #[path = "navigation_view.rs"]
 mod navigation_view;
+#[path = "operation_events.rs"]
+mod operation_events;
+#[path = "overlay_state.rs"]
+mod overlay_state;
+#[path = "palette_state.rs"]
+mod palette_state;
+#[path = "pg_settings_activity_view.rs"]
+mod pg_settings_activity_view;
+#[path = "pg_settings_state.rs"]
+mod pg_settings_state;
+#[path = "preferences_state.rs"]
+mod preferences_state;
+#[path = "query_execution_events.rs"]
+mod query_execution_events;
+#[path = "query_execution_state.rs"]
+mod query_execution_state;
+#[path = "query_failure_events.rs"]
+mod query_failure_events;
+#[path = "query_history_events.rs"]
+mod query_history_events;
+#[path = "query_library_events.rs"]
+mod query_library_events;
+#[path = "query_library_state.rs"]
+mod query_library_state;
+#[path = "query_multi_result_events.rs"]
+mod query_multi_result_events;
+#[path = "query_prediction_events.rs"]
+mod query_prediction_events;
+#[path = "query_queue_events.rs"]
+mod query_queue_events;
+#[path = "query_result_events.rs"]
+mod query_result_events;
+#[path = "query_save_events.rs"]
+mod query_save_events;
+#[path = "replication_activity_view.rs"]
+mod replication_activity_view;
+#[path = "replication_state.rs"]
+mod replication_state;
+#[path = "routine_state.rs"]
+mod routine_state;
+#[path = "saved_task_state.rs"]
+mod saved_task_state;
+#[path = "security_state.rs"]
+mod security_state;
 #[path = "settings_model.rs"]
 mod settings_model;
 #[path = "settings_view.rs"]
 mod settings_view;
+#[path = "synthetic_data_state.rs"]
+mod synthetic_data_state;
+#[path = "transfer_harness_view.rs"]
+mod transfer_harness_view;
+#[path = "transfer_state.rs"]
+mod transfer_state;
+use audit_state::AuditState;
 pub(crate) use capability_lookup::CapabilityLookup;
+pub(crate) use diagram_state::DiagramState;
+use event_trigger_state::EventTriggerState;
+use fdw_state::FdwState;
+pub(crate) use feedback_state::FeedbackState;
+use masking_state::MaskingState;
+use monitoring_state::MonitoringState;
+pub(crate) use overlay_state::OverlayState;
+pub(crate) use palette_state::PaletteState;
+use pg_settings_state::PgSettingsState;
+pub(crate) use preferences_state::PreferencesState;
+pub(crate) use query_execution_state::QueryExecutionPolicyState;
+pub(crate) use query_library_state::QueryLibraryState;
+use replication_state::ReplicationState;
+use routine_state::RoutineState;
+pub(crate) use saved_task_state::SavedTaskState;
+use security_state::SecurityState;
 pub(crate) use settings_model::{
     default_keybinding_catalog, AppSettings, SettingsSection, SqlLintSettings, SETTINGS_STORAGE_KEY,
 };
+use synthetic_data_state::SyntheticDataState;
+use transfer_state::TransferState;
+pub(crate) use workspace_shell::WorkspaceShellState;
 #[path = "activity_bar_view.rs"]
 mod activity_bar_view;
+#[path = "connection_events.rs"]
+mod connection_events;
 #[path = "connection_status.rs"]
 mod connection_status;
-#[path = "grid_layout.rs"]
-mod grid_layout;
 #[path = "palette_view.rs"]
 mod palette_view;
 #[path = "search_service.rs"]
@@ -109,10 +217,20 @@ mod query_dialogs_view;
 mod query_documents;
 #[path = "query_editor_panel.rs"]
 mod query_editor_panel;
+#[path = "query_editor_state.rs"]
+mod query_editor_state;
+#[path = "query_feature_state.rs"]
+mod query_feature_state;
+#[path = "query_folder_delete_dialog.rs"]
+mod query_folder_delete_dialog;
+#[path = "query_output_state.rs"]
+mod query_output_state;
 #[path = "query_output_view.rs"]
 mod query_output_view;
 #[path = "query_session.rs"]
 mod query_session;
+#[path = "query_state.rs"]
+mod query_state;
 #[path = "query_view.rs"]
 mod query_view;
 #[path = "result_grid_cell.rs"]
@@ -127,31 +245,91 @@ mod result_grid_header;
 mod result_grid_selection;
 #[path = "result_grid_view.rs"]
 pub(crate) mod result_grid_view;
+#[path = "runtime_event_handlers.rs"]
+mod runtime_event_handlers;
 #[path = "sidebar_activities_view.rs"]
 mod sidebar_activities_view;
 #[path = "sidebar_view.rs"]
 mod sidebar_view;
+#[path = "synthetic_data.rs"]
+mod synthetic_data;
+#[path = "table_data_query_state.rs"]
+mod table_data_query_state;
+#[path = "table_data_state.rs"]
+mod table_data_state;
+#[path = "table_editor_state.rs"]
+mod table_editor_state;
+#[path = "table_events.rs"]
+mod table_events;
+#[path = "table_mutation_dialogs_view.rs"]
+mod table_mutation_dialogs_view;
+#[path = "table_mutation_state.rs"]
+mod table_mutation_state;
+#[path = "table_state.rs"]
+mod table_state;
 #[path = "tasks_view.rs"]
 mod tasks_view;
+#[path = "visual_query_builder_state.rs"]
+mod visual_query_builder_state;
 #[path = "visual_query_builder_view.rs"]
 mod visual_query_builder_view;
+#[path = "welcome_state.rs"]
+mod welcome_state;
 #[path = "workspace_actions.rs"]
 mod workspace_actions;
+#[path = "workspace_files_state.rs"]
+mod workspace_files_state;
 #[path = "workspace_session.rs"]
 mod workspace_session;
+#[path = "workspace_session_state.rs"]
+mod workspace_session_state;
+#[path = "workspace_shell.rs"]
+mod workspace_shell;
+pub(crate) use agent_state::AgentState;
+pub(crate) use query_editor_state::QueryEditorState;
+pub(crate) use query_feature_state::QueryFeatureState;
+pub(crate) use query_output_state::QueryOutputState;
+pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
+use schema_compare_state::SchemaCompareState;
+pub(crate) use schema_explorer_state::SchemaExplorerState;
+pub(crate) use table_data_query_state::TableDataQueryState;
+pub(crate) use table_data_state::TableDataState;
+pub(crate) use table_editor_state::TableEditorState;
+pub(crate) use table_mutation_state::TableMutationState;
+pub(crate) use table_state::TableState;
+pub(crate) use welcome_state::WelcomeState;
+pub(crate) use workspace_feature_state::WorkspaceFeatureState;
+pub(crate) use workspace_files_state::WorkspaceFilesState;
+pub(crate) use workspace_session_state::WorkspaceSessionState;
 #[path = "schema_compare.rs"]
 mod schema_compare;
+#[path = "schema_compare_state.rs"]
+mod schema_compare_state;
+#[path = "schema_events.rs"]
+mod schema_events;
+#[path = "schema_explorer_state.rs"]
+mod schema_explorer_state;
 #[path = "schema_object_view.rs"]
 mod schema_object_view;
 #[path = "schema_workbench.rs"]
 mod schema_workbench;
 #[path = "schema_workbench_form.rs"]
 mod schema_workbench_form;
+#[path = "security_activity_view.rs"]
+mod security_activity_view;
+#[path = "security_rls.rs"]
+mod security_rls;
 #[path = "table_ddl_view.rs"]
 mod table_ddl_view;
+#[path = "table_editor_context.rs"]
+mod table_editor_context;
+#[path = "table_editor_values.rs"]
+mod table_editor_values;
 #[path = "table_editor_view.rs"]
 mod table_editor_view;
+#[path = "table_insert_row_view.rs"]
+mod table_insert_row_view;
 #[path = "table_metadata_view.rs"]
 mod table_metadata_view;
 #[path = "table_view.rs"]
@@ -161,624 +339,231 @@ mod table_view;
 mod tests;
 #[path = "welcome_view.rs"]
 mod welcome_view;
+#[path = "workspace_feature_state.rs"]
+mod workspace_feature_state;
 #[path = "workspace_view.rs"]
 mod workspace_view;
 
 pub use crate::query::{QueryDocument, QueryExecutionState};
 pub(crate) use app_types::*;
+#[path = "app_lifecycle.rs"]
+mod app_lifecycle;
+#[path = "app_storage.rs"]
+mod app_storage;
 
 pub struct DbProApp {
     theme: DbProTheme,
-    dark_mode: bool,
-    reduce_motion: bool,
-    settings: AppSettings,
-    settings_section: SettingsSection,
-    keybindings_filter: String,
-    keybinding_edit_id: Option<String>,
-    keybinding_edit_draft: String,
-    activity: Activity,
-    welcome_open: bool,
-    active_tab: WorkspaceTab,
-    sidebar_open: bool,
-    sidebar_width: f32,
-    agent_open: bool,
-    agent_width: f32,
-    bottom_panel_open: bool,
-    bottom_panel_height: f32,
-    sidebar_open_before_agent: Option<bool>,
-    pub prediction_mode: PredictionMode,
-    welcome_prompt: String,
-    selected_query: String,
-    query_documents: Vec<QueryDocument>,
-    active_query_document: usize,
-    editor_search: String,
-    editor_search_open: bool,
-    query_editor_focused: bool,
-    query_cursor_line: usize,
-    query_cursor_column: usize,
-    editor_font_size: f32,
-    query_tools_open: bool,
-    /// Connection/schema context chip picker (click-to-open).
-    query_context_picker_open: bool,
-    /// Parameters dock/popover — only when the user opens it from the status badge.
-    query_params_panel_open: bool,
-    /// Maximize the in-query output dock over the editor.
-    query_output_dock_maximized: bool,
-    /// Last editor rect — anchors the floating find overlay.
-    query_editor_rect: egui::Rect,
-    completion_open: bool,
-    snippets_open: bool,
-    visual_query_builder_open: bool,
-    visual_query_model: crate::query::visual_builder::VisualQueryModel,
-    visual_query_sql_preview: String,
-    visual_query_error: Option<String>,
-    visual_query_add_table: String,
-    visual_query_join_table: String,
-    visual_query_join_left: String,
-    visual_query_join_right: String,
-    visual_query_col_ref: String,
-    visual_query_col_alias: String,
-    visual_query_col_agg: String,
-    visual_query_where_left: String,
-    visual_query_where_op: String,
-    visual_query_where_value: String,
-    visual_query_order: String,
-    visual_query_order_desc: bool,
-    visual_query_limit: String,
-    visual_query_offset: String,
-    diagnostics: Vec<String>,
-    /// Skip sqlparser re-lint while the active buffer version is unchanged.
-    diagnostics_cache_key: Option<(usize, u64)>,
-    diagnostics_cache_driver: String,
-    diagnostics_lint_structured: Vec<crate::editor::Diagnostic>,
-    /// Debounce expensive lint while typing; flush after quiet period.
-    diagnostics_debounce_key: Option<(usize, u64)>,
-    diagnostics_debounce_at: Option<std::time::Instant>,
-    /// Fingerprint of `execution_diagnostic` last merged into `doc.diagnostics`.
-    diagnostics_exec_fp: Option<(usize, usize)>,
-    /// Cached `discover_sql_parameters(...).len()` for the status strip.
-    param_count_cache_key: Option<(usize, u64)>,
-    param_count_cache: usize,
-    problems_severity_filter: ProblemsSeverityFilter,
-    problems_source_filter: ProblemsSourceFilter,
-    problems_selected: Option<(String, usize)>,
-    query_history: Vec<String>,
-    query_history_entries: Vec<UiQueryHistoryEntry>,
-    query_history_search: String,
-    connection_name: String,
-    connected: bool,
-    palette_mode: Option<PaletteMode>,
-    palette_query: String,
-    palette_scope: SearchScope,
-    palette_selected: usize,
-    palette_focus_requested: bool,
-    search_index: SearchIndex,
-    agent_pending_prompt: Option<String>,
-    agent_pending_context: Option<AgentContext>,
-    agent_provider_label: String,
-    agent_provider_detail: String,
-    agent_input: String,
-    agent_messages: Vec<AgentMessage>,
-    agent_sessions: HashMap<String, AgentUiSession>,
-    pub(crate) agent_auto_run_read_only: bool,
-    agent_settings_open: bool,
-    agent_api_key_draft: String,
-    agent_api_key_show_password: bool,
-    agent_configure_request: Option<crate::RequestId>,
+    preferences: PreferencesState,
+    workspace: WorkspaceFeatureState,
+    welcome: WelcomeState,
+    query: QueryFeatureState,
+    palette: PaletteState,
+    agent: AgentState,
     task_bridge: TaskBridge,
-    pub(crate) query_document_requests: HashMap<crate::RequestId, String>,
-    query_save_requests: HashMap<crate::RequestId, String>,
-    pending_dirty_close: Option<usize>,
-    pending_close_after_save: Option<usize>,
-    save_as_name: String,
-    save_as_open: bool,
-    runtime_message: String,
-    toasts: crate::components::overlay::ToastManager,
-    output_tab: OutputTab,
-    query_output_tabs: HashMap<String, OutputTab>,
-    grid_filter: String,
-    grid_sort_column: Option<usize>,
-    grid_sort_desc: bool,
-    grid_column_widths: Vec<f32>,
-    grid_column_order: Vec<usize>,
-    grid_hidden_columns: BTreeSet<usize>,
-    grid_layout_preferences: HashMap<String, PersistedGridLayout>,
-    grid_pending_named_layout: Option<Vec<PersistedGridColumnLayout>>,
-    grid_legacy_layout_pending: bool,
-    grid_layout_column_names: Vec<String>,
-    grid_row_identity_cache: HashMap<usize, RowIdentity>,
-    grid_row_identity_cache_ready: bool,
-    /// Monotonic id for the row data behind the grid. Everything that replaces the displayed result
-    /// set, or edits a displayed row in place, must advance it through
-    /// `invalidate_grid_projection`, or the grid keeps drawing the previous filtered/sorted
-    /// projection (see `GridProjectionCache`).
-    grid_projection_epoch: u64,
-    grid_projection_cache: GridProjectionCache,
-    grid_selection_cache: GridSelectionCache,
-    grid_columns_user_resized: bool,
-    selected_cell: Option<(usize, usize)>,
-    selected_row: Option<usize>,
-    selected_rows: BTreeSet<usize>,
-    selection_anchor_row: Option<usize>,
-    selection_anchor_cell: Option<(usize, usize)>,
-    data_editing_cell: Option<(usize, usize)>,
-    expanded_data_editor: Option<(usize, usize)>,
-    /// Value inspector mode for expanded cell / record panel (#228).
-    cell_inspector_mode: cell_inspector::CellInspectorMode,
-    record_inspector_open: bool,
-    data_edit_value: String,
-    data_edit_error: Option<String>,
-    data_delete_confirmation: bool,
-    discard_changes_confirmation: bool,
-    pub(crate) pending_navigation_action: Option<PendingNavigationAction>,
-    insert_row_open: bool,
-    insert_row_values: Vec<String>,
-    insert_row_error: String,
-    copy_status: String,
-    export_open: bool,
-    export_format: String,
-    export_path: String,
-    /// Set when the export dialog was asked to write over an existing file and is waiting for the
-    /// user to confirm it (#244, E-1).
-    export_overwrite_pending: bool,
-    connections: Vec<UiConnectionSummary>,
-    saved_queries: Vec<UiSavedQuerySummary>,
-    query_folders: Vec<UiQueryFolderSummary>,
-    schema: UiSchemaSummary,
-    selected_schema: Option<String>,
-    explorer_search: String,
-    /// Cached filtered table names for the open explorer schema folder.
-    explorer_nav_cache: Option<ExplorerNavCache>,
-    schema_error: Option<String>,
-    schema_request: Option<crate::RequestId>,
-    selected_table: Option<String>,
-    /// Table names pinned for quick reopen (#202 / #212). Persisted locally.
-    pinned_tables: Vec<String>,
-    /// Most-recently-opened tables for Data Activity (#212). Persisted locally.
-    recent_tables: Vec<String>,
-    /// Local IDE workspace folder / file tree (#261–#264).
-    ide_workspace: ide_workspace::IdeWorkspaceState,
-    /// Optional Git status for the active workspace root (#255).
-    git_status: Option<git_workspace::GitWorkspaceStatus>,
-    git_diff: Option<git_workspace::GitDiffResult>,
-    git_commit_message: String,
-    git_last_error: Option<String>,
-    /// Absolute path → disk mtime when last loaded/saved (external change detection).
-    workspace_file_mtimes: std::collections::HashMap<String, u64>,
-    workspace_external_change: Option<String>,
-    /// Find-in-Files / replace drafts for the Files activity (#267).
-    workspace_search_query: String,
-    workspace_replace_query: String,
-    workspace_search_hits: Vec<ide_workspace::SearchHit>,
-    workspace_replace_previews: Vec<ide_workspace::ReplacePreview>,
-    workspace_task_command: String,
-    workspace_refactor_from: String,
-    workspace_refactor_to: String,
-    workspace_context_items: Vec<String>,
-    split_editor_secondary: Option<usize>,
-    files_panel_tab: FilesPanelTab,
-    selected_schema_object: Option<SchemaObjectSelection>,
-    schema_object_view: SchemaObjectView,
-    /// Editable CREATE body for the selected routine (#192).
-    routine_source_draft: String,
-    /// Values for IN/INOUT parameters in the execute form.
-    routine_param_values: Vec<String>,
-    routine_param_nulls: Vec<bool>,
-    routine_ddl_preview: Option<String>,
-    routine_drop_confirm: bool,
-    /// Recent transfer jobs for Transfers activity (#193).
-    transfer_jobs: Vec<db_pro_core::domain::transfer::TransferJob>,
-    synthetic_table: String,
-    synthetic_row_count: String,
-    synthetic_seed: String,
-    synthetic_null_pct: String,
-    synthetic_preview: Option<db_pro_core::domain::synthetic_data::SyntheticPreview>,
-    synthetic_error: Option<String>,
-    synthetic_production_confirm: bool,
-    masking_columns_csv: String,
-    masking_rule: db_pro_core::domain::masking::MaskRule,
-    masking_keyed: bool,
-    masking_preview: Option<db_pro_core::domain::masking::MaskingPreview>,
-    masking_error: Option<String>,
-    /// Latest monitoring snapshot for Monitor activity (#196).
-    monitoring_snapshot: Option<db_pro_core::domain::monitoring::MonitoringSnapshot>,
-    monitoring_error: Option<String>,
-    monitoring_poll: bool,
-    monitoring_last_poll: Option<std::time::Instant>,
-    monitoring_terminate_confirm: Option<i64>,
-    monitoring_filter_active_only: bool,
-    monitoring_maintenance_confirm: Option<db_pro_core::domain::monitoring::MaintenanceAction>,
-    monitoring_stat_sort: db_pro_core::domain::monitoring::StatStatementSort,
-    monitoring_reset_stats_confirm: bool,
-    monitoring_workload_prev: Option<db_pro_core::domain::monitoring::StatStatementsSnapshot>,
-    monitoring_workload_filter: String,
-    audit_page: Option<db_pro_core::domain::audit::AuditPage>,
-    audit_error: Option<String>,
-    audit_filter_text: String,
-    audit_filter_database: String,
-    audit_filter_username: String,
-    audit_filter_severity: String,
-    audit_bookmarks: std::collections::HashSet<String>,
-    audit_selected: std::collections::HashSet<String>,
-    audit_export_preview: Option<String>,
-    pg_settings: Option<db_pro_core::domain::pg_settings::PgSettingsSnapshot>,
-    pg_settings_filter: String,
-    pg_settings_edit_name: String,
-    pg_settings_edit_value: String,
-    pg_settings_preview: Option<db_pro_core::domain::pg_settings::PgSettingPreviewSql>,
-    pg_settings_error: Option<String>,
-    fdw_inventory: Option<db_pro_core::domain::fdw::FdwInventory>,
-    fdw_error: Option<String>,
-    fdw_create_name: String,
-    fdw_create_wrapper: String,
-    fdw_create_host: String,
-    fdw_create_dbname: String,
-    fdw_create_port: String,
-    fdw_ddl_preview: Option<String>,
-    fdw_drop_confirm: Option<String>,
-    replication_inventory: Option<db_pro_core::domain::replication::ReplicationInventory>,
-    replication_error: Option<String>,
-    replication_create_name: String,
-    replication_ddl_preview: Option<String>,
-    replication_drop_publication: Option<String>,
-    replication_drop_subscription: Option<String>,
-    event_trigger_inventory: Option<db_pro_core::domain::event_trigger::EventTriggerInventory>,
-    event_trigger_error: Option<String>,
-    event_trigger_create_name: String,
-    event_trigger_create_event: String,
-    event_trigger_create_function: String,
-    event_trigger_create_tags: String,
-    event_trigger_ddl_preview: Option<String>,
-    event_trigger_drop_confirm: Option<String>,
-    security_users: Vec<db_pro_core::domain::user::DatabaseUser>,
-    security_selected_role: Option<String>,
-    security_privileges: Vec<db_pro_core::domain::user::Privilege>,
-    security_memberships: Vec<db_pro_core::domain::user::RoleMembership>,
-    security_new_role: String,
-    security_new_role_login: bool,
-    security_membership_role: String,
-    security_password: String,
-    security_grant_kind: db_pro_core::domain::user::PrivilegeObjectKind,
-    security_grant_schema: String,
-    security_grant_object: String,
-    security_grant_privilege: String,
-    security_rls_schema: String,
-    security_rls_table: String,
-    security_rls_state: Option<db_pro_core::domain::rls::TableRlsState>,
-    security_rls_policy_name: String,
-    security_rls_command: String,
-    security_rls_roles: String,
-    security_rls_using: String,
-    security_rls_with_check: String,
-    security_rls_preview_sql: String,
-    security_rls_confirm_apply: bool,
-    security_drop_confirm: Option<String>,
-    security_error: Option<String>,
+    feedback: FeedbackState,
+    table: TableEditorState,
+    overlay: OverlayState,
+    connection: ConnectionFeatureState,
+    schema_explorer: SchemaExplorerState,
+    audit: AuditState,
+    event_trigger: EventTriggerState,
+    fdw: FdwState,
+    masking: MaskingState,
+    monitoring: MonitoringState,
+    pg_settings: PgSettingsState,
+    replication: ReplicationState,
+    routine: RoutineState,
+    security: SecurityState,
+    synthetic_data: SyntheticDataState,
+    transfer: TransferState,
     schema_workbench: schema_workbench::SchemaWorkbenchState,
-    schema_snapshot: Option<schema_compare::UiSchemaSnapshot>,
-    schema_diff: Option<schema_compare::UiSchemaDiffResult>,
-    migration_plan: Option<db_pro_core::domain::migration::MigrationPlan>,
-    migration_preview_sql: String,
-    migration_confirm_destructive: bool,
-    /// EXPLAIN ANALYZE requires an explicit confirm in the Explain pane (#215).
-    pending_explain_analyze: bool,
-    explain_analyze_confirmed: bool,
-    explain_show_raw_json: bool,
-    saved_task_store: db_pro_core::domain::saved_task::SavedTaskStore,
-    saved_task_draft: Option<db_pro_core::domain::saved_task::SavedTask>,
-    saved_tasks_dirty: bool,
-    saved_task_confirm_destructive: bool,
-    pending_destructive_task_id: Option<uuid::Uuid>,
-    named_session_store: workspace_session::NamedSessionStore,
-    session_name_draft: String,
-    selected_named_session_id: Option<String>,
-    last_session_restore_notes: Vec<String>,
-    migration_fingerprint_at_preview: String,
-    data_diff_target_id: String,
-    data_diff_schema: String,
-    data_diff_table: String,
-    data_diff_keys: String,
-    data_diff_result: Option<db_pro_core::domain::cross_connection::DataDiff>,
-    data_diff_filter: String,
-    query_auto_commit: bool,
-    query_in_transaction: bool,
-    query_txn_pending: usize,
-    disconnect_txn_guard: bool,
-    /// Transaction bar is opt-in so the SQL surface stays file-editor quiet by default.
-    query_txn_bar_open: bool,
-    diagram_zoom: f32,
-    diagram_pan: egui::Vec2,
-    diagram_pan_origin: Option<egui::Vec2>,
-    diagram_search: String,
-    diagram_show_all: bool,
-    er_design: crate::diagram::design_mode::DesignModeState,
-    er_design_new_table: String,
-    er_design_new_schema: String,
-    er_design_col_name: String,
-    er_design_col_type: String,
-    er_design_fk_name: String,
-    er_design_fk_from: String,
-    er_design_fk_to: String,
-    diagram_neighborhood_depth: usize,
-    diagram_graph: ErGraph,
-    diagram_spatial_index: ErSpatialIndex,
-    diagram_schema_version: u64,
-    diagram_layout_worker: crate::diagram::ErLayoutWorker,
-    diagram_layout_state: crate::diagram::ErLayoutState,
-    diagram_latest_layout_request: u64,
-    table_info: Option<UiTableInfo>,
-    table_ddl: Option<String>,
-    table_info_error: Option<String>,
-    table_ddl_error: Option<String>,
-    ddl_execute_confirmation: bool,
-    /// A destructive statement the user must confirm before it reaches the database.
-    pending_destructive_run: Option<events::PendingDestructiveRun>,
-    ddl_execution_request: Option<crate::RequestId>,
-    refresh_table_info_after_schema: bool,
-    table_data_result: Option<UiQueryResult>,
-    table_data_total_rows: Option<u64>,
-    table_data_offset: u64,
-    table_data_limit: u64,
-    table_data_filter_column: String,
-    table_data_filter_operator: UiTableFilterOperator,
-    table_data_filter_value: String,
-    table_data_filter_editing: Option<usize>,
-    table_data_filters: Vec<UiTableDataFilter>,
-    table_data_sorts: Vec<UiTableDataSort>,
-    table_data_error: Option<String>,
-    table_structure_search: String,
-    table_metadata_search: String,
-    table_column_detail: Option<String>,
-    table_index_detail: Option<String>,
-    table_dependency_filter: String,
-    table_constraint_filter: String,
-    table_info_request: Option<crate::RequestId>,
-    table_ddl_request: Option<crate::RequestId>,
-    table_data_request: Option<crate::RequestId>,
-    table_row_reload_request: Option<crate::RequestId>,
-    table_row_reload_identity: Option<RowIdentity>,
-    table_mutation_request: Option<crate::RequestId>,
-    staged_changes: ChangeSet,
-    pending_changes_open: bool,
-    staged_apply_request: Option<crate::RequestId>,
-    staged_apply_targets: Vec<MutationTarget>,
-    table_mutation_retry_after_reload: bool,
-    table_mutation_retry_target: Option<MutationTarget>,
-    table_mutation_error: Option<MutationFailure>,
-    conflict_dialog_open: bool,
-    table_view: TableView,
-    query_folder: String,
-    backup_output_path: String,
-    restore_input_path: String,
-    restore_confirmation: bool,
-    active_connection_id: Option<String>,
-    pending_connection_id: Option<String>,
-    pending_connection_request: Option<crate::RequestId>,
-    connection_errors: std::collections::HashMap<String, String>,
-    failed_connection_ids: std::collections::HashSet<String>,
-    connections_requested: bool,
-    connections_request_pending: bool,
-    connection_dialog_open: bool,
-    connection_focus_name_on_open: bool,
-    connection_focus_group_on_tab: bool,
-    editing_connection_id: Option<String>,
-    connection_draft: UiConnectionDraft,
-    connection_show_password: bool,
-    connection_error: String,
-    connection_test_valid: bool,
-    connection_test_draft: Option<UiConnectionDraft>,
-    connection_diagnostics: Option<db_pro_core::domain::connection_diagnostics::ConnectionDiagnosticsReport>,
-    ssh_profiles: Vec<db_pro_core::domain::connection::SshProfile>,
-    delete_confirmation_id: Option<String>,
-    folder_delete_confirmation: Option<String>,
-    /// Persisted height of the Connections sub-pane inside the Explorer sidebar.
-    connections_pane_height: f32,
-    /// Persisted height of the Schemas sub-pane inside the Explorer sidebar.
-    schemas_pane_height: f32,
+    schema_compare: SchemaCompareState,
+    saved_tasks: SavedTaskState,
+    diagram: DiagramState,
     /// Counter for initial render frames to ensure window is maximized on startup.
     initial_frames_count: u8,
-    pub gallery_state: component_gallery_view::ComponentGalleryState,
-}
-
-impl eframe::App for DbProApp {
-    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-        // Match panel chrome so any sub-pixel seam between SidePanel and
-        // CentralPanel cannot flash as a white strip (surface_app).
-        self.theme.surface_panel.to_normalized_gamma_f32()
-    }
-
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        self.persist_current_grid_layout();
-        self.sync_settings_from_runtime();
-        if let Ok(settings) = serde_json::to_string(&self.settings) {
-            storage.set_string(SETTINGS_STORAGE_KEY, settings);
-        }
-        self.persist_saved_tasks(storage);
-        self.persist_workspace_sessions(storage);
-        if let Ok(raw) = serde_json::to_string(&self.ssh_profiles) {
-            storage.set_string("dbpro.native.ssh-profiles-v1", raw);
-        }
-        if let Ok(layouts) = serde_json::to_string(&self.grid_layout_preferences) {
-            storage.set_string("dbpro.native.grid-layouts", layouts);
-        }
-        if let Ok(widths) = serde_json::to_string(&self.grid_column_widths) {
-            storage.set_string("dbpro.native.grid-widths", widths);
-        }
-        storage.set_string(
-            "dbpro.native.grid-widths-customized",
-            self.grid_columns_user_resized.to_string(),
-        );
-        if let Ok(documents) = serde_json::to_string(&self.query_documents) {
-            storage.set_string("dbpro.native.query-documents", documents);
-        }
-        if let Ok(history) = serde_json::to_string(&self.query_history_entries) {
-            storage.set_string("dbpro.native.query-history-v1", history);
-        }
-        if let Ok(pinned) = serde_json::to_string(&self.pinned_tables) {
-            storage.set_string("dbpro.native.pinned-tables-v1", pinned);
-        }
-        if let Ok(recent) = serde_json::to_string(&self.recent_tables) {
-            storage.set_string("dbpro.native.recent-tables-v1", recent);
-        }
-        if let Ok(recent_ws) = serde_json::to_string(
-            &self
-                .ide_workspace
-                .recent_roots
-                .iter()
-                .map(|path| path.to_string_lossy().into_owned())
-                .collect::<Vec<_>>(),
-        ) {
-            storage.set_string("dbpro.native.workspace-recent-v1", recent_ws);
-        }
-        if let Ok(roots) = serde_json::to_string(
-            &self
-                .ide_workspace
-                .roots
-                .iter()
-                .map(|root| root.path.to_string_lossy().into_owned())
-                .collect::<Vec<_>>(),
-        ) {
-            storage.set_string("dbpro.native.workspace-roots-v1", roots);
-        }
-        storage.set_string(
-            "dbpro.native.workspace-trusted-v1",
-            self.ide_workspace.is_trusted().to_string(),
-        );
-        storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
-        storage.set_string("dbpro.native.dark-mode", self.dark_mode.to_string());
-        storage.set_string("dbpro.native.reduce-motion", self.reduce_motion.to_string());
-        if let Ok(prediction_mode) = serde_json::to_string(&self.prediction_mode) {
-            storage.set_string("dbpro.native.prediction-mode", prediction_mode);
-        }
-        storage.set_string("dbpro.native.sidebar-width", self.sidebar_width.to_string());
-        storage.set_string("dbpro.native.agent-width", self.agent_width.to_string());
-        storage.set_string("dbpro.native.output-open", self.bottom_panel_open.to_string());
-        storage.set_string("dbpro.native.output-height", self.bottom_panel_height.to_string());
-        storage.set_string(
-            "dbpro.native.connections-pane-height",
-            self.connections_pane_height.to_string(),
-        );
-        storage.set_string("dbpro.native.schemas-pane-height", self.schemas_pane_height.to_string());
-    }
-
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Map Ctrl to Command in input events so Ctrl+A/C/V/X/Z work seamlessly on macOS
-        ctx.input_mut(|i| {
-            if i.modifiers.ctrl {
-                i.modifiers.command = true;
-            }
-            for event in &mut i.events {
-                if let egui::Event::Key { modifiers, .. } = event {
-                    if modifiers.ctrl {
-                        modifiers.command = true;
-                    }
-                }
-            }
-        });
-
-        if self.initial_frames_count < 3 {
-            self.initial_frames_count += 1;
-            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
-        }
-        self.request_connections_once();
-        self.apply_runtime_events();
-        self.tick_saved_task_scheduler();
-        if self.runtime_work_pending()
-            || self
-                .saved_task_store
-                .tasks
-                .iter()
-                .any(|t| t.schedule.as_ref().is_some_and(|s| s.enabled))
-        {
-            ctx.request_repaint_after(Duration::from_millis(50));
-        }
-        self.theme = if self.dark_mode {
-            DbProTheme::dark()
-        } else {
-            DbProTheme::light()
-        };
-        self.theme.apply(ctx);
-        self.handle_shortcuts(ctx);
-        self.draw_topbar(ctx);
-        // Query owns its rich output dock; the shell panel is for other tabs.
-        if self.active_tab != WorkspaceTab::Query {
-            self.draw_output_panel(ctx);
-        }
-        self.draw_statusbar(ctx);
-        self.draw_activity_bar(ctx);
-
-        if self.sidebar_open {
-            self.draw_sidebar(ctx);
-        }
-
-        if self.agent_open {
-            self.draw_agent_panel(ctx);
-        }
-
-        egui::CentralPanel::default()
-            .frame(egui::Frame {
-                // Flush to the sidebar splitter; match `SHELL_SPLIT_INSET` / sidebar
-                // `pad_right` so the body lines up with the navigator across the divider.
-                fill: self.theme.surface_panel,
-                inner_margin: egui::Margin {
-                    left: SHELL_SPLIT_INSET,
-                    right: SHELL_SPLIT_INSET,
-                    top: 0.0,
-                    bottom: 0.0,
-                },
-                outer_margin: egui::Margin::ZERO,
-                stroke: egui::Stroke::NONE,
-                ..Default::default()
-            })
-            .show(ctx, |ui| {
-                ui.set_min_size(ui.available_size());
-                ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
-                self.draw_workspace(ui);
-            });
-
-        if self.connection_dialog_open {
-            self.draw_connection_dialog(ctx);
-        }
-        if self.delete_confirmation_id.is_some() {
-            self.draw_delete_confirmation(ctx);
-        }
-        if self.folder_delete_confirmation.is_some() {
-            self.draw_folder_delete_confirmation(ctx);
-        }
-        if self.insert_row_open {
-            self.draw_insert_row_dialog(ctx);
-        }
-        if self.palette_mode.is_some() {
-            self.draw_palette(ctx);
-        }
-
-        self.toasts.render_ctx(ctx, self.theme);
-        if !self.toasts.is_empty() {
-            ctx.request_repaint_after(Duration::from_millis(50));
-        }
-    }
+    gallery_state: component_gallery_view::ComponentGalleryState,
 }
 
 // CapabilityLookup lives in `capability_lookup.rs`.
 
 impl DbProApp {
-    // Grid layout: `grid_layout.rs`.
-
-    pub(crate) fn show_toast_error(&mut self, message: impl Into<String>) {
-        self.toasts
-            .error(message, crate::components::overlay::ToastPosition::BottomRight);
+    /// Apply a driver choice from the connection dialog.
+    pub fn select_connection_driver(&mut self, driver: UiDriver) {
+        connection::select_connection_driver(self.connection.dialog.draft_mut(), driver);
     }
 
-    pub(crate) fn show_toast_success(&mut self, message: impl Into<String>) {
-        self.toasts
-            .success(message, crate::components::overlay::ToastPosition::BottomRight);
+    /// Open connection edit dialog from a saved summary.
+    pub fn open_edit_connection(&mut self, connection: &UiConnectionSummary) {
+        connection::open_edit_connection(&mut self.connection.dialog, &mut self.connection.lifecycle, connection);
     }
 
-    // Kept as a public runtime entry point for future informational notifications.
-    #[allow(dead_code)]
-    pub(crate) fn show_toast_info(&mut self, message: impl Into<String>) {
-        self.toasts
-            .info(message, crate::components::overlay::ToastPosition::BottomRight);
+    /// Open a duplicate connection draft from a saved summary.
+    pub fn open_duplicate_connection(&mut self, connection: &UiConnectionSummary) {
+        connection::open_duplicate_connection(&mut self.connection.dialog, &mut self.connection.lifecycle, connection);
+    }
+
+    /// Save the active draft's SSH parameters as a reusable profile.
+    pub fn save_draft_as_ssh_profile(&mut self) {
+        match connection::save_draft_as_ssh_profile(&mut self.connection.dialog) {
+            Ok(id) => {
+                self.connection.dialog.draft_mut().ssh_profile_id = id;
+                self.feedback
+                    .set_runtime_message("SSH profile saved — reusable by other connections");
+            }
+            Err(err) => self.feedback.set_runtime_message(err),
+        }
+    }
+
+    /// Apply an existing SSH profile to the active draft.
+    pub fn apply_ssh_profile(&mut self, profile_id: &str) {
+        connection::apply_ssh_profile(&mut self.connection.dialog, profile_id);
+    }
+
+    /// Apply the selected cloud preset to the active draft.
+    pub fn apply_cloud_preset(&mut self) {
+        if let Err(err) = connection::apply_cloud_preset(&mut self.connection.dialog) {
+            self.connection.dialog.set_error(err);
+        }
+    }
+
+    /// Dispatch connection test or save command to the runtime worker.
+    pub fn dispatch_connection_command(&mut self, save: bool) {
+        connection::view::ConnectionDialogView {
+            dialog: &mut self.connection.dialog,
+            lifecycle: &mut self.connection.lifecycle,
+            task_bridge: &mut self.task_bridge,
+            feedback: &mut self.feedback,
+            theme: self.theme,
+        }
+        .dispatch_connection_command(save);
+    }
+
+    /// Refresh the diagnostic report for the active draft.
+    pub fn refresh_connection_diagnostics(&mut self, auth_ok: bool, auth_message: &str) {
+        connection::refresh_connection_diagnostics(&mut self.connection.dialog, auth_ok, auth_message);
+    }
+
+    pub(super) fn handle_connection_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
+        connection_events::handle_connection_request_failure(
+            &mut self.connection.lifecycle,
+            &mut self.connection.dialog,
+            &mut self.schema_explorer,
+            &mut self.feedback,
+            request_id,
+            message,
+        )
+    }
+
+    pub(super) fn on_connections_loaded(&mut self, connections: Vec<UiConnectionSummary>) {
+        let active = connection_events::on_connections_loaded(
+            &mut self.connection.lifecycle,
+            &mut self.connection.catalog,
+            &mut self.feedback,
+            connections,
+        );
+        if let Some(active) = active {
+            self.connect_to_connection(&active);
+        }
+    }
+
+    pub(super) fn on_connected(&mut self, request_id: RequestId, connection_id: String) {
+        let Some(connection_id) = connection_events::on_connected(
+            &mut self.connection.lifecycle,
+            &mut self.feedback,
+            request_id,
+            connection_id,
+        ) else {
+            return;
+        };
+        self.request_schema_introspection(connection_id.clone(), false);
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(
+            self.query
+                .library
+                .list_queries_command(request_id, connection_id.clone()),
+        );
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(self.query.library.list_folders_command(request_id, connection_id));
+    }
+
+    // Connection read models and shell status are implemented as explicit pure helpers
+    // in `connection_status.rs`; these root methods preserve the app's internal API while
+    // keeping that feature module independent from the composition root.
+    pub(super) fn active_connection(&self) -> Option<&UiConnectionSummary> {
+        connection_status::active_connection(&self.connection.catalog, &self.connection.lifecycle)
+    }
+
+    pub(super) fn active_connection_name(&self) -> &str {
+        connection_status::active_connection_name(&self.connection.catalog, &self.connection.lifecycle)
+    }
+
+    pub(super) fn active_driver(&self) -> &str {
+        connection_status::active_driver(&self.connection.catalog, &self.connection.lifecycle)
+    }
+
+    pub(crate) fn active_capabilities(&self) -> CapabilityLookup {
+        connection_status::active_capabilities(&self.connection.catalog, &self.connection.lifecycle)
+    }
+
+    pub(super) fn active_schema(&self) -> &str {
+        connection_status::active_schema(
+            &self.schema_explorer,
+            &self.connection.catalog,
+            &self.connection.lifecycle,
+        )
+    }
+
+    pub(super) fn active_schema_table_names(&self) -> Vec<String> {
+        connection_status::active_schema_table_names(
+            &self.schema_explorer,
+            &self.connection.catalog,
+            &self.connection.lifecycle,
+        )
+    }
+
+    pub(super) fn schema_table_names(&self, schema: &str) -> Vec<String> {
+        connection_status::schema_table_names(&self.schema_explorer, schema)
+    }
+
+    pub(super) fn schema_table_count(&self, schema: &str) -> usize {
+        connection_status::schema_table_count(&self.schema_explorer, schema)
+    }
+
+    pub(super) fn schema_matching_table_count(&self, schema: &str, query: &str) -> usize {
+        connection_status::schema_matching_table_count(&self.schema_explorer, schema, query)
+    }
+
+    pub(super) fn active_schema_column_names(&self) -> Vec<String> {
+        connection_status::active_schema_column_names(
+            &self.schema_explorer,
+            &self.connection.catalog,
+            &self.connection.lifecycle,
+        )
+    }
+
+    pub(super) fn has_runtime_error(&self) -> bool {
+        connection_status::has_runtime_error(&self.feedback)
+    }
+
+    pub(super) fn runtime_status(&self) -> Option<(String, egui::Color32)> {
+        connection_status::runtime_status(&self.feedback, self.theme)
+    }
+
+    pub(super) fn statusbar_state(&self) -> (Icon, egui::Color32, &'static str) {
+        connection_status::statusbar_state(&self.connection.lifecycle, &self.feedback, self.theme)
+    }
+
+    pub(super) fn shows_editor_status(&self) -> bool {
+        connection_status::shows_editor_status()
+    }
+
+    pub(super) fn statusbar_context_label(&self) -> &'static str {
+        connection_status::statusbar_context_label(&self.workspace, &self.table.state)
+    }
+
+    pub(super) fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, egui::Color32) {
+        connection_status::connection_indicator(&self.connection.lifecycle, connection, self.theme)
     }
 
     pub(super) fn primary_modifier_pressed(input: &egui::InputState) -> bool {
@@ -817,15 +602,24 @@ impl DbProApp {
         }
     }
 
-    /// Queues a command for the runtime worker, ignoring transport failures.
+    /// Queues a command and exposes a closed runtime boundary to the user.
+    pub(crate) fn dispatch_command(&mut self, command: UiCommand) -> bool {
+        if self.send_command_best_effort(command) {
+            return true;
+        }
+        let message = "Runtime worker unavailable";
+        self.feedback.runtime_message = message.to_owned();
+        self.feedback.show_error_toast(message);
+        false
+    }
+
+    /// Sends a cancellation/background command without borrowing the whole app.
     ///
-    /// The UI is fire-and-forget: a send only fails once the worker channel is
-    /// closed (shutdown), and a frame that already drew its widgets has nothing
-    /// actionable to do about it. Runtime-side problems are reported back
-    /// through `UiEvent`, not through this return value.
-    fn dispatch_command(&mut self, command: UiCommand) {
-        // Intentionally ignored — see the method contract above.
-        let _ = self.task_bridge.send(command);
+    /// These calls are intentionally best-effort because their authoritative
+    /// guards are request IDs and document versions; a closed worker cannot
+    /// execute the cancellation, but it also cannot mutate UI state anymore.
+    pub(crate) fn send_command_best_effort(&self, command: UiCommand) -> bool {
+        self.task_bridge.send_best_effort(command)
     }
 
     // Connection/status: `connection_status.rs`.
@@ -836,54 +630,92 @@ impl DbProApp {
     // Close workspace tab: `workspace_actions.rs`.
 
     pub(crate) fn set_agent_open(&mut self, open: bool, ctx: &egui::Context) {
-        if open == self.agent_open {
+        if open == self.workspace.agent_open {
             return;
         }
-        self.agent_open = open;
+        self.workspace.agent_open = open;
         if open {
-            self.sidebar_open_before_agent = Some(self.sidebar_open);
+            self.workspace.sidebar_open_before_agent = Some(self.workspace.sidebar_open);
             if ctx.screen_rect().width() < AGENT_SIDEBAR_COLLAPSE_WIDTH {
-                self.sidebar_open = false;
+                self.workspace.sidebar_open = false;
             }
-        } else if let Some(sidebar_open) = self.sidebar_open_before_agent.take() {
-            self.sidebar_open = sidebar_open;
+        } else if let Some(sidebar_open) = self.workspace.sidebar_open_before_agent.take() {
+            self.workspace.sidebar_open = sidebar_open;
         }
     }
 
+    fn workspace_session_context(&mut self) -> workspace_session::WorkspaceSessionContext<'_> {
+        workspace_session::WorkspaceSessionContext {
+            workspace: &mut self.workspace,
+            connection: &mut self.connection,
+            schema_explorer: &mut self.schema_explorer,
+            query_session_state: &mut self.query.session,
+            feedback: &mut self.feedback,
+            preferences: &self.preferences,
+        }
+    }
+
+    pub(crate) fn save_named_workspace_session(&mut self) {
+        self.workspace_session_context().save_named();
+    }
+
+    pub(crate) fn restore_named_workspace_session(&mut self, id: &str) {
+        self.workspace_session_context().restore_named(id);
+    }
+
+    pub(crate) fn duplicate_named_workspace_session(&mut self, id: &str) {
+        self.workspace_session_context().duplicate_named(id);
+    }
+
+    pub(crate) fn persist_workspace_sessions(&mut self, storage: &mut dyn eframe::Storage) {
+        self.workspace_session_context().persist(storage);
+    }
+
+    pub(crate) fn load_named_sessions_from_storage(&mut self, storage: &dyn eframe::Storage) {
+        self.workspace_session_context().load_named_sessions(storage);
+    }
+
+    pub(crate) fn restore_last_workspace_session_from_storage(&mut self, storage: &dyn eframe::Storage) {
+        self.workspace_session_context().restore_last(storage);
+    }
+
     pub(crate) fn open_agent_prompt(&mut self, prompt: impl Into<String>, ctx: &egui::Context) {
-        self.agent_input = prompt.into();
+        self.agent.input = prompt.into();
         self.set_agent_open(true, ctx);
     }
 
     fn request_connections_once(&mut self) {
-        if self.connections_requested {
+        if self.connection.lifecycle.connections_requested() {
             return;
         }
-        self.connections_requested = true;
-        self.connections_request_pending = true;
+        self.connection.lifecycle.mark_connections_requested();
+        self.connection.lifecycle.set_connections_request_pending(true);
         let request_id = self.task_bridge.next_request_id();
         self.dispatch_command(UiCommand::ListConnections { request_id });
     }
 
     fn runtime_work_pending(&self) -> bool {
-        self.connections_request_pending
-            || self.pending_connection_request.is_some()
-            || self.schema_request.is_some()
+        self.connection.lifecycle.connections_request_pending()
+            || self.connection.lifecycle.pending_request().is_some()
+            || self.schema_explorer.schema_request.is_some()
             || self
-                .query_documents
+                .query
+                .session
+                .documents
                 .iter()
                 .any(|d| d.pending_prediction_request.is_some() || d.prediction_debounce_deadline.is_some())
-            || self.query_documents.iter().any(|d| d.explain_request.is_some())
+            || self.query.session.documents.iter().any(|d| d.explain_request.is_some())
             || self
-                .agent_sessions
+                .agent
+                .sessions
                 .values()
                 .any(|session| session.request_id.is_some() || session.active_run_id.is_some())
-            || self.table_info_request.is_some()
-            || self.table_ddl_request.is_some()
-            || self.table_data_request.is_some()
-            || self.table_mutation_request.is_some()
-            || self.staged_apply_request.is_some()
-            || self.ddl_execution_request.is_some()
+            || self.table.state.table_info_request.is_some()
+            || self.table.state.table_ddl_request.is_some()
+            || self.table.data_query.request.is_some()
+            || self.table.mutation.table_mutation_request.is_some()
+            || self.table.mutation.staged_apply_request.is_some()
+            || self.table.state.ddl_execution_request.is_some()
     }
 
     fn request_schema_introspection(&mut self, connection_id: String, force_refresh: bool) {
@@ -893,9 +725,9 @@ impl DbProApp {
             connection_id,
             force_refresh,
         });
-        self.schema_request = Some(request_id);
-        self.schema_error = None;
-        self.runtime_message = if force_refresh {
+        self.schema_explorer.schema_request = Some(request_id);
+        self.schema_explorer.schema_error = None;
+        self.feedback.runtime_message = if force_refresh {
             "Refreshing schema…"
         } else {
             "Loading schema…"

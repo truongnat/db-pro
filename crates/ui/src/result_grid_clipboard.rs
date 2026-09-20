@@ -3,8 +3,8 @@ use super::*;
 
 impl DbProApp {
     pub(super) fn copy_selected_cell(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let Some((row_index, column_index)) = self.selected_cell else {
-            self.copy_status = "Select a cell first".to_owned();
+        let Some((row_index, column_index)) = self.table.data.selected_cell else {
+            self.feedback.copy_status = "Select a cell first".to_owned();
             return;
         };
         self.copy_cell_at(ui, result, row_index, column_index);
@@ -18,11 +18,11 @@ impl DbProApp {
         column_index: usize,
     ) {
         let Some(cell) = self.copy_cell_value(result, row_index, column_index) else {
-            self.copy_status = "Selected cell is no longer available".to_owned();
+            self.feedback.copy_status = "Selected cell is no longer available".to_owned();
             return;
         };
         ui.output_mut(|output| output.copied_text = crate::cell_text(&cell));
-        self.copy_status = "Cell copied".to_owned();
+        self.feedback.copy_status = "Cell copied".to_owned();
     }
 
     /// One row as a delimited line, with each cell escaped so an embedded tab,
@@ -39,23 +39,23 @@ impl DbProApp {
     }
 
     pub(super) fn copy_selected_row(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let Some(row_index) = self.selected_row else {
-            self.copy_status = "Select a row first".to_owned();
+        let Some(row_index) = self.table.data.selected_row else {
+            self.feedback.copy_status = "Select a row first".to_owned();
             return;
         };
         let Some(row) = result.rows.get(row_index) else {
-            self.copy_status = "Selected row is no longer available".to_owned();
+            self.feedback.copy_status = "Selected row is no longer available".to_owned();
             return;
         };
         let row_text = self.copied_row_text(result, row_index, row);
         ui.output_mut(|output| output.copied_text = row_text);
-        self.copy_status = "Row copied".to_owned();
+        self.feedback.copy_status = "Row copied".to_owned();
     }
 
     pub(super) fn copy_selected_rows(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let row_indexes = self.selected_row_indexes();
+        let row_indexes = self.table.data.selected_row_indexes();
         if row_indexes.is_empty() {
-            self.copy_status = "Select one or more rows first".to_owned();
+            self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;
         }
 
@@ -65,21 +65,13 @@ impl DbProApp {
             .map(|(row_index, row)| self.copied_row_text(result, row_index, row))
             .collect::<Vec<_>>();
         ui.output_mut(|output| output.copied_text = rows.join("\n"));
-        self.copy_status = format!("{} rows copied", rows.len());
-    }
-
-    pub(super) fn selected_row_indexes(&self) -> Vec<usize> {
-        if self.selected_rows.is_empty() {
-            self.selected_row.into_iter().collect()
-        } else {
-            self.selected_rows.iter().copied().collect()
-        }
+        self.feedback.copy_status = format!("{} rows copied", rows.len());
     }
 
     pub(super) fn copy_selected_rows_with_headers(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let row_indexes = self.selected_row_indexes();
+        let row_indexes = self.table.data.selected_row_indexes();
         if row_indexes.is_empty() {
-            self.copy_status = "Select one or more rows first".to_owned();
+            self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;
         }
         let header = result
@@ -97,30 +89,31 @@ impl DbProApp {
         lines.push(header);
         lines.extend(rows);
         ui.output_mut(|output| output.copied_text = lines.join("\n"));
-        self.copy_status = format!("{} rows copied with headers", row_indexes.len());
+        self.feedback.copy_status = format!("{} rows copied with headers", row_indexes.len());
     }
 
     pub(super) fn copy_selected_rows_as_json(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let indexes = self.selected_row_indexes();
+        let indexes = self.table.data.selected_row_indexes();
         self.copy_all_as_json(ui, result, &indexes);
     }
 
     pub(super) fn copy_selected_rows_as_insert(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let indexes = self.selected_row_indexes();
+        let indexes = self.table.data.selected_row_indexes();
         if indexes.is_empty() {
-            self.copy_status = "Select one or more rows first".to_owned();
+            self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;
         }
-        let table = self.selected_table.as_deref().unwrap_or("table_name");
-        let target = if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
-            format!(
-                "{}.{}",
-                Self::quote_sql_identifier(self.active_schema()),
+        let table = self.schema_explorer.selected_table.as_deref().unwrap_or("table_name");
+        let target =
+            if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
+                format!(
+                    "{}.{}",
+                    Self::quote_sql_identifier(self.active_schema()),
+                    Self::quote_sql_identifier(table)
+                )
+            } else {
                 Self::quote_sql_identifier(table)
-            )
-        } else {
-            Self::quote_sql_identifier(table)
-        };
+            };
         let columns = result
             .columns
             .iter()
@@ -144,7 +137,7 @@ impl DbProApp {
             })
             .collect::<Vec<_>>();
         ui.output_mut(|output| output.copied_text = statements.join("\n"));
-        self.copy_status = format!("{} INSERT statements copied", statements.len());
+        self.feedback.copy_status = format!("{} INSERT statements copied", statements.len());
     }
 
     pub(super) fn quote_sql_identifier(identifier: &str) -> String {
@@ -175,7 +168,7 @@ impl DbProApp {
         }
         let json_text = serde_json::to_string_pretty(&serde_json::Value::Object(map)).unwrap_or_default();
         ui.output_mut(|output| output.copied_text = json_text);
-        self.copy_status = "Row copied as JSON".to_owned();
+        self.feedback.copy_status = "Row copied as JSON".to_owned();
     }
 
     pub(crate) fn copy_row_as_csv(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, row_index: usize) {
@@ -205,7 +198,7 @@ impl DbProApp {
             .join(",");
         let csv_text = format!("{header}\n{row_values}");
         ui.output_mut(|output| output.copied_text = csv_text);
-        self.copy_status = "Row copied as CSV".to_owned();
+        self.feedback.copy_status = "Row copied as CSV".to_owned();
     }
 
     pub(crate) fn copy_all_as_csv(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, indexes: &[usize]) {
@@ -237,7 +230,7 @@ impl DbProApp {
             }
         }
         ui.output_mut(|output| output.copied_text = lines.join("\n"));
-        self.copy_status = format!("{} rows copied as CSV", indexes.len());
+        self.feedback.copy_status = format!("{} rows copied as CSV", indexes.len());
     }
 
     pub(crate) fn copy_all_as_json(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, indexes: &[usize]) {
@@ -256,7 +249,7 @@ impl DbProApp {
         }
         let json_text = serde_json::to_string_pretty(&serde_json::Value::Array(rows_arr)).unwrap_or_default();
         ui.output_mut(|output| output.copied_text = json_text);
-        self.copy_status = format!("{} rows copied as JSON", indexes.len());
+        self.feedback.copy_status = format!("{} rows copied as JSON", indexes.len());
     }
 
     /// Quote a value so that the delimiter, quotes and line breaks inside it cannot
@@ -426,7 +419,7 @@ impl DbProApp {
         column_index: usize,
     ) -> Option<crate::UiCell> {
         let cell = result.rows.get(row_index).and_then(|row| row.get(column_index))?;
-        if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+        if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
             Some(
                 self.staged_cell_value(result, row_index, column_index)
                     .unwrap_or_else(|| cell.clone()),

@@ -7,7 +7,10 @@ use crate::components::animation::{fade_alpha, overlay_t, small_translate};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::DbProTheme;
 
-use super::config::{DIALOG_RADIUS, DIALOG_TRANSLATE_PX, DIALOG_WIDTH};
+use super::config::{
+    DIALOG_CHROME_HEIGHT, DIALOG_HORIZONTAL_MARGIN, DIALOG_RADIUS, DIALOG_TRANSLATE_PX, DIALOG_VERTICAL_MARGIN,
+    DIALOG_WIDTH,
+};
 use super::frame::DialogFrame;
 use super::layout::{overlay_widget_id, paint_dim, screen_rect_fallback, OverlayPaint};
 
@@ -92,8 +95,14 @@ impl<'a> Dialog<'a> {
         let open = self.open;
 
         let prev_height = ctx.data(|d| d.get_temp::<f32>(id.with("prev_height")));
-        let layout =
-            crate::components::common_utils::calculate_dialog_layout(screen, self.width, prev_height, 16.0, 24.0);
+        let layout = crate::components::common_utils::calculate_dialog_layout(
+            screen,
+            self.width,
+            prev_height,
+            DIALOG_HORIZONTAL_MARGIN,
+            DIALOG_VERTICAL_MARGIN,
+            DIALOG_CHROME_HEIGHT,
+        );
 
         let translate = small_translate(progress, DIALOG_TRANSLATE_PX);
         let origin = Pos2::new(layout.target_pos.x, layout.target_pos.y + translate);
@@ -140,7 +149,7 @@ impl<'a> Dialog<'a> {
                         title: title.as_ref(),
                         description: description.as_deref(),
                         width: layout.width,
-                        max_content_height: layout.max_content_height,
+                        max_body_height: layout.max_body_height,
                         theme,
                     },
                     card_ui,
@@ -179,7 +188,7 @@ struct DialogCardPaint<'a> {
     title: &'a str,
     description: Option<&'a str>,
     width: f32,
-    max_content_height: f32,
+    max_body_height: f32,
     theme: DbProTheme,
 }
 
@@ -193,7 +202,7 @@ fn paint_dialog_card<R>(
         title,
         description,
         width,
-        max_content_height,
+        max_body_height,
         theme,
     } = card;
     Frame {
@@ -209,8 +218,34 @@ fn paint_dialog_card<R>(
         ui.set_width(inner_w);
         ui.set_max_width(inner_w);
 
-        // Header: Title & Description on left, Close button on top right
-        ui.horizontal(|ui| {
+        draw_dialog_header(ui, title, description, open, theme, inner_w);
+
+        ui.add_space(12.0);
+        ui.separator();
+        ui.add_space(12.0);
+
+        let mut frame = DialogFrame {
+            ui,
+            max_body_height,
+            inner_width: inner_w,
+        };
+        add_frame(&mut frame)
+    })
+    .inner
+}
+
+fn draw_dialog_header(
+    ui: &mut Ui,
+    title: &str,
+    description: Option<&str>,
+    open: &mut bool,
+    theme: DbProTheme,
+    width: f32,
+) {
+    ui.allocate_ui_with_layout(
+        egui::vec2(width, ui.spacing().interact_size.y.max(40.0)),
+        egui::Layout::left_to_right(egui::Align::TOP),
+        |ui| {
             ui.vertical(|ui| {
                 ui.add(
                     egui::Label::new(
@@ -230,25 +265,14 @@ fn paint_dialog_card<R>(
                     );
                 }
             });
+
             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                 if close_icon_button(ui, theme).clicked() {
                     *open = false;
                 }
             });
-        });
-
-        ui.add_space(12.0);
-        ui.separator();
-        ui.add_space(12.0);
-
-        let mut frame = DialogFrame {
-            ui,
-            max_content_height: (max_content_height - 64.0).max(80.0),
-            inner_width: inner_w,
-        };
-        add_frame(&mut frame)
-    })
-    .inner
+        },
+    );
 }
 
 pub fn close_icon_button(ui: &mut Ui, theme: DbProTheme) -> Response {

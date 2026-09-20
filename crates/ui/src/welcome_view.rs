@@ -50,7 +50,7 @@ impl DbProApp {
                     self.draw_welcome_connections(ui, &mut intent);
                 }
 
-                if !self.welcome_prompt.trim().is_empty() {
+                if !self.welcome.prompt.trim().is_empty() {
                     ui.add_space(SPACE_XL);
                     self.draw_welcome_draft(ui, &mut intent);
                 }
@@ -62,23 +62,24 @@ impl DbProApp {
 
     fn apply_welcome_intent(&mut self, intent: WelcomeIntent) {
         if intent.new_connection {
-            self.open_new_connection();
+            self.connection.open_new();
         }
         if intent.new_query {
             self.new_query_document();
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
         if intent.open_draft_query {
-            let draft = self.welcome_prompt.trim().to_owned();
+            let draft = self.welcome.prompt.trim().to_owned();
             self.set_active_query_text(draft);
-            self.active_tab = WorkspaceTab::Query;
-            self.runtime_message = "Opened draft in Query".to_owned();
+            self.workspace.active_tab = WorkspaceTab::Query;
+            self.feedback.runtime_message = "Opened draft in Query".to_owned();
         }
         if intent.open_palette {
-            self.open_palette(PaletteMode::Commands);
+            self.palette.open(PaletteMode::Commands);
         }
         if let Some(id) = intent.connect_id {
-            if let Some(connection) = self.connections.iter().find(|c| c.id == id).cloned() {
+            let connection = self.connection.catalog.find(&id).cloned();
+            if let Some(connection) = connection {
                 self.connect_to_connection(&connection);
             }
         }
@@ -96,7 +97,7 @@ impl DbProApp {
                 ui.add_space(SPACE_XS);
                 let subtitle = if let Some(active) = self.active_connection() {
                     format!("Connected · {}", active.name)
-                } else if self.connections.is_empty() {
+                } else if self.connection.catalog.is_empty() {
                     "A focused database workspace. Connect to begin.".to_owned()
                 } else {
                     "Resume a connection, or start something new.".to_owned()
@@ -287,7 +288,7 @@ impl DbProApp {
             ..Default::default()
         }
         .show(ui, |ui| {
-            if self.connections.is_empty() {
+            if self.connection.catalog.is_empty() {
                 ui.add_space(SPACE_MD);
                 ui.vertical_centered(|ui| {
                     ui.label(
@@ -324,8 +325,14 @@ impl DbProApp {
                 return;
             }
 
-            let active_id = self.active_connection_id.clone();
-            let rows: Vec<_> = self.connections.iter().take(CONNECTION_ROW_LIMIT).cloned().collect();
+            let active_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+            let rows: Vec<_> = self
+                .connection
+                .catalog
+                .iter()
+                .take(CONNECTION_ROW_LIMIT)
+                .cloned()
+                .collect();
 
             for connection in &rows {
                 let is_active = active_id.as_deref() == Some(connection.id.as_str());
@@ -405,7 +412,7 @@ impl DbProApp {
     }
 
     fn draw_welcome_draft(&self, ui: &mut egui::Ui, intent: &mut WelcomeIntent) {
-        let preview = self.welcome_prompt.trim();
+        let preview = self.welcome.prompt.trim();
         let preview = if preview.chars().count() > 72 {
             format!("{}…", preview.chars().take(72).collect::<String>())
         } else {

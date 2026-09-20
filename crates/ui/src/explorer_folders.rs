@@ -22,7 +22,7 @@ impl DbProApp {
                 empty_label: Some("No views in schema"),
             },
             |ui| {
-                let views = self.filter_by_schema(&self.schema.views, schema, |v| &v.schema);
+                let views = self.filter_by_schema(&self.schema_explorer.schema.views, schema, |v| &v.schema);
                 for view in &views {
                     self.draw_view_row(ui, view, &theme);
                 }
@@ -47,7 +47,7 @@ impl DbProApp {
                 empty_label: Some("No functions in schema"),
             },
             |ui| {
-                let functions = self.filter_by_schema(&self.schema.functions, schema, |f| &f.schema);
+                let functions = self.filter_by_schema(&self.schema_explorer.schema.functions, schema, |f| &f.schema);
                 for function in &functions {
                     self.draw_function_row(ui, function, &theme);
                 }
@@ -72,7 +72,7 @@ impl DbProApp {
                 empty_label: Some("No triggers in schema"),
             },
             |ui| {
-                let triggers = self.filter_by_schema(&self.schema.triggers, schema, |t| &t.schema);
+                let triggers = self.filter_by_schema(&self.schema_explorer.schema.triggers, schema, |t| &t.schema);
                 for trigger in &triggers {
                     self.draw_trigger_row(ui, trigger, &theme);
                 }
@@ -83,7 +83,7 @@ impl DbProApp {
     /// One view row: selection state, "Open in Query" menu and activation.
     fn draw_view_row(&mut self, ui: &mut egui::Ui, view: &UiViewSummary, theme: &DbProTheme) {
         let is_selected = matches!(
-            self.selected_schema_object.as_ref(),
+            self.schema_explorer.selected_schema_object.as_ref(),
             Some(SchemaObjectSelection::View(s)) if s == &view.name
         );
 
@@ -150,7 +150,7 @@ impl DbProApp {
         }
         if copy_name {
             ui.output_mut(|o| o.copied_text = view.name.clone());
-            self.runtime_message = format!("Copied `{}` to clipboard", view.name);
+            self.feedback.runtime_message = format!("Copied `{}` to clipboard", view.name);
         }
         if open_query {
             let from = if view.schema.is_empty() {
@@ -159,14 +159,14 @@ impl DbProApp {
                 format!("{}.{}", view.schema, view.name)
             };
             self.set_active_query_text(format!("SELECT *\nFROM {from}\nLIMIT 100;"));
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
     }
 
     /// One function row: routines and procedures share a row, differing by icon.
     fn draw_function_row(&mut self, ui: &mut egui::Ui, function: &UiFunctionSummary, theme: &DbProTheme) {
         let is_selected = matches!(
-            self.selected_schema_object.as_ref(),
+            self.schema_explorer.selected_schema_object.as_ref(),
             Some(SchemaObjectSelection::Function {
                 name,
                 identity_arguments
@@ -252,18 +252,18 @@ impl DbProApp {
         }
         if copy_name {
             ui.output_mut(|o| o.copied_text = function.name.clone());
-            self.runtime_message = format!("Copied `{}` to clipboard", function.name);
+            self.feedback.runtime_message = format!("Copied `{}` to clipboard", function.name);
         }
         if open_query {
             self.set_active_query_text(format!("SELECT * FROM {}.{}();", function.schema, function.name));
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
     }
 
     /// One trigger row. Triggers carry no schema, so the message omits it.
     fn draw_trigger_row(&mut self, ui: &mut egui::Ui, trigger: &UiTriggerSummary, theme: &DbProTheme) {
         let is_selected = matches!(
-            self.selected_schema_object.as_ref(),
+            self.schema_explorer.selected_schema_object.as_ref(),
             Some(SchemaObjectSelection::Trigger(s)) if s == &trigger.name
         );
         let label = format!("{} · {}", trigger.name, trigger.event);
@@ -331,7 +331,7 @@ impl DbProApp {
         }
         if copy_name {
             ui.output_mut(|o| o.copied_text = trigger.name.clone());
-            self.runtime_message = format!("Copied `{}` to clipboard", trigger.name);
+            self.feedback.runtime_message = format!("Copied `{}` to clipboard", trigger.name);
         }
     }
 
@@ -344,21 +344,22 @@ impl DbProApp {
         name: &str,
         kind: &str,
     ) {
-        self.selected_schema_object = Some(selection.clone());
-        self.schema_object_view = SchemaObjectView::Definition;
-        self.selected_table = None;
-        self.table_info = None;
-        self.table_ddl = None;
-        self.table_view = TableView::Ddl;
-        self.active_tab = WorkspaceTab::SchemaObject;
-        self.routine_drop_confirm = false;
-        self.routine_ddl_preview = None;
+        self.schema_explorer.selected_schema_object = Some(selection.clone());
+        self.schema_explorer.schema_object_view = SchemaObjectView::Definition;
+        self.schema_explorer.selected_table = None;
+        self.table.state.table_info = None;
+        self.table.state.table_ddl = None;
+        self.table.state.table_view = TableView::Ddl;
+        self.workspace.active_tab = WorkspaceTab::SchemaObject;
+        self.routine.routine_drop_confirm = false;
+        self.routine.routine_ddl_preview = None;
         if let SchemaObjectSelection::Function {
             name: fn_name,
             identity_arguments,
         } = &selection
         {
             if let Some(function) = self
+                .schema_explorer
                 .schema
                 .functions
                 .iter()
@@ -368,7 +369,7 @@ impl DbProApp {
                 self.sync_routine_workbench_from(&function);
             }
         }
-        self.runtime_message = if schema.is_empty() {
+        self.feedback.runtime_message = if schema.is_empty() {
             format!("Opened {kind} {name}")
         } else {
             format!("Opened {kind} {schema}.{name}")

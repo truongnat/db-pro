@@ -48,28 +48,35 @@ impl DbProApp {
     }
 
     fn search_fingerprint(&self) -> String {
-        let workspace_files = self.ide_workspace.index().into_iter().filter(|e| e.is_sql).count();
+        let workspace_files = self
+            .workspace
+            .files
+            .ide_workspace
+            .index()
+            .into_iter()
+            .filter(|e| e.is_sql)
+            .count();
         SearchService::build_fingerprint(SearchFingerprintParts {
-            connection_id: self.active_connection_id.as_deref(),
+            connection_id: self.connection.lifecycle.active_connection_id(),
             schema: self.active_schema(),
-            tables: self.schema.tables.len(),
-            views: self.schema.views.len(),
-            functions: self.schema.functions.len(),
+            tables: self.schema_explorer.schema.tables.len(),
+            views: self.schema_explorer.schema.views.len(),
+            functions: self.schema_explorer.schema.functions.len(),
             columns: self.active_schema_column_names().len(),
-            saved_queries: self.saved_queries.len(),
-            history: self.query_history_entries.len(),
-            connections: self.connections.len(),
+            saved_queries: self.query.library.saved_queries.len(),
+            history: self.query.editor.query_history_entries.len(),
+            connections: self.connection.catalog.len(),
             workspace_files,
         })
     }
 
     fn ensure_search_index(&mut self, mode: PaletteMode) {
         let fingerprint = format!("{}|{:?}", self.search_fingerprint(), mode);
-        if self.search_index.fingerprint() == fingerprint && !self.search_index.is_empty() {
+        if self.palette.search_index.fingerprint() == fingerprint && !self.palette.search_index.is_empty() {
             return;
         }
         let entries = self.palette_entries(mode);
-        self.search_index.replace(fingerprint, entries);
+        self.palette.search_index.replace(fingerprint, entries);
     }
 
     fn quick_open_items() -> Vec<PaletteItem> {
@@ -300,7 +307,8 @@ impl DbProApp {
 
     fn schema_view_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         let schema = self.active_schema().to_owned();
-        self.schema
+        self.schema_explorer
+            .schema
             .views
             .iter()
             .filter(|view| view.schema == schema)
@@ -322,7 +330,8 @@ impl DbProApp {
 
     fn schema_function_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         let schema = self.active_schema().to_owned();
-        self.schema
+        self.schema_explorer
+            .schema
             .functions
             .iter()
             .filter(|function| function.schema == schema)
@@ -350,7 +359,8 @@ impl DbProApp {
     }
 
     fn pinned_table_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.pinned_tables
+        self.schema_explorer
+            .pinned_tables
             .iter()
             .cloned()
             .map(|table| {
@@ -369,7 +379,8 @@ impl DbProApp {
     }
 
     fn recent_table_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.recent_tables
+        self.schema_explorer
+            .recent_tables
             .iter()
             .cloned()
             .map(|table| {
@@ -388,7 +399,9 @@ impl DbProApp {
     }
 
     fn workspace_file_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.ide_workspace
+        self.workspace
+            .files
+            .ide_workspace
             .index()
             .into_iter()
             .filter(|entry| entry.is_sql)
@@ -409,7 +422,8 @@ impl DbProApp {
     }
 
     fn connection_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.connections
+        self.connection
+            .catalog
             .iter()
             .cloned()
             .map(|connection| {
@@ -428,7 +442,9 @@ impl DbProApp {
     }
 
     fn saved_query_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.saved_queries
+        self.query
+            .library
+            .saved_queries
             .iter()
             .take(40)
             .map(|query| {
@@ -472,7 +488,9 @@ impl DbProApp {
     }
 
     fn query_history_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.query_history_entries
+        self.query
+            .editor
+            .query_history_entries
             .iter()
             .take(30)
             .enumerate()
@@ -549,13 +567,14 @@ impl DbProApp {
     }
 
     pub(crate) fn filtered_palette_items(&self, mode: PaletteMode) -> Vec<PaletteItem> {
-        let entries = if self.search_index.fingerprint().contains(&format!("{mode:?}")) && !self.search_index.is_empty()
+        let entries = if self.palette.search_index.fingerprint().contains(&format!("{mode:?}"))
+            && !self.palette.search_index.is_empty()
         {
-            self.search_index.entries().to_vec()
+            self.palette.search_index.entries().to_vec()
         } else {
             self.palette_entries(mode)
         };
-        SearchService::filter_rank(&entries, &self.palette_query, self.palette_scope, 120)
+        SearchService::filter_rank(&entries, &self.palette.query, self.palette.scope, 120)
     }
 
     /// Rebuild + rank for mutable callers (palette draw path).
@@ -565,65 +584,65 @@ impl DbProApp {
     }
 
     pub(crate) fn execute_palette_action(&mut self, action: PaletteAction, _ctx: &egui::Context) {
-        self.palette_mode = None;
+        self.palette.mode = None;
         match action {
             PaletteAction::Welcome => self.activate_welcome_tab(),
             PaletteAction::Query => {
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
             }
             PaletteAction::History => {
-                self.activity = Activity::History;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::History;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Data => {
-                self.activity = Activity::Data;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Data;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Files => {
-                self.activity = Activity::Files;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Files;
+                self.workspace.sidebar_open = true;
             }
-            PaletteAction::Diagram => self.active_tab = WorkspaceTab::Diagram,
+            PaletteAction::Diagram => self.workspace.active_tab = WorkspaceTab::Diagram,
             PaletteAction::SchemaWorkbench => self.open_schema_workbench(),
             PaletteAction::SchemaCompare => {
-                self.activity = Activity::Compare;
-                self.active_tab = WorkspaceTab::SchemaCompare;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Compare;
+                self.workspace.active_tab = WorkspaceTab::SchemaCompare;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Transfers => {
-                self.activity = Activity::Transfers;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Transfers;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Monitor => {
-                self.activity = Activity::Monitor;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Monitor;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Settings => {
-                self.activity = Activity::Settings;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Settings;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Agent => {
-                self.agent_open = true;
+                self.workspace.agent_open = true;
             }
             PaletteAction::Problems => {
-                self.activity = Activity::Problems;
-                self.sidebar_open = true;
+                self.workspace.activity = Activity::Problems;
+                self.workspace.sidebar_open = true;
             }
             PaletteAction::Diagnostics => {
-                self.activity = Activity::Settings;
-                self.sidebar_open = true;
-                self.runtime_message = "Opened Settings → Diagnostics".to_owned();
+                self.workspace.activity = Activity::Settings;
+                self.workspace.sidebar_open = true;
+                self.feedback.runtime_message = "Opened Settings → Diagnostics".to_owned();
             }
             PaletteAction::NewQuery => {
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
                 self.new_query_document();
-                self.runtime_message = "New query ready".to_owned();
+                self.feedback.runtime_message = "New query ready".to_owned();
             }
             PaletteAction::NewConnection => {
-                self.open_new_connection();
+                self.connection.open_new();
             }
             PaletteAction::RefreshSchema => self.refresh_schema_palette(),
-            PaletteAction::ToggleExplorer => self.sidebar_open = !self.sidebar_open,
+            PaletteAction::ToggleExplorer => self.workspace.sidebar_open = !self.workspace.sidebar_open,
             PaletteAction::OpenTable(table) => self.open_table_from_palette(table),
             PaletteAction::OpenView(name) => {
                 let schema = self.active_schema().to_owned();
@@ -646,19 +665,22 @@ impl DbProApp {
             }
             PaletteAction::OpenWorkspaceFile(path) => self.open_workspace_sql_file(path),
             PaletteAction::OpenWorkspaceFolder => self.request_open_workspace_folder(),
-            PaletteAction::CloseWorkspaceFolder => self.close_workspace_folder(),
+            PaletteAction::CloseWorkspaceFolder => self
+                .workspace
+                .files
+                .close(&mut self.workspace.shell, &mut self.feedback),
             PaletteAction::OpenSavedQuery(query_id) => self.open_saved_query_from_palette(query_id),
             PaletteAction::OpenHistoryEntry(index) => {
-                if let Some(entry) = self.query_history_entries.get(index).cloned() {
+                if let Some(entry) = self.query.editor.query_history_entries.get(index).cloned() {
                     self.open_history_entry(&entry, false);
                 } else {
-                    self.runtime_message = "History entry is no longer available".to_owned();
+                    self.feedback.runtime_message = "History entry is no longer available".to_owned();
                 }
             }
             PaletteAction::InsertColumn(column) => {
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
                 self.append_to_active_query(&column);
-                self.runtime_message = format!("Inserted column {column}");
+                self.feedback.runtime_message = format!("Inserted column {column}");
             }
             PaletteAction::InsertSnippet(index) => {
                 if let Some((_, snippet)) = Self::builtin_sql_snippets().get(index) {
@@ -668,13 +690,13 @@ impl DbProApp {
             PaletteAction::ExplainQuery => self.explain_query(),
             PaletteAction::ExportResults => self.export_results_from_palette(),
             PaletteAction::RunQuery => {
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
                 self.dispatch_query();
             }
             PaletteAction::FormatSql => {
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
                 self.format_active_query();
-                self.runtime_message = "SQL formatted".to_owned();
+                self.feedback.runtime_message = "SQL formatted".to_owned();
             }
             PaletteAction::SwitchConnection(connection_id) => {
                 self.switch_connection_from_palette(connection_id);
@@ -683,100 +705,127 @@ impl DbProApp {
                 self.toggle_pinned_table(table);
             }
             PaletteAction::ComponentGallery => {
-                self.active_tab = WorkspaceTab::ComponentGallery;
+                self.workspace.active_tab = WorkspaceTab::ComponentGallery;
             }
         }
     }
 
     fn refresh_schema_palette(&mut self) {
-        if let Some(connection_id) = self.active_connection_id.clone() {
-            self.refresh_table_info_after_schema = self.selected_table.is_some();
+        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+            self.table.state.refresh_table_info_after_schema = self.schema_explorer.selected_table.is_some();
             self.request_schema_introspection(connection_id, true);
         } else {
-            self.runtime_message = "Connect to a database before refreshing schema".to_owned();
+            self.feedback.runtime_message = "Connect to a database before refreshing schema".to_owned();
         }
     }
 
     pub(crate) fn open_table_from_palette(&mut self, table: String) {
-        if self.selected_table.as_deref() != Some(table.as_str()) && !self.staged_changes.is_empty() {
-            self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
+        if self.schema_explorer.selected_table.as_deref() != Some(table.as_str())
+            && !self.table.mutation.staged_changes.is_empty()
+        {
+            self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
-        self.persist_current_grid_layout();
-        self.record_recent_table(&table);
-        self.selected_table = Some(table.clone());
-        self.restore_grid_layout_for_active_table();
-        self.selected_schema_object = None;
-        self.table_view = TableView::Structure;
-        self.table_info = None;
-        self.table_ddl = None;
-        self.table_data_result = None;
+        let scope = TableDataState::layout_scope(
+            self.connection.lifecycle.active_connection_id(),
+            self.active_schema(),
+            self.schema_explorer.selected_table.as_deref(),
+        );
+        self.table.data.persist_layout(scope);
+        self.schema_explorer.record_recent_table(&table);
+        self.schema_explorer.selected_table = Some(table.clone());
+        let scope = TableDataState::layout_scope(
+            self.connection.lifecycle.active_connection_id(),
+            self.active_schema(),
+            self.schema_explorer.selected_table.as_deref(),
+        );
+        self.table.data.restore_layout(scope);
+        self.schema_explorer.selected_schema_object = None;
+        self.table.state.table_view = TableView::Structure;
+        self.table.state.table_info = None;
+        self.table.state.table_ddl = None;
+        self.table.data_query.result = None;
         self.request_table_info();
-        self.active_tab = WorkspaceTab::Table;
-        self.runtime_message = format!("Opening table {table}");
+        self.workspace.active_tab = WorkspaceTab::Table;
+        self.feedback.runtime_message = format!("Opening table {table}");
     }
 
     fn open_saved_query_from_palette(&mut self, query_id: String) {
-        let Some(query) = self.saved_queries.iter().find(|item| item.id == query_id).cloned() else {
-            self.runtime_message = "Saved query is no longer available".to_owned();
+        let Some(query) = self
+            .query
+            .library
+            .saved_queries
+            .iter()
+            .find(|item| item.id == query_id)
+            .cloned()
+        else {
+            self.feedback.runtime_message = "Saved query is no longer available".to_owned();
             return;
         };
         self.new_query_document();
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
+        if let Some(doc) = self
+            .query
+            .session
+            .documents
+            .get_mut(self.query.session.active_document_index)
+        {
             doc.set_text(query.sql.clone());
             doc.title = query.name.clone();
             doc.saved_query_id = Some(query.id.clone());
             doc.mark_saved();
         }
-        self.active_tab = WorkspaceTab::Query;
-        self.runtime_message = format!("Opened saved query {}", query.name);
+        self.workspace.active_tab = WorkspaceTab::Query;
+        self.feedback.runtime_message = format!("Opened saved query {}", query.name);
     }
 
     pub(crate) fn toggle_pinned_table(&mut self, table: String) {
         let target = if table.is_empty() {
-            self.selected_table.clone()
+            self.schema_explorer.selected_table.clone()
         } else {
             Some(table)
         };
         let Some(table) = target else {
-            self.runtime_message = "Select a table before pinning".to_owned();
+            self.feedback.runtime_message = "Select a table before pinning".to_owned();
             return;
         };
-        if let Some(index) = self.pinned_tables.iter().position(|item| item == &table) {
-            self.pinned_tables.remove(index);
-            self.runtime_message = format!("Unpinned table {table}");
+        if let Some(index) = self
+            .schema_explorer
+            .pinned_tables
+            .iter()
+            .position(|item| item == &table)
+        {
+            self.schema_explorer.pinned_tables.remove(index);
+            self.feedback.runtime_message = format!("Unpinned table {table}");
         } else {
-            self.pinned_tables.push(table.clone());
-            self.runtime_message = format!("Pinned table {table}");
+            self.schema_explorer.pinned_tables.push(table.clone());
+            self.feedback.runtime_message = format!("Pinned table {table}");
         }
     }
 
     fn export_results_from_palette(&mut self) {
-        if self.active_query_result().is_some() {
-            self.output_tab = OutputTab::Results;
-            self.export_open = true;
-            self.active_tab = WorkspaceTab::Query;
+        if self.query.session.active_result().is_some() {
+            self.query.output.active_tab = OutputTab::Results;
+            self.overlay.export_open = true;
+            self.workspace.active_tab = WorkspaceTab::Query;
         } else {
-            self.runtime_message = "Run a query before exporting results".to_owned();
+            self.feedback.runtime_message = "Run a query before exporting results".to_owned();
         }
     }
 
     fn switch_connection_from_palette(&mut self, connection_id: String) {
-        if let Some(connection) = self.connections.iter().find(|item| item.id == connection_id).cloned() {
-            self.active_connection_id = Some(connection.id.clone());
-            self.connected = false;
+        let connection = self.connection.catalog.find(&connection_id).cloned();
+        if let Some(connection) = connection {
+            *self.connection.lifecycle.active_connection_id_mut() = Some(connection.id.clone());
+            self.connection.lifecycle.set_connected(false);
             let request_id = self.task_bridge.next_request_id();
-            self.pending_connection_request = Some(request_id);
-            let _ = self.task_bridge.send(UiCommand::Connect {
-                request_id,
-                connection_id: connection.id,
-            });
-            self.runtime_message = format!("Connecting to {}…", connection.name);
+            self.connection.lifecycle.set_pending_request(Some(request_id));
+            self.dispatch_command(self.connection.lifecycle.connect_command(request_id, connection.id));
+            self.feedback.runtime_message = format!("Connecting to {}…", connection.name);
         }
     }
 
     pub(super) fn draw_palette(&mut self, ctx: &egui::Context) {
-        let Some(mode) = self.palette_mode else {
+        let Some(mode) = self.palette.mode else {
             return;
         };
         let items = self.filtered_palette_items_fresh(mode);
@@ -785,14 +834,14 @@ impl DbProApp {
         let mut open = true;
         let title = if mode == PaletteMode::QuickOpen {
             "Quick Open"
-        } else if self.palette_scope == SearchScope::Connections {
+        } else if self.palette.scope == SearchScope::Connections {
             "Switch Connection"
         } else {
             "Command Palette"
         };
         let description = if mode == PaletteMode::QuickOpen {
             "Switch workspaces, tabs, or open editors"
-        } else if self.palette_scope == SearchScope::Connections {
+        } else if self.palette.scope == SearchScope::Connections {
             "Pick a saved connection to open"
         } else {
             "Search commands, actions, and database tools"
@@ -804,37 +853,37 @@ impl DbProApp {
             .id_salt("palette_dialog")
             .show_ctx(ctx, |ui| {
                 let response = ui.add(
-                    TextEdit::singleline(&mut self.palette_query)
+                    TextEdit::singleline(&mut self.palette.query)
                         .hint_text(RichText::new("Type a command or search…").color(self.theme.text_muted))
                         .desired_width(ui.available_width())
                         .margin(egui::Margin::symmetric(12.0, 8.0))
                         .font(egui::FontId::proportional(13.5))
                         .text_color(self.theme.text_primary),
                 );
-                if self.palette_focus_requested {
+                if self.palette.focus_requested {
                     response.request_focus();
-                    self.palette_focus_requested = false;
+                    self.palette.focus_requested = false;
                 }
 
                 ui.add_space(6.0);
                 ui.horizontal_wrapped(|ui| {
                     for scope in SearchScope::all() {
-                        let selected = self.palette_scope == *scope;
+                        let selected = self.palette.scope == *scope;
                         if ui.selectable_label(selected, scope.label()).clicked() {
-                            self.palette_scope = *scope;
-                            self.palette_selected = 0;
+                            self.palette.scope = *scope;
+                            self.palette.selected = 0;
                         }
                     }
                 });
 
                 if ui.input(|input| input.key_pressed(egui::Key::ArrowDown)) && !items.is_empty() {
-                    self.palette_selected = (self.palette_selected + 1) % items.len();
+                    self.palette.selected = (self.palette.selected + 1) % items.len();
                 }
                 if ui.input(|input| input.key_pressed(egui::Key::ArrowUp)) && !items.is_empty() {
-                    self.palette_selected = if self.palette_selected == 0 {
+                    self.palette.selected = if self.palette.selected == 0 {
                         items.len() - 1
                     } else {
-                        self.palette_selected - 1
+                        self.palette.selected - 1
                     };
                 }
                 if ui.input(|input| input.key_pressed(egui::Key::Enter)) && !items.is_empty() {
@@ -851,7 +900,7 @@ impl DbProApp {
                         ui.add_space(16.0);
                     }
                     for (index, item) in items.iter().enumerate() {
-                        let selected = index == self.palette_selected;
+                        let selected = index == self.palette.selected;
                         let item_fill = if selected {
                             self.theme.surface_hover
                         } else {
@@ -860,10 +909,10 @@ impl DbProApp {
                         let (rect, item_resp) =
                             ui.allocate_exact_size(egui::vec2(ui.available_width(), 44.0), egui::Sense::click());
                         if item_resp.hovered() {
-                            self.palette_selected = index;
+                            self.palette.selected = index;
                         }
                         if item_resp.clicked() {
-                            self.palette_selected = index;
+                            self.palette.selected = index;
                             activate = true;
                         }
 
@@ -937,11 +986,11 @@ impl DbProApp {
             });
 
         if !open {
-            self.palette_mode = None;
+            self.palette.mode = None;
         }
 
         if activate {
-            if let Some(item) = items.get(self.palette_selected) {
+            if let Some(item) = items.get(self.palette.selected) {
                 self.execute_palette_action(item.action.clone(), ctx);
             }
         }
@@ -949,9 +998,9 @@ impl DbProApp {
 
     fn clamp_palette_selection(&mut self, items: &[PaletteItem]) {
         if items.is_empty() {
-            self.palette_selected = 0;
+            self.palette.selected = 0;
         } else {
-            self.palette_selected = self.palette_selected.min(items.len() - 1);
+            self.palette.selected = self.palette.selected.min(items.len() - 1);
         }
     }
 }

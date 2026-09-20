@@ -18,12 +18,19 @@ fn row_range_selection_follows_filtered_sort_order() {
     let mut app = DbProApp::default();
     let indexes = [4, 1, 7, 2];
     let lookup = GridSelectionLookup::new(&indexes, &[]);
-    app.select_visible_row(&indexes, &lookup.row_positions, 1, false, false);
-    app.select_visible_row(&indexes, &lookup.row_positions, 3, true, false);
+    app.table
+        .data
+        .select_visible_row(&indexes, &lookup.row_positions, 1, false, false);
+    app.table
+        .data
+        .select_visible_row(&indexes, &lookup.row_positions, 3, true, false);
 
-    assert_eq!(app.selected_rows.into_iter().collect::<Vec<_>>(), vec![1, 2, 7]);
-    assert_eq!(app.selected_row, Some(2));
-    assert_eq!(app.selection_anchor_row, Some(1));
+    assert_eq!(
+        app.table.data.selected_rows.into_iter().collect::<Vec<_>>(),
+        vec![1, 2, 7]
+    );
+    assert_eq!(app.table.data.selected_row, Some(2));
+    assert_eq!(app.table.data.selection_anchor_row, Some(1));
 }
 
 #[test]
@@ -31,11 +38,15 @@ fn toggling_last_row_keeps_a_non_empty_selection() {
     let mut app = DbProApp::default();
     let indexes = [3];
     let lookup = GridSelectionLookup::new(&indexes, &[]);
-    app.select_visible_row(&indexes, &lookup.row_positions, 0, false, false);
-    app.select_visible_row(&indexes, &lookup.row_positions, 0, false, true);
+    app.table
+        .data
+        .select_visible_row(&indexes, &lookup.row_positions, 0, false, false);
+    app.table
+        .data
+        .select_visible_row(&indexes, &lookup.row_positions, 0, false, true);
 
-    assert_eq!(app.selected_rows.into_iter().collect::<Vec<_>>(), vec![3]);
-    assert_eq!(app.selected_row, Some(3));
+    assert_eq!(app.table.data.selected_rows.into_iter().collect::<Vec<_>>(), vec![3]);
+    assert_eq!(app.table.data.selected_row, Some(3));
 }
 
 #[test]
@@ -45,16 +56,21 @@ fn cell_range_selection_uses_visible_row_and_column_order() {
     let order = [2, 0, 1];
     let lookup = GridSelectionLookup::new(&indexes, &order);
 
-    app.select_single_cell((1, 0));
-    app.select_cell_range(&indexes, &lookup.row_positions, (2, 1), true);
+    app.table.data.select_single_cell((1, 0));
+    app.table
+        .data
+        .select_cell_range(&indexes, &lookup.row_positions, (2, 1), true);
 
-    assert_eq!(app.selected_cell, Some((2, 1)));
-    assert_eq!(app.selected_rows.iter().copied().collect::<Vec<_>>(), vec![1, 2, 7]);
-    assert!(app.is_cell_selected(&lookup, (1, 0)));
-    assert!(app.is_cell_selected(&lookup, (7, 0)));
-    assert!(app.is_cell_selected(&lookup, (2, 1)));
-    assert!(!app.is_cell_selected(&lookup, (1, 2)));
-    assert!(!app.is_cell_selected(&lookup, (4, 0)));
+    assert_eq!(app.table.data.selected_cell, Some((2, 1)));
+    assert_eq!(
+        app.table.data.selected_rows.iter().copied().collect::<Vec<_>>(),
+        vec![1, 2, 7]
+    );
+    assert!(app.table.data.is_cell_selected(&lookup, (1, 0)));
+    assert!(app.table.data.is_cell_selected(&lookup, (7, 0)));
+    assert!(app.table.data.is_cell_selected(&lookup, (2, 1)));
+    assert!(!app.table.data.is_cell_selected(&lookup, (1, 2)));
+    assert!(!app.table.data.is_cell_selected(&lookup, (4, 0)));
 }
 
 #[test]
@@ -63,19 +79,31 @@ fn select_all_visible_cells_covers_current_grid() {
     let indexes = [5, 2, 9];
     let order = [1, 0, 3];
     let lookup = GridSelectionLookup::new(&indexes, &order);
-    app.select_all_visible_cells(&indexes, &order);
+    app.table.data.select_all_visible_cells(&indexes, &order);
 
-    assert_eq!(app.selected_cell, Some((9, 3)));
-    assert_eq!(app.selection_anchor_cell, Some((5, 1)));
-    assert!([5, 2, 9].iter().all(|row| app.selected_rows.contains(row)));
-    assert!(app.is_cell_selected(&lookup, (2, 0)));
+    assert_eq!(app.table.data.selected_cell, Some((9, 3)));
+    assert_eq!(app.table.data.selection_anchor_cell, Some((5, 1)));
+    assert!([5, 2, 9].iter().all(|row| app.table.data.selected_rows.contains(row)));
+    assert!(app.table.data.is_cell_selected(&lookup, (2, 0)));
 }
 
 #[test]
 fn table_sort_cycles_and_shift_adds_prioritized_clauses() {
     let mut app = DbProApp {
-        active_tab: WorkspaceTab::Table,
-        table_view: TableView::Data,
+        workspace: WorkspaceFeatureState {
+            shell: WorkspaceShellState {
+                active_tab: WorkspaceTab::Table,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        table: TableEditorState {
+            state: TableState {
+                table_view: TableView::Data,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
         ..Default::default()
     };
     let result = UiQueryResult {
@@ -97,40 +125,48 @@ fn table_sort_cycles_and_shift_adds_prioritized_clauses() {
     };
 
     app.cycle_table_data_sort(&result, 0, false);
-    assert_eq!(app.table_data_sorts[0].column, "tenant_id");
-    assert!(!app.table_data_sorts[0].descending);
+    assert_eq!(app.table.data_query.sorts[0].column, "tenant_id");
+    assert!(!app.table.data_query.sorts[0].descending);
     app.cycle_table_data_sort(&result, 0, false);
-    assert!(app.table_data_sorts[0].descending);
+    assert!(app.table.data_query.sorts[0].descending);
     app.cycle_table_data_sort(&result, 1, true);
     assert_eq!(
-        app.table_data_sorts
+        app.table
+            .data_query
+            .sorts
             .iter()
             .map(|sort| sort.column.as_str())
             .collect::<Vec<_>>(),
         vec!["tenant_id", "item_id"]
     );
     app.cycle_table_data_sort(&result, 0, true);
-    assert_eq!(app.table_data_sorts.len(), 1);
-    assert_eq!(app.table_data_sorts[0].column, "item_id");
+    assert_eq!(app.table.data_query.sorts.len(), 1);
+    assert_eq!(app.table.data_query.sorts[0].column, "item_id");
 }
 
 #[test]
 fn named_layout_drops_removed_columns_and_appends_new_columns() {
     let mut app = DbProApp {
-        grid_pending_named_layout: Some(vec![
-            PersistedGridColumnLayout {
-                column_name: "id".to_owned(),
-                width: 240.0,
-                order: 1,
-                hidden: true,
+        table: TableEditorState {
+            data: TableDataState {
+                grid_pending_named_layout: Some(vec![
+                    PersistedGridColumnLayout {
+                        column_name: "id".to_owned(),
+                        width: 240.0,
+                        order: 1,
+                        hidden: true,
+                    },
+                    PersistedGridColumnLayout {
+                        column_name: "removed".to_owned(),
+                        width: 500.0,
+                        order: 0,
+                        hidden: true,
+                    },
+                ]),
+                ..Default::default()
             },
-            PersistedGridColumnLayout {
-                column_name: "removed".to_owned(),
-                width: 500.0,
-                order: 0,
-                hidden: true,
-            },
-        ]),
+            ..Default::default()
+        },
         ..Default::default()
     };
     let columns = vec![
@@ -147,20 +183,26 @@ fn named_layout_drops_removed_columns_and_appends_new_columns() {
     ];
 
     assert_eq!(app.column_order_for_columns(&columns), vec![1]);
-    assert_eq!(app.grid_column_order, vec![0, 1]);
-    assert_eq!(app.grid_column_widths, vec![240.0, 180.0]);
-    assert_eq!(app.grid_hidden_columns, [0].into_iter().collect());
+    assert_eq!(app.table.data.grid_column_order, vec![0, 1]);
+    assert_eq!(app.table.data.grid_column_widths, vec![240.0, 180.0]);
+    assert_eq!(app.table.data.grid_hidden_columns, [0].into_iter().collect());
 }
 
 #[test]
 fn named_layout_does_not_map_renamed_column_state() {
     let mut app = DbProApp {
-        grid_pending_named_layout: Some(vec![PersistedGridColumnLayout {
-            column_name: "old_name".to_owned(),
-            width: 420.0,
-            order: 0,
-            hidden: true,
-        }]),
+        table: TableEditorState {
+            data: TableDataState {
+                grid_pending_named_layout: Some(vec![PersistedGridColumnLayout {
+                    column_name: "old_name".to_owned(),
+                    width: 420.0,
+                    order: 0,
+                    hidden: true,
+                }]),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
         ..Default::default()
     };
     let columns = vec![crate::UiColumn {
@@ -170,16 +212,22 @@ fn named_layout_does_not_map_renamed_column_state() {
     }];
 
     assert_eq!(app.column_order_for_columns(&columns), vec![0]);
-    assert_eq!(app.grid_column_widths, vec![180.0]);
-    assert!(app.grid_hidden_columns.is_empty());
+    assert_eq!(app.table.data.grid_column_widths, vec![180.0]);
+    assert!(app.table.data.grid_hidden_columns.is_empty());
 }
 
 #[test]
 fn legacy_layout_is_discarded_when_schema_shape_changes() {
     let mut app = DbProApp {
-        grid_column_order: vec![1, 0],
-        grid_column_widths: vec![300.0, 300.0],
-        grid_legacy_layout_pending: true,
+        table: TableEditorState {
+            data: TableDataState {
+                grid_column_order: vec![1, 0],
+                grid_column_widths: vec![300.0, 300.0],
+                grid_legacy_layout_pending: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
         ..Default::default()
     };
     let columns = vec![crate::UiColumn {
@@ -189,34 +237,55 @@ fn legacy_layout_is_discarded_when_schema_shape_changes() {
     }];
 
     assert_eq!(app.column_order_for_columns(&columns), vec![0]);
-    assert!(app.grid_column_widths.is_empty());
-    assert!(app.grid_hidden_columns.is_empty());
+    assert!(app.table.data.grid_column_widths.is_empty());
+    assert!(app.table.data.grid_hidden_columns.is_empty());
 }
 
 #[test]
 fn persisted_layout_is_normalized_when_schema_changes() {
     let mut app = DbProApp {
-        grid_column_order: vec![4, 1, 1, 99],
-        grid_hidden_columns: [4, 88].into_iter().collect(),
-        grid_column_widths: vec![40.0, 120.0, 2000.0, 240.0],
+        table: TableEditorState {
+            data: TableDataState {
+                grid_column_order: vec![4, 1, 1, 99],
+                grid_hidden_columns: [4, 88].into_iter().collect(),
+                grid_column_widths: vec![40.0, 120.0, 2000.0, 240.0],
+                ..Default::default()
+            },
+            ..Default::default()
+        },
         ..Default::default()
     };
 
     assert_eq!(app.column_order(3), vec![1, 0, 2]);
-    assert!(app.grid_hidden_columns.is_empty());
-    assert_eq!(app.grid_column_widths, vec![60.0, 120.0, 1000.0]);
+    assert!(app.table.data.grid_hidden_columns.is_empty());
+    assert_eq!(app.table.data.grid_column_widths, vec![60.0, 120.0, 1000.0]);
 }
 
 #[test]
 fn sorting_is_blocked_while_staged_changes_are_present() {
     let mut app = DbProApp {
-        active_tab: WorkspaceTab::Table,
-        table_view: TableView::Data,
-        staged_changes: ChangeSet::from(vec![StagedChange::Insert {
-            local_id: 1,
-            columns: vec!["name".to_owned()],
-            values: vec![UiCell::Text("draft".to_owned())],
-        }]),
+        workspace: WorkspaceFeatureState {
+            shell: WorkspaceShellState {
+                active_tab: WorkspaceTab::Table,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        table: TableEditorState {
+            mutation: TableMutationState {
+                staged_changes: ChangeSet::from(vec![StagedChange::Insert {
+                    local_id: 1,
+                    columns: vec!["name".to_owned()],
+                    values: vec![UiCell::Text("draft".to_owned())],
+                }]),
+                ..Default::default()
+            },
+            state: TableState {
+                table_view: TableView::Data,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
         ..Default::default()
     };
     let result = UiQueryResult {
@@ -232,8 +301,8 @@ fn sorting_is_blocked_while_staged_changes_are_present() {
 
     app.cycle_table_data_sort(&result, 0, false);
 
-    assert!(app.table_data_sorts.is_empty());
-    assert!(app.runtime_message.contains("staged changes"));
+    assert!(app.table.data_query.sorts.is_empty());
+    assert!(app.feedback.runtime_message.contains("staged changes"));
 }
 
 fn projection_test_result() -> UiQueryResult {
@@ -280,16 +349,16 @@ fn result_grid_does_not_rebuild_the_projection_every_frame() {
     let result = projection_test_result();
 
     draw_grid_frame(&mut app, &ctx, &result);
-    assert_eq!(app.grid_projection_cache.rebuilds(), 1);
-    assert_eq!(app.grid_selection_cache.rebuilds(), 1);
+    assert_eq!(app.table.data.grid_projection_cache.rebuilds(), 1);
+    assert_eq!(app.table.data.grid_selection_cache.rebuilds(), 1);
 
     // Two more frames with the same result, filter and sort: the projection is reused. This is
     // before the projection cache, every one of these frames paid the full
     // filter/sort pass (seconds per frame on a large temporal-text column).
     draw_grid_frame(&mut app, &ctx, &result);
     draw_grid_frame(&mut app, &ctx, &result);
-    assert_eq!(app.grid_projection_cache.rebuilds(), 1);
-    assert_eq!(app.grid_selection_cache.rebuilds(), 1);
+    assert_eq!(app.table.data.grid_projection_cache.rebuilds(), 1);
+    assert_eq!(app.table.data.grid_selection_cache.rebuilds(), 1);
 }
 
 #[test]
@@ -299,34 +368,34 @@ fn result_grid_rebuilds_the_projection_when_an_input_changes() {
     let result = projection_test_result();
 
     draw_grid_frame(&mut app, &ctx, &result);
-    assert_eq!(app.grid_projection_cache.rebuilds(), 1);
-    assert_eq!(app.grid_selection_cache.rebuilds(), 1);
+    assert_eq!(app.table.data.grid_projection_cache.rebuilds(), 1);
+    assert_eq!(app.table.data.grid_selection_cache.rebuilds(), 1);
 
-    app.grid_sort_column = Some(1);
+    app.table.data.grid_sort_column = Some(1);
     draw_grid_frame(&mut app, &ctx, &result);
-    assert_eq!(app.grid_projection_cache.rebuilds(), 2);
-    assert_eq!(app.grid_selection_cache.rebuilds(), 2);
+    assert_eq!(app.table.data.grid_projection_cache.rebuilds(), 2);
+    assert_eq!(app.table.data.grid_selection_cache.rebuilds(), 2);
 
-    app.grid_sort_desc = true;
+    app.table.data.grid_sort_desc = true;
     draw_grid_frame(&mut app, &ctx, &result);
-    assert_eq!(app.grid_projection_cache.rebuilds(), 3);
-    assert_eq!(app.grid_selection_cache.rebuilds(), 3);
+    assert_eq!(app.table.data.grid_projection_cache.rebuilds(), 3);
+    assert_eq!(app.table.data.grid_selection_cache.rebuilds(), 3);
 
-    app.grid_filter = "alpha".to_owned();
+    app.table.data.grid_filter = "alpha".to_owned();
     draw_grid_frame(&mut app, &ctx, &result);
-    assert_eq!(app.grid_projection_cache.rebuilds(), 4);
-    assert_eq!(app.grid_selection_cache.rebuilds(), 4);
+    assert_eq!(app.table.data.grid_projection_cache.rebuilds(), 4);
+    assert_eq!(app.table.data.grid_selection_cache.rebuilds(), 4);
 
     // A new result set behind the same filter and sort: only the epoch differs.
-    app.invalidate_grid_projection();
+    app.table.data.invalidate_grid_projection();
     draw_grid_frame(&mut app, &ctx, &result);
-    assert_eq!(app.grid_projection_cache.rebuilds(), 5);
-    assert_eq!(app.grid_selection_cache.rebuilds(), 5);
+    assert_eq!(app.table.data.grid_projection_cache.rebuilds(), 5);
+    assert_eq!(app.table.data.grid_selection_cache.rebuilds(), 5);
 
     // And a frame that changes nothing reuses that one.
     draw_grid_frame(&mut app, &ctx, &result);
-    assert_eq!(app.grid_projection_cache.rebuilds(), 5);
-    assert_eq!(app.grid_selection_cache.rebuilds(), 5);
+    assert_eq!(app.table.data.grid_projection_cache.rebuilds(), 5);
+    assert_eq!(app.table.data.grid_selection_cache.rebuilds(), 5);
 }
 
 /// A projection key shaped like the draw path's, for the selection-cache unit tests.
@@ -433,20 +502,20 @@ fn result_grid_rebuilds_the_selection_lookup_when_the_column_order_changes() {
     let result = projection_test_result();
 
     draw_grid_frame(&mut app, &ctx, &result);
-    assert_eq!(app.grid_projection_cache.rebuilds(), 1);
-    assert_eq!(app.grid_selection_cache.rebuilds(), 1);
+    assert_eq!(app.table.data.grid_projection_cache.rebuilds(), 1);
+    assert_eq!(app.table.data.grid_selection_cache.rebuilds(), 1);
 
     // Reordering the columns leaves the rows and their order alone, so the projection is reused,
     // while the visual positions the selection lookup resolves are now different.
-    app.grid_column_order = vec![1, 0];
+    app.table.data.grid_column_order = vec![1, 0];
     draw_grid_frame(&mut app, &ctx, &result);
-    assert_eq!(app.grid_projection_cache.rebuilds(), 1);
-    assert_eq!(app.grid_selection_cache.rebuilds(), 2);
+    assert_eq!(app.table.data.grid_projection_cache.rebuilds(), 1);
+    assert_eq!(app.table.data.grid_selection_cache.rebuilds(), 2);
 
     // And a frame that changes neither reuses both.
     draw_grid_frame(&mut app, &ctx, &result);
-    assert_eq!(app.grid_projection_cache.rebuilds(), 1);
-    assert_eq!(app.grid_selection_cache.rebuilds(), 2);
+    assert_eq!(app.table.data.grid_projection_cache.rebuilds(), 1);
+    assert_eq!(app.table.data.grid_selection_cache.rebuilds(), 2);
 }
 
 #[test]

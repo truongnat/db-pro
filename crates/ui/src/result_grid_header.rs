@@ -49,10 +49,12 @@ impl DbProApp {
 
                 // Check PK / FK indicators
                 let is_pk = self
+                    .table
+                    .state
                     .table_info
                     .as_ref()
                     .is_some_and(|info| info.columns.iter().any(|c| c.name == column.name && c.is_primary_key));
-                let is_fk = self.table_info.as_ref().is_some_and(|info| {
+                let is_fk = self.table.state.table_info.as_ref().is_some_and(|info| {
                     info.foreign_keys
                         .iter()
                         .any(|fk| fk.from_columns.iter().any(|col| col == &column.name))
@@ -98,21 +100,30 @@ impl DbProApp {
                 );
 
                 // Column title + data type + sort icon
-                let table_sort = (self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data)
-                    .then(|| self.table_data_sorts.iter().find(|sort| sort.column == column.name))
+                let table_sort = (self.workspace.active_tab == WorkspaceTab::Table
+                    && self.table.state.table_view == TableView::Data)
+                    .then(|| {
+                        self.table
+                            .data_query
+                            .sorts
+                            .iter()
+                            .find(|sort| sort.column == column.name)
+                    })
                     .flatten();
                 let table_sort_priority = table_sort.and_then(|_| {
-                    self.table_data_sorts
+                    self.table
+                        .data_query
+                        .sorts
                         .iter()
                         .position(|sort| sort.column == column.name)
                         .map(|position| position + 1)
                 });
                 let table_sort_active = table_sort.is_some();
-                let sort_active = table_sort_active || self.grid_sort_column == Some(col_idx);
+                let sort_active = table_sort_active || self.table.data.grid_sort_column == Some(col_idx);
                 let sort_desc = if let Some(sort) = table_sort {
                     sort.descending
                 } else {
-                    self.grid_sort_desc
+                    self.table.data.grid_sort_desc
                 };
                 let sort_marker = if let Some(priority) = table_sort_priority {
                     format!(" {}{}", if sort_desc { "↓" } else { "↑" }, priority)
@@ -247,8 +258,8 @@ impl DbProApp {
                         self.set_table_or_grid_sort(result, col_idx, None);
                         *close_menu = true;
                     }
-                    if self.active_tab == WorkspaceTab::Table
-                        && self.table_view == TableView::Data
+                    if self.workspace.active_tab == WorkspaceTab::Table
+                        && self.table.state.table_view == TableView::Data
                         && ctx_menu_item(ui, Some(Icon::Filter), "Add Filter", None, theme.text_primary, theme)
                             .clicked()
                     {
@@ -316,7 +327,7 @@ impl DbProApp {
                         hide_column_req = Some(col_idx);
                         *close_menu = true;
                     }
-                    if !self.grid_hidden_columns.is_empty()
+                    if !self.table.data.grid_hidden_columns.is_empty()
                         && ctx_menu_item(ui, Some(Icon::Eye), "Show Columns", None, theme.text_secondary, theme)
                             .clicked()
                     {
@@ -343,13 +354,19 @@ impl DbProApp {
                 });
 
                 if col_resp.clicked() && !divider.dragged() {
-                    if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
+                    if self.workspace.active_tab == WorkspaceTab::Table
+                        && self.table.state.table_view == TableView::Data
+                    {
                         self.cycle_table_data_sort(result, col_idx, ui.input(|input| input.modifiers.shift));
-                    } else if self.grid_sort_column == Some(col_idx) {
+                    } else if self.table.data.grid_sort_column == Some(col_idx) {
                         self.set_table_or_grid_sort(
                             result,
                             col_idx,
-                            if self.grid_sort_desc { None } else { Some(true) },
+                            if self.table.data.grid_sort_desc {
+                                None
+                            } else {
+                                Some(true)
+                            },
                         );
                     } else {
                         self.set_table_or_grid_sort(result, col_idx, Some(false));
@@ -357,12 +374,12 @@ impl DbProApp {
                 }
 
                 if divider.drag_started() {
-                    self.grid_column_widths = widths.to_vec();
-                    self.grid_columns_user_resized = true;
+                    self.table.data.grid_column_widths = widths.to_vec();
+                    self.table.data.grid_columns_user_resized = true;
                 }
                 if divider.dragged() {
-                    self.grid_column_widths[col_idx] =
-                        (self.grid_column_widths[col_idx] + divider.drag_delta().x).clamp(60.0, 1000.0);
+                    self.table.data.grid_column_widths[col_idx] =
+                        (self.table.data.grid_column_widths[col_idx] + divider.drag_delta().x).clamp(60.0, 1000.0);
                 }
                 if divider.double_clicked() {
                     auto_size_req = Some(col_idx);
@@ -381,21 +398,21 @@ impl DbProApp {
             }
         }
         if reset_order_req {
-            self.grid_column_order = (0..result.columns.len()).collect();
+            self.table.data.grid_column_order = (0..result.columns.len()).collect();
         }
         if reset_widths_req {
-            self.grid_columns_user_resized = false;
+            self.table.data.grid_columns_user_resized = false;
         }
         if let Some(column_index) = hide_column_req {
             self.hide_column(column_index, order.len());
         }
         if let Some(column_index) = add_filter_req {
             if let Some(column) = result.columns.get(column_index) {
-                self.table_data_filter_column = column.name.clone();
-                self.table_data_filter_operator = UiTableFilterOperator::Equals;
-                self.table_data_filter_value.clear();
-                self.table_data_filter_editing = None;
-                self.runtime_message = format!("Filter draft ready for {}", column.name);
+                self.table.data_query.filter_column = column.name.clone();
+                self.table.data_query.filter_operator = UiTableFilterOperator::Equals;
+                self.table.data_query.filter_value.clear();
+                self.table.data_query.filter_editing = None;
+                self.feedback.runtime_message = format!("Filter draft ready for {}", column.name);
             }
         }
         if show_columns_req {

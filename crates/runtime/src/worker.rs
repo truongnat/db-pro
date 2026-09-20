@@ -11,8 +11,8 @@ use db_pro_core::domain::query::{CellValue, QueryResult};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-    AgentContext, AgentRunOrchestrator, AgentToolExecutor, AgentWorkflowEvent, CodexProvider, CodexProviderError,
-    ConnectionSummary, DbProRuntime, QueryApi, SqlPredictionContext,
+    AgentRunOrchestrator, AgentToolExecutor, AgentWorkflowEvent, CodexProvider, CodexProviderError, ConnectionSummary,
+    DbProRuntime, QueryApi, SqlPredictionContext,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -121,16 +121,6 @@ pub enum RuntimeCommand {
         schema: String,
         table: String,
         changes: Vec<TableDataMutation>,
-    },
-    RunAgent {
-        request_id: RuntimeRequestId,
-        prompt: String,
-        context: AgentContext,
-    },
-    ExecuteAgentTool {
-        request_id: RuntimeRequestId,
-        request: db_pro_core::domain::agent::AgentToolRequest,
-        context: db_pro_core::domain::agent_workflow::AgentExecutionContext,
     },
     StartAgentWorkflow {
         request_id: RuntimeRequestId,
@@ -594,11 +584,6 @@ pub enum RuntimeEvent {
         request_id: RuntimeRequestId,
         error: crate::DbErrorDto,
     },
-    AgentCompleted {
-        request_id: RuntimeRequestId,
-        provider: String,
-        message: crate::AgentDraft,
-    },
     AgentProviderReady {
         provider: String,
         detail: String,
@@ -606,20 +591,6 @@ pub enum RuntimeEvent {
     AgentFailed {
         request_id: RuntimeRequestId,
         message: String,
-    },
-    AgentToolCompleted {
-        request_id: RuntimeRequestId,
-        session_id: db_pro_core::domain::agent::AgentSessionId,
-        run_id: db_pro_core::domain::agent::AgentRunId,
-        document_id: String,
-        result: db_pro_core::domain::agent::AgentToolResult,
-    },
-    AgentToolFailed {
-        request_id: RuntimeRequestId,
-        session_id: db_pro_core::domain::agent::AgentSessionId,
-        run_id: db_pro_core::domain::agent::AgentRunId,
-        document_id: String,
-        error: db_pro_core::domain::agent_workflow::AgentToolError,
     },
     AgentWorkflow {
         request_id: RuntimeRequestId,
@@ -1116,72 +1087,6 @@ pub fn spawn_worker(
                         },
                     };
                     let _ = event_tx.send(event).await;
-                }
-                RuntimeCommand::RunAgent {
-                    request_id,
-                    prompt,
-                    context,
-                } => {
-                    let provider = codex_provider
-                        .lock()
-                        .unwrap_or_else(|poisoned| poisoned.into_inner())
-                        .clone();
-                    let Some(provider) = provider else {
-                        let _ = event_tx
-                            .send(RuntimeEvent::AgentFailed {
-                                request_id,
-                                message:
-                                    "AI provider is not configured. Open Agent settings (⚙) and enter a Groq or OpenAI API key."
-                                        .to_owned(),
-                            })
-                            .await;
-                        continue;
-                    };
-                    let event_tx = event_tx.clone();
-                    tokio::spawn(async move {
-                        let event = match provider.respond(&prompt, &context).await {
-                            Ok(message) => RuntimeEvent::AgentCompleted {
-                                request_id,
-                                provider: provider.provider_name().to_owned(),
-                                message,
-                            },
-                            Err(error) => RuntimeEvent::AgentFailed {
-                                request_id,
-                                message: error.to_string(),
-                            },
-                        };
-                        let _ = event_tx.send(event).await;
-                    });
-                }
-                RuntimeCommand::ExecuteAgentTool {
-                    request_id,
-                    request,
-                    context,
-                } => {
-                    let session_id = request.session_id;
-                    let run_id = request.run_id;
-                    let document_id = request.document_id.clone();
-                    let executor = AgentToolExecutor::new(Arc::clone(&runtime));
-                    let event_tx = event_tx.clone();
-                    tokio::spawn(async move {
-                        let event = match executor.execute(&request, &context).await {
-                            Ok(result) => RuntimeEvent::AgentToolCompleted {
-                                request_id,
-                                session_id,
-                                run_id,
-                                document_id,
-                                result,
-                            },
-                            Err(error) => RuntimeEvent::AgentToolFailed {
-                                request_id,
-                                session_id,
-                                run_id,
-                                document_id,
-                                error,
-                            },
-                        };
-                        let _ = event_tx.send(event).await;
-                    });
                 }
                 RuntimeCommand::StartAgentWorkflow {
                     request_id,

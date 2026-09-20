@@ -18,7 +18,7 @@ impl DbProApp {
     pub(super) fn draw_agent_panel(&mut self, ctx: &egui::Context) {
         let mut submit = false;
         let mut copy_sql = None;
-        let agent_width = self.agent_width;
+        let agent_width = self.workspace.agent_width;
         let response = egui::SidePanel::right("agent_panel")
             .resizable(true)
             .default_width(agent_width)
@@ -27,7 +27,7 @@ impl DbProApp {
             .show(ctx, |ui| {
                 ui.set_min_size(ui.available_size());
                 self.draw_agent_header(ui, ctx);
-                if self.agent_settings_open {
+                if self.agent.settings_open {
                     self.draw_agent_settings(ui);
                 } else {
                     ui.add_space(6.0);
@@ -39,21 +39,23 @@ impl DbProApp {
                     self.draw_agent_composer(ui, &mut submit);
                 }
             });
-        self.agent_width = response.response.rect.width().clamp(AGENT_MIN_WIDTH, AGENT_MAX_WIDTH);
+        self.workspace.set_agent_width(response.response.rect.width());
         if submit {
             self.submit_agent_prompt();
         }
         if let Some(sql) = copy_sql {
             ctx.output_mut(|output| output.copied_text = sql);
-            self.copy_status = "Agent SQL copied".to_owned();
+            self.feedback.copy_status = "Agent SQL copied".to_owned();
         }
     }
 
     fn draw_agent_header(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         let typed_session_busy = self
-            .query_documents
-            .get(self.active_query_document)
-            .and_then(|document| self.agent_sessions.get(&document.id))
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+            .and_then(|document| self.agent.sessions.get(&document.id))
             .is_some_and(|session| {
                 session.active_run_id.is_some()
                     || session.request_id.is_some()
@@ -63,11 +65,13 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
             if let Some(document_id) = self
-                .query_documents
-                .get(self.active_query_document)
+                .query
+                .session
+                .documents
+                .get(self.query.session.active_document_index)
                 .map(|document| document.id.clone())
             {
-                let session = self.agent_sessions.entry(document_id).or_default();
+                let session = self.agent.sessions.entry(document_id).or_default();
                 let is_disabled = session.active_run_id.is_some()
                     || session.request_id.is_some()
                     || session.pending_confirmation.is_some();
@@ -91,12 +95,14 @@ impl DbProApp {
             }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let typed_has_messages = self
-                    .query_documents
-                    .get(self.active_query_document)
-                    .and_then(|document| self.agent_sessions.get(&document.id))
+                    .query
+                    .session
+                    .documents
+                    .get(self.query.session.active_document_index)
+                    .and_then(|document| self.agent.sessions.get(&document.id))
                     .is_some_and(|session| !session.messages.is_empty());
                 if can_clear_conversation
-                    && (!self.agent_messages.is_empty() || typed_has_messages)
+                    && (!self.agent.messages.is_empty() || typed_has_messages)
                     && Button::new(self.theme)
                         .icon(Icon::RotateCcw)
                         .variant(ButtonVariant::Ghost)
@@ -105,9 +111,14 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.agent_messages.clear();
-                    if let Some(document) = self.query_documents.get(self.active_query_document) {
-                        if let Some(session) = self.agent_sessions.get_mut(&document.id) {
+                    self.agent.messages.clear();
+                    if let Some(document) = self
+                        .query
+                        .session
+                        .documents
+                        .get(self.query.session.active_document_index)
+                    {
+                        if let Some(session) = self.agent.sessions.get_mut(&document.id) {
                             session.messages.clear();
                             session.activities.clear();
                             session.streaming_text.clear();
@@ -135,10 +146,10 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.agent_settings_open = !self.agent_settings_open;
-                    if self.agent_settings_open {
-                        self.agent_api_key_draft.clear();
-                        self.agent_api_key_show_password = false;
+                    self.agent.settings_open = !self.agent.settings_open;
+                    if self.agent.settings_open {
+                        self.agent.api_key_draft.clear();
+                        self.agent.api_key_show_password = false;
                     }
                 }
             });
@@ -159,9 +170,9 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        self.agent_settings_open = false;
-                        self.agent_api_key_draft.clear();
-                        self.agent_api_key_show_password = false;
+                        self.agent.settings_open = false;
+                        self.agent.api_key_draft.clear();
+                        self.agent.api_key_show_password = false;
                     }
                 });
             });
@@ -178,15 +189,15 @@ impl DbProApp {
                     .color(self.theme.text_muted),
             );
             ui.add_space(8.0);
-            let current_label = if self.agent_provider_label == "Offline draft" {
+            let current_label = if self.agent.provider_label == "Offline draft" {
                 "Not configured".to_owned()
             } else {
-                format!("Active: {}", self.agent_provider_label)
+                format!("Active: {}", self.agent.provider_label)
             };
             ui.label(
                 RichText::new(current_label)
                     .font(font_caption())
-                    .color(if self.agent_provider_label == "Offline draft" {
+                    .color(if self.agent.provider_label == "Offline draft" {
                         self.theme.text_muted
                     } else {
                         self.theme.success
@@ -197,9 +208,9 @@ impl DbProApp {
         ui.add_space(6.0);
 
         let response = PasswordInput::new(
-            &mut self.agent_api_key_draft,
+            &mut self.agent.api_key_draft,
             "gsk_… or sk-…",
-            &mut self.agent_api_key_show_password,
+            &mut self.agent.api_key_show_password,
             self.theme,
         )
         .id_salt("agent.api_key")
@@ -212,8 +223,8 @@ impl DbProApp {
         ui.add_space(6.0);
 
         ui.horizontal(|ui| {
-            let key_non_empty = !self.agent_api_key_draft.trim().is_empty();
-            let is_saving = self.agent_configure_request.is_some();
+            let key_non_empty = !self.agent.api_key_draft.trim().is_empty();
+            let is_saving = self.agent.configure_request.is_some();
             let save_btn = Button::new(self.theme)
                 .icon(if is_saving { Icon::Loader } else { Icon::Check })
                 .text(if is_saving { "Saving…" } else { "Save key" })
@@ -225,8 +236,8 @@ impl DbProApp {
             let save_clicked = (save_btn.clicked() || save_shortcut) && key_non_empty && !is_saving;
             if save_clicked {
                 let request_id = self.task_bridge.next_request_id();
-                self.agent_configure_request = Some(request_id);
-                let api_key = self.agent_api_key_draft.trim().to_owned();
+                self.agent.configure_request = Some(request_id);
+                let api_key = self.agent.api_key_draft.trim().to_owned();
                 let _ = self
                     .task_bridge
                     .send(UiCommand::SaveAgentApiKey { request_id, api_key });
@@ -238,7 +249,7 @@ impl DbProApp {
                         .color(self.theme.text_muted),
                 );
             }
-            let can_forget = self.agent_provider_label != "Offline draft" && !is_saving && !key_non_empty;
+            let can_forget = self.agent.provider_label != "Offline draft" && !is_saving && !key_non_empty;
             if can_forget {
                 let forget_button = Button::new(self.theme)
                     .icon(Icon::Trash2)
@@ -248,15 +259,15 @@ impl DbProApp {
                     .show(ui);
                 if forget_button.clicked() {
                     let request_id = self.task_bridge.next_request_id();
-                    self.agent_configure_request = Some(request_id);
-                    let _ = self.task_bridge.send(UiCommand::ForgetAgentApiKey { request_id });
+                    self.agent.configure_request = Some(request_id);
+                    self.dispatch_command(UiCommand::ForgetAgentApiKey { request_id });
                 }
             }
         });
 
         ui.add_space(8.0);
         ui.checkbox(
-            &mut self.agent_auto_run_read_only,
+            &mut self.agent.auto_run_read_only,
             "Auto-run read-only queries in Agent mode",
         );
         ui.add_space(8.0);
@@ -276,16 +287,16 @@ impl DbProApp {
                 .auto_shrink([false, true])
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        if self.agent_provider_label == "Offline draft" {
+                        if self.agent.provider_label == "Offline draft" {
                             badge(ui, "Preview", self.theme.surface_active, self.theme.text_secondary);
                         }
                         badge(
                             ui,
-                            &self.agent_provider_label,
+                            &self.agent.provider_label,
                             self.theme.accent_soft,
                             self.theme.accent,
                         );
-                        if self.agent_auto_run_read_only {
+                        if self.agent.auto_run_read_only {
                             badge(ui, "Auto-run Read-only", self.theme.accent_soft, self.theme.accent);
                         }
                         ContextChip::new(
@@ -307,7 +318,7 @@ impl DbProApp {
                     });
                 });
             ui.label(
-                RichText::new(&self.agent_provider_detail)
+                RichText::new(&self.agent.provider_detail)
                     .font(font_caption())
                     .color(self.theme.text_muted),
             );
@@ -331,7 +342,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.agent_input = "Explain the current SQL and its query plan".to_owned();
+                    self.agent.input = "Explain the current SQL and its query plan".to_owned();
                     submit = true;
                 }
                 if !context.current_sql.trim().is_empty()
@@ -343,7 +354,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.agent_input = "Optimize the current SQL and explain the trade-offs".to_owned();
+                    self.agent.input = "Optimize the current SQL and explain the trade-offs".to_owned();
                     submit = true;
                 }
                 if context.selected_table.is_some()
@@ -355,7 +366,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.agent_input = "Explain the selected table and suggest useful read-only queries".to_owned();
+                    self.agent.input = "Explain the selected table and suggest useful read-only queries".to_owned();
                     submit = true;
                 }
                 if context.last_error.is_some()
@@ -367,7 +378,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.agent_input = "Investigate the current database error and propose a safe fix".to_owned();
+                    self.agent.input = "Investigate the current database error and propose a safe fix".to_owned();
                     submit = true;
                 }
             });
@@ -382,23 +393,29 @@ impl DbProApp {
 
     fn draw_typed_agent_thread(&mut self, ui: &mut egui::Ui) -> bool {
         let Some(document_id) = self
-            .query_documents
-            .get(self.active_query_document)
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
             .map(|document| document.id.clone())
         else {
             return false;
         };
         let connection_id = self
-            .query_documents
-            .get(self.active_query_document)
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
             .and_then(|d| d.connection_id.clone())
-            .or_else(|| self.active_connection_id.clone());
+            .or_else(|| self.connection.lifecycle.active_connection_id().map(str::to_owned));
         let schema = self
-            .query_documents
-            .get(self.active_query_document)
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
             .and_then(|d| d.schema.clone())
             .or_else(|| Some(self.active_schema().to_owned()));
-        let session = self.agent_sessions.entry(document_id.clone()).or_insert_with(|| {
+        let session = self.agent.sessions.entry(document_id.clone()).or_insert_with(|| {
             super::agent_workflow_state::AgentUiSession::for_document(&document_id, connection_id, schema)
         });
         let messages = session.messages.clone();
@@ -444,7 +461,7 @@ impl DbProApp {
                             .show(ui)
                             .clicked()
                         {
-                            self.agent_input = suggestion.to_owned();
+                            self.agent.input = suggestion.to_owned();
                             submit = true;
                         }
                     }
@@ -694,9 +711,11 @@ impl DbProApp {
 
     fn draw_agent_composer(&mut self, ui: &mut egui::Ui, submit: &mut bool) {
         let active_mode = self
-            .query_documents
-            .get(self.active_query_document)
-            .and_then(|document| self.agent_sessions.get(&document.id))
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+            .and_then(|document| self.agent.sessions.get(&document.id))
             .map(|session| session.mode);
         let composer_mode = match active_mode {
             Some(db_pro_core::domain::agent::AgentMode::Ask) => AgentMode::Chat,
@@ -705,13 +724,15 @@ impl DbProApp {
             None => AgentMode::Code,
         };
         let is_generating = self
-            .query_documents
-            .get(self.active_query_document)
-            .and_then(|document| self.agent_sessions.get(&document.id))
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+            .and_then(|document| self.agent.sessions.get(&document.id))
             .is_some_and(|session| session.active_run_id.is_some() || session.request_id.is_some());
         let action = AgentComposer::new(
-            &mut self.agent_input,
-            &self.agent_provider_label,
+            &mut self.agent.input,
+            &self.agent.provider_label,
             composer_mode,
             self.theme,
         )

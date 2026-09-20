@@ -1,4 +1,6 @@
-use egui::{Button, FontFamily, FontId, Frame, Id, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
+use egui::{FontFamily, FontId, Frame, Id, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
+
+use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
@@ -131,16 +133,13 @@ impl<'a> PasswordInput<'a> {
                     );
 
                     let eye_icon = if *self.show_password { Icon::EyeOff } else { Icon::Eye };
-                    if ui
-                        .add(
-                            Button::new(
-                                RichText::new(char::from(eye_icon).to_string())
-                                    .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
-                                    .color(self.theme.text_muted),
-                            )
-                            .frame(false),
-                        )
-                        .on_hover_text(if *self.show_password { "Hide" } else { "Show" })
+                    if Button::new(self.theme)
+                        .icon(eye_icon)
+                        .size(ButtonSize::IconSm)
+                        .variant(ButtonVariant::Ghost)
+                        .focusable(false)
+                        .tooltip(if *self.show_password { "Hide" } else { "Show" })
+                        .show(ui)
                         .clicked()
                     {
                         *self.show_password = !*self.show_password;

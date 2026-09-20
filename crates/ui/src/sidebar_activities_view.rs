@@ -24,8 +24,9 @@ impl DbProApp {
         });
         ui.add_space(8.0);
 
-        for (index, document) in self.query_documents.clone().into_iter().enumerate() {
-            let selected = self.active_tab == WorkspaceTab::Query && self.active_query_document == index;
+        for (index, document) in self.query.session.documents.clone().into_iter().enumerate() {
+            let selected =
+                self.workspace.active_tab == WorkspaceTab::Query && self.query.session.active_document_index == index;
             let unsaved = document.is_dirty();
             let title = if unsaved {
                 format!("{}  •", document.title)
@@ -47,7 +48,7 @@ impl DbProApp {
                     rename_requested = true;
                     *close_menu = true;
                 }
-                if self.query_documents.len() > 1
+                if self.query.session.documents.len() > 1
                     && ctx_menu_item(ui, Some(Icon::Trash2), "Close query", None, theme.danger, theme).clicked()
                 {
                     close_requested = true;
@@ -56,7 +57,7 @@ impl DbProApp {
             });
             if response.clicked() && !is_ctx {
                 self.switch_query_document(index);
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
             }
             if duplicate_requested {
                 self.duplicate_query_document(index);
@@ -88,8 +89,8 @@ impl DbProApp {
                 .clicked()
             {
                 self.insert_snippet(snippet);
-                self.active_tab = WorkspaceTab::Query;
-                self.activity = Activity::Queries;
+                self.workspace.active_tab = WorkspaceTab::Query;
+                self.workspace.activity = Activity::Queries;
             }
         }
 
@@ -112,21 +113,21 @@ impl DbProApp {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 badge(
                     ui,
-                    &self.pinned_tables.len().to_string(),
+                    &self.schema_explorer.pinned_tables.len().to_string(),
                     self.theme.surface_hover,
                     self.theme.text_muted,
                 );
             });
         });
         ui.add_space(8.0);
-        if self.pinned_tables.is_empty() {
+        if self.schema_explorer.pinned_tables.is_empty() {
             ui.label(
                 RichText::new("Pin tables from Explorer or Quick Open for fast reopen.")
                     .small()
                     .color(self.theme.text_muted),
             );
         } else {
-            let pinned = self.pinned_tables.clone();
+            let pinned = self.schema_explorer.pinned_tables.clone();
             for table in pinned {
                 self.draw_data_table_row(ui, &table, true);
             }
@@ -138,21 +139,21 @@ impl DbProApp {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 badge(
                     ui,
-                    &self.recent_tables.len().to_string(),
+                    &self.schema_explorer.recent_tables.len().to_string(),
                     self.theme.surface_hover,
                     self.theme.text_muted,
                 );
             });
         });
         ui.add_space(8.0);
-        if self.recent_tables.is_empty() {
+        if self.schema_explorer.recent_tables.is_empty() {
             ui.label(
                 RichText::new("Tables you open appear here in most-recent order.")
                     .small()
                     .color(self.theme.text_muted),
             );
         } else {
-            let recent = self.recent_tables.clone();
+            let recent = self.schema_explorer.recent_tables.clone();
             for table in recent {
                 self.draw_data_table_row(ui, &table, false);
             }
@@ -167,7 +168,7 @@ impl DbProApp {
     }
 
     fn draw_data_table_row(&mut self, ui: &mut egui::Ui, table: &str, from_pinned: bool) {
-        let selected = self.selected_table.as_deref() == Some(table);
+        let selected = self.schema_explorer.selected_table.as_deref() == Some(table);
         let icon = if from_pinned { Icon::Pin } else { Icon::Table2 };
         let response = sidebar_item(ui, icon, table, selected, self.theme);
         let is_ctx = is_context_menu_triggered(&response, ui);
@@ -177,7 +178,7 @@ impl DbProApp {
         let mut open_query = false;
         let mut toggle_pin = false;
         let mut remove_recent = false;
-        let is_pinned = self.pinned_tables.iter().any(|item| item == table);
+        let is_pinned = self.schema_explorer.pinned_tables.iter().any(|item| item == table);
         let pin_label = if is_pinned { "Unpin table" } else { "Pin table" };
 
         context_action_menu(ui, &response, self.theme, |ui, close_menu| {
@@ -256,7 +257,7 @@ impl DbProApp {
 
         if open_data {
             self.open_table(table.to_owned());
-            self.table_view = TableView::Data;
+            self.table.state.table_view = TableView::Data;
         }
         if open_structure {
             self.open_table_from_palette(table.to_owned());
@@ -265,16 +266,16 @@ impl DbProApp {
             let schema = self.active_schema().to_owned();
             self.new_query_document();
             self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
-            self.active_tab = WorkspaceTab::Query;
-            self.activity = Activity::Queries;
-            self.runtime_message = format!("Query ready for {table}");
+            self.workspace.active_tab = WorkspaceTab::Query;
+            self.workspace.activity = Activity::Queries;
+            self.feedback.runtime_message = format!("Query ready for {table}");
         }
         if toggle_pin {
             self.toggle_pinned_table(table.to_owned());
         }
         if remove_recent {
-            self.remove_recent_table(table);
-            self.runtime_message = format!("Removed {table} from recent");
+            self.schema_explorer.remove_recent_table(table);
+            self.feedback.runtime_message = format!("Removed {table} from recent");
         }
     }
 
@@ -305,7 +306,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
             egui::ComboBox::from_id_salt("problems_severity_filter")
-                .selected_text(match self.problems_severity_filter {
+                .selected_text(match self.query.editor.problems_severity_filter {
                     ProblemsSeverityFilter::All => "All",
                     ProblemsSeverityFilter::Errors => "Errors",
                     ProblemsSeverityFilter::Warnings => "Warnings",
@@ -317,11 +318,11 @@ impl DbProApp {
                         (ProblemsSeverityFilter::Errors, "Errors"),
                         (ProblemsSeverityFilter::Warnings, "Warnings"),
                     ] {
-                        ui.selectable_value(&mut self.problems_severity_filter, filter, label);
+                        ui.selectable_value(&mut self.query.editor.problems_severity_filter, filter, label);
                     }
                 });
             egui::ComboBox::from_id_salt("problems_source_filter")
-                .selected_text(match self.problems_source_filter {
+                .selected_text(match self.query.editor.problems_source_filter {
                     ProblemsSourceFilter::All => "All sources",
                     ProblemsSourceFilter::Parser => "Parser",
                     ProblemsSourceFilter::Lint => "Lint",
@@ -337,7 +338,7 @@ impl DbProApp {
                         (ProblemsSourceFilter::Delimiter, "Delimiter"),
                         (ProblemsSourceFilter::Database, "Database"),
                     ] {
-                        ui.selectable_value(&mut self.problems_source_filter, filter, label);
+                        ui.selectable_value(&mut self.query.editor.problems_source_filter, filter, label);
                     }
                 });
         });
@@ -376,8 +377,8 @@ impl DbProApp {
                         .color(self.theme.text_muted),
                 );
             }
-            let selected =
-                self.problems_selected.as_ref() == Some(&(entry.document_id.clone(), entry.diagnostic_index));
+            let selected = self.query.editor.problems_selected.as_ref()
+                == Some(&(entry.document_id.clone(), entry.diagnostic_index));
             let (icon, _color) = match entry.severity {
                 crate::editor::DiagnosticSeverity::Error => (Icon::AlertCircle, self.theme.danger),
                 crate::editor::DiagnosticSeverity::Warning => (Icon::TriangleAlert, self.theme.warning),
@@ -399,11 +400,11 @@ impl DbProApp {
             );
             let response = sidebar_item(ui, icon, &label, selected, self.theme);
             if response.clicked() {
-                self.problems_selected = Some((entry.document_id.clone(), entry.diagnostic_index));
+                self.query.editor.problems_selected = Some((entry.document_id.clone(), entry.diagnostic_index));
                 if entry.document_index == usize::MAX {
                     // Workspace-indexed diagnostic (#269): open the SQL file if possible.
                     self.open_workspace_sql_file(entry.document_title.clone());
-                    self.files_panel_tab = FilesPanelTab::Search;
+                    self.workspace.files_panel_tab = FilesPanelTab::Search;
                 } else {
                     navigate = Some((entry.document_index, entry.diagnostic_index));
                 }
@@ -442,11 +443,11 @@ impl DbProApp {
 
     /// Saved queries, grouped by folder, plus the pending-delete confirmation.
     fn draw_saved_queries_section(&mut self, ui: &mut egui::Ui) {
-        if self.saved_queries.is_empty() {
+        if self.query.library.saved_queries.is_empty() {
             self.draw_empty_saved_queries(ui);
             return;
         }
-        let saved = self.saved_queries.clone();
+        let saved = self.query.library.saved_queries.clone();
         let mut groups: Vec<(String, Vec<UiSavedQuerySummary>)> = Vec::new();
         for query in saved {
             let folder = query.folder.clone().unwrap_or_else(|| "Unfiled".to_owned());
@@ -484,6 +485,8 @@ impl DbProApp {
     /// One collapsible folder of saved queries, with a folder-level context menu.
     fn draw_saved_query_folder(&mut self, ui: &mut egui::Ui, folder: String, queries: Vec<UiSavedQuerySummary>) {
         let folder_id = self
+            .query
+            .library
             .query_folders
             .iter()
             .find(|item| item.name == folder)
@@ -517,7 +520,7 @@ impl DbProApp {
             }
         });
         if delete_requested {
-            self.folder_delete_confirmation = folder_id;
+            self.overlay.folder_delete_confirmation = folder_id;
         }
     }
 
@@ -548,57 +551,57 @@ impl DbProApp {
         });
         if query_response.clicked() && !is_ctx {
             self.set_active_query_text(query.sql.clone());
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
         }
         if copy_sql {
             ui.output_mut(|o| o.copied_text = query.sql.clone());
-            self.runtime_message = format!("Copied SQL for `{}`", query.name);
+            self.feedback.runtime_message = format!("Copied SQL for `{}`", query.name);
         }
         if rename_requested {
             self.rename_saved_query(query);
         }
         if delete_requested {
-            self.delete_confirmation_id = Some(query.id.clone());
+            self.overlay.delete_confirmation_id = Some(query.id.clone());
         }
     }
 
     fn rename_saved_query(&mut self, query: &UiSavedQuerySummary) {
         let request_id = self.task_bridge.next_request_id();
-        let name = if self.query_folder.trim().is_empty() {
+        let name = if self.query.library.query_folder.trim().is_empty() {
             format!("{} (renamed)", query.name)
         } else {
-            self.query_folder.trim().to_owned()
+            self.query.library.query_folder.trim().to_owned()
         };
-        self.dispatch_command(UiCommand::RenameSavedQuery {
-            request_id,
-            id: query.id.clone(),
-            name,
-        });
+        self.dispatch_command(
+            self.query
+                .library
+                .rename_query_command(request_id, query.id.clone(), name),
+        );
     }
 
     fn draw_delete_saved_query_confirmation(&mut self, ui: &mut egui::Ui) {
-        let Some(id) = self.delete_confirmation_id.clone() else {
+        let Some(id) = self.overlay.delete_confirmation_id.clone() else {
             return;
         };
         ui.colored_label(self.theme.warning, "Delete this saved query?");
         ui.horizontal(|ui| {
             if compact_button(ui, "Confirm delete", self.theme).clicked() {
                 let request_id = self.task_bridge.next_request_id();
-                self.dispatch_command(UiCommand::DeleteSavedQuery { request_id, id });
-                self.delete_confirmation_id = None;
+                self.dispatch_command(self.query.library.delete_query_command(request_id, id));
+                self.overlay.delete_confirmation_id = None;
             }
             if compact_button(ui, "Cancel", self.theme).clicked() {
-                self.delete_confirmation_id = None;
+                self.overlay.delete_confirmation_id = None;
             }
         });
     }
 
     fn draw_local_history_section(&mut self, ui: &mut egui::Ui) {
-        if self.query_history.is_empty() {
+        if self.query.editor.query_history.is_empty() {
             ui.label(RichText::new("No queries run yet").color(self.theme.text_muted));
             return;
         }
-        let history = self.query_history.clone();
+        let history = self.query.editor.query_history.clone();
         for query in history.iter().rev() {
             let title = query.lines().next().unwrap_or("query");
             if sidebar_item(ui, Icon::History, title, false, self.theme)
@@ -606,7 +609,7 @@ impl DbProApp {
                 .clicked()
             {
                 self.set_active_query_text(query.clone());
-                self.active_tab = WorkspaceTab::Query;
+                self.workspace.active_tab = WorkspaceTab::Query;
             }
             ui.add_space(12.0);
         }

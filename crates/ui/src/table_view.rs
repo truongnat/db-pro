@@ -2,17 +2,20 @@ use super::*;
 
 impl DbProApp {
     pub(super) fn draw_table_workspace(&mut self, ui: &mut egui::Ui) {
-        let Some(table_name) = self.selected_table.clone() else {
+        let Some(table_name) = self.schema_explorer.selected_table.clone() else {
             self.activate_welcome_tab();
             return;
         };
-        if self.table_view == TableView::Ddl && self.table_ddl.is_none() && self.table_ddl_request.is_none() {
+        if self.table.state.table_view == TableView::Ddl
+            && self.table.state.table_ddl.is_none()
+            && self.table.state.table_ddl_request.is_none()
+        {
             self.request_table_ddl();
         }
-        if (self.table_view == TableView::Data || self.table_view == TableView::Profile)
-            && self.table_data_result.is_none()
-            && self.table_data_request.is_none()
-            && self.table_data_error.is_none()
+        if (self.table.state.table_view == TableView::Data || self.table.state.table_view == TableView::Profile)
+            && self.table.data_query.result.is_none()
+            && self.table.data_query.request.is_none()
+            && self.table.data_query.error.is_none()
         {
             self.request_table_data();
         }
@@ -37,13 +40,21 @@ impl DbProApp {
                         .font(font_caption())
                         .color(self.theme.text_muted),
                 );
-                ui.label(RichText::new("›").font(font_caption()).color(self.theme.text_muted));
+                ui.label(
+                    RichText::new(char::from(Icon::ChevronRight).to_string())
+                        .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
+                        .color(self.theme.text_muted),
+                );
                 ui.label(
                     RichText::new(&schema)
                         .font(font_caption())
                         .color(self.theme.text_secondary),
                 );
-                ui.label(RichText::new("›").font(font_caption()).color(self.theme.text_muted));
+                ui.label(
+                    RichText::new(char::from(Icon::ChevronRight).to_string())
+                        .font(egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())))
+                        .color(self.theme.text_muted),
+                );
                 ui.label(
                     RichText::new(&table_name)
                         .font(font_subheading())
@@ -51,7 +62,7 @@ impl DbProApp {
                         .color(self.theme.text_primary),
                 );
 
-                if let Some(info) = self.table_info.as_ref() {
+                if let Some(info) = self.table.state.table_info.as_ref() {
                     if let Some(rows) = info.row_count {
                         badge(
                             ui,
@@ -87,7 +98,7 @@ impl DbProApp {
                         .clicked()
                     {
                         self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table_name}\nLIMIT 100;"));
-                        self.active_tab = WorkspaceTab::Query;
+                        self.workspace.active_tab = WorkspaceTab::Query;
                     }
                     if Button::new(self.theme)
                         .icon(Icon::RotateCcw)
@@ -99,11 +110,11 @@ impl DbProApp {
                         .clicked()
                     {
                         self.request_table_info();
-                        if self.table_view == TableView::Data {
+                        if self.table.state.table_view == TableView::Data {
                             self.reset_table_data_page();
                             self.request_table_data();
-                        } else if self.table_view == TableView::Ddl {
-                            self.table_ddl = None;
+                        } else if self.table.state.table_view == TableView::Ddl {
+                            self.table.state.table_ddl = None;
                             self.request_table_ddl();
                         }
                     }
@@ -130,7 +141,7 @@ impl DbProApp {
                             (TableView::Dependencies, Icon::GitBranch, "Dependencies"),
                             (TableView::Ddl, Icon::Code2, "DDL"),
                         ] {
-                            let selected = self.table_view == view;
+                            let selected = self.table.state.table_view == view;
                             let tab = tab_frame(self.theme, selected).show(ui, |ui| {
                                 ui.selectable_label(
                                     selected,
@@ -146,7 +157,7 @@ impl DbProApp {
                                 )
                             });
                             if tab.inner.clicked() {
-                                self.table_view = view;
+                                self.table.state.table_view = view;
                             }
                         }
                     });
@@ -154,9 +165,9 @@ impl DbProApp {
         });
         ui.add_space(8.0);
 
-        match self.table_view {
+        match self.table.state.table_view {
             TableView::Data => self.draw_table_data(ui, &table_name),
-            TableView::Profile => self.draw_column_profile_pane(ui, self.table_data_result.as_ref()),
+            TableView::Profile => self.draw_column_profile_pane(ui, self.table.data_query.result.as_ref()),
             TableView::Structure => {
                 egui::ScrollArea::vertical()
                     .id_salt("table-structure-scroll")
@@ -315,7 +326,7 @@ impl DbProApp {
         grid_frame(self.theme).show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(28.0);
-                let failed = self.table_info_error.as_deref();
+                let failed = self.table.state.table_info_error.as_deref();
                 ui.label(icon_text(
                     if failed.is_some() {
                         Icon::TriangleAlert

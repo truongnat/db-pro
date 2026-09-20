@@ -317,11 +317,11 @@ impl DbProApp {
                 {
                     let sql = self.schema_workbench.preview_sql.clone();
                     self.new_query_document();
-                    if let Some(doc) = self.query_documents.last_mut() {
+                    if let Some(doc) = self.query.session.documents.last_mut() {
                         doc.set_text(sql);
                     }
-                    self.active_tab = WorkspaceTab::Query;
-                    self.activity = Activity::Queries;
+                    self.workspace.active_tab = WorkspaceTab::Query;
+                    self.workspace.activity = Activity::Queries;
                 }
             });
         });

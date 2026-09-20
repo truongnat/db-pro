@@ -9,7 +9,7 @@ use lucide_icons::Icon;
 impl DbProApp {
     /// Draw the Structure tab: summary metrics, search bar, and detailed columns table.
     pub(super) fn draw_table_structure_view(&mut self, ui: &mut egui::Ui) {
-        let Some(info) = self.table_info.clone() else {
+        let Some(info) = self.table.state.table_info.clone() else {
             self.draw_table_structure_placeholder(ui);
             return;
         };
@@ -71,12 +71,12 @@ impl DbProApp {
                 ui.add_space(8.0);
                 input(
                     ui,
-                    &mut self.table_structure_search,
+                    &mut self.table.state.table_structure_search,
                     "Search columns or types…",
                     220.0,
                     self.theme,
                 );
-                if !self.table_structure_search.is_empty()
+                if !self.table.state.table_structure_search.is_empty()
                     && Button::new(self.theme)
                         .icon(Icon::X)
                         .variant(ButtonVariant::Ghost)
@@ -85,7 +85,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.table_structure_search.clear();
+                    self.table.state.table_structure_search.clear();
                 }
 
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -98,7 +98,7 @@ impl DbProApp {
             });
             ui.add_space(8.0);
 
-            let filter_lower = self.table_structure_search.trim().to_lowercase();
+            let filter_lower = self.table.state.table_structure_search.trim().to_lowercase();
             let matching_columns: Vec<_> = info
                 .columns
                 .iter()
@@ -255,16 +255,16 @@ impl DbProApp {
                 });
         });
         if selected_column.is_some() {
-            self.table_column_detail = selected_column;
+            self.table.state.table_column_detail = selected_column;
         }
     }
 
     fn draw_table_column_detail(&mut self, ctx: &egui::Context, info: &UiTableInfo) {
-        let Some(column_name) = self.table_column_detail.clone() else {
+        let Some(column_name) = self.table.state.table_column_detail.clone() else {
             return;
         };
         let Some(column) = info.columns.iter().find(|column| column.name == column_name) else {
-            self.table_column_detail = None;
+            self.table.state.table_column_detail = None;
             return;
         };
         let mut open = true;
@@ -287,13 +287,13 @@ impl DbProApp {
                 }
             });
         if !open {
-            self.table_column_detail = None;
+            self.table.state.table_column_detail = None;
         }
     }
 
     /// Draw the Indexes tab: full index metadata table with search filter and unique badges.
     pub(super) fn draw_table_indexes_view(&mut self, ui: &mut egui::Ui) {
-        let Some(info) = self.table_info.clone() else {
+        let Some(info) = self.table.state.table_info.clone() else {
             ui.label(RichText::new("Table structure is still loading…").color(self.theme.text_muted));
             return;
         };
@@ -306,12 +306,12 @@ impl DbProApp {
                 ui.add_space(8.0);
                 input(
                     ui,
-                    &mut self.table_metadata_search,
+                    &mut self.table.state.table_metadata_search,
                     "Filter indexes…",
                     220.0,
                     self.theme,
                 );
-                if !self.table_metadata_search.is_empty()
+                if !self.table.state.table_metadata_search.is_empty()
                     && Button::new(self.theme)
                         .icon(Icon::X)
                         .variant(ButtonVariant::Ghost)
@@ -320,7 +320,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.table_metadata_search.clear();
+                    self.table.state.table_metadata_search.clear();
                 }
 
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -333,7 +333,7 @@ impl DbProApp {
             });
             ui.add_space(8.0);
 
-            let filter_lower = self.table_metadata_search.trim().to_lowercase();
+            let filter_lower = self.table.state.table_metadata_search.trim().to_lowercase();
             let matching_indexes: Vec<_> = info
                 .indexes
                 .iter()
@@ -456,17 +456,17 @@ impl DbProApp {
                 });
         });
         if let Some(index_name) = selected_index {
-            self.table_index_detail = Some(index_name);
+            self.table.state.table_index_detail = Some(index_name);
         }
         self.draw_table_index_detail(ui.ctx(), &info);
     }
 
     fn draw_table_index_detail(&mut self, ctx: &egui::Context, info: &UiTableInfo) {
-        let Some(index_name) = self.table_index_detail.clone() else {
+        let Some(index_name) = self.table.state.table_index_detail.clone() else {
             return;
         };
         let Some(index) = info.indexes.iter().find(|index| index.name == index_name) else {
-            self.table_index_detail = None;
+            self.table.state.table_index_detail = None;
             return;
         };
         let mut open = true;
@@ -488,13 +488,13 @@ impl DbProApp {
                 }
             });
         if !open {
-            self.table_index_detail = None;
+            self.table.state.table_index_detail = None;
         }
     }
 
     /// Draw the Foreign Keys tab: relations table with target jump and copy actions.
     pub(super) fn draw_table_relations_view(&mut self, ui: &mut egui::Ui) {
-        let Some(info) = self.table_info.clone() else {
+        let Some(info) = self.table.state.table_info.clone() else {
             ui.label(RichText::new("Table structure is still loading…").color(self.theme.text_muted));
             return;
         };
@@ -506,12 +506,12 @@ impl DbProApp {
                 ui.add_space(8.0);
                 input(
                     ui,
-                    &mut self.table_metadata_search,
+                    &mut self.table.state.table_metadata_search,
                     "Filter foreign keys…",
                     220.0,
                     self.theme,
                 );
-                if !self.table_metadata_search.is_empty()
+                if !self.table.state.table_metadata_search.is_empty()
                     && Button::new(self.theme)
                         .icon(Icon::X)
                         .variant(ButtonVariant::Ghost)
@@ -520,7 +520,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.table_metadata_search.clear();
+                    self.table.state.table_metadata_search.clear();
                 }
 
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -533,7 +533,7 @@ impl DbProApp {
             });
             ui.add_space(8.0);
 
-            let filter_lower = self.table_metadata_search.trim().to_lowercase();
+            let filter_lower = self.table.state.table_metadata_search.trim().to_lowercase();
             let matching_fks: Vec<_> = info
                 .foreign_keys
                 .iter()
@@ -657,7 +657,7 @@ impl DbProApp {
 
     /// Draw the Constraints tab: categorized constraints (PK, FK, Unique, Check, NOT NULL).
     pub(super) fn draw_table_constraints_view(&mut self, ui: &mut egui::Ui) {
-        let Some(info) = self.table_info.clone() else {
+        let Some(info) = self.table.state.table_info.clone() else {
             ui.label(RichText::new("Table structure is still loading…").color(self.theme.text_muted));
             return;
         };
@@ -671,12 +671,12 @@ impl DbProApp {
                 ui.add_space(8.0);
                 input(
                     ui,
-                    &mut self.table_metadata_search,
+                    &mut self.table.state.table_metadata_search,
                     "Filter constraints…",
                     200.0,
                     self.theme,
                 );
-                if !self.table_metadata_search.is_empty()
+                if !self.table.state.table_metadata_search.is_empty()
                     && Button::new(self.theme)
                         .icon(Icon::X)
                         .variant(ButtonVariant::Ghost)
@@ -685,7 +685,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.table_metadata_search.clear();
+                    self.table.state.table_metadata_search.clear();
                 }
 
                 ui.add_space(12.0);
@@ -698,9 +698,9 @@ impl DbProApp {
                     ("check", "Check"),
                     ("not_null", "Not Null"),
                 ] {
-                    let active = self.table_constraint_filter == val;
+                    let active = self.table.state.table_constraint_filter == val;
                     if ui.selectable_label(active, label).clicked() {
-                        self.table_constraint_filter = val.to_owned();
+                        self.table.state.table_constraint_filter = val.to_owned();
                     }
                 }
             });
@@ -721,7 +721,8 @@ impl DbProApp {
 
             // 1. Primary Key
             if let Some(pk) = &info.primary_key {
-                if self.table_constraint_filter == "all" || self.table_constraint_filter == "pk" {
+                if self.table.state.table_constraint_filter == "all" || self.table.state.table_constraint_filter == "pk"
+                {
                     list.push(ConstraintRow {
                         name: format!("pk_{}", info.name),
                         kind: "PRIMARY KEY",
@@ -736,7 +737,8 @@ impl DbProApp {
 
             // Unique constraints are represented separately from the primary
             // key index and foreign-key relation metadata.
-            if self.table_constraint_filter == "all" || self.table_constraint_filter == "unique" {
+            if self.table.state.table_constraint_filter == "all" || self.table.state.table_constraint_filter == "unique"
+            {
                 for idx in &info.indexes {
                     if idx.unique && !idx.primary {
                         list.push(ConstraintRow {
@@ -753,7 +755,8 @@ impl DbProApp {
             }
 
             // 4. Check Constraints
-            if self.table_constraint_filter == "all" || self.table_constraint_filter == "check" {
+            if self.table.state.table_constraint_filter == "all" || self.table.state.table_constraint_filter == "check"
+            {
                 for chk in &info.check_constraints {
                     list.push(ConstraintRow {
                         name: chk.name.clone(),
@@ -768,7 +771,9 @@ impl DbProApp {
             }
 
             // 5. NOT NULL columns
-            if self.table_constraint_filter == "all" || self.table_constraint_filter == "not_null" {
+            if self.table.state.table_constraint_filter == "all"
+                || self.table.state.table_constraint_filter == "not_null"
+            {
                 for col in &info.columns {
                     if !col.nullable && !col.is_primary_key {
                         list.push(ConstraintRow {
@@ -784,7 +789,7 @@ impl DbProApp {
                 }
             }
 
-            let filter_lower = self.table_metadata_search.trim().to_lowercase();
+            let filter_lower = self.table.state.table_metadata_search.trim().to_lowercase();
             let matching_list: Vec<_> = list
                 .into_iter()
                 .filter(|row| {
@@ -866,7 +871,7 @@ impl DbProApp {
 
     /// Draw the Dependencies tab: real dependency graph entries (Incoming & Outgoing).
     pub(super) fn draw_table_dependencies_view(&mut self, ui: &mut egui::Ui) {
-        let Some(info) = self.table_info.clone() else {
+        let Some(info) = self.table.state.table_info.clone() else {
             ui.label(RichText::new("Table structure is still loading…").color(self.theme.text_muted));
             return;
         };
@@ -881,12 +886,12 @@ impl DbProApp {
                 ui.add_space(8.0);
                 input(
                     ui,
-                    &mut self.table_metadata_search,
+                    &mut self.table.state.table_metadata_search,
                     "Filter dependencies…",
                     200.0,
                     self.theme,
                 );
-                if !self.table_metadata_search.is_empty()
+                if !self.table.state.table_metadata_search.is_empty()
                     && Button::new(self.theme)
                         .icon(Icon::X)
                         .variant(ButtonVariant::Ghost)
@@ -895,7 +900,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.table_metadata_search.clear();
+                    self.table.state.table_metadata_search.clear();
                 }
             });
             ui.add_space(6.0);
@@ -906,9 +911,9 @@ impl DbProApp {
                     ("depends_on", "Depends On (Outgoing)"),
                     ("depended_by", "Depended By (Incoming)"),
                 ] {
-                    let active = self.table_dependency_filter == val;
+                    let active = self.table.state.table_dependency_filter == val;
                     if ui.selectable_label(active, label).clicked() {
-                        self.table_dependency_filter = val.to_owned();
+                        self.table.state.table_dependency_filter = val.to_owned();
                     }
                 }
                 ui.add_space(12.0);
@@ -920,12 +925,12 @@ impl DbProApp {
             });
             ui.add_space(8.0);
 
-            let filter_lower = self.table_metadata_search.trim().to_lowercase();
+            let filter_lower = self.table.state.table_metadata_search.trim().to_lowercase();
             let matching_deps: Vec<_> = info
                 .dependencies
                 .iter()
                 .filter(|dep| {
-                    let matches_direction = match self.table_dependency_filter.as_str() {
+                    let matches_direction = match self.table.state.table_dependency_filter.as_str() {
                         "depends_on" => dep.direction == UiDependencyDirection::DependsOn,
                         "depended_by" => dep.direction == UiDependencyDirection::DependedBy,
                         _ => true,
