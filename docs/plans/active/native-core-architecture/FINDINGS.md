@@ -246,6 +246,9 @@ rule on `TableDataState` and `TableMutationState`; grid cells and views no
 longer call selection helpers through `DbProApp`.
 Result-grid keyboard navigation target calculation now follows the same rule
 on `TableDataState`; the root handles only egui input and commit-edit effects.
+Activity-bar rendering now follows the same rule: its explicit renderer owns
+only workspace-shell state and returns navigation intents instead of reaching
+through `DbProApp`; the guard now freezes that boundary.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

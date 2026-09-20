@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `a131b6da`.
+Source checkpoint: `512904ea`.
 
 ## Current change
 
@@ -170,6 +170,9 @@ Source checkpoint: `a131b6da`.
   selection helpers through `DbProApp`.
 - Result-grid keyboard navigation target calculation now lives on
   `TableDataState`; the root handles only egui input and commit-edit effects.
+- Activity-bar rendering now lives in an explicit renderer that owns only
+  workspace-shell state and returns navigation intents; it no longer
+  implements a `DbProApp` method. The architecture guard enforces this seam.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
