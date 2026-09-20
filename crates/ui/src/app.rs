@@ -900,15 +900,12 @@ impl DbProApp {
         };
         self.request_schema_introspection(connection_id.clone(), false);
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ListSavedQueries {
-            request_id,
-            connection_id: connection_id.clone(),
-        });
+        self.dispatch_command(
+            self.query_library
+                .list_queries_command(request_id, connection_id.clone()),
+        );
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ListQueryFolders {
-            request_id,
-            connection_id,
-        });
+        self.dispatch_command(self.query_library.list_folders_command(request_id, connection_id));
     }
 
     // Connection read models and shell status are implemented as explicit pure helpers
