@@ -108,6 +108,8 @@ mod fdw_state;
 mod feedback_state;
 #[path = "file_picker_events.rs"]
 mod file_picker_events;
+#[path = "files_activity_tabs.rs"]
+mod files_activity_tabs;
 #[path = "files_activity_view.rs"]
 mod files_activity_view;
 #[path = "git_workspace.rs"]

@@ -587,6 +587,18 @@ adoption is incremental.
 
 Severity: P1 workspace-core boundary risk, resolved for types and scanning.
 
+## F43 — Files activity compositor owned every workspace tab
+
+Evidence at discovery: `files_activity_view.rs` combined workspace header/root
+selection, agent context, tree, search, migrations, tasks, graph and Git
+surfaces in one nearly 1,000-line view.
+
+Fix in the current refactor: moved the tab/tree implementations to
+`files_activity_tabs.rs`; `files_activity_view.rs` now owns only the workspace
+header, tab selection and surface composition.
+
+Severity: P2 workspace-activity boundary risk, resolved.
+
 ## F25 — Table metadata state still owned the data-query lifecycle
 
 Evidence at discovery: `TableState` combined table metadata/DDL with the data

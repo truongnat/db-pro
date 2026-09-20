@@ -555,6 +555,10 @@ Source checkpoint: `0070d374`.
   `ide_workspace_scan.rs`; the state operation module is 712 lines. Focused UI
   tests (632 passed), UI clippy, architecture guard and diff checks PASS; clean
   scan has no failures after documenting the retained contract allowance.
+- Files activity ownership follow-up: workspace tabs/tree/search/tasks/graph/Git
+  now live in `files_activity_tabs.rs`; `files_activity_view.rs` is reduced to
+  the 201-line compositor. Focused UI tests (632 passed), UI clippy,
+  architecture guard and diff checks PASS; clean scan has no failures.
 
 ## Not yet proven
 
