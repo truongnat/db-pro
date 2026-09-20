@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `487adf58`.
+Source checkpoint: `46bb8801`.
 
 ## Current change
 
@@ -191,6 +191,9 @@ Source checkpoint: `487adf58`.
 - Active query running-request projection now also lives on
   `QuerySessionState`; query cancellation/dispatch checks read the owning
   session directly.
+- Explain-plan/request and result-count projections now live on
+  `QuerySessionState`; output, agent and navigation surfaces read query state
+  directly without root projection facades.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.

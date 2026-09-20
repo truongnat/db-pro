@@ -276,6 +276,9 @@ helper.
 Active query running-request projection now follows the same rule on
 `QuerySessionState`; query cancellation and dispatch checks read the owning
 session directly.
+Explain-plan/request and result-count projections now follow the same rule on
+`QuerySessionState`; output, agent and navigation surfaces read query state
+directly without root projection facades.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
