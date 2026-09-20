@@ -249,6 +249,9 @@ Source checkpoint: `76864527`.
   (`/tmp/db-pro-native-post-refactor.png`); Welcome/empty state, activity rail,
   sidebar, query tabs and status bar were inspected after the state-owner
   changes.
+- Latest query-state release framebuffer capture: PASS at logical `1280x800`
+  (`/tmp/db-pro-native-post-query-state-refactor.png`); the same Welcome/empty
+  surface was inspected after the active-query projection extractions.
 - Unit tests for the extracted aggregates are included in the UI test suite.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
