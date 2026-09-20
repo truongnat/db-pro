@@ -1297,7 +1297,7 @@ fn explain_query_uses_selected_connection_and_switches_output() {
     assert_eq!(connection_id, "conn-1");
     assert_eq!(sql, "SELECT 1");
     assert!(!analyze);
-    assert_eq!(app.active_explain_request(), Some(request_id));
+    assert_eq!(app.query_session_state.active_explain_request(), Some(request_id));
     assert_eq!(app.active_query_output_tab(), OutputTab::Explain);
 }
 
@@ -4962,7 +4962,10 @@ fn test_multi_tab_explain_plan_routing() {
 
     // Trigger explain on Tab 1
     app.explain_query();
-    let explain_req_id = app.active_explain_request().expect("explain request id must be set");
+    let explain_req_id = app
+        .query_session_state
+        .active_explain_request()
+        .expect("explain request id must be set");
     assert_eq!(
         app.query_session_state.documents[0].explain_request,
         Some(explain_req_id)
@@ -4972,8 +4975,8 @@ fn test_multi_tab_explain_plan_routing() {
     app.new_query_document();
     app.set_active_query_text("SELECT * FROM orders");
     assert_eq!(app.query_session_state.active_document_index, 1);
-    assert!(app.active_explain_request().is_none());
-    assert!(app.active_explain_plan().is_none());
+    assert!(app.query_session_state.active_explain_request().is_none());
+    assert!(app.query_session_state.active_explain_plan().is_none());
 
     // Explain completion event arrives for Tab 1's request
     app.apply_runtime_event(UiEvent::ExplainCompleted {
@@ -4982,7 +4985,7 @@ fn test_multi_tab_explain_plan_routing() {
     });
 
     // Tab 2 (currently active) should NOT have the plan
-    assert!(app.active_explain_plan().is_none());
+    assert!(app.query_session_state.active_explain_plan().is_none());
 
     // Tab 1 must have the plan received and request cleared
     let doc1 = app
@@ -5000,7 +5003,7 @@ fn test_multi_tab_explain_plan_routing() {
     // Switch back to Tab 1, active explain plan is immediately available
     app.switch_query_document(0);
     assert_eq!(
-        app.active_explain_plan(),
+        app.query_session_state.active_explain_plan(),
         Some("Seq Scan on users (cost=0.00..35.50 rows=2550 width=8)")
     );
 }

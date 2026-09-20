@@ -146,7 +146,7 @@ impl DbProApp {
     }
 
     fn dispatch_explain_query(&mut self, analyze: bool) {
-        if self.active_explain_request().is_some() {
+        if self.query_session_state.active_explain_request().is_some() {
             return;
         }
         let lookup = self.query_capabilities();

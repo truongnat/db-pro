@@ -399,7 +399,7 @@ impl DbProApp {
                         }
                     }
                     OutputTab::Explain => {
-                        if let Some(plan) = self.active_explain_plan() {
+                        if let Some(plan) = self.query_session_state.active_explain_plan() {
                             egui::ScrollArea::vertical().show(ui, |ui| {
                                 ui.label(RichText::new(plan).monospace().small().color(self.theme.text_secondary));
                             });

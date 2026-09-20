@@ -16,14 +16,6 @@ impl DbProApp {
         self.query_session_state.append_active_text(text);
     }
 
-    pub(crate) fn active_explain_plan(&self) -> Option<&str> {
-        self.query_session_state.active_explain_plan()
-    }
-
-    pub(crate) fn active_explain_request(&self) -> Option<crate::RequestId> {
-        self.query_session_state.active_explain_request()
-    }
-
     pub(crate) fn active_query_output_tab(&self) -> OutputTab {
         self.query_session_state
             .documents
@@ -137,10 +129,6 @@ impl DbProApp {
 
     pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {
         self.query_session_state.active_result()
-    }
-
-    pub(crate) fn active_query_result_count(&self) -> usize {
-        self.query_session_state.active_result_count()
     }
 
     pub(crate) fn set_active_query_result(&mut self, index: usize) {

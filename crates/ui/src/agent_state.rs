@@ -81,7 +81,7 @@ impl DbProApp {
             selected_columns,
             current_sql,
             result_summary,
-            explain_plan: self.active_explain_plan().map(|p| p.to_owned()),
+            explain_plan: self.query_session_state.active_explain_plan().map(str::to_owned),
             last_error,
             workspace_files: self.workspace.files.workspace_context_items.clone(),
         }

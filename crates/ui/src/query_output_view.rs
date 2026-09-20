@@ -41,7 +41,7 @@ impl DbProApp {
                     self.query_editor.query_output_dock_maximized = !self.query_editor.query_output_dock_maximized;
                 }
             }
-            if let Some(request_id) = self.active_explain_request() {
+            if let Some(request_id) = self.query_session_state.active_explain_request() {
                 ui.label(
                     RichText::new(format!("Explain request {}…", request_id.0))
                         .font(font_caption())
@@ -133,7 +133,7 @@ impl DbProApp {
         let results_width = ui.max_rect().width();
         grid_frame(self.theme).show(ui, |ui| {
             ui.set_min_width(results_width.max(0.0));
-            let result_count = self.active_query_result_count();
+            let result_count = self.query_session_state.active_result_count();
             if result_count > 1 {
                 ui.horizontal(|ui| {
                     let active_index = self
@@ -388,7 +388,7 @@ impl DbProApp {
                     self.explain_query_analyze();
                 }
                 ui.checkbox(&mut self.query_execution.explain_show_raw_json, "Raw JSON");
-                if let Some(plan) = self.active_explain_plan() {
+                if let Some(plan) = self.query_session_state.active_explain_plan() {
                     if compact_button(ui, "Copy plan", self.theme).clicked() {
                         ui.output_mut(|o| o.copied_text = plan.to_owned());
                         self.feedback.runtime_message = "Query plan copied".to_owned();
@@ -419,7 +419,7 @@ impl DbProApp {
                 }
             }
             ui.add_space(8.0);
-            if let Some(plan_json) = self.active_explain_plan() {
+            if let Some(plan_json) = self.query_session_state.active_explain_plan() {
                 if self.query_execution.explain_show_raw_json {
                     egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
                         ui.label(RichText::new(plan_json).monospace().color(self.theme.text_secondary));
