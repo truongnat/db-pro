@@ -515,6 +515,43 @@ implementation block.
 
 Severity: P2 composition-root maintainability, resolved.
 
+## F78 — Workspace tab rendering owned root mutations
+
+Evidence at discovery: `workspace_tabs_view.rs` rendered every workspace tab,
+context-menu branch and query/table navigation action inside `DbProApp`.
+
+Fix in `6a117654` and `7b6c7d0f`: moved rendering into
+`workspace_tabs_surface_view.rs`, which consumes explicit feature context and
+returns `WorkspaceTabsAction`; the root now only applies navigation/query/table
+effects. The architecture guard rejects `DbProApp` from the surface module.
+
+Severity: P1 feature-boundary risk, resolved for workspace tab intent mapping.
+
+## F79 — Query editor surface owned dispatch and prediction effects
+
+Evidence at discovery: editor painting, completion/prediction scheduling,
+hover state, document mutation and query dispatch were combined in
+`query_editor_panel.rs`.
+
+Fix in `27baf92c` and `d8b7629d`: completion popup and editor interaction now
+consume explicit document/state contexts; the surface returns
+`QueryEditorEffects`, while `DbProApp` remains the command executor.
+
+Severity: P1 query-feature boundary risk, resolved for editor surface intent
+mapping.
+
+## F80 — Result-grid header mixed rendering with grid mutations
+
+Evidence at discovery: header painting, sort/reorder/resize/filter actions and
+table feedback mutation were all implemented in `result_grid_header.rs`.
+
+Fix in `67965be2`: `result_grid_header_surface_view.rs` returns typed
+`GridHeaderAction` values; the root reducer applies sort, resize, layout,
+filter and autosize effects. The architecture guard rejects `DbProApp` from
+the header surface module.
+
+Severity: P1 data-grid boundary risk, resolved for header intent mapping.
+
 ## F70 — Table-data loading/error placeholder lived in the composition root
 
 Evidence at discovery: `table_data_view.rs` rendered the loading and failed

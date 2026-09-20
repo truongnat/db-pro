@@ -791,6 +791,20 @@ Source checkpoint: `5d42d5e9`.
   close control. The rebuilt release binary is running for manual
   verification.
 
+## Core boundary checkpoint at `67965be2`
+
+- Workspace tab intent boundary: `6a117654`, `7b6c7d0f`.
+- Query completion/editor surface boundaries: `27baf92c`, `d8b7629d`.
+- Result-grid header intent boundary: `67965be2`.
+- Full gate at `67965be2`: format, workspace check, workspace clippy with
+  `-D warnings`, workspace tests (`404`, `119`, `32`, `4`, `3`, `21`, `9`,
+  `34`, `31`, `630` UI; no failures), native release build, capture build,
+  architecture guard and clean-code scan (`16 pass`, `0 warnings`) all pass.
+- Runtime capture: `/tmp/db-pro-native-core-67965be2.png` at logical
+  `1280x800`; New Connection is centered, its header has a divider, and close
+  is aligned at the right edge. Release binary from this SHA is running for
+  manual verification.
+
 ## Not yet proven
 
 - Native screenshot/runtime evidence for the requested `1440x900` and
