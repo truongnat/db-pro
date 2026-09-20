@@ -1,4 +1,5 @@
 use super::files_agent_context_view::{ActiveQueryContext, FilesAgentContextAction, FilesAgentContextView};
+use super::files_tree_view::{FilesTreeAction, FilesTreeContext};
 use super::*;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use egui::{Align, Layout, RichText};
@@ -56,14 +57,30 @@ impl DbProApp {
     }
 
     pub(super) fn draw_files_tree_tab(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            if Button::new(self.theme)
-                .text("New SQL")
-                .variant(ButtonVariant::Default)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
+        let active_file_path = self
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+            .and_then(|doc| doc.file_path.clone())
+            .map(|path| path.to_owned());
+        let tree = self.workspace.files.ide_workspace.tree().to_vec();
+        let actions = FilesTreeContext {
+            theme: self.theme,
+            file_count: self.workspace.files.ide_workspace.index().len(),
+            active_file_path: active_file_path.as_deref(),
+            tree: &tree,
+            expanded: &self.workspace.files.ide_workspace.expanded,
+        }
+        .draw(ui);
+        for action in actions {
+            self.apply_files_tree_action(action);
+        }
+    }
+
+    fn apply_files_tree_action(&mut self, action: FilesTreeAction) {
+        match action {
+            FilesTreeAction::NewSql => {
                 match self
                     .workspace
                     .files
@@ -80,39 +97,35 @@ impl DbProApp {
                     Err(error) => self.feedback.runtime_message = error,
                 }
             }
-            if Button::new(self.theme)
-                .text("New folder")
-                .variant(ButtonVariant::Secondary)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
+            FilesTreeAction::NewFolder => {
                 if let Err(error) = self.workspace.files.ide_workspace.create_folder("", "new-folder") {
                     self.feedback.runtime_message = error;
                 }
             }
-        });
-        ui.add_space(6.0);
-        // Breadcrumb for active file-backed document (#266).
-        if let Some(path) = self
-            .query
-            .session
-            .documents
-            .get(self.query.session.active_document_index)
-            .and_then(|doc| doc.file_path.clone())
-        {
-            ui.label(RichText::new(path).small().monospace().color(self.theme.text_muted));
-            ui.add_space(4.0);
-        }
-        section_label(
-            ui,
-            format!("FILES · {}", self.workspace.files.ide_workspace.index().len()),
-            self.theme,
-        );
-        ui.add_space(6.0);
-        let tree = self.workspace.files.ide_workspace.tree().to_vec();
-        for node in &tree {
-            self.draw_workspace_tree_node(ui, node, 0);
+            FilesTreeAction::ToggleDirectory(path) => {
+                if self.workspace.files.ide_workspace.expanded.contains(&path) {
+                    self.workspace.files.ide_workspace.expanded.remove(&path);
+                } else {
+                    self.workspace.files.ide_workspace.expanded.insert(path);
+                }
+            }
+            FilesTreeAction::CreateSql(path) => {
+                let _ = self
+                    .workspace
+                    .files
+                    .ide_workspace
+                    .create_file(&path, "query.sql", "-- new query\nSELECT 1;\n");
+            }
+            FilesTreeAction::Delete(path) => {
+                let _ = self.workspace.files.ide_workspace.delete_path(&path);
+            }
+            FilesTreeAction::OpenFile(path) => self.open_workspace_sql_file(path),
+            FilesTreeAction::AddContext(path) => self.workspace.files.add_context_item(path),
+            FilesTreeAction::FindReferences(stem) => {
+                self.workspace.files.workspace_search_query = stem;
+                self.workspace.files_panel_tab = FilesPanelTab::Search;
+                self.workspace.files.run_search(&mut self.feedback);
+            }
         }
     }
 
@@ -500,179 +513,6 @@ impl DbProApp {
                         .color(self.theme.text_muted),
                 );
             });
-        }
-    }
-
-    pub(super) fn draw_workspace_tree_node(
-        &mut self,
-        ui: &mut egui::Ui,
-        node: &ide_workspace::WorkspaceFileNode,
-        depth: usize,
-    ) {
-        let indent = depth as f32 * 12.0;
-        ui.horizontal(|ui| {
-            ui.add_space(indent);
-            if node.is_dir {
-                let expanded = self
-                    .workspace
-                    .files
-                    .ide_workspace
-                    .expanded
-                    .contains(&node.relative_path);
-                let chevron = if expanded {
-                    Icon::ChevronDown
-                } else {
-                    Icon::ChevronRight
-                };
-                let response = sidebar_item(ui, chevron, &node.name, false, self.theme);
-                let mut create_sql = false;
-                let mut delete_node = false;
-                context_action_menu(ui, &response, self.theme, |ui, close_menu| {
-                    if ctx_menu_item(
-                        ui,
-                        Some(Icon::FileCode2),
-                        "New SQL here",
-                        None,
-                        self.theme.text_primary,
-                        self.theme,
-                    )
-                    .clicked()
-                    {
-                        create_sql = true;
-                        *close_menu = true;
-                    }
-                    if ctx_menu_item(
-                        ui,
-                        Some(Icon::Trash2),
-                        "Delete folder",
-                        None,
-                        self.theme.danger,
-                        self.theme,
-                    )
-                    .clicked()
-                    {
-                        delete_node = true;
-                        *close_menu = true;
-                    }
-                });
-                if response.clicked() {
-                    if expanded {
-                        self.workspace.files.ide_workspace.expanded.remove(&node.relative_path);
-                    } else {
-                        self.workspace
-                            .files
-                            .ide_workspace
-                            .expanded
-                            .insert(node.relative_path.clone());
-                    }
-                }
-                if create_sql {
-                    let _ = self.workspace.files.ide_workspace.create_file(
-                        &node.relative_path,
-                        "query.sql",
-                        "-- new query\nSELECT 1;\n",
-                    );
-                }
-                if delete_node {
-                    let _ = self.workspace.files.ide_workspace.delete_path(&node.relative_path);
-                }
-            } else {
-                let icon = if node.name.ends_with(".sql") {
-                    Icon::FileCode2
-                } else {
-                    Icon::FileText
-                };
-                let selected = self
-                    .query
-                    .session
-                    .documents
-                    .get(self.query.session.active_document_index)
-                    .and_then(|doc| doc.file_path.as_ref())
-                    .is_some_and(|path| path == &node.absolute_path.to_string_lossy());
-                let response =
-                    sidebar_item(ui, icon, &node.name, selected, self.theme).on_hover_text(&node.relative_path);
-                let mut open_file = false;
-                let mut add_context = false;
-                let mut delete_node = false;
-                let mut find_refs = false;
-                context_action_menu(ui, &response, self.theme, |ui, close_menu| {
-                    if ctx_menu_item(
-                        ui,
-                        Some(Icon::FileCode2),
-                        "Open",
-                        None,
-                        self.theme.text_primary,
-                        self.theme,
-                    )
-                    .clicked()
-                    {
-                        open_file = true;
-                        *close_menu = true;
-                    }
-                    if ctx_menu_item(
-                        ui,
-                        Some(Icon::Plus),
-                        "Add to Agent context",
-                        None,
-                        self.theme.text_primary,
-                        self.theme,
-                    )
-                    .clicked()
-                    {
-                        add_context = true;
-                        *close_menu = true;
-                    }
-                    if ctx_menu_item(
-                        ui,
-                        Some(Icon::Search),
-                        "Find references",
-                        None,
-                        self.theme.text_primary,
-                        self.theme,
-                    )
-                    .clicked()
-                    {
-                        find_refs = true;
-                        *close_menu = true;
-                    }
-                    if ctx_menu_item(ui, Some(Icon::Trash2), "Delete", None, self.theme.danger, self.theme).clicked() {
-                        delete_node = true;
-                        *close_menu = true;
-                    }
-                });
-                if response.clicked() && node.name.ends_with(".sql") {
-                    open_file = true;
-                }
-                if open_file && node.name.ends_with(".sql") {
-                    self.open_workspace_sql_file(node.relative_path.clone());
-                }
-                if add_context {
-                    self.workspace
-                        .files
-                        .add_context_item(node.absolute_path.to_string_lossy().into_owned());
-                }
-                if find_refs {
-                    let stem = node.name.trim_end_matches(".sql").to_owned();
-                    self.workspace.files.workspace_search_query = stem;
-                    self.workspace.files_panel_tab = FilesPanelTab::Search;
-                    self.workspace.files.run_search(&mut self.feedback);
-                }
-                if delete_node {
-                    let _ = self.workspace.files.ide_workspace.delete_path(&node.relative_path);
-                }
-            }
-        });
-        if node.is_dir
-            && self
-                .workspace
-                .files
-                .ide_workspace
-                .expanded
-                .contains(&node.relative_path)
-        {
-            for child in &node.children {
-                self.draw_workspace_tree_node(ui, child, depth + 1);
-            }
         }
     }
 }

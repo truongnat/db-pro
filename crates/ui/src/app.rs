@@ -114,6 +114,8 @@ mod files_activity_tabs;
 mod files_activity_view;
 #[path = "files_agent_context_view.rs"]
 mod files_agent_context_view;
+#[path = "files_tree_view.rs"]
+mod files_tree_view;
 #[path = "git_workspace.rs"]
 mod git_workspace;
 #[path = "ide_workspace.rs"]
