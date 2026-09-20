@@ -102,7 +102,7 @@ impl DbProApp {
                     .and_then(|document| self.agent.sessions.get(&document.id))
                     .is_some_and(|session| !session.messages.is_empty());
                 if can_clear_conversation
-                    && (!self.agent.messages.is_empty() || typed_has_messages)
+                    && typed_has_messages
                     && Button::new(self.theme)
                         .icon(Icon::RotateCcw)
                         .variant(ButtonVariant::Ghost)
@@ -111,7 +111,6 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.agent.messages.clear();
                     if let Some(document) = self
                         .query
                         .session
