@@ -256,48 +256,48 @@ fn composite_primary_key_identity_preserves_each_cell_type() {
 #[test]
 fn update_value_keeps_empty_text_and_parses_typed_values() {
     assert_eq!(
-        DbProApp::parse_update_value("", "TEXT").unwrap(),
+        super::table_editor_values::parse_update_value("", "TEXT").unwrap(),
         UiCell::Text(String::new())
     );
     assert_eq!(
-        DbProApp::parse_update_value("false", "BOOLEAN").unwrap(),
+        super::table_editor_values::parse_update_value("false", "BOOLEAN").unwrap(),
         UiCell::Boolean(false)
     );
-    assert!(DbProApp::parse_update_value("not-an-int", "INTEGER").is_err());
+    assert!(super::table_editor_values::parse_update_value("not-an-int", "INTEGER").is_err());
 }
 
 #[test]
 fn insert_value_respects_column_types() {
     assert_eq!(
-        DbProApp::parse_insert_value("42", "INTEGER").unwrap(),
+        super::table_editor_values::parse_insert_value("42", "INTEGER").unwrap(),
         Some(crate::UiCell::Number("42".to_owned()))
     );
     assert_eq!(
-        DbProApp::parse_insert_value("true", "BOOLEAN").unwrap(),
+        super::table_editor_values::parse_insert_value("true", "BOOLEAN").unwrap(),
         Some(crate::UiCell::Boolean(true))
     );
     assert_eq!(
-        DbProApp::parse_insert_value("{\"active\":true}", "JSONB").unwrap(),
+        super::table_editor_values::parse_insert_value("{\"active\":true}", "JSONB").unwrap(),
         Some(crate::UiCell::Json("{\"active\":true}".to_owned()))
     );
     assert_eq!(
-        DbProApp::parse_insert_value("12.50", "NUMERIC(10,2)").unwrap(),
+        super::table_editor_values::parse_insert_value("12.50", "NUMERIC(10,2)").unwrap(),
         Some(crate::UiCell::Number("12.50".to_owned()))
     );
     assert_eq!(
-        DbProApp::parse_insert_value("1.20e1", "DECIMAL(10,2)").unwrap(),
+        super::table_editor_values::parse_insert_value("1.20e1", "DECIMAL(10,2)").unwrap(),
         Some(crate::UiCell::Number("1.20e1".to_owned()))
     );
 }
 
 #[test]
 fn insert_value_rejects_invalid_typed_input() {
-    assert!(DbProApp::parse_insert_value("maybe", "BOOLEAN").is_err());
-    assert!(DbProApp::parse_insert_value("not-json", "JSON").is_err());
-    assert!(DbProApp::parse_insert_value("4.2", "INTEGER").is_err());
-    assert!(DbProApp::parse_insert_value("12.345", "NUMERIC(10,2)").is_err());
-    assert!(DbProApp::parse_insert_value("123456789.01", "NUMERIC(10,2)").is_err());
-    assert!(DbProApp::parse_update_value("", "DECIMAL(10,2)").is_err());
+    assert!(super::table_editor_values::parse_insert_value("maybe", "BOOLEAN").is_err());
+    assert!(super::table_editor_values::parse_insert_value("not-json", "JSON").is_err());
+    assert!(super::table_editor_values::parse_insert_value("4.2", "INTEGER").is_err());
+    assert!(super::table_editor_values::parse_insert_value("12.345", "NUMERIC(10,2)").is_err());
+    assert!(super::table_editor_values::parse_insert_value("123456789.01", "NUMERIC(10,2)").is_err());
+    assert!(super::table_editor_values::parse_update_value("", "DECIMAL(10,2)").is_err());
 }
 
 fn connection_summary_with_ssl_mode(ssl_mode: UiSslMode) -> UiConnectionSummary {

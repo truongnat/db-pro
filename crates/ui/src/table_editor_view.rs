@@ -789,273 +789,6 @@ impl DbProApp {
         self.table_data.insert_row_open = true;
     }
 
-    pub(crate) fn generate_sample_value(column_name: &str, data_type: &str) -> String {
-        let lower_type = data_type.to_ascii_lowercase();
-        let lower_name = column_name.to_ascii_lowercase();
-        let rand_num = (rand::random::<u32>() % 9000) + 1000;
-
-        if lower_type.contains("uuid") || lower_type.contains("guid") {
-            uuid::Uuid::new_v4().to_string()
-        } else if lower_type.contains("timestamptz")
-            || lower_type.contains("timestamp")
-            || lower_type.contains("datetime")
-        {
-            chrono::Utc::now().to_rfc3339()
-        } else if lower_type.contains("date") {
-            chrono::Utc::now().format("%Y-%m-%d").to_string()
-        } else if lower_type.contains("time") {
-            chrono::Utc::now().format("%H:%M:%S").to_string()
-        } else if lower_type.contains("bool") {
-            if rand::random::<bool>() {
-                "true".to_owned()
-            } else {
-                "false".to_owned()
-            }
-        } else if lower_type.contains("int")
-            || lower_type.contains("serial")
-            || lower_type.contains("bigint")
-            || lower_type.contains("smallint")
-        {
-            rand_num.to_string()
-        } else if lower_type.contains("float")
-            || lower_type.contains("double")
-            || lower_type.contains("real")
-            || lower_type.contains("numeric")
-            || lower_type.contains("decimal")
-        {
-            format!("{}.{:02}", rand_num / 10, rand_num % 100)
-        } else if lower_type.contains("json") {
-            r#"{"status": "active", "version": 1}"#.to_owned()
-        } else if lower_name.contains("email") || lower_name.contains("mail") {
-            format!("user_{rand_num}@example.com")
-        } else if lower_name.contains("username") || lower_name.contains("user_name") {
-            format!("user_{rand_num}")
-        } else if lower_name.contains("first_name") || lower_name.contains("firstname") {
-            "Alex".to_owned()
-        } else if lower_name.contains("last_name") || lower_name.contains("lastname") {
-            "Morgan".to_owned()
-        } else if lower_name.contains("full_name") || lower_name.contains("fullname") || lower_name == "name" {
-            format!("Alex Morgan {}", rand_num % 100)
-        } else if lower_name.contains("phone") || lower_name.contains("tel") || lower_name.contains("mobile") {
-            format!("+1-555-{:04}", rand_num)
-        } else if lower_name.contains("url") || lower_name.contains("website") || lower_name.contains("link") {
-            format!("https://example.com/items/{rand_num}")
-        } else if lower_name.contains("avatar")
-            || lower_name.contains("image")
-            || lower_name.contains("icon")
-            || lower_name.contains("photo")
-        {
-            format!("https://picsum.photos/seed/{rand_num}/200")
-        } else if lower_name.contains("slug") || lower_name.contains("code") {
-            format!("item-{rand_num}")
-        } else if lower_name.contains("title") || lower_name.contains("headline") || lower_name.contains("subject") {
-            format!("Sample Title {rand_num}")
-        } else if lower_name.contains("desc")
-            || lower_name.contains("content")
-            || lower_name.contains("note")
-            || lower_name.contains("bio")
-            || lower_name.contains("comment")
-            || lower_name.contains("body")
-        {
-            format!("Sample description for {column_name}")
-        } else if lower_name.contains("status") || lower_name.contains("state") {
-            "active".to_owned()
-        } else if lower_name.contains("role") {
-            "user".to_owned()
-        } else if lower_name.contains("address") || lower_name.contains("street") {
-            format!("{rand_num} Market Street")
-        } else if lower_name.contains("city") {
-            "San Francisco".to_owned()
-        } else if lower_name.contains("country") {
-            "US".to_owned()
-        } else if lower_name.contains("ip") {
-            format!("192.168.1.{}", rand_num % 254 + 1)
-        } else {
-            format!("{column_name}_{rand_num}")
-        }
-    }
-
-    pub(crate) fn parse_insert_value(raw: &str, data_type: &str) -> Result<Option<UiCell>, String> {
-        let normalized_type = data_type.to_ascii_lowercase();
-        let value = raw.trim();
-        if value.is_empty() && !Self::is_text_type(&normalized_type) {
-            return Ok(None);
-        }
-        if value.eq_ignore_ascii_case("null") {
-            return Ok(Some(UiCell::Null));
-        }
-        if Self::is_text_type(&normalized_type) {
-            return Ok(Some(UiCell::Text(raw.to_owned())));
-        }
-        if Self::is_binary_type(&normalized_type) {
-            return Err("binary values require a binary editor; use NULL or a query parameter".to_owned());
-        }
-        if normalized_type.contains("uuid") || normalized_type.contains("guid") {
-            return uuid::Uuid::parse_str(value)
-                .map(|u| Some(UiCell::Text(u.to_string())))
-                .map_err(|_| format!("{value} is not a valid UUID"));
-        }
-        if normalized_type.contains("bool") {
-            return match value.to_ascii_lowercase().as_str() {
-                "true" | "1" | "yes" => Ok(Some(UiCell::Boolean(true))),
-                "false" | "0" | "no" => Ok(Some(UiCell::Boolean(false))),
-                _ => Err("expected true or false".to_owned()),
-            };
-        }
-        if normalized_type.contains("int") || normalized_type.contains("serial") {
-            let parsed = if normalized_type.contains("smallint") || normalized_type.contains("int2") {
-                value.parse::<i16>().map(|number| number.to_string())
-            } else if normalized_type == "int"
-                || normalized_type.contains("integer")
-                || normalized_type.contains("int4")
-            {
-                value.parse::<i32>().map(|number| number.to_string())
-            } else {
-                value.parse::<i64>().map(|number| number.to_string())
-            };
-            return parsed
-                .map(|number| Some(UiCell::Number(number)))
-                .map_err(|_| format!("{value} is outside the range of {data_type}"));
-        }
-        if normalized_type.contains("real") || normalized_type.contains("float") || normalized_type.contains("double") {
-            return value
-                .parse::<f64>()
-                .map(|number| Some(UiCell::Number(number.to_string())))
-                .map_err(|_| format!("{value} is not a valid floating-point number"));
-        }
-        if Self::is_decimal_type(&normalized_type) {
-            return Self::parse_decimal_value(value, data_type).map(Some);
-        }
-        if normalized_type.contains("json") {
-            return serde_json::from_str::<serde_json::Value>(value)
-                .map(|_| Some(UiCell::Json(value.to_owned())))
-                .map_err(|_| "expected valid JSON".to_owned());
-        }
-        if normalized_type.contains("timestamptz")
-            || normalized_type.contains("timestamp with time zone")
-            || (normalized_type.contains("timestamp") && normalized_type.contains("timezone"))
-        {
-            return Self::validate_timestamp_with_timezone(value).map(|_| Some(UiCell::Text(value.to_owned())));
-        }
-        if normalized_type.contains("timestamp") {
-            return Self::validate_timestamp(value).map(|_| Some(UiCell::Text(value.to_owned())));
-        }
-        if normalized_type == "date" || normalized_type.starts_with("date(") {
-            return chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
-                .map(|_| Some(UiCell::Text(value.to_owned())))
-                .map_err(|_| format!("{value} is not a valid date (expected YYYY-MM-DD)"));
-        }
-        if normalized_type.starts_with("time") {
-            return Self::validate_time(value).map(|_| Some(UiCell::Text(value.to_owned())));
-        }
-        Ok(Some(UiCell::Text(value.to_owned())))
-    }
-
-    pub(crate) fn parse_update_value(raw: &str, data_type: &str) -> Result<UiCell, String> {
-        let normalized_type = data_type.to_ascii_lowercase();
-        if raw.trim().eq_ignore_ascii_case("null") {
-            return Ok(UiCell::Null);
-        }
-        if raw.is_empty() {
-            if Self::is_text_type(&normalized_type) {
-                return Ok(UiCell::Text(String::new()));
-            }
-            return Err(format!("{} cannot be empty; use NULL to clear it", data_type));
-        }
-        if Self::is_text_type(&normalized_type) {
-            // Do not trim text: empty, whitespace-only, and NULL are distinct values.
-            return Ok(UiCell::Text(raw.to_owned()));
-        }
-        Self::parse_insert_value(raw, data_type).map(|value| value.unwrap_or(UiCell::Null))
-    }
-
-    fn is_text_type(normalized_type: &str) -> bool {
-        normalized_type == "text"
-            || normalized_type.starts_with("varchar")
-            || normalized_type.starts_with("character varying")
-            || normalized_type.starts_with("char")
-            || normalized_type.starts_with("bpchar")
-            || normalized_type == "citext"
-    }
-
-    fn is_binary_type(normalized_type: &str) -> bool {
-        normalized_type.contains("bytea")
-            || normalized_type.contains("blob")
-            || normalized_type.contains("binary")
-            || normalized_type.contains("varbinary")
-    }
-
-    fn validate_timestamp(value: &str) -> Result<(), String> {
-        [
-            "%Y-%m-%d %H:%M:%S%.f",
-            "%Y-%m-%dT%H:%M:%S%.f",
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S",
-        ]
-        .iter()
-        .any(|format| chrono::NaiveDateTime::parse_from_str(value, format).is_ok())
-        .then_some(())
-        .ok_or_else(|| format!("{value} is not a valid timestamp"))
-    }
-
-    fn validate_timestamp_with_timezone(value: &str) -> Result<(), String> {
-        chrono::DateTime::parse_from_rfc3339(value)
-            .or_else(|_| chrono::DateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S%.f %:z"))
-            .map(|_| ())
-            .map_err(|_| format!("{value} is not a valid timestamptz (include a timezone offset)"))
-    }
-
-    fn validate_time(value: &str) -> Result<(), String> {
-        if chrono::NaiveTime::parse_from_str(value, "%H:%M:%S%.f").is_ok()
-            || chrono::NaiveTime::parse_from_str(value, "%H:%M:%S").is_ok()
-        {
-            return Ok(());
-        }
-        chrono::DateTime::parse_from_str(&format!("1970-01-01 {value}"), "%Y-%m-%d %H:%M:%S%.f %:z")
-            .map(|_| ())
-            .map_err(|_| format!("{value} is not a valid time"))
-    }
-
-    fn is_decimal_type(normalized_type: &str) -> bool {
-        normalized_type
-            .split('(')
-            .next()
-            .is_some_and(|name| matches!(name.trim(), "numeric" | "decimal"))
-    }
-
-    fn decimal_constraints(data_type: &str) -> Option<(u64, i64)> {
-        let normalized_type = data_type.to_ascii_lowercase();
-        if !Self::is_decimal_type(&normalized_type) {
-            return None;
-        }
-        let arguments = normalized_type.split_once('(')?.1.split_once(')')?.0;
-        let mut parts = arguments.split(',').map(str::trim);
-        let precision = parts.next()?.parse::<u64>().ok()?;
-        let scale = parts.next().and_then(|part| part.parse::<i64>().ok()).unwrap_or(0);
-        Some((precision, scale))
-    }
-
-    fn parse_decimal_value(value: &str, data_type: &str) -> Result<UiCell, String> {
-        let decimal = value
-            .parse::<BigDecimal>()
-            .map_err(|_| format!("{value} is not a valid exact decimal"))?;
-        let actual_scale = decimal.fractional_digit_count();
-        if let Some((precision, declared_scale)) = Self::decimal_constraints(data_type) {
-            if actual_scale > declared_scale {
-                return Err(format!("{value} has more than {declared_scale} fractional digits"));
-            }
-            let effective_precision = if actual_scale < 0 {
-                decimal.digits().saturating_add((-actual_scale) as u64)
-            } else {
-                decimal.digits()
-            };
-            if effective_precision > precision {
-                return Err(format!("{value} exceeds NUMERIC precision {precision}"));
-            }
-        }
-        Ok(UiCell::Number(value.to_owned()))
-    }
-
     pub(crate) fn submit_insert_row(&mut self) {
         let Some(table) = self.schema_explorer.selected_table.clone() else {
             self.table_data.insert_row_error = "Select a table before inserting a row".to_owned();
@@ -1082,7 +815,7 @@ impl DbProApp {
                 self.table_data.insert_row_error = format!("{} is required", column.name);
                 return;
             }
-            match Self::parse_insert_value(raw, &column.data_type) {
+            match table_editor_values::parse_insert_value(raw, &column.data_type) {
                 Ok(Some(value)) => {
                     columns.push(column.name.clone());
                     values.push(value);
@@ -1166,7 +899,7 @@ impl DbProApp {
                                     && self.table_data.insert_row_values[index].trim().is_empty()
                                 {
                                     self.table_data.insert_row_values[index] =
-                                        Self::generate_sample_value(&column.name, &column.data_type);
+                                        table_editor_values::generate_sample_value(&column.name, &column.data_type);
                                 }
                             }
                         }
@@ -1183,7 +916,7 @@ impl DbProApp {
                             for (index, column) in info.columns.iter().enumerate() {
                                 if self.table_data.insert_row_values[index].trim().is_empty() {
                                     self.table_data.insert_row_values[index] =
-                                        Self::generate_sample_value(&column.name, &column.data_type);
+                                        table_editor_values::generate_sample_value(&column.name, &column.data_type);
                                 }
                             }
                         }
@@ -1293,7 +1026,10 @@ impl DbProApp {
                                                 format!("Generate sample {} for {}", column.data_type, column.name);
                                             if gen_btn.on_hover_text(tooltip).clicked() {
                                                 self.table_data.insert_row_values[index] =
-                                                    Self::generate_sample_value(&column.name, &column.data_type);
+                                                    table_editor_values::generate_sample_value(
+                                                        &column.name,
+                                                        &column.data_type,
+                                                    );
                                             }
                                         });
                                     }
@@ -1674,14 +1410,15 @@ impl DbProApp {
             self.feedback.runtime_message = format!("{}: {error}", column_info.name);
             return false;
         }
-        let value = match Self::parse_update_value(&self.table_data.data_edit_value, &column_info.data_type) {
-            Ok(value) => value,
-            Err(error) => {
-                self.feedback.runtime_message = format!("{}: {error}", column_info.name);
-                self.table_data.data_edit_error = Some(error);
-                return false;
-            }
-        };
+        let value =
+            match table_editor_values::parse_update_value(&self.table_data.data_edit_value, &column_info.data_type) {
+                Ok(value) => value,
+                Err(error) => {
+                    self.feedback.runtime_message = format!("{}: {error}", column_info.name);
+                    self.table_data.data_edit_error = Some(error);
+                    return false;
+                }
+            };
         if matches!(value, UiCell::Null) && !column_info.nullable {
             let error = format!("{} is NOT NULL; enter a value instead", column_info.name);
             self.feedback.runtime_message = error.clone();
@@ -2844,13 +2581,15 @@ impl DbProApp {
         }
         if !is_null_operator
             && self.table_state.table_data_filter_value.is_empty()
-            && !Self::is_text_type(&data_type.to_ascii_lowercase())
+            && !table_editor_values::is_text_type(&data_type.to_ascii_lowercase())
         {
             self.feedback.runtime_message = "Enter a filter value first".to_owned();
             return;
         }
         if !is_null_operator {
-            if let Err(error) = Self::parse_update_value(&self.table_state.table_data_filter_value, &data_type) {
+            if let Err(error) =
+                table_editor_values::parse_update_value(&self.table_state.table_data_filter_value, &data_type)
+            {
                 self.feedback.runtime_message = format!("Invalid filter for {column}: {error}");
                 return;
             }
@@ -2919,7 +2658,7 @@ impl DbProApp {
 
     fn filter_operator_options(data_type: &str) -> Vec<(UiTableFilterOperator, &'static str)> {
         let normalized = data_type.to_ascii_lowercase();
-        let mut operators = if Self::is_text_type(&normalized) {
+        let mut operators = if table_editor_values::is_text_type(&normalized) {
             vec![
                 (UiTableFilterOperator::Equals, "equals"),
                 (UiTableFilterOperator::NotEquals, "not equals"),
@@ -2937,7 +2676,7 @@ impl DbProApp {
             || normalized.contains("real")
             || normalized.contains("float")
             || normalized.contains("double")
-            || Self::is_decimal_type(&normalized)
+            || table_editor_values::is_decimal_type(&normalized)
             || normalized == "date"
             || normalized.starts_with("time")
             || normalized.contains("timestamp")
@@ -2980,55 +2719,58 @@ mod tests {
 
     #[test]
     fn test_generate_sample_value_types() {
-        let uuid_val = DbProApp::generate_sample_value("id", "uuid");
+        let uuid_val = table_editor_values::generate_sample_value("id", "uuid");
         assert!(uuid::Uuid::parse_str(&uuid_val).is_ok());
 
-        let time_val = DbProApp::generate_sample_value("created_at", "timestamptz");
+        let time_val = table_editor_values::generate_sample_value("created_at", "timestamptz");
         assert!(chrono::DateTime::parse_from_rfc3339(&time_val).is_ok());
 
-        let date_val = DbProApp::generate_sample_value("birth_date", "date");
+        let date_val = table_editor_values::generate_sample_value("birth_date", "date");
         assert_eq!(date_val.len(), 10);
 
-        let email_val = DbProApp::generate_sample_value("user_email", "varchar");
+        let email_val = table_editor_values::generate_sample_value("user_email", "varchar");
         assert!(email_val.contains('@'));
 
-        let bool_val = DbProApp::generate_sample_value("is_active", "boolean");
+        let bool_val = table_editor_values::generate_sample_value("is_active", "boolean");
         assert!(bool_val == "true" || bool_val == "false");
     }
 
     #[test]
     fn test_parse_insert_value_uuid() {
         let valid_uuid = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
-        let parsed = DbProApp::parse_insert_value(valid_uuid, "uuid");
+        let parsed = table_editor_values::parse_insert_value(valid_uuid, "uuid");
         assert_eq!(parsed, Ok(Some(UiCell::Text(valid_uuid.to_owned()))));
 
         let invalid_uuid = "not-a-uuid";
-        assert!(DbProApp::parse_insert_value(invalid_uuid, "uuid").is_err());
+        assert!(table_editor_values::parse_insert_value(invalid_uuid, "uuid").is_err());
     }
 
     #[test]
     fn update_parser_preserves_null_empty_and_whitespace_text() {
-        assert_eq!(DbProApp::parse_update_value("NULL", "text"), Ok(UiCell::Null));
         assert_eq!(
-            DbProApp::parse_update_value("", "text"),
+            table_editor_values::parse_update_value("NULL", "text"),
+            Ok(UiCell::Null)
+        );
+        assert_eq!(
+            table_editor_values::parse_update_value("", "text"),
             Ok(UiCell::Text(String::new()))
         );
         assert_eq!(
-            DbProApp::parse_update_value("   ", "text"),
+            table_editor_values::parse_update_value("   ", "text"),
             Ok(UiCell::Text("   ".to_owned()))
         );
-        assert!(DbProApp::parse_update_value("", "integer").is_err());
+        assert!(table_editor_values::parse_update_value("", "integer").is_err());
     }
 
     #[test]
     fn update_parser_validates_temporal_json_and_binary_values() {
-        assert!(DbProApp::parse_update_value("2026-09-12", "date").is_ok());
-        assert!(DbProApp::parse_update_value("12:30:45", "time").is_ok());
-        assert!(DbProApp::parse_update_value("2026-09-12T12:30:45Z", "timestamptz").is_ok());
-        assert!(DbProApp::parse_update_value("not-a-time", "time").is_err());
-        assert!(DbProApp::parse_update_value("{\"ok\":true}", "jsonb").is_ok());
-        assert!(DbProApp::parse_update_value("not-json", "jsonb").is_err());
-        assert!(DbProApp::parse_update_value("deadbeef", "bytea").is_err());
+        assert!(table_editor_values::parse_update_value("2026-09-12", "date").is_ok());
+        assert!(table_editor_values::parse_update_value("12:30:45", "time").is_ok());
+        assert!(table_editor_values::parse_update_value("2026-09-12T12:30:45Z", "timestamptz").is_ok());
+        assert!(table_editor_values::parse_update_value("not-a-time", "time").is_err());
+        assert!(table_editor_values::parse_update_value("{\"ok\":true}", "jsonb").is_ok());
+        assert!(table_editor_values::parse_update_value("not-json", "jsonb").is_err());
+        assert!(table_editor_values::parse_update_value("deadbeef", "bytea").is_err());
     }
 
     #[test]

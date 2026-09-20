@@ -16,7 +16,6 @@ use crate::{
     UiStatementOutput, UiTableDataFilter, UiTableDataSort, UiTableFilterOperator, UiTableInfo, UiTableMutation,
     UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
-use bigdecimal::BigDecimal;
 use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
 use lucide_icons::Icon;
 use sqlparser::dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect};
@@ -255,6 +254,8 @@ mod schema_workbench;
 mod schema_workbench_form;
 #[path = "table_ddl_view.rs"]
 mod table_ddl_view;
+#[path = "table_editor_values.rs"]
+mod table_editor_values;
 #[path = "table_editor_view.rs"]
 mod table_editor_view;
 #[path = "table_metadata_view.rs"]
