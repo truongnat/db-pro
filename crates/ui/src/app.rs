@@ -90,6 +90,8 @@ mod event_trigger_state;
 mod events;
 #[path = "events_query_dispatch.rs"]
 mod events_query_dispatch;
+#[path = "explorer_connection_row_view.rs"]
+mod explorer_connection_row_view;
 #[path = "explorer_connections.rs"]
 mod explorer_connections;
 #[path = "explorer_details.rs"]

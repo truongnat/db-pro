@@ -1,6 +1,6 @@
 //! Explorer connection/schema tree rendering.
+use super::explorer_connection_row_view::{ConnectionRowAction, ConnectionRowContext};
 use super::explorer_tree::{draw_codex_tree_row, draw_hint_row, CodexTreeRow};
-use super::explorer_view::connection_context_menu;
 use super::*;
 
 /// Driver-aware URI suitable for "Copy Connection String" in the explorer.
@@ -40,128 +40,74 @@ impl DbProApp {
                 .lifecycle
                 .connection_error(&connection.id)
                 .map(str::to_owned);
-            let id = ui.make_persistent_id(("codex_conn_node", &connection.id));
-
-            let mut collapsing = egui::collapsing_header::CollapsingState::load_with_default_open(
-                ui.ctx(),
-                id,
-                is_connected || is_failed,
-            );
-            let is_open = collapsing.is_open();
-
-            let status_dot = if is_connected {
-                Some(self.theme.success) // connection status dot belongs to the theme
-            } else if is_connecting {
-                Some(self.theme.accent)
-            } else if is_failed {
-                Some(self.theme.danger)
-            } else {
-                Some(self.theme.text_muted) // neutral, follows the active theme
-            };
-
-            let badge_text = if is_failed {
-                "ERR"
-            } else if connection.driver.eq_ignore_ascii_case("postgresql") {
-                "PG"
-            } else {
-                "SQLITE"
-            };
-
-            let (response, chevron_clicked) = draw_codex_tree_row(
-                ui,
-                &self.theme,
-                CodexTreeRow {
-                    depth: 0,
-                    is_expandable: true,
-                    is_expanded: is_open,
-                    icon: Icon::Database,
-                    icon_color: if is_connected {
-                        self.theme.accent
-                    } else if is_failed {
-                        self.theme.danger
-                    } else {
-                        self.theme.text_muted
-                    },
-                    label: &connection.name,
-                    is_selected: false,
-                    is_dimmed: !is_connected && !is_failed && !is_connecting,
-                    status_dot,
-                    badge_text: Some(badge_text),
-                    badge_accent: is_connected || is_failed,
-                    count_text: None,
-                    detail_text: None,
-                },
-            );
-
-            let is_ctx = is_context_menu_triggered(&response, ui);
-            let mut actions = connection_context_menu(ui, &response, is_connected, self.theme);
-
-            if chevron_clicked {
-                collapsing.set_open(!is_open);
-                collapsing.store(ui.ctx());
-            } else if response.clicked() && !is_ctx {
-                if !is_connected {
-                    if !is_connecting {
-                        actions.connect = true;
-                    }
-                    collapsing.set_open(true);
-                    collapsing.store(ui.ctx());
-                } else {
-                    collapsing.set_open(!is_open);
-                    collapsing.store(ui.ctx());
-                }
+            let render = ConnectionRowContext {
+                theme: self.theme,
+                connection: &connection,
+                is_connected,
+                is_connecting,
+                is_failed,
+                modifier: Self::primary_modifier_label(),
             }
+            .draw(ui);
+            let mut actions = render.actions;
 
-            if collapsing.is_open() {
+            if render.is_open {
                 if is_connected {
                     self.draw_dbeaver_connected_body(ui, &connection);
                 } else if is_failed {
                     let err_str = err_msg.as_deref().unwrap_or("Connection failed");
                     let hint = format!("Failed: {} — Click to retry", err_str);
                     if draw_hint_row(ui, &self.theme, 1, Icon::AlertCircle, &hint).clicked() {
-                        actions.connect = true;
+                        actions.push(ConnectionRowAction::Connect);
                     }
                 } else if is_connecting {
                     draw_hint_row(ui, &self.theme, 1, Icon::LoaderCircle, "Connecting…");
                 } else if draw_hint_row(ui, &self.theme, 1, Icon::Circle, "Disconnected — click to connect").clicked()
                 {
-                    actions.connect = true;
+                    actions.push(ConnectionRowAction::Connect);
                 }
             }
 
-            if actions.connect {
-                self.connect_to_connection(&connection);
+            for action in actions {
+                self.apply_connection_row_action(action, &connection, is_connected, ui);
             }
-            if actions.disconnect {
-                self.disconnect_from_connection(&connection);
+            ui.add_space(2.0);
+        }
+    }
+
+    fn apply_connection_row_action(
+        &mut self,
+        action: ConnectionRowAction,
+        connection: &UiConnectionSummary,
+        is_connected: bool,
+        ui: &mut egui::Ui,
+    ) {
+        match action {
+            ConnectionRowAction::Connect => self.connect_to_connection(connection),
+            ConnectionRowAction::Disconnect => self.disconnect_from_connection(connection),
+            ConnectionRowAction::Reconnect => {
+                self.disconnect_from_connection(connection);
+                self.connect_to_connection(connection);
             }
-            if actions.reconnect {
-                self.disconnect_from_connection(&connection);
-                self.connect_to_connection(&connection);
-            }
-            if actions.refresh {
-                self.request_schema_introspection(connection.id.clone(), true);
-            }
-            if actions.new_script {
+            ConnectionRowAction::RefreshSchema => self.request_schema_introspection(connection.id.clone(), true),
+            ConnectionRowAction::NewScript => {
                 self.new_query_document();
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
-            if actions.er_diagram {
+            ConnectionRowAction::OpenErDiagram => {
                 self.workspace.active_tab = WorkspaceTab::Diagram;
                 if !is_connected {
-                    self.connect_to_connection(&connection);
+                    self.connect_to_connection(connection);
                 }
             }
-            if actions.ask_agent {
-                self.open_agent_prompt(
-                    format!(
-                        "Analyze the database `{}` on connection `{}` ({}) and describe the schema architecture.",
-                        connection.database, connection.name, connection.driver
-                    ),
-                    ui.ctx(),
-                );
-            }
-            if actions.create_table {
+            ConnectionRowAction::AskAgent => self.open_agent_prompt(
+                format!(
+                    "Analyze the database `{}` on connection `{}` ({}) and describe the schema architecture.",
+                    connection.database, connection.name, connection.driver
+                ),
+                ui.ctx(),
+            ),
+            ConnectionRowAction::CreateTable => {
                 self.new_query_document();
                 self.set_active_query_text(format!(
                     "-- Create table on database `{}`\nCREATE TABLE new_table (\n    id SERIAL PRIMARY KEY,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n",
@@ -169,25 +115,17 @@ impl DbProApp {
                 ));
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
-            if actions.copy_name {
-                ui.output_mut(|o| o.copied_text = connection.name.clone());
+            ConnectionRowAction::CopyName => {
+                ui.output_mut(|output| output.copied_text = connection.name.clone());
                 self.feedback.runtime_message = format!("Copied `{}` to clipboard", connection.name);
             }
-            if actions.copy_conn_string {
-                let conn_str = connection_display_uri(&connection);
-                ui.output_mut(|o| o.copied_text = conn_str);
+            ConnectionRowAction::CopyConnectionString => {
+                ui.output_mut(|output| output.copied_text = connection_display_uri(connection));
                 self.feedback.runtime_message = "Copied connection string to clipboard".to_owned();
             }
-            if actions.edit {
-                self.open_edit_connection(&connection);
-            }
-            if actions.duplicate {
-                self.open_duplicate_connection(&connection);
-            }
-            if actions.delete {
-                self.overlay.delete_confirmation_id = Some(connection.id.clone());
-            }
-            ui.add_space(2.0);
+            ConnectionRowAction::Edit => self.open_edit_connection(connection),
+            ConnectionRowAction::Duplicate => self.open_duplicate_connection(connection),
+            ConnectionRowAction::Delete => self.overlay.delete_confirmation_id = Some(connection.id.clone()),
         }
     }
 
