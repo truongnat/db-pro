@@ -243,7 +243,12 @@ impl DbProApp {
                             Activity::Monitor => self.draw_monitor_activity(ui),
                             Activity::Security => self.draw_security_activity(ui),
                             Activity::Settings => self.draw_settings(ui),
-                            Activity::Diagram => self.draw_diagram_sidebar(ui),
+                            Activity::Diagram => {
+                                if navigation_view::draw_diagram_sidebar(ui, self.theme, &self.schema.explorer.schema) {
+                                    self.workspace.activity = Activity::Explorer;
+                                    self.workspace.sidebar_open = true;
+                                }
+                            }
                             Activity::Schema => self.draw_schema_workbench_sidebar(ui),
                             Activity::Compare => self.draw_schema_compare_sidebar(ui),
                             Activity::Tasks => {

@@ -89,7 +89,7 @@ impl DbProApp {
 
             self.draw_pg_settings_activity(ui);
 
-            self.draw_maintenance_activity(ui);
+            maintenance_activity_view::draw_maintenance_activity(ui, self.theme, &mut self.management.monitoring);
         } else if connected {
             ui.label(
                 RichText::new("Refresh to load sessions (or wait for auto-refresh).")
