@@ -133,94 +133,16 @@ impl DbProApp {
                     String::new()
                 };
 
-                let header_text_rect = col_rect.shrink2(egui::vec2(8.0, 4.0));
-                let painter = ui.painter().with_clip_rect(header_text_rect);
-
-                let mut text_x = header_text_rect.left();
-
-                // Draw PK / FK badges
-                if is_pk {
-                    let pk_galley = painter.layout_no_wrap(
-                        "PK".to_owned(),
-                        FontId::new(9.5, egui::FontFamily::Proportional),
-                        self.theme.warning,
-                    );
-                    let badge_rect = Rect::from_min_size(
-                        Pos2::new(text_x, header_text_rect.center().y - 7.0),
-                        Vec2::new(pk_galley.size().x + 6.0, 14.0),
-                    );
-                    painter.rect_filled(
-                        badge_rect,
-                        Rounding::same(3.0),
-                        self.theme.warning.linear_multiply(0.18),
-                    );
-                    painter.galley(
-                        Pos2::new(
-                            badge_rect.left() + 3.0,
-                            badge_rect.center().y - pk_galley.size().y * 0.5,
-                        ),
-                        pk_galley,
-                        self.theme.warning,
-                    );
-                    text_x += badge_rect.width() + 4.0;
-                } else if is_fk {
-                    let fk_galley = painter.layout_no_wrap(
-                        "FK".to_owned(),
-                        FontId::new(9.5, egui::FontFamily::Proportional),
-                        self.theme.accent,
-                    );
-                    let badge_rect = Rect::from_min_size(
-                        Pos2::new(text_x, header_text_rect.center().y - 7.0),
-                        Vec2::new(fk_galley.size().x + 6.0, 14.0),
-                    );
-                    painter.rect_filled(badge_rect, Rounding::same(3.0), self.theme.accent.linear_multiply(0.18));
-                    painter.galley(
-                        Pos2::new(
-                            badge_rect.left() + 3.0,
-                            badge_rect.center().y - fk_galley.size().y * 0.5,
-                        ),
-                        fk_galley,
-                        self.theme.accent,
-                    );
-                    text_x += badge_rect.width() + 4.0;
-                }
-
-                // Draw column name
-                let col_name_galley = painter.layout_no_wrap(
-                    column.name.clone(),
-                    DbProTheme::ui_medium_font(12.5),
-                    self.theme.text_primary,
-                );
-                let name_width = col_name_galley.size().x;
-                painter.galley(
-                    Pos2::new(text_x, header_text_rect.center().y - col_name_galley.size().y * 0.5),
-                    col_name_galley,
-                    self.theme.text_primary,
-                );
-
-                // Draw column type
-                let type_text = format!(" {}{}", column.data_type, sort_marker);
-                let type_galley = painter.layout_no_wrap(
-                    type_text,
-                    FontId::monospace(10.5),
-                    if sort_active {
-                        self.theme.accent
-                    } else {
-                        self.theme.text_muted
-                    },
-                );
-                painter.galley(
-                    Pos2::new(
-                        text_x + name_width + 4.0,
-                        header_text_rect.center().y - type_galley.size().y * 0.5,
-                    ),
-                    type_galley,
-                    if sort_active {
-                        self.theme.accent
-                    } else {
-                        self.theme.text_muted
-                    },
-                );
+                let content_context = result_grid_header_content_view::GridHeaderContentContext {
+                    column,
+                    col_rect,
+                    is_primary_key: is_pk,
+                    is_foreign_key: is_fk,
+                    sort_marker: &sort_marker,
+                    sort_active,
+                    theme: self.theme,
+                };
+                result_grid_header_content_view::draw_header_content(&content_context, ui);
 
                 let menu_context = result_grid_header_menu_view::GridHeaderMenuContext {
                     theme: self.theme,
