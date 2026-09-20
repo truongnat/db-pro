@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `10d6697e`.
+Source checkpoint: `46694d54`.
 
 ## Current change
 
@@ -15,6 +15,10 @@ Source checkpoint: `10d6697e`.
   clamped through state setters.
 - `QuerySessionState` now owns query documents, active selection, selected text,
   save/close request tracking and Save As lifecycle.
+- Query-document lifecycle transitions now run through an explicit
+  `QueryDocumentContext`; opening, duplication, closing and fallback-tab
+  behavior receive their feature aggregates directly, while query execution
+  remains a composition-root command decision.
 - `QueryOutputState` now owns the active output tab and per-document output-tab
   overrides.
 - `TableDataState` now owns grid projection/layout, filtering/sorting,
@@ -267,14 +271,16 @@ Source checkpoint: `10d6697e`.
   (`/tmp/db-pro-native-post-query-state-refactor.png`); the same Welcome/empty
   surface was inspected after the active-query projection extractions.
 - Unit tests for the extracted aggregates are included in the UI test suite.
+- Query-document context tests cover explicit connection/schema binding and
+  document-owned output-tab cleanup during close.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 602 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 604 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1274 passed, 0 failed, 42 ignored;
+- `cargo test --workspace --no-fail-fast`: 1276 passed, 0 failed, 42 ignored;
   all workspace doc-tests passed with 0 tests.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.
