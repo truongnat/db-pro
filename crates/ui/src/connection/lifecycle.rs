@@ -1,4 +1,4 @@
-use crate::RequestId;
+use crate::{RequestId, UiCommand};
 use std::collections::{HashMap, HashSet};
 
 /// Connection lifecycle state owned by the connection feature.
@@ -46,6 +46,13 @@ pub(crate) struct ConnectionLifecycleState {
 }
 
 impl ConnectionLifecycleState {
+    pub(crate) fn connect_command(&self, request_id: RequestId, connection_id: String) -> UiCommand {
+        UiCommand::Connect {
+            request_id,
+            connection_id,
+        }
+    }
+
     pub(crate) fn active_connection_id(&self) -> Option<&str> {
         self.active_connection_id.as_deref()
     }
@@ -163,5 +170,18 @@ mod tests {
 
         assert!(!state.connected);
         assert_eq!(state.fallback_name, "Local PostgreSQL");
+    }
+
+    #[test]
+    fn connect_command_keeps_connection_identity_explicit() {
+        let state = ConnectionLifecycleState::default();
+
+        assert!(matches!(
+            state.connect_command(RequestId(7), "conn-1".to_owned()),
+            UiCommand::Connect {
+                request_id: RequestId(7),
+                connection_id,
+            } if connection_id == "conn-1"
+        ));
     }
 }

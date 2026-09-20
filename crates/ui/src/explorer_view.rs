@@ -415,10 +415,11 @@ impl DbProApp {
         self.connection.lifecycle.set_pending_request(Some(request_id));
         self.schema_explorer.schema_request = None;
         self.schema_explorer.schema_error = None;
-        self.dispatch_command(UiCommand::Connect {
-            request_id,
-            connection_id: connection.id.clone(),
-        });
+        self.dispatch_command(
+            self.connection
+                .lifecycle
+                .connect_command(request_id, connection.id.clone()),
+        );
         self.feedback.runtime_message = format!("Connecting to {}…", connection.name);
     }
 }
