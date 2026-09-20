@@ -617,6 +617,23 @@ both modules against `DbProApp` dependencies.
 
 Severity: P2 feature-boundary maintainability risk, resolved.
 
+## F54 — Result export/value formatting was attached to `DbProApp`
+
+Evidence at source `f64ae90d`: CSV/TSV escaping, exact-number JSON mapping,
+SQL INSERT generation, PostgreSQL COPY formatting and SQL literal conversion
+were associated functions on `DbProApp` inside the clipboard renderer.
+
+Impact: provider-value/export contracts were coupled to egui clipboard state;
+query export dialogs and tests depended on the composition root for pure data
+transforms.
+
+Fix: pure export/value functions now live in `result_grid_export.rs`; the
+clipboard module keeps only selection, staged-cell resolution and UI output
+orchestration. Export dialogs and tests call the pure module directly, and the
+architecture guard freezes it against `DbProApp` dependencies.
+
+Severity: P1 data-contract boundary risk, resolved for result export.
+
 ## F47 — Schema Workbench mixed mutation planning with view rendering
 
 Source SHA: `08acab31`.

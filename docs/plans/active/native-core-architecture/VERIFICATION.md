@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `01ec23d1`.
+Source checkpoint: `f64ae90d`.
 
 ## Current change
 
@@ -618,6 +618,10 @@ Source checkpoint: `01ec23d1`.
   maintenance controls now receive explicit inputs/state instead of a root
   receiver. Focused check, clippy, 633 UI tests, architecture guard, clean
   scan and diff checks PASS.
+- Result export boundary at source SHA `f64ae90d`: CSV/TSV, exact JSON, SQL
+  INSERT/COPY and literal formatting are pure module functions rather than
+  `DbProApp` methods. Focused check, clippy, 633 UI tests, architecture guard,
+  clean scan and diff checks PASS.
 - Final full gate at source SHA `4bb3d21d`: `cargo fmt --all -- --check`,
   workspace `cargo check`, workspace clippy with `-D warnings`, workspace
   tests, release native build, capture build and architecture guard all PASS.
