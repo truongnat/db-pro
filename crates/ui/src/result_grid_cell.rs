@@ -2,27 +2,6 @@
 use super::result_grid_view::{GridCell, GridSelectionLookup};
 use super::*;
 
-#[derive(Default)]
-struct GridCellMenuRequests {
-    copy_cell: bool,
-    copy_row: bool,
-    copy_selected_rows: bool,
-    copy_selected_rows_headers: bool,
-    copy_selected_rows_json: bool,
-    copy_selected_rows_insert: bool,
-    copy_json: bool,
-    copy_csv: bool,
-    edit_cell: bool,
-    set_null: bool,
-    revert_cell: bool,
-    revert_row: bool,
-    duplicate_row: bool,
-    delete_row: bool,
-    filter_this_val: bool,
-    sort_asc: bool,
-    sort_desc: bool,
-}
-
 struct GridCellInteraction<'a> {
     result: &'a UiQueryResult,
     visible_indexes: &'a [usize],
@@ -115,16 +94,7 @@ impl DbProApp {
         cell_response: &egui::Response,
         interaction: GridCellInteraction<'_>,
     ) {
-        let is_context_menu = self.run_grid_cell_context_menu(
-            ui,
-            cell_response,
-            interaction.result,
-            interaction.selection_lookup,
-            interaction.row_index,
-            interaction.column_index,
-            interaction.editable,
-            interaction.display_cell,
-        );
+        let is_context_menu = self.run_grid_cell_context_menu(ui, cell_response, &interaction);
         if cell_response.double_clicked() && interaction.editable {
             if self.table.editing.data_editing_cell.is_some() && !self.commit_active_data_edit(interaction.result) {
                 return;
@@ -152,18 +122,20 @@ impl DbProApp {
 
     // allow: grid cell context menu requires full context (result, selection, row/col, editable)
     // to paint and dispatch; kept flat for direct readability at render call site.
-    #[allow(clippy::too_many_arguments)]
     fn run_grid_cell_context_menu(
         &mut self,
         ui: &mut egui::Ui,
         cell_resp: &egui::Response,
-        result: &UiQueryResult,
-        selection_lookup: &GridSelectionLookup,
-        row_index: usize,
-        column_index: usize,
-        editable: bool,
-        display_cell: &UiCell,
+        interaction: &GridCellInteraction<'_>,
     ) -> bool {
+        let GridCellInteraction {
+            result,
+            selection_lookup,
+            row_index,
+            column_index,
+            editable,
+            ..
+        } = *interaction;
         let is_ctx = is_context_menu_triggered(cell_resp, ui);
         if is_ctx
             && self
@@ -213,145 +185,108 @@ impl DbProApp {
             has_staged_row,
             row_deleted: self.staged_row_deleted(result, row_index),
         };
-        let mut req = GridCellMenuRequests::default();
-        if let Some(action) = result_grid_cell_menu_view::draw_menu(&menu_context, ui, cell_resp) {
-            use result_grid_cell_menu_view::GridCellMenuAction as Action;
-            match action {
-                Action::CopyCell => req.copy_cell = true,
-                Action::CopyRow => req.copy_row = true,
-                Action::CopySelectedRows => req.copy_selected_rows = true,
-                Action::CopySelectedRowsHeaders => req.copy_selected_rows_headers = true,
-                Action::CopySelectedRowsJson => req.copy_selected_rows_json = true,
-                Action::CopySelectedRowsInsert => req.copy_selected_rows_insert = true,
-                Action::CopyJson => req.copy_json = true,
-                Action::CopyCsv => req.copy_csv = true,
-                Action::EditCell => req.edit_cell = true,
-                Action::SetNull => req.set_null = true,
-                Action::RevertCell => req.revert_cell = true,
-                Action::RevertRow => req.revert_row = true,
-                Action::DuplicateRow => req.duplicate_row = true,
-                Action::DeleteRow => req.delete_row = true,
-                Action::FilterThisValue => req.filter_this_val = true,
-                Action::SortAscending => req.sort_asc = true,
-                Action::SortDescending => req.sort_desc = true,
-            }
-        }
-        self.apply_grid_cell_menu_requests(
-            ui,
+        let action = result_grid_cell_menu_view::draw_menu(&menu_context, ui, cell_resp);
+        self.apply_grid_cell_menu_action(ui, interaction, action);
+        is_ctx
+    }
+
+    fn apply_grid_cell_menu_action(
+        &mut self,
+        ui: &mut egui::Ui,
+        interaction: &GridCellInteraction<'_>,
+        action: Option<result_grid_cell_menu_view::GridCellMenuAction>,
+    ) {
+        let GridCellInteraction {
             result,
-            selection_lookup,
             row_index,
             column_index,
             editable,
             display_cell,
-            req,
-            is_ctx,
-        );
-        is_ctx
+            ..
+        } = *interaction;
+        let Some(action) = action else {
+            return;
+        };
+        use result_grid_cell_menu_view::GridCellMenuAction as Action;
+        match action {
+            Action::CopyCell => self.copy_cell_at(ui, result, row_index, column_index),
+            Action::CopyRow => {
+                self.table.data.select_single_row(row_index);
+                self.copy_selected_row(ui, result);
+            }
+            Action::CopySelectedRows => {
+                self.ensure_selected_row(row_index);
+                self.copy_selected_rows(ui, result);
+            }
+            Action::CopySelectedRowsHeaders => {
+                self.ensure_selected_row(row_index);
+                self.copy_selected_rows_with_headers(ui, result);
+            }
+            Action::CopySelectedRowsJson => {
+                self.ensure_selected_row(row_index);
+                self.copy_selected_rows_as_json(ui, result);
+            }
+            Action::CopySelectedRowsInsert => {
+                self.ensure_selected_row(row_index);
+                self.copy_selected_rows_as_insert(ui, result);
+            }
+            Action::CopyJson => {
+                self.table.data.selected_row = Some(row_index);
+                self.copy_row_as_json(ui, result, row_index);
+            }
+            Action::CopyCsv => {
+                self.table.data.selected_row = Some(row_index);
+                self.copy_row_as_csv(ui, result, row_index);
+            }
+            Action::EditCell if editable => self.begin_data_cell_edit(result, row_index, column_index, display_cell),
+            Action::SetNull if editable => {
+                self.table.editing.data_editing_cell = Some((row_index, column_index));
+                self.table.editing.data_edit_value = "NULL".to_owned();
+                self.table.editing.data_edit_error = None;
+                self.submit_data_cell_edit(result, row_index, column_index);
+            }
+            Action::RevertCell if editable => self.revert_staged_cell(result, row_index, column_index),
+            Action::RevertRow if editable => self.revert_staged_row(result, row_index),
+            Action::DuplicateRow if editable => self.open_duplicate_row(result, row_index),
+            Action::DeleteRow if editable => {
+                self.ensure_selected_row(row_index);
+                self.request_delete_selected_data_rows(result);
+            }
+            Action::FilterThisValue => self.apply_cell_filter(result, column_index, display_cell),
+            Action::SortAscending => self.set_table_or_grid_sort(result, column_index, Some(false)),
+            Action::SortDescending => self.set_table_or_grid_sort(result, column_index, Some(true)),
+            Action::EditCell
+            | Action::SetNull
+            | Action::RevertCell
+            | Action::RevertRow
+            | Action::DuplicateRow
+            | Action::DeleteRow => {}
+        }
     }
 
-    // allow: applier handles menu selections with the exact same context as menu rendering —
-    // flat parameters enable 1:1 comparison with run_grid_cell_context_menu.
-    #[allow(clippy::too_many_arguments)]
-    fn apply_grid_cell_menu_requests(
-        &mut self,
-        ui: &mut egui::Ui,
-        result: &UiQueryResult,
-        _selection_lookup: &GridSelectionLookup,
-        row_index: usize,
-        column_index: usize,
-        editable: bool,
-        display_cell: &UiCell,
-        req: GridCellMenuRequests,
-        _is_ctx: bool,
-    ) {
-        if req.copy_cell {
-            self.copy_cell_at(ui, result, row_index, column_index);
-        }
-        if req.copy_row {
+    fn ensure_selected_row(&mut self, row_index: usize) {
+        if !self.table.data.selected_rows.contains(&row_index) {
             self.table.data.select_single_row(row_index);
-            self.copy_selected_row(ui, result);
         }
-        if req.copy_selected_rows {
-            if !self.table.data.selected_rows.contains(&row_index) {
-                self.table.data.select_single_row(row_index);
-            }
-            self.copy_selected_rows(ui, result);
-        }
-        if req.copy_selected_rows_headers {
-            if !self.table.data.selected_rows.contains(&row_index) {
-                self.table.data.select_single_row(row_index);
-            }
-            self.copy_selected_rows_with_headers(ui, result);
-        }
-        if req.copy_selected_rows_json {
-            if !self.table.data.selected_rows.contains(&row_index) {
-                self.table.data.select_single_row(row_index);
-            }
-            self.copy_selected_rows_as_json(ui, result);
-        }
-        if req.copy_selected_rows_insert {
-            if !self.table.data.selected_rows.contains(&row_index) {
-                self.table.data.select_single_row(row_index);
-            }
-            self.copy_selected_rows_as_insert(ui, result);
-        }
-        if req.copy_json {
-            self.table.data.selected_row = Some(row_index);
-            self.copy_row_as_json(ui, result, row_index);
-        }
-        if req.copy_csv {
-            self.table.data.selected_row = Some(row_index);
-            self.copy_row_as_csv(ui, result, row_index);
-        }
-        if req.edit_cell && editable {
-            self.begin_data_cell_edit(result, row_index, column_index, display_cell);
-        }
-        if req.set_null && editable {
-            self.table.editing.data_editing_cell = Some((row_index, column_index));
-            self.table.editing.data_edit_value = "NULL".to_owned();
-            self.table.editing.data_edit_error = None;
-            self.submit_data_cell_edit(result, row_index, column_index);
-        }
-        if req.revert_cell && editable {
-            self.revert_staged_cell(result, row_index, column_index);
-        }
-        if req.revert_row && editable {
-            self.revert_staged_row(result, row_index);
-        }
-        if req.duplicate_row && editable {
-            self.open_duplicate_row(result, row_index);
-        }
-        if req.delete_row && editable {
-            if !self.table.data.selected_rows.contains(&row_index) {
-                self.table.data.select_single_row(row_index);
-            }
-            self.request_delete_selected_data_rows(result);
-        }
-        if req.filter_this_val {
-            if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
-                self.table.data_query.filter_column = result
-                    .columns
-                    .get(column_index)
-                    .map(|column| column.name.clone())
-                    .unwrap_or_default();
-                if matches!(display_cell, UiCell::Null) {
-                    self.table.data_query.filter_operator = UiTableFilterOperator::IsNull;
-                    self.table.data_query.filter_value.clear();
-                } else {
-                    self.table.data_query.filter_operator = UiTableFilterOperator::Equals;
-                    self.table.data_query.filter_value = crate::cell_text(display_cell);
-                }
-                self.commit_table_filter_draft();
+    }
+
+    fn apply_cell_filter(&mut self, result: &UiQueryResult, column_index: usize, display_cell: &UiCell) {
+        if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
+            self.table.data_query.filter_column = result
+                .columns
+                .get(column_index)
+                .map(|column| column.name.clone())
+                .unwrap_or_default();
+            if matches!(display_cell, UiCell::Null) {
+                self.table.data_query.filter_operator = UiTableFilterOperator::IsNull;
+                self.table.data_query.filter_value.clear();
             } else {
-                self.table.data.grid_filter = crate::cell_text(display_cell);
+                self.table.data_query.filter_operator = UiTableFilterOperator::Equals;
+                self.table.data_query.filter_value = crate::cell_text(display_cell);
             }
-        }
-        if req.sort_asc {
-            self.set_table_or_grid_sort(result, column_index, Some(false));
-        }
-        if req.sort_desc {
-            self.set_table_or_grid_sort(result, column_index, Some(true));
+            self.commit_table_filter_draft();
+        } else {
+            self.table.data.grid_filter = crate::cell_text(display_cell);
         }
     }
 }
