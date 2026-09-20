@@ -1,7 +1,7 @@
 pub use super::result_grid_projection::GridSelectionLookup;
 use super::*;
 use crate::GridProjectionKey;
-use egui::{Align2, Pos2, Rounding, Stroke, Vec2};
+use egui::Vec2;
 
 /// Per-cell render context for the result grid.
 pub(crate) struct GridCell<'a> {
@@ -458,36 +458,12 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
             let row_number = crate::displayed_row_number(rows.row_offset, row_index);
-            let (gutter_rect, gutter_resp) =
-                ui.allocate_exact_size(egui::vec2(GRID_ROW_NUMBER_WIDTH, 28.0), Sense::click());
-
-            let gutter_fill = if row_selected {
-                self.theme.accent.linear_multiply(0.18)
-            } else if gutter_resp.hovered() {
-                self.theme.surface_hover.linear_multiply(0.5)
-            } else {
-                self.theme.surface_panel.linear_multiply(0.5)
-            };
-            ui.painter().rect_filled(gutter_rect, Rounding::ZERO, gutter_fill);
-            ui.painter().hline(
-                gutter_rect.x_range(),
-                gutter_rect.bottom(),
-                Stroke::new(1.0, self.theme.border_subtle.linear_multiply(0.4)),
-            );
-            ui.painter().vline(
-                gutter_rect.right(),
-                gutter_rect.y_range(),
-                Stroke::new(1.0, self.theme.border_subtle.linear_multiply(0.4)),
-            );
-            ui.painter().text(
-                Pos2::new(gutter_rect.right() - 8.0, gutter_rect.center().y),
-                Align2::RIGHT_CENTER,
-                row_number.to_string(),
-                FontId::monospace(11.0),
-                if row_selected {
-                    self.theme.accent
-                } else {
-                    self.theme.text_muted
+            let gutter_resp = result_grid_row_gutter_view::draw_row_gutter(
+                ui,
+                result_grid_row_gutter_view::GridRowGutterContext {
+                    theme: self.theme,
+                    row_number,
+                    selected: row_selected,
                 },
             );
 
