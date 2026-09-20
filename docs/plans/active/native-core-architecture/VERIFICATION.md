@@ -761,6 +761,20 @@ Source checkpoint: `5d42d5e9`.
   New Connection dialog is centered with a separated header and right-aligned
   close control. The rebuilt release binary is running for manual
   verification.
+- Result-grid header content follow-up at source SHA `f0c3a822`: PK/FK badges,
+  column labels, data types and sort markers now render through an explicit
+  visual context. Focused UI check, clippy, 630 UI tests, architecture guard
+  and clean scan PASS; full native rebuild/runtime capture is pending for this
+  follow-up.
+- Current full gate at source SHA `f0c3a822`: workspace fmt/check/clippy,
+  workspace tests (`404 core`, `119 infrastructure`, `32 runtime`, `4 tauri`,
+  `3`, `21`, `9`, `34`, `31`, `630 UI`; no failures), native release build,
+  capture-feature release build, architecture guard and clean scan (`16 pass`,
+  `0 warnings`) all PASS. Runtime capture is
+  `/tmp/db-pro-native-core-f0c3a822-default.png` at logical `1280x800`; the
+  New Connection dialog is centered with a separated header and right-aligned
+  close control. The rebuilt release binary is running for manual
+  verification.
 
 ## Not yet proven
 

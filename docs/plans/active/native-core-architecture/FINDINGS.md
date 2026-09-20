@@ -605,6 +605,20 @@ for applying state changes and sort/filter orchestration.
 Severity: P1 feature-boundary maintainability risk, resolved for the grid
 header context menu.
 
+## F76 — Result-grid header content painting was embedded in interaction code
+
+Evidence at discovery: PK/FK badges, column labels, data types and sort
+markers were painted inline beside resize, click and context-menu handling in
+`result_grid_header.rs`. The visual header contract could not be reviewed or
+changed independently from interaction orchestration.
+
+Fix in the current refactor: moved header-content painting into
+`result_grid_header_content_view.rs` with an explicit visual context. The
+remaining header root coordinates input, state and typed menu actions.
+
+Severity: P2 presentation-boundary maintainability risk, resolved for grid
+header content rendering.
+
 ## F48 — Runtime transport adapter was embedded in the protocol module
 
 Source SHA: `b85d65da`.
