@@ -714,28 +714,39 @@ Source checkpoint: `5d42d5e9`.
 - Table-data placeholder follow-up at source SHA `aef4c270`: loading and error
   rendering now consume `TableDataPlaceholderContext` and return a typed retry
   intent; the root remains the request executor. Focused UI check, clippy, 630
-  UI tests, architecture guard and clean scan PASS. Release/runtime evidence
-  is pending until the next native rebuild.
+  UI tests, architecture guard and clean scan PASS. Current full-gate runtime
+  capture is recorded below.
 - Table-data pagination follow-up at source SHA `eb03c668`: page navigation and
   page-size selection now consume explicit pagination context and return typed
   request/reset intents. Focused UI check, clippy, 630 UI tests, architecture
-  guard and clean scan PASS. Release/runtime evidence is pending until the next
-  native rebuild.
+  guard and clean scan PASS. Current full-gate runtime capture is recorded
+  below.
 - Table-data filter follow-up at source SHA `00de1a97`: filter scope,
   operator/input controls and filter chips now consume explicit context and
   return typed commit/reload/remove/clear intents. Focused UI fmt/check,
-  clippy, 630 UI tests, architecture guard and clean scan PASS; release/runtime
-  evidence is pending until the next native rebuild.
+  clippy, 630 UI tests, architecture guard and clean scan PASS; current
+  full-gate runtime capture is recorded below.
 - Table-data sort follow-up at source SHA `cffae04f`: sort label/selection and
   staged-change guard now consume explicit context and return typed reload or
   blocked intents. Focused UI fmt/check, clippy, 630 UI tests, architecture
-  guard and clean scan PASS; release/runtime evidence is pending until the next
-  native rebuild.
+  guard and clean scan PASS; current full-gate runtime capture is recorded
+  below.
 - Table-data mutation-toolbar follow-up at source SHA `fe7c5aea`: refresh,
   staged-change, mutation-failure and selection-status controls now consume
   explicit context and return typed intents. Focused UI fmt/check, clippy, 630
-  UI tests, architecture guard and clean scan PASS; release/runtime evidence is
-  pending until the next native rebuild.
+  UI tests, architecture guard and clean scan PASS; current full-gate runtime
+  capture is recorded below.
+
+- Current full gate at source SHA `613090c0`: `cargo fmt --all -- --check`,
+  workspace check, workspace clippy with `-D warnings`, workspace tests
+  (`404 core`, `119 infrastructure`, `32 runtime`, `4 tauri`, `3`, `21`, `9`,
+  `34`, `31`, `630 UI`; no failures), native release build, capture-feature
+  release build, architecture guard and clean scan (`16 pass`, `0 warnings`)
+  all PASS. Runtime capture is
+  `/tmp/db-pro-native-core-613090c0.png` at logical `1280x800`; the New
+  Connection dialog is centered with a separated header and right-aligned
+  close control. The rebuilt release binary is running for manual
+  verification.
 
 ## Not yet proven
 
