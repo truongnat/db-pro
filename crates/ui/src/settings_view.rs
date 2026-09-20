@@ -630,17 +630,12 @@ impl DbProApp {
         ui.horizontal_wrapped(|ui| {
             if compact_button_with_icon(ui, Icon::FolderOpen, "Choose path", self.theme).clicked() {
                 let request_id = self.task_bridge.next_request_id();
-                self.dispatch_command(UiCommand::PickBackupFile { request_id });
+                self.dispatch_command(self.overlay.pick_backup_command(request_id));
             }
             if secondary_button_with_icon(ui, Icon::Archive, "Create backup", self.theme).clicked() {
                 if let Some(connection) = self.active_connection().cloned() {
                     let request_id = self.task_bridge.next_request_id();
-                    self.dispatch_command(UiCommand::Backup {
-                        request_id,
-                        connection_id: connection.id,
-                        output_path: self.overlay.backup_output_path.clone(),
-                        custom_format: false,
-                    });
+                    self.dispatch_command(self.overlay.backup_command(request_id, connection.id));
                 }
             }
         });
@@ -661,7 +656,7 @@ impl DbProApp {
         ui.horizontal_wrapped(|ui| {
             if compact_button_with_icon(ui, Icon::FolderOpen, "Choose file", self.theme).clicked() {
                 let request_id = self.task_bridge.next_request_id();
-                self.dispatch_command(UiCommand::PickRestoreFile { request_id });
+                self.dispatch_command(self.overlay.pick_restore_command(request_id));
             }
             if secondary_button_with_icon(ui, Icon::RotateCcw, "Restore database", self.theme).clicked() {
                 self.overlay.restore_confirmation = true;
@@ -674,12 +669,7 @@ impl DbProApp {
                 if danger_button(ui, "Confirm restore", self.theme).clicked() {
                     if let Some(connection) = self.active_connection().cloned() {
                         let request_id = self.task_bridge.next_request_id();
-                        self.dispatch_command(UiCommand::Restore {
-                            request_id,
-                            connection_id: connection.id,
-                            input_path: self.overlay.restore_input_path.clone(),
-                            custom_format: false,
-                        });
+                        self.dispatch_command(self.overlay.restore_command(request_id, connection.id));
                     }
                     self.overlay.restore_confirmation = false;
                 }
