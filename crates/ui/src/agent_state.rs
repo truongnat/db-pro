@@ -281,52 +281,7 @@ impl DbProApp {
     }
 
     pub(super) fn on_agent_workflow_event(&mut self, event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent) {
-        use db_pro_core::domain::agent_workflow::AgentWorkflowEvent;
-
-        let document_id = match &event {
-            AgentWorkflowEvent::TextDelta { document_id, .. }
-            | AgentWorkflowEvent::ToolRequested { document_id, .. }
-            | AgentWorkflowEvent::ToolCompleted { document_id, .. }
-            | AgentWorkflowEvent::ToolFailed { document_id, .. }
-            | AgentWorkflowEvent::ConfirmationRequired { document_id, .. }
-            | AgentWorkflowEvent::Completed { document_id, .. }
-            | AgentWorkflowEvent::Failed { document_id, .. }
-            | AgentWorkflowEvent::Cancelled { document_id, .. } => document_id.clone(),
-        };
-        let Some(session) = self.agent.sessions.get_mut(&document_id) else {
-            return;
-        };
-        let (session_id, run_id) = match &event {
-            AgentWorkflowEvent::TextDelta { session_id, run_id, .. }
-            | AgentWorkflowEvent::ToolRequested { session_id, run_id, .. }
-            | AgentWorkflowEvent::ToolCompleted { session_id, run_id, .. }
-            | AgentWorkflowEvent::ToolFailed { session_id, run_id, .. }
-            | AgentWorkflowEvent::ConfirmationRequired { session_id, run_id, .. }
-            | AgentWorkflowEvent::Completed { session_id, run_id, .. }
-            | AgentWorkflowEvent::Failed { session_id, run_id, .. }
-            | AgentWorkflowEvent::Cancelled { session_id, run_id, .. } => (*session_id, *run_id),
-        };
-        if session.session.as_ref().map(|value| value.id) != Some(session_id)
-            || session.active_run_id.is_some_and(|active| active != run_id)
-        {
-            return;
-        }
-        if matches!(
-            session.state,
-            db_pro_core::domain::agent::AgentSessionState::Completed
-                | db_pro_core::domain::agent::AgentSessionState::Failed
-                | db_pro_core::domain::agent::AgentSessionState::Cancelled
-        ) {
-            return;
-        }
-        if session.active_run_id.is_none() {
-            if session.state != db_pro_core::domain::agent::AgentSessionState::Running {
-                return;
-            }
-            session.active_run_id = Some(run_id);
-        }
-
-        apply_agent_workflow_event(session, event, run_id);
+        agent_events::on_agent_workflow_event(&mut self.agent, event);
     }
 
     pub(super) fn agent_confirmation_action(&mut self, approved: bool) {
@@ -542,7 +497,7 @@ fn flush_agent_stream(session: &mut super::agent_workflow_state::AgentUiSession)
     });
 }
 
-fn apply_agent_workflow_event(
+pub(super) fn apply_agent_workflow_event(
     session: &mut super::agent_workflow_state::AgentUiSession,
     event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent,
     run_id: db_pro_core::domain::agent::AgentRunId,
