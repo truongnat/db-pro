@@ -63,6 +63,19 @@ impl QueryDocumentContext<'_> {
             .set_runtime_message(format!("Renamed tab to {}", document.title));
     }
 
+    pub(crate) fn switch_document(&mut self, index: usize) {
+        if index == self.query_session.active_document_index || !self.query_session.select_document(index) {
+            return;
+        }
+        self.sync_active_cursor_and_selection();
+        let title = self
+            .query_session
+            .active_document()
+            .map(|document| document.title.clone())
+            .unwrap_or_default();
+        self.feedback.set_runtime_message(format!("Opened {title}"));
+    }
+
     pub(crate) fn close_document(&mut self, index: usize) {
         if index >= self.query_session.documents.len() {
             return;
@@ -279,6 +292,10 @@ impl DbProApp {
     /// Cycle a simple numbered rename for the open query tab (#211).
     pub(crate) fn rename_query_document_inline(&mut self, index: usize) {
         self.query_document_context().rename_document_inline(index);
+    }
+
+    pub(crate) fn switch_query_document(&mut self, index: usize) {
+        self.query_document_context().switch_document(index);
     }
 
     pub(crate) fn open_history_entry(&mut self, entry: &UiQueryHistoryEntry, run: bool) {
