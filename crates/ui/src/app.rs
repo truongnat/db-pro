@@ -387,6 +387,10 @@ mod transfer_activity_view;
 mod welcome_view;
 #[path = "workspace_feature_state.rs"]
 mod workspace_feature_state;
+#[path = "workspace_tab_primitives.rs"]
+mod workspace_tab_primitives;
+#[path = "workspace_tabs_view.rs"]
+mod workspace_tabs_view;
 #[path = "workspace_view.rs"]
 mod workspace_view;
 

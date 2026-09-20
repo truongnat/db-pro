@@ -559,6 +559,10 @@ Source checkpoint: `0070d374`.
   now live in `files_activity_tabs.rs`; `files_activity_view.rs` is reduced to
   the 201-line compositor. Focused UI tests (632 passed), UI clippy,
   architecture guard and diff checks PASS; clean scan has no failures.
+- Workspace shell ownership follow-up: tab lifecycle/rendering now lives in
+  `workspace_tabs_view.rs`, reusable tab chrome in `workspace_tab_primitives.rs`,
+  and `workspace_view.rs` is reduced to an 18-line content compositor. Focused
+  UI tests (632 passed), UI clippy, architecture guard and diff checks PASS.
 
 ## Not yet proven
 

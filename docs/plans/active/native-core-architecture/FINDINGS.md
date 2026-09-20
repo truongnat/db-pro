@@ -599,6 +599,19 @@ header, tab selection and surface composition.
 
 Severity: P2 workspace-activity boundary risk, resolved.
 
+## F44 — Workspace shell mixed tab chrome with tab-content composition
+
+Evidence at discovery: `workspace_view.rs` combined tab lifecycle/menu/chrome
+rendering with the active workspace surface switch in one module above 800
+lines.
+
+Fix in the current refactor: moved tab lifecycle/rendering to
+`workspace_tabs_view.rs` and reusable tab chrome primitives to
+`workspace_tab_primitives.rs`. The workspace view is now a minimal content
+compositor.
+
+Severity: P1 shell composition-boundary risk, resolved.
+
 ## F25 — Table metadata state still owned the data-query lifecycle
 
 Evidence at discovery: `TableState` combined table metadata/DDL with the data
