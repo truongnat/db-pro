@@ -1,9 +1,10 @@
 use super::files_agent_context_view::{ActiveQueryContext, FilesAgentContextAction, FilesAgentContextView};
+use super::files_git_view::{FilesGitAction, FilesGitContext};
 use super::files_search_view::{FilesSearchAction, FilesSearchContext};
+use super::files_tasks_view::{FilesTasksAction, FilesTasksContext};
 use super::files_tree_view::{FilesTreeAction, FilesTreeContext};
 use super::*;
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use egui::{Align, Layout, RichText};
+use egui::RichText;
 use lucide_icons::Icon;
 
 impl DbProApp {
@@ -176,74 +177,36 @@ impl DbProApp {
     }
 
     pub(super) fn draw_files_tasks_tab(&mut self, ui: &mut egui::Ui) {
-        ui.add(
-            egui::TextEdit::singleline(&mut self.workspace.files.workspace_task_command)
-                .hint_text("shell command in workspace root…")
-                .desired_width(ui.available_width()),
-        );
-        ui.add_space(4.0);
-        if Button::new(self.theme)
-            .text("Run")
-            .variant(ButtonVariant::Secondary)
-            .size(ButtonSize::Sm)
-            .show(ui)
-            .clicked()
-        {
-            self.workspace.files.run_task(&mut self.feedback);
-        }
-        if let Some(result) = self.workspace.files.ide_workspace.last_task.clone() {
-            ui.add_space(6.0);
-            ui.label(
-                RichText::new(format!(
-                    "$ {} · exit {:?} · {}ms",
-                    result.command, result.exit_code, result.duration_ms
-                ))
-                .small()
-                .monospace()
-                .color(self.theme.text_secondary),
-            );
-            if !result.stdout.is_empty() {
-                ui.label(
-                    RichText::new(result.stdout.chars().take(800).collect::<String>())
-                        .small()
-                        .monospace()
-                        .color(self.theme.text_muted),
-                );
+        let actions = {
+            let mut context = FilesTasksContext {
+                theme: self.theme,
+                command: &mut self.workspace.files.workspace_task_command,
+                last_task: self.workspace.files.ide_workspace.last_task.as_ref(),
+            };
+            context.draw(ui)
+        };
+        for action in actions {
+            match action {
+                FilesTasksAction::RunTask => self.workspace.files.run_task(&mut self.feedback),
+                FilesTasksAction::RunBenchmark => {
+                    let cases = vec![
+                        ide_workspace::BenchmarkCase {
+                            name: "select-1".to_owned(),
+                            sql: "SELECT 1".to_owned(),
+                        },
+                        ide_workspace::BenchmarkCase {
+                            name: "select-now".to_owned(),
+                            sql: "SELECT CURRENT_TIMESTAMP".to_owned(),
+                        },
+                    ];
+                    let results = ide_workspace::measure_local_benchmark(&cases, 5);
+                    self.feedback.runtime_message = results
+                        .into_iter()
+                        .map(|result| format!("{}={}ms", result.name, result.avg_ms))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                }
             }
-            if !result.stderr.is_empty() {
-                ui.label(
-                    RichText::new(result.stderr.chars().take(400).collect::<String>())
-                        .small()
-                        .monospace()
-                        .color(self.theme.danger),
-                );
-            }
-        }
-        ui.add_space(8.0);
-        section_label(ui, "BENCHMARK (local timing)", self.theme);
-        if Button::new(self.theme)
-            .text("Run sample suite")
-            .variant(ButtonVariant::Secondary)
-            .size(ButtonSize::Sm)
-            .show(ui)
-            .clicked()
-        {
-            let cases = vec![
-                ide_workspace::BenchmarkCase {
-                    name: "select-1".to_owned(),
-                    sql: "SELECT 1".to_owned(),
-                },
-                ide_workspace::BenchmarkCase {
-                    name: "select-now".to_owned(),
-                    sql: "SELECT CURRENT_TIMESTAMP".to_owned(),
-                },
-            ];
-            let results = ide_workspace::measure_local_benchmark(&cases, 5);
-            self.feedback.runtime_message = results
-                .into_iter()
-                .map(|result| format!("{}={}ms", result.name, result.avg_ms))
-                .collect::<Vec<_>>()
-                .join(", ");
         }
     }
 
@@ -268,22 +231,6 @@ impl DbProApp {
     }
 
     pub(super) fn draw_files_git_tab(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            section_label(ui, "GIT", self.theme);
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if Button::new(self.theme)
-                    .icon(Icon::RefreshCw)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("Refresh git status")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.workspace.files.refresh_git_status(&mut self.feedback);
-                }
-            });
-        });
-        ui.add_space(4.0);
         let documents: Vec<(String, String, bool)> = self
             .query
             .session
@@ -295,146 +242,28 @@ impl DbProApp {
             })
             .collect();
         self.workspace.files.check_external_file_changes(&documents);
-        if let Some(path) = self.workspace.files.workspace_external_change.clone() {
-            ui.colored_label(
-                self.theme.warning,
-                format!("Disk changed for {path} — unsaved editor buffer was kept."),
-            );
-            ui.horizontal(|ui| {
-                if Button::new(self.theme)
-                    .text("Reload from disk")
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.reload_workspace_file_from_disk(&path);
-                }
-                if Button::new(self.theme)
-                    .icon(Icon::X)
-                    .text("Dismiss")
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.workspace.files.workspace_external_change = None;
-                }
-            });
-            ui.add_space(6.0);
-        }
-        if let Some(error) = self.workspace.files.git_last_error.clone() {
-            ui.colored_label(self.theme.danger, error);
-        }
-        let Some(status) = self.workspace.files.git_status.clone() else {
-            ui.label(
-                RichText::new("Refresh to probe Git for the active workspace root.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-            return;
+        let actions = {
+            let mut context = FilesGitContext {
+                theme: self.theme,
+                status: self.workspace.files.git_status.as_ref(),
+                last_error: self.workspace.files.git_last_error.as_deref(),
+                external_change: self.workspace.files.workspace_external_change.as_deref(),
+                commit_message: &mut self.workspace.files.git_commit_message,
+                diff: self.workspace.files.git_diff.as_ref(),
+            };
+            context.draw(ui)
         };
-        if !status.available {
-            ui.label(RichText::new(&status.message).small().color(self.theme.text_muted));
-            return;
-        }
-        ui.label(
-            RichText::new(format!(
-                "branch {} · {}",
-                status.branch.as_deref().unwrap_or("?"),
-                status.message
-            ))
-            .small()
-            .color(self.theme.text_secondary),
-        );
-        ui.add_space(6.0);
-        ui.add(
-            egui::TextEdit::singleline(&mut self.workspace.files.git_commit_message)
-                .hint_text("commit message (explicit only — never auto)")
-                .desired_width(ui.available_width()),
-        );
-        if Button::new(self.theme)
-            .text("Commit staged")
-            .variant(ButtonVariant::Destructive)
-            .size(ButtonSize::Sm)
-            .show(ui)
-            .clicked()
-        {
-            self.workspace.files.commit_git_staged(&mut self.feedback);
-        }
-        ui.add_space(8.0);
-        if status.entries.is_empty() {
-            ui.label(
-                RichText::new("Working tree clean.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-        }
-        for entry in status.entries.iter().take(80) {
-            ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new(format!("[{}] {}", entry.code.trim(), entry.path))
-                        .small()
-                        .monospace()
-                        .color(self.theme.text_primary),
-                );
-            });
-            ui.horizontal(|ui| {
-                if Button::new(self.theme)
-                    .icon(Icon::Plus)
-                    .text("Stage")
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.workspace.files.stage_git_path(&entry.path, &mut self.feedback);
-                }
-                if Button::new(self.theme)
-                    .icon(Icon::Minus)
-                    .text("Unstage")
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.workspace.files.unstage_git_path(&entry.path, &mut self.feedback);
-                }
-                if Button::new(self.theme)
-                    .icon(Icon::GitCompare)
-                    .text("Diff")
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.workspace.files.diff_git_path(&entry.path);
-                }
-                if Button::new(self.theme)
-                    .icon(Icon::FileCode2)
-                    .text("Open")
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.open_workspace_sql_file(entry.path.clone());
-                }
-            });
-            ui.add_space(4.0);
-        }
-        if let Some(diff) = self.workspace.files.git_diff.clone() {
-            ui.add_space(8.0);
-            section_label(ui, format!("DIFF · {} vs {}", diff.path, diff.against), self.theme);
-            ui.add_space(4.0);
-            egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
-                ui.label(
-                    RichText::new(diff.text.chars().take(8_000).collect::<String>())
-                        .small()
-                        .monospace()
-                        .color(self.theme.text_muted),
-                );
-            });
+        for action in actions {
+            match action {
+                FilesGitAction::Refresh => self.workspace.files.refresh_git_status(&mut self.feedback),
+                FilesGitAction::ReloadExternalFile(path) => self.reload_workspace_file_from_disk(&path),
+                FilesGitAction::DismissExternalFile => self.workspace.files.workspace_external_change = None,
+                FilesGitAction::CommitStaged => self.workspace.files.commit_git_staged(&mut self.feedback),
+                FilesGitAction::Stage(path) => self.workspace.files.stage_git_path(&path, &mut self.feedback),
+                FilesGitAction::Unstage(path) => self.workspace.files.unstage_git_path(&path, &mut self.feedback),
+                FilesGitAction::Diff(path) => self.workspace.files.diff_git_path(&path),
+                FilesGitAction::Open(path) => self.open_workspace_sql_file(path),
+            }
         }
     }
 }
