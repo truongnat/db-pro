@@ -1,7 +1,6 @@
 //! Schema Workbench — Phase A object mutation UI (#183–#190, #207, #216–#218, #249–#250).
 
 use super::*;
-use crate::components::{Button, ButtonSize, ButtonVariant};
 use db_pro_core::domain::object_mutation::*;
 use db_pro_core::ports::SqlDialect;
 use egui::RichText;
@@ -267,71 +266,30 @@ impl DbProApp {
     // Form + preview: `schema_workbench_form.rs`.
 
     fn draw_dependency_navigator(&mut self, ui: &mut egui::Ui) {
-        ui.label(RichText::new("Object dependencies").strong());
-        ui.add_space(4.0);
-        ui.horizontal(|ui| {
-            ui.label("Filter");
-            ui.text_edit_singleline(&mut self.schema.workbench.dependency_filter);
-        });
-        ui.add_space(6.0);
-        let filter = self.schema.workbench.dependency_filter.to_ascii_lowercase();
         let edges = self.collect_ui_dependency_edges();
-        if edges.is_empty() {
-            ui.label(RichText::new("No dependency edges in the loaded schema summary.").color(self.theme.text_muted));
-            return;
-        }
-        egui::Grid::new("dep_grid").num_columns(3).striped(true).show(ui, |ui| {
-            ui.label(RichText::new("From").strong());
-            ui.label(RichText::new("Relation").strong());
-            ui.label(RichText::new("To").strong());
-            ui.end_row();
-            for edge in edges {
-                let line = format!(
-                    "{:?}.{}.{} {} {:?}.{}.{}",
-                    edge.from_kind,
-                    edge.from_schema.as_deref().unwrap_or("-"),
-                    edge.from_name,
-                    edge.relation,
-                    edge.to_kind,
-                    edge.to_schema.as_deref().unwrap_or("-"),
-                    edge.to_name
-                );
-                if !filter.is_empty() && !line.to_ascii_lowercase().contains(&filter) {
-                    continue;
-                }
-                ui.label(format!(
-                    "{}.{}",
-                    edge.from_schema.as_deref().unwrap_or("-"),
-                    edge.from_name
-                ));
-                ui.label(&edge.relation);
-                ui.label(format!("{}.{}", edge.to_schema.as_deref().unwrap_or("-"), edge.to_name));
-                ui.end_row();
-            }
-        });
+        let mut context = schema_workbench_secondary_view::SchemaWorkbenchSecondaryContext {
+            theme: self.theme,
+            workbench: &mut self.schema.workbench,
+            edges: &edges,
+        };
+        schema_workbench_secondary_view::draw_dependency_navigator(&mut context, ui);
     }
 
     fn draw_docs_export(&mut self, ui: &mut egui::Ui) {
-        ui.label(RichText::new("Schema documentation export").strong());
-        ui.add_space(4.0);
-        ui.horizontal(|ui| {
-            if Button::new(self.theme)
-                .text("Generate Markdown")
-                .size(ButtonSize::Sm)
-                .variant(ButtonVariant::Secondary)
-                .show(ui)
-                .clicked()
-            {
+        let action = {
+            let mut context = schema_workbench_secondary_view::SchemaWorkbenchSecondaryContext {
+                theme: self.theme,
+                workbench: &mut self.schema.workbench,
+                edges: &[],
+            };
+            schema_workbench_secondary_view::draw_docs_export(&mut context, ui)
+        };
+        match action {
+            Some(schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::GenerateMarkdown) => {
                 self.schema.workbench.docs_format_html = false;
                 self.schema.workbench.docs_markdown = self.export_schema_docs_markdown();
             }
-            if Button::new(self.theme)
-                .text("Generate HTML")
-                .size(ButtonSize::Sm)
-                .variant(ButtonVariant::Secondary)
-                .show(ui)
-                .clicked()
-            {
+            Some(schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::GenerateHtml) => {
                 self.schema.workbench.docs_format_html = true;
                 let md = self.export_schema_docs_markdown();
                 self.schema.workbench.docs_markdown = format!(
@@ -339,29 +297,15 @@ impl DbProApp {
                     md.replace('&', "&amp;").replace('<', "&lt;")
                 );
             }
-            if Button::new(self.theme)
-                .text("Open as query")
-                .size(ButtonSize::Sm)
-                .variant(ButtonVariant::Ghost)
-                .show(ui)
-                .clicked()
-                && !self.schema.workbench.docs_markdown.is_empty()
-            {
-                let body = self.schema.workbench.docs_markdown.clone();
+            Some(schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::OpenDocsAsQuery(body)) => {
                 self.new_query_document();
                 if let Some(doc) = self.query.session.documents.last_mut() {
                     doc.set_text(format!("-- Schema docs export\n/*\n{body}\n*/"));
                 }
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
-        });
-        ui.add_space(6.0);
-        ui.add(
-            egui::TextEdit::multiline(&mut self.schema.workbench.docs_markdown)
-                .desired_rows(18)
-                .desired_width(f32::INFINITY)
-                .code_editor(),
-        );
+            None => {}
+        }
     }
 
     pub(crate) fn collect_ui_dependency_edges(&self) -> Vec<ObjectDependencyEdge> {
