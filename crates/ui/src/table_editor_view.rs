@@ -1095,24 +1095,19 @@ impl DbProApp {
         if self.table_state.ddl_execution_request.is_some() {
             return;
         }
-        let Some(sql) = self.table_state.table_ddl.clone() else {
-            self.feedback.runtime_message = "Load the table DDL before executing it".to_owned();
-            return;
-        };
-        if sql.trim().is_empty() {
-            self.feedback.runtime_message = "DDL cannot be empty".to_owned();
-            return;
-        }
         let Some(connection) = self.active_connection().cloned() else {
             self.feedback.runtime_message = "Connect to a database before executing DDL".to_owned();
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ExecuteDdl {
-            request_id,
-            connection_id: connection.id,
-            sql,
-        });
+        let command = match self.table_state.execute_ddl_command(request_id, connection.id) {
+            Ok(command) => command,
+            Err(error) => {
+                self.feedback.runtime_message = error;
+                return;
+            }
+        };
+        self.dispatch_command(command);
         self.table_state.ddl_execution_request = Some(request_id);
         self.table_state.ddl_execute_confirmation = false;
         self.feedback.runtime_message = "Executing DDL…".to_owned();
@@ -1250,12 +1245,12 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         self.table_state.table_info_request = Some(request_id);
-        self.dispatch_command(UiCommand::LoadTableInfo {
+        self.dispatch_command(self.table_state.load_info_command(
             request_id,
             connection_id,
-            schema: self.active_schema().to_owned(),
+            self.active_schema().to_owned(),
             table,
-        });
+        ));
         self.feedback.runtime_message = "Loading table structure…".to_owned();
     }
 
@@ -1625,16 +1620,13 @@ impl DbProApp {
         let request_id = self.task_bridge.next_request_id();
         self.table_state.table_row_reload_request = Some(request_id);
         self.table_state.table_row_reload_identity = Some(identity);
-        self.dispatch_command(UiCommand::LoadTableData {
+        self.dispatch_command(self.table_state.load_row_command(
             request_id,
             connection_id,
-            schema: self.active_schema().to_owned(),
+            self.active_schema().to_owned(),
             table,
-            limit: 1,
-            offset: 0,
             filters,
-            sorts: Vec::new(),
-        });
+        ));
         self.feedback.runtime_message = "Reloading row from database…".to_owned();
     }
 
@@ -2330,12 +2322,12 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         self.table_state.table_ddl_request = Some(request_id);
-        self.dispatch_command(UiCommand::LoadTableDdl {
+        self.dispatch_command(self.table_state.load_ddl_command(
             request_id,
             connection_id,
-            schema: self.active_schema().to_owned(),
+            self.active_schema().to_owned(),
             table,
-        });
+        ));
         self.feedback.runtime_message = "Loading table DDL…".to_owned();
     }
 
@@ -2354,17 +2346,14 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         self.table_state.table_data_request = Some(request_id);
-        let sorts = self.table_state.table_data_sorts.clone();
-        self.dispatch_command(UiCommand::LoadTableData {
+        self.dispatch_command(self.table_state.load_data_command(
             request_id,
             connection_id,
-            schema: self.active_schema().to_owned(),
+            self.active_schema().to_owned(),
             table,
-            limit: self.table_state.table_data_limit,
-            offset: self.table_state.table_data_offset,
-            filters: self.table_state.table_data_filters.clone(),
-            sorts,
-        });
+            self.table_state.table_data_filters.clone(),
+            self.table_state.table_data_sorts.clone(),
+        ));
         self.feedback.runtime_message = "Loading table data…".to_owned();
     }
 

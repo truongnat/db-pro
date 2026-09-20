@@ -74,6 +74,97 @@ impl Default for TableState {
 }
 
 impl TableState {
+    pub(super) fn load_info_command(
+        &self,
+        request_id: RequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+    ) -> UiCommand {
+        UiCommand::LoadTableInfo {
+            request_id,
+            connection_id,
+            schema,
+            table,
+        }
+    }
+
+    pub(super) fn load_ddl_command(
+        &self,
+        request_id: RequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+    ) -> UiCommand {
+        UiCommand::LoadTableDdl {
+            request_id,
+            connection_id,
+            schema,
+            table,
+        }
+    }
+
+    pub(super) fn load_data_command(
+        &self,
+        request_id: RequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+        filters: Vec<UiTableDataFilter>,
+        sorts: Vec<UiTableDataSort>,
+    ) -> UiCommand {
+        UiCommand::LoadTableData {
+            request_id,
+            connection_id,
+            schema,
+            table,
+            limit: self.table_data_limit,
+            offset: self.table_data_offset,
+            filters,
+            sorts,
+        }
+    }
+
+    pub(super) fn load_row_command(
+        &self,
+        request_id: RequestId,
+        connection_id: String,
+        schema: String,
+        table: String,
+        filters: Vec<UiTableDataFilter>,
+    ) -> UiCommand {
+        UiCommand::LoadTableData {
+            request_id,
+            connection_id,
+            schema,
+            table,
+            limit: 1,
+            offset: 0,
+            filters,
+            sorts: Vec::new(),
+        }
+    }
+
+    pub(super) fn execute_ddl_command(
+        &self,
+        request_id: RequestId,
+        connection_id: String,
+    ) -> Result<UiCommand, String> {
+        let sql = self
+            .table_ddl
+            .as_deref()
+            .ok_or_else(|| "Load the table DDL before executing it".to_owned())?
+            .trim();
+        if sql.is_empty() {
+            return Err("DDL cannot be empty".to_owned());
+        }
+        Ok(UiCommand::ExecuteDdl {
+            request_id,
+            connection_id,
+            sql: sql.to_owned(),
+        })
+    }
+
     pub(crate) fn has_primary_key(&self) -> bool {
         self.table_info
             .as_ref()
@@ -108,5 +199,15 @@ mod tests {
         assert!(state.table_data_result.is_none());
         assert!(state.table_info_request.is_none());
         assert_eq!(state.table_data_limit, TABLE_PAGE_SIZE);
+    }
+
+    #[test]
+    fn execute_ddl_requires_non_empty_loaded_sql() {
+        let state = TableState::default();
+
+        assert_eq!(
+            state.execute_ddl_command(RequestId(1), "source".to_owned()),
+            Err("Load the table DDL before executing it".to_owned())
+        );
     }
 }
