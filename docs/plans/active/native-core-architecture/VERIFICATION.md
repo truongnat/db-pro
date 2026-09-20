@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `512904ea`.
+Source checkpoint: `3419eb78`.
 
 ## Current change
 
@@ -173,6 +173,9 @@ Source checkpoint: `512904ea`.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.
+- Named workspace-session capture, restore, duplication and persistence now
+  run through `WorkspaceSessionContext` with explicit aggregate dependencies;
+  the session module no longer implements `DbProApp` methods.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
