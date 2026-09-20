@@ -690,6 +690,13 @@ Source checkpoint: `5d42d5e9`.
   (16 pass, 0 warnings). Runtime capture is
   `/tmp/db-pro-native-core-072f44be.png`; the New Connection dialog remains
   centered with a separated header and right-aligned close control.
+- Query context-picker follow-up at source SHA `ecde08d7`: picker rendering
+  now returns typed connection/schema/close intents and the root remains the
+  document mutation boundary. Focused UI check, clippy, 630 UI tests,
+  architecture guard and clean scan PASS; both native release builds were
+  rebuilt from this SHA. Runtime capture is
+  `/tmp/db-pro-native-core-ecde08d7.png`; the New Connection dialog remains
+  centered with a separated header and right-aligned close control.
 
 ## Not yet proven
 

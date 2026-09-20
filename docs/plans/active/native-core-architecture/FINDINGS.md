@@ -1084,6 +1084,20 @@ The architecture guard rejects `DbProApp` from the control module.
 
 Severity: P1 feature-boundary risk, resolved for query run control.
 
+## F67 — Query context picker mixed menu rendering with document mutation
+
+Evidence at discovery: connection/schema menu rendering, outside-click close
+handling and document selection mutations were combined in `query_view.rs`.
+The picker therefore depended on the composition root for both local chrome
+and feature transitions.
+
+Fix in `ecde08d7`: moved menu rendering to
+`query_context_picker_view.rs`, which returns typed selection/close intents;
+the root applies `set_document_connection` and `set_document_schema`. The
+architecture guard rejects `DbProApp` from the picker module.
+
+Severity: P1 feature-boundary risk, resolved for the query context picker.
+
 ## F35 — Navigation view owned transfer activity
 
 Evidence at discovery: the navigation module rendered backup/restore entry
