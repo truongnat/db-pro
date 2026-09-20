@@ -88,6 +88,7 @@ if [[ -e "$repo_root/crates/ui/src/database_operations_state.rs" ]]; then
 fi
 
 connection_renderers=(
+  "$repo_root/crates/ui/src/activity_bar_view.rs"
   "$repo_root/crates/ui/src/connection/view.rs"
   "$repo_root/crates/ui/src/connection/form_fields.rs"
   "$repo_root/crates/ui/src/connection/advanced_panels.rs"

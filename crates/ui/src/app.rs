@@ -453,7 +453,14 @@ impl eframe::App for DbProApp {
             self.draw_output_panel(ctx);
         }
         self.draw_statusbar(ctx);
-        self.draw_activity_bar(ctx);
+        if let Some(action) = activity_bar_view::draw_activity_bar(ctx, self.theme, &mut self.workspace) {
+            match action {
+                activity_bar_view::ActivityBarAction::OpenSchemaWorkbench => self.open_schema_workbench(),
+                activity_bar_view::ActivityBarAction::ToggleAgent => {
+                    self.set_agent_open(!self.workspace.agent_open, ctx)
+                }
+            }
+        }
 
         if self.workspace.sidebar_open {
             self.draw_sidebar(ctx);
