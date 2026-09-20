@@ -437,6 +437,8 @@ mod welcome_view;
 mod workspace_feature_state;
 #[path = "workspace_tab_primitives.rs"]
 mod workspace_tab_primitives;
+#[path = "workspace_tabs_surface_view.rs"]
+mod workspace_tabs_surface_view;
 #[path = "workspace_tabs_view.rs"]
 mod workspace_tabs_view;
 #[path = "workspace_view.rs"]

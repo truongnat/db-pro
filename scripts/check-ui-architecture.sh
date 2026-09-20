@@ -136,6 +136,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/result_grid_header_content_view.rs"
   "$repo_root/crates/ui/src/result_grid_cell_menu_view.rs"
   "$repo_root/crates/ui/src/result_grid_cell_surface_view.rs"
+  "$repo_root/crates/ui/src/workspace_tabs_surface_view.rs"
   "$repo_root/crates/ui/src/result_grid_projection.rs"
   "$repo_root/crates/ui/src/table_data_placeholder_view.rs"
   "$repo_root/crates/ui/src/table_data_pagination_view.rs"
