@@ -258,6 +258,9 @@ table identity and the former `grid_layout.rs` root facade is deleted.
 Result-grid row-identity derivation and cache rebuilding now follow the same
 rule on `TableDataState`; table-editor code keeps request/mutation orchestration
 but no longer owns the grid identity algorithm.
+Result-grid identity lookup now follows the same rule on `TableDataState`; grid
+views pass table metadata explicitly and no longer depend on a root lookup
+facade.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
