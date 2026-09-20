@@ -73,6 +73,28 @@ impl Default for TableState {
     }
 }
 
+impl TableState {
+    pub(crate) fn has_primary_key(&self) -> bool {
+        self.table_info
+            .as_ref()
+            .is_some_and(|info| info.primary_key.as_ref().is_some_and(|columns| !columns.is_empty()))
+    }
+
+    pub(crate) fn column_write_policy(&self, column_name: &str) -> Option<ColumnWritePolicy> {
+        self.table_info
+            .as_ref()?
+            .columns
+            .iter()
+            .find(|column| column.name == column_name)
+            .map(ColumnWritePolicy::read)
+    }
+
+    pub(crate) fn column_write_block(&self, column_name: &str) -> Option<ColumnWriteBlock> {
+        self.column_write_policy(column_name)
+            .and_then(|policy| policy.write_block())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

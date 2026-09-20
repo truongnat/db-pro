@@ -156,7 +156,7 @@ impl DbProApp {
                         self.open_insert_row();
                     }
 
-                    if !self.table_has_primary_key() {
+                    if !self.table_state.has_primary_key() {
                         ui.label(
                             RichText::new("Table has no primary key; safe row editing is unavailable.")
                                 .font(font_caption())
@@ -222,13 +222,13 @@ impl DbProApp {
                 } else if self.connection.lifecycle.is_connected() {
                     ui.separator();
                     ui.label(
-                        RichText::new(if self.table_has_primary_key() {
+                        RichText::new(if self.table_state.has_primary_key() {
                             "Read-only"
                         } else {
                             "Table has no primary key; safe row editing is unavailable."
                         })
                         .font(font_caption())
-                        .color(if self.table_has_primary_key() {
+                        .color(if self.table_state.has_primary_key() {
                             self.theme.warning
                         } else {
                             self.theme.danger
@@ -1577,34 +1577,8 @@ impl DbProApp {
             && self.active_connection().is_some_and(|connection| !connection.readonly)
     }
 
-    pub(crate) fn table_has_primary_key(&self) -> bool {
-        self.table_state
-            .table_info
-            .as_ref()
-            .is_some_and(|info| info.primary_key.as_ref().is_some_and(|columns| !columns.is_empty()))
-    }
-
     pub(crate) fn can_edit_table_rows(&self) -> bool {
-        self.can_mutate_active_connection() && self.table_has_primary_key()
-    }
-
-    /// The write policy for a column of the table currently open in the data editor.
-    /// Returns `None` when the table metadata does not describe the column yet; the
-    /// caller then keeps the pre-policy behaviour instead of guessing a restriction.
-    pub(crate) fn column_write_policy(&self, column_name: &str) -> Option<ColumnWritePolicy> {
-        self.table_state
-            .table_info
-            .as_ref()?
-            .columns
-            .iter()
-            .find(|column| column.name == column_name)
-            .map(ColumnWritePolicy::read)
-    }
-
-    /// A blocked column explains itself instead of silently refusing the edit.
-    pub(crate) fn column_write_block(&self, column_name: &str) -> Option<ColumnWriteBlock> {
-        self.column_write_policy(column_name)
-            .and_then(|policy| policy.write_block())
+        self.can_mutate_active_connection() && self.table_state.has_primary_key()
     }
 
     pub(crate) fn begin_data_cell_edit(
@@ -1615,7 +1589,7 @@ impl DbProApp {
         cell: &UiCell,
     ) {
         if !self.can_edit_table_rows() {
-            if self.can_mutate_active_connection() && !self.table_has_primary_key() {
+            if self.can_mutate_active_connection() && !self.table_state.has_primary_key() {
                 self.feedback.runtime_message = "Table has no primary key; safe row editing is unavailable.".to_owned();
             } else {
                 self.feedback.runtime_message = "Connect with write access to edit rows".to_owned();
@@ -1633,7 +1607,7 @@ impl DbProApp {
         if let Some(block) = result
             .columns
             .get(column_index)
-            .and_then(|column| self.column_write_policy(&column.name))
+            .and_then(|column| self.table_state.column_write_policy(&column.name))
             .and_then(|policy| policy.write_block())
         {
             // Still allow the advanced inspector for binary / blocked columns (#228).
@@ -1764,7 +1738,7 @@ impl DbProApp {
 
     pub(crate) fn request_delete_selected_data_rows(&mut self, result: &UiQueryResult) {
         if !self.can_edit_table_rows() {
-            if self.can_mutate_active_connection() && !self.table_has_primary_key() {
+            if self.can_mutate_active_connection() && !self.table_state.has_primary_key() {
                 self.feedback.runtime_message = "Table has no primary key; safe row editing is unavailable.".to_owned();
             } else {
                 self.feedback.runtime_message = "Connect with write access to delete rows".to_owned();

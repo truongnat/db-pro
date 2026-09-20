@@ -528,7 +528,7 @@ impl DbProApp {
         column_index: usize,
     ) -> Option<ColumnWriteBlock> {
         let column = result.columns.get(column_index)?;
-        self.column_write_block(&column.name)
+        self.table_state.column_write_block(&column.name)
     }
 
     pub(crate) fn draw_grid_toolbar(

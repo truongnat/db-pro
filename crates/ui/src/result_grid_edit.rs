@@ -77,6 +77,7 @@ impl DbProApp {
             .map(|c| c.data_type.clone())
             .unwrap_or_default();
         let write_block = self
+            .table_state
             .column_write_policy(&column_name)
             .and_then(|policy| policy.write_block());
         let writable = write_block.is_none() && self.table_data.data_editing_cell.is_some();
@@ -291,7 +292,7 @@ impl DbProApp {
         let write_block = result
             .columns
             .get(column_index)
-            .and_then(|column| self.column_write_policy(&column.name))
+            .and_then(|column| self.table_state.column_write_policy(&column.name))
             .and_then(|policy| policy.write_block());
         if write_block.is_none() && self.can_mutate_active_connection() {
             self.table_data.data_editing_cell = Some((row_index, column_index));
