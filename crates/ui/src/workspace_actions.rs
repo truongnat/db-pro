@@ -15,10 +15,20 @@ impl DbProApp {
             return;
         }
         self.workspace.pending_navigation_action = None;
-        self.persist_current_grid_layout();
+        let scope = TableDataState::layout_scope(
+            self.connection.lifecycle.active_connection_id(),
+            self.active_schema(),
+            self.schema_explorer.selected_table.as_deref(),
+        );
+        self.table_data.persist_layout(scope);
         self.schema_explorer.record_recent_table(&table);
         self.schema_explorer.selected_table = Some(table);
-        self.restore_grid_layout_for_active_table();
+        let scope = TableDataState::layout_scope(
+            self.connection.lifecycle.active_connection_id(),
+            self.active_schema(),
+            self.schema_explorer.selected_table.as_deref(),
+        );
+        self.table_data.restore_layout(scope);
         self.request_table_info();
         self.request_table_data();
         self.workspace.active_tab = WorkspaceTab::Table;

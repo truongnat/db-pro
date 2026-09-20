@@ -158,8 +158,6 @@ mod activity_bar_view;
 mod connection_events;
 #[path = "connection_status.rs"]
 mod connection_status;
-#[path = "grid_layout.rs"]
-mod grid_layout;
 #[path = "palette_view.rs"]
 mod palette_view;
 #[path = "search_service.rs"]
@@ -324,7 +322,12 @@ impl eframe::App for DbProApp {
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        self.persist_current_grid_layout();
+        let scope = TableDataState::layout_scope(
+            self.connection.lifecycle.active_connection_id(),
+            self.active_schema(),
+            self.schema_explorer.selected_table.as_deref(),
+        );
+        self.table_data.persist_layout(scope);
         self.sync_settings_from_runtime();
         if let Ok(settings) = serde_json::to_string(&self.preferences.settings) {
             storage.set_string(SETTINGS_STORAGE_KEY, settings);
@@ -875,8 +878,6 @@ impl DbProApp {
             connection_id,
         });
     }
-
-    // Grid layout: `grid_layout.rs`.
 
     pub(crate) fn show_toast_error(&mut self, message: impl Into<String>) {
         self.feedback

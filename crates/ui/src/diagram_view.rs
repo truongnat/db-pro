@@ -678,9 +678,19 @@ impl DbProApp {
             self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
-        self.persist_current_grid_layout();
+        let scope = TableDataState::layout_scope(
+            self.connection.lifecycle.active_connection_id(),
+            self.active_schema(),
+            self.schema_explorer.selected_table.as_deref(),
+        );
+        self.table_data.persist_layout(scope);
         self.schema_explorer.selected_table = Some(table.to_owned());
-        self.restore_grid_layout_for_active_table();
+        let scope = TableDataState::layout_scope(
+            self.connection.lifecycle.active_connection_id(),
+            self.active_schema(),
+            self.schema_explorer.selected_table.as_deref(),
+        );
+        self.table_data.restore_layout(scope);
         self.schema_explorer.selected_schema_object = None;
         self.schema_explorer.schema_object_view = SchemaObjectView::Definition;
         self.table_state.table_info = None;
