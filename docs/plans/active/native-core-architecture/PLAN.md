@@ -54,8 +54,8 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
    workspace and runtime reducers remain in progress.
 10. Continue the same intent/reducer boundary through the remaining large
     native surfaces. The Agent workflow/settings/header/confirmation/context
-    slices are now explicit; monitoring, security, settings sections and
-    remaining table/query surfaces still require migration.
+    slices and all large Settings sections are now explicit; monitoring,
+    security and remaining table/query surfaces still require migration.
 
 ## Non-goals
 

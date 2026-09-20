@@ -1,18 +1,19 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `bcc9aa2e`.
+Source checkpoint: `ddefb967`.
 
 ## Current change
 
 The native UI interaction boundary is being migrated in vertical slices.
-Explorer rows and the Agent surface now collect typed intents in view-owned
-contexts; Agent workflow reducers, patch safety, result projection,
-confirmation targeting and run preparation are feature-owned. The plan
+Explorer rows, the Agent surface and the large Settings sections now collect
+typed intents in view-owned contexts; Agent workflow reducers, patch safety,
+result projection, confirmation targeting and run preparation are
+feature-owned. The plan
 remains `IMPLEMENTING` because other large feature surfaces still implement
 rendering directly on the root and the full runtime evidence matrix is not
 complete.
 
-## Gate evidence at `bcc9aa2e`
+## Gate evidence at `ddefb967`
 
 - `cargo fmt --all -- --check`: passed.
 - `cargo check --workspace`: passed.
@@ -27,10 +28,10 @@ complete.
   passed at the checkpoint; the ratchet reported two existing Agent
   orchestration-size warnings (`submit_typed_agent_prompt` and
   `agent_confirmation_action`).
-- Runtime capture: `/tmp/db-pro-native-core-bcc9aa2e.png`, 1280×800, showed
+- Runtime capture: `/tmp/db-pro-native-core-ddefb967.png`, 1280×800, showed
   the centered New Connection dialog with separated header, divider and
   right-aligned close icon. The latest release binary was then left running
-  for manual verification as PID `5415`.
+  for manual verification as PID `10200`.
 
 - `40e875fe`: Agent workflow reducer, SQL patch safety and Agent-result
   projection moved out of the root state module.
@@ -45,6 +46,15 @@ complete.
 - `15321ca5`: Agent context quick actions now emit typed submit intents.
 - `bcc9aa2e`: clippy-driven `AgentRunPreparation` DTO and settings condition
   cleanup; full workspace gates were rerun on this source state.
+- `2a31d9d1`: Keybindings settings rendering/edit/reset now lives in a
+  state-owned context and emits a reset intent.
+- `350d0e8b`: Diagnostics settings rendering emits copy/export intents while
+  serialization and filesystem I/O remain in the root adapter.
+- `3f8a5fe1`: General settings and named-workspace-session controls emit
+  typed save/restore/duplicate/delete intents.
+- `ddefb967`: Editor settings rendering now consumes Preferences and Query
+  feature state directly; full workspace gates and release/runtime evidence
+  were rerun on this source state.
 
 - `761db9ed`: connection-row painting and context menu now return a typed
   `ConnectionRowAction`; lifecycle/workspace/clipboard/dialog effects remain
