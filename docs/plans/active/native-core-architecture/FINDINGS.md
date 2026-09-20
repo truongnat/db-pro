@@ -252,6 +252,9 @@ through `DbProApp`; the guard now freezes that boundary.
 Named workspace-session capture, restore, duplication and persistence now
 follow the same rule through `WorkspaceSessionContext`; the session module
 does not expose a root facade anymore.
+Grid layout scope, persistence and restore transitions now follow the same
+rule on `TableDataState`; table-opening flows pass explicit connection/schema/
+table identity and the former `grid_layout.rs` root facade is deleted.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

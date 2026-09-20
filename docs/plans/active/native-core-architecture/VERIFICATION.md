@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `3419eb78`.
+Source checkpoint: `c2ee85c9`.
 
 ## Current change
 
@@ -170,6 +170,9 @@ Source checkpoint: `3419eb78`.
   selection helpers through `DbProApp`.
 - Result-grid keyboard navigation target calculation now lives on
   `TableDataState`; the root handles only egui input and commit-edit effects.
+- Result-grid layout scope, persistence and restore transitions now live on
+  `TableDataState`; the former `grid_layout.rs` root facade is deleted and
+  table-opening flows pass an explicit layout scope into the state owner.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.
