@@ -340,6 +340,10 @@ mod sidebar_data_view;
 mod sidebar_problems_view;
 #[path = "sidebar_queries_view.rs"]
 mod sidebar_queries_view;
+#[path = "sidebar_query_library_view.rs"]
+mod sidebar_query_library_view;
+#[path = "sidebar_query_shortcuts_view.rs"]
+mod sidebar_query_shortcuts_view;
 #[path = "sidebar_view.rs"]
 mod sidebar_view;
 #[path = "synthetic_data.rs"]
