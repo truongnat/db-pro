@@ -4,6 +4,23 @@ Source checkpoint: `456dc9c7`.
 
 ## Current change
 
+## Gate evidence at `69357b78`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 633 UI tests and
+  all workspace suites passed, with only environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with no changed production files after the commits.
+- Runtime capture: `/tmp/db-pro-native-core-69357b78.png`, 1280×800, showed
+  the centered New Connection dialog with separated header, divider and
+  right-aligned close icon. The release binary was then left running for
+  manual verification.
+
 - Connection dialog state aggregate added under `crates/ui/src/connection/state.rs`.
 - Connection dialog view, form, advanced panels, events and workspace actions
   now address the aggregate instead of individual `DbProApp` fields.
