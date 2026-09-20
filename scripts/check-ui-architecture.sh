@@ -113,6 +113,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/diagram_design_actions.rs"
   "$repo_root/crates/ui/src/diagram_design_panel_view.rs"
   "$repo_root/crates/ui/src/palette_catalog.rs"
+  "$repo_root/crates/ui/src/palette_search_view.rs"
   "$repo_root/crates/ui/src/query_snippets.rs"
   "$repo_root/crates/ui/src/query_diagnostics_view.rs"
   "$repo_root/crates/ui/src/navigation_view.rs"

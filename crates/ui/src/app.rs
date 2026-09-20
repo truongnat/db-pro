@@ -223,6 +223,8 @@ mod activity_bar_view;
 mod connection_events;
 #[path = "connection_status.rs"]
 mod connection_status;
+#[path = "palette_search_view.rs"]
+mod palette_search_view;
 #[path = "palette_view.rs"]
 mod palette_view;
 #[path = "search_service.rs"]
