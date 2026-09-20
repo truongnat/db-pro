@@ -126,6 +126,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/query_context_view.rs"
   "$repo_root/crates/ui/src/query_context_picker_view.rs"
   "$repo_root/crates/ui/src/query_parameters_view.rs"
+  "$repo_root/crates/ui/src/query_completion_popup_view.rs"
   "$repo_root/crates/ui/src/query_run_control_view.rs"
   "$repo_root/crates/ui/src/query_output_tabs_view.rs"
   "$repo_root/crates/ui/src/query_output_panes_view.rs"

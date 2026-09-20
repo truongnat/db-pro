@@ -232,6 +232,8 @@ pub(crate) use search_service::{SearchFingerprintParts, SearchIndex, SearchServi
 mod problems_view;
 #[path = "query_actions_view.rs"]
 mod query_actions_view;
+#[path = "query_completion_popup_view.rs"]
+mod query_completion_popup_view;
 #[path = "query_context_picker_view.rs"]
 mod query_context_picker_view;
 #[path = "query_context_view.rs"]
