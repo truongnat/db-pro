@@ -1384,7 +1384,13 @@ fn query_output_tab_is_scoped_to_each_document() {
         OutputTab::Explain
     );
 
-    app.set_query_output_tab("query-2", OutputTab::Messages);
+    app.query_output_state.set_for_document_and_activate_if_active(
+        "query-2",
+        app.query_session_state
+            .active_document()
+            .map(|document| document.id.as_str()),
+        OutputTab::Messages,
+    );
     app.switch_query_document(1);
     assert_eq!(
         app.query_output_state.active_tab_for_document(

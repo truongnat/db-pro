@@ -12,18 +12,6 @@ impl DbProApp {
         self.query_session_state.append_active_text(text);
     }
 
-    pub(crate) fn set_query_output_tab(&mut self, document_id: &str, tab: OutputTab) {
-        self.query_output_state.set_for_document(document_id, tab);
-        if self
-            .query_session_state
-            .documents
-            .get(self.query_session_state.active_document_index)
-            .is_some_and(|doc| doc.id == document_id)
-        {
-            self.query_output_state.active_tab = tab;
-        }
-    }
-
     pub(crate) fn switch_query_document(&mut self, index: usize) {
         if index == self.query_session_state.active_document_index || !self.query_session_state.select_document(index) {
             return;

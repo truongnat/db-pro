@@ -518,7 +518,13 @@ impl DbProApp {
                                 .get(self.query_session_state.active_document_index)
                                 .map(|d| d.id.clone())
                             {
-                                self.set_query_output_tab(&doc_id, OutputTab::Messages);
+                                self.query_output_state.set_for_document_and_activate_if_active(
+                                    &doc_id,
+                                    self.query_session_state
+                                        .active_document()
+                                        .map(|document| document.id.as_str()),
+                                    OutputTab::Messages,
+                                );
                             }
                         }
                     }
