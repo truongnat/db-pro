@@ -416,6 +416,11 @@ Source checkpoint: `0070d374`.
   sessions, server stats, workload and confirmation methods. Focused check,
   632 UI tests, clippy, architecture guard and clean scan all PASS; clean scan
   reports 14 pass, 2 ratcheted warnings, 0 failures.
+- Runtime event/lifecycle extraction: `app.rs` reduced from 1187 to 734 lines;
+  runtime transitions live in `runtime_event_handlers.rs` (231 lines) and the
+  `eframe::App` adapter plus persistence/frame helpers live in
+  `app_lifecycle.rs` (253 lines). Focused clippy, architecture guard and 632 UI
+  tests PASS; clean scan is 16 pass, 0 warnings, 0 failures.
 
 ## Not yet proven
 

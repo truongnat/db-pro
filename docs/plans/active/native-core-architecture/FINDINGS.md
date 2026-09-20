@@ -501,3 +501,29 @@ snapshot rendering is further decomposed into health/local, sessions, server
 stats, workload and confirmation surfaces.
 
 Severity: P1 feature-boundary risk, resolved for the management view topology.
+
+## F20 — Runtime event transitions still inflated the composition root
+
+Evidence at discovery: `app.rs` contained the forwarding `on_*` and request
+failure transition methods even though each transition already delegated to an
+explicit feature reducer.
+
+Fix in the current refactor: moved those transitions to
+`crates/ui/src/runtime_event_handlers.rs`; the event router still calls the
+same `DbProApp` API, but the composition root no longer owns the event-handler
+implementation block.
+
+Severity: P2 composition-root maintainability, resolved.
+
+## F21 — Native lifecycle adapter mixed persistence and frame rendering
+
+Evidence at discovery: the `eframe::App` implementation combined storage
+serialization, input normalization, runtime scheduling, shell rendering and
+overlay rendering in two large methods.
+
+Fix in the current refactor: moved the trait adapter to
+`crates/ui/src/app_lifecycle.rs` and decomposed it into persistence, frame
+preparation, shell and overlay helpers. The adapter methods now only sequence
+those responsibilities.
+
+Severity: P2 composition-root maintainability, resolved.
