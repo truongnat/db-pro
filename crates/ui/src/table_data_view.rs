@@ -57,50 +57,17 @@ impl DbProApp {
 
     /// Loading / failed placeholder shown while table data is not available.
     fn draw_table_data_placeholder(&mut self, ui: &mut egui::Ui, table_name: &str) {
-        grid_frame(self.theme).show(ui, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.add_space(28.0);
-                let failed = self.table.data_query.error.as_deref();
-                ui.label(icon_text(
-                    if failed.is_some() {
-                        Icon::TriangleAlert
-                    } else {
-                        Icon::LoaderCircle
-                    },
-                    "",
-                    if failed.is_some() {
-                        self.theme.warning
-                    } else {
-                        self.theme.accent
-                    },
-                ));
-                ui.add_space(8.0);
-                ui.label(
-                    RichText::new(if failed.is_some() {
-                        format!("Data for {table_name} could not be loaded")
-                    } else {
-                        format!("Loading data for {table_name}…")
-                    })
-                    .strong()
-                    .color(self.theme.text_primary),
-                );
-                if let Some(error) = failed {
-                    ui.label(RichText::new(error).small().color(self.theme.text_secondary));
-                    ui.add_space(12.0);
-                    if secondary_button_with_icon(ui, Icon::RotateCcw, "Retry", self.theme).clicked() {
-                        self.table.data_query.error = None;
-                        self.request_table_data();
-                    }
-                } else {
-                    ui.label(
-                        RichText::new("Rows will appear here with the shared result-grid controls.")
-                            .small()
-                            .color(self.theme.text_secondary),
-                    );
-                }
-                ui.add_space(28.0);
-            });
-        });
+        let context = table_data_placeholder_view::TableDataPlaceholderContext {
+            theme: self.theme,
+            error: self.table.data_query.error.as_deref(),
+        };
+        if matches!(
+            table_data_placeholder_view::draw_placeholder(&context, ui, table_name),
+            Some(table_data_placeholder_view::TableDataPlaceholderAction::Retry)
+        ) {
+            self.table.data_query.error = None;
+            self.request_table_data();
+        }
     }
 
     /// Unified DBeaver-style header bar: refresh, add row, staged changes, inline WHERE/filter input, ORDER BY, and pagination.
