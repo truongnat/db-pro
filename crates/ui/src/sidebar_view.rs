@@ -250,7 +250,24 @@ impl DbProApp {
                                 }
                             }
                             Activity::Schema => self.draw_schema_workbench_sidebar(ui),
-                            Activity::Compare => self.draw_schema_compare_sidebar(ui),
+                            Activity::Compare => {
+                                let action = {
+                                    let connection_name = self.active_connection_name().to_owned();
+                                    let driver = self.active_driver().to_owned();
+                                    let mut context = schema_compare_view::SchemaCompareViewContext {
+                                        theme: self.theme,
+                                        compare: &mut self.schema.compare,
+                                        schema: &self.schema.explorer.schema,
+                                        connection_name: &connection_name,
+                                        driver: &driver,
+                                        feedback: &mut self.feedback,
+                                    };
+                                    schema_compare_view::draw_schema_compare_sidebar(&mut context, ui)
+                                };
+                                if let Some(action) = action {
+                                    self.apply_schema_compare_action(action);
+                                }
+                            }
                             Activity::Tasks => {
                                 if self.saved_tasks.pending_destructive_task_id.is_some() {
                                     ui.checkbox(

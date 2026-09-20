@@ -26,7 +26,24 @@ impl DbProApp {
                 }
             }
             WorkspaceTab::SchemaWorkbench => self.draw_schema_workbench(ui),
-            WorkspaceTab::SchemaCompare => self.draw_schema_compare(ui),
+            WorkspaceTab::SchemaCompare => {
+                let action = {
+                    let connection_name = self.active_connection_name().to_owned();
+                    let driver = self.active_driver().to_owned();
+                    let mut context = schema_compare_view::SchemaCompareViewContext {
+                        theme: self.theme,
+                        compare: &mut self.schema.compare,
+                        schema: &self.schema.explorer.schema,
+                        connection_name: &connection_name,
+                        driver: &driver,
+                        feedback: &mut self.feedback,
+                    };
+                    schema_compare_view::draw_schema_compare(&mut context, ui)
+                };
+                if let Some(action) = action {
+                    self.apply_schema_compare_action(action);
+                }
+            }
             WorkspaceTab::ComponentGallery => self.draw_component_gallery(ui),
         }
         self.draw_discard_changes_confirmation(ui);

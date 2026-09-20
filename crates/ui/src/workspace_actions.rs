@@ -2,6 +2,33 @@
 use super::*;
 
 impl DbProApp {
+    pub(crate) fn apply_schema_compare_action(&mut self, action: schema_compare_view::SchemaCompareAction) {
+        match action {
+            schema_compare_view::SchemaCompareAction::OpenWorkspace => {
+                self.workspace.activity = Activity::Compare;
+                self.workspace.active_tab = WorkspaceTab::SchemaCompare;
+                self.workspace.sidebar_open = true;
+            }
+            schema_compare_view::SchemaCompareAction::RequestDataDiff => self.request_data_diff_keyed(),
+            schema_compare_view::SchemaCompareAction::ApplyMigration => self.apply_migration_preview(),
+        }
+    }
+
+    pub(crate) fn request_data_diff_keyed(&mut self) {
+        let Some(source_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+            self.feedback.runtime_message = "Connect a source database first".into();
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        match self.schema.compare.build_data_diff_request(request_id, source_id) {
+            Ok(command) => {
+                self.dispatch_command(command);
+                self.feedback.runtime_message = "Running key-aware data compare…".into();
+            }
+            Err(error) => self.feedback.runtime_message = error,
+        }
+    }
+
     pub(crate) fn apply_diagram_action(&mut self, action: diagram_view::DiagramAction) {
         match action {
             diagram_view::DiagramAction::OpenTable(table) => self.open_table(table),
