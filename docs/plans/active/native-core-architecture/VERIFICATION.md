@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `c042b89e`.
+Source checkpoint: `332540d9`.
 
 ## Current change
 
@@ -186,6 +186,8 @@ Source checkpoint: `c042b89e`.
 - Table metadata primary-key and column-write-policy projections now live on
   `TableState`; connection mutability remains an explicit lifecycle concern at
   the composition boundary.
+- Active query buffer-version projection now lives on `QuerySessionState`; query
+  dispatchers consume the state API instead of a root helper.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.
