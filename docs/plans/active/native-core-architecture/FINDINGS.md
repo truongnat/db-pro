@@ -684,6 +684,20 @@ navigation activity composition.
 
 Severity: P2 shell-boundary maintainability risk, resolved.
 
+## F37 — Query composition owned editor tool workflows
+
+Evidence at discovery: `query_view.rs` combined the query surface compositor
+with floating find/search UI, query action menus, editor preferences, folder
+creation and snippet insertion. These workflows have separate interaction
+lifecycle and command concerns from the editor/output layout.
+
+Fix in the current refactor: moved query actions into
+`query_actions_view.rs` and editor search overlays into
+`query_search_view.rs`. The query view now coordinates the surface while
+tool-specific controls remain in feature-owned modules.
+
+Severity: P1 feature-boundary risk, resolved for query tool workflows.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and

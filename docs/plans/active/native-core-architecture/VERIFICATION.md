@@ -524,6 +524,11 @@ Source checkpoint: `0070d374`.
   remaining navigation activity composition. Focused UI tests (632 passed),
   clippy, architecture guard, clean scan (15 pass, 1 ratcheted warning) and
   diff checks PASS.
+- Query tool ownership follow-up: query action menu/editor actions now live
+  in `query_actions_view.rs`, while find overlays/bars live in
+  `query_search_view.rs`; `query_view.rs` is below the 800-line file boundary.
+  Focused UI tests (632 passed), clippy, architecture guard, clean scan (15
+  pass, 1 ratcheted warning) and diff checks PASS.
 
 ## Not yet proven
 

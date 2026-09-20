@@ -220,6 +220,8 @@ mod search_service;
 pub(crate) use search_service::{SearchFingerprintParts, SearchIndex, SearchService};
 #[path = "problems_view.rs"]
 mod problems_view;
+#[path = "query_actions_view.rs"]
+mod query_actions_view;
 #[path = "query_dialogs_view.rs"]
 mod query_dialogs_view;
 #[path = "query_documents.rs"]
@@ -236,6 +238,8 @@ mod query_folder_delete_dialog;
 mod query_output_state;
 #[path = "query_output_view.rs"]
 mod query_output_view;
+#[path = "query_search_view.rs"]
+mod query_search_view;
 #[path = "query_session.rs"]
 mod query_session;
 #[path = "query_state.rs"]
