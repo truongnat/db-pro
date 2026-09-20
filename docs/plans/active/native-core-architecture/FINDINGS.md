@@ -412,3 +412,20 @@ branches and no-op router arm. Agent execution now has one runtime boundary:
 `AgentWorkflow` events.
 
 Severity: P1 event-contract correctness, resolved.
+
+## F14 — Navigation view still owned synthetic/transfer harness orchestration
+
+Evidence at discovery: synthetic seed, masking preview, and file/database
+transfer harness actions were implemented in `navigation_view.rs`, mixing
+navigation rendering with feature-specific transfer workflows and keeping the
+navigation module above 3.5k lines.
+
+Fix in the current refactor: moved the complete harness implementation to
+`crates/ui/src/transfer_harness_view.rs`. The methods remain on `DbProApp` only
+as a compatibility seam for existing navigation intents; the navigation module
+no longer contains transfer implementation code. The extracted module compiles
+against the same state and domain APIs, with no behavior change.
+
+Severity: P2 maintainability and feature-boundary risk, resolved for the
+synthetic/transfer harness slice. The remaining view/reducer seams are tracked
+as follow-up work rather than hidden behind another facade.

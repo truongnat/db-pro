@@ -156,6 +156,8 @@ mod settings_model;
 mod settings_view;
 #[path = "synthetic_data_state.rs"]
 mod synthetic_data_state;
+#[path = "transfer_harness_view.rs"]
+mod transfer_harness_view;
 #[path = "transfer_state.rs"]
 mod transfer_state;
 use audit_state::AuditState;

@@ -372,6 +372,13 @@ Source checkpoint: `0070d374`.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 12 pass, 4 warnings, 0 failures; warnings are ratcheted size/file/clone heuristics.
+- Synthetic/transfer harness extraction: `navigation_view.rs` reduced from
+  3503 to 3021 lines; the 482-line implementation now lives in
+  `transfer_harness_view.rs`.
+- Post-extraction focused verification: `cargo check -p db-pro-ui` PASS,
+  `cargo test -p db-pro-ui --lib` 632 passed, architecture guard PASS,
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS, and
+  `git diff --check` PASS.
 
 ## Not yet proven
 
