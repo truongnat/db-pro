@@ -168,7 +168,12 @@ impl DbProApp {
             message,
         ) {
             Some(table_events::TableFailureTransition::StagedApplyFailed) => {
-                self.staged_apply_failed(usize::MAX, "UNKNOWN", message, false);
+                self.staged_apply_failed(StagedApplyFailure {
+                    statement_index: usize::MAX,
+                    code: "UNKNOWN",
+                    message,
+                    rolled_back: false,
+                });
                 true
             }
             Some(table_events::TableFailureTransition::Handled) => true,

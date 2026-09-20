@@ -274,12 +274,16 @@ mod synthetic_data;
 mod table_data_query_state;
 #[path = "table_data_state.rs"]
 mod table_data_state;
+#[path = "table_data_view.rs"]
+mod table_data_view;
 #[path = "table_editing_state.rs"]
 mod table_editing_state;
 #[path = "table_editor_state.rs"]
 mod table_editor_state;
 #[path = "table_events.rs"]
 mod table_events;
+#[path = "table_mutation_actions.rs"]
+mod table_mutation_actions;
 #[path = "table_mutation_dialogs_view.rs"]
 mod table_mutation_dialogs_view;
 #[path = "table_mutation_state.rs"]
@@ -317,6 +321,7 @@ pub(crate) use table_data_query_state::TableDataQueryState;
 pub(crate) use table_data_state::TableDataState;
 pub(crate) use table_editing_state::TableEditingState;
 pub(crate) use table_editor_state::TableEditorState;
+pub(crate) use table_mutation_actions::StagedApplyFailure;
 pub(crate) use table_mutation_state::TableMutationState;
 pub(crate) use table_state::TableState;
 pub(crate) use welcome_state::WelcomeState;

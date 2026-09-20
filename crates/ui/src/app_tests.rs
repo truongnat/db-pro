@@ -1232,7 +1232,12 @@ fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
         ..Default::default()
     };
 
-    app.staged_apply_failed(1, "CONSTRAINT_VIOLATION", "duplicate key value", true);
+    app.staged_apply_failed(StagedApplyFailure {
+        statement_index: 1,
+        code: "CONSTRAINT_VIOLATION",
+        message: "duplicate key value",
+        rolled_back: true,
+    });
 
     assert_eq!(app.table.mutation.staged_apply_request, None);
     assert_eq!(app.table.mutation.staged_changes.counts().updates, 1);
@@ -1269,7 +1274,12 @@ fn conflict_failure_has_distinct_code_and_user_action_message() {
         ..Default::default()
     };
 
-    app.staged_apply_failed(0, "CONFLICT", "row count was zero", true);
+    app.staged_apply_failed(StagedApplyFailure {
+        statement_index: 0,
+        code: "CONFLICT",
+        message: "row count was zero",
+        rolled_back: true,
+    });
 
     let failure = app
         .table
@@ -1295,7 +1305,12 @@ fn internal_error_code_is_normalized_for_mutation_state() {
         ..Default::default()
     };
 
-    app.staged_apply_failed(usize::MAX, "INTERNAL_ERROR", "invariant violation", true);
+    app.staged_apply_failed(StagedApplyFailure {
+        statement_index: usize::MAX,
+        code: "INTERNAL_ERROR",
+        message: "invariant violation",
+        rolled_back: true,
+    });
 
     assert_eq!(
         app.table
@@ -5928,7 +5943,12 @@ fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
     ];
 
     // Failure occurs on statement index 1 (Bob) with CONFLICT
-    app.staged_apply_failed(1, "CONFLICT", "row count was zero", true);
+    app.staged_apply_failed(StagedApplyFailure {
+        statement_index: 1,
+        code: "CONFLICT",
+        message: "row count was zero",
+        rolled_back: true,
+    });
 
     // 1. Transaction rolled back
     let failure = app

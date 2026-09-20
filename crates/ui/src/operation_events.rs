@@ -307,7 +307,12 @@ impl DbProApp {
         rolled_back: bool,
     ) {
         if self.table.mutation.staged_apply_request == Some(request_id) {
-            self.staged_apply_failed(statement_index, &code, &message, rolled_back);
+            self.staged_apply_failed(StagedApplyFailure {
+                statement_index,
+                code: &code,
+                message: &message,
+                rolled_back,
+            });
         }
     }
 }

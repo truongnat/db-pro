@@ -529,6 +529,23 @@ action helper methods remain explicit feature-boundary entry points.
 Severity: P2 palette-boundary maintainability risk, resolved for catalog and
 action ownership.
 
+## F39 — Table editor mixed data rendering with mutation lifecycle
+
+Evidence at discovery: `table_editor_view.rs` combined the table data grid
+toolbar, DDL surface, row editing, staged mutation application, conflict
+recovery and table-data request orchestration in one module of more than 1,700
+lines.
+
+Fix in the current refactor: moved data-grid rendering and paging controls to
+`table_data_view.rs`, and moved row editing/staged apply/retry/failure handling
+to `table_mutation_actions.rs`. The remaining `table_editor_view.rs` owns DDL
+and table request/filter coordination, while the mutation failure input is an
+explicit `StagedApplyFailure` value rather than an unlabelled four-argument
+call.
+
+Severity: P1 table-core boundary risk, resolved for data rendering and
+mutation ownership.
+
 ## F25 — Table metadata state still owned the data-query lifecycle
 
 Evidence at discovery: `TableState` combined table metadata/DDL with the data

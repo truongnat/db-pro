@@ -534,6 +534,12 @@ Source checkpoint: `0070d374`.
   `palette_actions.rs`; `palette_view.rs` is reduced to indexing/filtering and
   dialog coordination. Focused UI tests (632 passed), UI clippy, architecture
   guard, clean scan (14 pass, 2 ratcheted warnings) and diff checks PASS.
+- Table editor ownership follow-up: data-grid/paging rendering now lives in
+  `table_data_view.rs`, while row editing and staged mutation lifecycle live in
+  `table_mutation_actions.rs`; `table_editor_view.rs` is reduced to DDL and
+  table-request/filter coordination. Focused UI tests (632 passed), UI clippy,
+  architecture guard and diff checks PASS; clean scan has no failures and only
+  ratcheted legacy function-size/clone warnings.
 
 ## Not yet proven
 
