@@ -546,6 +546,20 @@ call.
 Severity: P1 table-core boundary risk, resolved for data rendering and
 mutation ownership.
 
+## F40 — Query editor panel mixed editor interaction with popup rendering
+
+Evidence at discovery: `query_editor_panel.rs` contained the SQL editor host,
+completion application, signature-help rendering, rich hover rendering and
+completion explanation helpers in one module of more than 1,000 lines.
+
+Fix in the current refactor: moved hover, signature-help and completion
+rendering/application helpers to `query_editor_support.rs`. The panel now
+owns the editor interaction surface and coordinates those support renderers;
+its production module is reduced below the file-size boundary without
+changing the editor command flow.
+
+Severity: P1 query-editor boundary risk, resolved for support rendering.
+
 ## F25 — Table metadata state still owned the data-query lifecycle
 
 Evidence at discovery: `TableState` combined table metadata/DDL with the data

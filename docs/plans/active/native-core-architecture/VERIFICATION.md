@@ -540,6 +540,11 @@ Source checkpoint: `0070d374`.
   table-request/filter coordination. Focused UI tests (632 passed), UI clippy,
   architecture guard and diff checks PASS; clean scan has no failures and only
   ratcheted legacy function-size/clone warnings.
+- Query editor ownership follow-up: hover/signature/completion support now
+  lives in `query_editor_support.rs`; `query_editor_panel.rs` is reduced to
+  editor interaction orchestration. Focused UI tests (632 passed), UI clippy,
+  architecture guard and diff checks PASS; clean scan has no failures and one
+  ratcheted function-size warning group.
 
 ## Not yet proven
 

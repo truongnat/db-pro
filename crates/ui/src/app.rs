@@ -234,6 +234,8 @@ mod query_documents;
 mod query_editor_panel;
 #[path = "query_editor_state.rs"]
 mod query_editor_state;
+#[path = "query_editor_support.rs"]
+mod query_editor_support;
 #[path = "query_feature_state.rs"]
 mod query_feature_state;
 #[path = "query_folder_delete_dialog.rs"]
