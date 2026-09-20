@@ -442,15 +442,13 @@ impl DbProApp {
             .documents
             .get(document_index)
             .map_or_else(String::new, |document| document.text().to_owned());
-        self.dispatch_command(UiCommand::SaveQuery {
+        self.dispatch_command(self.query_library.save_query_command(
             request_id,
             connection_id,
             saved_query_id,
             name,
             sql,
-            folder: (!self.query_library.query_folder.trim().is_empty())
-                .then(|| self.query_library.query_folder.trim().to_owned()),
-        });
+        ));
         if let Some(document_id) = document_id {
             self.query_session_state.save_requests.insert(request_id, document_id);
         }

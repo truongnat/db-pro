@@ -571,11 +571,10 @@ impl DbProApp {
         } else {
             self.query_library.query_folder.trim().to_owned()
         };
-        self.dispatch_command(UiCommand::RenameSavedQuery {
-            request_id,
-            id: query.id.clone(),
-            name,
-        });
+        self.dispatch_command(
+            self.query_library
+                .rename_query_command(request_id, query.id.clone(), name),
+        );
     }
 
     fn draw_delete_saved_query_confirmation(&mut self, ui: &mut egui::Ui) {
@@ -586,7 +585,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             if compact_button(ui, "Confirm delete", self.theme).clicked() {
                 let request_id = self.task_bridge.next_request_id();
-                self.dispatch_command(UiCommand::DeleteSavedQuery { request_id, id });
+                self.dispatch_command(self.query_library.delete_query_command(request_id, id));
                 self.overlay.delete_confirmation_id = None;
             }
             if compact_button(ui, "Cancel", self.theme).clicked() {

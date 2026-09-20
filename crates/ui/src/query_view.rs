@@ -1203,15 +1203,15 @@ impl DbProApp {
         let Some(connection) = self.active_connection().cloned() else {
             return;
         };
-        if self.query_library.query_folder.trim().is_empty() {
-            return;
-        }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::CreateQueryFolder {
-            request_id,
-            connection_id: connection.id.clone(),
-            name: self.query_library.query_folder.trim().to_owned(),
-        });
+        let command = match self.query_library.create_folder_command(request_id, connection.id) {
+            Ok(command) => command,
+            Err(error) => {
+                self.feedback.runtime_message = error;
+                return;
+            }
+        };
+        self.dispatch_command(command);
         self.feedback.runtime_message = "Creating query folder…".to_owned();
     }
 
