@@ -1651,7 +1651,8 @@ impl DbProApp {
             self.table_data
                 .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
         {
-            self.clear_mutation_error_for_identity(&identity, Some(column_index));
+            self.table_mutation
+                .clear_error_for_identity(&identity, Some(column_index));
         }
         self.table_data.data_editing_cell = Some((row_index, column_index));
         let should_expand = result.columns.get(column_index).is_some_and(|column| {
@@ -1854,7 +1855,8 @@ impl DbProApp {
             return;
         };
         if self.table_mutation.staged_changes.revert_cell(&identity, column_index) {
-            self.clear_mutation_error_for_identity(&identity, Some(column_index));
+            self.table_mutation
+                .clear_error_for_identity(&identity, Some(column_index));
             self.feedback.runtime_message = "Cell change reverted".to_owned();
         }
     }
@@ -1867,32 +1869,8 @@ impl DbProApp {
             return;
         };
         if self.table_mutation.staged_changes.revert_row(&identity) {
-            self.clear_mutation_error_for_identity(&identity, None);
+            self.table_mutation.clear_error_for_identity(&identity, None);
             self.feedback.runtime_message = "Row changes reverted".to_owned();
-        }
-    }
-
-    fn clear_mutation_error_for_identity(&mut self, identity: &RowIdentity, column_index: Option<usize>) {
-        let clear = self
-            .table_mutation
-            .table_mutation_error
-            .as_ref()
-            .is_some_and(|failure| match (failure.target.as_ref(), column_index) {
-                (
-                    Some(MutationTarget::Update {
-                        identity: target,
-                        columns,
-                        ..
-                    }),
-                    Some(column),
-                ) => target == identity && columns.contains(&column),
-                (Some(MutationTarget::Update { identity: target, .. }), None)
-                | (Some(MutationTarget::Delete { identity: target, .. }), None) => target == identity,
-                (Some(MutationTarget::Delete { identity: target, .. }), Some(_)) => target == identity,
-                _ => false,
-            });
-        if clear {
-            self.table_mutation.table_mutation_error = None;
         }
     }
 
@@ -2200,11 +2178,12 @@ impl DbProApp {
             match action {
                 PendingAction::Cell(identity, column_index) => {
                     self.table_mutation.staged_changes.revert_cell(&identity, column_index);
-                    self.clear_mutation_error_for_identity(&identity, Some(column_index));
+                    self.table_mutation
+                        .clear_error_for_identity(&identity, Some(column_index));
                 }
                 PendingAction::Row(identity) => {
                     self.table_mutation.staged_changes.revert_row(&identity);
-                    self.clear_mutation_error_for_identity(&identity, None);
+                    self.table_mutation.clear_error_for_identity(&identity, None);
                 }
                 PendingAction::Insert(local_id) => {
                     self.table_mutation.staged_changes.remove_insert(local_id);

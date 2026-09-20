@@ -56,6 +56,30 @@ impl TableMutationState {
             Some(MutationTarget::Insert) | None => false,
         }
     }
+
+    pub(crate) fn clear_error_for_identity(&mut self, identity: &RowIdentity, column_index: Option<usize>) -> bool {
+        let clear =
+            self.table_mutation_error
+                .as_ref()
+                .is_some_and(|failure| match (failure.target.as_ref(), column_index) {
+                    (
+                        Some(MutationTarget::Update {
+                            identity: target,
+                            columns,
+                            ..
+                        }),
+                        Some(column),
+                    ) => target == identity && columns.contains(&column),
+                    (Some(MutationTarget::Update { identity: target, .. }), None)
+                    | (Some(MutationTarget::Delete { identity: target, .. }), None) => target == identity,
+                    (Some(MutationTarget::Delete { identity: target, .. }), Some(_)) => target == identity,
+                    _ => false,
+                });
+        if clear {
+            self.table_mutation_error = None;
+        }
+        clear
+    }
 }
 
 #[cfg(test)]
@@ -71,5 +95,32 @@ mod tests {
         assert!(state.staged_apply_request.is_none());
         assert!(!state.pending_changes_open);
         assert!(!state.conflict_dialog_open);
+    }
+
+    #[test]
+    fn clearing_matching_mutation_error_is_scoped_to_the_target_cell_or_row() {
+        let identity = RowIdentity {
+            original_pk_columns: vec!["id".to_owned()],
+            original_pk_values: vec![UiCell::Number("7".to_owned())],
+        };
+        let mut state = TableMutationState {
+            table_mutation_error: Some(MutationFailure {
+                statement_index: 0,
+                target: Some(MutationTarget::Update {
+                    identity: identity.clone(),
+                    current_row_index: Some(2),
+                    columns: vec![1],
+                }),
+                code: "23505".to_owned(),
+                message: "duplicate".to_owned(),
+                rolled_back: true,
+            }),
+            ..Default::default()
+        };
+
+        assert!(!state.clear_error_for_identity(&identity, Some(0)));
+        assert!(state.table_mutation_error.is_some());
+        assert!(state.clear_error_for_identity(&identity, Some(1)));
+        assert!(state.table_mutation_error.is_none());
     }
 }
