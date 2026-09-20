@@ -110,7 +110,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Query is empty".to_owned();
             return;
         }
-        let version = self.active_query_buffer_version();
+        let version = self.query_session_state.active_buffer_version();
         if self.hold_destructive_run(&sql, execution_range, version, false) {
             return;
         }
@@ -148,21 +148,11 @@ impl DbProApp {
             self.feedback.runtime_message = "Query is empty".to_owned();
             return;
         }
-        let version = self.active_query_buffer_version();
+        let version = self.query_session_state.active_buffer_version();
         if self.hold_destructive_run(&sql, execution_range, version, true) {
             return;
         }
         self.send_query_run(connection_id, sql, execution_range, version, true);
-    }
-
-    /// Buffer version of the active query document, so an execution stays bound to the
-    /// text it was started from.
-    pub(crate) fn active_query_buffer_version(&self) -> u64 {
-        self.query_session_state
-            .documents
-            .get(self.query_session_state.active_document_index)
-            .map(|doc| doc.buffer.version())
-            .unwrap_or(0)
     }
 
     /// Hold a statement or script the classifier rates `Destructive` until the user

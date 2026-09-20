@@ -423,7 +423,7 @@ impl DbProApp {
                 self.set_active_query_text(sql);
                 self.workspace.active_tab = WorkspaceTab::Query;
                 // Task-level confirmation already satisfied destructive policy (#206).
-                let version = self.active_query_buffer_version();
+                let version = self.query_session_state.active_buffer_version();
                 let execution_range = (0, sql.len());
                 self.send_query_run(task.connection_id.clone(), sql.clone(), execution_range, version, false);
                 Ok("Dispatched SQL task to query runtime".to_owned())

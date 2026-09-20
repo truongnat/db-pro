@@ -409,7 +409,7 @@ impl DbProApp {
         let schema = self.active_query_schema().to_owned();
         let param_key = (
             self.query_session_state.active_document_index,
-            self.active_query_buffer_version(),
+            self.query_session_state.active_buffer_version(),
         );
         if self.query_editor.param_count_cache_key != Some(param_key) {
             self.query_editor.param_count_cache_key = Some(param_key);

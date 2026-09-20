@@ -135,7 +135,7 @@ impl DbProApp {
             return;
         };
         // Reuse the normal run path so execution state / cancel / history stay consistent.
-        let version = self.active_query_buffer_version();
+        let version = self.query_session_state.active_buffer_version();
         self.send_query_run(connection_id, sql.to_owned(), (0, sql.len()), version, false);
     }
 

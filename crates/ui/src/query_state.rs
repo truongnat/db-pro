@@ -31,6 +31,12 @@ impl QuerySessionState {
         self.active_document().map(QueryDocument::text).unwrap_or("")
     }
 
+    pub(crate) fn active_buffer_version(&self) -> u64 {
+        self.active_document()
+            .map(|document| document.buffer.version())
+            .unwrap_or(0)
+    }
+
     pub(crate) fn set_active_text(&mut self, text: impl Into<String>) -> bool {
         let Some(document) = self.active_document_mut() else {
             return false;
