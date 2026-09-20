@@ -707,8 +707,10 @@ Source checkpoint: `5d42d5e9`.
 - Schema Workbench secondary-view follow-up at source SHA `edd17b0f`:
   dependency navigation and docs export now consume explicit workbench
   context and typed actions. Focused UI check, clippy, 630 UI tests,
-  architecture guard and clean scan PASS; full release/runtime evidence from
-  `925b8b83` remains valid for this UI-only boundary change.
+  architecture guard and clean scan PASS; release and capture builds were
+  rebuilt from this SHA. Runtime capture is
+  `/tmp/db-pro-native-core-edd17b0f.png`; the New Connection dialog remains
+  centered with a separated header and right-aligned close control.
 
 ## Not yet proven
 
