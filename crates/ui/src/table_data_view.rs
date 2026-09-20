@@ -1,6 +1,5 @@
 use super::*;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use egui::{FontFamily, FontId, Frame, Margin, Rounding, Stroke};
 use lucide_icons::Icon;
 
 pub(super) struct TableDataPaging {
@@ -266,250 +265,28 @@ impl DbProApp {
 
                 if !column_names.is_empty() {
                     ui.separator();
-
-                    // Unified Search & Filter Bar
-                    Frame {
-                        fill: self.theme.surface_elevated,
-                        stroke: Stroke::new(1.0, self.theme.border_subtle),
-                        rounding: Rounding::same(6.0),
-                        inner_margin: Margin::symmetric(8.0, 3.0),
-                        ..Default::default()
-                    }
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            // Search icon
-                            ui.label(
-                                RichText::new(char::from(Icon::Search).to_string())
-                                    .font(FontId::new(12.0, FontFamily::Name("lucide".into())))
-                                    .color(self.theme.text_muted),
-                            );
-
-                            // Column Scope Dropdown
-                            let col_label = if self.table.data_query.filter_column.is_empty() {
-                                "All columns".to_owned()
-                            } else {
-                                self.table.data_query.filter_column.clone()
-                            };
-                            let col_color = if self.table.data_query.filter_column.is_empty() {
-                                self.theme.text_secondary
-                            } else {
-                                self.theme.accent
-                            };
-
-                            egui::ComboBox::from_id_salt(("table-unified-filter-col", table_name))
-                                .selected_text(RichText::new(col_label).size(12.0).color(col_color))
-                                .width(95.0)
-                                .show_ui(ui, |ui| {
-                                    if ui
-                                        .selectable_value(
-                                            &mut self.table.data_query.filter_column,
-                                            String::new(),
-                                            "All columns (Instant)",
-                                        )
-                                        .clicked()
-                                    {
-                                        self.table.data_query.filter_operator = UiTableFilterOperator::default();
-                                        self.table.data.grid_filter = self.table.data_query.filter_value.clone();
-                                    }
-                                    for col in &column_names {
-                                        ui.selectable_value(
-                                            &mut self.table.data_query.filter_column,
-                                            col.clone(),
-                                            col.as_str(),
-                                        );
-                                    }
-                                });
-
-                            ui.add(egui::Separator::default().vertical());
-
-                            let filter_data_type = self
-                                .table
-                                .state
-                                .table_info
-                                .as_ref()
-                                .and_then(|info| {
-                                    info.columns
-                                        .iter()
-                                        .find(|column| column.name == self.table.data_query.filter_column)
-                                })
-                                .map(|column| column.data_type.clone())
-                                .or_else(|| {
-                                    result
-                                        .columns
-                                        .iter()
-                                        .find(|column| column.name == self.table.data_query.filter_column)
-                                        .map(|column| column.data_type.clone())
-                                })
-                                .unwrap_or_else(|| "text".to_owned());
-                            let filter_operator_options =
-                                TableDataQueryState::filter_operator_options(&filter_data_type);
-                            if !filter_operator_options
-                                .iter()
-                                .any(|(operator, _)| operator == &self.table.data_query.filter_operator)
-                            {
-                                self.table.data_query.filter_operator = filter_operator_options
-                                    .first()
-                                    .map(|(operator, _)| operator.clone())
-                                    .unwrap_or_default();
-                            }
-                            let operator_label = match self.table.data_query.filter_operator {
-                                UiTableFilterOperator::Equals => "equals",
-                                UiTableFilterOperator::NotEquals => "not equals",
-                                UiTableFilterOperator::Contains => "contains",
-                                UiTableFilterOperator::StartsWith => "starts with",
-                                UiTableFilterOperator::EndsWith => "ends with",
-                                UiTableFilterOperator::GreaterThan => ">",
-                                UiTableFilterOperator::GreaterThanOrEqual => ">=",
-                                UiTableFilterOperator::LessThan => "<",
-                                UiTableFilterOperator::LessThanOrEqual => "<=",
-                                UiTableFilterOperator::IsNull => "IS NULL",
-                                UiTableFilterOperator::IsNotNull => "IS NOT NULL",
-                            };
-                            let mut operator_changed = false;
-                            egui::ComboBox::from_id_salt(("table-unified-filter-op", table_name))
-                                .selected_text(
-                                    RichText::new(operator_label)
-                                        .size(12.0)
-                                        .color(self.theme.text_secondary),
-                                )
-                                .width(86.0)
-                                .show_ui(ui, |ui| {
-                                    for (operator, label) in &filter_operator_options {
-                                        if ui
-                                            .selectable_value(
-                                                &mut self.table.data_query.filter_operator,
-                                                operator.clone(),
-                                                *label,
-                                            )
-                                            .clicked()
-                                        {
-                                            operator_changed = true;
-                                        }
-                                    }
-                                });
-
-                            // Search / Filter Input
-                            let is_all_cols = self.table.data_query.filter_column.is_empty();
-                            let is_null_operator = matches!(
-                                self.table.data_query.filter_operator,
-                                UiTableFilterOperator::IsNull | UiTableFilterOperator::IsNotNull
-                            );
-                            let placeholder = if is_all_cols {
-                                "Search rows instantly…"
-                            } else if is_null_operator {
-                                "No value required"
-                            } else {
-                                "Filter value (Enter to query DB)…"
-                            };
-
-                            let edit_target = if is_all_cols {
-                                &mut self.table.data.grid_filter
-                            } else {
-                                &mut self.table.data_query.filter_value
-                            };
-
-                            let edit = egui::TextEdit::singleline(edit_target)
-                                .hint_text(RichText::new(placeholder).size(12.0).color(self.theme.text_muted))
-                                .font(FontId::proportional(12.0))
-                                .frame(false)
-                                .interactive(is_all_cols || !is_null_operator)
-                                .desired_width(210.0);
-
-                            let resp = ui.add(edit);
-                            if (resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) || operator_changed)
-                                && !is_all_cols
-                            {
-                                if is_null_operator {
-                                    self.table.data_query.filter_value.clear();
-                                }
+                    let mut filter_context = table_data_filter_view::TableDataFilterContext {
+                        theme: self.theme,
+                        table_name,
+                        result,
+                        column_names: &column_names,
+                        data_query: &mut self.table.data_query,
+                        data: &mut self.table.data,
+                        table_info: self.table.state.table_info.as_ref(),
+                    };
+                    if let Some(action) = table_data_filter_view::draw_filter(&mut filter_context, ui) {
+                        match action {
+                            table_data_filter_view::TableDataFilterAction::CommitDraft => {
                                 self.commit_table_filter_draft();
                             }
-
-                            // Trailing clear button
-                            let has_text = if is_all_cols {
-                                !self.table.data.grid_filter.is_empty()
-                            } else {
-                                !self.table.data_query.filter_value.is_empty()
-                            };
-
-                            if has_text
-                                && Button::new(self.theme)
-                                    .icon(Icon::X)
-                                    .size(ButtonSize::IconSm)
-                                    .variant(ButtonVariant::Ghost)
-                                    .show(ui)
-                                    .on_hover_text("Clear filter")
-                                    .clicked()
-                            {
-                                if is_all_cols {
-                                    self.table.data.grid_filter.clear();
-                                } else {
-                                    let filter_column = self.table.data_query.filter_column.clone();
-                                    self.table
-                                        .data_query
-                                        .filters
-                                        .retain(|filter| filter.column != filter_column);
-                                    self.table.data_query.filter_value.clear();
-                                    self.table.data_query.filter_operator = UiTableFilterOperator::default();
-                                    self.table.data_query.offset = 0;
-                                    self.request_table_data();
-                                }
+                            table_data_filter_view::TableDataFilterAction::ReloadData => {
+                                self.request_table_data();
                             }
-                        });
-                    });
-
-                    if !self.table.data_query.filters.is_empty() {
-                        let mut remove_filter = None;
-                        let mut edit_filter = None;
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label(RichText::new("Filters:").small().color(self.theme.text_muted));
-                            for (index, filter) in self.table.data_query.filters.iter().enumerate() {
-                                let operator = match filter.operator {
-                                    UiTableFilterOperator::Equals => "=",
-                                    UiTableFilterOperator::NotEquals => "!=",
-                                    UiTableFilterOperator::Contains => "contains",
-                                    UiTableFilterOperator::StartsWith => "starts",
-                                    UiTableFilterOperator::EndsWith => "ends",
-                                    UiTableFilterOperator::GreaterThan => ">",
-                                    UiTableFilterOperator::GreaterThanOrEqual => ">=",
-                                    UiTableFilterOperator::LessThan => "<",
-                                    UiTableFilterOperator::LessThanOrEqual => "<=",
-                                    UiTableFilterOperator::IsNull => "IS NULL",
-                                    UiTableFilterOperator::IsNotNull => "IS NOT NULL",
-                                };
-                                let value = if filter.value.is_empty() {
-                                    String::new()
-                                } else {
-                                    format!(" {}", filter.value)
-                                };
-                                if ui
-                                    .small_button(format!("{} {}{}", filter.column, operator, value))
-                                    .on_hover_text("Edit filter")
-                                    .clicked()
-                                {
-                                    edit_filter = Some(index);
-                                }
-                                if ui.small_button("×").on_hover_text("Remove filter").clicked() {
-                                    remove_filter = Some(index);
-                                }
-                            }
-                            if ui.small_button("Clear all").clicked() {
-                                remove_filter = Some(usize::MAX);
-                            }
-                        });
-                        if let Some(index) = edit_filter {
-                            if let Some(filter) = self.table.data_query.filters.get(index).cloned() {
-                                self.table.data_query.filter_column = filter.column;
-                                self.table.data_query.filter_operator = filter.operator;
-                                self.table.data_query.filter_value = filter.value;
-                                self.table.data_query.filter_editing = Some(index);
-                            }
-                        }
-                        if let Some(index) = remove_filter {
-                            if index == usize::MAX {
-                                self.clear_table_filters();
-                            } else {
+                            table_data_filter_view::TableDataFilterAction::Remove(index) => {
                                 self.remove_table_filter(index);
+                            }
+                            table_data_filter_view::TableDataFilterAction::ClearAll => {
+                                self.clear_table_filters();
                             }
                         }
                     }
