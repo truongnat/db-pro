@@ -4,9 +4,9 @@
 //! Row painting lives in `explorer_tree`, table details in `explorer_details`,
 //! and the Views / Functions / Triggers folders in `explorer_folders`.
 
+use super::explorer_schema_feedback_view::{ExplorerSchemaFeedbackAction, ExplorerSchemaFeedbackContext};
 use super::explorer_toolbar_view::{ExplorerToolbarAction, ExplorerToolbarContext};
 use super::*;
-use egui::{Align, Layout, RichText};
 use lucide_icons::Icon;
 
 /// Actions selectable from a connection row's context menu.
@@ -279,48 +279,20 @@ impl DbProApp {
     }
 
     pub(crate) fn draw_explorer_schema_feedback(&mut self, ui: &mut egui::Ui) {
-        let schema_error = self.schema.explorer.schema_error.clone();
-        if let Some(error) = schema_error.as_deref() {
-            grid_frame(self.theme).show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(icon_text(Icon::TriangleAlert, "Schema load failed", self.theme.danger));
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned)
-                        {
-                            if secondary_button_with_icon(ui, Icon::RotateCcw, "Refresh schema", self.theme).clicked() {
-                                self.request_schema_introspection(connection_id, true);
-                            }
-                        }
-                    });
-                });
-                ui.add_space(6.0);
-                egui::ScrollArea::vertical().max_height(120.0).show(ui, |ui| {
-                    ui.label(
-                        RichText::new(error)
-                            .small()
-                            .monospace()
-                            .color(self.theme.text_secondary),
-                    );
-                });
-            });
-            ui.add_space(8.0);
-        } else if self.schema.explorer.schema_request.is_some() {
-            grid_frame(self.theme).show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    if self.preferences.reduce_motion {
-                        ui.label(icon_text(Icon::LoaderCircle, "Loading schema…", self.theme.accent));
-                    } else {
-                        ui.spinner();
-                        ui.label(RichText::new("Loading schema…").color(self.theme.accent));
-                    }
-                    ui.label(
-                        RichText::new("Large databases may take a moment.")
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                });
-            });
-            ui.add_space(8.0);
+        let actions = ExplorerSchemaFeedbackContext {
+            theme: self.theme,
+            error: self.schema.explorer.schema_error.as_deref(),
+            loading: self.schema.explorer.schema_request.is_some(),
+            reduce_motion: self.preferences.reduce_motion,
+            has_active_connection: self.connection.lifecycle.active_connection_id().is_some(),
+        }
+        .draw(ui);
+        for action in actions {
+            if matches!(action, ExplorerSchemaFeedbackAction::RefreshSchema) {
+                if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+                    self.request_schema_introspection(connection_id, true);
+                }
+            }
         }
     }
 
