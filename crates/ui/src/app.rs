@@ -32,6 +32,8 @@ mod agent_events;
 mod agent_patch;
 #[path = "agent_result_projection.rs"]
 mod agent_result_projection;
+#[path = "agent_settings_view.rs"]
+mod agent_settings_view;
 #[path = "agent_state.rs"]
 mod agent_state;
 #[path = "agent_thread_view.rs"]

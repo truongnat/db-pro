@@ -1,18 +1,6 @@
+use super::agent_settings_view::{AgentSettingsAction, AgentSettingsContext};
 use super::*;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
-
-/// What the AI features send off the machine, stated where the user enables them (#242).
-///
-/// The #122 trust-boundary audit (`docs/release/audit-security-boundaries.md` §5, finding T-1) found
-/// the AI path to be the app's only egress and the product silent about it; the registry entry that
-/// records the same facts is `docs/release/known-limitations.md` LIM-019. The numbers here track the
-/// code rather than the audit text, which said 20×12: the agent tool result carries at most
-/// `MAX_AGENT_SAMPLE_ROWS` (20) rows and `MAX_AGENT_RESULT_COLUMNS` (50) columns, each cell
-/// truncated to `MAX_AGENT_CELL_CHARS` (256) characters
-/// (`crates/core/src/domain/agent.rs:10-12`, applied in `agent_context.rs`). Egress requires a
-/// configured key: with no provider the runtime answers "AI provider is not configured" and sends
-/// nothing (`crates/runtime/src/worker.rs:1118`).
-const AI_EGRESS_DISCLOSURE: &str = "With a key configured, the AI features send data to that provider: your prompts, the SQL they reference and the schema names and types around them. When the agent runs a query, up to 20 sample result rows (50 columns, 256 characters per cell) are sent too.\nYour database and SSH connections are the app's only other outbound connections.";
 
 impl DbProApp {
     pub(super) fn draw_agent_panel(&mut self, ctx: &egui::Context) {
@@ -28,7 +16,16 @@ impl DbProApp {
                 ui.set_min_size(ui.available_size());
                 self.draw_agent_header(ui, ctx);
                 if self.agent.settings_open {
-                    self.draw_agent_settings(ui);
+                    let mut settings = AgentSettingsContext {
+                        theme: self.theme,
+                        provider_label: &self.agent.provider_label,
+                        api_key_draft: &mut self.agent.api_key_draft,
+                        api_key_show_password: &mut self.agent.api_key_show_password,
+                        configure_request: self.agent.configure_request,
+                        auto_run_read_only: &mut self.agent.auto_run_read_only,
+                    };
+                    let actions = settings.draw(ui);
+                    self.apply_agent_settings_actions(actions);
                 } else {
                     ui.add_space(6.0);
                     let context = self.agent_context();
@@ -155,128 +152,33 @@ impl DbProApp {
         });
     }
 
-    fn draw_agent_settings(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(8.0);
-        toolbar_frame(self.theme).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(icon_text(Icon::KeyRound, "API Key", self.theme.text_primary));
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if Button::new(self.theme)
-                        .icon(Icon::X)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .tooltip("Cancel")
-                        .show(ui)
-                        .clicked()
+    fn apply_agent_settings_actions(&mut self, actions: Vec<AgentSettingsAction>) {
+        for action in actions {
+            match action {
+                AgentSettingsAction::Close => {
+                    self.agent.settings_open = false;
+                    self.agent.api_key_draft.clear();
+                    self.agent.api_key_show_password = false;
+                }
+                AgentSettingsAction::SaveKey(api_key) => {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.agent.configure_request = Some(request_id);
+                    if self
+                        .task_bridge
+                        .send(UiCommand::SaveAgentApiKey { request_id, api_key })
+                        .is_err()
                     {
-                        self.agent.settings_open = false;
-                        self.agent.api_key_draft.clear();
-                        self.agent.api_key_show_password = false;
+                        self.agent.configure_request = None;
+                        self.feedback.runtime_message = "Agent runtime unavailable".to_owned();
                     }
-                });
-            });
-            ui.add_space(4.0);
-            ui.label(
-                RichText::new("Enter a Groq or OpenAI API key to enable the AI provider.\nThe key is stored in DB Pro's secure secret store and never written to disk in plain text.")
-                    .font(font_caption())
-                    .color(self.theme.text_secondary),
-            );
-            ui.add_space(6.0);
-            ui.label(
-                RichText::new(AI_EGRESS_DISCLOSURE)
-                    .font(font_caption())
-                    .color(self.theme.text_muted),
-            );
-            ui.add_space(8.0);
-            let current_label = if self.agent.provider_label == "Offline draft" {
-                "Not configured".to_owned()
-            } else {
-                format!("Active: {}", self.agent.provider_label)
-            };
-            ui.label(
-                RichText::new(current_label)
-                    .font(font_caption())
-                    .color(if self.agent.provider_label == "Offline draft" {
-                        self.theme.text_muted
-                    } else {
-                        self.theme.success
-                    }),
-            );
-            ui.add_space(6.0);
-        });
-        ui.add_space(6.0);
-
-        let response = PasswordInput::new(
-            &mut self.agent.api_key_draft,
-            "gsk_… or sk-…",
-            &mut self.agent.api_key_show_password,
-            self.theme,
-        )
-        .id_salt("agent.api_key")
-        .width(ui.available_width())
-        .show(ui);
-        // Allow Ctrl+Enter to save from the text field
-        let save_shortcut = response.has_focus()
-            && ui.input(|i| i.key_pressed(egui::Key::Enter) && DbProApp::primary_modifier_pressed(i));
-
-        ui.add_space(6.0);
-
-        ui.horizontal(|ui| {
-            let key_non_empty = !self.agent.api_key_draft.trim().is_empty();
-            let is_saving = self.agent.configure_request.is_some();
-            let save_btn = Button::new(self.theme)
-                .icon(if is_saving { Icon::Loader } else { Icon::Check })
-                .text(if is_saving { "Saving…" } else { "Save key" })
-                .variant(ButtonVariant::Default)
-                .size(ButtonSize::Sm)
-                .enabled(!is_saving && key_non_empty)
-                .loading(is_saving)
-                .show(ui);
-            let save_clicked = (save_btn.clicked() || save_shortcut) && key_non_empty && !is_saving;
-            if save_clicked {
-                let request_id = self.task_bridge.next_request_id();
-                self.agent.configure_request = Some(request_id);
-                let api_key = self.agent.api_key_draft.trim().to_owned();
-                let _ = self
-                    .task_bridge
-                    .send(UiCommand::SaveAgentApiKey { request_id, api_key });
-            }
-            if !key_non_empty {
-                ui.label(
-                    RichText::new("Paste an API key above")
-                        .font(font_caption())
-                        .color(self.theme.text_muted),
-                );
-            }
-            let can_forget = self.agent.provider_label != "Offline draft" && !is_saving && !key_non_empty;
-            if can_forget {
-                let forget_button = Button::new(self.theme)
-                    .icon(Icon::Trash2)
-                    .text("Forget key")
-                    .variant(ButtonVariant::Destructive)
-                    .size(ButtonSize::Sm)
-                    .show(ui);
-                if forget_button.clicked() {
+                }
+                AgentSettingsAction::ForgetKey => {
                     let request_id = self.task_bridge.next_request_id();
                     self.agent.configure_request = Some(request_id);
                     self.dispatch_command(UiCommand::ForgetAgentApiKey { request_id });
                 }
             }
-        });
-
-        ui.add_space(8.0);
-        ui.checkbox(
-            &mut self.agent.auto_run_read_only,
-            "Auto-run read-only queries in Agent mode",
-        );
-        ui.add_space(8.0);
-        ui.separator();
-        ui.add_space(4.0);
-        ui.label(
-            RichText::new("Supported providers:\n• Groq  — gsk_… key, model openai/gpt-oss-120b\n• OpenAI — sk-… key, model gpt-5.6\n\nThe provider is detected automatically from the key prefix.")
-                .font(font_caption())
-                .color(self.theme.text_muted),
-        );
+        }
     }
 
     fn draw_agent_context(&self, ui: &mut egui::Ui, context: &AgentContext) {
@@ -438,6 +340,7 @@ pub(super) fn agent_confirmation_title(
 
 #[cfg(test)]
 mod tests {
+    use super::super::agent_settings_view::AI_EGRESS_DISCLOSURE;
     use super::*;
 
     /// Every text run the frame actually painted.
@@ -462,7 +365,16 @@ mod tests {
         DbProTheme::install_fonts(&ctx);
         let output = ctx.run(Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
-                app.draw_agent_settings(ui);
+                let mut settings = AgentSettingsContext {
+                    theme: app.theme,
+                    provider_label: &app.agent.provider_label,
+                    api_key_draft: &mut app.agent.api_key_draft,
+                    api_key_show_password: &mut app.agent.api_key_show_password,
+                    configure_request: app.agent.configure_request,
+                    auto_run_read_only: &mut app.agent.auto_run_read_only,
+                };
+                let actions = settings.draw(ui);
+                assert!(actions.is_empty());
             });
         });
 
