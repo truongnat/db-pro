@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `856be269`.
+Source checkpoint: `e762ecdb`.
 
 ## Current change
 
@@ -206,6 +206,8 @@ Source checkpoint: `856be269`.
   remain explicit orchestration transitions.
 - Active output-tab mutation now also lives on `QueryOutputState`; query views
   pass the active document identity directly and the root tab setter is gone.
+- Per-document output-tab routing now lives on `QueryOutputState`; the active
+  document condition is evaluated by the feature state, not by query view code.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.
