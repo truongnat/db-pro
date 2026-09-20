@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `c4d0cea9`.
+Source checkpoint: `856be269`.
 
 ## Current change
 
@@ -204,6 +204,8 @@ Source checkpoint: `c4d0cea9`.
 - Active output-tab read projection now lives on `QueryOutputState`; output
   rendering reads the tab by active document identity, while tab mutations
   remain explicit orchestration transitions.
+- Active output-tab mutation now also lives on `QueryOutputState`; query views
+  pass the active document identity directly and the root tab setter is gone.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.

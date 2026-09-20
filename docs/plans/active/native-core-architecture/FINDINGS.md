@@ -291,6 +291,9 @@ and text mutation orchestration.
 Active output-tab read projection now follows the same rule on
 `QueryOutputState`; output rendering resolves the tab by active document
 identity while tab mutations remain explicit orchestration transitions.
+Active output-tab mutation now follows the same rule on `QueryOutputState`; the
+query views pass active document identity directly and the root tab setter is
+deleted.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
