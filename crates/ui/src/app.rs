@@ -224,6 +224,8 @@ mod saved_task_state;
 mod security_state;
 #[path = "settings_diagnostics_view.rs"]
 mod settings_diagnostics_view;
+#[path = "settings_editor_view.rs"]
+mod settings_editor_view;
 #[path = "settings_general_view.rs"]
 mod settings_general_view;
 #[path = "settings_keybindings_view.rs"]
