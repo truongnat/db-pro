@@ -590,6 +590,21 @@ the root remains the only place that executes table mutations and requests.
 Severity: P1 feature-boundary maintainability risk, resolved for table-data
 mutation/status controls.
 
+## F75 — Result-grid header menu owned command decisions in the grid root
+
+Evidence at discovery: the result-grid header drew the complete column context
+menu and directly decided sort, filter, reorder, visibility, layout and sizing
+requests inside `DbProApp` code. The menu was a separate interaction surface
+but had no explicit action contract.
+
+Fix in the current refactor: moved menu rendering to
+`result_grid_header_menu_view.rs`. It receives explicit column/menu state and
+returns typed `GridHeaderMenuAction` values; the grid root remains responsible
+for applying state changes and sort/filter orchestration.
+
+Severity: P1 feature-boundary maintainability risk, resolved for the grid
+header context menu.
+
 ## F48 — Runtime transport adapter was embedded in the protocol module
 
 Source SHA: `b85d65da`.

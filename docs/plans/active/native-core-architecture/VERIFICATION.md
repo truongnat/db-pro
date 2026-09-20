@@ -747,6 +747,11 @@ Source checkpoint: `5d42d5e9`.
   Connection dialog is centered with a separated header and right-aligned
   close control. The rebuilt release binary is running for manual
   verification.
+- Result-grid header menu follow-up at source SHA `1f0551c1`: column context
+  menu rendering now returns typed sort/filter/layout actions while the grid
+  root applies them. Focused UI check, clippy, 630 UI tests, architecture guard
+  and clean scan PASS; full native rebuild/runtime capture is pending for this
+  follow-up.
 
 ## Not yet proven
 
