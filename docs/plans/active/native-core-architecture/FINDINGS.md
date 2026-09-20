@@ -89,6 +89,9 @@ with missing-key metadata reported as a typed transition error.
 Fix in `46da8e22`: insert/duplicate row value mapping and validation now live in
 the pure `table_editor_values.rs` boundary; the table view only coordinates the
 selected table, staged change and feedback transitions.
+Fix in `43882edb`: synthetic-data plan construction now lives in the pure
+`synthetic_data.rs` boundary; table metadata, numeric inputs and deterministic
+FK seed-pool generation are passed in explicitly from the view adapter.
 The architecture guard now enforces that the extracted table-editor context
 and value modules cannot regress to a root dependency.
 
