@@ -225,6 +225,8 @@ mod connection_events;
 mod connection_status;
 #[path = "palette_search_view.rs"]
 mod palette_search_view;
+#[path = "palette_surface_view.rs"]
+mod palette_surface_view;
 #[path = "palette_view.rs"]
 mod palette_view;
 #[path = "search_service.rs"]
