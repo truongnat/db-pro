@@ -115,7 +115,12 @@ impl DbProApp {
                         });
 
                     if resp.response.interact(egui::Sense::click()).clicked() {
-                        self.set_active_query_output_tab(tab);
+                        self.query_output_state.set_active_for_optional_document(
+                            self.query_session_state
+                                .active_document()
+                                .map(|document| document.id.as_str()),
+                            tab,
+                        );
                     }
                 }
             });

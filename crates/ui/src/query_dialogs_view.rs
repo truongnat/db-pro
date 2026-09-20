@@ -169,7 +169,12 @@ impl DbProApp {
         }
         if analyze && !self.query_execution.explain_analyze_confirmed {
             self.query_execution.pending_explain_analyze = true;
-            self.set_active_query_output_tab(OutputTab::Explain);
+            self.query_output_state.set_active_for_optional_document(
+                self.query_session_state
+                    .active_document()
+                    .map(|document| document.id.as_str()),
+                OutputTab::Explain,
+            );
             self.feedback.runtime_message =
                 "EXPLAIN ANALYZE executes the statement — confirm in the Explain pane".to_owned();
             return;
@@ -192,7 +197,12 @@ impl DbProApp {
             }
             self.query_execution.pending_explain_analyze = false;
             self.query_execution.explain_analyze_confirmed = false;
-            self.set_active_query_output_tab(OutputTab::Explain);
+            self.query_output_state.set_active_for_optional_document(
+                self.query_session_state
+                    .active_document()
+                    .map(|document| document.id.as_str()),
+                OutputTab::Explain,
+            );
             self.feedback.runtime_message = if analyze {
                 "EXPLAIN ANALYZE running (query executes)…".to_owned()
             } else {

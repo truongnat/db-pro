@@ -37,6 +37,14 @@ impl QueryOutputState {
         self.tabs_by_document.insert(document_id.to_owned(), tab);
     }
 
+    pub(crate) fn set_active_for_optional_document(&mut self, document_id: Option<&str>, tab: OutputTab) {
+        if let Some(document_id) = document_id {
+            self.set_active_for_document(document_id, tab);
+        } else {
+            self.active_tab = tab;
+        }
+    }
+
     pub(super) fn set_for_document(&mut self, document_id: &str, tab: OutputTab) {
         self.tabs_by_document.insert(document_id.to_owned(), tab);
     }

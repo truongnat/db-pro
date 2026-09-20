@@ -12,18 +12,6 @@ impl DbProApp {
         self.query_session_state.append_active_text(text);
     }
 
-    pub(crate) fn set_active_query_output_tab(&mut self, tab: OutputTab) {
-        self.query_output_state.active_tab = tab;
-        if let Some(doc_id) = self
-            .query_session_state
-            .documents
-            .get(self.query_session_state.active_document_index)
-            .map(|doc| doc.id.clone())
-        {
-            self.query_output_state.set_active_for_document(&doc_id, tab);
-        }
-    }
-
     pub(crate) fn set_query_output_tab(&mut self, document_id: &str, tab: OutputTab) {
         self.query_output_state.set_for_document(document_id, tab);
         if self

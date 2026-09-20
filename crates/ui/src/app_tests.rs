@@ -1352,7 +1352,12 @@ fn query_output_tab_is_scoped_to_each_document() {
         .documents
         .push(QueryDocument::new("query-2", "Query 2", "SELECT 2"));
 
-    app.set_active_query_output_tab(OutputTab::Explain);
+    app.query_output_state.set_active_for_optional_document(
+        app.query_session_state
+            .active_document()
+            .map(|document| document.id.as_str()),
+        OutputTab::Explain,
+    );
     app.switch_query_document(1);
     assert_eq!(
         app.query_output_state.active_tab_for_document(
@@ -1363,7 +1368,12 @@ fn query_output_tab_is_scoped_to_each_document() {
         OutputTab::Results
     );
 
-    app.set_active_query_output_tab(OutputTab::History);
+    app.query_output_state.set_active_for_optional_document(
+        app.query_session_state
+            .active_document()
+            .map(|document| document.id.as_str()),
+        OutputTab::History,
+    );
     app.switch_query_document(0);
     assert_eq!(
         app.query_output_state.active_tab_for_document(
