@@ -233,53 +233,21 @@ impl DbProApp {
             let Some(document) = self.query.session.documents.get_mut(target_doc_index) else {
                 return;
             };
-            if document.id != patch.document_id || document.buffer.version() != patch.expected_version {
-                self.feedback.runtime_message = "This query changed since the suggestion was created.".to_owned();
-                self.feedback
-                    .show_error_toast("The query changed since the suggestion was created.");
-                self.agent_confirmation_action(false);
-                return;
+            match agent_patch::apply_to_document(document, &patch) {
+                Ok(output) => applied_patch = Some(output),
+                Err(agent_patch::AgentPatchApplyError::DocumentChanged) => {
+                    self.feedback.runtime_message = "This query changed since the suggestion was created.".to_owned();
+                    self.feedback
+                        .show_error_toast("The query changed since the suggestion was created.");
+                    self.agent_confirmation_action(false);
+                    return;
+                }
+                Err(agent_patch::AgentPatchApplyError::InvalidRange) => {
+                    self.feedback.runtime_message = "Agent patch range is no longer valid".to_owned();
+                    self.agent_confirmation_action(false);
+                    return;
+                }
             }
-            let Some(current) = current_document.clone() else {
-                return;
-            };
-            if patch
-                .apply_to(&current.document_id, current.document_version, &current.sql)
-                .is_err()
-            {
-                self.feedback.runtime_message = "Agent patch range is no longer valid".to_owned();
-                self.agent_confirmation_action(false);
-                return;
-            }
-            let (start, end) = patch.range;
-            let before = crate::editor::buffer::EditorSnapshot {
-                cursor_offset: document.cursor.offset,
-                anchor_offset: document.selection.anchor,
-            };
-            let new_cursor = start + patch.replacement.len();
-            let after = crate::editor::buffer::EditorSnapshot {
-                cursor_offset: new_cursor,
-                anchor_offset: new_cursor,
-            };
-            document
-                .buffer
-                .replace_with_snapshot(start, end, &patch.replacement, before, after);
-            document.cursor.set_offset(&document.buffer, new_cursor);
-            document.selection = crate::editor::selection::SelectionRange::point(new_cursor);
-            document.reanalyze(crate::editor::syntax::SqlDialect::Postgres);
-            document.invalidate_prediction();
-            document.completion = crate::editor::completion::CompletionState::default();
-            document.execution_diagnostic = None;
-            document
-                .diagnostics
-                .retain(|diagnostic| diagnostic.source != crate::editor::diagnostics::DiagnosticSource::Database);
-            document.dirty = true;
-            let new_version = document.buffer.version();
-            applied_patch = Some(db_pro_core::domain::agent::AgentToolOutput::PatchApplied {
-                document_id: patch.document_id,
-                new_version,
-                range: patch.range,
-            });
         }
         let request_id = self.task_bridge.next_request_id();
         if let Some(session) = self.agent.sessions.get_mut(&pending.document_id) {
@@ -312,33 +280,9 @@ impl DbProApp {
         let Some(tool_result) = session.tool_results.get(call_id) else {
             return;
         };
-        if let db_pro_core::domain::agent::AgentToolOutput::QueryResult { summary, .. } = &tool_result.output {
-            let columns = summary
-                .columns
-                .iter()
-                .map(|col| crate::runtime::UiColumn {
-                    name: col.name.clone(),
-                    data_type: col.data_type.clone().unwrap_or_else(|| "text".to_owned()),
-                    nullable: true,
-                })
-                .collect();
-            let rows = summary
-                .sample_rows
-                .iter()
-                .map(|row| {
-                    row.iter()
-                        .map(|cell| crate::runtime::UiCell::Text(cell.clone()))
-                        .collect()
-                })
-                .collect();
-            let sample_len = summary.sample_rows.len();
-            let total_rows = summary.row_count.unwrap_or(sample_len as u64);
-            let ui_result = crate::runtime::UiQueryResult {
-                columns,
-                rows,
-                row_count: total_rows,
-                duration_ms: tool_result.duration_ms.unwrap_or(0),
-            };
+        if let Some(ui_result) = agent_result_projection::query_result(tool_result) {
+            let sample_len = ui_result.rows.len();
+            let total_rows = ui_result.row_count;
             document.query_result = Some(ui_result.clone());
             document.query_results = vec![ui_result];
             document.active_result_index = 0;
@@ -397,191 +341,6 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         self.send_command_best_effort(UiCommand::CancelAgentRun { request_id, run_id });
-    }
-}
-
-fn flush_agent_stream(session: &mut super::agent_workflow_state::AgentUiSession) {
-    if session.streaming_text.is_empty() {
-        return;
-    }
-    session.messages.push(AgentMessage {
-        role: AgentRole::Assistant,
-        content: std::mem::take(&mut session.streaming_text),
-        sql: None,
-        requires_confirmation: false,
-    });
-}
-
-pub(super) fn apply_agent_workflow_event(
-    session: &mut super::agent_workflow_state::AgentUiSession,
-    event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent,
-    run_id: db_pro_core::domain::agent::AgentRunId,
-) {
-    use super::agent_workflow_state::{
-        AgentAuditEntry, AgentUiActivity, AgentUiActivityStatus, AgentUiConfirmation, AgentUiToolResult,
-    };
-    use db_pro_core::domain::agent_workflow::AgentWorkflowEvent;
-
-    match event {
-        AgentWorkflowEvent::TextDelta { delta, .. } => {
-            session.state = db_pro_core::domain::agent::AgentSessionState::Running;
-            session.streaming_text.push_str(&delta);
-        }
-        AgentWorkflowEvent::ToolRequested { call, .. } => {
-            flush_agent_stream(session);
-            session.state = db_pro_core::domain::agent::AgentSessionState::Running;
-            session.activities.push(AgentUiActivity {
-                call_id: Some(call.call_id),
-                tool: Some(call.tool),
-                label: agent_tool_label(call.tool),
-                status: AgentUiActivityStatus::Running,
-                duration_ms: None,
-            });
-        }
-        AgentWorkflowEvent::ToolCompleted { call_id, result, .. } => {
-            set_activity_status(session, &call_id, AgentUiActivityStatus::Success);
-            session.tool_results.insert(
-                call_id.clone(),
-                AgentUiToolResult {
-                    call_id: call_id.clone(),
-                    tool: result.tool,
-                    output: result.output.clone(),
-                    duration_ms: None,
-                    status: AgentUiActivityStatus::Success,
-                },
-            );
-            session.audit_trail.push(AgentAuditEntry {
-                run_id,
-                tool: result.tool,
-                duration_ms: None,
-                safety: None,
-                confirmed: false,
-            });
-            if session.audit_trail.len() > 30 {
-                session.audit_trail.remove(0);
-            }
-            session.state = db_pro_core::domain::agent::AgentSessionState::Running;
-        }
-        AgentWorkflowEvent::ToolFailed {
-            call_id, tool, error, ..
-        } => {
-            set_activity_status(session, &call_id, AgentUiActivityStatus::Failed);
-            session.messages.push(AgentMessage {
-                role: AgentRole::Assistant,
-                content: format!("{} failed: {}", agent_tool_label(tool), error.format_user_error()),
-                sql: None,
-                requires_confirmation: false,
-            });
-            session.state = db_pro_core::domain::agent::AgentSessionState::Running;
-        }
-        AgentWorkflowEvent::ConfirmationRequired {
-            call_id, kind, preview, ..
-        } => {
-            set_activity_status(session, &call_id, AgentUiActivityStatus::AwaitingConfirmation);
-            let document_id = session
-                .session
-                .as_ref()
-                .map(|s| s.document_id.clone())
-                .unwrap_or_default();
-            session.pending_confirmation = Some(AgentUiConfirmation {
-                run_id,
-                call_id,
-                kind,
-                preview,
-                document_id,
-            });
-            session.state = db_pro_core::domain::agent::AgentSessionState::AwaitingConfirmation;
-        }
-        AgentWorkflowEvent::Completed { .. } => {
-            finish_agent_session(session, db_pro_core::domain::agent::AgentSessionState::Completed);
-        }
-        AgentWorkflowEvent::Failed { message, .. } => {
-            flush_agent_stream(session);
-            session.messages.push(AgentMessage {
-                role: AgentRole::Assistant,
-                content: message,
-                sql: None,
-                requires_confirmation: false,
-            });
-            finish_agent_session(session, db_pro_core::domain::agent::AgentSessionState::Failed);
-        }
-        AgentWorkflowEvent::Cancelled { .. } => {
-            for activity in &mut session.activities {
-                if matches!(
-                    activity.status,
-                    AgentUiActivityStatus::Running | AgentUiActivityStatus::AwaitingConfirmation
-                ) {
-                    activity.status = AgentUiActivityStatus::Cancelled;
-                }
-            }
-            finish_agent_session(session, db_pro_core::domain::agent::AgentSessionState::Cancelled);
-        }
-    }
-}
-
-fn set_activity_status(
-    session: &mut super::agent_workflow_state::AgentUiSession,
-    call_id: &str,
-    status: super::agent_workflow_state::AgentUiActivityStatus,
-) {
-    if let Some(activity) = session
-        .activities
-        .iter_mut()
-        .rev()
-        .find(|activity| activity.call_id.as_deref() == Some(call_id))
-    {
-        activity.status = status;
-    }
-}
-
-pub(super) fn finish_agent_session(
-    session: &mut super::agent_workflow_state::AgentUiSession,
-    state: db_pro_core::domain::agent::AgentSessionState,
-) {
-    let terminal_activity_status = match state {
-        db_pro_core::domain::agent::AgentSessionState::Completed => {
-            Some(super::agent_workflow_state::AgentUiActivityStatus::Success)
-        }
-        db_pro_core::domain::agent::AgentSessionState::Failed => {
-            Some(super::agent_workflow_state::AgentUiActivityStatus::Failed)
-        }
-        db_pro_core::domain::agent::AgentSessionState::Cancelled => {
-            Some(super::agent_workflow_state::AgentUiActivityStatus::Cancelled)
-        }
-        _ => None,
-    };
-    if let Some(status) = terminal_activity_status {
-        for activity in &mut session.activities {
-            if matches!(
-                activity.status,
-                super::agent_workflow_state::AgentUiActivityStatus::Running
-                    | super::agent_workflow_state::AgentUiActivityStatus::AwaitingConfirmation
-            ) {
-                activity.status = status;
-            }
-        }
-    }
-    flush_agent_stream(session);
-    session.state = state;
-    session.active_run_id = None;
-    session.request_id = None;
-    session.pending_confirmation = None;
-}
-
-fn agent_tool_label(tool: db_pro_core::domain::agent::AgentTool) -> String {
-    use db_pro_core::domain::agent::AgentTool;
-    match tool {
-        AgentTool::InspectSchema => "Inspecting schema".to_owned(),
-        AgentTool::InspectTable => "Reading table metadata".to_owned(),
-        AgentTool::InspectColumns => "Reading columns".to_owned(),
-        AgentTool::InspectForeignKeys => "Reading foreign keys".to_owned(),
-        AgentTool::GetCurrentQuery => "Reading current query".to_owned(),
-        AgentTool::PatchQuery => "Preparing SQL change".to_owned(),
-        AgentTool::RunQuery => "Running query".to_owned(),
-        AgentTool::InspectQueryResult => "Inspecting query result".to_owned(),
-        AgentTool::ExplainQuery => "Explaining query".to_owned(),
-        AgentTool::SuggestIndexes => "Suggesting indexes".to_owned(),
-        AgentTool::MonitoringRead => "Reading monitoring snapshot".to_owned(),
     }
 }
 

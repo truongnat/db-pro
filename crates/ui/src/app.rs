@@ -28,12 +28,18 @@ use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, Staged
 mod agent_context;
 #[path = "agent_events.rs"]
 mod agent_events;
+#[path = "agent_patch.rs"]
+mod agent_patch;
+#[path = "agent_result_projection.rs"]
+mod agent_result_projection;
 #[path = "agent_state.rs"]
 mod agent_state;
 #[path = "agent_thread_view.rs"]
 mod agent_thread_view;
 #[path = "agent_view.rs"]
 mod agent_view;
+#[path = "agent_workflow_reducer.rs"]
+mod agent_workflow_reducer;
 #[path = "agent_workflow_state.rs"]
 mod agent_workflow_state;
 #[path = "app_state.rs"]

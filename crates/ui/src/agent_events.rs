@@ -53,7 +53,7 @@ pub(crate) fn on_agent_workflow_event(
         session.active_run_id = Some(run_id);
     }
 
-    super::agent_state::apply_agent_workflow_event(session, event, run_id);
+    super::agent_workflow_reducer::apply_event(session, event, run_id);
 }
 
 /// Applies a provider configuration failure only to its matching request.
@@ -103,7 +103,7 @@ pub(crate) fn on_agent_failed(
             sql: None,
             requires_confirmation: false,
         });
-        super::agent_state::finish_agent_session(session, db_pro_core::domain::agent::AgentSessionState::Failed);
+        super::agent_workflow_reducer::finish_session(session, db_pro_core::domain::agent::AgentSessionState::Failed);
         feedback.set_runtime_message("Agent workflow failed");
     }
 }
