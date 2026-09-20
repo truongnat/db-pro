@@ -1,6 +1,7 @@
 //! Primary left sidebar shell: exact-width panel, padded content, and resize grip.
+use super::sidebar_chrome_view::{SidebarChromeAction, SidebarChromeContext};
 use super::*;
-use egui::{vec2, Align2, Pos2, Rect, Rounding, Sense, Stroke};
+use egui::{vec2, Pos2, Rect, Sense, Stroke};
 
 /// Extra clip width granted around the sidebar content column, in pixels.
 ///
@@ -81,142 +82,28 @@ impl DbProApp {
     }
 
     fn draw_sidebar_contents(&mut self, ui: &mut egui::Ui) {
-        // ── 1. Header: one launcher pill + new-connection ───────────
-        // Name and search share a single hit target → Command Palette
-        // (connections + commands). Plus stays separate (create flow).
-        ui.add_space(SPACE_SM);
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing = vec2(SPACE_XS, 0.0);
-            let active_name = if self.connection.lifecycle.active_connection_id().is_some() {
-                self.active_connection_name().to_owned()
-            } else {
-                "DB Pro".to_owned()
-            };
-
-            const PLUS_SLOT_W: f32 = 28.0;
-            const SELECTOR_H: f32 = 24.0;
-            const SEARCH_SLOT_W: f32 = 18.0;
-            let selector_w = (ui.available_width() - PLUS_SLOT_W - ui.spacing().item_spacing.x).max(72.0);
-            let (sel_rect, sel_resp) = ui.allocate_exact_size(vec2(selector_w, SELECTOR_H), Sense::click());
-
-            if sel_resp.hovered() {
-                ui.painter()
-                    .rect_filled(sel_rect, Rounding::same(RADIUS_SM), self.theme.surface_hover);
-                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        let active_name = if self.connection.lifecycle.active_connection_id().is_some() {
+            self.active_connection_name().to_owned()
+        } else {
+            "DB Pro".to_owned()
+        };
+        let context = SidebarChromeContext {
+            theme: self.theme,
+            active_name: &active_name,
+            command_palette_shortcut: &Self::format_shortcut(&["Shift", "P"]),
+            new_connection_shortcut: &Self::format_shortcut(&["N"]),
+            new_query_shortcuts: &Self::shortcut_parts(&["T"]),
+        };
+        for action in context.draw(ui) {
+            match action {
+                SidebarChromeAction::OpenCommandPalette => self.palette.open(PaletteMode::Commands),
+                SidebarChromeAction::NewConnection => self.connection.open_new(),
+                SidebarChromeAction::NewQuery => {
+                    self.new_query_document();
+                    self.workspace.active_tab = WorkspaceTab::Query;
+                }
             }
-
-            let search_galley = ui.painter().layout_no_wrap(
-                char::from(Icon::Search).to_string(),
-                font_icon(ICON_XS),
-                self.theme.text_secondary,
-            );
-            let name_max = (sel_rect.width() - SPACE_XS * 2.0 - SEARCH_SLOT_W - SPACE_XS).max(24.0);
-            let name_galley = ui.painter().layout_job({
-                let mut job = egui::text::LayoutJob::single_section(
-                    active_name.to_owned(),
-                    egui::TextFormat {
-                        font_id: font_ui_label(),
-                        color: self.theme.text_primary,
-                        ..Default::default()
-                    },
-                );
-                job.wrap = egui::text::TextWrapping {
-                    max_width: name_max,
-                    max_rows: 1,
-                    break_anywhere: true,
-                    overflow_character: Some('…'),
-                };
-                job
-            });
-            let name_pos = Pos2::new(
-                sel_rect.left() + SPACE_XS,
-                sel_rect.center().y - name_galley.size().y * 0.5,
-            );
-            let search_pos = Pos2::new(
-                sel_rect.right() - SPACE_XS - search_galley.size().x,
-                sel_rect.center().y - search_galley.size().y * 0.5,
-            );
-            ui.painter().galley(name_pos, name_galley, self.theme.text_primary);
-            ui.painter()
-                .galley(search_pos, search_galley, self.theme.text_secondary);
-
-            if sel_resp.clicked() {
-                self.palette.open(PaletteMode::Commands);
-            }
-            sel_resp.on_hover_text(format!(
-                "{active_name}\nCommand Palette ({})",
-                Self::format_shortcut(&["Shift", "P"])
-            ));
-
-            if Button::new(self.theme)
-                .icon(Icon::Plus)
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::IconSm)
-                .tooltip(format!("New Connection ({})", Self::format_shortcut(&["N"])))
-                .show(ui)
-                .clicked()
-            {
-                self.connection.open_new();
-            }
-        });
-        ui.add_space(SPACE_XS);
-
-        // ── 2. Primary action: New query ───────────────────────────
-        let new_query_h = BUTTON_HEIGHT_SM;
-        let btn_rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), new_query_h));
-        let new_query_resp = ui.allocate_rect(btn_rect, Sense::click());
-        let is_hovered = new_query_resp.hovered();
-        ui.painter().rect_filled(
-            btn_rect,
-            Rounding::same(RADIUS_SM),
-            if is_hovered {
-                self.theme.surface_hover
-            } else {
-                self.theme.surface_panel
-            },
-        );
-        ui.painter().rect_stroke(
-            btn_rect,
-            Rounding::same(RADIUS_SM),
-            Stroke::new(
-                STROKE_THIN,
-                if is_hovered {
-                    self.theme.border_default
-                } else {
-                    self.theme.border_subtle
-                },
-            ),
-        );
-
-        let left_center = Pos2::new(btn_rect.left() + SPACE_MD, btn_rect.center().y);
-        ui.painter().text(
-            left_center,
-            Align2::LEFT_CENTER,
-            char::from(Icon::SquarePen).to_string(),
-            font_icon(ICON_SM),
-            self.theme.text_primary,
-        );
-        ui.painter().text(
-            Pos2::new(left_center.x + SPACE_LG + 2.0, left_center.y),
-            Align2::LEFT_CENTER,
-            "New query",
-            font_caption(),
-            self.theme.text_primary,
-        );
-        // Shortcut hint as separate kbd chips: Ctrl + T (matches query.new).
-        paint_shortcut_chips(
-            ui,
-            btn_rect.right() - SPACE_MD,
-            left_center.y,
-            &Self::shortcut_parts(&["T"]),
-            self.theme,
-        );
-
-        if new_query_resp.clicked() {
-            self.new_query_document();
-            self.workspace.active_tab = WorkspaceTab::Query;
         }
-        new_query_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
 
         ui.add_space(SPACE_SM);
         ui.separator();
@@ -336,55 +223,5 @@ impl DbProApp {
         let painter = ctx.layer_painter(egui::LayerId::background());
         let line_x = painter.round_to_pixel_center(edge_x - 1.0);
         painter.vline(line_x, y_range, stroke);
-    }
-}
-
-/// Paints right-aligned kbd chips (`Ctrl` + `N`) ending at `right_x`.
-fn paint_shortcut_chips(ui: &egui::Ui, right_x: f32, center_y: f32, parts: &[String], theme: DbProTheme) {
-    if parts.is_empty() {
-        return;
-    }
-    let painter = ui.painter();
-    let font = egui::FontId::monospace(10.5);
-    let chip_pad_x = 5.0;
-    let chip_pad_y = 2.0;
-    let plus_gap = 2.0;
-
-    let galleys: Vec<_> = parts
-        .iter()
-        .map(|part| painter.layout_no_wrap(part.clone(), font.clone(), theme.text_muted))
-        .collect();
-    let plus_galley = painter.layout_no_wrap("+".to_owned(), font, theme.text_muted);
-
-    let mut total_w = galleys
-        .iter()
-        .map(|galley| chip_pad_x * 2.0 + galley.size().x)
-        .sum::<f32>();
-    if galleys.len() > 1 {
-        total_w += (galleys.len() - 1) as f32 * (plus_gap * 2.0 + plus_galley.size().x);
-    }
-
-    let mut x = right_x - total_w;
-    for (i, galley) in galleys.iter().enumerate() {
-        if i > 0 {
-            x += plus_gap;
-            painter.galley(
-                Pos2::new(x, center_y - plus_galley.size().y * 0.5),
-                plus_galley.clone(),
-                theme.text_muted,
-            );
-            x += plus_galley.size().x + plus_gap;
-        }
-        let chip_w = galley.size().x + chip_pad_x * 2.0;
-        let chip_h = galley.size().y + chip_pad_y * 2.0;
-        let chip = Rect::from_min_size(Pos2::new(x, center_y - chip_h * 0.5), vec2(chip_w, chip_h));
-        painter.rect_filled(chip, Rounding::same(4.0), theme.surface_elevated);
-        painter.rect_stroke(chip, Rounding::same(4.0), Stroke::new(1.0, theme.border_subtle));
-        painter.galley(
-            Pos2::new(chip.left() + chip_pad_x, center_y - galley.size().y * 0.5),
-            std::sync::Arc::clone(galley),
-            theme.text_muted,
-        );
-        x += chip_w;
     }
 }
