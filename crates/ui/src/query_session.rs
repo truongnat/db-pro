@@ -171,9 +171,7 @@ impl DbProApp {
 
     pub(crate) fn active_query_connection_id(&self) -> Option<&str> {
         self.query_session_state
-            .documents
-            .get(self.query_session_state.active_document_index)
-            .and_then(|doc| doc.connection_id.as_deref())
+            .active_connection_id()
             .or(self.connection.lifecycle.active_connection_id())
     }
 
@@ -212,42 +210,25 @@ impl DbProApp {
 
     pub(crate) fn active_query_schema(&self) -> &str {
         self.query_session_state
-            .documents
-            .get(self.query_session_state.active_document_index)
-            .and_then(|doc| doc.schema.as_deref())
+            .active_schema()
             .unwrap_or_else(|| self.active_schema())
     }
 
     pub(crate) fn set_document_connection(&mut self, doc_index: usize, connection_id: Option<String>) {
         self.cancel_prediction_for_document(doc_index);
-        if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
-            doc.connection_id = connection_id;
-            doc.completion.clear();
-        }
+        self.query_session_state
+            .set_document_connection(doc_index, connection_id);
     }
 
     pub(crate) fn set_document_schema(&mut self, doc_index: usize, schema: Option<String>) {
         self.cancel_prediction_for_document(doc_index);
-        if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
-            doc.schema = schema;
-            doc.completion.clear();
-        }
+        self.query_session_state.set_document_schema(doc_index, schema);
     }
 
     pub(crate) fn cancel_prediction_for_document(&mut self, doc_index: usize) {
-        let request_id = self
-            .query_session_state
-            .documents
-            .get(doc_index)
-            .and_then(|doc| doc.pending_prediction_request);
+        let request_id = self.query_session_state.invalidate_prediction(doc_index);
         if let Some(request_id) = request_id {
             self.dispatch_command(UiCommand::CancelSqlPrediction { request_id });
-        }
-        if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
-            if request_id.is_some() {
-                doc.prediction_requests_cancelled = doc.prediction_requests_cancelled.saturating_add(1);
-            }
-            doc.invalidate_prediction();
         }
     }
 

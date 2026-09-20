@@ -104,6 +104,43 @@ impl QuerySessionState {
             .unwrap_or(&[])
     }
 
+    pub(crate) fn active_connection_id(&self) -> Option<&str> {
+        self.active_document()
+            .and_then(|document| document.connection_id.as_deref())
+    }
+
+    pub(crate) fn active_schema(&self) -> Option<&str> {
+        self.active_document().and_then(|document| document.schema.as_deref())
+    }
+
+    pub(crate) fn set_document_connection(&mut self, index: usize, connection_id: Option<String>) -> bool {
+        let Some(document) = self.documents.get_mut(index) else {
+            return false;
+        };
+        document.connection_id = connection_id;
+        document.completion.clear();
+        true
+    }
+
+    pub(crate) fn set_document_schema(&mut self, index: usize, schema: Option<String>) -> bool {
+        let Some(document) = self.documents.get_mut(index) else {
+            return false;
+        };
+        document.schema = schema;
+        document.completion.clear();
+        true
+    }
+
+    pub(crate) fn invalidate_prediction(&mut self, index: usize) -> Option<RequestId> {
+        let document = self.documents.get_mut(index)?;
+        let request_id = document.pending_prediction_request;
+        if request_id.is_some() {
+            document.prediction_requests_cancelled = document.prediction_requests_cancelled.saturating_add(1);
+        }
+        document.invalidate_prediction();
+        request_id
+    }
+
     pub(crate) fn add_document(&mut self, document: QueryDocument) -> usize {
         self.documents.push(document);
         self.active_document_index = self.documents.len() - 1;
@@ -220,5 +257,18 @@ mod tests {
         assert!(state.active_result().is_none());
         assert!(state.active_messages().is_empty());
         assert!(!state.set_active_result(0));
+    }
+
+    #[test]
+    fn document_metadata_and_prediction_invalidation_are_state_owned() {
+        let mut state = QuerySessionState::default();
+        state.add_document(QueryDocument::new("query-1", "Query 1", ""));
+
+        assert!(state.set_document_connection(0, Some("conn-1".to_owned())));
+        assert_eq!(state.active_connection_id(), Some("conn-1"));
+        assert!(state.set_document_schema(0, Some("analytics".to_owned())));
+        assert_eq!(state.active_schema(), Some("analytics"));
+        assert!(!state.set_document_schema(9, None));
+        assert!(state.invalidate_prediction(0).is_none());
     }
 }
