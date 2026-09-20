@@ -18,8 +18,6 @@ use crate::{
 };
 use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
 use lucide_icons::Icon;
-use sqlparser::dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect};
-use sqlparser::parser::Parser;
 use std::collections::{BTreeSet, HashMap};
 use std::time::{Duration, Instant};
 
@@ -234,6 +232,8 @@ pub(crate) use search_service::{SearchFingerprintParts, SearchIndex, SearchServi
 mod problems_view;
 #[path = "query_actions_view.rs"]
 mod query_actions_view;
+#[path = "query_diagnostics_view.rs"]
+mod query_diagnostics_view;
 #[path = "query_dialogs_view.rs"]
 mod query_dialogs_view;
 #[path = "query_documents.rs"]
@@ -352,6 +352,8 @@ mod schema_explorer_state;
 mod schema_object_view;
 #[path = "schema_workbench.rs"]
 mod schema_workbench;
+#[path = "schema_workbench_actions.rs"]
+mod schema_workbench_actions;
 #[path = "schema_workbench_form.rs"]
 mod schema_workbench_form;
 #[path = "schema_workspace_state.rs"]

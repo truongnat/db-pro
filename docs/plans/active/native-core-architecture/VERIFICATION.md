@@ -576,6 +576,11 @@ Source checkpoint: `0070d374`.
   `agent_view.rs`. Focused UI tests (632 passed), UI clippy, architecture
   guard, clean scan (15 pass, 1 ratcheted legacy function-size warning) and
   diff checks PASS.
+- Schema Workbench action ownership follow-up: mutation request construction,
+  object preview planning, database actions and DDL application now live in
+  `schema_workbench_actions.rs`; `schema_workbench.rs` retains state and view
+  composition. Focused UI tests (632 passed), UI clippy, architecture guard,
+  clean scan (14 pass, ratcheted legacy/planner warnings) and diff checks PASS.
 
 ## Not yet proven
 

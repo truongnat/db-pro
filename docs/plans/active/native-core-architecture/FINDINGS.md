@@ -515,6 +515,21 @@ implementation block.
 
 Severity: P2 composition-root maintainability, resolved.
 
+## F47 — Schema Workbench mixed mutation planning with view rendering
+
+Evidence: `schema_workbench.rs` combined the schema form compositor/sidebar
+with object-mutation request construction, provider-aware preview planning and
+DDL dispatch across table, column, view, index, constraint, trigger, sequence,
+type, schema, extension, comment and partition modes.
+
+Fix in the current refactor: moved mutation request construction, preview
+planning, database actions and DDL application into
+`schema_workbench_actions.rs`; the Workbench view keeps navigation, dependency
+and documentation surfaces, while state/form/preview boundaries remain
+explicit.
+
+Severity: P1 feature-boundary risk, resolved for mutation action ownership.
+
 ## F45 — Chart projection and egui rendering shared one module
 
 Evidence: `chart_view.rs` combined chart configuration/value projection,
