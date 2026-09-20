@@ -338,11 +338,24 @@ impl DbProApp {
             self.handle_grid_edit_input(ui, result, pasted);
         }
         if self.table.editing.data_editing_cell.is_some() && ui.input(|input| input.key_pressed(egui::Key::Tab)) {
-            self.handle_grid_navigation(ui, indexes, order, editable, result, selection_lookup);
+            if !self.commit_active_data_edit(result) {
+                return;
+            }
+            let mut context = result_grid_selection::GridNavigationContext {
+                data: &mut self.table.data,
+                editing: &mut self.table.editing,
+                feedback: &mut self.feedback,
+            };
+            result_grid_selection::handle_grid_navigation(ui, indexes, order, editable, selection_lookup, &mut context);
             return;
         }
         if !ui.ctx().wants_keyboard_input() {
-            self.handle_grid_navigation(ui, indexes, order, editable, result, selection_lookup);
+            let mut context = result_grid_selection::GridNavigationContext {
+                data: &mut self.table.data,
+                editing: &mut self.table.editing,
+                feedback: &mut self.feedback,
+            };
+            result_grid_selection::handle_grid_navigation(ui, indexes, order, editable, selection_lookup, &mut context);
         }
     }
 
