@@ -601,6 +601,22 @@ architecture guard freezes that boundary.
 
 Severity: P1 query-core boundary risk, resolved for diagnostics/formatting.
 
+## F53 — Small sidebar activity renderers still implemented root methods
+
+Evidence at source `01ec23d1`: the diagram sidebar and monitoring maintenance
+controls were pure renderers with narrow state needs, but were implemented as
+`DbProApp` methods and mutated workspace/monitoring state through the root.
+
+Impact: simple activity surfaces could grow an accidental dependency on every
+application aggregate and were not independently composable.
+
+Fix: the diagram sidebar now receives theme/schema data and returns a navigation
+intent; maintenance controls receive `MonitoringState` directly. The root
+only applies the returned navigation effect, and the architecture guard freezes
+both modules against `DbProApp` dependencies.
+
+Severity: P2 feature-boundary maintainability risk, resolved.
+
 ## F47 — Schema Workbench mixed mutation planning with view rendering
 
 Source SHA: `08acab31`.

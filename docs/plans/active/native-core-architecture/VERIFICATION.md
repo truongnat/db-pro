@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `94b8dbb3`.
+Source checkpoint: `01ec23d1`.
 
 ## Current change
 
@@ -614,6 +614,10 @@ Source checkpoint: `94b8dbb3`.
   diagnostics debounce/cache refresh and formatting no longer implement
   `DbProApp` methods. Focused check, clippy, 633 UI tests, architecture guard,
   clean scan and diff checks PASS.
+- Sidebar renderer boundary at source SHA `01ec23d1`: diagram navigation and
+  maintenance controls now receive explicit inputs/state instead of a root
+  receiver. Focused check, clippy, 633 UI tests, architecture guard, clean
+  scan and diff checks PASS.
 - Final full gate at source SHA `4bb3d21d`: `cargo fmt --all -- --check`,
   workspace `cargo check`, workspace clippy with `-D warnings`, workspace
   tests, release native build, capture build and architecture guard all PASS.
