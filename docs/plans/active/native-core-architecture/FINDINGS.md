@@ -571,6 +571,20 @@ mutation/event/dialog callers receive the editing boundary explicitly.
 
 Severity: P1 feature-boundary risk, resolved for table editing state ownership.
 
+## F29 — ER renderer owned Design Mode mutation orchestration
+
+Evidence at discovery: `diagram_view.rs` combined canvas/panel rendering with
+foreign-key draft parsing, mutation-plan previewing, schema-fingerprint guards
+and query-runtime dispatch. The renderer therefore owned a write-oriented
+workflow in addition to drawing the schema map.
+
+Fix in the current refactor: moved Design Mode add-FK, preview and apply
+actions into `diagram_design_actions.rs`. The diagram view keeps only the
+Design Mode surface and delegates workflow transitions across the explicit
+action boundary.
+
+Severity: P1 feature-boundary risk, resolved for Design Mode orchestration.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and

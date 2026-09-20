@@ -472,6 +472,11 @@ Source checkpoint: `0070d374`.
   `TableEditingState`, separate from grid projection/layout/selection state.
   Focused UI tests (632 passed), clippy, architecture guard and diff checks
   PASS.
+- Design Mode action ownership follow-up: ER foreign-key draft parsing,
+  mutation-plan preview and query-runtime apply orchestration now live in
+  `diagram_design_actions.rs`; `diagram_view.rs` retains the Design Mode UI
+  surface and diagram rendering. Focused UI check, clippy, 632 UI tests,
+  architecture guard and diff checks PASS.
 
 ## Not yet proven
 
