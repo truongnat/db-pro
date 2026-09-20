@@ -334,6 +334,8 @@ pub(crate) mod result_grid_view;
 mod runtime_event_handlers;
 #[path = "sidebar_activities_view.rs"]
 mod sidebar_activities_view;
+#[path = "sidebar_data_view.rs"]
+mod sidebar_data_view;
 #[path = "sidebar_view.rs"]
 mod sidebar_view;
 #[path = "synthetic_data.rs"]
