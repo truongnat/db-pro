@@ -29,6 +29,14 @@ pub(crate) struct GridRows<'a> {
     pub(crate) selection_lookup: &'a GridSelectionLookup,
 }
 
+struct GridKeyboardApplicationContext<'a> {
+    result: &'a UiQueryResult,
+    indexes: &'a [usize],
+    order: &'a [usize],
+    editable: bool,
+    selection_lookup: &'a GridSelectionLookup,
+}
+
 impl DbProApp {
     pub(super) fn draw_result_grid(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
         if result.columns.is_empty() {
@@ -52,37 +60,7 @@ impl DbProApp {
         self.handle_grid_keyboard(ui, result, &indexes, &order, editable, &selection_lookup);
 
         if !is_table_data {
-            let action = {
-                let mut context = result_grid_toolbar_view::ResultGridToolbarContext {
-                    theme: self.theme,
-                    data: &mut self.table.data,
-                    editing: &mut self.table.editing,
-                    feedback: &self.feedback,
-                    editable,
-                    matching_rows: indexes.len(),
-                };
-                result_grid_toolbar_view::draw_toolbar(&mut context, ui)
-            };
-            if let Some(action) = action {
-                match action {
-                    result_grid_toolbar_view::ResultGridToolbarAction::CopySelectedCell => {
-                        self.copy_selected_cell(ui, result);
-                    }
-                    result_grid_toolbar_view::ResultGridToolbarAction::CopySelectedRow => {
-                        self.copy_selected_row(ui, result);
-                    }
-                    result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleCsv => {
-                        self.copy_all_as_csv(ui, result, &indexes);
-                    }
-                    result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleJson => {
-                        self.copy_all_as_json(ui, result, &indexes);
-                    }
-                    result_grid_toolbar_view::ResultGridToolbarAction::InspectSelectedCell {
-                        row_index,
-                        column_index,
-                    } => self.open_cell_inspector(result, row_index, column_index),
-                }
-            }
+            self.draw_result_grid_toolbar(ui, result, &indexes, editable);
         }
         self.draw_record_inspector_panel(ui, result);
 
@@ -90,6 +68,46 @@ impl DbProApp {
         self.draw_grid_body(ui, result, &indexes, &order, editable, row_offset, &selection_lookup);
 
         self.restore_grid_cache(projection_key, indexes, order, selection_lookup);
+    }
+
+    fn draw_result_grid_toolbar(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        indexes: &[usize],
+        editable: bool,
+    ) {
+        let action = {
+            let mut context = result_grid_toolbar_view::ResultGridToolbarContext {
+                theme: self.theme,
+                data: &mut self.table.data,
+                editing: &mut self.table.editing,
+                feedback: &self.feedback,
+                editable,
+                matching_rows: indexes.len(),
+            };
+            result_grid_toolbar_view::draw_toolbar(&mut context, ui)
+        };
+        if let Some(action) = action {
+            match action {
+                result_grid_toolbar_view::ResultGridToolbarAction::CopySelectedCell => {
+                    self.copy_selected_cell(ui, result);
+                }
+                result_grid_toolbar_view::ResultGridToolbarAction::CopySelectedRow => {
+                    self.copy_selected_row(ui, result);
+                }
+                result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleCsv => {
+                    self.copy_all_as_csv(ui, result, indexes);
+                }
+                result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleJson => {
+                    self.copy_all_as_json(ui, result, indexes);
+                }
+                result_grid_toolbar_view::ResultGridToolbarAction::InspectSelectedCell {
+                    row_index,
+                    column_index,
+                } => self.open_cell_inspector(result, row_index, column_index),
+            }
+        }
     }
 
     fn prepare_grid_cache(
@@ -228,84 +246,112 @@ impl DbProApp {
         editable: bool,
         selection_lookup: &GridSelectionLookup,
     ) {
-        let modifier = Self::primary_modifier_pressed_ui(ui);
-        let shift = ui.input(|i| i.modifiers.shift);
-
-        if !ui.ctx().wants_keyboard_input()
-            && ui.input(|input| input.key_pressed(egui::Key::A) && Self::primary_modifier_pressed(input))
-        {
-            self.table.data.select_all_visible_cells(indexes, order);
-            self.feedback.copy_status.clear();
-            return;
-        }
-
-        if !ui.ctx().wants_keyboard_input() && ui.input(|input| input.key_pressed(egui::Key::Escape)) {
-            self.table.data.selected_cell = None;
-            self.table.data.selected_row = None;
-            self.table.data.selected_rows.clear();
-            self.table.data.selection_anchor_row = None;
-            self.table.data.selection_anchor_cell = None;
-            self.feedback.copy_status.clear();
-            return;
-        }
-
-        if !ui.ctx().wants_keyboard_input() && !self.connection.dialog.is_open() {
-            if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier && shift {
-                self.copy_selected_rows(ui, result);
-            } else if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier {
-                self.copy_selected_cell(ui, result);
+        let intent = result_grid_keyboard_view::read_keyboard_intent(
+            ui,
+            result_grid_keyboard_view::GridKeyboardInputContext {
+                editable,
+                editing_cell: self.table.editing.data_editing_cell.is_some(),
+                connection_dialog_open: self.connection.dialog.is_open(),
+            },
+        );
+        match intent {
+            result_grid_keyboard_view::GridKeyboardIntent::SelectAll => {
+                self.table.data.select_all_visible_cells(indexes, order);
+                self.feedback.copy_status.clear();
             }
-
-            if ui.input(|input| input.key_pressed(egui::Key::S) && Self::primary_modifier_pressed(input)) {
-                self.apply_staged_changes();
+            result_grid_keyboard_view::GridKeyboardIntent::ClearSelection => {
+                self.clear_grid_selection();
             }
-            if ui.input(|input| input.key_pressed(egui::Key::Z) && Self::primary_modifier_pressed(input)) {
-                if self.table.mutation.staged_changes.counts().total() > 1 {
-                    self.table.editing.discard_changes_confirmation = true;
-                } else {
-                    self.discard_staged_changes();
-                }
+            result_grid_keyboard_view::GridKeyboardIntent::Commands(commands) => {
+                self.apply_grid_keyboard_commands(
+                    ui,
+                    GridKeyboardApplicationContext {
+                        result,
+                        indexes,
+                        order,
+                        editable,
+                        selection_lookup,
+                    },
+                    commands,
+                );
             }
-            if editable
-                && self.table.editing.data_editing_cell.is_none()
-                && ui.input(|input| input.key_pressed(egui::Key::Delete) || input.key_pressed(egui::Key::Backspace))
-            {
-                self.request_delete_selected_data_rows(result);
-            }
-        }
-        let pasted = ui.input(|input| {
-            input.events.iter().find_map(|event| match event {
-                egui::Event::Paste(text) => Some(text.clone()),
-                _ => None,
-            })
-        });
-        if editable {
-            self.handle_grid_edit_input(ui, result, pasted);
-        }
-        if self.table.editing.data_editing_cell.is_some() && ui.input(|input| input.key_pressed(egui::Key::Tab)) {
-            if !self.commit_active_data_edit(result) {
-                return;
-            }
-            let mut context = result_grid_selection::GridNavigationContext {
-                data: &mut self.table.data,
-                editing: &mut self.table.editing,
-                feedback: &mut self.feedback,
-            };
-            result_grid_selection::handle_grid_navigation(ui, indexes, order, editable, selection_lookup, &mut context);
-            return;
-        }
-        if !ui.ctx().wants_keyboard_input() {
-            let mut context = result_grid_selection::GridNavigationContext {
-                data: &mut self.table.data,
-                editing: &mut self.table.editing,
-                feedback: &mut self.feedback,
-            };
-            result_grid_selection::handle_grid_navigation(ui, indexes, order, editable, selection_lookup, &mut context);
         }
     }
 
-    pub(crate) fn primary_modifier_pressed_ui(ui: &egui::Ui) -> bool {
-        ui.input(Self::primary_modifier_pressed)
+    fn clear_grid_selection(&mut self) {
+        self.table.data.selected_cell = None;
+        self.table.data.selected_row = None;
+        self.table.data.selected_rows.clear();
+        self.table.data.selection_anchor_row = None;
+        self.table.data.selection_anchor_cell = None;
+        self.feedback.copy_status.clear();
+    }
+
+    fn apply_grid_keyboard_commands(
+        &mut self,
+        ui: &mut egui::Ui,
+        context: GridKeyboardApplicationContext<'_>,
+        commands: result_grid_keyboard_view::GridKeyboardCommands,
+    ) {
+        if commands.copy_selected_rows {
+            self.copy_selected_rows(ui, context.result);
+        } else if commands.copy_selected_cell {
+            self.copy_selected_cell(ui, context.result);
+        }
+        if commands.apply_staged_changes {
+            self.apply_staged_changes();
+        }
+        if commands.discard_staged_changes {
+            if self.table.mutation.staged_changes.counts().total() > 1 {
+                self.table.editing.discard_changes_confirmation = true;
+            } else {
+                self.discard_staged_changes();
+            }
+        }
+        if commands.delete_selected_rows {
+            self.request_delete_selected_data_rows(context.result);
+        }
+        if context.editable {
+            self.handle_grid_edit_input(ui, context.result, commands.pasted_text);
+        }
+        if commands.commit_edit_and_navigate {
+            if !self.commit_active_data_edit(context.result) {
+                return;
+            }
+            self.navigate_grid(
+                ui,
+                context.indexes,
+                context.order,
+                context.editable,
+                context.selection_lookup,
+            );
+            return;
+        }
+        if commands.navigate {
+            self.navigate_grid(
+                ui,
+                context.indexes,
+                context.order,
+                context.editable,
+                context.selection_lookup,
+            );
+        }
+    }
+
+    fn navigate_grid(
+        &mut self,
+        ui: &mut egui::Ui,
+        indexes: &[usize],
+        order: &[usize],
+        editable: bool,
+        selection_lookup: &GridSelectionLookup,
+    ) {
+        let mut context = result_grid_selection::GridNavigationContext {
+            data: &mut self.table.data,
+            editing: &mut self.table.editing,
+            feedback: &mut self.feedback,
+        };
+        result_grid_selection::handle_grid_navigation(ui, indexes, order, editable, selection_lookup, &mut context);
     }
 
     /// Paste-into-cell and Enter/F2-to-edit while the grid is editable.
