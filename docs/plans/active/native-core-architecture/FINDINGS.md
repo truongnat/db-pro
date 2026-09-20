@@ -545,6 +545,22 @@ intents for the root to execute.
 Severity: P2 feature-boundary maintainability risk, resolved for table-data
 pagination.
 
+## F72 — Table-data filter editor mixed local UI and reload orchestration
+
+Evidence at discovery: the unified toolbar rendered column scope, typed
+operators, draft input, filter chips and clear/edit actions inline in
+`DbProApp`, while the same block also initiated filter commits and reloads.
+This made the filter lifecycle difficult to reason about and coupled a large
+widget closure to the composition root.
+
+Fix in the current refactor: moved filter rendering into
+`table_data_filter_view.rs`. It receives explicit query/grid/table metadata,
+keeps local draft mutations in that state, and returns typed commit, reload,
+remove and clear intents for the root to execute.
+
+Severity: P1 feature-boundary maintainability risk, resolved for table-data
+filter presentation and intent routing.
+
 ## F48 — Runtime transport adapter was embedded in the protocol module
 
 Source SHA: `b85d65da`.

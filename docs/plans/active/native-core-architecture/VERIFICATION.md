@@ -721,6 +721,11 @@ Source checkpoint: `5d42d5e9`.
   request/reset intents. Focused UI check, clippy, 630 UI tests, architecture
   guard and clean scan PASS. Release/runtime evidence is pending until the next
   native rebuild.
+- Table-data filter follow-up at source SHA `00de1a97`: filter scope,
+  operator/input controls and filter chips now consume explicit context and
+  return typed commit/reload/remove/clear intents. Focused UI fmt/check,
+  clippy, 630 UI tests, architecture guard and clean scan PASS; release/runtime
+  evidence is pending until the next native rebuild.
 
 ## Not yet proven
 
