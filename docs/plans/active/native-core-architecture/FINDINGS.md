@@ -255,6 +255,9 @@ does not expose a root facade anymore.
 Grid layout scope, persistence and restore transitions now follow the same
 rule on `TableDataState`; table-opening flows pass explicit connection/schema/
 table identity and the former `grid_layout.rs` root facade is deleted.
+Result-grid row-identity derivation and cache rebuilding now follow the same
+rule on `TableDataState`; table-editor code keeps request/mutation orchestration
+but no longer owns the grid identity algorithm.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

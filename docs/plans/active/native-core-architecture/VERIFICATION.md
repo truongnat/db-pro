@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `c2ee85c9`.
+Source checkpoint: `e9db3ef4`.
 
 ## Current change
 
@@ -173,6 +173,9 @@ Source checkpoint: `c2ee85c9`.
 - Result-grid layout scope, persistence and restore transitions now live on
   `TableDataState`; the former `grid_layout.rs` root facade is deleted and
   table-opening flows pass an explicit layout scope into the state owner.
+- Result-grid row-identity derivation and cache rebuilding now live on
+  `TableDataState`; table-editor code keeps mutation orchestration while the
+  grid identity algorithm has one state owner.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.
