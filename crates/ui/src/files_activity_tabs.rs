@@ -1,143 +1,57 @@
+use super::files_agent_context_view::{ActiveQueryContext, FilesAgentContextAction, FilesAgentContextView};
 use super::*;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use egui::{vec2, Align, Layout, RichText};
+use egui::{Align, Layout, RichText};
 use lucide_icons::Icon;
 
 impl DbProApp {
     /// Quiet agent-context strip: icon actions instead of a wrapped button soup.
     pub(super) fn draw_files_agent_context_strip(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            section_label(ui, "AGENT CONTEXT", self.theme);
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if Button::new(self.theme)
-                    .icon(Icon::Trash2)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("Clear context")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.workspace.files.clear_context_items();
-                }
-                if Button::new(self.theme)
-                    .icon(Icon::GitCompare)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("Check schema drift")
-                    .show(ui)
-                    .clicked()
-                {
-                    let names: Vec<String> = self
-                        .schema
-                        .explorer
-                        .schema
-                        .table_details
-                        .iter()
-                        .map(|table| format!("{}.{}", table.schema, table.name))
-                        .collect();
-                    self.workspace
-                        .files
-                        .refresh_schema_drift_watch(&names, &mut self.feedback);
-                }
-                if Button::new(self.theme)
-                    .icon(Icon::Camera)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("Export schema snapshot")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.workspace
-                        .files
-                        .export_live_schema_snapshot(&self.schema.explorer.schema, &mut self.feedback);
-                }
-                if Button::new(self.theme)
-                    .icon(Icon::Columns2)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("Toggle split editor")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.toggle_split_editor();
-                }
-            });
+        let active_document = self.query.session.active_document().map(|document| ActiveQueryContext {
+            path: document.file_path.clone(),
+            title: document.title.clone(),
         });
-        ui.add_space(4.0);
-        ui.horizontal(|ui| {
-            if Button::new(self.theme)
-                .text("+ File")
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::Sm)
-                .tooltip("Add active file to agent context")
-                .show(ui)
-                .clicked()
-            {
-                if let Some(doc) = self
-                    .query
-                    .session
-                    .documents
-                    .get(self.query.session.active_document_index)
-                {
-                    if let Some(path) = doc.file_path.clone() {
-                        self.workspace.files.add_context_item(path);
-                    } else {
-                        self.workspace.files.add_context_item(format!("query:{}", doc.title));
-                    }
-                }
+        let actions = FilesAgentContextView {
+            theme: self.theme,
+            context_items: &self.workspace.files.workspace_context_items,
+            active_document: active_document.as_ref(),
+            selected_text: &self.query.session.selected_text,
+            selected_table: self.schema.explorer.selected_table.as_deref(),
+        }
+        .draw(ui);
+        for action in actions {
+            self.apply_files_agent_context_action(action);
+        }
+    }
+
+    fn apply_files_agent_context_action(&mut self, action: FilesAgentContextAction) {
+        match action {
+            FilesAgentContextAction::Clear => self.workspace.files.clear_context_items(),
+            FilesAgentContextAction::RefreshSchemaDrift => {
+                let names = self
+                    .schema
+                    .explorer
+                    .schema
+                    .table_details
+                    .iter()
+                    .map(|table| format!("{}.{}", table.schema, table.name))
+                    .collect::<Vec<_>>();
+                self.workspace
+                    .files
+                    .refresh_schema_drift_watch(&names, &mut self.feedback);
             }
-            if Button::new(self.theme)
-                .text("+ Selection")
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::Sm)
-                .tooltip("Add current SQL selection")
-                .show(ui)
-                .clicked()
-            {
-                let selected = self.query.session.selected_text.clone();
-                if !selected.trim().is_empty() {
-                    self.workspace
-                        .files
-                        .add_context_item(format!("selection:{}", selected.chars().take(80).collect::<String>()));
-                }
+            FilesAgentContextAction::ExportSchemaSnapshot => self
+                .workspace
+                .files
+                .export_live_schema_snapshot(&self.schema.explorer.schema, &mut self.feedback),
+            FilesAgentContextAction::ToggleSplitEditor => self.toggle_split_editor(),
+            FilesAgentContextAction::AddItem(item) => self.workspace.files.add_context_item(item),
+            FilesAgentContextAction::RemoveItem(item) => {
+                self.workspace
+                    .files
+                    .workspace_context_items
+                    .retain(|existing| existing != &item);
             }
-            if Button::new(self.theme)
-                .text("+ Table")
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::Sm)
-                .tooltip("Add selected table")
-                .show(ui)
-                .clicked()
-            {
-                if let Some(table) = self.schema.explorer.selected_table.clone() {
-                    self.workspace.files.add_context_item(format!("table:{table}"));
-                }
-            }
-        });
-        if self.workspace.files.workspace_context_items.is_empty() {
-            ui.label(
-                RichText::new("No context chips yet — add a file, selection, or table.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-        } else {
-            ui.add_space(4.0);
-            ui.horizontal_wrapped(|ui| {
-                ui.spacing_mut().item_spacing = vec2(4.0, 4.0);
-                for item in self.workspace.files.workspace_context_items.clone() {
-                    let short = if item.len() > 28 {
-                        format!("{}…", &item.chars().take(27).collect::<String>())
-                    } else {
-                        item.clone()
-                    };
-                    if tag_chip(ui, &short, true, self.theme) {
-                        self.workspace
-                            .files
-                            .workspace_context_items
-                            .retain(|existing| existing != &item);
-                    }
-                }
-            });
         }
     }
 

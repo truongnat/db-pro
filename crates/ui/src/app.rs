@@ -112,6 +112,8 @@ mod file_picker_events;
 mod files_activity_tabs;
 #[path = "files_activity_view.rs"]
 mod files_activity_view;
+#[path = "files_agent_context_view.rs"]
+mod files_agent_context_view;
 #[path = "git_workspace.rs"]
 mod git_workspace;
 #[path = "ide_workspace.rs"]
