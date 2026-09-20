@@ -1,8 +1,12 @@
 //! Database-management event reducers over feature-owned state.
 
-use super::database_feature_states::{EventTriggerState, FdwState, PgSettingsState, ReplicationState, SecurityState};
+use super::event_trigger_state::EventTriggerState;
+use super::fdw_state::FdwState;
 use super::monitoring_state::MonitoringState;
+use super::pg_settings_state::PgSettingsState;
+use super::replication_state::ReplicationState;
 use super::schema_compare_state::SchemaCompareState;
+use super::security_state::SecurityState;
 use super::FeedbackState;
 
 pub(super) fn on_operation_progress(feedback: &mut FeedbackState, operation: String, status: String) {

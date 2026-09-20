@@ -1,6 +1,6 @@
 //! DDL completion reducer over table and security feature state.
 
-use super::database_feature_states::SecurityState;
+use super::security_state::SecurityState;
 use super::{FeedbackState, TableState};
 use crate::RequestId;
 

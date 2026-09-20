@@ -104,6 +104,15 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/security_rls.rs"
   "$repo_root/crates/ui/src/monitoring_state.rs"
   "$repo_root/crates/ui/src/audit_state.rs"
+  "$repo_root/crates/ui/src/routine_state.rs"
+  "$repo_root/crates/ui/src/transfer_state.rs"
+  "$repo_root/crates/ui/src/synthetic_data_state.rs"
+  "$repo_root/crates/ui/src/masking_state.rs"
+  "$repo_root/crates/ui/src/pg_settings_state.rs"
+  "$repo_root/crates/ui/src/fdw_state.rs"
+  "$repo_root/crates/ui/src/replication_state.rs"
+  "$repo_root/crates/ui/src/event_trigger_state.rs"
+  "$repo_root/crates/ui/src/security_state.rs"
 )
 for module in "${explicit_state_modules[@]}"; do
   if rg -n '^impl DbProApp|\bDbProApp\b' "$module"; then
@@ -140,7 +149,6 @@ fi
 
 state_field_leaks=$(rg -n '^\s*pub(\(crate\))? [A-Za-z_][A-Za-z0-9_]*:' \
   "$repo_root/crates/ui/src"/*_state.rs \
-  "$repo_root/crates/ui/src/database_feature_states.rs" \
   "$repo_root/crates/ui/src/schema_workbench.rs" \
   "$repo_root/crates/ui/src/connection/state.rs" \
   "$repo_root/crates/ui/src/connection/lifecycle.rs" \

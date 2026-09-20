@@ -64,8 +64,6 @@ pub mod connection;
 pub use component_gallery_view::ComponentGalleryState;
 #[path = "capability_lookup.rs"]
 mod capability_lookup;
-#[path = "database_feature_states.rs"]
-mod database_feature_states;
 #[path = "ddl_events.rs"]
 mod ddl_events;
 #[path = "diagram_state.rs"]
@@ -74,6 +72,8 @@ mod diagram_state;
 mod diagram_view;
 #[path = "event_router.rs"]
 mod event_router;
+#[path = "event_trigger_state.rs"]
+mod event_trigger_state;
 #[path = "events.rs"]
 mod events;
 #[path = "events_query_dispatch.rs"]
@@ -88,6 +88,8 @@ mod explorer_folders;
 mod explorer_tree;
 #[path = "explorer_view.rs"]
 mod explorer_view;
+#[path = "fdw_state.rs"]
+mod fdw_state;
 #[path = "feedback_state.rs"]
 mod feedback_state;
 #[path = "file_picker_events.rs"]
@@ -102,6 +104,8 @@ mod ide_workspace;
 mod management_events;
 #[path = "masking.rs"]
 mod masking;
+#[path = "masking_state.rs"]
+mod masking_state;
 #[path = "monitoring_state.rs"]
 mod monitoring_state;
 #[path = "navigation_view.rs"]
@@ -112,6 +116,8 @@ mod operation_events;
 mod overlay_state;
 #[path = "palette_state.rs"]
 mod palette_state;
+#[path = "pg_settings_state.rs"]
+mod pg_settings_state;
 #[path = "preferences_state.rs"]
 mod preferences_state;
 #[path = "query_execution_events.rs"]
@@ -136,30 +142,45 @@ mod query_queue_events;
 mod query_result_events;
 #[path = "query_save_events.rs"]
 mod query_save_events;
+#[path = "replication_state.rs"]
+mod replication_state;
+#[path = "routine_state.rs"]
+mod routine_state;
 #[path = "saved_task_state.rs"]
 mod saved_task_state;
+#[path = "security_state.rs"]
+mod security_state;
 #[path = "settings_model.rs"]
 mod settings_model;
 #[path = "settings_view.rs"]
 mod settings_view;
+#[path = "synthetic_data_state.rs"]
+mod synthetic_data_state;
+#[path = "transfer_state.rs"]
+mod transfer_state;
 use audit_state::AuditState;
 pub(crate) use capability_lookup::CapabilityLookup;
-use database_feature_states::{
-    EventTriggerState, FdwState, MaskingState, PgSettingsState, ReplicationState, RoutineState, SecurityState,
-    SyntheticDataState, TransferState,
-};
 pub(crate) use diagram_state::DiagramState;
+use event_trigger_state::EventTriggerState;
+use fdw_state::FdwState;
 pub(crate) use feedback_state::FeedbackState;
+use masking_state::MaskingState;
 use monitoring_state::MonitoringState;
 pub(crate) use overlay_state::OverlayState;
 pub(crate) use palette_state::PaletteState;
+use pg_settings_state::PgSettingsState;
 pub(crate) use preferences_state::PreferencesState;
 pub(crate) use query_execution_state::QueryExecutionPolicyState;
 pub(crate) use query_library_state::QueryLibraryState;
+use replication_state::ReplicationState;
+use routine_state::RoutineState;
 pub(crate) use saved_task_state::SavedTaskState;
+use security_state::SecurityState;
 pub(crate) use settings_model::{
     default_keybinding_catalog, AppSettings, SettingsSection, SqlLintSettings, SETTINGS_STORAGE_KEY,
 };
+use synthetic_data_state::SyntheticDataState;
+use transfer_state::TransferState;
 pub(crate) use workspace_shell::WorkspaceShellState;
 #[path = "activity_bar_view.rs"]
 mod activity_bar_view;
