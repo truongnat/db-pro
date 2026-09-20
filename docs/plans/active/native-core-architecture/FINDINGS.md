@@ -968,6 +968,18 @@ is now included in the architecture guard and cannot depend on `DbProApp`.
 
 Severity: P1 feature-boundary risk, resolved for schema-workbench form UI.
 
+## F58 — Query search overlay depended on the composition root
+
+Evidence at discovery: `query_search_view.rs` owned the floating search UI as
+an `impl DbProApp`, reaching into query editor and document state directly
+while also handling cursor/selection transitions.
+
+Fix in `43a43503`: the overlay and legacy search bar now consume
+`QuerySearchContext`; the query compositor constructs that context and the
+architecture guard rejects `DbProApp` from the search module.
+
+Severity: P1 feature-boundary risk, resolved for query search UI.
+
 ## F35 — Navigation view owned transfer activity
 
 Evidence at discovery: the navigation module rendered backup/restore entry

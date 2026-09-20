@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `c9720057`.
+Source checkpoint: `43a43503`.
 
 ## Current change
 
@@ -76,6 +76,9 @@ Source checkpoint: `c9720057`.
 - `456dc9c7`: Schema Compare rendering now consumes `SchemaCompareViewContext` and returns
   explicit `SchemaCompareAction` intents; the view no longer implements methods
   on `DbProApp`, and the architecture guard freezes that boundary.
+- `43a43503`: Query search rendering now consumes `QuerySearchContext`; overlay
+  close, match navigation and selection updates stay inside the query feature
+  context, with no `DbProApp` dependency in the search module.
 - Monitoring state and snapshot/workload/session-control command planning now
   live in `monitoring_state.rs`; tests cover bounded workload requests and
   explicit confirmation flags for destructive commands.
