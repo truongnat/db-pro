@@ -152,7 +152,8 @@ impl DbProApp {
             .unwrap_or_else(|| GridSelectionLookup::new(&indexes, &order));
 
         if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
-            self.rebuild_row_identity_cache(result, &indexes);
+            self.table_data
+                .rebuild_row_identity_cache(result, self.table_state.table_info.as_ref());
         } else {
             self.table_data.grid_row_identity_cache.clear();
             self.table_data.grid_row_identity_cache_ready = false;

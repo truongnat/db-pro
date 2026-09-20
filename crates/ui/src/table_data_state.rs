@@ -77,6 +77,76 @@ impl Default for TableDataState {
 }
 
 impl TableDataState {
+    pub(crate) fn row_identity(
+        result: &UiQueryResult,
+        info: &UiTableInfo,
+        row_index: usize,
+    ) -> Result<RowIdentity, String> {
+        let Some(primary_key) = info.primary_key.as_ref() else {
+            return Err("This table has no primary key for safe row editing".to_owned());
+        };
+        let column_indexes: HashMap<&str, usize> = result
+            .columns
+            .iter()
+            .enumerate()
+            .map(|(index, column)| (column.name.as_str(), index))
+            .collect();
+        let row = result
+            .rows
+            .get(row_index)
+            .ok_or_else(|| "The selected row is no longer available".to_owned())?;
+        Self::row_identity_from_row(row, primary_key, &column_indexes)
+    }
+
+    fn row_identity_from_row(
+        row: &[UiCell],
+        primary_key: &[String],
+        column_indexes: &HashMap<&str, usize>,
+    ) -> Result<RowIdentity, String> {
+        let mut pk_values = Vec::with_capacity(primary_key.len());
+        for pk_column in primary_key {
+            let Some(&pk_index) = column_indexes.get(pk_column.as_str()) else {
+                return Err(format!(
+                    "The primary-key column {pk_column} is not present in this result"
+                ));
+            };
+            let Some(pk_cell) = row.get(pk_index) else {
+                return Err("The selected row is no longer available".to_owned());
+            };
+            if matches!(pk_cell, UiCell::Null) {
+                return Err(format!("A NULL primary key ({pk_column}) cannot identify a row"));
+            }
+            pk_values.push(pk_cell.clone());
+        }
+        Ok(RowIdentity {
+            original_pk_columns: primary_key.to_vec(),
+            original_pk_values: pk_values,
+        })
+    }
+
+    pub(crate) fn rebuild_row_identity_cache(&mut self, result: &UiQueryResult, info: Option<&UiTableInfo>) {
+        if self.grid_row_identity_cache_ready {
+            return;
+        }
+        self.grid_row_identity_cache.clear();
+        let Some(primary_key) = info.and_then(|info| info.primary_key.as_ref()) else {
+            self.grid_row_identity_cache_ready = true;
+            return;
+        };
+        let column_indexes: HashMap<&str, usize> = result
+            .columns
+            .iter()
+            .enumerate()
+            .map(|(index, column)| (column.name.as_str(), index))
+            .collect();
+        for (row_index, row) in result.rows.iter().enumerate() {
+            if let Ok(identity) = Self::row_identity_from_row(row, primary_key, &column_indexes) {
+                self.grid_row_identity_cache.insert(row_index, identity);
+            }
+        }
+        self.grid_row_identity_cache_ready = true;
+    }
+
     pub(crate) fn projection_key(&self, result: &UiQueryResult) -> GridProjectionKey {
         GridProjectionKey {
             epoch: self.grid_projection_epoch,

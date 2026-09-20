@@ -1607,84 +1607,6 @@ impl DbProApp {
             .and_then(|policy| policy.write_block())
     }
 
-    pub(crate) fn row_identity(
-        result: &UiQueryResult,
-        info: &UiTableInfo,
-        row_index: usize,
-    ) -> Result<RowIdentity, String> {
-        let Some(primary_key) = info.primary_key.as_ref() else {
-            return Err("This table has no primary key for safe row editing".to_owned());
-        };
-        let column_indexes: std::collections::HashMap<&str, usize> = result
-            .columns
-            .iter()
-            .enumerate()
-            .map(|(index, column)| (column.name.as_str(), index))
-            .collect();
-        let row = result
-            .rows
-            .get(row_index)
-            .ok_or_else(|| "The selected row is no longer available".to_owned())?;
-        Self::row_identity_from_row(row, primary_key, &column_indexes)
-    }
-
-    fn row_identity_from_row(
-        row: &[UiCell],
-        primary_key: &[String],
-        column_indexes: &std::collections::HashMap<&str, usize>,
-    ) -> Result<RowIdentity, String> {
-        let mut pk_values = Vec::with_capacity(primary_key.len());
-        for pk_column in primary_key {
-            let Some(&pk_index) = column_indexes.get(pk_column.as_str()) else {
-                return Err(format!(
-                    "The primary-key column {pk_column} is not present in this result"
-                ));
-            };
-            let Some(pk_cell) = row.get(pk_index) else {
-                return Err("The selected row is no longer available".to_owned());
-            };
-            if matches!(pk_cell, UiCell::Null) {
-                return Err(format!("A NULL primary key ({pk_column}) cannot identify a row"));
-            }
-            pk_values.push(pk_cell.clone());
-        }
-        Ok(RowIdentity {
-            original_pk_columns: primary_key.to_vec(),
-            original_pk_values: pk_values,
-        })
-    }
-
-    pub(crate) fn rebuild_row_identity_cache(&mut self, result: &UiQueryResult, _row_indexes: &[usize]) {
-        if self.table_data.grid_row_identity_cache_ready {
-            return;
-        }
-        self.table_data.grid_row_identity_cache.clear();
-        let Some(primary_key) = self
-            .table_state
-            .table_info
-            .as_ref()
-            .and_then(|info| info.primary_key.clone())
-        else {
-            self.table_data.grid_row_identity_cache_ready = true;
-            return;
-        };
-        let column_indexes: std::collections::HashMap<&str, usize> = result
-            .columns
-            .iter()
-            .enumerate()
-            .map(|(index, column)| (column.name.as_str(), index))
-            .collect();
-        for row_index in 0..result.rows.len() {
-            let Some(row) = result.rows.get(row_index) else {
-                continue;
-            };
-            if let Ok(identity) = Self::row_identity_from_row(row, &primary_key, &column_indexes) {
-                self.table_data.grid_row_identity_cache.insert(row_index, identity);
-            }
-        }
-        self.table_data.grid_row_identity_cache_ready = true;
-    }
-
     pub(crate) fn begin_data_cell_edit(
         &mut self,
         result: &UiQueryResult,
@@ -1788,7 +1710,7 @@ impl DbProApp {
             self.table_data.data_edit_error = Some(error);
             return false;
         }
-        let identity = match Self::row_identity(result, &info, row_index) {
+        let identity = match TableDataState::row_identity(result, &info, row_index) {
             Ok(identity) => identity,
             Err(error) => {
                 self.feedback.runtime_message = error;
@@ -1874,7 +1796,7 @@ impl DbProApp {
             if self.staged_row_deleted(result, row_index) {
                 continue;
             }
-            let identity = match Self::row_identity(result, &info, row_index) {
+            let identity = match TableDataState::row_identity(result, &info, row_index) {
                 Ok(identity) => identity,
                 Err(error) => {
                     self.feedback.runtime_message = error;
@@ -1904,7 +1826,7 @@ impl DbProApp {
             return Some(identity.clone());
         }
         let info = self.table_state.table_info.as_ref()?;
-        Self::row_identity(result, info, row_index).ok()
+        TableDataState::row_identity(result, info, row_index).ok()
     }
 
     pub(crate) fn staged_cell_value(

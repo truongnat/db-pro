@@ -244,7 +244,7 @@ fn composite_primary_key_identity_preserves_each_cell_type() {
         dependencies: Vec::new(),
     };
 
-    let identity = DbProApp::row_identity(&result, &info, 0).expect("row identity expected");
+    let identity = TableDataState::row_identity(&result, &info, 0).expect("row identity expected");
 
     assert_eq!(identity.original_pk_columns, vec!["tenant_id", "item_id"]);
     assert_eq!(
