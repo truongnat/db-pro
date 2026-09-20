@@ -2,7 +2,8 @@
 use super::explorer_connection_row_view::{ConnectionRowAction, ConnectionRowContext};
 use super::explorer_database_node_view::DatabaseNodeContext;
 use super::explorer_schema_node_view::SchemaNodeContext;
-use super::explorer_tree::{draw_codex_tree_row, draw_hint_row, CodexTreeRow};
+use super::explorer_table_folder_view::TableFolderContext;
+use super::explorer_tree::draw_hint_row;
 use super::*;
 
 /// Driver-aware URI suitable for "Copy Connection String" in the explorer.
@@ -31,50 +32,53 @@ impl DbProApp {
             let Some(connection) = self.connection.catalog.get(index).cloned() else {
                 continue;
             };
-            let is_active = self.connection.lifecycle.active_connection_id() == Some(&connection.id);
-            let is_connected = self.connection.lifecycle.is_connected() && is_active;
-            let is_connecting = self.connection.lifecycle.pending_request().is_some()
-                && (self.connection.lifecycle.pending_connection_id() == Some(connection.id.as_str())
-                    || (self.connection.lifecycle.pending_connection_id().is_none() && is_active));
-            let is_failed = self.connection.lifecycle.has_failed_connection(&connection.id);
-            let err_msg = self
-                .connection
-                .lifecycle
-                .connection_error(&connection.id)
-                .map(str::to_owned);
-            let render = ConnectionRowContext {
-                theme: self.theme,
-                connection: &connection,
-                is_connected,
-                is_connecting,
-                is_failed,
-                modifier: Self::primary_modifier_label(),
-            }
-            .draw(ui);
-            let mut actions = render.actions;
+            self.draw_connection_node(ui, connection);
+        }
+    }
 
-            if render.is_open {
-                if is_connected {
-                    self.draw_dbeaver_connected_body(ui, &connection);
-                } else if is_failed {
-                    let err_str = err_msg.as_deref().unwrap_or("Connection failed");
-                    let hint = format!("Failed: {} — Click to retry", err_str);
-                    if draw_hint_row(ui, &self.theme, 1, Icon::AlertCircle, &hint).clicked() {
-                        actions.push(ConnectionRowAction::Connect);
-                    }
-                } else if is_connecting {
-                    draw_hint_row(ui, &self.theme, 1, Icon::LoaderCircle, "Connecting…");
-                } else if draw_hint_row(ui, &self.theme, 1, Icon::Circle, "Disconnected — click to connect").clicked()
-                {
+    fn draw_connection_node(&mut self, ui: &mut egui::Ui, connection: UiConnectionSummary) {
+        let is_active = self.connection.lifecycle.active_connection_id() == Some(&connection.id);
+        let is_connected = self.connection.lifecycle.is_connected() && is_active;
+        let is_connecting = self.connection.lifecycle.pending_request().is_some()
+            && (self.connection.lifecycle.pending_connection_id() == Some(connection.id.as_str())
+                || (self.connection.lifecycle.pending_connection_id().is_none() && is_active));
+        let is_failed = self.connection.lifecycle.has_failed_connection(&connection.id);
+        let err_msg = self
+            .connection
+            .lifecycle
+            .connection_error(&connection.id)
+            .map(str::to_owned);
+        let render = ConnectionRowContext {
+            theme: self.theme,
+            connection: &connection,
+            is_connected,
+            is_connecting,
+            is_failed,
+            modifier: Self::primary_modifier_label(),
+        }
+        .draw(ui);
+        let mut actions = render.actions;
+
+        if render.is_open {
+            if is_connected {
+                self.draw_dbeaver_connected_body(ui, &connection);
+            } else if is_failed {
+                let err_str = err_msg.as_deref().unwrap_or("Connection failed");
+                let hint = format!("Failed: {} — Click to retry", err_str);
+                if draw_hint_row(ui, &self.theme, 1, Icon::AlertCircle, &hint).clicked() {
                     actions.push(ConnectionRowAction::Connect);
                 }
+            } else if is_connecting {
+                draw_hint_row(ui, &self.theme, 1, Icon::LoaderCircle, "Connecting…");
+            } else if draw_hint_row(ui, &self.theme, 1, Icon::Circle, "Disconnected — click to connect").clicked() {
+                actions.push(ConnectionRowAction::Connect);
             }
-
-            for action in actions {
-                self.apply_connection_row_action(action, &connection, is_connected, ui);
-            }
-            ui.add_space(2.0);
         }
+
+        for action in actions {
+            self.apply_connection_row_action(action, &connection, is_connected, ui);
+        }
+        ui.add_space(2.0);
     }
 
     fn apply_connection_row_action(
@@ -290,7 +294,6 @@ impl DbProApp {
         total_tables: usize,
         search_query: &str,
     ) {
-        let folder_id = ui.make_persistent_id(("codex_tbl_folder", schema));
         let matching_table_count = if search_query.is_empty() {
             total_tables
         } else if let Some(cache) = self.schema.explorer.explorer_nav_cache.as_ref().filter(|cache| {
@@ -302,59 +305,21 @@ impl DbProApp {
         } else {
             self.schema_matching_table_count(schema, search_query)
         };
-        let count_str = if search_query.is_empty() {
-            total_tables.to_string()
-        } else {
-            format!("{matching_table_count}/{total_tables}")
+        let folder = TableFolderContext {
+            theme: self.theme,
+            schema,
+            total_tables,
+            matching_tables: matching_table_count,
+            search_query,
         };
-
-        // Default closed for large schemas; auto-open while the user is filtering.
-        let default_open = !search_query.is_empty();
-        let mut collapsing =
-            egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), folder_id, default_open);
-        if default_open && !collapsing.is_open() {
-            collapsing.set_open(true);
-            collapsing.store(ui.ctx());
-        }
-        let is_open = collapsing.is_open();
-
-        let (response, chevron_clicked) = draw_codex_tree_row(
-            ui,
-            &self.theme,
-            CodexTreeRow {
-                depth: 3,
-                is_expandable: true,
-                is_expanded: is_open,
-                icon: Icon::Table2,
-                icon_color: self.theme.info,
-                label: "Tables",
-                is_selected: false,
-                is_dimmed: total_tables == 0,
-                status_dot: None,
-                badge_text: None,
-                badge_accent: false,
-                count_text: Some(count_str),
-                detail_text: None,
-            },
-        );
-
-        if response.clicked() || chevron_clicked {
-            collapsing.set_open(!is_open);
-            collapsing.store(ui.ctx());
-        }
-
-        if !collapsing.is_open() {
+        let render = folder.draw_header(ui);
+        if !render.is_open {
             return;
         }
 
-        let (_total, matching, tables) = self.cached_explorer_tables(schema, search_query);
+        let (_total, _matching, tables) = self.cached_explorer_tables(schema, search_query);
         if tables.is_empty() {
-            let empty_label = if total_tables == 0 {
-                "No tables in schema"
-            } else {
-                "No matching tables"
-            };
-            draw_hint_row(ui, &self.theme, 4, Icon::Info, empty_label);
+            folder.draw_empty_state(ui);
             return;
         }
 
@@ -364,23 +329,12 @@ impl DbProApp {
             let row_bottom = row_top + EXPLORER_ROW_HEIGHT;
             if row_bottom < clip.top() || row_top > clip.bottom() {
                 // Keep layout height without painting off-screen rows.
-                let _ = ui.allocate_exact_size(
-                    egui::vec2(ui.available_width(), EXPLORER_ROW_HEIGHT),
-                    egui::Sense::hover(),
-                );
+                folder.draw_offscreen_row_spacer(ui);
                 continue;
             }
             self.draw_dbeaver_table_item(ui, table);
         }
 
-        if matching > tables.len() {
-            draw_hint_row(
-                ui,
-                &self.theme,
-                4,
-                Icon::Ellipsis,
-                &format!("Showing {} of {matching} — refine filter", tables.len()),
-            );
-        }
+        folder.draw_overflow_hint(ui, tables.len());
     }
 }

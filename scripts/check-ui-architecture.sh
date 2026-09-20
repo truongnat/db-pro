@@ -133,6 +133,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/explorer_schema_node_view.rs"
   "$repo_root/crates/ui/src/explorer_schema_object_row_view.rs"
   "$repo_root/crates/ui/src/explorer_table_row_view.rs"
+  "$repo_root/crates/ui/src/explorer_table_folder_view.rs"
   "$repo_root/crates/ui/src/table_workspace_surface_view.rs"
   "$repo_root/crates/ui/src/query_snippets.rs"
   "$repo_root/crates/ui/src/query_diagnostics_view.rs"
