@@ -560,6 +560,18 @@ changing the editor command flow.
 
 Severity: P1 query-editor boundary risk, resolved for support rendering.
 
+## F41 — Table metadata view mixed unrelated schema surfaces
+
+Evidence at discovery: `table_metadata_view.rs` rendered structure/columns,
+indexes, foreign keys, constraints and dependency graphs in one module above
+1,000 lines.
+
+Fix in the current refactor: moved structure/column rendering to
+`table_structure_view.rs` and foreign-key/constraint/dependency rendering to
+`table_relations_view.rs`; the metadata view now owns only index rendering.
+
+Severity: P1 schema-metadata boundary risk, resolved.
+
 ## F25 — Table metadata state still owned the data-query lifecycle
 
 Evidence at discovery: `TableState` combined table metadata/DDL with the data

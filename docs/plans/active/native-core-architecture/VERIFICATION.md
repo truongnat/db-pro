@@ -545,6 +545,11 @@ Source checkpoint: `0070d374`.
   editor interaction orchestration. Focused UI tests (632 passed), UI clippy,
   architecture guard and diff checks PASS; clean scan has no failures and one
   ratcheted function-size warning group.
+- Table metadata ownership follow-up: structure/columns now live in
+  `table_structure_view.rs`, while foreign keys, constraints and dependencies
+  live in `table_relations_view.rs`; `table_metadata_view.rs` owns indexes only.
+  Focused UI tests (632 passed), UI clippy, architecture guard and diff checks
+  PASS; clean scan has no failures.
 
 ## Not yet proven
 
