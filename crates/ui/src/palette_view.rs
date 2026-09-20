@@ -799,7 +799,7 @@ impl DbProApp {
     }
 
     fn export_results_from_palette(&mut self) {
-        if self.active_query_result().is_some() {
+        if self.query_session_state.active_result().is_some() {
             self.query_output_state.active_tab = OutputTab::Results;
             self.overlay.export_open = true;
             self.workspace.active_tab = WorkspaceTab::Query;

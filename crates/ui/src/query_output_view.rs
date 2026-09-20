@@ -89,7 +89,7 @@ impl DbProApp {
                                 ui.add_space(2.0);
                                 ui.label(RichText::new(label).font(font_ui_label()).color(text_color));
                                 if tab == OutputTab::Results {
-                                    if let Some(res) = self.active_query_result() {
+                                    if let Some(res) = self.query_session_state.active_result() {
                                         badge(
                                             ui,
                                             &res.row_count.to_string(),

@@ -281,7 +281,8 @@ impl DbProApp {
                         );
                     }
                     if let Some(result) = self
-                        .active_query_result()
+                        .query_session_state
+                        .active_result()
                         .or(self.table_state.table_data_result.as_ref())
                     {
                         ui.label(
@@ -374,7 +375,8 @@ impl DbProApp {
                 match self.query_output_state.active_tab {
                     OutputTab::Results => {
                         let result = self
-                            .active_query_result()
+                            .query_session_state
+                            .active_result()
                             .or(self.table_state.table_data_result.as_ref());
                         ui.label(
                             RichText::new(

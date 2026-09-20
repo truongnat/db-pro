@@ -396,7 +396,7 @@ impl DbProApp {
             Layout::top_down(Align::Min),
             |ui| {
                 self.draw_output_tabs(ui, true);
-                let result = self.active_query_result().cloned();
+                let result = self.query_session_state.active_result().cloned();
                 self.draw_output_pane(ui, result.as_ref());
             },
         );

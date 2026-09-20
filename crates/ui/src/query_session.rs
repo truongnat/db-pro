@@ -127,10 +127,6 @@ impl DbProApp {
         self.send_query_run(connection_id, sql.to_owned(), (0, sql.len()), version, false);
     }
 
-    pub(crate) fn active_query_result(&self) -> Option<&UiQueryResult> {
-        self.query_session_state.active_result()
-    }
-
     pub(crate) fn set_active_query_result(&mut self, index: usize) {
         if self.query_session_state.set_active_result(index) {
             self.table_data.invalidate_grid_projection();

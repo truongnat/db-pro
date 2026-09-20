@@ -4515,7 +4515,7 @@ fn test_multi_tab_query_result_routing() {
         .query_messages
         .iter()
         .any(|m| m.contains("1 rows")));
-    assert!(app.active_query_result().is_none());
+    assert!(app.query_session_state.active_result().is_none());
 
     // Tab 2 query completes
     let result2 = UiQueryResult {
@@ -4537,12 +4537,14 @@ fn test_multi_tab_query_result_routing() {
 
     app.apply_runtime_events();
 
-    // Tab 2 is active, active_query_result() now returns Tab 2's result
+    // Tab 2 is active, the session state now returns Tab 2's result
     assert_eq!(
-        app.active_query_result().and_then(|r| match &r.rows[0][0] {
-            crate::UiCell::Text(s) => Some(s.as_str()),
-            _ => None,
-        }),
+        app.query_session_state
+            .active_result()
+            .and_then(|r| match &r.rows[0][0] {
+                crate::UiCell::Text(s) => Some(s.as_str()),
+                _ => None,
+            }),
         Some("2")
     );
     assert_eq!(
@@ -4550,13 +4552,15 @@ fn test_multi_tab_query_result_routing() {
         QueryExecutionState::Idle
     );
 
-    // Switch back to Tab 1 -> active_query_result() returns Tab 1's result
+    // Switch back to Tab 1 -> the session state returns Tab 1's result
     app.switch_query_document(0);
     assert_eq!(
-        app.active_query_result().and_then(|r| match &r.rows[0][0] {
-            crate::UiCell::Text(s) => Some(s.as_str()),
-            _ => None,
-        }),
+        app.query_session_state
+            .active_result()
+            .and_then(|r| match &r.rows[0][0] {
+                crate::UiCell::Text(s) => Some(s.as_str()),
+                _ => None,
+            }),
         Some("1")
     );
 }
