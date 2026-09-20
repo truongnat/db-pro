@@ -74,9 +74,9 @@ impl DbProApp {
         if is_function {
             self.draw_routine_workbench(ui, &selection);
         } else if is_view && self.schema_explorer.schema_object_view == SchemaObjectView::Data {
-            if self.table.state.table_data_result.is_none()
-                && self.table.state.table_data_request.is_none()
-                && self.table.state.table_data_error.is_none()
+            if self.table.data_query.result.is_none()
+                && self.table.data_query.request.is_none()
+                && self.table.data_query.error.is_none()
             {
                 self.request_table_data();
             }
@@ -488,10 +488,10 @@ impl DbProApp {
             if tab.inner.clicked() {
                 self.schema_explorer.schema_object_view = view;
                 if view == SchemaObjectView::Data {
-                    self.table.state.table_data_result = None;
-                    self.table.state.table_data_total_rows = None;
-                    self.table.state.table_data_error = None;
-                    self.table.state.table_data_offset = 0;
+                    self.table.data_query.result = None;
+                    self.table.data_query.total_rows = None;
+                    self.table.data_query.error = None;
+                    self.table.data_query.offset = 0;
                     self.request_table_data();
                 }
             }

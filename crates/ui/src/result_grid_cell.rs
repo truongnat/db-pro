@@ -587,17 +587,17 @@ impl DbProApp {
         }
         if req.filter_this_val {
             if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
-                self.table.state.table_data_filter_column = result
+                self.table.data_query.filter_column = result
                     .columns
                     .get(column_index)
                     .map(|column| column.name.clone())
                     .unwrap_or_default();
                 if matches!(display_cell, UiCell::Null) {
-                    self.table.state.table_data_filter_operator = UiTableFilterOperator::IsNull;
-                    self.table.state.table_data_filter_value.clear();
+                    self.table.data_query.filter_operator = UiTableFilterOperator::IsNull;
+                    self.table.data_query.filter_value.clear();
                 } else {
-                    self.table.state.table_data_filter_operator = UiTableFilterOperator::Equals;
-                    self.table.state.table_data_filter_value = crate::cell_text(display_cell);
+                    self.table.data_query.filter_operator = UiTableFilterOperator::Equals;
+                    self.table.data_query.filter_value = crate::cell_text(display_cell);
                 }
                 self.commit_table_filter_draft();
             } else {

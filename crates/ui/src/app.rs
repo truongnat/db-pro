@@ -253,6 +253,8 @@ mod sidebar_activities_view;
 mod sidebar_view;
 #[path = "synthetic_data.rs"]
 mod synthetic_data;
+#[path = "table_data_query_state.rs"]
+mod table_data_query_state;
 #[path = "table_data_state.rs"]
 mod table_data_state;
 #[path = "table_editor_state.rs"]
@@ -291,6 +293,7 @@ pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
 use schema_compare_state::SchemaCompareState;
 pub(crate) use schema_explorer_state::SchemaExplorerState;
+pub(crate) use table_data_query_state::TableDataQueryState;
 pub(crate) use table_data_state::TableDataState;
 pub(crate) use table_editor_state::TableEditorState;
 pub(crate) use table_mutation_state::TableMutationState;
@@ -709,7 +712,7 @@ impl DbProApp {
                 .any(|session| session.request_id.is_some() || session.active_run_id.is_some())
             || self.table.state.table_info_request.is_some()
             || self.table.state.table_ddl_request.is_some()
-            || self.table.state.table_data_request.is_some()
+            || self.table.data_query.request.is_some()
             || self.table.mutation.table_mutation_request.is_some()
             || self.table.mutation.staged_apply_request.is_some()
             || self.table.state.ddl_execution_request.is_some()

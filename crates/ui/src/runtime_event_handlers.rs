@@ -123,15 +123,15 @@ impl DbProApp {
     }
 
     pub(super) fn on_schema_loaded(&mut self, request_id: RequestId, schema: UiSchemaSummary) {
-        let transition = schema_events::on_schema_loaded(
-            &mut self.schema_explorer,
-            &mut self.table.state,
-            &mut self.workspace.shell,
-            &mut self.palette,
-            &mut self.feedback,
-            request_id,
-            schema,
-        );
+        let mut context = schema_events::SchemaLoadedContext {
+            schema_explorer: &mut self.schema_explorer,
+            table_state: &mut self.table.state,
+            data_query: &mut self.table.data_query,
+            workspace: &mut self.workspace.shell,
+            palette: &mut self.palette,
+            feedback: &mut self.feedback,
+        };
+        let transition = schema_events::on_schema_loaded(&mut context, request_id, schema);
         if transition.refresh_selected_table {
             self.request_table_info();
         }
@@ -160,6 +160,7 @@ impl DbProApp {
     pub(super) fn handle_table_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
         match table_events::handle_table_request_failure(
             &mut self.table.state,
+            &mut self.table.data_query,
             &mut self.table.mutation,
             &mut self.table.data,
             &mut self.feedback,
@@ -176,9 +177,13 @@ impl DbProApp {
     }
 
     pub(super) fn on_table_info_loaded(&mut self, request_id: RequestId, table_info: UiTableInfo) {
-        if let Some(transition) =
-            table_events::on_table_info_loaded(&mut self.table.state, &mut self.feedback, request_id, table_info)
-        {
+        if let Some(transition) = table_events::on_table_info_loaded(
+            &mut self.table.state,
+            &mut self.table.data_query,
+            &mut self.feedback,
+            request_id,
+            table_info,
+        ) {
             if transition.invalidate_grid_caches {
                 self.table.data.invalidate_grid_row_caches();
             }
@@ -190,12 +195,12 @@ impl DbProApp {
     }
 
     pub(super) fn on_table_data_loaded(&mut self, request_id: RequestId, result: UiQueryResult, total_rows: u64) {
-        if self.table.state.table_row_reload_request == Some(request_id) {
+        if self.table.data_query.row_reload_request == Some(request_id) {
             self.on_table_row_reloaded(result);
             return;
         }
         if let Some(transition) = table_events::on_table_data_loaded(
-            &mut self.table.state,
+            &mut self.table.data_query,
             &mut self.table.mutation,
             &mut self.table.data,
             &mut self.feedback,
@@ -215,7 +220,7 @@ impl DbProApp {
 
     pub(crate) fn on_table_row_reloaded(&mut self, result: UiQueryResult) {
         let transition = table_events::on_table_row_reloaded(
-            &mut self.table.state,
+            &mut self.table.data_query,
             &mut self.table.mutation,
             &mut self.feedback,
             result,

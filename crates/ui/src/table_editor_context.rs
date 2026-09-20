@@ -1,8 +1,8 @@
 //! Explicit table-editor state transitions.
 
 use super::{
-    ConnectionCatalogState, ConnectionLifecycleState, FeedbackState, TableDataState, TableMutationState, TableState,
-    UiCell, UiQueryResult,
+    ConnectionCatalogState, ConnectionLifecycleState, FeedbackState, TableDataQueryState, TableDataState,
+    TableMutationState, TableState, UiCell, UiQueryResult,
 };
 
 pub(crate) fn can_mutate_active_connection(
@@ -26,6 +26,7 @@ pub(crate) fn can_edit_table_rows(
 
 pub(crate) struct TableMutationContext<'a> {
     table_state: &'a mut TableState,
+    table_data_query: &'a mut TableDataQueryState,
     table_data: &'a mut TableDataState,
     table_mutation: &'a mut TableMutationState,
     feedback: &'a mut FeedbackState,
@@ -59,12 +60,14 @@ pub(crate) fn staged_row_deleted(
 impl<'a> TableMutationContext<'a> {
     pub(crate) fn new(
         table_state: &'a mut TableState,
+        table_data_query: &'a mut TableDataQueryState,
         table_data: &'a mut TableDataState,
         table_mutation: &'a mut TableMutationState,
         feedback: &'a mut FeedbackState,
     ) -> Self {
         Self {
             table_state,
+            table_data_query,
             table_data,
             table_mutation,
             feedback,
@@ -115,8 +118,8 @@ impl<'a> TableMutationContext<'a> {
         self.table_data.discard_changes_confirmation = false;
         self.table_mutation.pending_changes_open = false;
         self.table_data.data_edit_value.clear();
-        self.table_state.table_data_result = None;
-        self.table_state.table_data_error = None;
+        self.table_data_query.result = None;
+        self.table_data_query.error = None;
         self.feedback.set_runtime_message("Staged changes discarded");
         true
     }

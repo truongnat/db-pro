@@ -99,9 +99,12 @@ mod row_reload_tests {
                         check_constraints: Vec::new(),
                         dependencies: Vec::new(),
                     }),
-                    table_data_result: Some(row_result("local server value")),
-                    table_row_reload_request: Some(RequestId(9)),
-                    table_row_reload_identity: Some(RowIdentity {
+                    ..Default::default()
+                },
+                data_query: TableDataQueryState {
+                    result: Some(row_result("local server value")),
+                    row_reload_request: Some(RequestId(9)),
+                    row_reload_identity: Some(RowIdentity {
                         original_pk_columns: vec!["id".to_owned()],
                         original_pk_values: vec![UiCell::Number("7".to_owned())],
                     }),
@@ -118,13 +121,9 @@ mod row_reload_tests {
         let mut app = row_reload_app();
         app.on_table_data_loaded(RequestId(9), row_result("fresh server value"), 1);
 
-        let result = app
-            .table
-            .state
-            .table_data_result
-            .expect("table result should remain visible");
+        let result = app.table.data_query.result.expect("table result should remain visible");
         assert_eq!(result.rows[0][1], UiCell::Text("fresh server value".to_owned()));
-        assert!(app.table.state.table_row_reload_request.is_none());
+        assert!(app.table.data_query.row_reload_request.is_none());
     }
 
     #[test]
@@ -139,7 +138,7 @@ mod row_reload_tests {
         app.on_table_data_loaded(RequestId(9), empty, 0);
 
         assert_eq!(app.feedback.runtime_message, "Row was deleted");
-        assert!(app.table.state.table_data_result.is_some());
+        assert!(app.table.data_query.result.is_some());
     }
 
     #[test]

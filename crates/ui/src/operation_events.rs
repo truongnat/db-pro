@@ -262,10 +262,10 @@ impl DbProApp {
             self.staged_apply_completed();
         } else if self.table.mutation.table_mutation_request == Some(request_id) {
             self.table.mutation.table_mutation_request = None;
-            self.table.state.table_data_result = None;
-            self.table.state.table_data_total_rows = None;
-            self.table.state.table_data_error = None;
-            self.table.state.table_data_request = None;
+            self.table.data_query.result = None;
+            self.table.data_query.total_rows = None;
+            self.table.data_query.error = None;
+            self.table.data_query.request = None;
             if self.workspace.active_tab == WorkspaceTab::Table {
                 self.request_table_data();
             }

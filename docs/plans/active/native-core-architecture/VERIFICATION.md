@@ -78,9 +78,10 @@ Source checkpoint: `0070d374`.
   `SecurityState`, with coverage proving empty preview SQL cannot dispatch.
 - Saved-query and query-folder refresh effects now build in `QueryLibraryState`,
   with focused coverage for both command identities.
-- Table metadata, DDL, paged data, row reload and DDL execution effects now
-  build in `TableState`; focused coverage verifies empty DDL is rejected at the
-  state boundary.
+- Table metadata and DDL effects now build in `TableState`; table-data request
+  effects build in `TableDataQueryState`, keeping paging/filter/sort and row
+  reload lifecycle out of metadata state. Focused coverage verifies empty DDL
+  is rejected at the state boundary.
 - Migration apply and schema-workbench DDL effects now build in their owning
   aggregates; focused coverage verifies both apply paths reject missing plans.
 - Query-folder creation and saved-query save/rename/delete effects now build in
@@ -104,8 +105,9 @@ Source checkpoint: `0070d374`.
   overrides.
 - `TableDataState` now owns grid projection/layout, filtering/sorting,
   selection, cell editor, inspector and insert-row interaction state.
-- `TableState` now owns table metadata, table view, introspection/DDL/data
-  requests, paging, filters, metadata searches, details and row reload state.
+- `TableState` now owns table metadata, table view, introspection/DDL requests,
+  metadata searches and details. `TableDataQueryState` owns paged data,
+  filters, sorts, data requests and row reload state.
 - `TableMutationState` now owns staged changes, mutation requests, retries and
   conflict/apply state.
 - `AgentState` now owns provider settings, composer input and agent sessions;
@@ -443,6 +445,11 @@ Source checkpoint: `0070d374`.
   `NativeStorageDependencies`; `app_state.rs` only sequences restore phases.
   Focused compile, clippy, architecture guard and 632 UI tests PASS; clean
   scan reports 15 pass, 1 ratcheted warning, 0 failures.
+- Table data-query boundary extraction: `TableState` no longer owns result,
+  paging, filters, sorts or row-reload lifecycle. Those concerns now live in
+  `TableDataQueryState`; table reducers and views receive the explicit state
+  boundary. Focused UI tests (632 passed), clippy, architecture guard and
+  clean scan PASS; clean scan reports 12 pass, 4 ratcheted warnings, 0 failures.
 
 ## Not yet proven
 

@@ -744,7 +744,7 @@ impl DbProApp {
         self.table.state.table_view = TableView::Structure;
         self.table.state.table_info = None;
         self.table.state.table_ddl = None;
-        self.table.state.table_data_result = None;
+        self.table.data_query.result = None;
         self.request_table_info();
         self.workspace.active_tab = WorkspaceTab::Table;
         self.feedback.runtime_message = format!("Opening table {table}");

@@ -270,9 +270,9 @@ impl DbProApp {
                 self.table.state.table_ddl = None;
                 self.table.state.table_info_error = None;
                 self.table.state.table_ddl_error = None;
-                self.table.state.table_data_result = None;
-                self.table.state.table_data_total_rows = None;
-                self.table.state.table_data_request = None;
+                self.table.data_query.result = None;
+                self.table.data_query.total_rows = None;
+                self.table.data_query.request = None;
                 self.table.state.table_info_request = None;
                 self.table.state.table_ddl_request = None;
                 self.table.mutation.table_mutation_request = None;
@@ -295,9 +295,9 @@ impl DbProApp {
             WorkspaceTab::SchemaObject => {
                 self.schema_explorer.selected_schema_object = None;
                 self.schema_explorer.schema_object_view = SchemaObjectView::Definition;
-                self.table.state.table_data_result = None;
-                self.table.state.table_data_total_rows = None;
-                self.table.state.table_data_request = None;
+                self.table.data_query.result = None;
+                self.table.data_query.total_rows = None;
+                self.table.data_query.request = None;
             }
             WorkspaceTab::Diagram => {
                 self.diagram.search.clear();

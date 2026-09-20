@@ -3949,8 +3949,11 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
             state: TableState {
                 table_info_request: Some(crate::RequestId(1)),
                 table_ddl_request: Some(crate::RequestId(2)),
-                table_data_request: Some(crate::RequestId(3)),
-                table_data_result: Some(result()),
+                ..Default::default()
+            },
+            data_query: TableDataQueryState {
+                request: Some(crate::RequestId(3)),
+                result: Some(result()),
                 ..Default::default()
             },
             ..Default::default()
@@ -3964,8 +3967,8 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
     assert_eq!(app.schema_explorer.selected_table, None);
     assert_eq!(app.table.state.table_info_request, None);
     assert_eq!(app.table.state.table_ddl_request, None);
-    assert_eq!(app.table.state.table_data_request, None);
-    assert_eq!(app.table.state.table_data_result, None);
+    assert_eq!(app.table.data_query.request, None);
+    assert_eq!(app.table.data_query.result, None);
 }
 
 #[test]
@@ -4211,12 +4214,12 @@ fn test_export_result_writes_escaped_delimited_text() {
 #[test]
 fn test_table_data_limit_and_paging_offset() {
     let mut app = DbProApp::default();
-    assert_eq!(app.table.state.table_data_limit, 100);
+    assert_eq!(app.table.data_query.limit, 100);
 
-    app.table.state.table_data_limit = 50;
-    app.table.state.table_data_offset = 100;
+    app.table.data_query.limit = 50;
+    app.table.data_query.offset = 100;
     app.reset_table_data_page();
-    assert_eq!(app.table.state.table_data_offset, 0);
+    assert_eq!(app.table.data_query.offset, 0);
 }
 
 #[test]
@@ -5709,7 +5712,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
         check_constraints: Vec::new(),
         dependencies: Vec::new(),
     });
-    app.table.state.table_data_result = Some(UiQueryResult {
+    app.table.data_query.result = Some(UiQueryResult {
         columns: vec![
             crate::UiColumn {
                 name: "tenant_id".to_owned(),
@@ -5766,7 +5769,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
     assert_eq!(filters[1].value, "20");
 
     let server_reloaded = UiQueryResult {
-        columns: app.table.state.table_data_result.as_ref().unwrap().columns.clone(),
+        columns: app.table.data_query.result.as_ref().unwrap().columns.clone(),
         rows: vec![vec![
             UiCell::Number("1".to_owned()),
             UiCell::Number("20".to_owned()),
@@ -5778,7 +5781,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
 
     app.on_table_row_reloaded(server_reloaded);
 
-    let result = app.table.state.table_data_result.as_ref().unwrap();
+    let result = app.table.data_query.result.as_ref().unwrap();
     assert_eq!(result.rows[0][2], UiCell::Text("admin".to_owned()));
     assert_eq!(result.rows[1][2], UiCell::Text("manager".to_owned()));
 }
@@ -5819,8 +5822,9 @@ fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
                 staged_apply_request: Some(crate::RequestId(12)),
                 ..Default::default()
             },
-            state: TableState {
-                table_data_result: Some(UiQueryResult {
+            state: TableState { ..Default::default() },
+            data_query: TableDataQueryState {
+                result: Some(UiQueryResult {
                     columns: vec![
                         crate::UiColumn {
                             name: "id".to_owned(),
@@ -5935,7 +5939,7 @@ fn test_conflict_keep_mine_and_use_database_resolution_actions() {
         original_pk_values: vec![UiCell::Number("42".to_owned())],
     };
 
-    app.table.state.table_data_result = Some(UiQueryResult {
+    app.table.data_query.result = Some(UiQueryResult {
         columns: vec![
             crate::UiColumn {
                 name: "id".to_owned(),

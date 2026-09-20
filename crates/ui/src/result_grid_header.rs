@@ -104,16 +104,16 @@ impl DbProApp {
                     && self.table.state.table_view == TableView::Data)
                     .then(|| {
                         self.table
-                            .state
-                            .table_data_sorts
+                            .data_query
+                            .sorts
                             .iter()
                             .find(|sort| sort.column == column.name)
                     })
                     .flatten();
                 let table_sort_priority = table_sort.and_then(|_| {
                     self.table
-                        .state
-                        .table_data_sorts
+                        .data_query
+                        .sorts
                         .iter()
                         .position(|sort| sort.column == column.name)
                         .map(|position| position + 1)
@@ -408,10 +408,10 @@ impl DbProApp {
         }
         if let Some(column_index) = add_filter_req {
             if let Some(column) = result.columns.get(column_index) {
-                self.table.state.table_data_filter_column = column.name.clone();
-                self.table.state.table_data_filter_operator = UiTableFilterOperator::Equals;
-                self.table.state.table_data_filter_value.clear();
-                self.table.state.table_data_filter_editing = None;
+                self.table.data_query.filter_column = column.name.clone();
+                self.table.data_query.filter_operator = UiTableFilterOperator::Equals;
+                self.table.data_query.filter_value.clear();
+                self.table.data_query.filter_editing = None;
                 self.feedback.runtime_message = format!("Filter draft ready for {}", column.name);
             }
         }

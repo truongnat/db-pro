@@ -515,6 +515,21 @@ implementation block.
 
 Severity: P2 composition-root maintainability, resolved.
 
+## F25 — Table metadata state still owned the data-query lifecycle
+
+Evidence at discovery: `TableState` combined table metadata/DDL with the data
+result, paging, filters, sorts, request slots and row-reload identity. The
+`TableEditorState` aggregate therefore hid a second responsibility boundary
+instead of making it explicit.
+
+Fix in the current refactor: introduced `TableDataQueryState` and moved the
+data read model plus query lifecycle there. Table metadata reducers retain only
+metadata/DDL state, while table-data reducers and views receive the dedicated
+query state. `SchemaLoadedContext` also makes the cross-feature reset explicit
+without expanding reducer argument lists.
+
+Severity: P1 feature-boundary risk, resolved for table data-query ownership.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and

@@ -125,23 +125,23 @@ fn table_sort_cycles_and_shift_adds_prioritized_clauses() {
     };
 
     app.cycle_table_data_sort(&result, 0, false);
-    assert_eq!(app.table.state.table_data_sorts[0].column, "tenant_id");
-    assert!(!app.table.state.table_data_sorts[0].descending);
+    assert_eq!(app.table.data_query.sorts[0].column, "tenant_id");
+    assert!(!app.table.data_query.sorts[0].descending);
     app.cycle_table_data_sort(&result, 0, false);
-    assert!(app.table.state.table_data_sorts[0].descending);
+    assert!(app.table.data_query.sorts[0].descending);
     app.cycle_table_data_sort(&result, 1, true);
     assert_eq!(
         app.table
-            .state
-            .table_data_sorts
+            .data_query
+            .sorts
             .iter()
             .map(|sort| sort.column.as_str())
             .collect::<Vec<_>>(),
         vec!["tenant_id", "item_id"]
     );
     app.cycle_table_data_sort(&result, 0, true);
-    assert_eq!(app.table.state.table_data_sorts.len(), 1);
-    assert_eq!(app.table.state.table_data_sorts[0].column, "item_id");
+    assert_eq!(app.table.data_query.sorts.len(), 1);
+    assert_eq!(app.table.data_query.sorts[0].column, "item_id");
 }
 
 #[test]
@@ -301,7 +301,7 @@ fn sorting_is_blocked_while_staged_changes_are_present() {
 
     app.cycle_table_data_sort(&result, 0, false);
 
-    assert!(app.table.state.table_data_sorts.is_empty());
+    assert!(app.table.data_query.sorts.is_empty());
     assert!(app.feedback.runtime_message.contains("staged changes"));
 }
 

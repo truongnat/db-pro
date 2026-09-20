@@ -171,11 +171,7 @@ impl DbProApp {
         }
         self.draw_record_inspector_panel(ui, result);
 
-        let row_offset = if is_table_data {
-            self.table.state.table_data_offset
-        } else {
-            0
-        };
+        let row_offset = if is_table_data { self.table.data_query.offset } else { 0 };
         self.draw_grid_body(ui, result, &indexes, &order, editable, row_offset, &selection_lookup);
 
         self.table
@@ -359,7 +355,7 @@ impl DbProApp {
                 self.feedback.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
                 return;
             }
-            self.table.state.table_data_sorts = descending
+            self.table.data_query.sorts = descending
                 .and_then(|_| {
                     result.columns.get(column_index).map(|column| UiTableDataSort {
                         column: column.name.clone(),
@@ -391,38 +387,32 @@ impl DbProApp {
         if additive {
             if let Some(index) = self
                 .table
-                .state
-                .table_data_sorts
+                .data_query
+                .sorts
                 .iter()
                 .position(|sort| sort.column == column)
             {
-                if self.table.state.table_data_sorts[index].descending {
-                    self.table.state.table_data_sorts.remove(index);
+                if self.table.data_query.sorts[index].descending {
+                    self.table.data_query.sorts.remove(index);
                 } else {
-                    self.table.state.table_data_sorts[index].descending = true;
+                    self.table.data_query.sorts[index].descending = true;
                 }
             } else {
-                self.table.state.table_data_sorts.push(UiTableDataSort {
+                self.table.data_query.sorts.push(UiTableDataSort {
                     column,
                     descending: false,
                 });
             }
-        } else if self.table.state.table_data_sorts.len() == 1
-            && self
-                .table
-                .state
-                .table_data_sorts
-                .first()
-                .map(|sort| sort.column.as_str())
-                == Some(column.as_str())
+        } else if self.table.data_query.sorts.len() == 1
+            && self.table.data_query.sorts.first().map(|sort| sort.column.as_str()) == Some(column.as_str())
         {
-            if self.table.state.table_data_sorts[0].descending {
-                self.table.state.table_data_sorts.clear();
+            if self.table.data_query.sorts[0].descending {
+                self.table.data_query.sorts.clear();
             } else {
-                self.table.state.table_data_sorts[0].descending = true;
+                self.table.data_query.sorts[0].descending = true;
             }
         } else {
-            self.table.state.table_data_sorts = vec![UiTableDataSort {
+            self.table.data_query.sorts = vec![UiTableDataSort {
                 column,
                 descending: false,
             }];

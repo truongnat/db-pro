@@ -9,6 +9,15 @@ pub(crate) struct SchemaLoadedTransition {
     pub(crate) refresh_selected_table: bool,
 }
 
+pub(crate) struct SchemaLoadedContext<'a> {
+    pub(crate) schema_explorer: &'a mut SchemaExplorerState,
+    pub(crate) table_state: &'a mut TableState,
+    pub(crate) data_query: &'a mut TableDataQueryState,
+    pub(crate) workspace: &'a mut WorkspaceShellState,
+    pub(crate) palette: &'a mut PaletteState,
+    pub(crate) feedback: &'a mut FeedbackState,
+}
+
 /// Applies a schema request failure only when it belongs to the pending request.
 pub(crate) fn handle_schema_request_failure(
     schema_explorer: &mut SchemaExplorerState,
@@ -27,67 +36,75 @@ pub(crate) fn handle_schema_request_failure(
 
 /// Applies an introspection result and reconciles selections against the new read model.
 pub(crate) fn on_schema_loaded(
-    schema_explorer: &mut SchemaExplorerState,
-    table_state: &mut TableState,
-    workspace: &mut WorkspaceShellState,
-    palette: &mut PaletteState,
-    feedback: &mut FeedbackState,
+    context: &mut SchemaLoadedContext<'_>,
     request_id: RequestId,
     mut schema: UiSchemaSummary,
 ) -> SchemaLoadedTransition {
-    if schema_explorer
+    if context
+        .schema_explorer
         .schema_request
         .is_some_and(|expected_request| expected_request != request_id)
     {
         return SchemaLoadedTransition::default();
     }
 
-    schema_explorer.schema_request = None;
-    schema_explorer.schema_error = None;
-    let refresh_selected_table = table_state.refresh_table_info_after_schema;
-    table_state.refresh_table_info_after_schema = false;
+    context.schema_explorer.schema_request = None;
+    context.schema_explorer.schema_error = None;
+    let refresh_selected_table = context.table_state.refresh_table_info_after_schema;
+    context.table_state.refresh_table_info_after_schema = false;
 
     schema.schemas.retain(|name| is_user_visible_schema(name));
-    schema_explorer.schema_symbol_index = SchemaSymbolIndex::build(&schema);
-    schema_explorer.schema = schema;
-    schema_explorer.explorer_nav_cache = None;
-    palette.search_index.invalidate();
+    context.schema_explorer.schema_symbol_index = SchemaSymbolIndex::build(&schema);
+    context.schema_explorer.schema = schema;
+    context.schema_explorer.explorer_nav_cache = None;
+    context.palette.search_index.invalidate();
 
-    if schema_explorer
-        .selected_schema
-        .as_ref()
-        .is_none_or(|selected| !schema_explorer.schema.schemas.iter().any(|schema| schema == selected))
-    {
-        schema_explorer.selected_schema = schema_explorer.schema.schemas.first().cloned();
+    if context.schema_explorer.selected_schema.as_ref().is_none_or(|selected| {
+        !context
+            .schema_explorer
+            .schema
+            .schemas
+            .iter()
+            .any(|schema| schema == selected)
+    }) {
+        context.schema_explorer.selected_schema = context.schema_explorer.schema.schemas.first().cloned();
     }
 
-    if schema_explorer
-        .selected_table
-        .as_ref()
-        .is_some_and(|table| !schema_explorer.schema.tables.iter().any(|candidate| candidate == table))
-    {
-        clear_missing_selected_table(schema_explorer, table_state, workspace);
+    if context.schema_explorer.selected_table.as_ref().is_some_and(|table| {
+        !context
+            .schema_explorer
+            .schema
+            .tables
+            .iter()
+            .any(|candidate| candidate == table)
+    }) {
+        clear_missing_selected_table(
+            context.schema_explorer,
+            context.table_state,
+            context.data_query,
+            context.workspace,
+        );
     }
 
-    if !selected_schema_object_exists(schema_explorer) {
-        schema_explorer.selected_schema_object = None;
-        if workspace.active_tab == WorkspaceTab::SchemaObject {
-            activate_welcome_tab(workspace);
+    if !selected_schema_object_exists(context.schema_explorer) {
+        context.schema_explorer.selected_schema_object = None;
+        if context.workspace.active_tab == WorkspaceTab::SchemaObject {
+            activate_welcome_tab(context.workspace);
         }
     }
 
-    feedback.runtime_message = format!(
+    context.feedback.runtime_message = format!(
         "Schema loaded · {} tables · {} views · {} triggers · {} functions",
-        schema_explorer.schema.tables.len(),
-        schema_explorer.schema.views.len(),
-        schema_explorer.schema.triggers.len(),
-        schema_explorer.schema.functions.len()
+        context.schema_explorer.schema.tables.len(),
+        context.schema_explorer.schema.views.len(),
+        context.schema_explorer.schema.triggers.len(),
+        context.schema_explorer.schema.functions.len()
     );
 
     SchemaLoadedTransition {
         refresh_selected_table: refresh_selected_table
-            && workspace.active_tab == WorkspaceTab::Table
-            && schema_explorer.selected_table.is_some(),
+            && context.workspace.active_tab == WorkspaceTab::Table
+            && context.schema_explorer.selected_table.is_some(),
     }
 }
 
@@ -95,6 +112,7 @@ pub(crate) fn on_schema_loaded(
 fn clear_missing_selected_table(
     schema_explorer: &mut SchemaExplorerState,
     table_state: &mut TableState,
+    data_query: &mut TableDataQueryState,
     workspace: &mut WorkspaceShellState,
 ) {
     schema_explorer.selected_table = None;
@@ -105,18 +123,18 @@ fn clear_missing_selected_table(
     table_state.table_ddl_error = None;
     table_state.ddl_execute_confirmation = false;
     table_state.ddl_execution_request = None;
-    table_state.table_data_result = None;
-    table_state.table_data_total_rows = None;
-    table_state.table_data_offset = 0;
-    table_state.table_data_filter_column.clear();
-    table_state.table_data_filter_operator = UiTableFilterOperator::default();
-    table_state.table_data_filter_value.clear();
-    table_state.table_data_filters.clear();
-    table_state.table_data_sorts.clear();
-    table_state.table_data_error = None;
+    data_query.result = None;
+    data_query.total_rows = None;
+    data_query.offset = 0;
+    data_query.filter_column.clear();
+    data_query.filter_operator = UiTableFilterOperator::default();
+    data_query.filter_value.clear();
+    data_query.filters.clear();
+    data_query.sorts.clear();
+    data_query.error = None;
     table_state.table_info_request = None;
     table_state.table_ddl_request = None;
-    table_state.table_data_request = None;
+    data_query.request = None;
     if workspace.active_tab == WorkspaceTab::Table {
         activate_welcome_tab(workspace);
     }
@@ -159,19 +177,20 @@ mod tests {
             ..Default::default()
         };
         let mut table_state = TableState::default();
+        let mut data_query = TableDataQueryState::default();
         let mut workspace = WorkspaceShellState::default();
         let mut palette = PaletteState::default();
         let mut feedback = FeedbackState::default();
 
-        let transition = on_schema_loaded(
-            &mut schema_explorer,
-            &mut table_state,
-            &mut workspace,
-            &mut palette,
-            &mut feedback,
-            RequestId(8),
-            UiSchemaSummary::default(),
-        );
+        let mut context = SchemaLoadedContext {
+            schema_explorer: &mut schema_explorer,
+            table_state: &mut table_state,
+            data_query: &mut data_query,
+            workspace: &mut workspace,
+            palette: &mut palette,
+            feedback: &mut feedback,
+        };
+        let transition = on_schema_loaded(&mut context, RequestId(8), UiSchemaSummary::default());
 
         assert_eq!(transition, SchemaLoadedTransition::default());
         assert_eq!(schema_explorer.schema_request, Some(RequestId(7)));
@@ -200,6 +219,7 @@ mod tests {
             refresh_table_info_after_schema: true,
             ..Default::default()
         };
+        let mut data_query = TableDataQueryState::default();
         let mut workspace = WorkspaceShellState {
             active_tab: WorkspaceTab::Table,
             ..Default::default()
@@ -207,15 +227,15 @@ mod tests {
         let mut palette = PaletteState::default();
         let mut feedback = FeedbackState::default();
 
-        let transition = on_schema_loaded(
-            &mut schema_explorer,
-            &mut table_state,
-            &mut workspace,
-            &mut palette,
-            &mut feedback,
-            RequestId(7),
-            UiSchemaSummary::default(),
-        );
+        let mut context = SchemaLoadedContext {
+            schema_explorer: &mut schema_explorer,
+            table_state: &mut table_state,
+            data_query: &mut data_query,
+            workspace: &mut workspace,
+            palette: &mut palette,
+            feedback: &mut feedback,
+        };
+        let transition = on_schema_loaded(&mut context, RequestId(7), UiSchemaSummary::default());
 
         assert!(!transition.refresh_selected_table);
         assert!(schema_explorer.selected_table.is_none());

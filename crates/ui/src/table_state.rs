@@ -11,17 +11,6 @@ pub(crate) struct TableState {
     pub(super) ddl_execute_confirmation: bool,
     pub(super) ddl_execution_request: Option<crate::RequestId>,
     pub(super) refresh_table_info_after_schema: bool,
-    pub(super) table_data_result: Option<UiQueryResult>,
-    pub(super) table_data_total_rows: Option<u64>,
-    pub(super) table_data_offset: u64,
-    pub(super) table_data_limit: u64,
-    pub(super) table_data_filter_column: String,
-    pub(super) table_data_filter_operator: UiTableFilterOperator,
-    pub(super) table_data_filter_value: String,
-    pub(super) table_data_filter_editing: Option<usize>,
-    pub(super) table_data_filters: Vec<UiTableDataFilter>,
-    pub(super) table_data_sorts: Vec<UiTableDataSort>,
-    pub(super) table_data_error: Option<String>,
     pub(super) table_structure_search: String,
     pub(super) table_metadata_search: String,
     pub(super) table_column_detail: Option<String>,
@@ -30,9 +19,6 @@ pub(crate) struct TableState {
     pub(super) table_constraint_filter: String,
     pub(super) table_info_request: Option<crate::RequestId>,
     pub(super) table_ddl_request: Option<crate::RequestId>,
-    pub(super) table_data_request: Option<crate::RequestId>,
-    pub(super) table_row_reload_request: Option<crate::RequestId>,
-    pub(super) table_row_reload_identity: Option<RowIdentity>,
     pub(super) table_view: TableView,
 }
 
@@ -46,17 +32,6 @@ impl Default for TableState {
             ddl_execute_confirmation: false,
             ddl_execution_request: None,
             refresh_table_info_after_schema: false,
-            table_data_result: None,
-            table_data_total_rows: None,
-            table_data_offset: 0,
-            table_data_limit: TABLE_PAGE_SIZE,
-            table_data_filter_column: String::new(),
-            table_data_filter_operator: UiTableFilterOperator::default(),
-            table_data_filter_value: String::new(),
-            table_data_filter_editing: None,
-            table_data_filters: Vec::new(),
-            table_data_sorts: Vec::new(),
-            table_data_error: None,
             table_structure_search: String::new(),
             table_metadata_search: String::new(),
             table_column_detail: None,
@@ -65,9 +40,6 @@ impl Default for TableState {
             table_constraint_filter: String::new(),
             table_info_request: None,
             table_ddl_request: None,
-            table_data_request: None,
-            table_row_reload_request: None,
-            table_row_reload_identity: None,
             table_view: TableView::Structure,
         }
     }
@@ -101,47 +73,6 @@ impl TableState {
             connection_id,
             schema,
             table,
-        }
-    }
-
-    pub(super) fn load_data_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        schema: String,
-        table: String,
-        filters: Vec<UiTableDataFilter>,
-        sorts: Vec<UiTableDataSort>,
-    ) -> UiCommand {
-        UiCommand::LoadTableData {
-            request_id,
-            connection_id,
-            schema,
-            table,
-            limit: self.table_data_limit,
-            offset: self.table_data_offset,
-            filters,
-            sorts,
-        }
-    }
-
-    pub(super) fn load_row_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        schema: String,
-        table: String,
-        filters: Vec<UiTableDataFilter>,
-    ) -> UiCommand {
-        UiCommand::LoadTableData {
-            request_id,
-            connection_id,
-            schema,
-            table,
-            limit: 1,
-            offset: 0,
-            filters,
-            sorts: Vec::new(),
         }
     }
 
@@ -196,9 +127,7 @@ mod tests {
 
         assert_eq!(state.table_view, TableView::Structure);
         assert!(state.table_info.is_none());
-        assert!(state.table_data_result.is_none());
         assert!(state.table_info_request.is_none());
-        assert_eq!(state.table_data_limit, TABLE_PAGE_SIZE);
     }
 
     #[test]

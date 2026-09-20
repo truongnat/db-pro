@@ -334,7 +334,7 @@ impl DbProApp {
         self.schema_explorer.selected_schema_object = None;
         self.table.state.table_info = None;
         self.table.state.table_ddl = None;
-        self.table.state.table_data_result = None;
+        self.table.data_query.result = None;
         self.table.mutation.staged_changes.clear();
         self.table.mutation.staged_apply_targets.clear();
         self.table.mutation.table_mutation_error = None;

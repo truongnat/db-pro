@@ -13,9 +13,9 @@ impl DbProApp {
             self.request_table_ddl();
         }
         if (self.table.state.table_view == TableView::Data || self.table.state.table_view == TableView::Profile)
-            && self.table.state.table_data_result.is_none()
-            && self.table.state.table_data_request.is_none()
-            && self.table.state.table_data_error.is_none()
+            && self.table.data_query.result.is_none()
+            && self.table.data_query.request.is_none()
+            && self.table.data_query.error.is_none()
         {
             self.request_table_data();
         }
@@ -167,7 +167,7 @@ impl DbProApp {
 
         match self.table.state.table_view {
             TableView::Data => self.draw_table_data(ui, &table_name),
-            TableView::Profile => self.draw_column_profile_pane(ui, self.table.state.table_data_result.as_ref()),
+            TableView::Profile => self.draw_column_profile_pane(ui, self.table.data_query.result.as_ref()),
             TableView::Structure => {
                 egui::ScrollArea::vertical()
                     .id_salt("table-structure-scroll")

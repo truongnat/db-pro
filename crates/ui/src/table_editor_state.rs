@@ -4,11 +4,12 @@
 //! feature owner prevents the application shell from presenting them as
 //! unrelated global concerns.
 
-use super::{TableDataState, TableMutationState, TableState};
+use super::{TableDataQueryState, TableDataState, TableMutationState, TableState};
 
 #[derive(Default)]
 pub(crate) struct TableEditorState {
     pub(super) data: TableDataState,
+    pub(super) data_query: TableDataQueryState,
     pub(super) mutation: TableMutationState,
     pub(super) state: TableState,
 }
