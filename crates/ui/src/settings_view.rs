@@ -1,4 +1,5 @@
 //! Settings activity sidebar panels (#205).
+use super::settings_keybindings_view::{SettingsKeybindingsAction, SettingsKeybindingsContext};
 use super::settings_navigation_view::{SettingsNavigationAction, SettingsNavigationContext};
 use super::*;
 use crate::editor::PredictionMode;
@@ -335,93 +336,16 @@ impl DbProApp {
     }
 
     fn draw_keybindings_settings(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            section_label(ui, "KEYBINDINGS", self.theme);
-            ui.add_space(10.0);
-            input_full_width(
-                ui,
-                &mut self.preferences.keybindings_filter,
-                "Search commands…",
-                self.theme,
-            );
-            ui.add_space(6.0);
-            ui.horizontal(|ui| {
-                if compact_button(ui, "Reset all to defaults", self.theme).clicked() {
-                    self.preferences.settings.keybindings.reset_all();
-                    self.preferences.keybinding_edit_id = None;
-                    self.feedback.runtime_message = "Keybindings reset to defaults".to_owned();
-                }
-            });
-            let conflicts = self.preferences.settings.keybindings.conflict_ids();
-            if !conflicts.is_empty() {
-                ui.colored_label(
-                    self.theme.warning,
-                    format!("{} keybinding conflict(s) detected", conflicts.len()),
-                );
+        let actions = SettingsKeybindingsContext {
+            theme: self.theme,
+            preferences: &mut self.preferences,
+        }
+        .draw(ui);
+        for action in actions {
+            if matches!(action, SettingsKeybindingsAction::ResetAll) {
+                self.feedback.runtime_message = "Keybindings reset to defaults".to_owned();
             }
-            ui.add_space(8.0);
-            let filter = self.preferences.keybindings_filter.trim().to_ascii_lowercase();
-            let catalog: Vec<_> = default_keybinding_catalog()
-                .iter()
-                .filter(|cmd| {
-                    filter.is_empty() || cmd.title.to_ascii_lowercase().contains(&filter) || cmd.id.contains(&filter)
-                })
-                .copied()
-                .collect();
-            egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
-                for cmd in catalog {
-                    let resolved = self.preferences.settings.keybindings.resolved(cmd.id);
-                    let is_conflict = conflicts.contains(cmd.id);
-                    let editing = self.preferences.keybinding_edit_id.as_deref() == Some(cmd.id);
-                    ui.horizontal(|ui| {
-                        ui.label(RichText::new(cmd.title).color(if is_conflict {
-                            self.theme.warning
-                        } else {
-                            self.theme.text_primary
-                        }));
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if editing {
-                                let response = ui.add(
-                                    egui::TextEdit::singleline(&mut self.preferences.keybinding_edit_draft)
-                                        .desired_width(120.0)
-                                        .hint_text("mod+k"),
-                                );
-                                if (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                                    || compact_button(ui, "Save", self.theme).clicked()
-                                {
-                                    let draft = self.preferences.keybinding_edit_draft.trim().to_ascii_lowercase();
-                                    if draft.is_empty() || draft == cmd.default_shortcut {
-                                        self.preferences.settings.keybindings.reset_one(cmd.id);
-                                    } else {
-                                        self.preferences
-                                            .settings
-                                            .keybindings
-                                            .overrides
-                                            .insert(cmd.id.to_owned(), draft);
-                                    }
-                                    self.preferences.keybinding_edit_id = None;
-                                }
-                                if compact_button(ui, "Cancel", self.theme).clicked() {
-                                    self.preferences.keybinding_edit_id = None;
-                                }
-                            } else {
-                                if compact_button(ui, "Edit", self.theme).clicked() {
-                                    self.preferences.keybinding_edit_id = Some(cmd.id.to_owned());
-                                    self.preferences.keybinding_edit_draft = resolved.clone();
-                                }
-                                if self.preferences.settings.keybindings.overrides.contains_key(cmd.id)
-                                    && compact_button(ui, "Reset", self.theme).clicked()
-                                {
-                                    self.preferences.settings.keybindings.reset_one(cmd.id);
-                                }
-                                ui.label(RichText::new(resolved).monospace().color(self.theme.text_secondary));
-                            }
-                        });
-                    });
-                    ui.add_space(4.0);
-                }
-            });
-        });
+        }
     }
 
     fn draw_security_settings(&mut self, ui: &mut egui::Ui) {

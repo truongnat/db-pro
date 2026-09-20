@@ -222,6 +222,8 @@ mod routine_state;
 mod saved_task_state;
 #[path = "security_state.rs"]
 mod security_state;
+#[path = "settings_keybindings_view.rs"]
+mod settings_keybindings_view;
 #[path = "settings_model.rs"]
 mod settings_model;
 #[path = "settings_navigation_view.rs"]
@@ -253,9 +255,7 @@ use replication_state::ReplicationState;
 use routine_state::RoutineState;
 pub(crate) use saved_task_state::SavedTaskState;
 use security_state::SecurityState;
-pub(crate) use settings_model::{
-    default_keybinding_catalog, AppSettings, SettingsSection, SqlLintSettings, SETTINGS_STORAGE_KEY,
-};
+pub(crate) use settings_model::{AppSettings, SettingsSection, SqlLintSettings, SETTINGS_STORAGE_KEY};
 use synthetic_data_state::SyntheticDataState;
 use transfer_state::TransferState;
 pub(crate) use workspace_shell::WorkspaceShellState;
