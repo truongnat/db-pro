@@ -1422,11 +1422,11 @@ impl DbProApp {
                                         self.connection.lifecycle.active_connection_id().map(str::to_owned)
                                     {
                                         let request_id = self.task_bridge.next_request_id();
-                                        self.dispatch_command(UiCommand::MonitoringCancelBackend {
+                                        self.dispatch_command(self.monitoring.cancel_backend_command(
                                             request_id,
                                             connection_id,
-                                            backend_id: session.backend_id,
-                                        });
+                                            session.backend_id,
+                                        ));
                                     }
                                 }
                                 if !session.is_current && danger_button(ui, "Terminate", self.theme).clicked() {
@@ -2359,11 +2359,11 @@ impl DbProApp {
                                 self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(UiCommand::MonitoringTerminateBackend {
+                                self.dispatch_command(self.monitoring.terminate_backend_command(
                                     request_id,
                                     connection_id,
                                     backend_id,
-                                });
+                                ));
                             }
                             self.monitoring.monitoring_terminate_confirm = None;
                         }
@@ -2390,14 +2390,11 @@ impl DbProApp {
                                 self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(UiCommand::MonitoringMaintenance {
+                                self.dispatch_command(self.monitoring.maintenance_command(
                                     request_id,
                                     connection_id,
-                                    schema: None,
-                                    table: None,
                                     action,
-                                    confirmed: true,
-                                });
+                                ));
                             }
                             self.monitoring.monitoring_maintenance_confirm = None;
                         }
@@ -2424,11 +2421,9 @@ impl DbProApp {
                                 self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(UiCommand::MonitoringResetStatStatements {
-                                    request_id,
-                                    connection_id,
-                                    confirmed: true,
-                                });
+                                self.dispatch_command(
+                                    self.monitoring.reset_statements_command(request_id, connection_id),
+                                );
                             }
                             self.monitoring.monitoring_reset_stats_confirm = false;
                         }
@@ -2445,12 +2440,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::MonitoringStatStatements {
-            request_id,
-            connection_id,
-            sort: self.monitoring.monitoring_stat_sort,
-            limit: 100,
-        });
+        self.dispatch_command(self.monitoring.workload_command(request_id, connection_id));
     }
 
     fn request_audit_page(&mut self) {
@@ -2706,10 +2696,7 @@ impl DbProApp {
         };
         self.monitoring.monitoring_last_poll = Some(std::time::Instant::now());
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::MonitoringSnapshot {
-            request_id,
-            connection_id,
-        });
+        self.dispatch_command(self.monitoring.snapshot_command(request_id, connection_id));
     }
 
     pub(super) fn draw_security_activity(&mut self, ui: &mut egui::Ui) {

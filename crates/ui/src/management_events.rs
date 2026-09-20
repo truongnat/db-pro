@@ -1,8 +1,7 @@
 //! Database-management event reducers over feature-owned state.
 
-use super::database_feature_states::{
-    EventTriggerState, FdwState, MonitoringState, PgSettingsState, ReplicationState, SecurityState,
-};
+use super::database_feature_states::{EventTriggerState, FdwState, PgSettingsState, ReplicationState, SecurityState};
+use super::monitoring_state::MonitoringState;
 use super::schema_compare_state::SchemaCompareState;
 use super::FeedbackState;
 

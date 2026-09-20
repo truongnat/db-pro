@@ -100,6 +100,8 @@ mod ide_workspace;
 mod management_events;
 #[path = "masking.rs"]
 mod masking;
+#[path = "monitoring_state.rs"]
+mod monitoring_state;
 #[path = "navigation_view.rs"]
 mod navigation_view;
 #[path = "operation_events.rs"]
@@ -140,11 +142,12 @@ mod settings_model;
 mod settings_view;
 pub(crate) use capability_lookup::CapabilityLookup;
 use database_feature_states::{
-    AuditState, EventTriggerState, FdwState, MaskingState, MonitoringState, PgSettingsState, ReplicationState,
-    RoutineState, SecurityState, SyntheticDataState, TransferState,
+    AuditState, EventTriggerState, FdwState, MaskingState, PgSettingsState, ReplicationState, RoutineState,
+    SecurityState, SyntheticDataState, TransferState,
 };
 pub(crate) use diagram_state::DiagramState;
 pub(crate) use feedback_state::FeedbackState;
+use monitoring_state::MonitoringState;
 pub(crate) use overlay_state::OverlayState;
 pub(crate) use palette_state::PaletteState;
 pub(crate) use preferences_state::PreferencesState;

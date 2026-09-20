@@ -58,38 +58,6 @@ impl Default for MaskingState {
     }
 }
 
-pub(super) struct MonitoringState {
-    pub(super) monitoring_snapshot: Option<db_pro_core::domain::monitoring::MonitoringSnapshot>,
-    pub(super) monitoring_error: Option<String>,
-    pub(super) monitoring_poll: bool,
-    pub(super) monitoring_last_poll: Option<std::time::Instant>,
-    pub(super) monitoring_terminate_confirm: Option<i64>,
-    pub(super) monitoring_filter_active_only: bool,
-    pub(super) monitoring_maintenance_confirm: Option<db_pro_core::domain::monitoring::MaintenanceAction>,
-    pub(super) monitoring_stat_sort: db_pro_core::domain::monitoring::StatStatementSort,
-    pub(super) monitoring_reset_stats_confirm: bool,
-    pub(super) monitoring_workload_prev: Option<db_pro_core::domain::monitoring::StatStatementsSnapshot>,
-    pub(super) monitoring_workload_filter: String,
-}
-
-impl Default for MonitoringState {
-    fn default() -> Self {
-        Self {
-            monitoring_snapshot: None,
-            monitoring_error: None,
-            monitoring_poll: true,
-            monitoring_last_poll: None,
-            monitoring_terminate_confirm: None,
-            monitoring_filter_active_only: true,
-            monitoring_maintenance_confirm: None,
-            monitoring_stat_sort: db_pro_core::domain::monitoring::StatStatementSort::TotalTime,
-            monitoring_reset_stats_confirm: false,
-            monitoring_workload_prev: None,
-            monitoring_workload_filter: String::new(),
-        }
-    }
-}
-
 #[derive(Default)]
 pub(super) struct AuditState {
     pub(super) audit_page: Option<db_pro_core::domain::audit::AuditPage>,
@@ -237,7 +205,7 @@ impl Default for SecurityState {
 
 #[cfg(test)]
 mod tests {
-    use super::{MonitoringState, SecurityState, SyntheticDataState};
+    use super::{SecurityState, SyntheticDataState};
 
     #[test]
     fn destructive_management_defaults_are_safe() {
@@ -247,14 +215,5 @@ mod tests {
         assert!(!synthetic.synthetic_production_confirm);
         assert!(security.security_users.is_empty());
         assert_eq!(security.security_rls_schema, "public");
-    }
-
-    #[test]
-    fn monitoring_starts_with_bounded_default_filters() {
-        let monitoring = MonitoringState::default();
-
-        assert!(monitoring.monitoring_poll);
-        assert!(monitoring.monitoring_filter_active_only);
-        assert!(monitoring.monitoring_snapshot.is_none());
     }
 }
