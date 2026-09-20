@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `b85d65da`.
+Source checkpoint: `4bb3d21d`.
 
 ## Current change
 
@@ -596,6 +596,11 @@ Source checkpoint: `b85d65da`.
   recorded at `/tmp/db-pro-native-core-b85d65da.png` for the New Connection
   surface at logical `1280x800`; the macOS host still clamps requested
   `1440x900` and `1920x1080` captures to logical height `838`.
+- Runtime model-family ownership follow-up at source SHA `4bb3d21d`:
+  connection, schema/table and query/result/history DTOs now have separate
+  modules; `runtime.rs` is a 104-line facade. Focused UI tests (632 passed),
+  UI clippy, architecture guard, clean scan (16 pass, 0 warnings) and diff
+  checks PASS.
 
 ## Not yet proven
 

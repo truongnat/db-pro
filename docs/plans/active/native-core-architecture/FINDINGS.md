@@ -531,6 +531,23 @@ keeps DTO definitions separate from transport.
 
 Severity: P1 boundary risk and P2 maintainability, resolved.
 
+## F49 — Runtime DTO families shared one facade implementation file
+
+Source SHA: `4bb3d21d`.
+
+Evidence: after protocol/transport extraction, `runtime.rs` still mixed
+connection draft/driver models, schema/table metadata and query/result/history
+models in one implementation file. These model families have different
+consumers and invariants even though they cross the same public crate API.
+
+Fix in the current refactor: moved connection models to
+`runtime_connection_types.rs`, schema/table models to
+`runtime_schema_types.rs`, and query/result/history models to
+`runtime_query_types.rs`. `runtime.rs` is now a 104-line facade that wires
+modules, re-exports the stable API and keeps only cross-family invariants.
+
+Severity: P2 maintainability and protocol-boundary risk, resolved.
+
 ## F47 — Schema Workbench mixed mutation planning with view rendering
 
 Source SHA: `08acab31`.
