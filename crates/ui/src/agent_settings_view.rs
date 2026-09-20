@@ -137,17 +137,18 @@ impl AgentSettingsContext<'_> {
                         .color(theme.text_muted),
                 );
             }
-            if provider_label != "Offline draft" && !is_saving && !key_non_empty {
-                if Button::new(theme)
+            if provider_label != "Offline draft"
+                && !is_saving
+                && !key_non_empty
+                && Button::new(theme)
                     .icon(Icon::Trash2)
                     .text("Forget key")
                     .variant(ButtonVariant::Destructive)
                     .size(ButtonSize::Sm)
                     .show(ui)
                     .clicked()
-                {
-                    actions.push(AgentSettingsAction::ForgetKey);
-                }
+            {
+                actions.push(AgentSettingsAction::ForgetKey);
             }
         });
         actions
