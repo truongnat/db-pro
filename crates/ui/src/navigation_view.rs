@@ -3190,21 +3190,15 @@ impl DbProApp {
         if self.table_state.ddl_execution_request.is_some() {
             return;
         }
-        let sql = self.security.security_rls_preview_sql.trim().to_owned();
-        if sql.is_empty() {
-            return;
-        }
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ExecuteDdl {
-            request_id,
-            connection_id,
-            sql,
-        });
-        self.table_state.ddl_execution_request = Some(request_id);
-        self.feedback.runtime_message = "Applying RLS mutation…".into();
+        if let Some(command) = self.security.apply_rls_preview_command(request_id, connection_id) {
+            self.dispatch_command(command);
+            self.table_state.ddl_execution_request = Some(request_id);
+            self.feedback.runtime_message = "Applying RLS mutation…".into();
+        }
     }
 
     fn dispatch_alter_role(&mut self, name: &str, attributes: db_pro_core::domain::user::RoleAttributes) {

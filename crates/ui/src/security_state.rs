@@ -226,11 +226,23 @@ impl SecurityState {
             privilege: privilege.privilege_type,
         }
     }
+
+    pub(super) fn apply_rls_preview_command(&self, request_id: RequestId, connection_id: String) -> Option<UiCommand> {
+        let sql = self.security_rls_preview_sql.trim();
+        if sql.is_empty() {
+            return None;
+        }
+        Some(UiCommand::ExecuteDdl {
+            request_id,
+            connection_id,
+            sql: sql.to_owned(),
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{RequestId, SecurityState};
+    use super::{RequestId, SecurityState, UiCommand};
 
     #[test]
     fn defaults_keep_security_scope_explicit() {
@@ -249,5 +261,27 @@ mod tests {
             state.list_table_rls_command(RequestId(1), "source".to_owned()),
             Err("Schema and table are required for RLS inspect".to_owned())
         );
+    }
+
+    #[test]
+    fn empty_rls_preview_cannot_dispatch_ddl() {
+        let state = SecurityState::default();
+
+        assert!(state
+            .apply_rls_preview_command(RequestId(2), "source".to_owned())
+            .is_none());
+
+        let state = SecurityState {
+            security_rls_preview_sql: " ALTER TABLE users ENABLE ROW LEVEL SECURITY ".to_owned(),
+            ..SecurityState::default()
+        };
+        assert!(matches!(
+            state.apply_rls_preview_command(RequestId(3), "source".to_owned()),
+            Some(UiCommand::ExecuteDdl {
+                request_id: RequestId(3),
+                connection_id,
+                sql,
+            }) if connection_id == "source" && sql == "ALTER TABLE users ENABLE ROW LEVEL SECURITY"
+        ));
     }
 }
