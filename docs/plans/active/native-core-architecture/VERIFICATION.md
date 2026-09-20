@@ -811,3 +811,24 @@ Source checkpoint: `5d42d5e9`.
   `1920x1080` logical heights remains host-limited: macOS capture clamps both
   to a logical height of `838`. The required normal/loading/error/empty states
   are now captured at exact logical `1280x800`.
+
+## Core boundary checkpoint at `db6013ee`
+
+- Table workspace surface boundary: `35776e2b`.
+- Result-grid keyboard intent boundary: `8801fdce`.
+- Schema-object surface boundary: `d3414e38`.
+- Result-grid row-gutter surface boundary: `db6013ee`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 630 UI tests and
+  all workspace suites passed, with environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- Runtime capture: `/tmp/db-pro-native-core-db6013ee.png`, logical `1280x800`.
+  The New Connection dialog is centered, has a separated header/divider and a
+  right-aligned close control. Release binary PID `49440` is running for manual
+  verification.

@@ -515,6 +515,52 @@ implementation block.
 
 Severity: P2 composition-root maintainability, resolved.
 
+## F81 — Table workspace chrome mixed rendering and feature effects
+
+Evidence at `1dc8f5ab`: `table_view.rs` rendered breadcrumb, action buttons and
+view tabs while directly opening the agent, changing query workspace state,
+refreshing table requests and mutating `table_view`.
+
+Fix at `35776e2b`: `table_workspace_surface_view.rs` owns the chrome and returns
+typed `AskAgent`, `NewQuery`, `Refresh` and `SelectView` actions; the root now
+only applies those effects and routes the selected content view.
+
+Severity: P1 feature-boundary risk, resolved for table workspace chrome.
+
+## F82 — Result-grid keyboard acquisition was coupled to the app root
+
+Evidence at `35776e2b`: `result_grid_view.rs` read shortcut and paste events,
+decided copy/apply/discard/delete/navigation behavior, and executed those
+effects in one method.
+
+Fix at `8801fdce`: `result_grid_keyboard_view.rs` reads an explicit input
+context and returns typed keyboard intents; the grid root reduces them into
+existing clipboard, mutation and selection services.
+
+Severity: P1 interaction-boundary risk, resolved for grid keyboard input.
+
+## F83 — Schema-object surface directly mutated cross-feature state
+
+Evidence at `8801fdce`: schema-object header and view tabs directly changed
+query workspace state, schema-object view state and table-data request state.
+
+Fix at `d3414e38`: `schema_object_surface_view.rs` owns breadcrumb/tabs/open-query
+rendering and returns `OpenQuery` or `SelectView`; the workspace root applies
+the cross-feature effects.
+
+Severity: P1 feature-boundary risk, resolved for schema-object chrome.
+
+## F84 — Result-grid row gutter painting lived in the row coordinator
+
+Evidence at `d3414e38`: `result_grid_view.rs` combined row identity/mutation
+state, row-number geometry, selection handling and cell rendering.
+
+Fix at `db6013ee`: `result_grid_row_gutter_view.rs` owns the row-number visual
+surface and returns only the egui response; selection and cell side effects
+remain in the row coordinator.
+
+Severity: P2 rendering-boundary maintainability risk, resolved for row gutter.
+
 ## F78 — Workspace tab rendering owned root mutations
 
 Evidence at discovery: `workspace_tabs_view.rs` rendered every workspace tab,
