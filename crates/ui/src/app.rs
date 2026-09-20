@@ -94,6 +94,8 @@ mod events_query_dispatch;
 mod explorer_connection_row_view;
 #[path = "explorer_connections.rs"]
 mod explorer_connections;
+#[path = "explorer_database_node_view.rs"]
+mod explorer_database_node_view;
 #[path = "explorer_details.rs"]
 mod explorer_details;
 #[path = "explorer_folders.rs"]

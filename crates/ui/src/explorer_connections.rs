@@ -1,5 +1,6 @@
 //! Explorer connection/schema tree rendering.
 use super::explorer_connection_row_view::{ConnectionRowAction, ConnectionRowContext};
+use super::explorer_database_node_view::DatabaseNodeContext;
 use super::explorer_schema_node_view::SchemaNodeContext;
 use super::explorer_tree::{draw_codex_tree_row, draw_hint_row, CodexTreeRow};
 use super::*;
@@ -136,42 +137,14 @@ impl DbProApp {
         self.draw_explorer_schema_feedback(ui);
 
         // Database node
-        let db_id = ui.make_persistent_id(("codex_db_node", &connection.id, &connection.database));
-        let db_name = if connection.database.is_empty() {
-            "database".to_owned()
-        } else {
-            connection.database.clone()
-        };
-
-        let mut collapsing = egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), db_id, true);
-        let is_open = collapsing.is_open();
-
-        let (resp, chevron_clicked) = draw_codex_tree_row(
-            ui,
-            &self.theme,
-            CodexTreeRow {
-                depth: 1,
-                is_expandable: true,
-                is_expanded: is_open,
-                icon: Icon::Database,
-                icon_color: self.theme.accent,
-                label: &db_name,
-                is_selected: false,
-                is_dimmed: false,
-                status_dot: None,
-                badge_text: None,
-                badge_accent: false,
-                count_text: None,
-                detail_text: None,
-            },
-        );
-
-        if resp.clicked() || chevron_clicked {
-            collapsing.set_open(!is_open);
-            collapsing.store(ui.ctx());
+        let database_open = DatabaseNodeContext {
+            theme: self.theme,
+            connection_id: &connection.id,
+            database: &connection.database,
         }
+        .draw(ui);
 
-        if collapsing.is_open() {
+        if database_open {
             let schema_count = self.schema.explorer.schema.schemas.len();
             if schema_count == 0 {
                 // Flat tables/views (e.g. SQLite)
