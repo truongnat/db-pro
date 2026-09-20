@@ -92,6 +92,9 @@ selected table, staged change and feedback transitions.
 Fix in `43882edb`: synthetic-data plan construction now lives in the pure
 `synthetic_data.rs` boundary; table metadata, numeric inputs and deterministic
 FK seed-pool generation are passed in explicitly from the view adapter.
+Fix in `91a3975e`: masking preview headers, sample rows and profile mapping now
+live in the pure `masking.rs` boundary; the navigation view only commits the
+preview result to `MaskingState`.
 The architecture guard now enforces that the extracted table-editor context
 and value modules cannot regress to a root dependency.
 
