@@ -941,6 +941,20 @@ and activity surfaces and delegates compare rendering through the same
 
 Severity: P1 feature-boundary risk, resolved for schema comparison UI.
 
+## F56 — Schema Compare view depended on the composition root
+
+Evidence at discovery: `schema_compare_view.rs` implemented its sidebar and
+workspace renderer as `impl DbProApp`, so snapshot/diff form state, schema
+projection, feedback and navigation were reachable through the root and the
+view could directly invoke unrelated command orchestration.
+
+Fix in `456dc9c7`: `schema_compare_view.rs` now renders through
+`SchemaCompareViewContext` and returns `SchemaCompareAction`; root code only
+builds the context and applies the returned navigation/command intent. The
+architecture guard now rejects `DbProApp` from this view module.
+
+Severity: P1 feature-boundary risk, resolved for schema comparison rendering.
+
 ## F35 — Navigation view owned transfer activity
 
 Evidence at discovery: the navigation module rendered backup/restore entry

@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `84f94f26`.
+Source checkpoint: `456dc9c7`.
 
 ## Current change
 
@@ -56,6 +56,9 @@ Source checkpoint: `84f94f26`.
 - Schema compare keyed data-diff request validation and effect construction now
   live in `SchemaCompareState`; tests cover required target/table/key fields and
   normalized schema/key payloads.
+- `456dc9c7`: Schema Compare rendering now consumes `SchemaCompareViewContext` and returns
+  explicit `SchemaCompareAction` intents; the view no longer implements methods
+  on `DbProApp`, and the architecture guard freezes that boundary.
 - Monitoring state and snapshot/workload/session-control command planning now
   live in `monitoring_state.rs`; tests cover bounded workload requests and
   explicit confirmation flags for destructive commands.
