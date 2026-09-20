@@ -16,12 +16,10 @@ pub(super) const AI_PREDICTION_EGRESS_NOTE: &str =
 #[path = "query_helpers.rs"]
 mod query_helpers;
 pub(crate) use query_helpers::{
-    database_error_diagnostic, deduplicate_diagnostics, deduplicate_messages, elide_chars, format_query_document,
+    database_error_diagnostic, deduplicate_diagnostics, deduplicate_messages, format_query_document,
     prediction_replacement_range, write_file_atomically,
 };
 
-/// Caption-style budget for context chips (full names stay on hover tooltips).
-const CONTEXT_CHIP_MAX_CHARS: usize = 28;
 /// Thin query status strip under the editor / dock.
 const QUERY_STATUS_HEIGHT: f32 = 24.0;
 
@@ -46,7 +44,36 @@ impl DbProApp {
                     }
                 }
 
-                let more_anchor = self.draw_query_context_strip(ui);
+                let doc_idx = self.query.session.active_document_index;
+                let file_path = self
+                    .query
+                    .session
+                    .documents
+                    .get(doc_idx)
+                    .and_then(|document| document.file_path.clone());
+                let connected = self.active_query_connection_id().is_some() && self.connection.lifecycle.is_connected();
+                let connection_name = if connected {
+                    self.active_query_connection_name().to_owned()
+                } else {
+                    "No connection".to_owned()
+                };
+                let schema = self.active_query_schema().to_owned();
+                let environment = self
+                    .active_query_connection()
+                    .map(|connection| connection.environment.clone())
+                    .unwrap_or_default();
+                let more_anchor = {
+                    let mut context = query_context_view::QueryContextViewContext {
+                        theme: self.theme,
+                        editor: &mut self.query.editor,
+                        file_path: file_path.as_deref(),
+                        connected,
+                        connection_name: &connection_name,
+                        schema: &schema,
+                        environment: &environment,
+                    };
+                    query_context_view::draw_context_strip(&mut context, ui)
+                };
                 if self.query.editor.query_context_picker_open {
                     if let Some(anchor) = more_anchor.context_anchor {
                         self.draw_query_context_picker(ui.ctx(), anchor);
@@ -152,137 +179,6 @@ impl DbProApp {
                 self.draw_dirty_close_dialog(ui.ctx());
                 self.draw_save_as_dialog(ui.ctx());
             });
-    }
-
-    /// Compact context strip: optional path breadcrumb + connection/schema chip + More.
-    /// Returns anchors for the context picker and overflow menu.
-    fn draw_query_context_strip(&mut self, ui: &mut egui::Ui) -> QueryChromeAnchors {
-        let mut anchors = QueryChromeAnchors::default();
-        let doc_idx = self.query.session.active_document_index;
-        let file_path = self
-            .query
-            .session
-            .documents
-            .get(doc_idx)
-            .and_then(|document| document.file_path.clone());
-
-        if let Some(path) = file_path.as_deref() {
-            self.draw_file_path_breadcrumb(ui, path);
-        }
-
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
-            let chip_resp = self.draw_query_context_chip(ui);
-            if chip_resp.clicked() {
-                self.query.editor.query_context_picker_open = !self.query.editor.query_context_picker_open;
-            }
-            anchors.context_anchor = Some(chip_resp.rect);
-
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                let more_response = Button::new(self.theme)
-                    .icon(Icon::MoreHorizontal)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("More query actions")
-                    .show(ui);
-                if more_response.clicked() {
-                    self.query.editor.query_tools_open = !self.query.editor.query_tools_open;
-                }
-                anchors.more_anchor = Some(more_response.rect);
-            });
-        });
-
-        anchors
-    }
-
-    fn draw_file_path_breadcrumb(&self, ui: &mut egui::Ui, path: &str) {
-        let segments: Vec<&str> = path.split(['/', '\\']).filter(|segment| !segment.is_empty()).collect();
-        let start = segments.len().saturating_sub(3);
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
-            ui.label(icon_text(Icon::FileCode2, "", self.theme.text_muted));
-            if start > 0 {
-                ui.label(RichText::new("…").font(font_caption()).color(self.theme.text_muted));
-                ui.label(RichText::new("/").font(font_caption()).color(self.theme.text_muted));
-            }
-            for (index, segment) in segments[start..].iter().enumerate() {
-                if index > 0 {
-                    ui.label(RichText::new("/").font(font_caption()).color(self.theme.text_muted));
-                }
-                let is_leaf = start + index + 1 == segments.len();
-                ui.label(RichText::new(*segment).font(font_caption()).color(if is_leaf {
-                    self.theme.text_secondary
-                } else {
-                    self.theme.text_muted
-                }));
-            }
-        })
-        .response
-        .on_hover_text(path);
-    }
-
-    fn draw_query_context_chip(&self, ui: &mut egui::Ui) -> egui::Response {
-        let connected = self.active_query_connection_id().is_some() && self.connection.lifecycle.is_connected();
-        let conn_label = if connected {
-            self.active_query_connection_name().to_owned()
-        } else {
-            "No connection".to_owned()
-        };
-        let schema = self.active_query_schema().to_owned();
-        let environment = self
-            .active_query_connection()
-            .map(|c| c.environment.as_str())
-            .unwrap_or("");
-        let is_production = environment.eq_ignore_ascii_case("production") || environment.eq_ignore_ascii_case("prod");
-
-        let chip_text = if connected {
-            format!(
-                "{} / {}",
-                elide_chars(&conn_label, CONTEXT_CHIP_MAX_CHARS),
-                elide_chars(&schema, CONTEXT_CHIP_MAX_CHARS)
-            )
-        } else {
-            conn_label.clone()
-        };
-        let tooltip = if connected {
-            format!("{conn_label} · {schema}")
-        } else {
-            "Choose a connection to run SQL".to_owned()
-        };
-        let color = if !connected {
-            self.theme.warning
-        } else if is_production {
-            self.theme.danger
-        } else {
-            self.theme.text_secondary
-        };
-
-        let response = egui::Frame::none()
-            .fill(egui::Color32::TRANSPARENT)
-            .rounding(egui::Rounding::same(RADIUS_SM))
-            .inner_margin(egui::Margin::symmetric(SPACE_XS + 2.0, 2.0))
-            .stroke(egui::Stroke::new(1.0, self.theme.border_subtle))
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing = egui::vec2(4.0, 0.0);
-                    if connected {
-                        let dot = if is_production {
-                            self.theme.danger
-                        } else {
-                            self.theme.success
-                        };
-                        ui.label(RichText::new("●").font(font_caption()).color(dot));
-                    } else {
-                        ui.label(icon_text(Icon::AlertTriangle, "", self.theme.warning));
-                    }
-                    ui.label(RichText::new(chip_text).font(font_caption()).color(color));
-                    ui.label(icon_text(Icon::ChevronDown, "", self.theme.text_muted));
-                });
-            })
-            .response
-            .on_hover_text(tooltip)
-            .interact(egui::Sense::click());
-        response
     }
 
     fn draw_query_context_picker(&mut self, ctx: &egui::Context, anchor: egui::Rect) {
@@ -620,19 +516,7 @@ impl DbProApp {
     }
 }
 
-#[derive(Default)]
-struct QueryChromeAnchors {
-    context_anchor: Option<egui::Rect>,
-    more_anchor: Option<egui::Rect>,
-}
-
 impl DbProApp {
-    /// Legacy name kept for call-site clarity during the shell rewrite.
-    #[allow(dead_code)]
-    fn draw_query_header(&mut self, ui: &mut egui::Ui) -> Option<egui::Rect> {
-        self.draw_query_context_strip(ui).more_anchor
-    }
-
     /// Keyword / table / column completion list (legacy inline card — floating popup is canonical).
     #[allow(dead_code)]
     fn draw_sql_completion(&mut self, ui: &mut egui::Ui) {

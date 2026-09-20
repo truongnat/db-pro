@@ -122,6 +122,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/schema_compare_view.rs"
   "$repo_root/crates/ui/src/schema_workbench_form.rs"
   "$repo_root/crates/ui/src/query_search_view.rs"
+  "$repo_root/crates/ui/src/query_context_view.rs"
   "$repo_root/crates/ui/src/query_output_tabs_view.rs"
   "$repo_root/crates/ui/src/query_output_panes_view.rs"
   "$repo_root/crates/ui/src/query_output_actions_view.rs"
