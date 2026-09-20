@@ -312,6 +312,8 @@ mod table_data_pagination_view;
 mod table_data_placeholder_view;
 #[path = "table_data_query_state.rs"]
 mod table_data_query_state;
+#[path = "table_data_sort_view.rs"]
+mod table_data_sort_view;
 #[path = "table_data_state.rs"]
 mod table_data_state;
 #[path = "table_data_view.rs"]

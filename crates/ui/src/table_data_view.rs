@@ -291,75 +291,25 @@ impl DbProApp {
                         }
                     }
 
-                    // Compact Sort Selector
-                    let sort_active =
-                        !self.table.data_query.sorts.is_empty() || self.table.data.grid_sort_column.is_some();
-                    let sort_label = if !self.table.data_query.sorts.is_empty() {
-                        let clauses = self
-                            .table
-                            .data_query
-                            .sorts
-                            .iter()
-                            .enumerate()
-                            .map(|(priority, sort)| {
-                                format!(
-                                    "{} {}{}",
-                                    sort.column,
-                                    if sort.descending { "↓" } else { "↑" },
-                                    priority + 1
-                                )
-                            })
-                            .collect::<Vec<_>>();
-                        format!("Sort: {}", clauses.join(", "))
-                    } else if let Some(idx) = self.table.data.grid_sort_column {
-                        if let Some(col) = column_names.get(idx) {
-                            format!("Sort: {col} {}", if self.table.data.grid_sort_desc { "↓" } else { "↑" })
-                        } else {
-                            "Sort".to_owned()
-                        }
-                    } else {
-                        "Sort".to_owned()
+                    let mut sort_context = table_data_sort_view::TableDataSortContext {
+                        theme: self.theme,
+                        table_name,
+                        column_names: &column_names,
+                        data_query: &mut self.table.data_query,
+                        data: &mut self.table.data,
+                        has_staged_changes: !self.table.mutation.staged_changes.is_empty(),
                     };
-
-                    egui::ComboBox::from_id_salt(("table-unified-sort-col", table_name))
-                        .selected_text(RichText::new(&sort_label).size(11.5).color(if sort_active {
-                            self.theme.accent
-                        } else {
-                            self.theme.text_secondary
-                        }))
-                        .width(100.0)
-                        .show_ui(ui, |ui| {
-                            if ui.selectable_label(!sort_active, "Default (None)").clicked() {
-                                if self.table.mutation.staged_changes.is_empty() {
-                                    self.table.data_query.sorts.clear();
-                                    self.table.data.grid_sort_column = None;
-                                    self.reload_table_data_from_start();
-                                } else {
-                                    self.feedback.runtime_message =
-                                        "Apply or discard staged changes before changing sort".to_owned();
-                                }
+                    if let Some(action) = table_data_sort_view::draw_sort(&mut sort_context, ui) {
+                        match action {
+                            table_data_sort_view::TableDataSortAction::ReloadFromStart => {
+                                self.reload_table_data_from_start();
                             }
-                            for col in &column_names {
-                                let is_sel = self.table.data_query.sorts.first().map(|sort| sort.column.as_str())
-                                    == Some(col.as_str());
-                                if ui.selectable_label(is_sel, col.as_str()).clicked() {
-                                    if !self.table.mutation.staged_changes.is_empty() {
-                                        self.feedback.runtime_message =
-                                            "Apply or discard staged changes before changing sort".to_owned();
-                                    } else if is_sel {
-                                        if let Some(sort) = self.table.data_query.sorts.first_mut() {
-                                            sort.descending = !sort.descending;
-                                        }
-                                    } else {
-                                        self.table.data_query.sorts = vec![UiTableDataSort {
-                                            column: col.clone(),
-                                            descending: false,
-                                        }];
-                                    }
-                                    self.reload_table_data_from_start();
-                                }
+                            table_data_sort_view::TableDataSortAction::BlockedByStagedChanges => {
+                                self.feedback.runtime_message =
+                                    "Apply or discard staged changes before changing sort".to_owned();
                             }
-                        });
+                        }
+                    }
                 }
 
                 let mut pagination_context = table_data_pagination_view::TableDataPaginationContext {
