@@ -431,7 +431,7 @@ Source checkpoint: `0070d374`.
   clippy, architecture guard and clean scan PASS; clean scan reports 12 pass,
   4 ratcheted baseline warnings, 0 failures.
 - Current release runtime capture: PASS at logical `1280x800`
-  (`/tmp/db-pro-native-storage-context.png`) after rebuilding both
+  (`/tmp/db-pro-native-table-data-query.png`) after rebuilding both
   `db-pro-native` release variants. The New Connection surface still shows a
   centered modal card, separated header, right-aligned close action, scrollable
   body and footer; the state-owner refactor did not regress the visual surface.
@@ -450,6 +450,11 @@ Source checkpoint: `0070d374`.
   `TableDataQueryState`; table reducers and views receive the explicit state
   boundary. Focused UI tests (632 passed), clippy, architecture guard and
   clean scan PASS; clean scan reports 12 pass, 4 ratcheted warnings, 0 failures.
+- Source checkpoint `96d52bd7`: full release gate rerun on `main` passed
+  (`cargo fmt --all -- --check`, workspace check/clippy, workspace tests;
+  1304 passed, 42 ignored, 0 failed), both native release builds passed, and
+  the deterministic capture at `/tmp/db-pro-native-table-data-query.png`
+  passed at logical `1280x800`.
 
 ## Not yet proven
 
