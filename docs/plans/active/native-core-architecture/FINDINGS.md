@@ -582,6 +582,25 @@ architecture guard freezes both modules against `DbProApp` dependencies.
 
 Severity: P2 maintainability and boundary risk, resolved.
 
+## F52 — SQL diagnostics engine was attached to the composition root
+
+Evidence at source `94b8dbb3`: parser selection, structural delimiter checks,
+SQL lint rules, provider capability diagnostics and deduplication were all
+associated functions on `DbProApp`; the view module also owned the diagnostics
+refresh cache and debounce orchestration.
+
+Impact: pure query analysis depended on the application facade, making the
+provider contract and lint behavior harder to test independently from egui
+and root state.
+
+Fix: analysis, lint and formatting are now module functions. Diagnostics
+refresh receives the explicit `QueryFeatureState`, driver and lint settings;
+formatting receives the query state, task bridge and capability lookup. The
+root facade dependency was removed from `query_diagnostics_view.rs`, and the
+architecture guard freezes that boundary.
+
+Severity: P1 query-core boundary risk, resolved for diagnostics/formatting.
+
 ## F47 — Schema Workbench mixed mutation planning with view rendering
 
 Source SHA: `08acab31`.

@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `74c0f870`.
+Source checkpoint: `94b8dbb3`.
 
 ## Current change
 
@@ -610,6 +610,10 @@ Source checkpoint: `74c0f870`.
   and shared SQL snippets no longer attach pure data to `DbProApp`; the new
   snippet module has a stability test. Focused clippy, 633 UI tests,
   architecture guard, clean scan and diff checks PASS.
+- Query diagnostics boundary at source SHA `94b8dbb3`: parser/lint analysis,
+  diagnostics debounce/cache refresh and formatting no longer implement
+  `DbProApp` methods. Focused check, clippy, 633 UI tests, architecture guard,
+  clean scan and diff checks PASS.
 - Final full gate at source SHA `4bb3d21d`: `cargo fmt --all -- --check`,
   workspace `cargo check`, workspace clippy with `-D warnings`, workspace
   tests, release native build, capture build and architecture guard all PASS.
