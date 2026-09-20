@@ -297,6 +297,8 @@ deleted.
 Per-document output-tab routing now follows the same rule on
 `QueryOutputState`; the active-document condition is evaluated by feature state
 instead of query view code.
+Row-identity matching now uses the published `table_events` function directly;
+the composition root no longer exposes a forwarding helper.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

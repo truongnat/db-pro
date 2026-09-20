@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `e762ecdb`.
+Source checkpoint: `2b98d804`.
 
 ## Current change
 
@@ -208,6 +208,8 @@ Source checkpoint: `e762ecdb`.
   pass the active document identity directly and the root tab setter is gone.
 - Per-document output-tab routing now lives on `QueryOutputState`; the active
   document condition is evaluated by the feature state, not by query view code.
+- Row-identity matching now uses the published `table_events` function
+  directly; the composition root no longer exposes a forwarding helper.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.
