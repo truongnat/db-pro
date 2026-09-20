@@ -1,8 +1,8 @@
 //! Provider-neutral value parsing and sample generation for table editing.
 //!
-//! This module is deliberately independent from `DbProApp`: parsing is a
-//! deterministic boundary concern and must not depend on UI state or runtime
-//! orchestration.
+//! This module is deliberately independent from the composition root: parsing
+//! is a deterministic boundary concern and must not depend on UI state or
+//! runtime orchestration.
 
 use super::UiCell;
 use bigdecimal::BigDecimal;

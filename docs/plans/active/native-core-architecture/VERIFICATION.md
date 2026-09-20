@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `d0113906`.
+Source checkpoint: `bdde20e2`.
 
 ## Current change
 
@@ -27,6 +27,21 @@ Source checkpoint: `d0113906`.
 - Query connection/schema/capability resolution now uses a read-only
   `QueryConnectionContext` over the query session, connection catalog/lifecycle
   and schema explorer instead of embedding the lookup algorithm in the root.
+- Table-editor value generation and typed parsing now live in the pure
+  `table_editor_values.rs` module; UUID, numeric/decimal, JSON, temporal and
+  binary validation no longer depends on `DbProApp`.
+- Table mutation capability checks, staged-value lookup/revert and discard
+  transitions now use `TableMutationContext`; the root keeps only reload and
+  runtime-command orchestration.
+- Staged-change transaction planning and retry-target filtering now live in
+  `TableMutationState::build_apply_plan`; `apply_staged_changes` only performs
+  boundary validation, command dispatch and request lifecycle updates.
+- Primary-key row-reload filter construction now lives in
+  `TableMutationState::row_reload_filters`, with composite-key metadata
+  coverage in the state tests.
+- The architecture guard now freezes `table_editor_context.rs` and
+  `table_editor_values.rs` as explicit-state modules that may not depend on
+  the composition-root type.
 - `QueryOutputState` now owns the active output tab and per-document output-tab
   overrides.
 - `TableDataState` now owns grid projection/layout, filtering/sorting,

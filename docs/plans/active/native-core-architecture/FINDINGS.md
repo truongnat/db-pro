@@ -75,6 +75,19 @@ same boundary, owns active-document text/binding mutations and leaves query
 execution plus cross-aggregate grid invalidation at the composition root.
 Query connection/schema/capability lookup is now isolated in the read-only
 `QueryConnectionContext` rather than being implemented inline by root methods.
+Table-editor sample generation and typed value parsing are now pure functions
+in `table_editor_values.rs`, removing another non-UI concern from the root
+facade.
+Table mutation capability checks and staged-change transitions now use an
+explicit `TableMutationContext`; reload and runtime command effects remain at
+the composition boundary.
+Staged transaction grouping and retry-target filtering now belong to
+`TableMutationState::build_apply_plan`, leaving `apply_staged_changes` as a
+boundary adapter rather than a second mutation planner.
+Composite-primary-key row reload filters are also built by the mutation state,
+with missing-key metadata reported as a typed transition error.
+The architecture guard now enforces that the extracted table-editor context
+and value modules cannot regress to a root dependency.
 
 Severity: P1 boundary leak, resolved for document lifecycle.
 

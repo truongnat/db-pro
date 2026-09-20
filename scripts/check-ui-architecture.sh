@@ -87,7 +87,7 @@ if [[ -e "$repo_root/crates/ui/src/database_operations_state.rs" ]]; then
   exit 1
 fi
 
-connection_renderers=(
+explicit_state_modules=(
   "$repo_root/crates/ui/src/activity_bar_view.rs"
   "$repo_root/crates/ui/src/workspace_session.rs"
   "$repo_root/crates/ui/src/connection/view.rs"
@@ -95,10 +95,12 @@ connection_renderers=(
   "$repo_root/crates/ui/src/connection/advanced_panels.rs"
   "$repo_root/crates/ui/src/connection_status.rs"
   "$repo_root/crates/ui/src/connection_events.rs"
+  "$repo_root/crates/ui/src/table_editor_context.rs"
+  "$repo_root/crates/ui/src/table_editor_values.rs"
 )
-for renderer in "${connection_renderers[@]}"; do
-  if rg -n '^impl DbProApp|\bDbProApp\b' "$renderer"; then
-    echo "UI architecture check failed: connection feature helpers must depend on explicit state/context, not DbProApp." >&2
+for module in "${explicit_state_modules[@]}"; do
+  if rg -n '^impl DbProApp|\bDbProApp\b' "$module"; then
+    echo "UI architecture check failed: explicit-state feature helpers must depend on state/context, not DbProApp." >&2
     exit 1
   fi
 done
