@@ -566,6 +566,22 @@ guard freezes the four diagram modules against `DbProApp` dependencies.
 
 Severity: P1 feature-boundary risk, resolved for the ER diagram slice.
 
+## F51 — Static palette and SQL snippet catalogs were attached to `DbProApp`
+
+Evidence at source `74c0f870`: palette catalog construction and the shared SQL
+snippet list were pure data builders, but were exposed as associated functions
+on the composition root. Views and actions consequently depended on the root
+for data that has no application-state dependency.
+
+Impact: the command catalog boundary was obscured and pure catalog behavior
+was harder to test or reuse without constructing the application facade.
+
+Fix: palette catalog builders now live as module functions, while shared SQL
+snippets have their own `query_snippets.rs` module with a stability test. The
+architecture guard freezes both modules against `DbProApp` dependencies.
+
+Severity: P2 maintainability and boundary risk, resolved.
+
 ## F47 — Schema Workbench mixed mutation planning with view rendering
 
 Source SHA: `08acab31`.

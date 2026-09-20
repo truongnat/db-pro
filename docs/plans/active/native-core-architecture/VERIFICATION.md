@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `3f8ec33b`.
+Source checkpoint: `74c0f870`.
 
 ## Current change
 
@@ -606,6 +606,10 @@ Source checkpoint: `3f8ec33b`.
   return typed `DiagramAction` intents; only composition-root orchestration
   applies cross-feature table/query effects. Focused UI check, clippy, 632 UI
   tests, architecture guard, clean scan and diff checks PASS.
+- Static catalog boundary at source SHA `74c0f870`: palette command builders
+  and shared SQL snippets no longer attach pure data to `DbProApp`; the new
+  snippet module has a stability test. Focused clippy, 633 UI tests,
+  architecture guard, clean scan and diff checks PASS.
 - Final full gate at source SHA `4bb3d21d`: `cargo fmt --all -- --check`,
   workspace `cargo check`, workspace clippy with `-D warnings`, workspace
   tests, release native build, capture build and architecture guard all PASS.
