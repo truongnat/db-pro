@@ -43,10 +43,7 @@ impl DbProApp {
         management_events::on_pg_setting_action_completed(&mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(UiCommand::ListPgSettings {
-                request_id,
-                connection_id,
-            });
+            self.dispatch_command(self.pg_settings.list_command(request_id, connection_id));
         }
     }
 
@@ -58,10 +55,7 @@ impl DbProApp {
         management_events::on_fdw_action_completed(&mut self.fdw, &mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(UiCommand::ListFdwInventory {
-                request_id,
-                connection_id,
-            });
+            self.dispatch_command(self.fdw.list_command(request_id, connection_id));
         }
     }
 
@@ -76,10 +70,7 @@ impl DbProApp {
         management_events::on_replication_action_completed(&mut self.replication, &mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(UiCommand::ListReplicationInventory {
-                request_id,
-                connection_id,
-            });
+            self.dispatch_command(self.replication.list_command(request_id, connection_id));
         }
     }
 
@@ -94,10 +85,7 @@ impl DbProApp {
         management_events::on_event_trigger_action_completed(&mut self.event_trigger, &mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(UiCommand::ListEventTriggers {
-                request_id,
-                connection_id,
-            });
+            self.dispatch_command(self.event_trigger.list_command(request_id, connection_id));
         }
     }
 

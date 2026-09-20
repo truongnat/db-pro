@@ -2473,10 +2473,7 @@ impl DbProApp {
             return;
         }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ListPgSettings {
-            request_id,
-            connection_id,
-        });
+        self.dispatch_command(self.pg_settings.list_command(request_id, connection_id));
     }
 
     fn set_pg_setting_session(&mut self, name: &str, value: &str) {
@@ -2484,12 +2481,12 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::SetPgSettingSession {
+        self.dispatch_command(self.pg_settings.set_session_command(
             request_id,
             connection_id,
-            name: name.to_owned(),
-            value: value.to_owned(),
-        });
+            name.to_owned(),
+            value.to_owned(),
+        ));
     }
 
     fn reset_pg_setting_session(&mut self, name: &str) {
@@ -2497,11 +2494,10 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ResetPgSettingSession {
-            request_id,
-            connection_id,
-            name: name.to_owned(),
-        });
+        self.dispatch_command(
+            self.pg_settings
+                .reset_session_command(request_id, connection_id, name.to_owned()),
+        );
     }
 
     fn request_fdw_inventory(&mut self) {
@@ -2514,10 +2510,7 @@ impl DbProApp {
             return;
         }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ListFdwInventory {
-            request_id,
-            connection_id,
-        });
+        self.dispatch_command(self.fdw.list_command(request_id, connection_id));
     }
 
     fn create_fdw_server_confirmed(&mut self) {
@@ -2525,16 +2518,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::CreateFdwServer {
-            request_id,
-            connection_id,
-            name: self.fdw.fdw_create_name.clone(),
-            fdw: self.fdw.fdw_create_wrapper.clone(),
-            host: self.fdw.fdw_create_host.clone(),
-            dbname: self.fdw.fdw_create_dbname.clone(),
-            port: self.fdw.fdw_create_port.clone(),
-            confirmed: true,
-        });
+        self.dispatch_command(self.fdw.create_command(request_id, connection_id));
     }
 
     fn drop_fdw_server_confirmed(&mut self, name: &str, cascade: bool) {
@@ -2542,13 +2526,10 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::DropFdwServer {
-            request_id,
-            connection_id,
-            name: name.to_owned(),
-            cascade,
-            confirmed: true,
-        });
+        self.dispatch_command(
+            self.fdw
+                .drop_command(request_id, connection_id, name.to_owned(), cascade),
+        );
     }
 
     fn request_replication_inventory(&mut self) {
@@ -2561,10 +2542,7 @@ impl DbProApp {
             return;
         }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ListReplicationInventory {
-            request_id,
-            connection_id,
-        });
+        self.dispatch_command(self.replication.list_command(request_id, connection_id));
     }
 
     fn create_publication_confirmed(&mut self) {
@@ -2572,12 +2550,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::CreatePublicationAll {
-            request_id,
-            connection_id,
-            name: self.replication.replication_create_name.clone(),
-            confirmed: true,
-        });
+        self.dispatch_command(self.replication.create_publication_command(request_id, connection_id));
     }
 
     fn drop_publication_confirmed(&mut self, name: &str) {
@@ -2585,12 +2558,10 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::DropPublication {
-            request_id,
-            connection_id,
-            name: name.to_owned(),
-            confirmed: true,
-        });
+        self.dispatch_command(
+            self.replication
+                .drop_publication_command(request_id, connection_id, name.to_owned()),
+        );
     }
 
     fn drop_subscription_confirmed(&mut self, name: &str) {
@@ -2598,12 +2569,10 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::DropSubscription {
-            request_id,
-            connection_id,
-            name: name.to_owned(),
-            confirmed: true,
-        });
+        self.dispatch_command(
+            self.replication
+                .drop_subscription_command(request_id, connection_id, name.to_owned()),
+        );
     }
 
     fn request_event_triggers(&mut self) {
@@ -2616,10 +2585,7 @@ impl DbProApp {
             return;
         }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ListEventTriggers {
-            request_id,
-            connection_id,
-        });
+        self.dispatch_command(self.event_trigger.list_command(request_id, connection_id));
     }
 
     fn create_event_trigger_confirmed(&mut self) {
@@ -2627,15 +2593,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::CreateEventTrigger {
-            request_id,
-            connection_id,
-            name: self.event_trigger.event_trigger_create_name.clone(),
-            event: self.event_trigger.event_trigger_create_event.clone(),
-            function_ref: self.event_trigger.event_trigger_create_function.clone(),
-            tags_csv: self.event_trigger.event_trigger_create_tags.clone(),
-            confirmed: true,
-        });
+        self.dispatch_command(self.event_trigger.create_command(request_id, connection_id));
     }
 
     fn drop_event_trigger_confirmed(&mut self, name: &str) {
@@ -2643,12 +2601,10 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::DropEventTrigger {
-            request_id,
-            connection_id,
-            name: name.to_owned(),
-            confirmed: true,
-        });
+        self.dispatch_command(
+            self.event_trigger
+                .drop_command(request_id, connection_id, name.to_owned()),
+        );
     }
 
     fn alter_event_trigger_confirmed(&mut self, name: &str, mode: &str) {
@@ -2656,13 +2612,12 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::AlterEventTrigger {
+        self.dispatch_command(self.event_trigger.alter_command(
             request_id,
             connection_id,
-            name: name.to_owned(),
-            mode: mode.to_owned(),
-            confirmed: true,
-        });
+            name.to_owned(),
+            mode.to_owned(),
+        ));
     }
 
     fn request_monitoring_snapshot(&mut self) {
