@@ -1,7 +1,7 @@
+use super::agent_context_actions_view::{AgentContextAction, AgentContextActionsContext};
 use super::agent_header_view::{AgentHeaderAction, AgentHeaderContext};
 use super::agent_settings_view::{AgentSettingsAction, AgentSettingsContext};
 use super::*;
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
 
 impl DbProApp {
     pub(super) fn draw_agent_panel(&mut self, ctx: &egui::Context) {
@@ -156,65 +156,16 @@ impl DbProApp {
     }
 
     fn draw_agent_context_actions(&mut self, ui: &mut egui::Ui, context: &AgentContext) -> bool {
-        if context.selected_table.is_none() && context.current_sql.trim().is_empty() && context.last_error.is_none() {
-            return false;
+        let actions = AgentContextActionsContext {
+            theme: self.theme,
+            context,
         }
-
-        let mut submit = false;
-        toolbar_frame(self.theme).show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                if !context.current_sql.trim().is_empty()
-                    && Button::new(self.theme)
-                        .icon(Icon::ChartNoAxesCombined)
-                        .text("Explain query")
-                        .variant(ButtonVariant::Secondary)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                {
-                    self.agent.input = "Explain the current SQL and its query plan".to_owned();
-                    submit = true;
-                }
-                if !context.current_sql.trim().is_empty()
-                    && Button::new(self.theme)
-                        .icon(Icon::Gauge)
-                        .text("Optimize")
-                        .variant(ButtonVariant::Secondary)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                {
-                    self.agent.input = "Optimize the current SQL and explain the trade-offs".to_owned();
-                    submit = true;
-                }
-                if context.selected_table.is_some()
-                    && Button::new(self.theme)
-                        .icon(Icon::Table2)
-                        .text("Explain table")
-                        .variant(ButtonVariant::Secondary)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                {
-                    self.agent.input = "Explain the selected table and suggest useful read-only queries".to_owned();
-                    submit = true;
-                }
-                if context.last_error.is_some()
-                    && Button::new(self.theme)
-                        .icon(Icon::TriangleAlert)
-                        .text("Investigate error")
-                        .variant(ButtonVariant::Secondary)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                {
-                    self.agent.input = "Investigate the current database error and propose a safe fix".to_owned();
-                    submit = true;
-                }
-            });
-        });
-        ui.add_space(8.0);
-        submit
+        .draw(ui);
+        let Some(AgentContextAction::Submit(prompt)) = actions.into_iter().next() else {
+            return false;
+        };
+        self.agent.input = prompt.to_owned();
+        true
     }
 
     fn draw_agent_composer(&mut self, ui: &mut egui::Ui, submit: &mut bool) {

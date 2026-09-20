@@ -28,6 +28,8 @@ use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, Staged
 mod agent_confirmation;
 #[path = "agent_context.rs"]
 mod agent_context;
+#[path = "agent_context_actions_view.rs"]
+mod agent_context_actions_view;
 #[path = "agent_events.rs"]
 mod agent_events;
 #[path = "agent_header_view.rs"]
