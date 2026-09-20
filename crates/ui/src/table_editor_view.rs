@@ -2234,13 +2234,14 @@ impl DbProApp {
                 self.table_mutation.staged_changes.revert_row(identity);
                 self.table_mutation.table_mutation_error = None;
                 self.table_mutation.conflict_dialog_open = false;
-                self.show_toast_info("Reverted local changes; adopted database values");
+                self.feedback
+                    .show_info_toast("Reverted local changes; adopted database values");
             }
             MutationTarget::Delete { identity, .. } => {
                 self.table_mutation.staged_changes.revert_row(identity);
                 self.table_mutation.table_mutation_error = None;
                 self.table_mutation.conflict_dialog_open = false;
-                self.show_toast_info("Reverted staged delete");
+                self.feedback.show_info_toast("Reverted staged delete");
             }
             MutationTarget::Insert => {
                 self.table_mutation.table_mutation_error = None;
@@ -2654,7 +2655,8 @@ impl DbProApp {
         self.table_mutation.staged_apply_targets.clear();
         self.table_mutation.table_mutation_error = None;
         self.feedback.runtime_message = "All staged changes applied".to_owned();
-        self.show_toast_success("All staged changes applied successfully");
+        self.feedback
+            .show_success_toast("All staged changes applied successfully");
         if let Some(action) = self.workspace.pending_navigation_action.take() {
             self.execute_pending_navigation(action);
             return;
@@ -2749,7 +2751,7 @@ impl DbProApp {
             format!("Staged changes failed · {outcome} · {display_message}")
         };
         self.feedback.runtime_message = formatted.clone();
-        self.show_toast_error(formatted);
+        self.feedback.show_error_toast(formatted);
     }
 
     fn current_row_index_for_identity(&self, identity: &RowIdentity, fallback: Option<usize>) -> Option<usize> {

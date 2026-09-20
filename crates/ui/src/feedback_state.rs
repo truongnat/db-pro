@@ -20,6 +20,10 @@ impl FeedbackState {
     pub(crate) fn show_success_toast(&mut self, message: impl Into<String>) {
         self.toasts.success(message, ToastPosition::BottomRight);
     }
+
+    pub(crate) fn show_info_toast(&mut self, message: impl Into<String>) {
+        self.toasts.info(message, ToastPosition::BottomRight);
+    }
 }
 
 #[cfg(test)]

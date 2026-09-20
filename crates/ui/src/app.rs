@@ -871,26 +871,6 @@ impl DbProApp {
         });
     }
 
-    pub(crate) fn show_toast_error(&mut self, message: impl Into<String>) {
-        self.feedback
-            .toasts
-            .error(message, crate::components::overlay::ToastPosition::BottomRight);
-    }
-
-    pub(crate) fn show_toast_success(&mut self, message: impl Into<String>) {
-        self.feedback
-            .toasts
-            .success(message, crate::components::overlay::ToastPosition::BottomRight);
-    }
-
-    // Kept as a public runtime entry point for future informational notifications.
-    #[allow(dead_code)]
-    pub(crate) fn show_toast_info(&mut self, message: impl Into<String>) {
-        self.feedback
-            .toasts
-            .info(message, crate::components::overlay::ToastPosition::BottomRight);
-    }
-
     // Connection read models and shell status are implemented as explicit pure helpers
     // in `connection_status.rs`; these root methods preserve the app's internal API while
     // keeping that feature module independent from the composition root.
@@ -1013,7 +993,7 @@ impl DbProApp {
         }
         let message = "Runtime worker unavailable";
         self.feedback.runtime_message = message.to_owned();
-        self.show_toast_error(message);
+        self.feedback.show_error_toast(message);
         false
     }
 

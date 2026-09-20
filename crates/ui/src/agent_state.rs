@@ -114,7 +114,8 @@ impl DbProApp {
         if self.agent.provider_label == "Offline draft" {
             self.feedback.runtime_message =
                 "AI provider is not configured. Enter an API key in Agent Settings.".to_owned();
-            self.show_toast_error("Configure an API key in Agent Settings to start.");
+            self.feedback
+                .show_error_toast("Configure an API key in Agent Settings to start.");
             return;
         }
         let document_id = document.id.clone();
@@ -367,7 +368,8 @@ impl DbProApp {
             };
             if document.id != patch.document_id || document.buffer.version() != patch.expected_version {
                 self.feedback.runtime_message = "This query changed since the suggestion was created.".to_owned();
-                self.show_toast_error("The query changed since the suggestion was created.");
+                self.feedback
+                    .show_error_toast("The query changed since the suggestion was created.");
                 self.agent_confirmation_action(false);
                 return;
             }
