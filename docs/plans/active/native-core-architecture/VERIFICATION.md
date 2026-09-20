@@ -389,6 +389,11 @@ Source checkpoint: `0070d374`.
   `table_insert_row_view.rs`. Focused clippy, architecture guard, clean scan
   and 632 UI tests all PASS; clean scan remains 12 pass, 4 ratcheted warnings,
   0 failures.
+- Security activity extraction: `navigation_view.rs` reduced from 3021 to 2438
+  lines; the 586-line roles/RLS/policy slice now lives in
+  `security_activity_view.rs`. Focused clippy, architecture guard, clean scan
+  and 632 UI tests all PASS; clean scan remains 12 pass, 4 ratcheted warnings,
+  0 failures.
 
 ## Not yet proven
 

@@ -458,3 +458,17 @@ in the dedicated `table_editor_values` module.
 
 Severity: P2 maintainability and feature-boundary risk, resolved for the
 insert-row workflow slice.
+
+## F17 — Security activity mixed rendering with role/RLS orchestration
+
+Evidence at discovery: the navigation module contained the complete security
+activity surface plus role, RLS and policy request/preview/apply actions,
+coupling navigation composition to the security feature boundary.
+
+Fix in the current refactor: moved that complete slice to
+`crates/ui/src/security_activity_view.rs`. Navigation now only invokes the
+named security activity surface; security-specific command construction and
+preview transitions stay together with the security renderer.
+
+Severity: P1 boundary risk for security feature changes, resolved for the
+security activity slice.
