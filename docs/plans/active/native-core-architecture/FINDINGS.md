@@ -1428,3 +1428,27 @@ preparation, shell and overlay helpers. The adapter methods now only sequence
 those responsibilities.
 
 Severity: P2 composition-root maintainability, resolved.
+
+## F85 — Result-grid row rendering remained coupled to the app coordinator
+
+Evidence at `db6013ee`: `result_grid_view.rs` still combined row layout,
+gutter interaction, mutation-error presentation and cell delegation in the row
+coordinator.
+
+Fix at `748889bb`: `result_grid_row_view.rs` owns the row surface through an
+explicit context and renderer trait; the root adapter keeps selection commits
+and cell side effects in the existing order.
+
+Severity: P1 rendering/interaction-boundary risk, resolved for grid rows.
+
+## F86 — Capture evidence could request a transient blank modal frame
+
+Evidence at `748889bb`: the default 12-frame capture settled before the New
+Connection body was ready in one run, producing a centered modal with a blank
+body even though a 60-frame run rendered correctly.
+
+Fix at `e4552773`: the default settle window is 60 frames and the capture
+adapter separates loading preparation, requested-surface opening, viewport
+pinning, screenshot handling and frame advancement.
+
+Severity: P2 runtime-evidence reliability risk, resolved.

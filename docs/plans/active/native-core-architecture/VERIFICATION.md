@@ -832,3 +832,18 @@ Source checkpoint: `5d42d5e9`.
   The New Connection dialog is centered, has a separated header/divider and a
   right-aligned close control. Release binary PID `49440` is running for manual
   verification.
+
+## Final core checkpoint at `e4552773`
+
+- Result-grid row surface boundary: `748889bb`.
+- Capture stability fix: `e4552773` (default settle window raised to 60 frames).
+- Full fmt/check/clippy/workspace test/release-build/capture-build gate:
+  passed. Workspace suites include 630 passing UI tests; environment-gated
+  tests remain ignored.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- Clean scan: 16 pass, 0 warnings.
+- Default-settle runtime capture: `/tmp/db-pro-native-core-e4552773.png`,
+  logical `1280x800`. The New Connection body rendered fully; dialog is
+  centered, header is separated by a divider, and close is right-aligned.
+- Release binary from this code SHA is running as PID `53667` for manual
+  verification.
