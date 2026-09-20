@@ -281,7 +281,7 @@ impl DbProApp {
                 .find(|f| &f.name == fn_name && &f.identity_arguments == identity_arguments)
                 .cloned()
             {
-                self.sync_routine_workbench_from(&function);
+                self.management.routine.sync_from(&function);
             }
         }
         self.feedback.runtime_message = if schema.is_empty() {

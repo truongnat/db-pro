@@ -64,29 +64,6 @@ impl DbProApp {
         }
     }
 
-    pub(crate) fn sync_routine_workbench_from(&mut self, function: &UiFunctionSummary) {
-        self.management.routine.routine_source_draft = function.definition.clone();
-        let inputs: Vec<_> = function
-            .parameters
-            .iter()
-            .filter(|p| {
-                let mode = p.mode.to_ascii_uppercase();
-                mode == "IN" || mode == "INOUT" || mode == "VARIADIC" || mode.is_empty()
-            })
-            .collect();
-        self.management.routine.routine_param_values = inputs
-            .iter()
-            .map(|p| {
-                if p.has_default {
-                    p.default_expr.clone()
-                } else {
-                    String::new()
-                }
-            })
-            .collect();
-        self.management.routine.routine_param_nulls = vec![false; inputs.len()];
-    }
-
     fn draw_routine_workbench(&mut self, ui: &mut egui::Ui, selection: &SchemaObjectSelection) {
         let SchemaObjectSelection::Function {
             name,
@@ -219,7 +196,7 @@ impl DbProApp {
                 .cloned()
                 .collect();
             if self.management.routine.routine_param_values.len() != inputs.len() {
-                self.sync_routine_workbench_from(&function);
+                self.management.routine.sync_from(&function);
             }
             if inputs.is_empty() {
                 ui.label(
