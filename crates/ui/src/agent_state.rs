@@ -49,6 +49,15 @@ pub(super) enum AgentRunPreparationError {
     SessionUnavailable,
 }
 
+#[derive(Debug)]
+pub(super) struct PreparedAgentContinuation {
+    pub(super) request_id: crate::RequestId,
+    pub(super) run_id: db_pro_core::domain::agent::AgentRunId,
+    pub(super) approved: bool,
+    pub(super) current_document: Option<db_pro_core::domain::agent::AgentDocumentSnapshot>,
+    pub(super) applied_patch: Option<db_pro_core::domain::agent::AgentToolOutput>,
+}
+
 impl AgentState {
     pub(super) fn clear_session(&mut self, document_id: &str) {
         if let Some(session) = self.sessions.get_mut(document_id) {
@@ -141,6 +150,28 @@ impl AgentState {
         if let Some(session) = self.sessions.get_mut(document_id) {
             session.request_id = None;
             session.state = db_pro_core::domain::agent::AgentSessionState::Failed;
+        }
+    }
+
+    pub(super) fn prepare_continuation(
+        &mut self,
+        pending: &super::agent_workflow_state::AgentUiConfirmation,
+        request_id: crate::RequestId,
+        approved: bool,
+        current_document: Option<db_pro_core::domain::agent::AgentDocumentSnapshot>,
+        applied_patch: Option<db_pro_core::domain::agent::AgentToolOutput>,
+    ) -> PreparedAgentContinuation {
+        if let Some(session) = self.sessions.get_mut(&pending.document_id) {
+            session.pending_confirmation = None;
+            session.request_id = Some(request_id);
+            session.state = db_pro_core::domain::agent::AgentSessionState::Running;
+        }
+        PreparedAgentContinuation {
+            request_id,
+            run_id: pending.run_id,
+            approved,
+            current_document,
+            applied_patch,
         }
     }
 }
@@ -300,13 +331,11 @@ impl DbProApp {
         else {
             return;
         };
-        let target_doc_index = self
-            .query
-            .session
-            .documents
-            .iter()
-            .position(|doc| doc.id == pending.document_id)
-            .unwrap_or(self.query.session.active_document_index);
+        let target_doc_index = agent_confirmation::target_document_index(
+            &self.query.session.documents,
+            self.query.session.active_document_index,
+            &pending.document_id,
+        );
         let current_document = self
             .query
             .session
@@ -315,23 +344,25 @@ impl DbProApp {
             .map(agent_context::document_snapshot);
         let mut applied_patch = None;
         if approved && pending.kind == db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch {
-            let Some(db_pro_core::domain::agent::AgentToolOutput::PatchPreview { patch, .. }) = pending.preview else {
-                self.feedback.runtime_message = "Agent patch preview is unavailable".to_owned();
-                return;
-            };
-            let Some(document) = self.query.session.documents.get_mut(target_doc_index) else {
-                return;
-            };
-            match agent_patch::apply_to_document(document, &patch) {
+            match agent_confirmation::apply_approved_patch(
+                &mut self.query.session.documents,
+                target_doc_index,
+                &pending,
+            ) {
                 Ok(output) => applied_patch = Some(output),
-                Err(agent_patch::AgentPatchApplyError::DocumentChanged) => {
+                Err(agent_confirmation::AgentConfirmationError::PreviewUnavailable) => {
+                    self.feedback.runtime_message = "Agent patch preview is unavailable".to_owned();
+                    return;
+                }
+                Err(agent_confirmation::AgentConfirmationError::DocumentUnavailable) => return,
+                Err(agent_confirmation::AgentConfirmationError::DocumentChanged) => {
                     self.feedback.runtime_message = "This query changed since the suggestion was created.".to_owned();
                     self.feedback
                         .show_error_toast("The query changed since the suggestion was created.");
                     self.agent_confirmation_action(false);
                     return;
                 }
-                Err(agent_patch::AgentPatchApplyError::InvalidRange) => {
+                Err(agent_confirmation::AgentConfirmationError::InvalidRange) => {
                     self.feedback.runtime_message = "Agent patch range is no longer valid".to_owned();
                     self.agent_confirmation_action(false);
                     return;
@@ -339,17 +370,15 @@ impl DbProApp {
             }
         }
         let request_id = self.task_bridge.next_request_id();
-        if let Some(session) = self.agent.sessions.get_mut(&pending.document_id) {
-            session.pending_confirmation = None;
-            session.request_id = Some(request_id);
-            session.state = db_pro_core::domain::agent::AgentSessionState::Running;
-        }
+        let continuation =
+            self.agent
+                .prepare_continuation(&pending, request_id, approved, current_document, applied_patch);
         self.send_command_best_effort(UiCommand::ContinueAgentRun {
-            request_id,
-            run_id: pending.run_id,
-            approved,
-            current_document,
-            applied_patch,
+            request_id: continuation.request_id,
+            run_id: continuation.run_id,
+            approved: continuation.approved,
+            current_document: continuation.current_document,
+            applied_patch: continuation.applied_patch,
         });
     }
 
