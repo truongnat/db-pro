@@ -1,73 +1,32 @@
 //! Queries / Data / Problems / History sidebar activities.
 use super::sidebar_data_view::{SidebarDataAction, SidebarDataContext};
+use super::sidebar_queries_view::{SidebarQueriesAction, SidebarQueriesContext};
 use super::*;
 use egui::{Align, Layout, RichText};
 use lucide_icons::Icon;
 
 impl DbProApp {
     pub(super) fn draw_queries(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            section_label(ui, "OPEN QUERIES", self.theme);
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if compact_icon_button(ui, Icon::FilePlus2, self.theme)
-                    .on_hover_text("New scratch query")
-                    .clicked()
-                {
-                    self.new_scratch_query_document();
-                }
-                if compact_icon_button(ui, Icon::Plus, self.theme)
-                    .on_hover_text("New query")
-                    .clicked()
-                {
-                    self.new_query_document();
-                }
-            });
-        });
-        ui.add_space(8.0);
-
-        for (index, document) in self.query.session.documents.clone().into_iter().enumerate() {
-            let selected =
-                self.workspace.active_tab == WorkspaceTab::Query && self.query.session.active_document_index == index;
-            let unsaved = document.is_dirty();
-            let title = if unsaved {
-                format!("{}  •", document.title)
-            } else {
-                document.title.clone()
+        let actions = {
+            let context = SidebarQueriesContext {
+                theme: self.theme,
+                documents: &self.query.session.documents,
+                active_tab: self.workspace.active_tab,
+                active_document_index: self.query.session.active_document_index,
             };
-            let response = sidebar_item(ui, Icon::FileCode2, &title, selected, self.theme);
-            let is_ctx = is_context_menu_triggered(&response, ui);
-            let mut close_requested = false;
-            let mut duplicate_requested = false;
-            let mut rename_requested = false;
-            let theme = self.theme;
-            context_action_menu(ui, &response, theme, |ui, close_menu| {
-                if ctx_menu_item(ui, Some(Icon::Copy), "Duplicate query", None, theme.text_primary, theme).clicked() {
-                    duplicate_requested = true;
-                    *close_menu = true;
+            context.draw(ui)
+        };
+        for action in actions {
+            match action {
+                SidebarQueriesAction::NewQuery => self.new_query_document(),
+                SidebarQueriesAction::NewScratch => self.new_scratch_query_document(),
+                SidebarQueriesAction::Select(index) => {
+                    self.switch_query_document(index);
+                    self.workspace.active_tab = WorkspaceTab::Query;
                 }
-                if ctx_menu_item(ui, Some(Icon::Pencil), "Rename tab", None, theme.text_primary, theme).clicked() {
-                    rename_requested = true;
-                    *close_menu = true;
-                }
-                if self.query.session.documents.len() > 1
-                    && ctx_menu_item(ui, Some(Icon::Trash2), "Close query", None, theme.danger, theme).clicked()
-                {
-                    close_requested = true;
-                    *close_menu = true;
-                }
-            });
-            if response.clicked() && !is_ctx {
-                self.switch_query_document(index);
-                self.workspace.active_tab = WorkspaceTab::Query;
-            }
-            if duplicate_requested {
-                self.duplicate_query_document(index);
-            }
-            if rename_requested {
-                self.rename_query_document_inline(index);
-            }
-            if close_requested {
-                self.request_close_query_document(index);
+                SidebarQueriesAction::Duplicate(index) => self.duplicate_query_document(index),
+                SidebarQueriesAction::Rename(index) => self.rename_query_document_inline(index),
+                SidebarQueriesAction::Close(index) => self.request_close_query_document(index),
             }
         }
 
