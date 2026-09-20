@@ -482,6 +482,14 @@ Source checkpoint: `0070d374`.
   `diagram_canvas_view.rs`; `diagram_view.rs` coordinates schema candidates,
   toolbar and Design Mode. Focused UI check, clippy, 632 UI tests,
   architecture guard, clean scan and diff checks PASS.
+- Current source checkpoint: `db032993` on `main`. Full regression gate PASS:
+  `cargo fmt --all -- --check`, workspace check, workspace clippy with
+  `-D warnings`, workspace tests (`0 failed`), native release build and
+  capture-feature release build.
+- Current runtime evidence: `/tmp/db-pro-native-core-after-diagram.png`,
+  captured from the rebuilt release binary at logical `1280x800` with the
+  New Connection modal open. Visual inspection confirms the centered card,
+  separated header, right-aligned close control, scrollable body and footer.
 
 ## Not yet proven
 
