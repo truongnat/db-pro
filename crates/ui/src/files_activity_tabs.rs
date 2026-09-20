@@ -1,4 +1,5 @@
 use super::files_agent_context_view::{ActiveQueryContext, FilesAgentContextAction, FilesAgentContextView};
+use super::files_search_view::{FilesSearchAction, FilesSearchContext};
 use super::files_tree_view::{FilesTreeAction, FilesTreeContext};
 use super::*;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
@@ -130,104 +131,25 @@ impl DbProApp {
     }
 
     pub(super) fn draw_files_search_tab(&mut self, ui: &mut egui::Ui) {
-        ui.add(
-            egui::TextEdit::singleline(&mut self.workspace.files.workspace_search_query)
-                .hint_text("Find in files…")
-                .desired_width(ui.available_width()),
-        );
-        ui.add_space(4.0);
-        ui.add(
-            egui::TextEdit::singleline(&mut self.workspace.files.workspace_replace_query)
-                .hint_text("Replace with…")
-                .desired_width(ui.available_width()),
-        );
-        ui.add_space(4.0);
-        ui.horizontal(|ui| {
-            if Button::new(self.theme)
-                .text("Find")
-                .variant(ButtonVariant::Default)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                self.workspace.files.run_search(&mut self.feedback);
-            }
-            if Button::new(self.theme)
-                .text("Preview")
-                .variant(ButtonVariant::Secondary)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                self.workspace.files.preview_replace(&mut self.feedback);
-            }
-            if Button::new(self.theme)
-                .text("Replace all")
-                .variant(ButtonVariant::Destructive)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                self.workspace.files.apply_replace(&mut self.feedback);
-            }
-        });
-        ui.add_space(6.0);
-        ui.horizontal(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.workspace.files.workspace_refactor_from)
-                    .hint_text("Rename from")
-                    .desired_width(90.0),
-            );
-            ui.add(
-                egui::TextEdit::singleline(&mut self.workspace.files.workspace_refactor_to)
-                    .hint_text("to")
-                    .desired_width(90.0),
-            );
-            if Button::new(self.theme)
-                .text("Refactor")
-                .variant(ButtonVariant::Secondary)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                self.workspace.files.apply_refactor(&mut self.feedback);
-            }
-        });
-        if !self.workspace.files.workspace_replace_previews.is_empty() {
-            ui.add_space(6.0);
-            section_label(ui, "REPLACE PREVIEW", self.theme);
-            for preview in self
-                .workspace
-                .files
-                .workspace_replace_previews
-                .clone()
-                .into_iter()
-                .take(30)
-            {
-                ui.label(
-                    RichText::new(format!(
-                        "{}::{} · {} hits",
-                        preview.root_id, preview.relative_path, preview.replacements
-                    ))
-                    .small()
-                    .color(self.theme.text_secondary),
-                );
-            }
-        }
-        if !self.workspace.files.workspace_search_hits.is_empty() {
-            ui.add_space(6.0);
-            section_label(ui, "SEARCH RESULTS", self.theme);
-            ui.add_space(4.0);
-            let hits = self.workspace.files.workspace_search_hits.clone();
-            for hit in hits.into_iter().take(40) {
-                let label = format!("{}:{}", hit.relative_path, hit.line);
-                if sidebar_item(ui, Icon::Search, &label, false, self.theme)
-                    .on_hover_text(&hit.preview)
-                    .clicked()
-                    && hit.relative_path.ends_with(".sql")
-                {
-                    self.open_workspace_sql_file(format!("{}::{}", hit.root_id, hit.relative_path));
-                }
+        let actions = {
+            let mut context = FilesSearchContext {
+                theme: self.theme,
+                search_query: &mut self.workspace.files.workspace_search_query,
+                replace_query: &mut self.workspace.files.workspace_replace_query,
+                refactor_from: &mut self.workspace.files.workspace_refactor_from,
+                refactor_to: &mut self.workspace.files.workspace_refactor_to,
+                replace_previews: &self.workspace.files.workspace_replace_previews,
+                search_hits: &self.workspace.files.workspace_search_hits,
+            };
+            context.draw(ui)
+        };
+        for action in actions {
+            match action {
+                FilesSearchAction::Find => self.workspace.files.run_search(&mut self.feedback),
+                FilesSearchAction::PreviewReplace => self.workspace.files.preview_replace(&mut self.feedback),
+                FilesSearchAction::ReplaceAll => self.workspace.files.apply_replace(&mut self.feedback),
+                FilesSearchAction::Refactor => self.workspace.files.apply_refactor(&mut self.feedback),
+                FilesSearchAction::OpenSql(path) => self.open_workspace_sql_file(path),
             }
         }
     }
