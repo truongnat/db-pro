@@ -36,7 +36,9 @@ impl DbProApp {
                 bottom: 0.0,
             })
             .show(ui, |ui| {
-                self.refresh_diagnostics();
+                let driver = self.active_driver().to_owned();
+                let lint = self.preferences.settings.editor.lint.clone();
+                query_diagnostics_view::refresh_diagnostics(&mut self.query, &driver, &lint);
                 if let Some(deadline) = self.query.editor.diagnostics_debounce_at {
                     let remaining = deadline.saturating_duration_since(Instant::now());
                     if !remaining.is_zero() {

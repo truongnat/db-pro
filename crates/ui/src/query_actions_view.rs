@@ -71,7 +71,8 @@ impl DbProApp {
             close_menu = true;
         }
         if menu_button_with_icon(ui, Icon::WandSparkles, "Format SQL", self.theme).clicked() {
-            self.format_active_query();
+            let capabilities = self.query_capabilities();
+            query_diagnostics_view::format_active_query(&mut self.query, &self.task_bridge, capabilities);
             close_menu = true;
         }
         if menu_button_with_icon(ui, Icon::ChartNoAxesCombined, "Explain query", self.theme).clicked() {
@@ -232,7 +233,9 @@ impl DbProApp {
             self.query.editor.query_cursor_column = doc.cursor.col + 1;
         }
         self.workspace.active_tab = WorkspaceTab::Query;
-        self.refresh_diagnostics();
+        let driver = self.active_driver().to_owned();
+        let lint = self.preferences.settings.editor.lint.clone();
+        query_diagnostics_view::refresh_diagnostics(&mut self.query, &driver, &lint);
         self.feedback.runtime_message = "Snippet inserted".to_owned();
     }
 }

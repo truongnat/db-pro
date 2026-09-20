@@ -3514,14 +3514,14 @@ fn deleting_sibling_connection_does_not_auto_reconnect_active() {
 
 #[test]
 fn sql_diagnostics_allow_expression_selects_without_from() {
-    let diagnostics = DbProApp::parse_sql_diagnostics("SELECT 1 AS ok;", "PostgreSQL");
+    let diagnostics = query_diagnostics_view::parse_sql_diagnostics("SELECT 1 AS ok;", "PostgreSQL");
 
     assert!(diagnostics.is_empty());
 }
 
 #[test]
 fn sql_diagnostics_include_unmatched_square_bracket_range() {
-    let diagnostics = DbProApp::parse_sql_diagnostics("SELECT items[1 FROM data;", "PostgreSQL");
+    let diagnostics = query_diagnostics_view::parse_sql_diagnostics("SELECT items[1 FROM data;", "PostgreSQL");
 
     assert!(diagnostics
         .iter()
@@ -3530,7 +3530,7 @@ fn sql_diagnostics_include_unmatched_square_bracket_range() {
 
 #[test]
 fn sql_diagnostics_report_mixed_delimiter_mismatch() {
-    let diagnostics = DbProApp::parse_sql_diagnostics("SELECT ([)]", "PostgreSQL");
+    let diagnostics = query_diagnostics_view::parse_sql_diagnostics("SELECT ([)]", "PostgreSQL");
 
     assert!(diagnostics
         .iter()
@@ -3539,22 +3539,23 @@ fn sql_diagnostics_report_mixed_delimiter_mismatch() {
 
 #[test]
 fn sql_diagnostics_gate_ilike_and_glob_through_capabilities() {
-    let sqlite = DbProApp::parse_sql_diagnostics("SELECT * FROM t WHERE name ILIKE 'a%'", "SQLite");
+    let sqlite = query_diagnostics_view::parse_sql_diagnostics("SELECT * FROM t WHERE name ILIKE 'a%'", "SQLite");
     assert!(sqlite.iter().any(|m| m.contains("ILIKE")));
 
-    let postgres = DbProApp::parse_sql_diagnostics("SELECT * FROM t WHERE name GLOB 'a*'", "PostgreSQL");
+    let postgres = query_diagnostics_view::parse_sql_diagnostics("SELECT * FROM t WHERE name GLOB 'a*'", "PostgreSQL");
     assert!(postgres.iter().any(|m| m.contains("GLOB")));
 
-    let mysql = DbProApp::parse_sql_diagnostics("SELECT * FROM t WHERE name ILIKE 'a%'", "MySQL");
+    let mysql = query_diagnostics_view::parse_sql_diagnostics("SELECT * FROM t WHERE name ILIKE 'a%'", "MySQL");
     assert!(mysql.iter().any(|m| m.contains("ILIKE")));
 
-    let pg_ok = DbProApp::parse_sql_diagnostics("SELECT * FROM t WHERE name ILIKE 'a%'", "PostgreSQL");
+    let pg_ok = query_diagnostics_view::parse_sql_diagnostics("SELECT * FROM t WHERE name ILIKE 'a%'", "PostgreSQL");
     assert!(!pg_ok.iter().any(|m| m.contains("ILIKE is not supported")));
 }
 
 #[test]
 fn sql_lint_warns_on_select_star_and_null_compare() {
-    let (messages, structured) = DbProApp::analyze_sql_diagnostics("SELECT * FROM t WHERE id = NULL", "PostgreSQL");
+    let (messages, structured) =
+        query_diagnostics_view::analyze_sql_diagnostics("SELECT * FROM t WHERE id = NULL", "PostgreSQL");
     assert!(messages.iter().any(|m| m.contains("SELECT *")));
     assert!(messages.iter().any(|m| m.contains("IS NULL")));
     assert!(structured.iter().any(|d| {
@@ -3573,7 +3574,7 @@ fn sql_lint_null_compare_quick_fix_is_one_undoable_replace() {
     app.query.session.documents.clear();
     let mut doc =
         crate::query::query_document::QueryDocument::new("doc-fix", "Query fix", "SELECT 1 FROM t WHERE id = NULL");
-    let (_, structured) = DbProApp::analyze_sql_diagnostics(doc.text(), "PostgreSQL");
+    let (_, structured) = query_diagnostics_view::analyze_sql_diagnostics(doc.text(), "PostgreSQL");
     doc.diagnostics = structured;
     app.query.session.documents.push(doc);
 
@@ -3593,7 +3594,7 @@ fn sql_lint_null_compare_quick_fix_is_one_undoable_replace() {
 
 #[test]
 fn sql_lint_warns_on_delete_without_where() {
-    let (messages, structured) = DbProApp::analyze_sql_diagnostics("DELETE FROM t", "SQLite");
+    let (messages, structured) = query_diagnostics_view::analyze_sql_diagnostics("DELETE FROM t", "SQLite");
     assert!(messages.iter().any(|m| m.contains("DELETE without WHERE")));
     assert!(structured
         .iter()
@@ -3602,7 +3603,8 @@ fn sql_lint_warns_on_delete_without_where() {
 
 #[test]
 fn sql_lint_warns_on_order_by_ordinal_and_comma_join() {
-    let (messages, structured) = DbProApp::analyze_sql_diagnostics("SELECT a, b FROM t1, t2 ORDER BY 1", "PostgreSQL");
+    let (messages, structured) =
+        query_diagnostics_view::analyze_sql_diagnostics("SELECT a, b FROM t1, t2 ORDER BY 1", "PostgreSQL");
     assert!(messages.iter().any(|m| m.contains("ORDER BY ordinal")));
     assert!(messages.iter().any(|m| m.contains("Comma join")));
     assert!(structured
@@ -3613,7 +3615,8 @@ fn sql_lint_warns_on_order_by_ordinal_and_comma_join() {
 
 #[test]
 fn sql_lint_warns_on_duplicate_projection_alias() {
-    let (messages, structured) = DbProApp::analyze_sql_diagnostics("SELECT a AS x, b AS x FROM t", "PostgreSQL");
+    let (messages, structured) =
+        query_diagnostics_view::analyze_sql_diagnostics("SELECT a AS x, b AS x FROM t", "PostgreSQL");
     assert!(messages.iter().any(|m| m.contains("Duplicate projection alias")));
     assert!(structured
         .iter()
@@ -3622,7 +3625,7 @@ fn sql_lint_warns_on_duplicate_projection_alias() {
 
 #[test]
 fn sql_lint_warns_on_update_without_where() {
-    let (messages, structured) = DbProApp::analyze_sql_diagnostics("UPDATE t SET a = 1", "PostgreSQL");
+    let (messages, structured) = query_diagnostics_view::analyze_sql_diagnostics("UPDATE t SET a = 1", "PostgreSQL");
     assert!(messages.iter().any(|m| m.contains("UPDATE without WHERE")));
     assert!(structured.iter().any(|d| {
         d.source == crate::editor::DiagnosticSource::Lint && d.code.as_deref() == Some("lint.update-no-where")
@@ -3636,8 +3639,11 @@ fn sql_lint_respects_disabled_and_suppressed_rules() {
         ..crate::app::SqlLintSettings::default()
     };
     lint.suppressed_codes.insert("lint.null-compare".into());
-    let (messages, structured) =
-        DbProApp::analyze_sql_diagnostics_with_lint("SELECT * FROM t WHERE id = NULL", "PostgreSQL", &lint);
+    let (messages, structured) = query_diagnostics_view::analyze_sql_diagnostics_with_lint(
+        "SELECT * FROM t WHERE id = NULL",
+        "PostgreSQL",
+        &lint,
+    );
     assert!(!messages.iter().any(|m| m.contains("SELECT *")));
     assert!(!structured.iter().any(|d| d.code.as_deref() == Some("lint.select-star")));
     assert!(!structured
@@ -3650,7 +3656,7 @@ fn problems_panel_aggregates_open_document_diagnostics_and_navigates() {
     let mut app = DbProApp::default();
     app.query.session.documents.clear();
     let mut doc = crate::query::query_document::QueryDocument::new("doc-1", "Query 1", "SELECT * FROM t");
-    let (_, structured) = DbProApp::analyze_sql_diagnostics(doc.text(), "PostgreSQL");
+    let (_, structured) = query_diagnostics_view::analyze_sql_diagnostics(doc.text(), "PostgreSQL");
     doc.diagnostics = structured;
     app.query.session.documents.push(doc);
 

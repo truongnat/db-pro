@@ -85,7 +85,8 @@ impl DbProApp {
             }
             PaletteAction::FormatSql => {
                 self.workspace.active_tab = WorkspaceTab::Query;
-                self.format_active_query();
+                let capabilities = self.query_capabilities();
+                query_diagnostics_view::format_active_query(&mut self.query, &self.task_bridge, capabilities);
                 self.feedback.runtime_message = "SQL formatted".to_owned();
             }
             PaletteAction::SwitchConnection(connection_id) => self.switch_connection_from_palette(connection_id),

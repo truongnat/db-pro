@@ -114,6 +114,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/diagram_design_panel_view.rs"
   "$repo_root/crates/ui/src/palette_catalog.rs"
   "$repo_root/crates/ui/src/query_snippets.rs"
+  "$repo_root/crates/ui/src/query_diagnostics_view.rs"
 )
 for module in "${explicit_state_modules[@]}"; do
   if rg -n '^impl DbProApp|\bDbProApp\b' "$module"; then

@@ -124,7 +124,9 @@ impl DbProApp {
         self.query.editor.query_cursor_column = doc.cursor.col + 1;
         let title = doc.title.clone();
         self.workspace.active_tab = WorkspaceTab::Query;
-        self.refresh_diagnostics();
+        let driver = self.active_driver().to_owned();
+        let lint = self.preferences.settings.editor.lint.clone();
+        query_diagnostics_view::refresh_diagnostics(&mut self.query, &driver, &lint);
         self.feedback.runtime_message = format!("Applied quick fix in {title}");
         true
     }
