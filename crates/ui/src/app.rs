@@ -26,6 +26,8 @@ use std::time::{Duration, Instant};
 use agent_workflow_state::AgentUiSession;
 use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
 
+#[path = "agent_context.rs"]
+mod agent_context;
 #[path = "agent_events.rs"]
 mod agent_events;
 #[path = "agent_state.rs"]

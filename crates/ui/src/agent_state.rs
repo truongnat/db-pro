@@ -1,11 +1,5 @@
 use super::*;
 
-use db_pro_core::domain::agent::{AgentDocumentSnapshot, AgentObjectRef};
-use db_pro_core::domain::agent_context::{
-    AgentColumnContext, AgentContext as CoreAgentContext, AgentContextBuilder, AgentContextRequest,
-    AgentDiagnosticContext, AgentForeignKeyContext, AgentSchemaCatalog, AgentTableContext,
-};
-
 /// Owns agent workspace state independently from the shell and query session.
 #[derive(Debug)]
 pub(crate) struct AgentState {
@@ -127,8 +121,14 @@ impl DbProApp {
             .schema
             .clone()
             .or_else(|| Some(self.active_schema().to_owned()));
-        let snapshot = self.agent_document_snapshot(document);
-        let context = self.build_agent_context(&prompt, document, connection_id.as_deref(), schema.as_deref());
+        let snapshot = agent_context::document_snapshot(document);
+        let context = agent_context::build_context(
+            &prompt,
+            document,
+            connection_id.as_deref(),
+            schema.as_deref(),
+            &self.schema_explorer.schema.table_details,
+        );
 
         let session = self
             .agent
@@ -186,100 +186,6 @@ impl DbProApp {
         }
     }
 
-    fn agent_document_snapshot(&self, document: &crate::query::QueryDocument) -> AgentDocumentSnapshot {
-        let selection = (!document.selection.is_empty()).then(|| document.selection.normalized());
-        AgentDocumentSnapshot {
-            document_id: document.id.clone(),
-            document_version: document.buffer.version(),
-            sql: document.text().to_owned(),
-            cursor_offset: document.cursor.offset,
-            selection,
-            current_statement: document
-                .analysis
-                .current_statement_at(document.cursor.offset)
-                .map(|statement| statement.text.clone()),
-        }
-    }
-
-    fn build_agent_context(
-        &self,
-        prompt: &str,
-        document: &crate::query::QueryDocument,
-        connection_id: Option<&str>,
-        schema: Option<&str>,
-    ) -> CoreAgentContext {
-        let tables = self
-            .schema_explorer
-            .schema
-            .table_details
-            .iter()
-            .map(|table| AgentTableContext {
-                object: AgentObjectRef {
-                    schema: Some(table.schema.clone()),
-                    name: table.name.clone(),
-                },
-                columns: table
-                    .columns
-                    .iter()
-                    .enumerate()
-                    .map(|(ordinal, column)| AgentColumnContext {
-                        name: column.name.clone(),
-                        data_type: column.data_type.clone(),
-                        nullable: column.nullable,
-                        ordinal,
-                        default: None,
-                        is_primary_key: column.is_primary_key,
-                        is_unique: false,
-                        is_identity: false,
-                        is_generated: false,
-                    })
-                    .collect(),
-            })
-            .collect::<Vec<_>>();
-        let foreign_keys = self
-            .schema_explorer
-            .schema
-            .table_details
-            .iter()
-            .flat_map(|table| {
-                table.foreign_keys.iter().map(|foreign_key| AgentForeignKeyContext {
-                    name: foreign_key.name.clone(),
-                    source: AgentObjectRef {
-                        schema: Some(table.schema.clone()),
-                        name: table.name.clone(),
-                    },
-                    source_columns: foreign_key.from_columns.clone(),
-                    target: AgentObjectRef {
-                        schema: Some(foreign_key.to_schema.clone()),
-                        name: foreign_key.to_table.clone(),
-                    },
-                    target_columns: foreign_key.to_columns.clone(),
-                })
-            })
-            .collect::<Vec<_>>();
-        let catalog = AgentSchemaCatalog { tables, foreign_keys };
-        let diagnostics = document
-            .diagnostics
-            .iter()
-            .map(|diagnostic| AgentDiagnosticContext {
-                message: diagnostic.message.clone(),
-                range: Some(diagnostic.range),
-            })
-            .collect::<Vec<_>>();
-        AgentContextBuilder::default().build(&AgentContextRequest {
-            document_id: &document.id,
-            document_version: document.buffer.version(),
-            connection_id,
-            schema,
-            current_sql: document.text(),
-            selected_range: (!document.selection.is_empty()).then(|| document.selection.normalized()),
-            user_request: prompt,
-            diagnostics: &diagnostics,
-            result_summary: None,
-            catalog: &catalog,
-        })
-    }
-
     pub(super) fn on_agent_workflow_event(&mut self, event: db_pro_core::domain::agent_workflow::AgentWorkflowEvent) {
         agent_events::on_agent_workflow_event(&mut self.agent, event);
     }
@@ -311,7 +217,7 @@ impl DbProApp {
             .query_session_state
             .documents
             .get(target_doc_index)
-            .map(|document| self.agent_document_snapshot(document));
+            .map(agent_context::document_snapshot);
         let mut applied_patch = None;
         if approved && pending.kind == db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch {
             let Some(db_pro_core::domain::agent::AgentToolOutput::PatchPreview { patch, .. }) = pending.preview else {
