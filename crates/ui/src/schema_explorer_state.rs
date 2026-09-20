@@ -41,6 +41,52 @@ impl Default for SchemaExplorerState {
 }
 
 impl SchemaExplorerState {
+    pub(super) fn filter_by_schema<T: Clone>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> Vec<T> {
+        if self.schema.schemas.is_empty() || schema.is_empty() {
+            all.to_vec()
+        } else {
+            all.iter().filter(|item| schema_of(item) == schema).cloned().collect()
+        }
+    }
+
+    pub(super) fn count_by_schema<T>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> usize {
+        if self.schema.schemas.is_empty() || schema.is_empty() {
+            all.len()
+        } else {
+            all.iter().filter(|item| schema_of(item) == schema).count()
+        }
+    }
+
+    pub(super) fn matching_table_count(&self, schema: &str, query: &str) -> usize {
+        super::connection_status::schema_matching_table_count(self, schema, query)
+    }
+
+    pub(super) fn cached_tables(
+        &mut self,
+        connection_id: &str,
+        schema: &str,
+        search_query: &str,
+    ) -> (usize, usize, Vec<String>) {
+        if let Some(cache) = self.explorer_nav_cache.as_ref() {
+            if cache.connection_id == connection_id && cache.schema == schema && cache.search == search_query {
+                return (cache.total_count, cache.matching_count, cache.visible.clone());
+            }
+        }
+
+        let all_tables = super::connection_status::schema_table_names(self, schema);
+        let (matching_count, visible) = filtered_explorer_tables(&all_tables, search_query);
+        let total_count = all_tables.len();
+        self.explorer_nav_cache = Some(ExplorerNavCache {
+            connection_id: connection_id.to_owned(),
+            schema: schema.to_owned(),
+            search: search_query.to_owned(),
+            total_count,
+            matching_count,
+            visible: visible.clone(),
+        });
+        (total_count, matching_count, visible)
+    }
+
     pub(super) fn record_recent_table(&mut self, table: &str) {
         if table.is_empty() {
             return;

@@ -667,16 +667,8 @@ impl DbProApp {
         )
     }
 
-    pub(super) fn schema_table_names(&self, schema: &str) -> Vec<String> {
-        connection_status::schema_table_names(&self.schema.explorer, schema)
-    }
-
     pub(super) fn schema_table_count(&self, schema: &str) -> usize {
         connection_status::schema_table_count(&self.schema.explorer, schema)
-    }
-
-    pub(super) fn schema_matching_table_count(&self, schema: &str, query: &str) -> usize {
-        connection_status::schema_matching_table_count(&self.schema.explorer, schema, query)
     }
 
     pub(super) fn active_schema_column_names(&self) -> Vec<String> {

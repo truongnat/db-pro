@@ -2601,9 +2601,9 @@ fn schema_matching_table_count_filters_without_materialising_names() {
         .collect();
 
     assert_eq!(app.schema_table_count("public"), 200);
-    assert_eq!(app.schema_matching_table_count("public", ""), 200);
-    assert_eq!(app.schema_matching_table_count("public", "orders_1"), 111);
-    assert_eq!(app.schema_matching_table_count("other", "orders_24"), 10);
+    assert_eq!(app.schema.explorer.matching_table_count("public", ""), 200);
+    assert_eq!(app.schema.explorer.matching_table_count("public", "orders_1"), 111);
+    assert_eq!(app.schema.explorer.matching_table_count("other", "orders_24"), 10);
 }
 
 #[test]

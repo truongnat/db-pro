@@ -31,7 +31,10 @@ impl DbProApp {
                 empty_label: Some("No views in schema"),
             },
             |ui| {
-                let views = self.filter_by_schema(&self.schema.explorer.schema.views, schema, |v| &v.schema);
+                let views = self
+                    .schema
+                    .explorer
+                    .filter_by_schema(&self.schema.explorer.schema.views, schema, |view| &view.schema);
                 for view in &views {
                     self.draw_view_row(ui, view, &theme);
                 }
@@ -56,7 +59,12 @@ impl DbProApp {
                 empty_label: Some("No functions in schema"),
             },
             |ui| {
-                let functions = self.filter_by_schema(&self.schema.explorer.schema.functions, schema, |f| &f.schema);
+                let functions =
+                    self.schema
+                        .explorer
+                        .filter_by_schema(&self.schema.explorer.schema.functions, schema, |function| {
+                            &function.schema
+                        });
                 for function in &functions {
                     self.draw_function_row(ui, function, &theme);
                 }
@@ -81,7 +89,10 @@ impl DbProApp {
                 empty_label: Some("No triggers in schema"),
             },
             |ui| {
-                let triggers = self.filter_by_schema(&self.schema.explorer.schema.triggers, schema, |t| &t.schema);
+                let triggers =
+                    self.schema
+                        .explorer
+                        .filter_by_schema(&self.schema.explorer.schema.triggers, schema, |trigger| &trigger.schema);
                 for trigger in &triggers {
                     self.draw_trigger_row(ui, trigger, &theme);
                 }

@@ -227,64 +227,31 @@ impl DbProApp {
         let total_tables = self.schema_table_count(schema);
         self.draw_tables_folder(ui, schema, total_tables, &search_query);
 
-        let view_count = self.count_by_schema(&self.schema.explorer.schema.views, schema, |v| &v.schema);
+        let view_count = self
+            .schema
+            .explorer
+            .count_by_schema(&self.schema.explorer.schema.views, schema, |view| &view.schema);
         self.draw_dbeaver_views_folder_lazy(ui, schema, view_count);
 
         if self.active_capabilities().allows(|c| c.schema.functions) {
-            let function_count = self.count_by_schema(&self.schema.explorer.schema.functions, schema, |f| &f.schema);
+            let function_count =
+                self.schema
+                    .explorer
+                    .count_by_schema(&self.schema.explorer.schema.functions, schema, |function| {
+                        &function.schema
+                    });
             self.draw_dbeaver_functions_folder_lazy(ui, schema, function_count);
         }
 
-        let trigger_count = self.count_by_schema(&self.schema.explorer.schema.triggers, schema, |t| &t.schema);
+        let trigger_count =
+            self.schema
+                .explorer
+                .count_by_schema(&self.schema.explorer.schema.triggers, schema, |trigger| &trigger.schema);
         self.draw_dbeaver_triggers_folder_lazy(ui, schema, trigger_count);
     }
 
     /// Narrows schema-scoped objects to `schema`. When the backend reports no schema
     /// list (e.g. SQLite) everything belongs to a single flat namespace.
-    pub(super) fn filter_by_schema<T: Clone>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> Vec<T> {
-        if self.schema.explorer.schema.schemas.is_empty() || schema.is_empty() {
-            all.to_vec()
-        } else {
-            all.iter().filter(|item| schema_of(item) == schema).cloned().collect()
-        }
-    }
-
-    pub(super) fn count_by_schema<T>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> usize {
-        if self.schema.explorer.schema.schemas.is_empty() || schema.is_empty() {
-            all.len()
-        } else {
-            all.iter().filter(|item| schema_of(item) == schema).count()
-        }
-    }
-
-    /// Returns cached visible table names for `schema` + current search.
-    fn cached_explorer_tables(&mut self, schema: &str, search_query: &str) -> (usize, usize, Vec<String>) {
-        let connection_id = self
-            .connection
-            .lifecycle
-            .active_connection_id()
-            .map(str::to_owned)
-            .unwrap_or_default();
-        if let Some(cache) = self.schema.explorer.explorer_nav_cache.as_ref() {
-            if cache.connection_id == connection_id && cache.schema == schema && cache.search == search_query {
-                return (cache.total_count, cache.matching_count, cache.visible.clone());
-            }
-        }
-
-        let all_tables = self.schema_table_names(schema);
-        let (matching_count, visible) = filtered_explorer_tables(&all_tables, search_query);
-        let total_count = all_tables.len();
-        self.schema.explorer.explorer_nav_cache = Some(ExplorerNavCache {
-            connection_id,
-            schema: schema.to_owned(),
-            search: search_query.to_owned(),
-            total_count,
-            matching_count,
-            visible: visible.clone(),
-        });
-        (total_count, matching_count, visible)
-    }
-
     /// Tables folder. Unlike the other folders it reflects the active filter in both
     /// its count badge ("5/10") and its empty state.
     pub(super) fn draw_tables_folder(
@@ -303,7 +270,7 @@ impl DbProApp {
         }) {
             cache.matching_count
         } else {
-            self.schema_matching_table_count(schema, search_query)
+            self.schema.explorer.matching_table_count(schema, search_query)
         };
         let folder = TableFolderContext {
             theme: self.theme,
@@ -317,7 +284,8 @@ impl DbProApp {
             return;
         }
 
-        let (_total, _matching, tables) = self.cached_explorer_tables(schema, search_query);
+        let connection_id = self.connection.lifecycle.active_connection_id().unwrap_or_default();
+        let (_total, _matching, tables) = self.schema.explorer.cached_tables(connection_id, schema, search_query);
         if tables.is_empty() {
             folder.draw_empty_state(ui);
             return;
