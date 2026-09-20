@@ -1,8 +1,17 @@
 //! Category folders of the Codex navigator: Views, Functions and Triggers.
 
-use super::explorer_tree::{draw_category_folder, draw_codex_tree_row, CategoryFolder, CodexTreeRow};
+use super::explorer_schema_object_row_view::{SchemaObjectRowAction, SchemaObjectRowContext};
+use super::explorer_tree::{draw_category_folder, CategoryFolder};
 use super::*;
 use lucide_icons::Icon;
+
+struct SchemaObjectActionInput<'a> {
+    selection: SchemaObjectSelection,
+    schema: &'a str,
+    name: &'a str,
+    kind: &'a str,
+    query: Option<String>,
+}
 
 impl DbProApp {
     /// Views folder — only materialises the schema-scoped list when expanded.
@@ -86,81 +95,33 @@ impl DbProApp {
             self.schema.explorer.selected_schema_object.as_ref(),
             Some(SchemaObjectSelection::View(s)) if s == &view.name
         );
-
-        let (response, _) = draw_codex_tree_row(
+        let from = if view.schema.is_empty() {
+            view.name.clone()
+        } else {
+            format!("{}.{}", view.schema, view.name)
+        };
+        self.draw_schema_object_row(
             ui,
-            theme,
-            CodexTreeRow {
-                depth: 4,
-                is_expandable: false,
-                is_expanded: false,
-                icon: Icon::Eye,
-                icon_color: if is_selected { theme.accent } else { theme.success },
+            SchemaObjectRowContext {
+                theme: *theme,
                 label: &view.name,
+                icon: Icon::Eye,
+                icon_color: theme.success,
                 is_selected,
-                is_dimmed: false,
-                status_dot: None,
-                badge_text: None,
-                badge_accent: false,
-                count_text: None,
-                detail_text: None,
+                query_label: Some("Select Top 100 (Query)"),
+                query_icon: Icon::Play,
+                open_label: "Open View",
+                open_icon: Icon::Eye,
+                copy_label: "Copy View Name",
+            },
+            SchemaObjectActionInput {
+                selection: SchemaObjectSelection::View(view.name.clone()),
+                schema: &view.schema,
+                name: &view.name,
+                kind: "view",
+                query: Some(format!("SELECT *\nFROM {from}\nLIMIT 100;")),
             },
         );
-
-        let is_ctx = is_context_menu_triggered(&response, ui);
-        let mut open_query = false;
-        let mut copy_name = false;
-        let theme_copy = *theme;
-        context_action_menu(ui, &response, theme_copy, |ui, close_menu| {
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Play),
-                "Select Top 100 (Query)",
-                None,
-                theme_copy.text_primary,
-                theme_copy,
-            )
-            .clicked()
-            {
-                open_query = true;
-                *close_menu = true;
-            }
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Copy),
-                "Copy View Name",
-                None,
-                theme_copy.text_primary,
-                theme_copy,
-            )
-            .clicked()
-            {
-                copy_name = true;
-                *close_menu = true;
-            }
-        });
-
-        if response.clicked() && !is_ctx {
-            self.open_schema_object(
-                SchemaObjectSelection::View(view.name.clone()),
-                &view.schema,
-                &view.name,
-                "view",
-            );
-        }
-        if copy_name {
-            ui.output_mut(|o| o.copied_text = view.name.clone());
-            self.feedback.runtime_message = format!("Copied `{}` to clipboard", view.name);
-        }
-        if open_query {
-            let from = if view.schema.is_empty() {
-                view.name.clone()
-            } else {
-                format!("{}.{}", view.schema, view.name)
-            };
-            self.set_active_query_text(format!("SELECT *\nFROM {from}\nLIMIT 100;"));
-            self.workspace.active_tab = WorkspaceTab::Query;
-        }
     }
 
     /// One function row: routines and procedures share a row, differing by icon.
@@ -185,79 +146,31 @@ impl DbProApp {
                 function.name, function.identity_arguments, function.routine_type
             )
         };
-
-        let (response, _) = draw_codex_tree_row(
+        self.draw_schema_object_row(
             ui,
-            theme,
-            CodexTreeRow {
-                depth: 4,
-                is_expandable: false,
-                is_expanded: false,
-                icon,
-                icon_color: if is_selected { theme.accent } else { theme.code_type },
+            SchemaObjectRowContext {
+                theme: *theme,
                 label: &label,
+                icon,
+                icon_color: theme.code_type,
                 is_selected,
-                is_dimmed: false,
-                status_dot: None,
-                badge_text: None,
-                badge_accent: false,
-                count_text: None,
-                detail_text: None,
+                query_label: Some("Open Call in Query"),
+                query_icon: Icon::Play,
+                open_label: "Open Routine",
+                open_icon: Icon::Code2,
+                copy_label: "Copy Routine Name",
             },
-        );
-
-        let is_ctx = is_context_menu_triggered(&response, ui);
-        let mut open_query = false;
-        let mut copy_name = false;
-        let theme_copy = *theme;
-        context_action_menu(ui, &response, theme_copy, |ui, close_menu| {
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Play),
-                "Open Call in Query",
-                None,
-                theme_copy.text_primary,
-                theme_copy,
-            )
-            .clicked()
-            {
-                open_query = true;
-                *close_menu = true;
-            }
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Copy),
-                "Copy Routine Name",
-                None,
-                theme_copy.text_primary,
-                theme_copy,
-            )
-            .clicked()
-            {
-                copy_name = true;
-                *close_menu = true;
-            }
-        });
-
-        if response.clicked() && !is_ctx {
-            self.open_schema_object(
-                SchemaObjectSelection::Function {
+            SchemaObjectActionInput {
+                selection: SchemaObjectSelection::Function {
                     name: function.name.clone(),
                     identity_arguments: function.identity_arguments.clone(),
                 },
-                &function.schema,
-                &function.name,
-                "function",
-            );
-        }
-        if copy_name {
-            ui.output_mut(|o| o.copied_text = function.name.clone());
-            self.feedback.runtime_message = format!("Copied `{}` to clipboard", function.name);
-        }
-        if open_query {
-            self.set_active_query_text(format!("SELECT * FROM {}.{}();", function.schema, function.name));
-            self.workspace.active_tab = WorkspaceTab::Query;
-        }
+                schema: &function.schema,
+                name: &function.name,
+                kind: "function",
+                query: Some(format!("SELECT * FROM {}.{}();", function.schema, function.name)),
+            },
+        );
     }
 
     /// One trigger row. Triggers carry no schema, so the message omits it.
@@ -267,71 +180,61 @@ impl DbProApp {
             Some(SchemaObjectSelection::Trigger(s)) if s == &trigger.name
         );
         let label = format!("{} · {}", trigger.name, trigger.event);
-
-        let (response, _) = draw_codex_tree_row(
+        self.draw_schema_object_row(
             ui,
-            theme,
-            CodexTreeRow {
-                depth: 4,
-                is_expandable: false,
-                is_expanded: false,
-                icon: Icon::Zap,
-                icon_color: if is_selected { theme.accent } else { theme.warning },
+            SchemaObjectRowContext {
+                theme: *theme,
                 label: &label,
+                icon: Icon::Zap,
+                icon_color: theme.warning,
                 is_selected,
-                is_dimmed: false,
-                status_dot: None,
-                badge_text: None,
-                badge_accent: false,
-                count_text: None,
-                detail_text: None,
+                query_label: None,
+                query_icon: Icon::Play,
+                open_label: "View Trigger",
+                open_icon: Icon::Eye,
+                copy_label: "Copy Trigger Name",
+            },
+            SchemaObjectActionInput {
+                selection: SchemaObjectSelection::Trigger(trigger.name.clone()),
+                schema: "",
+                name: &trigger.name,
+                kind: "trigger",
+                query: None,
             },
         );
+    }
 
-        let is_ctx = is_context_menu_triggered(&response, ui);
-        let mut open_trigger = false;
-        let mut copy_name = false;
-        let theme_copy = *theme;
-        context_action_menu(ui, &response, theme_copy, |ui, close_menu| {
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Eye),
-                "View Trigger",
-                None,
-                theme_copy.text_primary,
-                theme_copy,
-            )
-            .clicked()
-            {
-                open_trigger = true;
-                *close_menu = true;
-            }
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Copy),
-                "Copy Trigger Name",
-                None,
-                theme_copy.text_primary,
-                theme_copy,
-            )
-            .clicked()
-            {
-                copy_name = true;
-                *close_menu = true;
-            }
-        });
-
-        if (response.clicked() && !is_ctx) || open_trigger {
-            self.open_schema_object(
-                SchemaObjectSelection::Trigger(trigger.name.clone()),
-                "",
-                &trigger.name,
-                "trigger",
-            );
+    fn draw_schema_object_row(
+        &mut self,
+        ui: &mut egui::Ui,
+        context: SchemaObjectRowContext<'_>,
+        input: SchemaObjectActionInput<'_>,
+    ) {
+        for action in context.draw(ui) {
+            self.apply_schema_object_row_action(action, &input, ui);
         }
-        if copy_name {
-            ui.output_mut(|o| o.copied_text = trigger.name.clone());
-            self.feedback.runtime_message = format!("Copied `{}` to clipboard", trigger.name);
+    }
+
+    fn apply_schema_object_row_action(
+        &mut self,
+        action: SchemaObjectRowAction,
+        input: &SchemaObjectActionInput<'_>,
+        ui: &mut egui::Ui,
+    ) {
+        match action {
+            SchemaObjectRowAction::Open => {
+                self.open_schema_object(input.selection.clone(), input.schema, input.name, input.kind);
+            }
+            SchemaObjectRowAction::OpenQuery => {
+                if let Some(query) = input.query.as_ref() {
+                    self.set_active_query_text(query.clone());
+                    self.workspace.active_tab = WorkspaceTab::Query;
+                }
+            }
+            SchemaObjectRowAction::CopyName => {
+                ui.output_mut(|output| output.copied_text = input.name.to_owned());
+                self.feedback.runtime_message = format!("Copied `{}` to clipboard", input.name);
+            }
         }
     }
 
