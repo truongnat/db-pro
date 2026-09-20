@@ -30,6 +30,34 @@ impl Default for TableMutationState {
     }
 }
 
+impl TableMutationState {
+    pub(crate) fn mutation_error_for_identity(&self, identity: &RowIdentity) -> bool {
+        let Some(failure) = self.table_mutation_error.as_ref() else {
+            return false;
+        };
+        matches!(
+            failure.target.as_ref(),
+            Some(MutationTarget::Update { identity: target, .. })
+                | Some(MutationTarget::Delete { identity: target, .. }) if target == identity
+        )
+    }
+
+    pub(crate) fn mutation_error_for_cell(&self, identity: &RowIdentity, column_index: usize) -> bool {
+        let Some(failure) = self.table_mutation_error.as_ref() else {
+            return false;
+        };
+        match failure.target.as_ref() {
+            Some(MutationTarget::Update {
+                identity: target,
+                columns,
+                ..
+            }) => target == identity && columns.contains(&column_index),
+            Some(MutationTarget::Delete { identity: target, .. }) => target == identity,
+            Some(MutationTarget::Insert) | None => false,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

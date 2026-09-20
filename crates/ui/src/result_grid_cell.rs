@@ -43,7 +43,9 @@ impl DbProApp {
 
         let staged_cell = self.staged_cell_value(result, row_index, column_index);
         let display_cell = staged_cell.as_ref().unwrap_or(cell);
-        let cell_selected = self.is_cell_selected(selection_lookup, (row_index, column_index));
+        let cell_selected = self
+            .table_data
+            .is_cell_selected(selection_lookup, (row_index, column_index));
         let editing = editable && self.table_data.data_editing_cell == Some((row_index, column_index));
         let validation_error = editing && self.table_data.data_edit_error.is_some();
         let conflict_error = (cell_mutation_error || row_mutation_error)
@@ -193,7 +195,7 @@ impl DbProApp {
                     return;
                 }
                 let modifiers = ui.input(|input| input.modifiers);
-                self.select_cell_range(
+                self.table_data.select_cell_range(
                     visible_indexes,
                     &selection_lookup.row_positions,
                     (row_index, column_index),
@@ -472,12 +474,14 @@ impl DbProApp {
             // Keep an existing rectangular selection when the context menu
             // is opened inside it. Right-clicking outside the range starts
             // a new selection at the clicked cell.
-            let is_inside_range = self.is_cell_selected(selection_lookup, (row_index, column_index));
+            let is_inside_range = self
+                .table_data
+                .is_cell_selected(selection_lookup, (row_index, column_index));
             if !is_inside_range {
-                self.select_single_cell((row_index, column_index));
+                self.table_data.select_single_cell((row_index, column_index));
             }
             if !self.table_data.selected_rows.contains(&row_index) {
-                self.select_single_row(row_index);
+                self.table_data.select_single_row(row_index);
             } else if !is_inside_range {
                 self.table_data.selected_row = Some(row_index);
                 self.table_data.selection_anchor_row = Some(row_index);
@@ -516,30 +520,30 @@ impl DbProApp {
             self.copy_cell_at(ui, result, row_index, column_index);
         }
         if req.copy_row {
-            self.select_single_row(row_index);
+            self.table_data.select_single_row(row_index);
             self.copy_selected_row(ui, result);
         }
         if req.copy_selected_rows {
             if !self.table_data.selected_rows.contains(&row_index) {
-                self.select_single_row(row_index);
+                self.table_data.select_single_row(row_index);
             }
             self.copy_selected_rows(ui, result);
         }
         if req.copy_selected_rows_headers {
             if !self.table_data.selected_rows.contains(&row_index) {
-                self.select_single_row(row_index);
+                self.table_data.select_single_row(row_index);
             }
             self.copy_selected_rows_with_headers(ui, result);
         }
         if req.copy_selected_rows_json {
             if !self.table_data.selected_rows.contains(&row_index) {
-                self.select_single_row(row_index);
+                self.table_data.select_single_row(row_index);
             }
             self.copy_selected_rows_as_json(ui, result);
         }
         if req.copy_selected_rows_insert {
             if !self.table_data.selected_rows.contains(&row_index) {
-                self.select_single_row(row_index);
+                self.table_data.select_single_row(row_index);
             }
             self.copy_selected_rows_as_insert(ui, result);
         }
@@ -571,7 +575,7 @@ impl DbProApp {
         }
         if req.delete_row && editable {
             if !self.table_data.selected_rows.contains(&row_index) {
-                self.select_single_row(row_index);
+                self.table_data.select_single_row(row_index);
             }
             self.request_delete_selected_data_rows(result);
         }

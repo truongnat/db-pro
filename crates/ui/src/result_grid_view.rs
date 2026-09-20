@@ -436,7 +436,8 @@ impl DbProApp {
         if !ui.ctx().wants_keyboard_input()
             && ui.input(|input| input.key_pressed(egui::Key::A) && Self::primary_modifier_pressed(input))
         {
-            self.select_all_visible_cells(indexes, order);
+            self.table_data.select_all_visible_cells(indexes, order);
+            self.feedback.copy_status.clear();
             return;
         }
 
@@ -725,7 +726,9 @@ impl DbProApp {
         let row_dirty = self.staged_row_deleted(result, row_index)
             || (0..result.columns.len())
                 .any(|column_index| self.staged_cell_value(result, row_index, column_index).is_some());
-        let row_mutation_error = self.mutation_error_for_row(result, row_index);
+        let row_mutation_error = self
+            .row_identity_for_result(result, row_index)
+            .is_some_and(|identity| self.table_mutation.mutation_error_for_identity(&identity));
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
@@ -769,7 +772,7 @@ impl DbProApp {
                 }
                 self.table_data.selected_cell = None;
                 let modifiers = ui.input(|input| input.modifiers);
-                self.select_visible_row(
+                self.table_data.select_visible_row(
                     rows.indexes,
                     &rows.selection_lookup.row_positions,
                     position,
@@ -797,7 +800,9 @@ impl DbProApp {
                         row_selected,
                         row_dirty,
                         row_mutation_error,
-                        cell_mutation_error: self.mutation_error_for_cell(result, row_index, column_index),
+                        cell_mutation_error: self.row_identity_for_result(result, row_index).is_some_and(|identity| {
+                            self.table_mutation.mutation_error_for_cell(&identity, column_index)
+                        }),
                         editable: rows.editable,
                         width,
                         cell,

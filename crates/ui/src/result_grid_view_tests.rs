@@ -18,8 +18,10 @@ fn row_range_selection_follows_filtered_sort_order() {
     let mut app = DbProApp::default();
     let indexes = [4, 1, 7, 2];
     let lookup = GridSelectionLookup::new(&indexes, &[]);
-    app.select_visible_row(&indexes, &lookup.row_positions, 1, false, false);
-    app.select_visible_row(&indexes, &lookup.row_positions, 3, true, false);
+    app.table_data
+        .select_visible_row(&indexes, &lookup.row_positions, 1, false, false);
+    app.table_data
+        .select_visible_row(&indexes, &lookup.row_positions, 3, true, false);
 
     assert_eq!(
         app.table_data.selected_rows.into_iter().collect::<Vec<_>>(),
@@ -34,8 +36,10 @@ fn toggling_last_row_keeps_a_non_empty_selection() {
     let mut app = DbProApp::default();
     let indexes = [3];
     let lookup = GridSelectionLookup::new(&indexes, &[]);
-    app.select_visible_row(&indexes, &lookup.row_positions, 0, false, false);
-    app.select_visible_row(&indexes, &lookup.row_positions, 0, false, true);
+    app.table_data
+        .select_visible_row(&indexes, &lookup.row_positions, 0, false, false);
+    app.table_data
+        .select_visible_row(&indexes, &lookup.row_positions, 0, false, true);
 
     assert_eq!(app.table_data.selected_rows.into_iter().collect::<Vec<_>>(), vec![3]);
     assert_eq!(app.table_data.selected_row, Some(3));
@@ -48,19 +52,20 @@ fn cell_range_selection_uses_visible_row_and_column_order() {
     let order = [2, 0, 1];
     let lookup = GridSelectionLookup::new(&indexes, &order);
 
-    app.select_single_cell((1, 0));
-    app.select_cell_range(&indexes, &lookup.row_positions, (2, 1), true);
+    app.table_data.select_single_cell((1, 0));
+    app.table_data
+        .select_cell_range(&indexes, &lookup.row_positions, (2, 1), true);
 
     assert_eq!(app.table_data.selected_cell, Some((2, 1)));
     assert_eq!(
         app.table_data.selected_rows.iter().copied().collect::<Vec<_>>(),
         vec![1, 2, 7]
     );
-    assert!(app.is_cell_selected(&lookup, (1, 0)));
-    assert!(app.is_cell_selected(&lookup, (7, 0)));
-    assert!(app.is_cell_selected(&lookup, (2, 1)));
-    assert!(!app.is_cell_selected(&lookup, (1, 2)));
-    assert!(!app.is_cell_selected(&lookup, (4, 0)));
+    assert!(app.table_data.is_cell_selected(&lookup, (1, 0)));
+    assert!(app.table_data.is_cell_selected(&lookup, (7, 0)));
+    assert!(app.table_data.is_cell_selected(&lookup, (2, 1)));
+    assert!(!app.table_data.is_cell_selected(&lookup, (1, 2)));
+    assert!(!app.table_data.is_cell_selected(&lookup, (4, 0)));
 }
 
 #[test]
@@ -69,12 +74,12 @@ fn select_all_visible_cells_covers_current_grid() {
     let indexes = [5, 2, 9];
     let order = [1, 0, 3];
     let lookup = GridSelectionLookup::new(&indexes, &order);
-    app.select_all_visible_cells(&indexes, &order);
+    app.table_data.select_all_visible_cells(&indexes, &order);
 
     assert_eq!(app.table_data.selected_cell, Some((9, 3)));
     assert_eq!(app.table_data.selection_anchor_cell, Some((5, 1)));
     assert!([5, 2, 9].iter().all(|row| app.table_data.selected_rows.contains(row)));
-    assert!(app.is_cell_selected(&lookup, (2, 0)));
+    assert!(app.table_data.is_cell_selected(&lookup, (2, 0)));
 }
 
 #[test]

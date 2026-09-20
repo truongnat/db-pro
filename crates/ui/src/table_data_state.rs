@@ -77,6 +77,144 @@ impl Default for TableDataState {
 }
 
 impl TableDataState {
+    pub(crate) fn select_visible_row(
+        &mut self,
+        indexes: &[usize],
+        row_positions: &HashMap<usize, usize>,
+        position: usize,
+        extend: bool,
+        toggle: bool,
+    ) {
+        let Some(&row_index) = indexes.get(position) else {
+            return;
+        };
+
+        if extend {
+            let anchor = self.selection_anchor_row.or(self.selected_row).unwrap_or(row_index);
+            let anchor_position = row_positions.get(&anchor).copied().unwrap_or(position);
+            let (start, end) = if anchor_position <= position {
+                (anchor_position, position)
+            } else {
+                (position, anchor_position)
+            };
+            self.selected_rows.clear();
+            self.selected_rows.extend(indexes[start..=end].iter().copied());
+        } else if toggle {
+            if !self.selected_rows.remove(&row_index) {
+                self.selected_rows.insert(row_index);
+            }
+            if self.selected_rows.is_empty() {
+                self.selected_rows.insert(row_index);
+            }
+        } else {
+            self.selected_rows.clear();
+            self.selected_rows.insert(row_index);
+        }
+
+        self.selected_row = if self.selected_rows.contains(&row_index) {
+            Some(row_index)
+        } else {
+            self.selected_rows.iter().next().copied()
+        };
+        if !extend {
+            self.selection_anchor_row = Some(row_index);
+        }
+    }
+
+    pub(crate) fn select_single_row(&mut self, row_index: usize) {
+        self.selected_rows.clear();
+        self.selected_rows.insert(row_index);
+        self.selected_row = Some(row_index);
+        self.selection_anchor_row = Some(row_index);
+        self.selection_anchor_cell = None;
+    }
+
+    pub(crate) fn select_single_cell(&mut self, selection: (usize, usize)) {
+        self.selected_cell = Some(selection);
+        self.selected_rows.clear();
+        self.selected_rows.insert(selection.0);
+        self.selected_row = Some(selection.0);
+        self.selection_anchor_row = Some(selection.0);
+        self.selection_anchor_cell = Some(selection);
+    }
+
+    pub(crate) fn select_cell_range(
+        &mut self,
+        indexes: &[usize],
+        row_positions: &HashMap<usize, usize>,
+        focus: (usize, usize),
+        extend: bool,
+    ) {
+        if !extend {
+            self.select_single_cell(focus);
+            return;
+        }
+
+        let anchor = self.selection_anchor_cell.or(self.selected_cell).unwrap_or(focus);
+        let anchor_row = row_positions.get(&anchor.0).copied().unwrap_or(0);
+        let focus_row = row_positions.get(&focus.0).copied().unwrap_or(anchor_row);
+        let (row_start, row_end) = if anchor_row <= focus_row {
+            (anchor_row, focus_row)
+        } else {
+            (focus_row, anchor_row)
+        };
+        self.selected_rows.clear();
+        self.selected_rows.extend(indexes[row_start..=row_end].iter().copied());
+        self.selected_row = Some(focus.0);
+        self.selected_cell = Some(focus);
+        self.selection_anchor_row = Some(anchor.0);
+        self.selection_anchor_cell = Some(anchor);
+    }
+
+    pub(crate) fn select_all_visible_cells(&mut self, indexes: &[usize], order: &[usize]) {
+        let (Some(&first_row), Some(&last_row), Some(&first_column), Some(&last_column)) =
+            (indexes.first(), indexes.last(), order.first(), order.last())
+        else {
+            return;
+        };
+        self.selected_rows.clear();
+        self.selected_rows.extend(indexes.iter().copied());
+        self.selection_anchor_row = Some(first_row);
+        self.selection_anchor_cell = Some((first_row, first_column));
+        self.selected_row = Some(last_row);
+        self.selected_cell = Some((last_row, last_column));
+    }
+
+    pub(crate) fn is_cell_selected(
+        &self,
+        lookup: &super::result_grid_view::GridSelectionLookup,
+        selection: (usize, usize),
+    ) -> bool {
+        let Some(anchor) = self.selection_anchor_cell else {
+            return self.selected_cell == Some(selection);
+        };
+        let Some(focus) = self.selected_cell else {
+            return false;
+        };
+        let Some(&anchor_row) = lookup.row_positions.get(&anchor.0) else {
+            return self.selected_cell == Some(selection);
+        };
+        let Some(&focus_row) = lookup.row_positions.get(&focus.0) else {
+            return false;
+        };
+        let Some(&selection_row) = lookup.row_positions.get(&selection.0) else {
+            return false;
+        };
+        let Some(&anchor_column) = lookup.column_positions.get(&anchor.1) else {
+            return self.selected_cell == Some(selection);
+        };
+        let Some(&focus_column) = lookup.column_positions.get(&focus.1) else {
+            return false;
+        };
+        let Some(&selection_column) = lookup.column_positions.get(&selection.1) else {
+            return false;
+        };
+        let row_in_range = selection_row >= anchor_row.min(focus_row) && selection_row <= anchor_row.max(focus_row);
+        let column_in_range =
+            selection_column >= anchor_column.min(focus_column) && selection_column <= anchor_column.max(focus_column);
+        row_in_range && column_in_range
+    }
+
     pub(super) fn invalidate_grid_projection(&mut self) {
         self.grid_projection_epoch = self.grid_projection_epoch.wrapping_add(1);
     }
