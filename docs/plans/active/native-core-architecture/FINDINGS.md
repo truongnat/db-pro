@@ -187,6 +187,9 @@ composition.
 Fix in `ce304360`: workflow event routing and stale session/run/document
 validation now live in `agent_events.rs`; the root wrapper only passes the
 event and Agent aggregate into that reducer.
+Fix in `097c121d`: document snapshots and UI-to-core Agent context mapping now
+live in the pure `agent_context.rs` mapper; `AgentState` supplies explicit
+document/schema inputs instead of owning the conversion algorithm.
 Table runtime events now follow the same boundary: `table_events.rs` owns
 request matching and table/grid state transitions, returning typed effects for
 cache invalidation and staged-change retry instead of reaching through the

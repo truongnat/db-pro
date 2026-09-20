@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `ce304360`.
+Source checkpoint: `097c121d`.
 
 ## Current change
 
@@ -120,6 +120,9 @@ Source checkpoint: `ce304360`.
 - Agent workflow event routing now also lives in `agent_events.rs`; document,
   session and run identity checks are performed against `AgentState` there,
   while the `DbProApp` method is only a thin composition-root adapter.
+- Agent document snapshots and UI-to-core context conversion now live in the
+  pure `agent_context.rs` mapper; it receives explicit query/schema inputs and
+  no longer depends on `DbProApp`.
 - Table event handling now lives in explicit-state reducers in
   `table_events.rs`; metadata/data/row-reload transitions return typed cache
   invalidation and staged-apply effects, while the root only executes those
