@@ -68,7 +68,7 @@ fn capture_size_from_env() -> Option<egui::Vec2> {
 /// Frames to render before asking for a screenshot. The connection list arrives
 /// asynchronously within the first couple of frames; the margin covers a viewport
 /// resize landing and the first layout pass settling.
-const SETTLE_FRAMES: u32 = 12;
+const SETTLE_FRAMES: u32 = 60;
 
 /// The settle frame count, honouring [`SETTLE_ENV`]. A malformed or zero value
 /// falls back to the default, so a typo cannot produce a blank capture.
@@ -139,29 +139,43 @@ impl CaptureApp {
 
 impl eframe::App for CaptureApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        self.prepare_loading();
+        self.inner.update(ctx, frame);
+        self.open_requested_surface();
+        self.pin_viewport(ctx);
+        if self.capture_screenshot(ctx) {
+            return;
+        }
+        self.advance_capture(ctx);
+    }
+}
+
+impl CaptureApp {
+    fn prepare_loading(&mut self) {
         if !self.prepared_loading && std::env::var_os(LOADING_ENV).is_some() {
             self.inner.prepare_loading_for_capture();
             self.prepared_loading = true;
         }
-        self.inner.update(ctx, frame);
+    }
 
+    fn open_requested_surface(&mut self) {
+        if self.opened_dialog || self.frames < 2 {
+            return;
+        }
         // Evidence hook: when asked, open the new-connection dialog so the capture
         // documents the password input + eye toggle (the affected surface for the
         // input click-steal fix) instead of the default window. Gated by an env var
         // so a normal launch is unaffected.
-        if !self.opened_dialog && std::env::var_os(NEW_CONNECTION_ENV).is_some() && self.frames >= 2 {
+        if std::env::var_os(NEW_CONNECTION_ENV).is_some() {
             self.inner.open_new_connection_for_capture();
             self.opened_dialog = true;
-        }
-        if !self.opened_dialog && std::env::var_os(CONNECTION_ERROR_ENV).is_some() && self.frames >= 2 {
+        } else if std::env::var_os(CONNECTION_ERROR_ENV).is_some() {
             self.inner.open_connection_error_for_capture();
             self.opened_dialog = true;
-        }
-        if !self.opened_dialog && std::env::var_os(EDIT_CONNECTION_ENV).is_some() && self.frames >= 2 {
+        } else if std::env::var_os(EDIT_CONNECTION_ENV).is_some() {
             self.inner.open_edit_connection_for_capture();
             self.opened_dialog = true;
-        }
-        if !self.opened_dialog && std::env::var_os(QUERY_WORKSPACE_ENV).is_some() && self.frames >= 2 {
+        } else if std::env::var_os(QUERY_WORKSPACE_ENV).is_some() {
             if std::env::var_os(QUERY_LIGHT_ENV).is_some() {
                 self.inner.open_query_workspace_for_capture_light();
             } else {
@@ -169,14 +183,18 @@ impl eframe::App for CaptureApp {
             }
             self.opened_dialog = true;
         }
+    }
 
+    fn pin_viewport(&self, ctx: &egui::Context) {
         // Re-assert the pinned viewport size every frame so the window cannot
         // maximize itself away from the requested evidence size.
         if let Some(size) = self.pinned {
             ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(false));
             ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
         }
+    }
 
+    fn capture_screenshot(&self, ctx: &egui::Context) -> bool {
         // The reply to `ViewportCommand::Screenshot`.
         let captured = ctx.input(|input| {
             input.events.iter().find_map(|event| match event {
@@ -187,9 +205,13 @@ impl eframe::App for CaptureApp {
         if let Some(image) = captured {
             self.write_png(&image);
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            return;
+            true
+        } else {
+            false
         }
+    }
 
+    fn advance_capture(&mut self, ctx: &egui::Context) {
         self.frames += 1;
         if self.frames >= self.settle && !self.requested {
             self.requested = true;
