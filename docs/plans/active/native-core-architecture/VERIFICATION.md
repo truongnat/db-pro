@@ -1,25 +1,46 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `5d42d5e9`.
+Source checkpoint: `242b918a`.
 
 ## Current change
 
-## Gate evidence at `c9720057`
+The native Explorer interaction boundary is being migrated in vertical slices.
+Connection rows, database nodes, schema nodes, table rows and schema-object
+rows now collect typed intents in view-owned contexts; the composition root
+keeps the stateful reducers and runtime/workspace side effects. The plan
+remains `IMPLEMENTING` because other large feature surfaces still implement
+rendering directly on the root.
+
+## Gate evidence at `242b918a`
 
 - `cargo fmt --all -- --check`: passed.
 - `cargo check --workspace`: passed.
 - `cargo clippy --workspace --all-targets -- -D warnings`: passed.
-- `cargo test --workspace --no-fail-fast --quiet`: passed; 633 UI tests and
-  all workspace suites passed, with only environment-gated tests ignored.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri, 630 UI and all other workspace suites
+  passed, with only environment-gated tests ignored.
 - `cargo build --release --locked -p db-pro-native`: passed.
 - `cargo build --release --locked -p db-pro-native --features capture`: passed.
 - `bash scripts/check-ui-architecture.sh`: passed.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
   passed with no changed production files after the commits.
-- Runtime capture: `/tmp/db-pro-native-core-c9720057.png`, 1280×800, showed
+- Runtime capture: `/tmp/db-pro-native-core-242b918a.png`, 1280×800, showed
   the centered New Connection dialog with separated header, divider and
-  right-aligned close icon. The release binary was then left running for
-  manual verification.
+  right-aligned close icon. The latest release binary was then left running
+  for manual verification as PID `87302`.
+
+- `761db9ed`: connection-row painting and context menu now return a typed
+  `ConnectionRowAction`; lifecycle/workspace/clipboard/dialog effects remain
+  in the root reducer adapter.
+- `0d290db7`: table rows now return typed `TableRowAction` intents, while SQL
+  preview generation and table workspace transitions stay in the reducer.
+- `e9405d82`: schema-node expansion and schema activation intent are isolated
+  from staged-change/workspace reset logic.
+- `a02b8f4e`: connected database-node expansion is isolated in its own view
+  context.
+- `242b918a`: View/Function/Trigger rows share a typed schema-object row
+  context for open/query/copy intents; schema-object activation remains in the
+  root adapter.
 
 - Connection dialog state aggregate added under `crates/ui/src/connection/state.rs`.
 - Connection dialog view, form, advanced panels, events and workspace actions

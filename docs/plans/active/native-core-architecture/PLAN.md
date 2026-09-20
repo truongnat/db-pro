@@ -49,6 +49,9 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
 8. Add architecture checks so new feature code cannot reach another feature's
    internals or reintroduce raw control paths — completed by
    `scripts/check-ui-architecture.sh` and CI.
+9. Migrate native Explorer rendering in vertical slices: connection/database/
+   schema/table/schema-object row views now emit typed intents; folder,
+   workspace and runtime reducers remain in progress.
 
 ## Non-goals
 
