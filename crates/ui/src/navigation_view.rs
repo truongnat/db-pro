@@ -394,7 +394,7 @@ impl DbProApp {
                         );
                     }
                     OutputTab::Messages => {
-                        for message in self.active_query_messages().iter().rev().take(8) {
+                        for message in self.query_session_state.active_messages().iter().rev().take(8) {
                             ui.label(RichText::new(message).small().color(self.theme.text_secondary));
                         }
                     }

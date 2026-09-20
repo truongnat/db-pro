@@ -137,10 +137,6 @@ impl DbProApp {
         }
     }
 
-    pub(crate) fn active_query_messages(&self) -> &[String] {
-        self.query_session_state.active_messages()
-    }
-
     pub(crate) fn active_query_connection_id(&self) -> Option<&str> {
         self.query_session_state
             .active_connection_id()

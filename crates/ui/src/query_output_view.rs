@@ -97,10 +97,12 @@ impl DbProApp {
                                             self.theme.accent,
                                         );
                                     }
-                                } else if tab == OutputTab::Messages && !self.active_query_messages().is_empty() {
+                                } else if tab == OutputTab::Messages
+                                    && !self.query_session_state.active_messages().is_empty()
+                                {
                                     badge(
                                         ui,
-                                        &self.active_query_messages().len().to_string(),
+                                        &self.query_session_state.active_messages().len().to_string(),
                                         self.theme.surface_hover,
                                         self.theme.text_muted,
                                     );
@@ -184,7 +186,7 @@ impl DbProApp {
     /// Query notice log.
     pub(super) fn draw_messages_pane(&mut self, ui: &mut egui::Ui) {
         let output_width = ui.available_width();
-        let messages = self.active_query_messages();
+        let messages = self.query_session_state.active_messages();
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width(output_width.max(0.0));
             if messages.is_empty() {
