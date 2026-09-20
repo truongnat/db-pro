@@ -464,7 +464,8 @@ impl DbProApp {
             );
             ui.add_space(SPACE_XS);
             let tables: Vec<(String, String)> = self
-                .schema_explorer
+                .schema
+                .explorer
                 .schema
                 .table_details
                 .iter()
@@ -584,7 +585,8 @@ impl DbProApp {
                 ui.checkbox(&mut self.management.masking.masking_keyed, "Keyed hash");
                 if secondary_button(ui, "Suggest cols", self.theme).clicked() {
                     let names: Vec<String> = self
-                        .schema_explorer
+                        .schema
+                        .explorer
                         .schema
                         .table_details
                         .first()
@@ -698,9 +700,10 @@ impl DbProApp {
             ui.label(
                 RichText::new(format!(
                     "{} · {}",
-                    plural_count(self.schema_explorer.schema.table_details.len(), "table", "tables"),
+                    plural_count(self.schema.explorer.schema.table_details.len(), "table", "tables"),
                     plural_count(
-                        self.schema_explorer
+                        self.schema
+                            .explorer
                             .schema
                             .table_details
                             .iter()
@@ -746,16 +749,18 @@ impl DbProApp {
         ui.add_space(8.0);
         if compact_button_with_icon(ui, Icon::Camera, "Take snapshot", self.theme).clicked() {
             let connection_name = self.active_connection_name().to_owned();
-            self.schema_compare
-                .take_snapshot(&self.schema_explorer.schema, &connection_name, &mut self.feedback);
+            self.schema
+                .compare
+                .take_snapshot(&self.schema.explorer.schema, &connection_name, &mut self.feedback);
         }
         if compact_button_with_icon(ui, Icon::GitCompare, "Diff vs snapshot", self.theme).clicked() {
-            self.schema_compare
-                .diff_against_snapshot(&self.schema_explorer.schema, &mut self.feedback);
+            self.schema
+                .compare
+                .diff_against_snapshot(&self.schema.explorer.schema, &mut self.feedback);
             self.workspace.active_tab = WorkspaceTab::SchemaCompare;
         }
         ui.add_space(8.0);
-        if let Some(snap) = &self.schema_compare.schema_snapshot {
+        if let Some(snap) = &self.schema.compare.schema_snapshot {
             ui.label(
                 RichText::new(format!("Snapshot: {}", snap.label))
                     .small()
@@ -783,13 +788,14 @@ impl DbProApp {
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if secondary_button_with_icon(ui, Icon::GitCompare, "Diff now", self.theme).clicked() {
-                    self.schema_compare
-                        .diff_against_snapshot(&self.schema_explorer.schema, &mut self.feedback);
+                    self.schema
+                        .compare
+                        .diff_against_snapshot(&self.schema.explorer.schema, &mut self.feedback);
                 }
                 if secondary_button_with_icon(ui, Icon::Camera, "Snapshot", self.theme).clicked() {
                     let connection_name = self.active_connection_name().to_owned();
-                    self.schema_compare.take_snapshot(
-                        &self.schema_explorer.schema,
+                    self.schema.compare.take_snapshot(
+                        &self.schema.explorer.schema,
                         &connection_name,
                         &mut self.feedback,
                     );
@@ -797,7 +803,7 @@ impl DbProApp {
             });
         });
         ui.add_space(SPACE_MD);
-        let Some(diff) = self.schema_compare.schema_diff.clone() else {
+        let Some(diff) = self.schema.compare.schema_diff.clone() else {
             card_frame(self.theme).show(ui, |ui| {
                 ui.set_min_width((ui.available_width() - 8.0).max(0.0));
                 empty_state(
@@ -835,9 +841,9 @@ impl DbProApp {
             section_label(ui, "MIGRATION PLAN", self.theme);
             if primary_button_with_icon(ui, Icon::FileCode2, "Generate migration plan", self.theme).clicked() {
                 let driver = self.active_driver().to_owned();
-                self.schema_compare.plan_migration(&driver, &mut self.feedback);
+                self.schema.compare.plan_migration(&driver, &mut self.feedback);
             }
-            if let Some(plan) = &self.schema_compare.migration_plan {
+            if let Some(plan) = &self.schema.compare.migration_plan {
                 ui.label(
                     RichText::new(format!(
                         "{} ops · fingerprint {} · destructive={}",
@@ -866,21 +872,22 @@ impl DbProApp {
                     );
                 }
             }
-            if !self.schema_compare.migration_preview_sql.is_empty() {
+            if !self.schema.compare.migration_preview_sql.is_empty() {
                 ui.label(
-                    RichText::new(&self.schema_compare.migration_preview_sql)
+                    RichText::new(&self.schema.compare.migration_preview_sql)
                         .small()
                         .monospace()
                         .color(self.theme.text_primary),
                 );
                 if self
-                    .schema_compare
+                    .schema
+                    .compare
                     .migration_plan
                     .as_ref()
                     .is_some_and(|p| p.has_destructive)
                 {
                     ui.checkbox(
-                        &mut self.schema_compare.migration_confirm_destructive,
+                        &mut self.schema.compare.migration_confirm_destructive,
                         "Confirm destructive operations (never auto-applied)",
                     );
                 }
@@ -898,22 +905,22 @@ impl DbProApp {
             );
             input_full_width(
                 ui,
-                &mut self.schema_compare.data_diff_target_id,
+                &mut self.schema.compare.data_diff_target_id,
                 "target connection id",
                 self.theme,
             );
-            input_full_width(ui, &mut self.schema_compare.data_diff_schema, "schema", self.theme);
-            input_full_width(ui, &mut self.schema_compare.data_diff_table, "table", self.theme);
+            input_full_width(ui, &mut self.schema.compare.data_diff_schema, "schema", self.theme);
+            input_full_width(ui, &mut self.schema.compare.data_diff_table, "table", self.theme);
             input_full_width(
                 ui,
-                &mut self.schema_compare.data_diff_keys,
+                &mut self.schema.compare.data_diff_keys,
                 "key columns (comma)",
                 self.theme,
             );
             if primary_button_with_icon(ui, Icon::GitCompare, "Compare rows", self.theme).clicked() {
                 self.request_data_diff_keyed();
             }
-            if let Some(diff) = &self.schema_compare.data_diff_result {
+            if let Some(diff) = &self.schema.compare.data_diff_result {
                 ui.label(
                     RichText::new(format!(
                         "counts src={} tgt={} · +{} -{} ~{} ={} · truncated={}",
@@ -932,15 +939,15 @@ impl DbProApp {
                 ui.horizontal(|ui| {
                     for label in ["all", "added", "removed", "changed"] {
                         if ui
-                            .selectable_label(self.schema_compare.data_diff_filter == label, label)
+                            .selectable_label(self.schema.compare.data_diff_filter == label, label)
                             .clicked()
                         {
-                            self.schema_compare.data_diff_filter = label.to_owned();
+                            self.schema.compare.data_diff_filter = label.to_owned();
                         }
                     }
                 });
                 for row in &diff.row_diffs {
-                    let include = match self.schema_compare.data_diff_filter.as_str() {
+                    let include = match self.schema.compare.data_diff_filter.as_str() {
                         "added" => row.state == db_pro_core::domain::cross_connection::DataRowState::Added,
                         "removed" => row.state == db_pro_core::domain::cross_connection::DataRowState::Removed,
                         "changed" => row.state == db_pro_core::domain::cross_connection::DataRowState::Changed,
@@ -969,7 +976,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        match self.schema_compare.build_data_diff_request(request_id, source_id) {
+        match self.schema.compare.build_data_diff_request(request_id, source_id) {
             Ok(command) => {
                 self.dispatch_command(command);
                 self.feedback.runtime_message = "Running key-aware data compare…".into();

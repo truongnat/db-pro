@@ -3,9 +3,9 @@ use super::*;
 
 impl DbProApp {
     pub(crate) fn open_table(&mut self, table: String) {
-        if self.schema_explorer.selected_table.as_deref() == Some(&table) {
+        if self.schema.explorer.selected_table.as_deref() == Some(&table) {
             self.workspace.active_tab = WorkspaceTab::Table;
-            self.schema_explorer.record_recent_table(&table);
+            self.schema.explorer.record_recent_table(&table);
             return;
         }
         if !self.table.mutation.staged_changes.is_empty() {
@@ -18,15 +18,15 @@ impl DbProApp {
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
-            self.schema_explorer.selected_table.as_deref(),
+            self.schema.explorer.selected_table.as_deref(),
         );
         self.table.data.persist_layout(scope);
-        self.schema_explorer.record_recent_table(&table);
-        self.schema_explorer.selected_table = Some(table);
+        self.schema.explorer.record_recent_table(&table);
+        self.schema.explorer.selected_table = Some(table);
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
-            self.schema_explorer.selected_table.as_deref(),
+            self.schema.explorer.selected_table.as_deref(),
         );
         self.table.data.restore_layout(scope);
         self.request_table_info();
@@ -265,7 +265,7 @@ impl DbProApp {
                     return;
                 }
                 self.workspace.pending_navigation_action = None;
-                self.schema_explorer.selected_table = None;
+                self.schema.explorer.selected_table = None;
                 self.table.state.table_info = None;
                 self.table.state.table_ddl = None;
                 self.table.state.table_info_error = None;
@@ -293,23 +293,23 @@ impl DbProApp {
                 self.table.editing.discard_changes_confirmation = false;
             }
             WorkspaceTab::SchemaObject => {
-                self.schema_explorer.selected_schema_object = None;
-                self.schema_explorer.schema_object_view = SchemaObjectView::Definition;
+                self.schema.explorer.selected_schema_object = None;
+                self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
                 self.table.data_query.result = None;
                 self.table.data_query.total_rows = None;
                 self.table.data_query.request = None;
             }
             WorkspaceTab::Diagram => {
-                self.diagram.search.clear();
-                self.diagram.show_all = false;
-                self.diagram.pan = egui::Vec2::ZERO;
-                self.diagram.pan_origin = None;
+                self.schema.diagram.search.clear();
+                self.schema.diagram.show_all = false;
+                self.schema.diagram.pan = egui::Vec2::ZERO;
+                self.schema.diagram.pan_origin = None;
             }
             WorkspaceTab::SchemaWorkbench => {
-                self.schema_workbench.apply_confirmation = false;
+                self.schema.workbench.apply_confirmation = false;
             }
             WorkspaceTab::SchemaCompare => {
-                self.schema_compare.schema_diff = None;
+                self.schema.compare.schema_diff = None;
             }
             WorkspaceTab::ComponentGallery => {}
             WorkspaceTab::Welcome | WorkspaceTab::Query => return,

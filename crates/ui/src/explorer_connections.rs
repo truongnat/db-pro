@@ -233,14 +233,14 @@ impl DbProApp {
         }
 
         if collapsing.is_open() {
-            let schema_count = self.schema_explorer.schema.schemas.len();
+            let schema_count = self.schema.explorer.schema.schemas.len();
             if schema_count == 0 {
                 // Flat tables/views (e.g. SQLite)
                 self.draw_dbeaver_schema_objects(ui, "");
             } else {
                 // Nested Schemas (e.g. PostgreSQL: public, information_schema, etc.)
                 for index in 0..schema_count {
-                    let schema = self.schema_explorer.schema.schemas[index].clone();
+                    let schema = self.schema.explorer.schema.schemas[index].clone();
                     if !is_user_visible_schema(&schema) {
                         continue;
                     }
@@ -319,7 +319,7 @@ impl DbProApp {
 
     /// Activates a schema and clears the workspace state that depended on the old one.
     pub(crate) fn activate_schema(&mut self, schema: &str) {
-        if self.schema_explorer.selected_schema.as_deref() == Some(schema) {
+        if self.schema.explorer.selected_schema.as_deref() == Some(schema) {
             return;
         }
         if !self.table.mutation.staged_changes.is_empty() {
@@ -329,43 +329,43 @@ impl DbProApp {
             return;
         }
         self.workspace.pending_navigation_action = None;
-        self.schema_explorer.selected_schema = Some(schema.to_owned());
-        self.schema_explorer.selected_table = None;
-        self.schema_explorer.selected_schema_object = None;
+        self.schema.explorer.selected_schema = Some(schema.to_owned());
+        self.schema.explorer.selected_table = None;
+        self.schema.explorer.selected_schema_object = None;
         self.table.state.table_info = None;
         self.table.state.table_ddl = None;
         self.table.data_query.result = None;
         self.table.mutation.staged_changes.clear();
         self.table.mutation.staged_apply_targets.clear();
         self.table.mutation.table_mutation_error = None;
-        self.schema_explorer.explorer_nav_cache = None;
+        self.schema.explorer.explorer_nav_cache = None;
         self.activate_welcome_tab();
     }
 
     /// Renders the folders for a schema: Tables, Views, Functions, Triggers.
     pub(super) fn draw_dbeaver_schema_objects(&mut self, ui: &mut egui::Ui, schema: &str) {
-        let search_query = self.schema_explorer.explorer_search.trim().to_ascii_lowercase();
+        let search_query = self.schema.explorer.explorer_search.trim().to_ascii_lowercase();
         // Counts are O(n) but allocate nothing; materialised lists are deferred until a
         // folder is actually open (see folder bodies below / Tables drawer).
         let total_tables = self.schema_table_count(schema);
         self.draw_tables_folder(ui, schema, total_tables, &search_query);
 
-        let view_count = self.count_by_schema(&self.schema_explorer.schema.views, schema, |v| &v.schema);
+        let view_count = self.count_by_schema(&self.schema.explorer.schema.views, schema, |v| &v.schema);
         self.draw_dbeaver_views_folder_lazy(ui, schema, view_count);
 
         if self.active_capabilities().allows(|c| c.schema.functions) {
-            let function_count = self.count_by_schema(&self.schema_explorer.schema.functions, schema, |f| &f.schema);
+            let function_count = self.count_by_schema(&self.schema.explorer.schema.functions, schema, |f| &f.schema);
             self.draw_dbeaver_functions_folder_lazy(ui, schema, function_count);
         }
 
-        let trigger_count = self.count_by_schema(&self.schema_explorer.schema.triggers, schema, |t| &t.schema);
+        let trigger_count = self.count_by_schema(&self.schema.explorer.schema.triggers, schema, |t| &t.schema);
         self.draw_dbeaver_triggers_folder_lazy(ui, schema, trigger_count);
     }
 
     /// Narrows schema-scoped objects to `schema`. When the backend reports no schema
     /// list (e.g. SQLite) everything belongs to a single flat namespace.
     pub(super) fn filter_by_schema<T: Clone>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> Vec<T> {
-        if self.schema_explorer.schema.schemas.is_empty() || schema.is_empty() {
+        if self.schema.explorer.schema.schemas.is_empty() || schema.is_empty() {
             all.to_vec()
         } else {
             all.iter().filter(|item| schema_of(item) == schema).cloned().collect()
@@ -373,7 +373,7 @@ impl DbProApp {
     }
 
     pub(super) fn count_by_schema<T>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> usize {
-        if self.schema_explorer.schema.schemas.is_empty() || schema.is_empty() {
+        if self.schema.explorer.schema.schemas.is_empty() || schema.is_empty() {
             all.len()
         } else {
             all.iter().filter(|item| schema_of(item) == schema).count()
@@ -388,7 +388,7 @@ impl DbProApp {
             .active_connection_id()
             .map(str::to_owned)
             .unwrap_or_default();
-        if let Some(cache) = self.schema_explorer.explorer_nav_cache.as_ref() {
+        if let Some(cache) = self.schema.explorer.explorer_nav_cache.as_ref() {
             if cache.connection_id == connection_id && cache.schema == schema && cache.search == search_query {
                 return (cache.total_count, cache.matching_count, cache.visible.clone());
             }
@@ -397,7 +397,7 @@ impl DbProApp {
         let all_tables = self.schema_table_names(schema);
         let (matching_count, visible) = filtered_explorer_tables(&all_tables, search_query);
         let total_count = all_tables.len();
-        self.schema_explorer.explorer_nav_cache = Some(ExplorerNavCache {
+        self.schema.explorer.explorer_nav_cache = Some(ExplorerNavCache {
             connection_id,
             schema: schema.to_owned(),
             search: search_query.to_owned(),
@@ -420,7 +420,7 @@ impl DbProApp {
         let folder_id = ui.make_persistent_id(("codex_tbl_folder", schema));
         let matching_table_count = if search_query.is_empty() {
             total_tables
-        } else if let Some(cache) = self.schema_explorer.explorer_nav_cache.as_ref().filter(|cache| {
+        } else if let Some(cache) = self.schema.explorer.explorer_nav_cache.as_ref().filter(|cache| {
             cache.schema == schema
                 && cache.search == search_query
                 && cache.connection_id == self.connection.lifecycle.active_connection_id().unwrap_or_default()

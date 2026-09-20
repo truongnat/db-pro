@@ -150,11 +150,11 @@ impl SqlDialect for QuoteDialect {
 
 impl DbProApp {
     pub(crate) fn open_schema_workbench(&mut self) {
-        if let Some(schema) = self.schema_explorer.selected_schema.clone() {
-            self.schema_workbench.schema = schema;
+        if let Some(schema) = self.schema.explorer.selected_schema.clone() {
+            self.schema.workbench.schema = schema;
         }
-        if let Some(table) = self.schema_explorer.selected_table.clone() {
-            self.schema_workbench.parent_table = table;
+        if let Some(table) = self.schema.explorer.selected_table.clone() {
+            self.schema.workbench.parent_table = table;
         }
         self.workspace.activity = Activity::Schema;
         self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
@@ -186,9 +186,9 @@ impl DbProApp {
             (SchemaWorkbenchMode::Dependencies, Icon::GitBranch, "Dependencies"),
             (SchemaWorkbenchMode::Docs, Icon::FileText, "Docs export"),
         ] {
-            let selected = self.schema_workbench.mode == mode;
+            let selected = self.schema.workbench.mode == mode;
             if sidebar_item(ui, icon, label, selected, self.theme).clicked() {
-                self.schema_workbench.mode = mode;
+                self.schema.workbench.mode = mode;
                 self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
             }
             ui.add_space(2.0);
@@ -218,7 +218,7 @@ impl DbProApp {
                 });
                 ui.add_space(SPACE_MD);
 
-                match self.schema_workbench.mode {
+                match self.schema.workbench.mode {
                     SchemaWorkbenchMode::Dependencies => self.draw_dependency_navigator(ui),
                     SchemaWorkbenchMode::Docs => self.draw_docs_export(ui),
                     _ => {
@@ -250,10 +250,10 @@ impl DbProApp {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             ui.label("Filter");
-            ui.text_edit_singleline(&mut self.schema_workbench.dependency_filter);
+            ui.text_edit_singleline(&mut self.schema.workbench.dependency_filter);
         });
         ui.add_space(6.0);
-        let filter = self.schema_workbench.dependency_filter.to_ascii_lowercase();
+        let filter = self.schema.workbench.dependency_filter.to_ascii_lowercase();
         let edges = self.collect_ui_dependency_edges();
         if edges.is_empty() {
             ui.label(RichText::new("No dependency edges in the loaded schema summary.").color(self.theme.text_muted));
@@ -301,8 +301,8 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                self.schema_workbench.docs_format_html = false;
-                self.schema_workbench.docs_markdown = self.export_schema_docs_markdown();
+                self.schema.workbench.docs_format_html = false;
+                self.schema.workbench.docs_markdown = self.export_schema_docs_markdown();
             }
             if Button::new(self.theme)
                 .text("Generate HTML")
@@ -311,9 +311,9 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                self.schema_workbench.docs_format_html = true;
+                self.schema.workbench.docs_format_html = true;
                 let md = self.export_schema_docs_markdown();
-                self.schema_workbench.docs_markdown = format!(
+                self.schema.workbench.docs_markdown = format!(
                     "<!DOCTYPE html><html><body><pre>{}</pre></body></html>",
                     md.replace('&', "&amp;").replace('<', "&lt;")
                 );
@@ -324,9 +324,9 @@ impl DbProApp {
                 .variant(ButtonVariant::Ghost)
                 .show(ui)
                 .clicked()
-                && !self.schema_workbench.docs_markdown.is_empty()
+                && !self.schema.workbench.docs_markdown.is_empty()
             {
-                let body = self.schema_workbench.docs_markdown.clone();
+                let body = self.schema.workbench.docs_markdown.clone();
                 self.new_query_document();
                 if let Some(doc) = self.query.session.documents.last_mut() {
                     doc.set_text(format!("-- Schema docs export\n/*\n{body}\n*/"));
@@ -336,7 +336,7 @@ impl DbProApp {
         });
         ui.add_space(6.0);
         ui.add(
-            egui::TextEdit::multiline(&mut self.schema_workbench.docs_markdown)
+            egui::TextEdit::multiline(&mut self.schema.workbench.docs_markdown)
                 .desired_rows(18)
                 .desired_width(f32::INFINITY)
                 .code_editor(),
@@ -345,7 +345,7 @@ impl DbProApp {
 
     pub(crate) fn collect_ui_dependency_edges(&self) -> Vec<ObjectDependencyEdge> {
         let mut edges = Vec::new();
-        for table in &self.schema_explorer.schema.table_details {
+        for table in &self.schema.explorer.schema.table_details {
             for fk in &table.foreign_keys {
                 edges.push(ObjectDependencyEdge {
                     from_kind: ObjectKind::Table,
@@ -358,7 +358,7 @@ impl DbProApp {
                 });
             }
         }
-        for trigger in &self.schema_explorer.schema.triggers {
+        for trigger in &self.schema.explorer.schema.triggers {
             edges.push(ObjectDependencyEdge {
                 from_kind: ObjectKind::Trigger,
                 from_schema: Some(trigger.schema.clone()),
@@ -369,7 +369,7 @@ impl DbProApp {
                 relation: "trigger_on".into(),
             });
         }
-        for view in &self.schema_explorer.schema.views {
+        for view in &self.schema.explorer.schema.views {
             edges.push(ObjectDependencyEdge {
                 from_kind: ObjectKind::View,
                 from_schema: Some(view.schema.clone()),
@@ -387,7 +387,7 @@ impl DbProApp {
         let mut out = String::from("# Schema documentation\n\n");
         out.push_str(&format!("Connection driver: `{}`\n\n", self.active_query_driver()));
         out.push_str("## Tables\n\n");
-        for table in &self.schema_explorer.schema.table_details {
+        for table in &self.schema.explorer.schema.table_details {
             out.push_str(&format!("### `{}`.`{}`\n\n", table.schema, table.name));
             out.push_str("| Column | Type | Nullable | PK |\n| --- | --- | --- | --- |\n");
             for col in &table.columns {
@@ -401,9 +401,9 @@ impl DbProApp {
             }
             out.push('\n');
         }
-        if !self.schema_explorer.schema.views.is_empty() {
+        if !self.schema.explorer.schema.views.is_empty() {
             out.push_str("## Views\n\n");
-            for view in &self.schema_explorer.schema.views {
+            for view in &self.schema.explorer.schema.views {
                 out.push_str(&format!("- `{}`.`{}`\n", view.schema, view.name));
             }
         }
@@ -414,8 +414,8 @@ impl DbProApp {
         match self.build_mutation_request(action) {
             Ok(request) => self.run_plan(request),
             Err(err) => {
-                self.schema_workbench.preview_error = Some(err);
-                self.schema_workbench.preview_sql.clear();
+                self.schema.workbench.preview_error = Some(err);
+                self.schema.workbench.preview_sql.clear();
             }
         }
     }
@@ -426,16 +426,16 @@ impl DbProApp {
             target: Some(ObjectRef {
                 kind: ObjectKind::Database,
                 schema: None,
-                name: self.schema_workbench.name.clone(),
+                name: self.schema.workbench.name.clone(),
                 parent: None,
             }),
             definition: ObjectDefinition::Database(DatabaseDefinition {
-                name: self.schema_workbench.name.clone(),
+                name: self.schema.workbench.name.clone(),
                 owner: None,
                 template: None,
             }),
             options: MutationOptions {
-                cascade: self.schema_workbench.cascade,
+                cascade: self.schema.workbench.cascade,
                 ..MutationOptions::default()
             },
             driver: self.active_query_driver().to_owned(),
@@ -447,21 +447,21 @@ impl DbProApp {
         match ObjectMutationService::plan(&request, &QuoteDialect) {
             Ok(preview) => {
                 if let Some(reason) = preview.unsupported_reason {
-                    self.schema_workbench.preview_error = Some(reason);
-                    self.schema_workbench.preview_sql.clear();
+                    self.schema.workbench.preview_error = Some(reason);
+                    self.schema.workbench.preview_sql.clear();
                 } else {
-                    self.schema_workbench.preview_error = None;
-                    self.schema_workbench.preview_sql = preview.statements.join(";\n");
-                    if !self.schema_workbench.preview_sql.is_empty() {
-                        self.schema_workbench.preview_sql.push(';');
+                    self.schema.workbench.preview_error = None;
+                    self.schema.workbench.preview_sql = preview.statements.join(";\n");
+                    if !self.schema.workbench.preview_sql.is_empty() {
+                        self.schema.workbench.preview_sql.push(';');
                     }
                 }
-                self.schema_workbench.preview_safety = preview.safety;
-                self.schema_workbench.preview_fingerprint = preview.fingerprint;
+                self.schema.workbench.preview_safety = preview.safety;
+                self.schema.workbench.preview_fingerprint = preview.fingerprint;
             }
             Err(err) => {
-                self.schema_workbench.preview_error = Some(err.to_string());
-                self.schema_workbench.preview_sql.clear();
+                self.schema.workbench.preview_error = Some(err.to_string());
+                self.schema.workbench.preview_sql.clear();
             }
         }
     }
@@ -479,7 +479,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        let command = match self.schema_workbench.apply_ddl_command(request_id, connection.id) {
+        let command = match self.schema.workbench.apply_ddl_command(request_id, connection.id) {
             Ok(command) => command,
             Err(error) => {
                 self.feedback.runtime_message = error;
@@ -493,24 +493,24 @@ impl DbProApp {
 
     pub(crate) fn build_mutation_request(&self, action: ObjectAction) -> Result<ObjectMutationRequest, String> {
         let driver = self.active_query_driver().to_owned();
-        let schema = self.schema_workbench.schema.clone();
-        let name = self.schema_workbench.name.clone();
+        let schema = self.schema.workbench.schema.clone();
+        let name = self.schema.workbench.name.clone();
         if name.trim().is_empty()
             && !matches!(
-                self.schema_workbench.mode,
+                self.schema.workbench.mode,
                 SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs
             )
         {
             return Err("Name is required".into());
         }
         let options = MutationOptions {
-            cascade: self.schema_workbench.cascade,
+            cascade: self.schema.workbench.cascade,
             ..MutationOptions::default()
         };
 
-        let (definition, kind, parent) = match self.schema_workbench.mode {
+        let (definition, kind, parent) = match self.schema.workbench.mode {
             SchemaWorkbenchMode::Table => {
-                let columns = parse_column_defs(&schema, &name, &self.schema_workbench.columns_csv)?;
+                let columns = parse_column_defs(&schema, &name, &self.schema.workbench.columns_csv)?;
                 (
                     ObjectDefinition::Table(TableDefinition {
                         schema: schema.clone(),
@@ -524,31 +524,31 @@ impl DbProApp {
             SchemaWorkbenchMode::Column => (
                 ObjectDefinition::Column(ColumnDefinition {
                     schema: schema.clone(),
-                    table: self.schema_workbench.parent_table.clone(),
+                    table: self.schema.workbench.parent_table.clone(),
                     name: name.clone(),
-                    data_type: self.schema_workbench.data_type.clone(),
-                    nullable: self.schema_workbench.nullable,
-                    default: nonempty_opt(&self.schema_workbench.default_expr),
-                    is_pk: self.schema_workbench.is_pk,
-                    new_name: nonempty_opt(&self.schema_workbench.new_name),
+                    data_type: self.schema.workbench.data_type.clone(),
+                    nullable: self.schema.workbench.nullable,
+                    default: nonempty_opt(&self.schema.workbench.default_expr),
+                    is_pk: self.schema.workbench.is_pk,
+                    new_name: nonempty_opt(&self.schema.workbench.new_name),
                 }),
                 ObjectKind::Column,
-                Some(self.schema_workbench.parent_table.clone()),
+                Some(self.schema.workbench.parent_table.clone()),
             ),
             SchemaWorkbenchMode::View => {
                 let def = ViewDefinition {
                     schema: schema.clone(),
                     name: name.clone(),
-                    select_sql: self.schema_workbench.select_sql.clone(),
-                    materialized: self.schema_workbench.materialized,
+                    select_sql: self.schema.workbench.select_sql.clone(),
+                    materialized: self.schema.workbench.materialized,
                     replace: false,
                 };
-                let kind = if self.schema_workbench.materialized {
+                let kind = if self.schema.workbench.materialized {
                     ObjectKind::MaterializedView
                 } else {
                     ObjectKind::View
                 };
-                let definition = if self.schema_workbench.materialized {
+                let definition = if self.schema.workbench.materialized {
                     ObjectDefinition::MaterializedView(def)
                 } else {
                     ObjectDefinition::View(def)
@@ -558,88 +558,88 @@ impl DbProApp {
             SchemaWorkbenchMode::Index => (
                 ObjectDefinition::Index(IndexDefinition {
                     schema: schema.clone(),
-                    table: self.schema_workbench.parent_table.clone(),
+                    table: self.schema.workbench.parent_table.clone(),
                     name: name.clone(),
-                    columns: split_csv(&self.schema_workbench.columns_csv),
-                    unique: self.schema_workbench.unique,
+                    columns: split_csv(&self.schema.workbench.columns_csv),
+                    unique: self.schema.workbench.unique,
                     method: None,
                     predicate: None,
                 }),
                 ObjectKind::Index,
-                Some(self.schema_workbench.parent_table.clone()),
+                Some(self.schema.workbench.parent_table.clone()),
             ),
             SchemaWorkbenchMode::Constraint => {
-                let columns = split_csv(&self.schema_workbench.columns_csv);
-                match self.schema_workbench.constraint_kind {
+                let columns = split_csv(&self.schema.workbench.columns_csv);
+                match self.schema.workbench.constraint_kind {
                     ConstraintKindUi::PrimaryKey => (
                         ObjectDefinition::PrimaryKey(NamedColumnsDefinition {
                             schema: schema.clone(),
-                            table: self.schema_workbench.parent_table.clone(),
+                            table: self.schema.workbench.parent_table.clone(),
                             name: name.clone(),
                             columns,
                         }),
                         ObjectKind::PrimaryKey,
-                        Some(self.schema_workbench.parent_table.clone()),
+                        Some(self.schema.workbench.parent_table.clone()),
                     ),
                     ConstraintKindUi::Unique => (
                         ObjectDefinition::UniqueConstraint(NamedColumnsDefinition {
                             schema: schema.clone(),
-                            table: self.schema_workbench.parent_table.clone(),
+                            table: self.schema.workbench.parent_table.clone(),
                             name: name.clone(),
                             columns,
                         }),
                         ObjectKind::UniqueConstraint,
-                        Some(self.schema_workbench.parent_table.clone()),
+                        Some(self.schema.workbench.parent_table.clone()),
                     ),
                     ConstraintKindUi::Check => (
                         ObjectDefinition::CheckConstraint(CheckDefinition {
                             schema: schema.clone(),
-                            table: self.schema_workbench.parent_table.clone(),
+                            table: self.schema.workbench.parent_table.clone(),
                             name: name.clone(),
-                            expression: self.schema_workbench.expression.clone(),
+                            expression: self.schema.workbench.expression.clone(),
                         }),
                         ObjectKind::CheckConstraint,
-                        Some(self.schema_workbench.parent_table.clone()),
+                        Some(self.schema.workbench.parent_table.clone()),
                     ),
                     ConstraintKindUi::ForeignKey => (
                         ObjectDefinition::ForeignKey(ForeignKeyDefinition {
                             schema: schema.clone(),
-                            table: self.schema_workbench.parent_table.clone(),
+                            table: self.schema.workbench.parent_table.clone(),
                             name: name.clone(),
                             columns,
-                            ref_schema: self.schema_workbench.ref_schema.clone(),
-                            ref_table: self.schema_workbench.ref_table.clone(),
-                            ref_columns: split_csv(&self.schema_workbench.ref_columns_csv),
-                            on_delete: nonempty_opt(&self.schema_workbench.on_delete),
+                            ref_schema: self.schema.workbench.ref_schema.clone(),
+                            ref_table: self.schema.workbench.ref_table.clone(),
+                            ref_columns: split_csv(&self.schema.workbench.ref_columns_csv),
+                            on_delete: nonempty_opt(&self.schema.workbench.on_delete),
                             on_update: None,
                         }),
                         ObjectKind::ForeignKey,
-                        Some(self.schema_workbench.parent_table.clone()),
+                        Some(self.schema.workbench.parent_table.clone()),
                     ),
                 }
             }
             SchemaWorkbenchMode::Trigger => (
                 ObjectDefinition::Trigger(TriggerDefinition {
                     schema: schema.clone(),
-                    table: self.schema_workbench.parent_table.clone(),
+                    table: self.schema.workbench.parent_table.clone(),
                     name: name.clone(),
-                    timing: self.schema_workbench.timing.clone(),
-                    event: self.schema_workbench.event.clone(),
-                    body: self.schema_workbench.body.clone(),
+                    timing: self.schema.workbench.timing.clone(),
+                    event: self.schema.workbench.event.clone(),
+                    body: self.schema.workbench.body.clone(),
                 }),
                 ObjectKind::Trigger,
-                Some(self.schema_workbench.parent_table.clone()),
+                Some(self.schema.workbench.parent_table.clone()),
             ),
             SchemaWorkbenchMode::Sequence => (
                 ObjectDefinition::Sequence(SequenceDefinition {
                     schema: schema.clone(),
                     name: name.clone(),
-                    start: self.schema_workbench.start.parse().ok(),
-                    increment: self.schema_workbench.increment.parse().ok(),
+                    start: self.schema.workbench.start.parse().ok(),
+                    increment: self.schema.workbench.increment.parse().ok(),
                     min_value: None,
                     max_value: None,
                     cache: None,
-                    cycle: self.schema_workbench.cycle,
+                    cycle: self.schema.workbench.cycle,
                 }),
                 ObjectKind::Sequence,
                 None,
@@ -648,7 +648,7 @@ impl DbProApp {
                 ObjectDefinition::EnumType(EnumTypeDefinition {
                     schema: schema.clone(),
                     name: name.clone(),
-                    values: split_csv(&self.schema_workbench.enum_values_csv),
+                    values: split_csv(&self.schema.workbench.enum_values_csv),
                 }),
                 ObjectKind::EnumType,
                 None,
@@ -665,15 +665,15 @@ impl DbProApp {
             SchemaWorkbenchMode::Extension => (
                 ObjectDefinition::Extension(ExtensionDefinition {
                     name: name.clone(),
-                    schema: nonempty_opt(&self.schema_workbench.extension_schema),
+                    schema: nonempty_opt(&self.schema.workbench.extension_schema),
                     version: None,
-                    cascade: self.schema_workbench.cascade,
+                    cascade: self.schema.workbench.cascade,
                 }),
                 ObjectKind::Extension,
                 None,
             ),
             SchemaWorkbenchMode::Comment => {
-                let parent = nonempty_opt(&self.schema_workbench.parent_table);
+                let parent = nonempty_opt(&self.schema.workbench.parent_table);
                 let kind = if parent.is_some() {
                     ObjectKind::Column
                 } else {
@@ -687,7 +687,7 @@ impl DbProApp {
                             name: name.clone(),
                             parent: parent.clone(),
                         },
-                        comment: nonempty_opt(&self.schema_workbench.comment_text),
+                        comment: nonempty_opt(&self.schema.workbench.comment_text),
                     }),
                     ObjectKind::Comment,
                     parent,
@@ -696,13 +696,13 @@ impl DbProApp {
             SchemaWorkbenchMode::Partition => (
                 ObjectDefinition::Partition(PartitionDefinition {
                     schema: schema.clone(),
-                    parent_table: self.schema_workbench.parent_table.clone(),
+                    parent_table: self.schema.workbench.parent_table.clone(),
                     name: name.clone(),
                     strategy: "RANGE".into(),
-                    bound_expression: self.schema_workbench.partition_bound.clone(),
+                    bound_expression: self.schema.workbench.partition_bound.clone(),
                 }),
                 ObjectKind::Partition,
-                Some(self.schema_workbench.parent_table.clone()),
+                Some(self.schema.workbench.parent_table.clone()),
             ),
             SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs => {
                 return Err("This mode does not produce DDL".into());

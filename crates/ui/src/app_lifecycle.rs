@@ -26,7 +26,7 @@ impl DbProApp {
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
-            self.schema_explorer.selected_table.as_deref(),
+            self.schema.explorer.selected_table.as_deref(),
         );
         self.table.data.persist_layout(scope);
         self.sync_settings_from_runtime();
@@ -57,10 +57,10 @@ impl DbProApp {
         if let Ok(history) = serde_json::to_string(&self.query.editor.query_history_entries) {
             storage.set_string("dbpro.native.query-history-v1", history);
         }
-        if let Ok(pinned) = serde_json::to_string(&self.schema_explorer.pinned_tables) {
+        if let Ok(pinned) = serde_json::to_string(&self.schema.explorer.pinned_tables) {
             storage.set_string("dbpro.native.pinned-tables-v1", pinned);
         }
-        if let Ok(recent) = serde_json::to_string(&self.schema_explorer.recent_tables) {
+        if let Ok(recent) = serde_json::to_string(&self.schema.explorer.recent_tables) {
             storage.set_string("dbpro.native.recent-tables-v1", recent);
         }
     }
@@ -115,11 +115,11 @@ impl DbProApp {
         );
         storage.set_string(
             "dbpro.native.connections-pane-height",
-            self.schema_explorer.connections_pane_height.to_string(),
+            self.schema.explorer.connections_pane_height.to_string(),
         );
         storage.set_string(
             "dbpro.native.schemas-pane-height",
-            self.schema_explorer.schemas_pane_height.to_string(),
+            self.schema.explorer.schemas_pane_height.to_string(),
         );
     }
 

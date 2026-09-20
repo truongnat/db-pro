@@ -503,6 +503,11 @@ Source checkpoint: `0070d374`.
   `DatabaseManagementState` aggregate through `DbProApp.management`. Focused
   UI tests (632 passed), clippy, architecture guard, clean scan and diff
   checks PASS.
+- Schema workspace state ownership follow-up: explorer, schema workbench,
+  schema compare and ER diagram state now cross the single
+  `SchemaWorkspaceState` aggregate through `DbProApp.schema`; storage and
+  reducer contexts still receive explicit child dependencies. Focused UI
+  tests (632 passed), clippy, architecture guard and diff checks PASS.
 
 ## Not yet proven
 

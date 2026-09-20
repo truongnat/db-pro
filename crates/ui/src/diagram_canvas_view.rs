@@ -49,7 +49,7 @@ impl DbProApp {
                 if no_matches {
                     ui.add_space(10.0);
                     if compact_button(ui, "Clear search", self.theme).clicked() {
-                        self.diagram.search.clear();
+                        self.schema.diagram.search.clear();
                     }
                 }
                 ui.add_space(56.0);
@@ -59,14 +59,14 @@ impl DbProApp {
 
     pub(super) fn draw_diagram_canvas(&mut self, ui: &mut egui::Ui, active_filter: Option<&[usize]>) {
         let world_size = if let Some(filter) = active_filter {
-            self.diagram.graph.active_subset_bounds(filter).size()
+            self.schema.diagram.graph.active_subset_bounds(filter).size()
         } else {
-            self.diagram.graph.world_bounds.size()
+            self.schema.diagram.graph.world_bounds.size()
         };
         let viewport_size = egui::vec2(ui.available_width(), ui.available_height());
-        let canvas_size = diagram_canvas_size(world_size * self.diagram.zoom, viewport_size);
-        let zoom = self.diagram.zoom;
-        let pan = self.diagram.pan;
+        let canvas_size = diagram_canvas_size(world_size * self.schema.diagram.zoom, viewport_size);
+        let zoom = self.schema.diagram.zoom;
+        let pan = self.schema.diagram.pan;
         let theme = self.theme;
 
         egui::Frame {
@@ -81,18 +81,18 @@ impl DbProApp {
 
                 let viewport = ErViewport::new(pan, zoom, response.rect.min);
                 let scene = prepare_render_scene(
-                    &self.diagram.graph,
-                    &self.diagram.spatial_index,
+                    &self.schema.diagram.graph,
+                    &self.schema.diagram.spatial_index,
                     &viewport,
                     response.rect,
                     active_filter,
                 );
 
-                paint_scene_edges(&painter, &self.diagram.graph, &scene, &viewport, zoom, theme);
+                paint_scene_edges(&painter, &self.schema.diagram.graph, &scene, &viewport, zoom, theme);
 
-                let selected_table_name = self.schema_explorer.selected_table.as_deref();
+                let selected_table_name = self.schema.explorer.selected_table.as_deref();
                 for &node_id in &scene.visible_nodes {
-                    if let Some(node) = self.diagram.graph.nodes.get(node_id) {
+                    if let Some(node) = self.schema.diagram.graph.nodes.get(node_id) {
                         let screen_rect = viewport.world_to_screen_rect(node.world_rect);
                         let selected = selected_table_name == Some(node.table.name.as_str());
                         paint_er_node_lod(&painter, node, screen_rect, selected, scene.lod, zoom, theme);
@@ -102,9 +102,9 @@ impl DbProApp {
                 draw_diagram_zoom_controls(
                     ui,
                     response.rect,
-                    &mut self.diagram.zoom,
-                    &mut self.diagram.pan,
-                    &self.diagram.graph,
+                    &mut self.schema.diagram.zoom,
+                    &mut self.schema.diagram.pan,
+                    &self.schema.diagram.graph,
                     active_filter,
                     theme,
                 );
@@ -114,11 +114,18 @@ impl DbProApp {
                     if let Some(pointer) = response.interact_pointer_pos() {
                         let world_pos = viewport.screen_to_world_pos(pointer);
                         if let Some(hit_id) = self
+                            .schema
                             .diagram
                             .spatial_index
-                            .hit_test_node(world_pos, &self.diagram.graph.nodes)
+                            .hit_test_node(world_pos, &self.schema.diagram.graph.nodes)
                         {
-                            let table_name = self.diagram.graph.nodes.get(hit_id).map(|node| node.table.name.clone());
+                            let table_name = self
+                                .schema
+                                .diagram
+                                .graph
+                                .nodes
+                                .get(hit_id)
+                                .map(|node| node.table.name.clone());
                             if let Some(name) = table_name {
                                 self.open_diagram_table(&name);
                             }
@@ -131,20 +138,20 @@ impl DbProApp {
 
     fn update_diagram_pan(&mut self, response: &egui::Response) {
         if response.drag_started() {
-            self.diagram.pan_origin = Some(self.diagram.pan);
+            self.schema.diagram.pan_origin = Some(self.schema.diagram.pan);
         }
         if response.dragged() {
-            if let Some(origin) = self.diagram.pan_origin {
-                self.diagram.pan = origin + response.drag_delta();
+            if let Some(origin) = self.schema.diagram.pan_origin {
+                self.schema.diagram.pan = origin + response.drag_delta();
             }
         }
         if response.drag_stopped() {
-            self.diagram.pan_origin = None;
+            self.schema.diagram.pan_origin = None;
         }
     }
 
     fn open_diagram_table(&mut self, table: &str) {
-        if self.schema_explorer.selected_table.as_deref() != Some(table)
+        if self.schema.explorer.selected_table.as_deref() != Some(table)
             && !self.table.mutation.staged_changes.is_empty()
         {
             self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
@@ -153,18 +160,18 @@ impl DbProApp {
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
-            self.schema_explorer.selected_table.as_deref(),
+            self.schema.explorer.selected_table.as_deref(),
         );
         self.table.data.persist_layout(scope);
-        self.schema_explorer.selected_table = Some(table.to_owned());
+        self.schema.explorer.selected_table = Some(table.to_owned());
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
-            self.schema_explorer.selected_table.as_deref(),
+            self.schema.explorer.selected_table.as_deref(),
         );
         self.table.data.restore_layout(scope);
-        self.schema_explorer.selected_schema_object = None;
-        self.schema_explorer.schema_object_view = SchemaObjectView::Definition;
+        self.schema.explorer.selected_schema_object = None;
+        self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
         self.table.state.table_info = None;
         self.table.state.table_ddl = None;
         self.table.state.table_info_error = None;

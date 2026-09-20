@@ -163,7 +163,7 @@ fn table_row_context_menu(ui: &mut egui::Ui, response: &egui::Response, theme: D
 impl DbProApp {
     /// Renders an individual table item in the tree with selection and expandable details.
     pub(super) fn draw_dbeaver_table_item(&mut self, ui: &mut egui::Ui, table: &str) {
-        let is_selected = self.schema_explorer.selected_table.as_deref() == Some(table);
+        let is_selected = self.schema.explorer.selected_table.as_deref() == Some(table);
         let table_details_id = ui.make_persistent_id(("codex_tbl_details", table));
         let has_details = is_selected && self.table.state.table_info.is_some();
 
@@ -331,7 +331,7 @@ impl DbProApp {
 
     /// Selects a table and resets the table workspace to a clean slate.
     pub(crate) fn select_table(&mut self, table: &str) {
-        if self.schema_explorer.selected_table.as_deref() != Some(table)
+        if self.schema.explorer.selected_table.as_deref() != Some(table)
             && !self.table.mutation.staged_changes.is_empty()
         {
             self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
@@ -340,18 +340,18 @@ impl DbProApp {
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
-            self.schema_explorer.selected_table.as_deref(),
+            self.schema.explorer.selected_table.as_deref(),
         );
         self.table.data.persist_layout(scope);
-        self.schema_explorer.selected_table = Some(table.to_owned());
-        self.schema_explorer.record_recent_table(table);
-        self.schema_explorer.selected_schema_object = None;
-        self.schema_explorer.schema_object_view = SchemaObjectView::Definition;
+        self.schema.explorer.selected_table = Some(table.to_owned());
+        self.schema.explorer.record_recent_table(table);
+        self.schema.explorer.selected_schema_object = None;
+        self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
         self.reset_table_workspace_state();
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
-            self.schema_explorer.selected_table.as_deref(),
+            self.schema.explorer.selected_table.as_deref(),
         );
         self.table.data.restore_layout(scope);
         self.table.state.table_view = TableView::Data;

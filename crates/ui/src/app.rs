@@ -304,6 +304,7 @@ pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
 use schema_compare_state::SchemaCompareState;
 pub(crate) use schema_explorer_state::SchemaExplorerState;
+use schema_workspace_state::SchemaWorkspaceState;
 pub(crate) use table_data_query_state::TableDataQueryState;
 pub(crate) use table_data_state::TableDataState;
 pub(crate) use table_editing_state::TableEditingState;
@@ -328,6 +329,8 @@ mod schema_object_view;
 mod schema_workbench;
 #[path = "schema_workbench_form.rs"]
 mod schema_workbench_form;
+#[path = "schema_workspace_state.rs"]
+mod schema_workspace_state;
 #[path = "security_activity_view.rs"]
 mod security_activity_view;
 #[path = "security_rls.rs"]
@@ -376,12 +379,9 @@ pub struct DbProApp {
     table: TableEditorState,
     overlay: OverlayState,
     connection: ConnectionFeatureState,
-    schema_explorer: SchemaExplorerState,
+    schema: SchemaWorkspaceState,
     management: DatabaseManagementState,
-    schema_workbench: schema_workbench::SchemaWorkbenchState,
-    schema_compare: SchemaCompareState,
     saved_tasks: SavedTaskState,
-    diagram: DiagramState,
     /// Counter for initial render frames to ensure window is maximized on startup.
     initial_frames_count: u8,
     gallery_state: component_gallery_view::ComponentGalleryState,
@@ -450,7 +450,7 @@ impl DbProApp {
         connection_events::handle_connection_request_failure(
             &mut self.connection.lifecycle,
             &mut self.connection.dialog,
-            &mut self.schema_explorer,
+            &mut self.schema.explorer,
             &mut self.feedback,
             request_id,
             message,
@@ -510,7 +510,7 @@ impl DbProApp {
 
     pub(super) fn active_schema(&self) -> &str {
         connection_status::active_schema(
-            &self.schema_explorer,
+            &self.schema.explorer,
             &self.connection.catalog,
             &self.connection.lifecycle,
         )
@@ -518,27 +518,27 @@ impl DbProApp {
 
     pub(super) fn active_schema_table_names(&self) -> Vec<String> {
         connection_status::active_schema_table_names(
-            &self.schema_explorer,
+            &self.schema.explorer,
             &self.connection.catalog,
             &self.connection.lifecycle,
         )
     }
 
     pub(super) fn schema_table_names(&self, schema: &str) -> Vec<String> {
-        connection_status::schema_table_names(&self.schema_explorer, schema)
+        connection_status::schema_table_names(&self.schema.explorer, schema)
     }
 
     pub(super) fn schema_table_count(&self, schema: &str) -> usize {
-        connection_status::schema_table_count(&self.schema_explorer, schema)
+        connection_status::schema_table_count(&self.schema.explorer, schema)
     }
 
     pub(super) fn schema_matching_table_count(&self, schema: &str, query: &str) -> usize {
-        connection_status::schema_matching_table_count(&self.schema_explorer, schema, query)
+        connection_status::schema_matching_table_count(&self.schema.explorer, schema, query)
     }
 
     pub(super) fn active_schema_column_names(&self) -> Vec<String> {
         connection_status::active_schema_column_names(
-            &self.schema_explorer,
+            &self.schema.explorer,
             &self.connection.catalog,
             &self.connection.lifecycle,
         )
@@ -650,7 +650,7 @@ impl DbProApp {
         workspace_session::WorkspaceSessionContext {
             workspace: &mut self.workspace,
             connection: &mut self.connection,
-            schema_explorer: &mut self.schema_explorer,
+            schema_explorer: &mut self.schema.explorer,
             query_session_state: &mut self.query.session,
             feedback: &mut self.feedback,
             preferences: &self.preferences,
@@ -699,7 +699,7 @@ impl DbProApp {
     fn runtime_work_pending(&self) -> bool {
         self.connection.lifecycle.connections_request_pending()
             || self.connection.lifecycle.pending_request().is_some()
-            || self.schema_explorer.schema_request.is_some()
+            || self.schema.explorer.schema_request.is_some()
             || self
                 .query
                 .session
@@ -727,8 +727,8 @@ impl DbProApp {
             connection_id,
             force_refresh,
         });
-        self.schema_explorer.schema_request = Some(request_id);
-        self.schema_explorer.schema_error = None;
+        self.schema.explorer.schema_request = Some(request_id);
+        self.schema.explorer.schema_error = None;
         self.feedback.runtime_message = if force_refresh {
             "Refreshing schema…"
         } else {

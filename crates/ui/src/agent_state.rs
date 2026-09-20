@@ -74,7 +74,7 @@ impl DbProApp {
             tables: self.active_schema_table_names(),
             columns: self.active_schema_column_names(),
             schema: Some(self.active_schema().to_owned()),
-            selected_table: self.schema_explorer.selected_table.clone(),
+            selected_table: self.schema.explorer.selected_table.clone(),
             selected_columns,
             current_sql,
             result_summary,
@@ -130,7 +130,7 @@ impl DbProApp {
             document,
             connection_id.as_deref(),
             schema.as_deref(),
-            &self.schema_explorer.schema.table_details,
+            &self.schema.explorer.schema.table_details,
         );
 
         let session = self

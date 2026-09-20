@@ -43,7 +43,7 @@ impl DbProApp {
                     &self.query.editor.visual_builder.add_table
                 })
                 .show_ui(ui, |ui| {
-                    for table in &self.schema_explorer.schema.table_details {
+                    for table in &self.schema.explorer.schema.table_details {
                         let key = if table.schema.is_empty() {
                             table.name.clone()
                         } else {
@@ -55,7 +55,7 @@ impl DbProApp {
                             format!("{}.{}", table.schema, table.name),
                         );
                     }
-                    for view in &self.schema_explorer.schema.views {
+                    for view in &self.schema.explorer.schema.views {
                         let key = if view.schema.is_empty() {
                             format!("view:{}", view.name)
                         } else {
@@ -122,7 +122,7 @@ impl DbProApp {
                 self.query
                     .editor
                     .visual_builder
-                    .suggest_fk_join(&self.schema_explorer.schema.table_details, dialect);
+                    .suggest_fk_join(&self.schema.explorer.schema.table_details, dialect);
             }
         });
         for (idx, join) in self

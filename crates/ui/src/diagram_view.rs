@@ -3,34 +3,35 @@ pub use crate::diagram::*;
 
 impl DbProApp {
     pub(super) fn draw_diagram(&mut self, ui: &mut egui::Ui) {
-        let all_table_count = self.schema_explorer.schema.table_details.len();
+        let all_table_count = self.schema.explorer.schema.table_details.len();
         let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
-        let search_query = self.diagram.search.trim().to_ascii_lowercase();
-        let search_mode = diagram_search_mode(large_schema, self.diagram.show_all);
+        let search_query = self.schema.diagram.search.trim().to_ascii_lowercase();
+        let search_mode = diagram_search_mode(large_schema, self.schema.diagram.show_all);
 
         // Poll background layout worker:
-        if let Some(res) = self.diagram.layout_worker.poll_result() {
-            if res.graph_version == self.diagram.schema_version && res.request_id == self.diagram.latest_layout_request
+        if let Some(res) = self.schema.diagram.layout_worker.poll_result() {
+            if res.graph_version == self.schema.diagram.schema_version
+                && res.request_id == self.schema.diagram.latest_layout_request
             {
-                self.diagram.graph = res.graph;
-                self.diagram.spatial_index = res.spatial_index;
-                self.diagram.layout_state = ErLayoutState::Ready;
+                self.schema.diagram.graph = res.graph;
+                self.schema.diagram.spatial_index = res.spatial_index;
+                self.schema.diagram.layout_state = ErLayoutState::Ready;
             }
         }
 
-        if self.schema_explorer.schema.table_details.is_empty() {
+        if self.schema.explorer.schema.table_details.is_empty() {
             self.draw_diagram_empty_state(ui, 0, false, false);
             return;
         }
 
-        let render_limit = if !large_schema || self.diagram.show_all {
+        let render_limit = if !large_schema || self.schema.diagram.show_all {
             all_table_count
         } else {
             ER_MAX_TABLES
         };
 
         let (_candidate_count, tables) = diagram_candidates(
-            &self.schema_explorer.schema.table_details,
+            &self.schema.explorer.schema.table_details,
             &search_query,
             search_mode,
             render_limit,
@@ -43,7 +44,8 @@ impl DbProApp {
         };
 
         let max_visible_columns = self
-            .schema_explorer
+            .schema
+            .explorer
             .schema
             .table_details
             .iter()
@@ -58,6 +60,7 @@ impl DbProApp {
         // Determine active table subset:
         let active_node_indices: Option<Vec<usize>> = if search_mode && !search_query.is_empty() {
             let seed_indices: Vec<usize> = self
+                .schema
                 .diagram
                 .graph
                 .nodes
@@ -72,9 +75,10 @@ impl DbProApp {
                 return;
             }
             Some(
-                self.diagram
+                self.schema
+                    .diagram
                     .graph
-                    .bfs_neighborhood(&seed_indices, self.diagram.neighborhood_depth, 100),
+                    .bfs_neighborhood(&seed_indices, self.schema.diagram.neighborhood_depth, 100),
             )
         } else if search_mode && search_query.is_empty() {
             self.draw_diagram_toolbar(ui, large_schema, all_table_count, &tables, render_limit);
@@ -93,49 +97,49 @@ impl DbProApp {
     }
 
     fn ensure_diagram_graph(&mut self, grid_columns: usize, node_height: f32) {
-        let current_count = self.schema_explorer.schema.table_details.len();
-        let graph_dirty = self.diagram.graph.nodes.len() != current_count
-            || self.diagram.graph.schema_version != self.diagram.schema_version;
+        let current_count = self.schema.explorer.schema.table_details.len();
+        let graph_dirty = self.schema.diagram.graph.nodes.len() != current_count
+            || self.schema.diagram.graph.schema_version != self.schema.diagram.schema_version;
 
         if graph_dirty && current_count > 0 {
-            if self.diagram.graph.nodes.is_empty() {
+            if self.schema.diagram.graph.nodes.is_empty() {
                 // First load: build immediately so canvas starts populated without blank frame
-                self.diagram.graph = ErGraph::build(
-                    &self.schema_explorer.schema.table_details,
-                    self.diagram.schema_version,
+                self.schema.diagram.graph = ErGraph::build(
+                    &self.schema.explorer.schema.table_details,
+                    self.schema.diagram.schema_version,
                     grid_columns,
                     node_height,
                 );
-                self.diagram.spatial_index = ErSpatialIndex::build(
-                    &self.diagram.graph.nodes,
-                    &self.diagram.graph.edges,
+                self.schema.diagram.spatial_index = ErSpatialIndex::build(
+                    &self.schema.diagram.graph.nodes,
+                    &self.schema.diagram.graph.edges,
                     DEFAULT_SPATIAL_CELL_SIZE,
                 );
-                self.diagram.layout_state = ErLayoutState::Ready;
+                self.schema.diagram.layout_state = ErLayoutState::Ready;
             } else {
                 // Background worker update: keep old graph renderable and dispatch async request.
                 // saturating_add: at u64::MAX the version stays MAX; subsequent invalidations
                 // all produce the same version but the graph node count check (graph_dirty)
                 // prevents re-dispatch unless the actual table list changes.
-                self.diagram.schema_version = self.diagram.schema_version.saturating_add(1);
-                let request_id = self.diagram.layout_worker.request_layout(
-                    self.diagram.schema_version,
-                    self.schema_explorer.schema.table_details.clone(),
+                self.schema.diagram.schema_version = self.schema.diagram.schema_version.saturating_add(1);
+                let request_id = self.schema.diagram.layout_worker.request_layout(
+                    self.schema.diagram.schema_version,
+                    self.schema.explorer.schema.table_details.clone(),
                     grid_columns,
                     node_height,
                 );
-                self.diagram.latest_layout_request = request_id;
+                self.schema.diagram.latest_layout_request = request_id;
 
                 // If the worker is in degraded mode (spawn failed), the request was
                 // silently dropped. Transition to Failed state so the UI shows a
                 // concise error while retaining the last valid graph.
-                if self.diagram.layout_worker.dispatch_succeeded() {
-                    self.diagram.layout_state = ErLayoutState::Computing {
+                if self.schema.diagram.layout_worker.dispatch_succeeded() {
+                    self.schema.diagram.layout_state = ErLayoutState::Computing {
                         request_id,
-                        graph_version: self.diagram.schema_version,
+                        graph_version: self.schema.diagram.schema_version,
                     };
                 } else {
-                    self.diagram.layout_state = ErLayoutState::Failed("ER layout worker unavailable".to_owned());
+                    self.schema.diagram.layout_state = ErLayoutState::Failed("ER layout worker unavailable".to_owned());
                 }
             }
         }
@@ -194,12 +198,12 @@ impl DbProApp {
         tables: &[UiTableSummary],
         render_limit: usize,
     ) {
-        let visible_tables = if self.diagram.show_all || !large_schema {
+        let visible_tables = if self.schema.diagram.show_all || !large_schema {
             all_table_count
         } else {
             tables.len().min(render_limit)
         };
-        let relationship_count: usize = self.diagram.graph.edges.len();
+        let relationship_count: usize = self.schema.diagram.graph.edges.len();
 
         ui.horizontal_wrapped(|ui| {
             section_label(ui, "ER DIAGRAM", self.theme);
@@ -216,7 +220,7 @@ impl DbProApp {
                 self.theme.surface_hover,
                 self.theme.text_secondary,
             );
-            if matches!(self.diagram.layout_state, ErLayoutState::Computing { .. }) {
+            if matches!(self.schema.diagram.layout_state, ErLayoutState::Computing { .. }) {
                 badge(
                     ui,
                     "Arranging map…",
@@ -226,24 +230,33 @@ impl DbProApp {
             }
             if large_schema {
                 ui.separator();
-                let search_changed =
-                    input(ui, &mut self.diagram.search, "Find table or column…", 220.0, self.theme).changed();
-                self.diagram.show_all =
-                    diagram_show_all_after_search_edit(self.diagram.show_all, &self.diagram.search, search_changed);
-                let search_mode = diagram_search_mode(large_schema, self.diagram.show_all);
+                let search_changed = input(
+                    ui,
+                    &mut self.schema.diagram.search,
+                    "Find table or column…",
+                    220.0,
+                    self.theme,
+                )
+                .changed();
+                self.schema.diagram.show_all = diagram_show_all_after_search_edit(
+                    self.schema.diagram.show_all,
+                    &self.schema.diagram.search,
+                    search_changed,
+                );
+                let search_mode = diagram_search_mode(large_schema, self.schema.diagram.show_all);
                 if search_mode {
                     ui.label(RichText::new("Neighborhood:").small().color(self.theme.text_muted));
                     if ui
-                        .selectable_label(self.diagram.neighborhood_depth == 1, "1 hop")
+                        .selectable_label(self.schema.diagram.neighborhood_depth == 1, "1 hop")
                         .clicked()
                     {
-                        self.diagram.neighborhood_depth = 1;
+                        self.schema.diagram.neighborhood_depth = 1;
                     }
                     if ui
-                        .selectable_label(self.diagram.neighborhood_depth == 2, "2 hops")
+                        .selectable_label(self.schema.diagram.neighborhood_depth == 2, "2 hops")
                         .clicked()
                     {
-                        self.diagram.neighborhood_depth = 2;
+                        self.schema.diagram.neighborhood_depth = 2;
                     }
                     ui.add_space(4.0);
                     if secondary_button_with_icon(
@@ -254,17 +267,17 @@ impl DbProApp {
                     )
                     .clicked()
                     {
-                        self.diagram.show_all = true;
+                        self.schema.diagram.show_all = true;
                     }
                 } else {
                     badge(ui, "All tables", self.theme.warning, self.theme.text_inverse);
                     if compact_button_with_icon(ui, Icon::Search, "Focus search", self.theme).clicked() {
-                        self.diagram.show_all = false;
+                        self.schema.diagram.show_all = false;
                     }
                 }
             }
             ui.separator();
-            let design_label = if self.diagram.design.enabled {
+            let design_label = if self.schema.diagram.design.enabled {
                 "Design Mode ✓"
             } else {
                 "Design Mode"
@@ -273,16 +286,18 @@ impl DbProApp {
                 .on_hover_text("Draft schema edits — never mutates DB until Apply")
                 .clicked()
             {
-                self.diagram.design.enabled = !self.diagram.design.enabled;
-                if self.diagram.design.enabled {
+                self.schema.diagram.design.enabled = !self.schema.diagram.design.enabled;
+                if self.schema.diagram.design.enabled {
                     let names: Vec<String> = self
-                        .schema_explorer
+                        .schema
+                        .explorer
                         .schema
                         .table_details
                         .iter()
                         .map(|t| format!("{}.{}", t.schema, t.name))
                         .collect();
-                    self.diagram
+                    self.schema
+                        .diagram
                         .design
                         .set_schema_fingerprint(crate::diagram::design_mode::schema_fingerprint_from_names(&names));
                 }

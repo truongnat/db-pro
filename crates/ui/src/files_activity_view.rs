@@ -223,7 +223,8 @@ impl DbProApp {
                     .clicked()
                 {
                     let names: Vec<String> = self
-                        .schema_explorer
+                        .schema
+                        .explorer
                         .schema
                         .table_details
                         .iter()
@@ -243,7 +244,7 @@ impl DbProApp {
                 {
                     self.workspace
                         .files
-                        .export_live_schema_snapshot(&self.schema_explorer.schema, &mut self.feedback);
+                        .export_live_schema_snapshot(&self.schema.explorer.schema, &mut self.feedback);
                 }
                 if Button::new(self.theme)
                     .icon(Icon::Columns2)
@@ -303,7 +304,7 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                if let Some(table) = self.schema_explorer.selected_table.clone() {
+                if let Some(table) = self.schema.explorer.selected_table.clone() {
                     self.workspace.files.add_context_item(format!("table:{table}"));
                 }
             }

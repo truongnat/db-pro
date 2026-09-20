@@ -629,6 +629,21 @@ changed.
 Severity: P1 composition-root boundary risk, resolved for database-management
 state ownership.
 
+## F33 — Schema workspace state was split across four root fields
+
+Evidence at discovery: schema explorer, schema workbench, schema compare and
+ER diagram state were independent `DbProApp` fields even though they form one
+schema workspace lifecycle and share selection/navigation context. This kept
+schema feature consumers coupled to the composition root shape.
+
+Fix in the current refactor: introduced `SchemaWorkspaceState` with explicit
+`explorer`, `workbench`, `compare` and `diagram` children, then routed views,
+reducers, persistence adapters and tests through the aggregate. Narrow
+contexts remain narrow and continue receiving only the child state they need.
+
+Severity: P1 composition-root boundary risk, resolved for schema workspace
+state ownership.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and

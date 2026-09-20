@@ -119,12 +119,12 @@ impl DbProApp {
     }
 
     pub(super) fn handle_schema_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
-        schema_events::handle_schema_request_failure(&mut self.schema_explorer, &mut self.feedback, request_id, message)
+        schema_events::handle_schema_request_failure(&mut self.schema.explorer, &mut self.feedback, request_id, message)
     }
 
     pub(super) fn on_schema_loaded(&mut self, request_id: RequestId, schema: UiSchemaSummary) {
         let mut context = schema_events::SchemaLoadedContext {
-            schema_explorer: &mut self.schema_explorer,
+            schema_explorer: &mut self.schema.explorer,
             table_state: &mut self.table.state,
             data_query: &mut self.table.data_query,
             workspace: &mut self.workspace.shell,

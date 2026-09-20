@@ -7,7 +7,7 @@ impl DbProApp {
             &self.management.synthetic_data.synthetic_row_count,
             &self.management.synthetic_data.synthetic_seed,
             &self.management.synthetic_data.synthetic_null_pct,
-            &self.schema_explorer.schema.table_details,
+            &self.schema.explorer.schema.table_details,
         )
     }
 

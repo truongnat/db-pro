@@ -38,7 +38,7 @@ impl DbProApp {
     }
 
     pub(crate) fn submit_insert_row(&mut self) {
-        let Some(table) = self.schema_explorer.selected_table.clone() else {
+        let Some(table) = self.schema.explorer.selected_table.clone() else {
             self.table.editing.insert_row_error = "Select a table before inserting a row".to_owned();
             return;
         };

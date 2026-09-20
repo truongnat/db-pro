@@ -11,7 +11,6 @@ events_file="$repo_root/crates/ui/src/events.rs"
 expected_fields=$(cat <<'EOF'
 agent
 connection
-diagram
 feedback
 gallery_state
 initial_frames_count
@@ -21,9 +20,7 @@ preferences
 management
 query
 saved_tasks
-schema_explorer
-schema_workbench
-schema_compare
+schema
 table
 task_bridge
 theme
@@ -110,6 +107,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/event_trigger_state.rs"
   "$repo_root/crates/ui/src/security_state.rs"
   "$repo_root/crates/ui/src/database_management_state.rs"
+  "$repo_root/crates/ui/src/schema_workspace_state.rs"
 )
 for module in "${explicit_state_modules[@]}"; do
   if rg -n '^impl DbProApp|\bDbProApp\b' "$module"; then

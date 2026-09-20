@@ -146,7 +146,7 @@ impl DbProApp {
     }
 
     pub(super) fn on_data_diff_loaded(&mut self, diff: db_pro_core::domain::cross_connection::DataDiff) {
-        management_events::on_data_diff_loaded(&mut self.schema_compare, &mut self.feedback, diff);
+        management_events::on_data_diff_loaded(&mut self.schema.compare, &mut self.feedback, diff);
     }
 
     /// A native file picker returned (or was cancelled).
@@ -170,7 +170,7 @@ impl DbProApp {
             &mut self.feedback,
             request_id,
             affected_rows,
-            self.schema_explorer.selected_table.is_some(),
+            self.schema.explorer.selected_table.is_some(),
         ) {
             if transition.refresh_schema {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {

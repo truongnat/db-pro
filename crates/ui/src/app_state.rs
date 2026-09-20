@@ -26,7 +26,7 @@ impl DbProApp {
                         query: &mut app.query,
                         table: &mut app.table,
                         connection: &mut app.connection,
-                        schema_explorer: &mut app.schema_explorer,
+                        schema_explorer: &mut app.schema.explorer,
                     });
                 storage_context.restore_preferences(storage);
                 storage_context.restore_connection_profiles(storage);
@@ -44,7 +44,7 @@ impl DbProApp {
                 query: &mut app.query,
                 table: &mut app.table,
                 connection: &mut app.connection,
-                schema_explorer: &mut app.schema_explorer,
+                schema_explorer: &mut app.schema.explorer,
             })
             .restore_workspace_files(storage);
         }
@@ -86,12 +86,9 @@ impl Default for DbProApp {
             },
             overlay: OverlayState::default(),
             connection: ConnectionFeatureState::default(),
-            schema_explorer: SchemaExplorerState::default(),
+            schema: SchemaWorkspaceState::default(),
             management: DatabaseManagementState::default(),
-            schema_workbench: schema_workbench::SchemaWorkbenchState::default(),
-            schema_compare: SchemaCompareState::default(),
             saved_tasks: SavedTaskState::default(),
-            diagram: DiagramState::default(),
             initial_frames_count: 0,
             gallery_state: ComponentGalleryState::default(),
         }

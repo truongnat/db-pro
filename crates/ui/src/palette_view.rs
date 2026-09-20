@@ -59,9 +59,9 @@ impl DbProApp {
         SearchService::build_fingerprint(SearchFingerprintParts {
             connection_id: self.connection.lifecycle.active_connection_id(),
             schema: self.active_schema(),
-            tables: self.schema_explorer.schema.tables.len(),
-            views: self.schema_explorer.schema.views.len(),
-            functions: self.schema_explorer.schema.functions.len(),
+            tables: self.schema.explorer.schema.tables.len(),
+            views: self.schema.explorer.schema.views.len(),
+            functions: self.schema.explorer.schema.functions.len(),
             columns: self.active_schema_column_names().len(),
             saved_queries: self.query.library.saved_queries.len(),
             history: self.query.editor.query_history_entries.len(),
@@ -307,7 +307,8 @@ impl DbProApp {
 
     fn schema_view_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         let schema = self.active_schema().to_owned();
-        self.schema_explorer
+        self.schema
+            .explorer
             .schema
             .views
             .iter()
@@ -330,7 +331,8 @@ impl DbProApp {
 
     fn schema_function_items(&self) -> Vec<(SearchKind, PaletteItem)> {
         let schema = self.active_schema().to_owned();
-        self.schema_explorer
+        self.schema
+            .explorer
             .schema
             .functions
             .iter()
@@ -359,7 +361,8 @@ impl DbProApp {
     }
 
     fn pinned_table_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.schema_explorer
+        self.schema
+            .explorer
             .pinned_tables
             .iter()
             .cloned()
@@ -379,7 +382,8 @@ impl DbProApp {
     }
 
     fn recent_table_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.schema_explorer
+        self.schema
+            .explorer
             .recent_tables
             .iter()
             .cloned()
@@ -712,7 +716,7 @@ impl DbProApp {
 
     fn refresh_schema_palette(&mut self) {
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-            self.table.state.refresh_table_info_after_schema = self.schema_explorer.selected_table.is_some();
+            self.table.state.refresh_table_info_after_schema = self.schema.explorer.selected_table.is_some();
             self.request_schema_introspection(connection_id, true);
         } else {
             self.feedback.runtime_message = "Connect to a database before refreshing schema".to_owned();
@@ -720,7 +724,7 @@ impl DbProApp {
     }
 
     pub(crate) fn open_table_from_palette(&mut self, table: String) {
-        if self.schema_explorer.selected_table.as_deref() != Some(table.as_str())
+        if self.schema.explorer.selected_table.as_deref() != Some(table.as_str())
             && !self.table.mutation.staged_changes.is_empty()
         {
             self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
@@ -729,18 +733,18 @@ impl DbProApp {
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
-            self.schema_explorer.selected_table.as_deref(),
+            self.schema.explorer.selected_table.as_deref(),
         );
         self.table.data.persist_layout(scope);
-        self.schema_explorer.record_recent_table(&table);
-        self.schema_explorer.selected_table = Some(table.clone());
+        self.schema.explorer.record_recent_table(&table);
+        self.schema.explorer.selected_table = Some(table.clone());
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
-            self.schema_explorer.selected_table.as_deref(),
+            self.schema.explorer.selected_table.as_deref(),
         );
         self.table.data.restore_layout(scope);
-        self.schema_explorer.selected_schema_object = None;
+        self.schema.explorer.selected_schema_object = None;
         self.table.state.table_view = TableView::Structure;
         self.table.state.table_info = None;
         self.table.state.table_ddl = None;
@@ -780,7 +784,7 @@ impl DbProApp {
 
     pub(crate) fn toggle_pinned_table(&mut self, table: String) {
         let target = if table.is_empty() {
-            self.schema_explorer.selected_table.clone()
+            self.schema.explorer.selected_table.clone()
         } else {
             Some(table)
         };
@@ -789,15 +793,16 @@ impl DbProApp {
             return;
         };
         if let Some(index) = self
-            .schema_explorer
+            .schema
+            .explorer
             .pinned_tables
             .iter()
             .position(|item| item == &table)
         {
-            self.schema_explorer.pinned_tables.remove(index);
+            self.schema.explorer.pinned_tables.remove(index);
             self.feedback.runtime_message = format!("Unpinned table {table}");
         } else {
-            self.schema_explorer.pinned_tables.push(table.clone());
+            self.schema.explorer.pinned_tables.push(table.clone());
             self.feedback.runtime_message = format!("Pinned table {table}");
         }
     }

@@ -298,7 +298,7 @@ impl DbProApp {
             workspace: &mut self.workspace,
             agent: &mut self.agent,
             query_output: &mut self.query.output,
-            schema_explorer: &mut self.schema_explorer,
+            schema_explorer: &mut self.schema.explorer,
             task_bridge: &mut self.task_bridge,
             feedback: &mut self.feedback,
             active_connection_id,

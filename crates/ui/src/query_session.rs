@@ -65,7 +65,8 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         let command = match self
-            .schema_compare
+            .schema
+            .compare
             .build_migration_apply_command(request_id, connection_id)
         {
             Ok(command) => command,
@@ -140,7 +141,7 @@ impl DbProApp {
             query_session: &self.query.session,
             catalog: &self.connection.catalog,
             lifecycle: &self.connection.lifecycle,
-            schema_explorer: &self.schema_explorer,
+            schema_explorer: &self.schema.explorer,
         }
     }
 
