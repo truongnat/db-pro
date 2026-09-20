@@ -682,67 +682,13 @@ impl DbProApp {
     }
 
     fn build_synthetic_plan(&self) -> Result<db_pro_core::domain::synthetic_data::SyntheticPlan, String> {
-        use db_pro_core::domain::synthetic_data::{infer_generator, ColumnSpec, SyntheticPlan};
-        if self.synthetic_data.synthetic_table.is_empty() {
-            return Err("select a table".into());
-        }
-        let (schema, name) = if let Some((s, t)) = self.synthetic_data.synthetic_table.split_once('.') {
-            (s.to_owned(), t.to_owned())
-        } else {
-            (String::new(), self.synthetic_data.synthetic_table.clone())
-        };
-        let detail = self
-            .schema_explorer
-            .schema
-            .table_details
-            .iter()
-            .find(|t| t.name == name && (schema.is_empty() || t.schema == schema))
-            .ok_or_else(|| "table metadata not loaded".to_owned())?;
-        let row_count: u64 = self
-            .synthetic_data
-            .synthetic_row_count
-            .parse()
-            .map_err(|_| "invalid row count".to_owned())?;
-        let seed: u64 = self
-            .synthetic_data
-            .synthetic_seed
-            .parse()
-            .map_err(|_| "invalid seed".to_owned())?;
-        let null_rate_pct: u8 = self
-            .synthetic_data
-            .synthetic_null_pct
-            .parse()
-            .map_err(|_| "invalid null %".to_owned())?;
-        let mut columns: Vec<ColumnSpec> = detail
-            .columns
-            .iter()
-            .map(|c| ColumnSpec {
-                name: c.name.clone(),
-                data_type: c.data_type.clone(),
-                nullable: c.nullable,
-                is_primary_key: c.is_primary_key,
-                generator: infer_generator(&c.data_type),
-                fk_values: Vec::new(),
-            })
-            .collect();
-        // FK-aware: cycle deterministic keys 1..=N for each FK column when possible.
-        for fk in &detail.foreign_keys {
-            for (from_col, _to_col) in fk.from_columns.iter().zip(fk.to_columns.iter()) {
-                if let Some(col) = columns.iter_mut().find(|c| c.name == *from_col) {
-                    let pool_len = row_count.clamp(1, 50) as usize;
-                    let pool: Vec<String> = (1..=pool_len).map(|i| i.to_string()).collect();
-                    col.fk_values = pool;
-                }
-            }
-        }
-        Ok(SyntheticPlan {
-            schema: detail.schema.clone(),
-            table: detail.name.clone(),
-            columns,
-            row_count,
-            seed,
-            null_rate_pct,
-        })
+        synthetic_data::build_plan(
+            &self.synthetic_data.synthetic_table,
+            &self.synthetic_data.synthetic_row_count,
+            &self.synthetic_data.synthetic_seed,
+            &self.synthetic_data.synthetic_null_pct,
+            &self.schema_explorer.schema.table_details,
+        )
     }
 
     pub(crate) fn preview_synthetic_seed(&mut self) {
@@ -772,7 +718,13 @@ impl DbProApp {
                 return;
             }
         };
-        let count = plan.row_count.min(500) as usize;
+        let count = match usize::try_from(plan.row_count.min(500)) {
+            Ok(count) => count,
+            Err(_) => {
+                self.synthetic_data.synthetic_error = Some("invalid row count".to_owned());
+                return;
+            }
+        };
         let rows = match db_pro_core::domain::synthetic_data::generate_rows(&plan, count) {
             Ok(r) => r,
             Err(err) => {

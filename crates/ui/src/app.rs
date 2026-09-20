@@ -202,6 +202,8 @@ pub(crate) mod result_grid_view;
 mod sidebar_activities_view;
 #[path = "sidebar_view.rs"]
 mod sidebar_view;
+#[path = "synthetic_data.rs"]
+mod synthetic_data;
 #[path = "table_data_state.rs"]
 mod table_data_state;
 #[path = "table_events.rs"]

@@ -115,8 +115,16 @@ impl CaptureApp {
     /// `write_png` rather than `save` because `eframe::App` already defines `save`.
     fn write_png(&self, image: &egui::ColorImage) -> bool {
         let [width, height] = image.size;
+        let Ok(width) = u32::try_from(width) else {
+            tracing::error!(path = %self.path.display(), width, "capture: framebuffer width exceeds PNG limits");
+            return false;
+        };
+        let Ok(height) = u32::try_from(height) else {
+            tracing::error!(path = %self.path.display(), height, "capture: framebuffer height exceeds PNG limits");
+            return false;
+        };
         let rgba: Vec<u8> = image.pixels.iter().flat_map(|pixel| pixel.to_array()).collect();
-        match image::save_buffer(&self.path, &rgba, width as u32, height as u32, image::ColorType::Rgba8) {
+        match image::save_buffer(&self.path, &rgba, width, height, image::ColorType::Rgba8) {
             Ok(()) => {
                 tracing::info!(path = %self.path.display(), width, height, "capture: wrote framebuffer");
                 true
