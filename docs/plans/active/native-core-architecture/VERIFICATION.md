@@ -519,6 +519,11 @@ Source checkpoint: `0070d374`.
   shell/status/output and schema/diagram navigation. Focused UI tests (632
   passed), clippy, architecture guard, clean scan (15 pass, 1 ratcheted
   warning) and diff checks PASS.
+- Shell chrome ownership follow-up: top bar, status bar and output dock now
+  live in `shell_chrome_view.rs`; `navigation_view.rs` is reduced to the
+  remaining navigation activity composition. Focused UI tests (632 passed),
+  clippy, architecture guard, clean scan (15 pass, 1 ratcheted warning) and
+  diff checks PASS.
 
 ## Not yet proven
 

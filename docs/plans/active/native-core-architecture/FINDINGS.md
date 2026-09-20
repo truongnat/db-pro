@@ -671,6 +671,19 @@ rendering and only coordinates shell-level navigation.
 
 Severity: P1 feature-boundary risk, resolved for transfer activity UI.
 
+## F36 — Navigation view owned shell chrome and output dock
+
+Evidence at discovery: `navigation_view.rs` rendered the application top bar,
+status bar and output dock in the same module as feature activity surfaces.
+Those surfaces are shell composition concerns with independent layout and
+interaction lifecycles.
+
+Fix in the current refactor: moved top bar, status bar and output dock into
+`shell_chrome_view.rs`; `navigation_view.rs` now contains only the remaining
+navigation activity composition.
+
+Severity: P2 shell-boundary maintainability risk, resolved.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and
