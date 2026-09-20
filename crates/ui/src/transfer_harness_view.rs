@@ -3,10 +3,10 @@ use super::*;
 impl DbProApp {
     fn build_synthetic_plan(&self) -> Result<db_pro_core::domain::synthetic_data::SyntheticPlan, String> {
         synthetic_data::build_plan(
-            &self.synthetic_data.synthetic_table,
-            &self.synthetic_data.synthetic_row_count,
-            &self.synthetic_data.synthetic_seed,
-            &self.synthetic_data.synthetic_null_pct,
+            &self.management.synthetic_data.synthetic_table,
+            &self.management.synthetic_data.synthetic_row_count,
+            &self.management.synthetic_data.synthetic_seed,
+            &self.management.synthetic_data.synthetic_null_pct,
             &self.schema_explorer.schema.table_details,
         )
     }
@@ -15,17 +15,17 @@ impl DbProApp {
         match self.build_synthetic_plan() {
             Ok(plan) => match db_pro_core::domain::synthetic_data::generate_preview(&plan, 20) {
                 Ok(preview) => {
-                    self.synthetic_data.synthetic_preview = Some(preview);
-                    self.synthetic_data.synthetic_error = None;
+                    self.management.synthetic_data.synthetic_preview = Some(preview);
+                    self.management.synthetic_data.synthetic_error = None;
                 }
                 Err(err) => {
-                    self.synthetic_data.synthetic_error = Some(err);
-                    self.synthetic_data.synthetic_preview = None;
+                    self.management.synthetic_data.synthetic_error = Some(err);
+                    self.management.synthetic_data.synthetic_preview = None;
                 }
             },
             Err(err) => {
-                self.synthetic_data.synthetic_error = Some(err);
-                self.synthetic_data.synthetic_preview = None;
+                self.management.synthetic_data.synthetic_error = Some(err);
+                self.management.synthetic_data.synthetic_preview = None;
             }
         }
     }
@@ -34,21 +34,21 @@ impl DbProApp {
         let plan = match self.build_synthetic_plan() {
             Ok(p) => p,
             Err(err) => {
-                self.synthetic_data.synthetic_error = Some(err);
+                self.management.synthetic_data.synthetic_error = Some(err);
                 return;
             }
         };
         let count = match usize::try_from(plan.row_count.min(500)) {
             Ok(count) => count,
             Err(_) => {
-                self.synthetic_data.synthetic_error = Some("invalid row count".to_owned());
+                self.management.synthetic_data.synthetic_error = Some("invalid row count".to_owned());
                 return;
             }
         };
         let rows = match db_pro_core::domain::synthetic_data::generate_rows(&plan, count) {
             Ok(r) => r,
             Err(err) => {
-                self.synthetic_data.synthetic_error = Some(err);
+                self.management.synthetic_data.synthetic_error = Some(err);
                 return;
             }
         };
@@ -56,10 +56,10 @@ impl DbProApp {
             Ok(sql) => {
                 self.set_active_query_text(sql);
                 self.workspace.active_tab = WorkspaceTab::Query;
-                self.synthetic_data.synthetic_error = None;
+                self.management.synthetic_data.synthetic_error = None;
                 self.feedback.runtime_message = format!("Synthetic INSERT SQL ({count} rows) exported to Query editor");
             }
-            Err(err) => self.synthetic_data.synthetic_error = Some(err),
+            Err(err) => self.management.synthetic_data.synthetic_error = Some(err),
         }
     }
 
@@ -68,17 +68,17 @@ impl DbProApp {
             .active_connection()
             .map(|c| c.environment.eq_ignore_ascii_case("Production"))
             .unwrap_or(false);
-        if is_production && !self.synthetic_data.synthetic_production_confirm {
-            self.synthetic_data.synthetic_error =
+        if is_production && !self.management.synthetic_data.synthetic_production_confirm {
+            self.management.synthetic_data.synthetic_error =
                 Some("Production confirmation required before applying seed INSERT".into());
             return;
         }
         self.export_synthetic_seed_sql();
-        if self.synthetic_data.synthetic_error.is_some() {
+        if self.management.synthetic_data.synthetic_error.is_some() {
             return;
         }
         if self.connection.lifecycle.active_connection_id().is_none() || !self.connection.lifecycle.is_connected() {
-            self.synthetic_data.synthetic_error = Some("Connect to a database before applying seed".into());
+            self.management.synthetic_data.synthetic_error = Some("Connect to a database before applying seed".into());
             return;
         }
         self.dispatch_query();
@@ -86,12 +86,12 @@ impl DbProApp {
     }
 
     pub(crate) fn preview_masking_sample(&mut self) {
-        self.masking.masking_preview = Some(masking::build_preview(
-            &self.masking.masking_columns_csv,
-            self.masking.masking_rule,
-            self.masking.masking_keyed,
+        self.management.masking.masking_preview = Some(masking::build_preview(
+            &self.management.masking.masking_columns_csv,
+            self.management.masking.masking_rule,
+            self.management.masking.masking_keyed,
         ));
-        self.masking.masking_error = None;
+        self.management.masking.masking_error = None;
     }
 
     pub(crate) fn run_masked_csv_export_harness(&mut self) {
@@ -101,13 +101,17 @@ impl DbProApp {
             TransferCancellation, TransferJob, TransferSourceKind, TransferStatus, TransferTargetKind,
         };
 
-        let path = std::env::temp_dir().join(format!("db-pro-masked-{}.csv", self.transfer.transfer_jobs.len() + 1));
+        let path = std::env::temp_dir().join(format!(
+            "db-pro-masked-{}.csv",
+            self.management.transfer.transfer_jobs.len() + 1
+        ));
         let headers = vec!["id".into(), "email".into(), "phone".into()];
         let profile = MaskingProfile {
             name: "export".into(),
             schema: String::new(),
             table: String::new(),
             columns: self
+                .management
                 .masking
                 .masking_columns_csv
                 .split(',')
@@ -115,13 +119,13 @@ impl DbProApp {
                 .filter(|s| !s.is_empty())
                 .map(|column| ColumnMask {
                     column: column.to_owned(),
-                    rule: self.masking.masking_rule,
+                    rule: self.management.masking.masking_rule,
                     replacement: "[masked]".into(),
                     keep_prefix: 2,
                     keep_suffix: 2,
                 })
                 .collect(),
-            keyed: self.masking.masking_keyed,
+            keyed: self.management.masking.masking_keyed,
             key_id: "local-dev".into(),
         };
         let raw = vec![
@@ -134,7 +138,7 @@ impl DbProApp {
         ];
         let masked = mask_transfer_batch(&headers, &raw, &profile, "db-pro-local-masking-key");
         let mut job = TransferJob {
-            id: format!("masked-{}", self.transfer.transfer_jobs.len() + 1),
+            id: format!("masked-{}", self.management.transfer.transfer_jobs.len() + 1),
             label: format!("Masked CSV → {}", path.display()),
             source: TransferSourceKind::Synthetic {
                 rows: masked.len() as u64,
@@ -181,12 +185,12 @@ impl DbProApp {
             Err(err) => {
                 job.status = TransferStatus::Failed;
                 job.error = Some(err.to_string());
-                self.masking.masking_error = Some(err.to_string());
+                self.management.masking.masking_error = Some(err.to_string());
             }
         }
-        self.transfer.transfer_jobs.insert(0, job);
-        if self.transfer.transfer_jobs.len() > 40 {
-            self.transfer.transfer_jobs.truncate(40);
+        self.management.transfer.transfer_jobs.insert(0, job);
+        if self.management.transfer.transfer_jobs.len() > 40 {
+            self.management.transfer.transfer_jobs.truncate(40);
         }
     }
 
@@ -194,7 +198,7 @@ impl DbProApp {
         use db_pro_core::application::TransferService;
         use db_pro_core::domain::transfer::{TransferCancellation, TransferJob, TransferStatus};
 
-        let id = format!("xfer-{}", self.transfer.transfer_jobs.len() + 1);
+        let id = format!("xfer-{}", self.management.transfer.transfer_jobs.len() + 1);
         let mut job = TransferJob::new_synthetic(id, if cancel_midway { 20_000 } else { 5_000 }, 128);
         let cancel = TransferCancellation::new();
         if cancel_midway {
@@ -219,9 +223,9 @@ impl DbProApp {
             "Transfer {} · {:?} · wrote {}",
             job.id, job.status, job.progress.rows_written
         );
-        self.transfer.transfer_jobs.insert(0, job);
-        if self.transfer.transfer_jobs.len() > 20 {
-            self.transfer.transfer_jobs.truncate(20);
+        self.management.transfer.transfer_jobs.insert(0, job);
+        if self.management.transfer.transfer_jobs.len() > 20 {
+            self.management.transfer.transfer_jobs.truncate(20);
         }
     }
 
@@ -232,8 +236,11 @@ impl DbProApp {
         };
 
         let mut path = std::env::temp_dir();
-        path.push(format!("dbpro-export-{}.csv", self.transfer.transfer_jobs.len() + 1));
-        let id = format!("csv-{}", self.transfer.transfer_jobs.len() + 1);
+        path.push(format!(
+            "dbpro-export-{}.csv",
+            self.management.transfer.transfer_jobs.len() + 1
+        ));
+        let id = format!("csv-{}", self.management.transfer.transfer_jobs.len() + 1);
         let mut job = TransferJob {
             id,
             label: format!("CSV export → {}", path.display()),
@@ -262,9 +269,9 @@ impl DbProApp {
             }
         }
         self.feedback.runtime_message = format!("CSV transfer {} · {:?} · {}", job.id, job.status, path.display());
-        self.transfer.transfer_jobs.insert(0, job);
-        if self.transfer.transfer_jobs.len() > 20 {
-            self.transfer.transfer_jobs.truncate(20);
+        self.management.transfer.transfer_jobs.insert(0, job);
+        if self.management.transfer.transfer_jobs.len() > 20 {
+            self.management.transfer.transfer_jobs.truncate(20);
         }
     }
 
@@ -290,8 +297,11 @@ impl DbProApp {
             },
         );
 
-        let mut job =
-            TransferJob::new_synthetic(format!("csv-import-{}", self.transfer.transfer_jobs.len() + 1), 0, 50);
+        let mut job = TransferJob::new_synthetic(
+            format!("csv-import-{}", self.management.transfer.transfer_jobs.len() + 1),
+            0,
+            50,
+        );
         job.label = format!("CSV import preview ← {}", path.display());
         job.target = TransferTargetKind::File {
             path: path.to_string_lossy().into_owned(),
@@ -315,9 +325,9 @@ impl DbProApp {
             }
         }
         self.feedback.runtime_message = job.progress.message.clone();
-        self.transfer.transfer_jobs.insert(0, job);
-        if self.transfer.transfer_jobs.len() > 20 {
-            self.transfer.transfer_jobs.truncate(20);
+        self.management.transfer.transfer_jobs.insert(0, job);
+        if self.management.transfer.transfer_jobs.len() > 20 {
+            self.management.transfer.transfer_jobs.truncate(20);
         }
     }
 
@@ -326,8 +336,15 @@ impl DbProApp {
         use db_pro_core::domain::transfer::{TransferCancellation, TransferJob, TransferStatus, TransferTargetKind};
 
         let mut path = std::env::temp_dir();
-        path.push(format!("dbpro-export-{}.jsonl", self.transfer.transfer_jobs.len() + 1));
-        let mut job = TransferJob::new_synthetic(format!("jsonl-{}", self.transfer.transfer_jobs.len() + 1), 400, 50);
+        path.push(format!(
+            "dbpro-export-{}.jsonl",
+            self.management.transfer.transfer_jobs.len() + 1
+        ));
+        let mut job = TransferJob::new_synthetic(
+            format!("jsonl-{}", self.management.transfer.transfer_jobs.len() + 1),
+            400,
+            50,
+        );
         job.label = format!("JSONL export → {}", path.display());
         job.target = TransferTargetKind::File {
             path: path.to_string_lossy().into_owned(),
@@ -345,9 +362,9 @@ impl DbProApp {
             }
         }
         self.feedback.runtime_message = format!("JSONL {} · {:?}", job.id, job.status);
-        self.transfer.transfer_jobs.insert(0, job);
-        if self.transfer.transfer_jobs.len() > 20 {
-            self.transfer.transfer_jobs.truncate(20);
+        self.management.transfer.transfer_jobs.insert(0, job);
+        if self.management.transfer.transfer_jobs.len() > 20 {
+            self.management.transfer.transfer_jobs.truncate(20);
         }
     }
 
@@ -356,8 +373,15 @@ impl DbProApp {
         use db_pro_core::domain::transfer::{TransferCancellation, TransferJob, TransferStatus, TransferTargetKind};
 
         let mut path = std::env::temp_dir();
-        path.push(format!("dbpro-export-{}.xlsx", self.transfer.transfer_jobs.len() + 1));
-        let mut job = TransferJob::new_synthetic(format!("xlsx-{}", self.transfer.transfer_jobs.len() + 1), 80, 20);
+        path.push(format!(
+            "dbpro-export-{}.xlsx",
+            self.management.transfer.transfer_jobs.len() + 1
+        ));
+        let mut job = TransferJob::new_synthetic(
+            format!("xlsx-{}", self.management.transfer.transfer_jobs.len() + 1),
+            80,
+            20,
+        );
         job.label = format!("Excel export → {}", path.display());
         job.target = TransferTargetKind::File {
             path: path.to_string_lossy().into_owned(),
@@ -375,9 +399,9 @@ impl DbProApp {
             }
         }
         self.feedback.runtime_message = format!("Excel {} · {:?}", job.id, job.status);
-        self.transfer.transfer_jobs.insert(0, job);
-        if self.transfer.transfer_jobs.len() > 20 {
-            self.transfer.transfer_jobs.truncate(20);
+        self.management.transfer.transfer_jobs.insert(0, job);
+        if self.management.transfer.transfer_jobs.len() > 20 {
+            self.management.transfer.transfer_jobs.truncate(20);
         }
     }
 
@@ -435,7 +459,7 @@ impl DbProApp {
         }
 
         let mut job = TransferJob::new_db_table_copy(
-            format!("dbdb-{}", self.transfer.transfer_jobs.len() + 1),
+            format!("dbdb-{}", self.management.transfer.transfer_jobs.len() + 1),
             DbTableEndpoint {
                 connection_id: "src-conn".into(),
                 schema: "public".into(),
@@ -474,9 +498,9 @@ impl DbProApp {
         } else {
             self.feedback.runtime_message = format!("DB→DB {} · {:?} · {:?}", job.id, result.status, job.error);
         }
-        self.transfer.transfer_jobs.insert(0, job);
-        if self.transfer.transfer_jobs.len() > 20 {
-            self.transfer.transfer_jobs.truncate(20);
+        self.management.transfer.transfer_jobs.insert(0, job);
+        if self.management.transfer.transfer_jobs.len() > 20 {
+            self.management.transfer.transfer_jobs.truncate(20);
         }
     }
 }

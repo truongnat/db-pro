@@ -15,10 +15,10 @@ impl DbProApp {
         if secondary_button_with_icon(ui, Icon::RefreshCw, "Load event triggers", self.theme).clicked() {
             self.request_event_triggers();
         }
-        if let Some(error) = &self.event_trigger.event_trigger_error {
+        if let Some(error) = &self.management.event_trigger.event_trigger_error {
             ui.colored_label(self.theme.danger, error);
         }
-        if let Some(inv) = self.event_trigger.event_trigger_inventory.clone() {
+        if let Some(inv) = self.management.event_trigger.event_trigger_inventory.clone() {
             ui.label(RichText::new(&inv.message).small().color(self.theme.text_secondary));
             for trig in inv.triggers.iter().take(50) {
                 card_frame(self.theme).show(ui, |ui| {
@@ -40,7 +40,7 @@ impl DbProApp {
                     ui.horizontal(|ui| {
                         if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
                             // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Drop
-                            self.event_trigger.event_trigger_ddl_preview =
+                            self.management.event_trigger.event_trigger_ddl_preview =
                                 db_pro_core::domain::event_trigger::preview_drop_event_trigger(&trig.name).ok();
                         }
                         if ghost_button(ui, "Disable", self.theme).clicked() {
@@ -50,7 +50,7 @@ impl DbProApp {
                             self.alter_event_trigger_confirmed(&trig.name, "enable");
                         }
                         if danger_button(ui, "Drop…", self.theme).clicked() {
-                            self.event_trigger.event_trigger_drop_confirm = Some(trig.name.clone());
+                            self.management.event_trigger.event_trigger_drop_confirm = Some(trig.name.clone());
                         }
                     });
                 });
@@ -61,28 +61,34 @@ impl DbProApp {
         ui.add_space(SPACE_SM);
         ui.label(RichText::new("Create event trigger").small().strong());
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut self.event_trigger.event_trigger_create_name).hint_text("name"));
-            ui.add(egui::TextEdit::singleline(&mut self.event_trigger.event_trigger_create_event).hint_text("event"));
+            ui.add(
+                egui::TextEdit::singleline(&mut self.management.event_trigger.event_trigger_create_name)
+                    .hint_text("name"),
+            );
+            ui.add(
+                egui::TextEdit::singleline(&mut self.management.event_trigger.event_trigger_create_event)
+                    .hint_text("event"),
+            );
         });
         ui.horizontal(|ui| {
             ui.add(
-                egui::TextEdit::singleline(&mut self.event_trigger.event_trigger_create_function)
+                egui::TextEdit::singleline(&mut self.management.event_trigger.event_trigger_create_function)
                     .hint_text("schema.func()"),
             );
             ui.add(
-                egui::TextEdit::singleline(&mut self.event_trigger.event_trigger_create_tags)
+                egui::TextEdit::singleline(&mut self.management.event_trigger.event_trigger_create_tags)
                     .hint_text("tags CSV optional"),
             );
         });
         ui.horizontal(|ui| {
             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
                 // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Create
-                self.event_trigger.event_trigger_ddl_preview =
+                self.management.event_trigger.event_trigger_ddl_preview =
                     db_pro_core::domain::event_trigger::preview_create_event_trigger(
-                        &self.event_trigger.event_trigger_create_name,
-                        &self.event_trigger.event_trigger_create_event,
-                        &self.event_trigger.event_trigger_create_function,
-                        &self.event_trigger.event_trigger_create_tags,
+                        &self.management.event_trigger.event_trigger_create_name,
+                        &self.management.event_trigger.event_trigger_create_event,
+                        &self.management.event_trigger.event_trigger_create_function,
+                        &self.management.event_trigger.event_trigger_create_tags,
                     )
                     .ok();
             }
@@ -91,7 +97,7 @@ impl DbProApp {
             }
         });
 
-        if let Some(preview) = self.event_trigger.event_trigger_ddl_preview.clone() {
+        if let Some(preview) = self.management.event_trigger.event_trigger_ddl_preview.clone() {
             egui::Window::new("Event trigger DDL preview")
                 .collapsible(false)
                 .resizable(true)
@@ -99,11 +105,11 @@ impl DbProApp {
                 .show(ui.ctx(), |ui| {
                     ui.label(RichText::new(preview).monospace());
                     if secondary_button(ui, "Close", self.theme).clicked() {
-                        self.event_trigger.event_trigger_ddl_preview = None;
+                        self.management.event_trigger.event_trigger_ddl_preview = None;
                     }
                 });
         }
-        if let Some(name) = self.event_trigger.event_trigger_drop_confirm.clone() {
+        if let Some(name) = self.management.event_trigger.event_trigger_drop_confirm.clone() {
             egui::Window::new("Drop event trigger?")
                 .collapsible(false)
                 .resizable(false)
@@ -116,7 +122,7 @@ impl DbProApp {
                             self.drop_event_trigger_confirmed(&name);
                         }
                         if secondary_button(ui, "Cancel", self.theme).clicked() {
-                            self.event_trigger.event_trigger_drop_confirm = None;
+                            self.management.event_trigger.event_trigger_drop_confirm = None;
                         }
                     });
                 });
@@ -125,15 +131,15 @@ impl DbProApp {
 
     fn request_event_triggers(&mut self) {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
-            self.event_trigger.event_trigger_error = Some("Connect a PostgreSQL database first".into());
+            self.management.event_trigger.event_trigger_error = Some("Connect a PostgreSQL database first".into());
             return;
         };
         if !self.active_driver().to_ascii_lowercase().contains("postgres") {
-            self.event_trigger.event_trigger_error = Some("Event triggers are PostgreSQL-only".into());
+            self.management.event_trigger.event_trigger_error = Some("Event triggers are PostgreSQL-only".into());
             return;
         }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.event_trigger.list_command(request_id, connection_id));
+        self.dispatch_command(self.management.event_trigger.list_command(request_id, connection_id));
     }
 
     fn create_event_trigger_confirmed(&mut self) {
@@ -141,7 +147,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.event_trigger.create_command(request_id, connection_id));
+        self.dispatch_command(self.management.event_trigger.create_command(request_id, connection_id));
     }
 
     fn drop_event_trigger_confirmed(&mut self, name: &str) {
@@ -150,7 +156,8 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         self.dispatch_command(
-            self.event_trigger
+            self.management
+                .event_trigger
                 .drop_command(request_id, connection_id, name.to_owned()),
         );
     }
@@ -160,7 +167,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.event_trigger.alter_command(
+        self.dispatch_command(self.management.event_trigger.alter_command(
             request_id,
             connection_id,
             name.to_owned(),

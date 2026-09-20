@@ -31,25 +31,25 @@ impl DbProApp {
                 self.request_security_users();
             }
         });
-        if let Some(error) = &self.security.security_error {
+        if let Some(error) = &self.management.security.security_error {
             ui.colored_label(self.theme.warning, error);
         }
 
         ui.add_space(SPACE_MD);
         section_label(ui, "ROLES / USERS", self.theme);
         ui.add_space(SPACE_SM);
-        if self.security.security_users.is_empty() {
+        if self.management.security.security_users.is_empty() {
             ui.label(
                 RichText::new("No roles loaded yet — click Refresh.")
                     .small()
                     .color(self.theme.text_muted),
             );
         }
-        for user in self.security.security_users.clone() {
-            let selected = self.security.security_selected_role.as_deref() == Some(user.name.as_str());
+        for user in self.management.security.security_users.clone() {
+            let selected = self.management.security.security_selected_role.as_deref() == Some(user.name.as_str());
             ui.horizontal(|ui| {
                 if ui.selectable_label(selected, &user.name).clicked() {
-                    self.security.security_selected_role = Some(user.name.clone());
+                    self.management.security.security_selected_role = Some(user.name.clone());
                     self.request_security_role_details(&user.name);
                 }
                 if user.can_login {
@@ -65,7 +65,7 @@ impl DbProApp {
                     badge(ui, "createrole", self.theme.surface_active, self.theme.text_secondary);
                 }
                 if danger_button(ui, "Drop", self.theme).clicked() {
-                    self.security.security_drop_confirm = Some(user.name.clone());
+                    self.management.security.security_drop_confirm = Some(user.name.clone());
                 }
             });
         }
@@ -73,23 +73,28 @@ impl DbProApp {
         ui.add_space(SPACE_MD);
         section_label(ui, "CREATE ROLE", self.theme);
         ui.add_space(SPACE_SM);
-        input_full_width(ui, &mut self.security.security_new_role, "role name", self.theme);
-        ui.checkbox(&mut self.security.security_new_role_login, "LOGIN");
+        input_full_width(
+            ui,
+            &mut self.management.security.security_new_role,
+            "role name",
+            self.theme,
+        );
+        ui.checkbox(&mut self.management.security.security_new_role_login, "LOGIN");
         if primary_button_with_icon(ui, Icon::Plus, "Create role", self.theme).clicked()
-            && !self.security.security_new_role.trim().is_empty()
+            && !self.management.security.security_new_role.trim().is_empty()
         {
             if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                 let request_id = self.task_bridge.next_request_id();
-                self.dispatch_command(self.security.create_role_command(
+                self.dispatch_command(self.management.security.create_role_command(
                     request_id,
                     connection_id,
-                    self.security.security_new_role.trim().to_owned(),
+                    self.management.security.security_new_role.trim().to_owned(),
                 ));
-                self.security.security_new_role.clear();
+                self.management.security.security_new_role.clear();
             }
         }
 
-        if let Some(role) = self.security.security_selected_role.clone() {
+        if let Some(role) = self.management.security.security_selected_role.clone() {
             ui.add_space(SPACE_MD);
             section_label(ui, format!("ATTRIBUTES · {role}"), self.theme);
             ui.add_space(SPACE_SM);
@@ -141,18 +146,18 @@ impl DbProApp {
                     .color(self.theme.text_muted),
             );
             ui.add(
-                egui::TextEdit::singleline(&mut self.security.security_password)
+                egui::TextEdit::singleline(&mut self.management.security.security_password)
                     .password(true)
                     .hint_text("new password")
                     .desired_width(f32::INFINITY),
             );
             if primary_button_with_icon(ui, Icon::Key, "Update password", self.theme).clicked()
-                && !self.security.security_password.is_empty()
+                && !self.management.security.security_password.is_empty()
             {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-                    let password = std::mem::take(&mut self.security.security_password);
+                    let password = std::mem::take(&mut self.management.security.security_password);
                     let request_id = self.task_bridge.next_request_id();
-                    self.dispatch_command(self.security.update_password_command(
+                    self.dispatch_command(self.management.security.update_password_command(
                         request_id,
                         connection_id,
                         role.clone(),
@@ -164,14 +169,14 @@ impl DbProApp {
             ui.add_space(SPACE_MD);
             section_label(ui, format!("MEMBERSHIPS · {role}"), self.theme);
             ui.add_space(SPACE_SM);
-            if self.security.security_memberships.is_empty() {
+            if self.management.security.security_memberships.is_empty() {
                 ui.label(
                     RichText::new("No role memberships.")
                         .small()
                         .color(self.theme.text_muted),
                 );
             } else {
-                for membership in self.security.security_memberships.clone() {
+                for membership in self.management.security.security_memberships.clone() {
                     ui.horizontal(|ui| {
                         ui.label(
                             RichText::new(format!("member of {}", membership.role))
@@ -184,7 +189,7 @@ impl DbProApp {
                                 self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(self.security.revoke_membership_command(
+                                self.dispatch_command(self.management.security.revoke_membership_command(
                                     request_id,
                                     connection_id,
                                     membership.role,
@@ -197,36 +202,36 @@ impl DbProApp {
             }
             input_full_width(
                 ui,
-                &mut self.security.security_membership_role,
+                &mut self.management.security.security_membership_role,
                 "grant role name",
                 self.theme,
             );
             if secondary_button_with_icon(ui, Icon::Plus, "Grant membership", self.theme).clicked()
-                && !self.security.security_membership_role.trim().is_empty()
+                && !self.management.security.security_membership_role.trim().is_empty()
             {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                     let request_id = self.task_bridge.next_request_id();
-                    self.dispatch_command(self.security.grant_membership_command(
+                    self.dispatch_command(self.management.security.grant_membership_command(
                         request_id,
                         connection_id,
-                        self.security.security_membership_role.trim().to_owned(),
+                        self.management.security.security_membership_role.trim().to_owned(),
                         role.clone(),
                     ));
-                    self.security.security_membership_role.clear();
+                    self.management.security.security_membership_role.clear();
                 }
             }
 
             ui.add_space(SPACE_MD);
             section_label(ui, format!("PRIVILEGES · {role}"), self.theme);
             ui.add_space(SPACE_SM);
-            if self.security.security_privileges.is_empty() {
+            if self.management.security.security_privileges.is_empty() {
                 ui.label(
                     RichText::new("No privileges listed for this role.")
                         .small()
                         .color(self.theme.text_muted),
                 );
             } else {
-                for privs in self.security.security_privileges.clone() {
+                for privs in self.management.security.security_privileges.clone() {
                     ui.horizontal(|ui| {
                         let target = match privs.object_kind {
                             db_pro_core::domain::user::PrivilegeObjectKind::Database => privs.object_name.clone(),
@@ -249,7 +254,7 @@ impl DbProApp {
                                 self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(self.security.revoke_privilege_command(
+                                self.dispatch_command(self.management.security.revoke_privilege_command(
                                     request_id,
                                     connection_id,
                                     role.clone(),
@@ -271,45 +276,59 @@ impl DbProApp {
                     ("sequence", db_pro_core::domain::user::PrivilegeObjectKind::Sequence),
                 ] {
                     if ui
-                        .selectable_label(self.security.security_grant_kind == kind, label)
+                        .selectable_label(self.management.security.security_grant_kind == kind, label)
                         .clicked()
                     {
-                        self.security.security_grant_kind = kind;
+                        self.management.security.security_grant_kind = kind;
                     }
                 }
             });
             if !matches!(
-                self.security.security_grant_kind,
+                self.management.security.security_grant_kind,
                 db_pro_core::domain::user::PrivilegeObjectKind::Database
                     | db_pro_core::domain::user::PrivilegeObjectKind::Schema
             ) {
-                input_full_width(ui, &mut self.security.security_grant_schema, "schema", self.theme);
+                input_full_width(
+                    ui,
+                    &mut self.management.security.security_grant_schema,
+                    "schema",
+                    self.theme,
+                );
             }
-            let object_hint = match self.security.security_grant_kind {
+            let object_hint = match self.management.security.security_grant_kind {
                 db_pro_core::domain::user::PrivilegeObjectKind::Table => "table",
                 db_pro_core::domain::user::PrivilegeObjectKind::Schema => "schema",
                 db_pro_core::domain::user::PrivilegeObjectKind::Database => "database",
                 db_pro_core::domain::user::PrivilegeObjectKind::Sequence => "sequence",
             };
-            input_full_width(ui, &mut self.security.security_grant_object, object_hint, self.theme);
             input_full_width(
                 ui,
-                &mut self.security.security_grant_privilege,
+                &mut self.management.security.security_grant_object,
+                object_hint,
+                self.theme,
+            );
+            input_full_width(
+                ui,
+                &mut self.management.security.security_grant_privilege,
                 "privilege (SELECT/USAGE/CONNECT/…)",
                 self.theme,
             );
             if primary_button_with_icon(ui, Icon::Plus, "Grant privilege", self.theme).clicked()
-                && !self.security.security_grant_object.trim().is_empty()
-                && !self.security.security_grant_privilege.trim().is_empty()
+                && !self.management.security.security_grant_object.trim().is_empty()
+                && !self.management.security.security_grant_privilege.trim().is_empty()
             {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                     let request_id = self.task_bridge.next_request_id();
-                    self.dispatch_command(self.security.grant_privilege_command(request_id, connection_id, role));
+                    self.dispatch_command(self.management.security.grant_privilege_command(
+                        request_id,
+                        connection_id,
+                        role,
+                    ));
                 }
             }
         }
 
-        if let Some(name) = self.security.security_drop_confirm.clone() {
+        if let Some(name) = self.management.security.security_drop_confirm.clone() {
             egui::Window::new("Drop role?")
                 .collapsible(false)
                 .resizable(false)
@@ -322,12 +341,16 @@ impl DbProApp {
                                 self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(self.security.drop_role_command(request_id, connection_id, name));
+                                self.dispatch_command(self.management.security.drop_role_command(
+                                    request_id,
+                                    connection_id,
+                                    name,
+                                ));
                             }
-                            self.security.security_drop_confirm = None;
+                            self.management.security.security_drop_confirm = None;
                         }
                         if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.security.security_drop_confirm = None;
+                            self.management.security.security_drop_confirm = None;
                         }
                     });
                 });
@@ -341,8 +364,18 @@ impl DbProApp {
                 .small()
                 .color(self.theme.text_muted),
         );
-        input_full_width(ui, &mut self.security.security_rls_schema, "schema", self.theme);
-        input_full_width(ui, &mut self.security.security_rls_table, "table", self.theme);
+        input_full_width(
+            ui,
+            &mut self.management.security.security_rls_schema,
+            "schema",
+            self.theme,
+        );
+        input_full_width(
+            ui,
+            &mut self.management.security.security_rls_table,
+            "table",
+            self.theme,
+        );
         ui.horizontal(|ui| {
             if secondary_button_with_icon(ui, Icon::RefreshCw, "Inspect RLS", self.theme).clicked() {
                 self.request_security_rls();
@@ -360,7 +393,7 @@ impl DbProApp {
                 self.preview_table_rls(true, false);
             }
         });
-        if let Some(state) = self.security.security_rls_state.clone() {
+        if let Some(state) = self.management.security.security_rls_state.clone() {
             ui.label(
                 RichText::new(format!(
                     "{}.{} · enabled={} · forced={} · {} policy(ies)",
@@ -399,11 +432,12 @@ impl DbProApp {
                         self.preview_drop_rls_policy(&policy.name);
                     }
                     if secondary_button_with_icon(ui, Icon::Pencil, "Load for edit", self.theme).clicked() {
-                        self.security.security_rls_policy_name = policy.name.clone();
-                        self.security.security_rls_command = policy.command.clone();
-                        self.security.security_rls_roles = policy.roles.join(", ");
-                        self.security.security_rls_using = policy.using_expr.clone().unwrap_or_default();
-                        self.security.security_rls_with_check = policy.with_check_expr.clone().unwrap_or_default();
+                        self.management.security.security_rls_policy_name = policy.name.clone();
+                        self.management.security.security_rls_command = policy.command.clone();
+                        self.management.security.security_rls_roles = policy.roles.join(", ");
+                        self.management.security.security_rls_using = policy.using_expr.clone().unwrap_or_default();
+                        self.management.security.security_rls_with_check =
+                            policy.with_check_expr.clone().unwrap_or_default();
                     }
                 });
             }
@@ -412,31 +446,31 @@ impl DbProApp {
         section_label(ui, "CREATE / ALTER POLICY", self.theme);
         input_full_width(
             ui,
-            &mut self.security.security_rls_policy_name,
+            &mut self.management.security.security_rls_policy_name,
             "policy name",
             self.theme,
         );
         input_full_width(
             ui,
-            &mut self.security.security_rls_command,
+            &mut self.management.security.security_rls_command,
             "command (ALL/SELECT/INSERT/UPDATE/DELETE)",
             self.theme,
         );
         input_full_width(
             ui,
-            &mut self.security.security_rls_roles,
+            &mut self.management.security.security_rls_roles,
             "roles (comma; empty=PUBLIC)",
             self.theme,
         );
         input_full_width(
             ui,
-            &mut self.security.security_rls_using,
+            &mut self.management.security.security_rls_using,
             "USING expression",
             self.theme,
         );
         input_full_width(
             ui,
-            &mut self.security.security_rls_with_check,
+            &mut self.management.security.security_rls_with_check,
             "WITH CHECK expression",
             self.theme,
         );
@@ -448,19 +482,19 @@ impl DbProApp {
                 self.preview_rls_policy(db_pro_core::domain::object_mutation::ObjectAction::Alter);
             }
         });
-        if !self.security.security_rls_preview_sql.is_empty() {
+        if !self.management.security.security_rls_preview_sql.is_empty() {
             ui.label(
-                RichText::new(&self.security.security_rls_preview_sql)
+                RichText::new(&self.management.security.security_rls_preview_sql)
                     .small()
                     .monospace()
                     .color(self.theme.text_primary),
             );
             ui.checkbox(
-                &mut self.security.security_rls_confirm_apply,
+                &mut self.management.security.security_rls_confirm_apply,
                 "I understand this changes data visibility immediately",
             );
             if primary_button_with_icon(ui, Icon::Play, "Apply preview SQL", self.theme).clicked() {
-                if !self.security.security_rls_confirm_apply {
+                if !self.management.security.security_rls_confirm_apply {
                     self.feedback.runtime_message = "Confirm RLS apply checkbox first".into();
                 } else {
                     self.apply_security_rls_preview();
@@ -474,7 +508,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.security.list_users_command(request_id, connection_id));
+        self.dispatch_command(self.management.security.list_users_command(request_id, connection_id));
     }
 
     pub(crate) fn request_security_role_details(&mut self, role_name: &str) {
@@ -482,16 +516,17 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.security.list_privileges_command(
+        self.dispatch_command(self.management.security.list_privileges_command(
             request_id,
             connection_id.clone(),
             role_name.to_owned(),
         ));
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(
-            self.security
-                .list_memberships_command(request_id, connection_id, role_name.to_owned()),
-        );
+        self.dispatch_command(self.management.security.list_memberships_command(
+            request_id,
+            connection_id,
+            role_name.to_owned(),
+        ));
     }
 
     pub(crate) fn request_security_rls(&mut self) {
@@ -499,7 +534,11 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        match self.security.list_table_rls_command(request_id, connection_id) {
+        match self
+            .management
+            .security
+            .list_table_rls_command(request_id, connection_id)
+        {
             Ok(command) => {
                 self.dispatch_command(command);
             }
@@ -509,14 +548,14 @@ impl DbProApp {
 
     fn preview_table_rls(&mut self, force: bool, enable: bool) {
         match security_rls::plan_table_rls(security_rls::TableRlsPreviewRequest {
-            schema: &self.security.security_rls_schema,
-            table: &self.security.security_rls_table,
+            schema: &self.management.security.security_rls_schema,
+            table: &self.management.security.security_rls_table,
             force,
             enable,
         }) {
             Ok(sql) => {
-                self.security.security_rls_preview_sql = sql;
-                self.security.security_rls_confirm_apply = false;
+                self.management.security.security_rls_preview_sql = sql;
+                self.management.security.security_rls_confirm_apply = false;
             }
             Err(error) => self.feedback.runtime_message = error,
         }
@@ -525,20 +564,20 @@ impl DbProApp {
     fn preview_rls_policy(&mut self, action: db_pro_core::domain::object_mutation::ObjectAction) {
         match security_rls::plan_policy(security_rls::PolicyPreviewRequest {
             action,
-            schema: &self.security.security_rls_schema,
-            table: &self.security.security_rls_table,
-            name: &self.security.security_rls_policy_name,
-            command: &self.security.security_rls_command,
-            roles_csv: &self.security.security_rls_roles,
-            using_expr: &self.security.security_rls_using,
-            with_check_expr: &self.security.security_rls_with_check,
+            schema: &self.management.security.security_rls_schema,
+            table: &self.management.security.security_rls_table,
+            name: &self.management.security.security_rls_policy_name,
+            command: &self.management.security.security_rls_command,
+            roles_csv: &self.management.security.security_rls_roles,
+            using_expr: &self.management.security.security_rls_using,
+            with_check_expr: &self.management.security.security_rls_with_check,
         }) {
             Ok(sql) => {
-                self.security.security_rls_preview_sql = sql;
-                self.security.security_rls_confirm_apply = false;
+                self.management.security.security_rls_preview_sql = sql;
+                self.management.security.security_rls_confirm_apply = false;
             }
             Err(error) => {
-                self.security.security_rls_preview_sql.clear();
+                self.management.security.security_rls_preview_sql.clear();
                 self.feedback.runtime_message = error;
             }
         }
@@ -546,13 +585,13 @@ impl DbProApp {
 
     fn preview_drop_rls_policy(&mut self, policy_name: &str) {
         match security_rls::plan_drop_policy(
-            &self.security.security_rls_schema,
-            &self.security.security_rls_table,
+            &self.management.security.security_rls_schema,
+            &self.management.security.security_rls_table,
             policy_name,
         ) {
             Ok(sql) => {
-                self.security.security_rls_preview_sql = sql;
-                self.security.security_rls_confirm_apply = false;
+                self.management.security.security_rls_preview_sql = sql;
+                self.management.security.security_rls_confirm_apply = false;
             }
             Err(error) => self.feedback.runtime_message = error,
         }
@@ -566,7 +605,11 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        if let Some(command) = self.security.apply_rls_preview_command(request_id, connection_id) {
+        if let Some(command) = self
+            .management
+            .security
+            .apply_rls_preview_command(request_id, connection_id)
+        {
             self.dispatch_command(command);
             self.table.state.ddl_execution_request = Some(request_id);
             self.feedback.runtime_message = "Applying RLS mutation…".into();
@@ -578,9 +621,11 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(
-            self.security
-                .alter_role_command(request_id, connection_id, name.to_owned(), attributes),
-        );
+        self.dispatch_command(self.management.security.alter_role_command(
+            request_id,
+            connection_id,
+            name.to_owned(),
+            attributes,
+        ));
     }
 }

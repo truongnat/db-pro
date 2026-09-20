@@ -18,12 +18,12 @@ impl DbProApp {
         ui.add_space(SPACE_XS);
         ui.horizontal(|ui| {
             ui.label(RichText::new("Filter").small().color(self.theme.text_muted));
-            ui.text_edit_singleline(&mut self.pg_settings.pg_settings_filter);
+            ui.text_edit_singleline(&mut self.management.pg_settings.pg_settings_filter);
         });
-        if let Some(error) = &self.pg_settings.pg_settings_error {
+        if let Some(error) = &self.management.pg_settings.pg_settings_error {
             ui.colored_label(self.theme.danger, error);
         }
-        if let Some(snapshot) = self.pg_settings.pg_settings.clone() {
+        if let Some(snapshot) = self.management.pg_settings.pg_settings.clone() {
             ui.label(
                 RichText::new(format!(
                     "{} · fetched @ {} ms",
@@ -32,7 +32,7 @@ impl DbProApp {
                 .small()
                 .color(self.theme.text_muted),
             );
-            let filter = self.pg_settings.pg_settings_filter.to_ascii_lowercase();
+            let filter = self.management.pg_settings.pg_settings_filter.to_ascii_lowercase();
             let rows: Vec<_> = snapshot
                 .settings
                 .iter()
@@ -82,8 +82,8 @@ impl DbProApp {
                     ui.horizontal(|ui| {
                         if setting.session_mutable() && !setting.sensitive {
                             if ghost_button_with_icon(ui, Icon::Pencil, "Edit session", self.theme).clicked() {
-                                self.pg_settings.pg_settings_edit_name = setting.name.clone();
-                                self.pg_settings.pg_settings_edit_value = setting.setting.clone();
+                                self.management.pg_settings.pg_settings_edit_name = setting.name.clone();
+                                self.management.pg_settings.pg_settings_edit_value = setting.setting.clone();
                             }
                             if secondary_button(ui, "RESET", self.theme).clicked() {
                                 self.reset_pg_setting_session(&setting.name);
@@ -93,7 +93,7 @@ impl DbProApp {
                             && ghost_button_with_icon(ui, Icon::FileCode2, "Preview ALTER SYSTEM", self.theme).clicked()
                         {
                             // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking ALTER SYSTEM
-                            self.pg_settings.pg_settings_preview =
+                            self.management.pg_settings.pg_settings_preview =
                                 db_pro_core::domain::pg_settings::preview_alter_system(&setting.name, &setting.setting)
                                     .ok();
                         }
@@ -103,28 +103,31 @@ impl DbProApp {
             }
         }
 
-        if !self.pg_settings.pg_settings_edit_name.is_empty() {
-            egui::Window::new(format!("SET SESSION · {}", self.pg_settings.pg_settings_edit_name))
-                .collapsible(false)
-                .resizable(false)
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .show(ui.ctx(), |ui| {
-                    ui.text_edit_singleline(&mut self.pg_settings.pg_settings_edit_value);
-                    ui.horizontal(|ui| {
-                        if secondary_button(ui, "Apply SET", self.theme).clicked() {
-                            let name = self.pg_settings.pg_settings_edit_name.clone();
-                            let value = self.pg_settings.pg_settings_edit_value.clone();
-                            self.set_pg_setting_session(&name, &value);
-                            self.pg_settings.pg_settings_edit_name.clear();
-                        }
-                        if ghost_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.pg_settings.pg_settings_edit_name.clear();
-                        }
-                    });
+        if !self.management.pg_settings.pg_settings_edit_name.is_empty() {
+            egui::Window::new(format!(
+                "SET SESSION · {}",
+                self.management.pg_settings.pg_settings_edit_name
+            ))
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ui.ctx(), |ui| {
+                ui.text_edit_singleline(&mut self.management.pg_settings.pg_settings_edit_value);
+                ui.horizontal(|ui| {
+                    if secondary_button(ui, "Apply SET", self.theme).clicked() {
+                        let name = self.management.pg_settings.pg_settings_edit_name.clone();
+                        let value = self.management.pg_settings.pg_settings_edit_value.clone();
+                        self.set_pg_setting_session(&name, &value);
+                        self.management.pg_settings.pg_settings_edit_name.clear();
+                    }
+                    if ghost_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
+                        self.management.pg_settings.pg_settings_edit_name.clear();
+                    }
                 });
+            });
         }
 
-        if let Some(preview) = self.pg_settings.pg_settings_preview.clone() {
+        if let Some(preview) = self.management.pg_settings.pg_settings_preview.clone() {
             egui::Window::new("ALTER SYSTEM preview")
                 .collapsible(false)
                 .resizable(true)
@@ -134,7 +137,7 @@ impl DbProApp {
                     ui.label(RichText::new(&preview.note).small().color(self.theme.warning));
                     ui.label(RichText::new(&preview.sql).monospace());
                     if secondary_button(ui, "Close", self.theme).clicked() {
-                        self.pg_settings.pg_settings_preview = None;
+                        self.management.pg_settings.pg_settings_preview = None;
                     }
                 });
         }
@@ -142,16 +145,16 @@ impl DbProApp {
 
     fn request_pg_settings(&mut self) {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
-            self.pg_settings.pg_settings_error = Some("Connect a PostgreSQL database first".into());
+            self.management.pg_settings.pg_settings_error = Some("Connect a PostgreSQL database first".into());
             return;
         };
         let driver = self.active_driver().to_ascii_lowercase();
         if !(driver.contains("postgres")) {
-            self.pg_settings.pg_settings_error = Some("pg_settings is PostgreSQL-only".into());
+            self.management.pg_settings.pg_settings_error = Some("pg_settings is PostgreSQL-only".into());
             return;
         }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.pg_settings.list_command(request_id, connection_id));
+        self.dispatch_command(self.management.pg_settings.list_command(request_id, connection_id));
     }
 
     fn set_pg_setting_session(&mut self, name: &str, value: &str) {
@@ -159,7 +162,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.pg_settings.set_session_command(
+        self.dispatch_command(self.management.pg_settings.set_session_command(
             request_id,
             connection_id,
             name.to_owned(),
@@ -172,9 +175,10 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(
-            self.pg_settings
-                .reset_session_command(request_id, connection_id, name.to_owned()),
-        );
+        self.dispatch_command(self.management.pg_settings.reset_session_command(
+            request_id,
+            connection_id,
+            name.to_owned(),
+        ));
     }
 }

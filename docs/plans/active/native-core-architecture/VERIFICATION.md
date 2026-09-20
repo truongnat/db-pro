@@ -497,6 +497,12 @@ Source checkpoint: `0070d374`.
   PASS. One timing-sensitive chart performance assertion exceeded its budget
   once at 300.7ms and passed on the isolated rerun and subsequent full UI run;
   no product test failure remains.
+- Database-management state ownership follow-up: audit, event-trigger, FDW,
+  masking, monitoring, PostgreSQL settings, replication, routine, security,
+  synthetic-data and transfer state now cross the single
+  `DatabaseManagementState` aggregate through `DbProApp.management`. Focused
+  UI tests (632 passed), clippy, architecture guard, clean scan and diff
+  checks PASS.
 
 ## Not yet proven
 

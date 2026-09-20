@@ -613,6 +613,22 @@ boundary.
 
 Severity: P2 feature-boundary risk, resolved for Design Mode presentation.
 
+## F32 — Database administration state was flat in `DbProApp`
+
+Evidence at discovery: the composition root exposed eleven unrelated
+administration states (`audit`, `fdw`, `security`, `monitoring`, replication,
+transfer and others) as sibling fields. Views and reducers could therefore
+couple directly to a growing flat surface instead of crossing one database
+administration feature boundary.
+
+Fix in the current refactor: introduced `DatabaseManagementState` and moved
+those child states behind `DbProApp.management`. Existing child state types
+and command helpers remain feature-owned; only composition and access paths
+changed.
+
+Severity: P1 composition-root boundary risk, resolved for database-management
+state ownership.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and

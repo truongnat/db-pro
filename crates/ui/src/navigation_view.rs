@@ -472,10 +472,10 @@ impl DbProApp {
                 .collect();
             ui.horizontal(|ui| {
                 egui::ComboBox::from_id_salt("synth_table")
-                    .selected_text(if self.synthetic_data.synthetic_table.is_empty() {
+                    .selected_text(if self.management.synthetic_data.synthetic_table.is_empty() {
                         "Select table…"
                     } else {
-                        &self.synthetic_data.synthetic_table
+                        &self.management.synthetic_data.synthetic_table
                     })
                     .show_ui(ui, |ui| {
                         for (schema, name) in &tables {
@@ -484,15 +484,23 @@ impl DbProApp {
                             } else {
                                 format!("{schema}.{name}")
                             };
-                            ui.selectable_value(&mut self.synthetic_data.synthetic_table, key.clone(), key);
+                            ui.selectable_value(&mut self.management.synthetic_data.synthetic_table, key.clone(), key);
                         }
                     });
                 ui.label("rows");
-                ui.add(egui::TextEdit::singleline(&mut self.synthetic_data.synthetic_row_count).desired_width(48.0));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.management.synthetic_data.synthetic_row_count)
+                        .desired_width(48.0),
+                );
                 ui.label("seed");
-                ui.add(egui::TextEdit::singleline(&mut self.synthetic_data.synthetic_seed).desired_width(64.0));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.management.synthetic_data.synthetic_seed).desired_width(64.0),
+                );
                 ui.label("null%");
-                ui.add(egui::TextEdit::singleline(&mut self.synthetic_data.synthetic_null_pct).desired_width(36.0));
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.management.synthetic_data.synthetic_null_pct)
+                        .desired_width(36.0),
+                );
             });
             let is_production = self
                 .active_connection()
@@ -504,7 +512,7 @@ impl DbProApp {
                     "Production connection — confirm before applying INSERT SQL",
                 );
                 ui.checkbox(
-                    &mut self.synthetic_data.synthetic_production_confirm,
+                    &mut self.management.synthetic_data.synthetic_production_confirm,
                     "I confirm seeding this Production database",
                 );
             }
@@ -519,10 +527,10 @@ impl DbProApp {
                     self.apply_synthetic_seed();
                 }
             });
-            if let Some(error) = &self.synthetic_data.synthetic_error {
+            if let Some(error) = &self.management.synthetic_data.synthetic_error {
                 ui.colored_label(self.theme.danger, error);
             }
-            if let Some(preview) = &self.synthetic_data.synthetic_preview {
+            if let Some(preview) = &self.management.synthetic_data.synthetic_preview {
                 ui.label(RichText::new(&preview.message).small().color(self.theme.text_secondary));
                 for (i, row) in preview.rows.iter().take(8).enumerate() {
                     ui.label(RichText::new(format!("#{i}: {}", row.join(" | "))).monospace().small());
@@ -541,38 +549,39 @@ impl DbProApp {
             );
             ui.horizontal(|ui| {
                 ui.add(
-                    egui::TextEdit::singleline(&mut self.masking.masking_columns_csv).hint_text("cols: email,phone"),
+                    egui::TextEdit::singleline(&mut self.management.masking.masking_columns_csv)
+                        .hint_text("cols: email,phone"),
                 );
                 egui::ComboBox::from_id_salt("mask_rule")
-                    .selected_text(format!("{:?}", self.masking.masking_rule))
+                    .selected_text(format!("{:?}", self.management.masking.masking_rule))
                     .show_ui(ui, |ui| {
                         ui.selectable_value(
-                            &mut self.masking.masking_rule,
+                            &mut self.management.masking.masking_rule,
                             db_pro_core::domain::masking::MaskRule::Redact,
                             "Redact",
                         );
                         ui.selectable_value(
-                            &mut self.masking.masking_rule,
+                            &mut self.management.masking.masking_rule,
                             db_pro_core::domain::masking::MaskRule::Hash,
                             "Hash",
                         );
                         ui.selectable_value(
-                            &mut self.masking.masking_rule,
+                            &mut self.management.masking.masking_rule,
                             db_pro_core::domain::masking::MaskRule::PartialReveal,
                             "Partial",
                         );
                         ui.selectable_value(
-                            &mut self.masking.masking_rule,
+                            &mut self.management.masking.masking_rule,
                             db_pro_core::domain::masking::MaskRule::Fixed,
                             "Fixed",
                         );
                         ui.selectable_value(
-                            &mut self.masking.masking_rule,
+                            &mut self.management.masking.masking_rule,
                             db_pro_core::domain::masking::MaskRule::Synthetic,
                             "Synthetic",
                         );
                     });
-                ui.checkbox(&mut self.masking.masking_keyed, "Keyed hash");
+                ui.checkbox(&mut self.management.masking.masking_keyed, "Keyed hash");
                 if secondary_button(ui, "Suggest cols", self.theme).clicked() {
                     let names: Vec<String> = self
                         .schema_explorer
@@ -581,7 +590,7 @@ impl DbProApp {
                         .first()
                         .map(|t| t.columns.iter().map(|c| c.name.clone()).collect())
                         .unwrap_or_default();
-                    self.masking.masking_columns_csv =
+                    self.management.masking.masking_columns_csv =
                         db_pro_core::domain::masking::suggest_sensitive_columns(&names).join(",");
                 }
                 if secondary_button(ui, "Preview sample", self.theme).clicked() {
@@ -591,10 +600,10 @@ impl DbProApp {
                     self.run_masked_csv_export_harness();
                 }
             });
-            if let Some(error) = &self.masking.masking_error {
+            if let Some(error) = &self.management.masking.masking_error {
                 ui.colored_label(self.theme.danger, error);
             }
-            if let Some(preview) = &self.masking.masking_preview {
+            if let Some(preview) = &self.management.masking.masking_preview {
                 ui.label(RichText::new(&preview.message).small().color(self.theme.text_secondary));
                 for (i, (orig, masked)) in preview.original.iter().zip(preview.masked.iter()).take(5).enumerate() {
                     ui.label(RichText::new(format!("#{i} {orig:?} → {masked:?}")).monospace().small());
@@ -625,11 +634,11 @@ impl DbProApp {
                 self.run_db_to_db_transfer_harness();
             }
             if ghost_button_with_icon(ui, Icon::Trash2, "Clear jobs", self.theme).clicked() {
-                self.transfer.transfer_jobs.clear();
+                self.management.transfer.transfer_jobs.clear();
             }
         });
         ui.add_space(SPACE_MD);
-        if self.transfer.transfer_jobs.is_empty() {
+        if self.management.transfer.transfer_jobs.is_empty() {
             empty_state(
                 ui,
                 Icon::Upload,
@@ -639,7 +648,7 @@ impl DbProApp {
             );
             return;
         }
-        for job in &self.transfer.transfer_jobs {
+        for job in &self.management.transfer.transfer_jobs {
             card_frame(self.theme).show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(&job.label).strong().color(self.theme.text_primary));

@@ -30,7 +30,7 @@ impl DbProApp {
                     if connected && secondary_button_with_icon(ui, Icon::RefreshCw, "Refresh", self.theme).clicked() {
                         self.request_monitoring_snapshot();
                     }
-                    ui.checkbox(&mut self.monitoring.monitoring_poll, "Auto-refresh");
+                    ui.checkbox(&mut self.management.monitoring.monitoring_poll, "Auto-refresh");
                 });
             });
             ui.add_space(SPACE_SM);
@@ -49,8 +49,9 @@ impl DbProApp {
             }
         });
 
-        if connected && self.monitoring.monitoring_poll {
+        if connected && self.management.monitoring.monitoring_poll {
             let due = self
+                .management
                 .monitoring
                 .monitoring_last_poll
                 .map(|t| t.elapsed() >= std::time::Duration::from_secs(5))
@@ -61,7 +62,7 @@ impl DbProApp {
         }
 
         ui.add_space(SPACE_MD);
-        if let Some(error) = &self.monitoring.monitoring_error {
+        if let Some(error) = &self.management.monitoring.monitoring_error {
             ui.colored_label(self.theme.warning, error);
             ui.add_space(SPACE_SM);
         }
@@ -72,7 +73,7 @@ impl DbProApp {
     }
 
     fn draw_monitor_snapshot(&mut self, ui: &mut egui::Ui, connected: bool) {
-        if let Some(snapshot) = self.monitoring.monitoring_snapshot.clone() {
+        if let Some(snapshot) = self.management.monitoring.monitoring_snapshot.clone() {
             self.draw_monitor_health_and_local(ui, &snapshot);
             self.draw_monitor_sessions(ui, &snapshot);
             self.draw_monitor_server_stats(ui, &snapshot);
@@ -195,7 +196,7 @@ impl DbProApp {
         section_label(ui, "SESSIONS", self.theme);
         ui.add_space(SPACE_SM);
         ui.checkbox(
-            &mut self.monitoring.monitoring_filter_active_only,
+            &mut self.management.monitoring.monitoring_filter_active_only,
             "Active queries only",
         );
         ui.add_space(SPACE_SM);
@@ -220,7 +221,7 @@ impl DbProApp {
             ui.add_space(SPACE_MD);
         }
 
-        let sessions: Vec<_> = if self.monitoring.monitoring_filter_active_only {
+        let sessions: Vec<_> = if self.management.monitoring.monitoring_filter_active_only {
             snapshot.active_queries().into_iter().cloned().collect()
         } else {
             snapshot.sessions.clone()
@@ -302,7 +303,7 @@ impl DbProApp {
                                     self.connection.lifecycle.active_connection_id().map(str::to_owned)
                                 {
                                     let request_id = self.task_bridge.next_request_id();
-                                    self.dispatch_command(self.monitoring.cancel_backend_command(
+                                    self.dispatch_command(self.management.monitoring.cancel_backend_command(
                                         request_id,
                                         connection_id,
                                         session.backend_id,
@@ -310,7 +311,7 @@ impl DbProApp {
                                 }
                             }
                             if !session.is_current && danger_button(ui, "Terminate", self.theme).clicked() {
-                                self.monitoring.monitoring_terminate_confirm = Some(session.backend_id);
+                                self.management.monitoring.monitoring_terminate_confirm = Some(session.backend_id);
                             }
                         });
                     }
@@ -420,23 +421,28 @@ impl DbProApp {
                         StatStatementSort::Calls,
                         StatStatementSort::Rows,
                     ] {
-                        let selected = self.monitoring.monitoring_stat_sort == sort;
+                        let selected = self.management.monitoring.monitoring_stat_sort == sort;
                         if ui.selectable_label(selected, sort.as_label()).clicked() {
-                            self.monitoring.monitoring_stat_sort = sort;
+                            self.management.monitoring.monitoring_stat_sort = sort;
                             self.request_monitoring_workload();
                         }
                     }
                     if danger_button(ui, "Reset stats…", self.theme).clicked() {
-                        self.monitoring.monitoring_reset_stats_confirm = true;
+                        self.management.monitoring.monitoring_reset_stats_confirm = true;
                     }
                 });
                 ui.add_space(SPACE_XS);
                 ui.horizontal(|ui| {
                     ui.label(RichText::new("Filter").small().color(self.theme.text_muted));
-                    ui.text_edit_singleline(&mut self.monitoring.monitoring_workload_filter);
+                    ui.text_edit_singleline(&mut self.management.monitoring.monitoring_workload_filter);
                 });
-                let filter = self.monitoring.monitoring_workload_filter.to_ascii_lowercase();
+                let filter = self
+                    .management
+                    .monitoring
+                    .monitoring_workload_filter
+                    .to_ascii_lowercase();
                 let prev_by_id: std::collections::HashMap<Option<i64>, f64> = self
+                    .management
                     .monitoring
                     .monitoring_workload_prev
                     .as_ref()
@@ -524,7 +530,7 @@ impl DbProApp {
     }
 
     fn draw_monitor_confirmations(&mut self, ui: &mut egui::Ui) {
-        if let Some(backend_id) = self.monitoring.monitoring_terminate_confirm {
+        if let Some(backend_id) = self.management.monitoring.monitoring_terminate_confirm {
             egui::Window::new("Terminate session?")
                 .collapsible(false)
                 .resizable(false)
@@ -539,22 +545,22 @@ impl DbProApp {
                                 self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(self.monitoring.terminate_backend_command(
+                                self.dispatch_command(self.management.monitoring.terminate_backend_command(
                                     request_id,
                                     connection_id,
                                     backend_id,
                                 ));
                             }
-                            self.monitoring.monitoring_terminate_confirm = None;
+                            self.management.monitoring.monitoring_terminate_confirm = None;
                         }
                         if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.monitoring.monitoring_terminate_confirm = None;
+                            self.management.monitoring.monitoring_terminate_confirm = None;
                         }
                     });
                 });
         }
 
-        if let Some(action) = self.monitoring.monitoring_maintenance_confirm {
+        if let Some(action) = self.management.monitoring.monitoring_maintenance_confirm {
             egui::Window::new("Run maintenance?")
                 .collapsible(false)
                 .resizable(false)
@@ -570,22 +576,22 @@ impl DbProApp {
                                 self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(self.monitoring.maintenance_command(
+                                self.dispatch_command(self.management.monitoring.maintenance_command(
                                     request_id,
                                     connection_id,
                                     action,
                                 ));
                             }
-                            self.monitoring.monitoring_maintenance_confirm = None;
+                            self.management.monitoring.monitoring_maintenance_confirm = None;
                         }
                         if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.monitoring.monitoring_maintenance_confirm = None;
+                            self.management.monitoring.monitoring_maintenance_confirm = None;
                         }
                     });
                 });
         }
 
-        if self.monitoring.monitoring_reset_stats_confirm {
+        if self.management.monitoring.monitoring_reset_stats_confirm {
             egui::Window::new("Reset pg_stat_statements?")
                 .collapsible(false)
                 .resizable(false)
@@ -602,13 +608,15 @@ impl DbProApp {
                             {
                                 let request_id = self.task_bridge.next_request_id();
                                 self.dispatch_command(
-                                    self.monitoring.reset_statements_command(request_id, connection_id),
+                                    self.management
+                                        .monitoring
+                                        .reset_statements_command(request_id, connection_id),
                                 );
                             }
-                            self.monitoring.monitoring_reset_stats_confirm = false;
+                            self.management.monitoring.monitoring_reset_stats_confirm = false;
                         }
                         if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.monitoring.monitoring_reset_stats_confirm = false;
+                            self.management.monitoring.monitoring_reset_stats_confirm = false;
                         }
                     });
                 });
@@ -620,15 +628,15 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.monitoring.workload_command(request_id, connection_id));
+        self.dispatch_command(self.management.monitoring.workload_command(request_id, connection_id));
     }
 
     fn request_monitoring_snapshot(&mut self) {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        self.monitoring.monitoring_last_poll = Some(std::time::Instant::now());
+        self.management.monitoring.monitoring_last_poll = Some(std::time::Instant::now());
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.monitoring.snapshot_command(request_id, connection_id));
+        self.dispatch_command(self.management.monitoring.snapshot_command(request_id, connection_id));
     }
 }

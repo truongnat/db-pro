@@ -15,10 +15,10 @@ impl DbProApp {
         if secondary_button_with_icon(ui, Icon::RefreshCw, "Load replication inventory", self.theme).clicked() {
             self.request_replication_inventory();
         }
-        if let Some(error) = &self.replication.replication_error {
+        if let Some(error) = &self.management.replication.replication_error {
             ui.colored_label(self.theme.danger, error);
         }
-        if let Some(inv) = self.replication.replication_inventory.clone() {
+        if let Some(inv) = self.management.replication.replication_inventory.clone() {
             ui.label(RichText::new(&inv.message).small().color(self.theme.text_secondary));
             for pub_info in inv.publications.iter().take(40) {
                 card_frame(self.theme).show(ui, |ui| {
@@ -40,11 +40,11 @@ impl DbProApp {
                     ui.horizontal(|ui| {
                         if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
                             // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Drop
-                            self.replication.replication_ddl_preview =
+                            self.management.replication.replication_ddl_preview =
                                 db_pro_core::domain::replication::preview_drop_publication(&pub_info.name).ok();
                         }
                         if danger_button(ui, "Drop…", self.theme).clicked() {
-                            self.replication.replication_drop_publication = Some(pub_info.name.clone());
+                            self.management.replication.replication_drop_publication = Some(pub_info.name.clone());
                         }
                     });
                 });
@@ -72,11 +72,11 @@ impl DbProApp {
                     ui.horizontal(|ui| {
                         if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
                             // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Drop
-                            self.replication.replication_ddl_preview =
+                            self.management.replication.replication_ddl_preview =
                                 db_pro_core::domain::replication::preview_drop_subscription(&sub.name).ok();
                         }
                         if danger_button(ui, "Drop…", self.theme).clicked() {
-                            self.replication.replication_drop_subscription = Some(sub.name.clone());
+                            self.management.replication.replication_drop_subscription = Some(sub.name.clone());
                         }
                     });
                 });
@@ -99,13 +99,14 @@ impl DbProApp {
         ui.label(RichText::new("Create publication (FOR ALL TABLES)").small().strong());
         ui.horizontal(|ui| {
             ui.add(
-                egui::TextEdit::singleline(&mut self.replication.replication_create_name).hint_text("publication name"),
+                egui::TextEdit::singleline(&mut self.management.replication.replication_create_name)
+                    .hint_text("publication name"),
             );
             if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
                 // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Create
-                self.replication.replication_ddl_preview =
+                self.management.replication.replication_ddl_preview =
                     db_pro_core::domain::replication::preview_create_publication_all(
-                        &self.replication.replication_create_name,
+                        &self.management.replication.replication_create_name,
                     )
                     .ok();
             }
@@ -114,7 +115,7 @@ impl DbProApp {
             }
         });
 
-        if let Some(preview) = self.replication.replication_ddl_preview.clone() {
+        if let Some(preview) = self.management.replication.replication_ddl_preview.clone() {
             egui::Window::new("Replication DDL preview")
                 .collapsible(false)
                 .resizable(true)
@@ -122,11 +123,11 @@ impl DbProApp {
                 .show(ui.ctx(), |ui| {
                     ui.label(RichText::new(preview).monospace());
                     if secondary_button(ui, "Close", self.theme).clicked() {
-                        self.replication.replication_ddl_preview = None;
+                        self.management.replication.replication_ddl_preview = None;
                     }
                 });
         }
-        if let Some(name) = self.replication.replication_drop_publication.clone() {
+        if let Some(name) = self.management.replication.replication_drop_publication.clone() {
             egui::Window::new("Drop publication?")
                 .collapsible(false)
                 .resizable(false)
@@ -137,12 +138,12 @@ impl DbProApp {
                             self.drop_publication_confirmed(&name);
                         }
                         if secondary_button(ui, "Cancel", self.theme).clicked() {
-                            self.replication.replication_drop_publication = None;
+                            self.management.replication.replication_drop_publication = None;
                         }
                     });
                 });
         }
-        if let Some(name) = self.replication.replication_drop_subscription.clone() {
+        if let Some(name) = self.management.replication.replication_drop_subscription.clone() {
             egui::Window::new("Drop subscription?")
                 .collapsible(false)
                 .resizable(false)
@@ -155,7 +156,7 @@ impl DbProApp {
                             self.drop_subscription_confirmed(&name);
                         }
                         if secondary_button(ui, "Cancel", self.theme).clicked() {
-                            self.replication.replication_drop_subscription = None;
+                            self.management.replication.replication_drop_subscription = None;
                         }
                     });
                 });
@@ -164,15 +165,16 @@ impl DbProApp {
 
     fn request_replication_inventory(&mut self) {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
-            self.replication.replication_error = Some("Connect a PostgreSQL database first".into());
+            self.management.replication.replication_error = Some("Connect a PostgreSQL database first".into());
             return;
         };
         if !self.active_driver().to_ascii_lowercase().contains("postgres") {
-            self.replication.replication_error = Some("Logical replication administration is PostgreSQL-only".into());
+            self.management.replication.replication_error =
+                Some("Logical replication administration is PostgreSQL-only".into());
             return;
         }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.replication.list_command(request_id, connection_id));
+        self.dispatch_command(self.management.replication.list_command(request_id, connection_id));
     }
 
     fn create_publication_confirmed(&mut self) {
@@ -180,7 +182,11 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.replication.create_publication_command(request_id, connection_id));
+        self.dispatch_command(
+            self.management
+                .replication
+                .create_publication_command(request_id, connection_id),
+        );
     }
 
     fn drop_publication_confirmed(&mut self, name: &str) {
@@ -188,10 +194,11 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(
-            self.replication
-                .drop_publication_command(request_id, connection_id, name.to_owned()),
-        );
+        self.dispatch_command(self.management.replication.drop_publication_command(
+            request_id,
+            connection_id,
+            name.to_owned(),
+        ));
     }
 
     fn drop_subscription_confirmed(&mut self, name: &str) {
@@ -199,9 +206,10 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(
-            self.replication
-                .drop_subscription_command(request_id, connection_id, name.to_owned()),
-        );
+        self.dispatch_command(self.management.replication.drop_subscription_command(
+            request_id,
+            connection_id,
+            name.to_owned(),
+        ));
     }
 }

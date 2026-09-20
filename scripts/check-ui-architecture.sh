@@ -10,33 +10,23 @@ events_file="$repo_root/crates/ui/src/events.rs"
 # belongs in the owning feature state module.
 expected_fields=$(cat <<'EOF'
 agent
-audit
 connection
 diagram
-event_trigger
-fdw
 feedback
 gallery_state
 initial_frames_count
 overlay
 palette
 preferences
-masking
-monitoring
-pg_settings
-replication
-routine
-security
+management
 query
 saved_tasks
 schema_explorer
 schema_workbench
 schema_compare
-synthetic_data
 table
 task_bridge
 theme
-transfer
 welcome
 workspace
 EOF
@@ -119,6 +109,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/replication_state.rs"
   "$repo_root/crates/ui/src/event_trigger_state.rs"
   "$repo_root/crates/ui/src/security_state.rs"
+  "$repo_root/crates/ui/src/database_management_state.rs"
 )
 for module in "${explicit_state_modules[@]}"; do
   if rg -n '^impl DbProApp|\bDbProApp\b' "$module"; then

@@ -66,6 +66,8 @@ pub use component_gallery_view::ComponentGalleryState;
 mod audit_activity_view;
 #[path = "capability_lookup.rs"]
 mod capability_lookup;
+#[path = "database_management_state.rs"]
+mod database_management_state;
 #[path = "ddl_events.rs"]
 mod ddl_events;
 #[path = "diagram_canvas_view.rs"]
@@ -182,6 +184,7 @@ mod transfer_harness_view;
 mod transfer_state;
 use audit_state::AuditState;
 pub(crate) use capability_lookup::CapabilityLookup;
+use database_management_state::DatabaseManagementState;
 pub(crate) use diagram_state::DiagramState;
 use event_trigger_state::EventTriggerState;
 use fdw_state::FdwState;
@@ -374,17 +377,7 @@ pub struct DbProApp {
     overlay: OverlayState,
     connection: ConnectionFeatureState,
     schema_explorer: SchemaExplorerState,
-    audit: AuditState,
-    event_trigger: EventTriggerState,
-    fdw: FdwState,
-    masking: MaskingState,
-    monitoring: MonitoringState,
-    pg_settings: PgSettingsState,
-    replication: ReplicationState,
-    routine: RoutineState,
-    security: SecurityState,
-    synthetic_data: SyntheticDataState,
-    transfer: TransferState,
+    management: DatabaseManagementState,
     schema_workbench: schema_workbench::SchemaWorkbenchState,
     schema_compare: SchemaCompareState,
     saved_tasks: SavedTaskState,

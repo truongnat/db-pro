@@ -24,21 +24,21 @@ impl DbProApp {
         ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new("Text").small().color(self.theme.text_muted));
             ui.add(
-                egui::TextEdit::singleline(&mut self.audit.audit_filter_text)
+                egui::TextEdit::singleline(&mut self.management.audit.audit_filter_text)
                     .desired_width(120.0)
                     .hint_text("message/query"),
             );
             ui.label(RichText::new("DB").small().color(self.theme.text_muted));
-            ui.add(egui::TextEdit::singleline(&mut self.audit.audit_filter_database).desired_width(80.0));
+            ui.add(egui::TextEdit::singleline(&mut self.management.audit.audit_filter_database).desired_width(80.0));
             ui.label(RichText::new("User").small().color(self.theme.text_muted));
-            ui.add(egui::TextEdit::singleline(&mut self.audit.audit_filter_username).desired_width(80.0));
+            ui.add(egui::TextEdit::singleline(&mut self.management.audit.audit_filter_username).desired_width(80.0));
             ui.label(RichText::new("Severity").small().color(self.theme.text_muted));
-            ui.add(egui::TextEdit::singleline(&mut self.audit.audit_filter_severity).desired_width(60.0));
+            ui.add(egui::TextEdit::singleline(&mut self.management.audit.audit_filter_severity).desired_width(60.0));
         });
-        if let Some(error) = &self.audit.audit_error {
+        if let Some(error) = &self.management.audit.audit_error {
             ui.colored_label(self.theme.danger, error);
         }
-        if let Some(page) = self.audit.audit_page.clone() {
+        if let Some(page) = self.management.audit.audit_page.clone() {
             ui.label(
                 RichText::new(format!(
                     "{} · scanned {} bytes · truncated={}",
@@ -54,16 +54,16 @@ impl DbProApp {
                 ui.colored_label(self.theme.warning, &page.source.guidance);
             }
             for event in page.events.iter().take(80) {
-                let bookmarked = self.audit.audit_bookmarks.contains(&event.id);
-                let selected = self.audit.audit_selected.contains(&event.id);
+                let bookmarked = self.management.audit.audit_bookmarks.contains(&event.id);
+                let selected = self.management.audit.audit_selected.contains(&event.id);
                 card_frame(self.theme).show(ui, |ui| {
                     ui.horizontal(|ui| {
                         let mut sel = selected;
                         if ui.checkbox(&mut sel, "").changed() {
                             if sel {
-                                self.audit.audit_selected.insert(event.id.clone());
+                                self.management.audit.audit_selected.insert(event.id.clone());
                             } else {
-                                self.audit.audit_selected.remove(&event.id);
+                                self.management.audit.audit_selected.remove(&event.id);
                             }
                         }
                         ui.label(
@@ -102,16 +102,16 @@ impl DbProApp {
                         let label = if bookmarked { "Unbookmark" } else { "Bookmark" };
                         if ghost_button_with_icon(ui, Icon::Bookmark, label, self.theme).clicked() {
                             if bookmarked {
-                                self.audit.audit_bookmarks.remove(&event.id);
+                                self.management.audit.audit_bookmarks.remove(&event.id);
                             } else {
-                                self.audit.audit_bookmarks.insert(event.id.clone());
+                                self.management.audit.audit_bookmarks.insert(event.id.clone());
                             }
                         }
                     });
                 });
                 ui.add_space(SPACE_XS);
             }
-            if let Some(preview) = &self.audit.audit_export_preview {
+            if let Some(preview) = &self.management.audit.audit_export_preview {
                 ui.label(
                     RichText::new(page.export_warning.clone())
                         .small()
@@ -129,20 +129,20 @@ impl DbProApp {
 
     fn request_audit_page(&mut self) {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
-            self.audit.audit_error = Some("Connect a database first".into());
+            self.management.audit.audit_error = Some("Connect a database first".into());
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.audit.events_load_command(request_id, connection_id));
+        self.dispatch_command(self.management.audit.events_load_command(request_id, connection_id));
     }
 
     fn export_selected_audit_events(&mut self) {
-        match self.audit.build_export_preview() {
+        match self.management.audit.build_export_preview() {
             Ok((selected_count, export_warning)) => {
                 self.feedback.runtime_message =
                     format!("Audit export preview · {selected_count} row(s) · {export_warning}");
             }
-            Err(error) => self.audit.audit_error = Some(error),
+            Err(error) => self.management.audit.audit_error = Some(error),
         }
     }
 }

@@ -16,46 +16,46 @@ impl DbProApp {
         &mut self,
         snapshot: db_pro_core::domain::monitoring::MonitoringSnapshot,
     ) {
-        management_events::on_monitoring_snapshot_loaded(&mut self.monitoring, &mut self.feedback, snapshot);
+        management_events::on_monitoring_snapshot_loaded(&mut self.management.monitoring, &mut self.feedback, snapshot);
     }
 
     pub(super) fn on_monitoring_workload_loaded(
         &mut self,
         workload: db_pro_core::domain::monitoring::StatStatementsSnapshot,
     ) {
-        management_events::on_monitoring_workload_loaded(&mut self.monitoring, &mut self.feedback, workload);
+        management_events::on_monitoring_workload_loaded(&mut self.management.monitoring, &mut self.feedback, workload);
     }
 
     pub(super) fn on_audit_page_loaded(&mut self, page: db_pro_core::domain::audit::AuditPage) {
         management_events::on_audit_page_loaded(
-            &mut self.audit.audit_page,
-            &mut self.audit.audit_error,
+            &mut self.management.audit.audit_page,
+            &mut self.management.audit.audit_error,
             &mut self.feedback,
             page,
         );
     }
 
     pub(super) fn on_pg_settings_loaded(&mut self, snapshot: db_pro_core::domain::pg_settings::PgSettingsSnapshot) {
-        management_events::on_pg_settings_loaded(&mut self.pg_settings, &mut self.feedback, snapshot);
+        management_events::on_pg_settings_loaded(&mut self.management.pg_settings, &mut self.feedback, snapshot);
     }
 
     pub(super) fn on_pg_setting_action_completed(&mut self, action: String, name: String) {
         management_events::on_pg_setting_action_completed(&mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(self.pg_settings.list_command(request_id, connection_id));
+            self.dispatch_command(self.management.pg_settings.list_command(request_id, connection_id));
         }
     }
 
     pub(super) fn on_fdw_inventory_loaded(&mut self, inventory: db_pro_core::domain::fdw::FdwInventory) {
-        management_events::on_fdw_inventory_loaded(&mut self.fdw, &mut self.feedback, inventory);
+        management_events::on_fdw_inventory_loaded(&mut self.management.fdw, &mut self.feedback, inventory);
     }
 
     pub(super) fn on_fdw_action_completed(&mut self, action: String, name: String) {
-        management_events::on_fdw_action_completed(&mut self.fdw, &mut self.feedback, action, name);
+        management_events::on_fdw_action_completed(&mut self.management.fdw, &mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(self.fdw.list_command(request_id, connection_id));
+            self.dispatch_command(self.management.fdw.list_command(request_id, connection_id));
         }
     }
 
@@ -63,14 +63,23 @@ impl DbProApp {
         &mut self,
         inventory: db_pro_core::domain::replication::ReplicationInventory,
     ) {
-        management_events::on_replication_inventory_loaded(&mut self.replication, &mut self.feedback, inventory);
+        management_events::on_replication_inventory_loaded(
+            &mut self.management.replication,
+            &mut self.feedback,
+            inventory,
+        );
     }
 
     pub(super) fn on_replication_action_completed(&mut self, action: String, name: String) {
-        management_events::on_replication_action_completed(&mut self.replication, &mut self.feedback, action, name);
+        management_events::on_replication_action_completed(
+            &mut self.management.replication,
+            &mut self.feedback,
+            action,
+            name,
+        );
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(self.replication.list_command(request_id, connection_id));
+            self.dispatch_command(self.management.replication.list_command(request_id, connection_id));
         }
     }
 
@@ -78,20 +87,29 @@ impl DbProApp {
         &mut self,
         inventory: db_pro_core::domain::event_trigger::EventTriggerInventory,
     ) {
-        management_events::on_event_trigger_inventory_loaded(&mut self.event_trigger, &mut self.feedback, inventory);
+        management_events::on_event_trigger_inventory_loaded(
+            &mut self.management.event_trigger,
+            &mut self.feedback,
+            inventory,
+        );
     }
 
     pub(super) fn on_event_trigger_action_completed(&mut self, action: String, name: String) {
-        management_events::on_event_trigger_action_completed(&mut self.event_trigger, &mut self.feedback, action, name);
+        management_events::on_event_trigger_action_completed(
+            &mut self.management.event_trigger,
+            &mut self.feedback,
+            action,
+            name,
+        );
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(self.event_trigger.list_command(request_id, connection_id));
+            self.dispatch_command(self.management.event_trigger.list_command(request_id, connection_id));
         }
     }
 
     pub(super) fn on_monitoring_action_completed(&mut self, action: String, backend_id: i64, succeeded: bool) {
         management_events::on_monitoring_action_completed(
-            &mut self.monitoring,
+            &mut self.management.monitoring,
             &mut self.feedback,
             action,
             backend_id,
@@ -99,12 +117,12 @@ impl DbProApp {
         );
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(self.monitoring.snapshot_command(request_id, connection_id));
+            self.dispatch_command(self.management.monitoring.snapshot_command(request_id, connection_id));
         }
     }
 
     pub(super) fn on_users_loaded(&mut self, users: Vec<db_pro_core::domain::user::DatabaseUser>) {
-        management_events::on_users_loaded(&mut self.security, &mut self.feedback, users);
+        management_events::on_users_loaded(&mut self.management.security, &mut self.feedback, users);
     }
 
     pub(super) fn on_privileges_loaded(
@@ -112,7 +130,7 @@ impl DbProApp {
         role_name: String,
         privileges: Vec<db_pro_core::domain::user::Privilege>,
     ) {
-        management_events::on_privileges_loaded(&mut self.security, role_name, privileges);
+        management_events::on_privileges_loaded(&mut self.management.security, role_name, privileges);
     }
 
     pub(super) fn on_memberships_loaded(
@@ -120,11 +138,11 @@ impl DbProApp {
         member: String,
         memberships: Vec<db_pro_core::domain::user::RoleMembership>,
     ) {
-        management_events::on_memberships_loaded(&mut self.security, member, memberships);
+        management_events::on_memberships_loaded(&mut self.management.security, member, memberships);
     }
 
     pub(super) fn on_table_rls_loaded(&mut self, state: db_pro_core::domain::rls::TableRlsState) {
-        management_events::on_table_rls_loaded(&mut self.security, &mut self.feedback, state);
+        management_events::on_table_rls_loaded(&mut self.management.security, &mut self.feedback, state);
     }
 
     pub(super) fn on_data_diff_loaded(&mut self, diff: db_pro_core::domain::cross_connection::DataDiff) {
@@ -148,7 +166,7 @@ impl DbProApp {
     pub(super) fn on_ddl_completed(&mut self, request_id: RequestId, affected_rows: u64) {
         if let Some(transition) = ddl_events::on_ddl_completed(
             &mut self.table.state,
-            &mut self.security,
+            &mut self.management.security,
             &mut self.feedback,
             request_id,
             affected_rows,
@@ -190,10 +208,10 @@ impl DbProApp {
                 | "grant_privilege"
                 | "revoke_privilege"
         ) {
-            self.security.security_drop_confirm = None;
-            self.security.security_password.clear();
+            self.management.security.security_drop_confirm = None;
+            self.management.security.security_password.clear();
             self.request_security_users();
-            if let Some(role) = self.security.security_selected_role.clone() {
+            if let Some(role) = self.management.security.security_selected_role.clone() {
                 self.request_security_role_details(&role);
             }
         }

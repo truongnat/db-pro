@@ -18,7 +18,7 @@ impl DbProApp {
                 MaintenanceAction::VacuumAnalyze,
             ] {
                 if secondary_button(ui, action.as_label(), self.theme).clicked() {
-                    self.monitoring.monitoring_maintenance_confirm = Some(action);
+                    self.management.monitoring.monitoring_maintenance_confirm = Some(action);
                 }
             }
         });
