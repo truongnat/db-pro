@@ -515,6 +515,20 @@ implementation block.
 
 Severity: P2 composition-root maintainability, resolved.
 
+## F45 — Chart projection and egui rendering shared one module
+
+Evidence: `chart_view.rs` combined chart configuration/value projection,
+aggregation/downsampling and all egui painter primitives in one module.
+Those paths have different dependencies and test lifecycles: the projection
+engine is data-only while rendering is egui/theme-specific.
+
+Fix in the current refactor: moved chart types, projection, numeric parsing,
+aggregation, downsampling and engine tests into `chart_engine.rs`; retained
+`chart_view.rs` as the renderer facade and preserved the existing public
+re-exports/API.
+
+Severity: P2 feature-boundary maintainability risk, resolved.
+
 ## F38 — Palette catalog and action routing were embedded in the palette view
 
 Evidence at discovery: `palette_view.rs` combined static command/catalog data,

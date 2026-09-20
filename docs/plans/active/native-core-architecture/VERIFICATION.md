@@ -563,6 +563,13 @@ Source checkpoint: `0070d374`.
   `workspace_tabs_view.rs`, reusable tab chrome in `workspace_tab_primitives.rs`,
   and `workspace_view.rs` is reduced to an 18-line content compositor. Focused
   UI tests (632 passed), UI clippy, architecture guard and diff checks PASS.
+- Chart ownership follow-up: chart configuration/projection, numeric parsing,
+  aggregation, downsampling and engine tests now live in `chart_engine.rs`;
+  `chart_view.rs` retains only the egui renderer facade and public API
+  re-exports. Focused UI tests (632 passed), UI clippy, architecture guard,
+  clean scan and diff checks PASS. The timing-sensitive diagram benchmark
+  failed once during the first full run, then passed in isolation and in the
+  subsequent full UI run.
 
 ## Not yet proven
 
