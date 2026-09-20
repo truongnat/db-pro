@@ -494,20 +494,6 @@ impl DbProApp {
             }
         });
     }
-
-    pub(crate) fn cell_label(cell: &crate::UiCell) -> String {
-        match cell {
-            crate::UiCell::Null => "NULL".to_owned(),
-            crate::UiCell::Boolean(value) => value.to_string(),
-            crate::UiCell::Number(value) => value.clone(),
-            crate::UiCell::Text(value) => value.clone(),
-            crate::UiCell::Json(value) => serde_json::from_str::<serde_json::Value>(value)
-                .ok()
-                .and_then(|json| serde_json::to_string_pretty(&json).ok())
-                .unwrap_or_else(|| value.clone()),
-            crate::UiCell::Bytes(value) => value.clone(),
-        }
-    }
 }
 
 #[cfg(test)]

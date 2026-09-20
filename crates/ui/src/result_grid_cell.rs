@@ -1,7 +1,6 @@
 //! Result-grid cell painting and context menus.
 use super::result_grid_view::{GridCell, GridSelectionLookup};
 use super::*;
-use egui::{Align2, Pos2, Rounding, Stroke};
 
 #[derive(Default)]
 struct GridCellMenuRequests {
@@ -22,6 +21,16 @@ struct GridCellMenuRequests {
     filter_this_val: bool,
     sort_asc: bool,
     sort_desc: bool,
+}
+
+struct GridCellInteraction<'a> {
+    result: &'a UiQueryResult,
+    visible_indexes: &'a [usize],
+    selection_lookup: &'a GridSelectionLookup,
+    row_index: usize,
+    column_index: usize,
+    editable: bool,
+    display_cell: &'a UiCell,
 }
 
 impl DbProApp {
@@ -59,152 +68,85 @@ impl DbProApp {
 
         let (cell_rect, cell_resp) = ui.allocate_exact_size(egui::vec2(width, 28.0), Sense::click());
 
-        let fill = if validation_error || (cell_mutation_error && !conflict_error) {
-            self.theme.danger.linear_multiply(0.14)
-        } else if conflict_error {
-            self.theme.warning.linear_multiply(0.16)
-        } else if row_mutation_error {
-            self.theme.danger.linear_multiply(0.08)
-        } else if row_selected {
-            if cell_selected {
-                self.theme.accent.linear_multiply(0.20)
-            } else {
-                self.theme.accent.linear_multiply(0.08)
-            }
-        } else if cell_selected {
-            self.theme.accent.linear_multiply(0.14)
-        } else if row_dirty {
-            self.theme.warning.linear_multiply(0.12)
-        } else if cell_resp.hovered() {
-            self.theme.surface_hover.linear_multiply(0.35)
-        } else if display_position % 2 == 1 {
-            self.theme.surface_panel.linear_multiply(0.25)
-        } else {
-            self.theme.surface_elevated
+        let surface_context = result_grid_cell_surface_view::GridCellSurfaceContext {
+            theme: self.theme,
+            row_selected,
+            cell_selected,
+            row_dirty,
+            display_position,
+            validation_error,
+            conflict_error,
+            cell_mutation_error,
+            row_mutation_error,
+            edit_error: self.table.editing.data_edit_error.as_deref(),
+            mutation_error: self
+                .table
+                .mutation
+                .table_mutation_error
+                .as_ref()
+                .map(|error| error.message.as_str()),
         };
-
-        ui.painter().rect_filled(cell_rect, Rounding::ZERO, fill);
-
-        // Bottom and right border lines for continuous spreadsheet appearance
-        let border_stroke = Stroke::new(1.0, self.theme.border_subtle.linear_multiply(0.35));
-        ui.painter()
-            .hline(cell_rect.x_range(), cell_rect.bottom(), border_stroke);
-        ui.painter()
-            .vline(cell_rect.right(), cell_rect.y_range(), border_stroke);
-
-        if cell_selected {
-            ui.painter()
-                .rect_stroke(cell_rect, Rounding::ZERO, Stroke::new(1.5, self.theme.accent));
-        }
-        if validation_error {
-            ui.painter().rect_stroke(
-                cell_rect.shrink(1.0),
-                Rounding::ZERO,
-                Stroke::new(1.5, self.theme.danger),
-            );
-            if let Some(error) = self.table.editing.data_edit_error.as_deref() {
-                cell_resp.clone().on_hover_text(error);
-            }
-        }
-        if cell_mutation_error || row_mutation_error {
-            ui.painter().rect_stroke(
-                cell_rect.shrink(1.0),
-                Rounding::ZERO,
-                Stroke::new(
-                    1.5,
-                    if conflict_error {
-                        self.theme.warning
-                    } else {
-                        self.theme.danger
-                    },
-                ),
-            );
-            if let Some(error) = self.table.mutation.table_mutation_error.as_ref() {
-                cell_resp.clone().on_hover_text(error.message.as_str());
-            }
-        }
+        result_grid_cell_surface_view::draw_surface(&surface_context, ui, cell_rect, &cell_resp);
 
         if editing {
             self.draw_grid_cell_editor(ui, result, row_index, column_index, cell_rect);
         } else {
-            let text_rect = cell_rect.shrink2(egui::vec2(8.0, 3.0));
-            let is_null = matches!(display_cell, crate::UiCell::Null);
-            let text_val = Self::cell_label(display_cell);
-            let font = match display_cell {
-                crate::UiCell::Null => FontId::proportional(11.5),
-                crate::UiCell::Number(_) | crate::UiCell::Json(_) | crate::UiCell::Bytes(_) => FontId::monospace(11.5),
-                _ => FontId::proportional(12.0),
-            };
-            let text_color = match display_cell {
-                crate::UiCell::Null => self.theme.text_muted.linear_multiply(0.55),
-                crate::UiCell::Boolean(val) => {
-                    if *val {
-                        self.theme.success
-                    } else {
-                        self.theme.danger
-                    }
-                }
-                crate::UiCell::Number(_) => self.theme.text_primary,
-                crate::UiCell::Json(_) | crate::UiCell::Bytes(_) => self.theme.text_secondary,
-                crate::UiCell::Text(_) => self.theme.text_primary,
-            };
+            result_grid_cell_surface_view::draw_value(self.theme, ui, cell_rect, &cell_resp, display_cell);
 
-            let painter = ui.painter().with_clip_rect(text_rect);
-            if is_null {
-                // Subtle italic badge for NULL
-                let galley = painter.layout_no_wrap(
-                    "NULL".to_owned(),
-                    FontId::new(11.0, egui::FontFamily::Proportional),
-                    text_color,
-                );
-                painter.galley(
-                    Pos2::new(text_rect.left(), text_rect.center().y - galley.size().y * 0.5),
-                    galley,
-                    text_color,
-                );
-            } else {
-                painter.text(
-                    Pos2::new(text_rect.left(), text_rect.center().y),
-                    Align2::LEFT_CENTER,
-                    text_val,
-                    font,
-                    text_color,
-                );
-            }
-            let raw_value = crate::cell_text(display_cell);
-            if raw_value.chars().count() > 40 {
-                cell_resp.clone().on_hover_text(raw_value);
-            }
-
-            let is_ctx = self.run_grid_cell_context_menu(
+            self.handle_grid_cell_interaction(
                 ui,
                 &cell_resp,
-                result,
-                selection_lookup,
-                row_index,
-                column_index,
-                editable,
-                display_cell,
-            );
-
-            if cell_resp.double_clicked() && editable {
-                if self.table.editing.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
-                    return;
-                }
-                self.begin_data_cell_edit(result, row_index, column_index, display_cell);
-            } else if cell_resp.clicked() && !is_ctx {
-                if self.table.editing.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
-                    return;
-                }
-                let modifiers = ui.input(|input| input.modifiers);
-                self.table.data.select_cell_range(
+                GridCellInteraction {
+                    result,
                     visible_indexes,
-                    &selection_lookup.row_positions,
-                    (row_index, column_index),
-                    modifiers.shift,
-                );
-                self.feedback.copy_status.clear();
+                    selection_lookup,
+                    row_index,
+                    column_index,
+                    editable,
+                    display_cell,
+                },
+            );
+        }
+    }
+
+    fn handle_grid_cell_interaction(
+        &mut self,
+        ui: &mut egui::Ui,
+        cell_response: &egui::Response,
+        interaction: GridCellInteraction<'_>,
+    ) {
+        let is_context_menu = self.run_grid_cell_context_menu(
+            ui,
+            cell_response,
+            interaction.result,
+            interaction.selection_lookup,
+            interaction.row_index,
+            interaction.column_index,
+            interaction.editable,
+            interaction.display_cell,
+        );
+        if cell_response.double_clicked() && interaction.editable {
+            if self.table.editing.data_editing_cell.is_some() && !self.commit_active_data_edit(interaction.result) {
+                return;
             }
+            self.begin_data_cell_edit(
+                interaction.result,
+                interaction.row_index,
+                interaction.column_index,
+                interaction.display_cell,
+            );
+        } else if cell_response.clicked() && !is_context_menu {
+            if self.table.editing.data_editing_cell.is_some() && !self.commit_active_data_edit(interaction.result) {
+                return;
+            }
+            let modifiers = ui.input(|input| input.modifiers);
+            self.table.data.select_cell_range(
+                interaction.visible_indexes,
+                &interaction.selection_lookup.row_positions,
+                (interaction.row_index, interaction.column_index),
+                modifiers.shift,
+            );
+            self.feedback.copy_status.clear();
         }
     }
 
@@ -223,247 +165,6 @@ impl DbProApp {
         display_cell: &UiCell,
     ) -> bool {
         let is_ctx = is_context_menu_triggered(cell_resp, ui);
-        let mut req = GridCellMenuRequests::default();
-        let theme = self.theme;
-        let modifier = Self::primary_modifier_label();
-
-        context_action_menu(ui, cell_resp, theme, |ui, close_menu| {
-            let copy_sc = format!("{modifier}C");
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Copy),
-                "Copy Cell Value",
-                Some(&copy_sc),
-                theme.text_primary,
-                theme,
-            )
-            .clicked()
-            {
-                req.copy_cell = true;
-                *close_menu = true;
-            }
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Table2),
-                "Copy Row (TSV)",
-                Some(&format!("{modifier}Shift+C")),
-                theme.text_primary,
-                theme,
-            )
-            .clicked()
-            {
-                req.copy_row = true;
-                *close_menu = true;
-            }
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Rows3),
-                "Copy Selected Rows",
-                None,
-                theme.text_primary,
-                theme,
-            )
-            .clicked()
-            {
-                req.copy_selected_rows = true;
-                *close_menu = true;
-            }
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Table2),
-                "Copy Selected Rows with Headers",
-                None,
-                theme.text_primary,
-                theme,
-            )
-            .clicked()
-            {
-                req.copy_selected_rows_headers = true;
-                *close_menu = true;
-            }
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Braces),
-                "Copy Selected Rows as JSON",
-                None,
-                theme.text_primary,
-                theme,
-            )
-            .clicked()
-            {
-                req.copy_selected_rows_json = true;
-                *close_menu = true;
-            }
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Code),
-                "Copy Selected Rows as INSERT SQL",
-                None,
-                theme.text_primary,
-                theme,
-            )
-            .clicked()
-            {
-                req.copy_selected_rows_insert = true;
-                *close_menu = true;
-            }
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Braces),
-                "Copy Row as JSON",
-                None,
-                theme.text_primary,
-                theme,
-            )
-            .clicked()
-            {
-                req.copy_json = true;
-                *close_menu = true;
-            }
-            if ctx_menu_item(
-                ui,
-                Some(Icon::FileSpreadsheet),
-                "Copy Row as CSV",
-                None,
-                theme.text_primary,
-                theme,
-            )
-            .clicked()
-            {
-                req.copy_csv = true;
-                *close_menu = true;
-            }
-
-            if editable {
-                ui.separator();
-                let write_block = self.blocked_write_for_cell(result, column_index);
-                let edit_clicked = match write_block {
-                    Some(block) => {
-                        ctx_menu_item(ui, Some(Icon::Lock), "Read-only Column", None, theme.text_muted, theme)
-                            .on_hover_text(block.reason());
-                        false
-                    }
-                    None => ctx_menu_item(
-                        ui,
-                        Some(Icon::Pencil),
-                        "Edit Cell",
-                        Some("Enter / F2"),
-                        theme.text_primary,
-                        theme,
-                    )
-                    .clicked(),
-                };
-                if edit_clicked {
-                    req.edit_cell = true;
-                    *close_menu = true;
-                }
-                if write_block.is_none()
-                    && ctx_menu_item(ui, Some(Icon::Eraser), "Set to NULL", None, theme.text_secondary, theme).clicked()
-                {
-                    req.set_null = true;
-                    *close_menu = true;
-                }
-                if self.staged_cell_value(result, row_index, column_index).is_some()
-                    && ctx_menu_item(ui, Some(Icon::Undo2), "Revert Cell", None, theme.text_primary, theme).clicked()
-                {
-                    req.revert_cell = true;
-                    *close_menu = true;
-                }
-                let has_row_change = self
-                    .table
-                    .data
-                    .row_identity_for_result(result, self.table.state.table_info.as_ref(), row_index)
-                    .as_ref()
-                    .map(|identity| self.table.mutation.staged_changes.row_has_changes(identity))
-                    .unwrap_or(false);
-                if has_row_change
-                    && ctx_menu_item(
-                        ui,
-                        Some(Icon::Undo2),
-                        if self.staged_row_deleted(result, row_index) {
-                            "Undo Delete"
-                        } else {
-                            "Revert Row"
-                        },
-                        None,
-                        theme.text_primary,
-                        theme,
-                    )
-                    .clicked()
-                {
-                    req.revert_row = true;
-                    *close_menu = true;
-                }
-                if ctx_menu_item(
-                    ui,
-                    Some(Icon::CopyPlus),
-                    "Duplicate Row",
-                    None,
-                    theme.text_primary,
-                    theme,
-                )
-                .clicked()
-                {
-                    req.duplicate_row = true;
-                    *close_menu = true;
-                }
-                if ctx_menu_item(
-                    ui,
-                    Some(Icon::Trash2),
-                    "Delete Row",
-                    Some("Delete / Backspace"),
-                    theme.danger,
-                    theme,
-                )
-                .clicked()
-                {
-                    req.delete_row = true;
-                    *close_menu = true;
-                }
-            }
-
-            ui.separator();
-            if ctx_menu_item(
-                ui,
-                Some(Icon::Filter),
-                "Filter by this value",
-                None,
-                theme.text_primary,
-                theme,
-            )
-            .clicked()
-            {
-                req.filter_this_val = true;
-                *close_menu = true;
-            }
-            if ctx_menu_item(
-                ui,
-                Some(Icon::ArrowUp),
-                "Sort Ascending",
-                None,
-                theme.text_primary,
-                theme,
-            )
-            .clicked()
-            {
-                req.sort_asc = true;
-                *close_menu = true;
-            }
-            if ctx_menu_item(
-                ui,
-                Some(Icon::ArrowDown),
-                "Sort Descending",
-                None,
-                theme.text_primary,
-                theme,
-            )
-            .clicked()
-            {
-                req.sort_desc = true;
-                *close_menu = true;
-            }
-        });
-
         if is_ctx
             && self
                 .table
@@ -491,6 +192,48 @@ impl DbProApp {
             } else if !is_inside_range {
                 self.table.data.selected_row = Some(row_index);
                 self.table.data.selection_anchor_row = Some(row_index);
+            }
+        }
+        let write_block_reason = self
+            .blocked_write_for_cell(result, column_index)
+            .map(|block| block.reason());
+        let has_staged_cell = self.staged_cell_value(result, row_index, column_index).is_some();
+        let has_staged_row = self
+            .table
+            .data
+            .row_identity_for_result(result, self.table.state.table_info.as_ref(), row_index)
+            .as_ref()
+            .map(|identity| self.table.mutation.staged_changes.row_has_changes(identity))
+            .unwrap_or(false);
+        let menu_context = result_grid_cell_menu_view::GridCellMenuContext {
+            theme: self.theme,
+            editable,
+            write_block_reason,
+            has_staged_cell,
+            has_staged_row,
+            row_deleted: self.staged_row_deleted(result, row_index),
+        };
+        let mut req = GridCellMenuRequests::default();
+        if let Some(action) = result_grid_cell_menu_view::draw_menu(&menu_context, ui, cell_resp) {
+            use result_grid_cell_menu_view::GridCellMenuAction as Action;
+            match action {
+                Action::CopyCell => req.copy_cell = true,
+                Action::CopyRow => req.copy_row = true,
+                Action::CopySelectedRows => req.copy_selected_rows = true,
+                Action::CopySelectedRowsHeaders => req.copy_selected_rows_headers = true,
+                Action::CopySelectedRowsJson => req.copy_selected_rows_json = true,
+                Action::CopySelectedRowsInsert => req.copy_selected_rows_insert = true,
+                Action::CopyJson => req.copy_json = true,
+                Action::CopyCsv => req.copy_csv = true,
+                Action::EditCell => req.edit_cell = true,
+                Action::SetNull => req.set_null = true,
+                Action::RevertCell => req.revert_cell = true,
+                Action::RevertRow => req.revert_row = true,
+                Action::DuplicateRow => req.duplicate_row = true,
+                Action::DeleteRow => req.delete_row = true,
+                Action::FilterThisValue => req.filter_this_val = true,
+                Action::SortAscending => req.sort_asc = true,
+                Action::SortDescending => req.sort_desc = true,
             }
         }
         self.apply_grid_cell_menu_requests(

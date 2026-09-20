@@ -280,6 +280,10 @@ mod query_state;
 mod query_view;
 #[path = "result_grid_cell.rs"]
 mod result_grid_cell;
+#[path = "result_grid_cell_menu_view.rs"]
+mod result_grid_cell_menu_view;
+#[path = "result_grid_cell_surface_view.rs"]
+mod result_grid_cell_surface_view;
 #[path = "result_grid_clipboard.rs"]
 mod result_grid_clipboard;
 #[path = "result_grid_edit.rs"]
