@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `a03f7a17`.
+Source checkpoint: `0e4cba46`.
 
 ## Current change
 
@@ -68,6 +68,16 @@ Source checkpoint: `a03f7a17`.
 - The former `database_feature_states.rs` catch-all was removed; each remaining
   database-management aggregate now has an explicit state module and the guard
   checks those modules for composition-root dependencies.
+- PostgreSQL settings, FDW, logical replication and event-trigger command
+  payload construction now lives in the owning state modules; focused FDW
+  coverage checks copied form values and explicit confirmation.
+- Security role, membership, privilege and RLS-inspection command construction
+  now lives in `SecurityState`; focused coverage checks the RLS boundary's
+  required schema/table invariant.
+- RLS preview application now also builds its `ExecuteDdl` effect in
+  `SecurityState`, with coverage proving empty preview SQL cannot dispatch.
+- Saved-query and query-folder refresh effects now build in `QueryLibraryState`,
+  with focused coverage for both command identities.
 - The architecture guard now freezes `table_editor_context.rs` and
   `table_editor_values.rs` as explicit-state modules that may not depend on
   the composition-root type.
@@ -340,11 +350,11 @@ Source checkpoint: `a03f7a17`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 622 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 626 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1294 passed, 0 failed, 42 ignored;
+- `cargo test --workspace --no-fail-fast`: 1298 passed, 0 failed, 42 ignored;
   all workspace doc-tests passed with 0 tests.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.

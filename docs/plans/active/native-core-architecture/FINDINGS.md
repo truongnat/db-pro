@@ -110,6 +110,18 @@ effect or reports the aggregate's export result.
 Fix in `a03f7a17`: the database-management state catch-all was removed; routine,
 transfer, synthetic-data, masking, PostgreSQL settings, FDW, replication,
 event-trigger and security aggregates now have explicit feature modules.
+Fix in `d473f970`: PostgreSQL settings, FDW, logical replication and event
+trigger command payload construction now belongs to their feature state modules;
+navigation and event reducers only resolve identity and dispatch the effect.
+Fix in `73a11cd0`: security role, membership, privilege and RLS-inspection
+command construction now belongs to `SecurityState`; navigation retains only
+UI validation feedback, request identity and dispatch.
+Fix in `b9c42bde`: RLS preview application now also produces its `ExecuteDdl`
+effect from `SecurityState`, keeping SQL ownership and empty-preview rejection
+outside the composition root.
+Fix in `0e4cba46`: saved-query and query-folder refresh effects now belong to
+`QueryLibraryState`; connection and operation reducers only provide identity and
+dispatch the resulting effects.
 The architecture guard now enforces that the extracted table-editor context
 and value modules cannot regress to a root dependency.
 
