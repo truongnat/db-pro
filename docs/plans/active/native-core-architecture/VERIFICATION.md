@@ -601,6 +601,14 @@ Source checkpoint: `4bb3d21d`.
   modules; `runtime.rs` is a 104-line facade. Focused UI tests (632 passed),
   UI clippy, architecture guard, clean scan (16 pass, 0 warnings) and diff
   checks PASS.
+- Final full gate at source SHA `4bb3d21d`: `cargo fmt --all -- --check`,
+  workspace `cargo check`, workspace clippy with `-D warnings`, workspace
+  tests, release native build, capture build and architecture guard all PASS.
+  The current New Connection runtime capture is
+  `/tmp/db-pro-native-core-4bb3d21d.png` at logical `1280x800`; the dialog is
+  centered, its header is separated by a divider, and the close action is
+  aligned to the header's right edge. The release binary is running for
+  manual verification.
 
 ## Not yet proven
 
