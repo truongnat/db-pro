@@ -122,6 +122,9 @@ outside the composition root.
 Fix in `0e4cba46`: saved-query and query-folder refresh effects now belong to
 `QueryLibraryState`; connection and operation reducers only provide identity and
 dispatch the resulting effects.
+Fix in `4a356721`: table metadata, table DDL, paged data, row reload and DDL
+execution effect construction now belongs to `TableState`; the table view keeps
+only context resolution, request lifecycle and feedback.
 The architecture guard now enforces that the extracted table-editor context
 and value modules cannot regress to a root dependency.
 
