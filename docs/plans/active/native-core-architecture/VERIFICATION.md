@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `08acab31`.
+Source checkpoint: `b85d65da`.
 
 ## Current change
 
@@ -588,6 +588,14 @@ Source checkpoint: `08acab31`.
   re-exports at source SHA `b85d65da`. Focused UI tests (632 passed), UI
   clippy, architecture guard, clean scan (16 pass, 0 warnings) and diff
   checks PASS.
+- Final core refactor gate at source SHA `b85d65da`: `cargo fmt --all --
+  --check`, workspace `cargo check`, workspace clippy with `-D warnings`,
+  workspace tests (`404 core`, `119 infrastructure`, `34 runtime`, `30
+  tauri`, `21 native`, `632 UI`, plus integration suites), release native
+  build, capture build and architecture guard all PASS. Runtime capture is
+  recorded at `/tmp/db-pro-native-core-b85d65da.png` for the New Connection
+  surface at logical `1280x800`; the macOS host still clamps requested
+  `1440x900` and `1920x1080` captures to logical height `838`.
 
 ## Not yet proven
 
