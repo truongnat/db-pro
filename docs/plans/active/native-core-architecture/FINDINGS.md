@@ -619,6 +619,23 @@ remaining header root coordinates input, state and typed menu actions.
 Severity: P2 presentation-boundary maintainability risk, resolved for grid
 header content rendering.
 
+## F77 — Result-grid cell rendering and context menu were root-coupled
+
+Evidence at discovery: `result_grid_cell.rs` combined cell background/error
+painting, value typography, a 17-command context menu and mutation/clipboard
+dispatch inside `DbProApp` methods. This made the highest-frequency grid
+surface depend on the composition root for both presentation and command
+selection.
+
+Fix in the current refactor: moved surface/value painting to
+`result_grid_cell_surface_view.rs` and context-menu rendering to
+`result_grid_cell_menu_view.rs`. The menu returns typed `GridCellMenuAction`
+values; the root retains only policy preparation, selection coordination and
+effect application.
+
+Severity: P1 feature-boundary maintainability risk, resolved for grid cell
+surface and menu presentation.
+
 ## F48 — Runtime transport adapter was embedded in the protocol module
 
 Source SHA: `b85d65da`.

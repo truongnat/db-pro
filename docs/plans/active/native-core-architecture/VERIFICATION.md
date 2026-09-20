@@ -775,6 +775,21 @@ Source checkpoint: `5d42d5e9`.
   New Connection dialog is centered with a separated header and right-aligned
   close control. The rebuilt release binary is running for manual
   verification.
+- Result-grid cell follow-up at source SHA `b69b82c0`: cell surface/value
+  painting and the 17-command context menu now use explicit view contexts and
+  typed menu actions. Focused UI fmt/check, clippy, 630 UI tests and
+  architecture guard PASS; clean scan has only the existing size warnings for
+  the remaining grid composition methods. Full native rebuild/runtime evidence
+  is recorded below.
+- Current full gate at source SHA `b69b82c0`: workspace fmt/check/clippy,
+  workspace tests (`404 core`, `119 infrastructure`, `32 runtime`, `4 tauri`,
+  `3`, `21`, `9`, `34`, `31`, `630 UI`; no failures), native release build,
+  capture-feature release build, architecture guard and clean scan (`16 pass`,
+  `0 warnings`) all PASS. Runtime capture is
+  `/tmp/db-pro-native-core-b69b82c0.png` at logical `1280x800`; the New
+  Connection dialog is centered with a separated header and right-aligned
+  close control. The rebuilt release binary is running for manual
+  verification.
 
 ## Not yet proven
 
