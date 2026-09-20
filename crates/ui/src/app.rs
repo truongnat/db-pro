@@ -354,6 +354,8 @@ mod table_view;
 #[cfg(test)]
 #[path = "app_tests.rs"]
 mod tests;
+#[path = "transfer_activity_view.rs"]
+mod transfer_activity_view;
 #[path = "welcome_view.rs"]
 mod welcome_view;
 #[path = "workspace_feature_state.rs"]

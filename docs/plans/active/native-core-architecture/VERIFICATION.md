@@ -513,6 +513,12 @@ Source checkpoint: `0070d374`.
   `schema_compare_view.rs`; `navigation_view.rs` is reduced to shell and
   activity surfaces. Focused UI tests (632 passed), clippy, architecture
   guard, clean scan (15 pass, 1 ratcheted warning) and diff checks PASS.
+- Transfer activity ownership follow-up: backup/restore entry point,
+  synthetic seed, masking preview, transfer harness controls and job history
+  now live in `transfer_activity_view.rs`; `navigation_view.rs` is reduced to
+  shell/status/output and schema/diagram navigation. Focused UI tests (632
+  passed), clippy, architecture guard, clean scan (15 pass, 1 ratcheted
+  warning) and diff checks PASS.
 
 ## Not yet proven
 

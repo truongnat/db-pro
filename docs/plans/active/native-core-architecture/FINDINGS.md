@@ -658,6 +658,19 @@ and activity surfaces and delegates compare rendering through the same
 
 Severity: P1 feature-boundary risk, resolved for schema comparison UI.
 
+## F35 — Navigation view owned transfer activity
+
+Evidence at discovery: the navigation module rendered backup/restore entry
+points, synthetic data seeding, masking previews, transfer harness actions and
+transfer job history alongside shell navigation and output surfaces. This
+made database-transfer behavior a concern of the navigation shell.
+
+Fix in the current refactor: moved the complete transfer activity surface to
+`transfer_activity_view.rs`; the navigation module no longer owns transfer
+rendering and only coordinates shell-level navigation.
+
+Severity: P1 feature-boundary risk, resolved for transfer activity UI.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and
