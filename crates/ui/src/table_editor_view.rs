@@ -2224,97 +2224,8 @@ impl DbProApp {
                 return;
             }
         }
-        let retry_target = self.table_mutation.table_mutation_retry_target.take();
-        let mut changes = Vec::new();
-        let mut targets = Vec::new();
-        let mut deletes = Vec::new();
-        let mut inserts = Vec::new();
-        let mut updates = Vec::<(
-            RowIdentity,
-            Option<usize>,
-            Vec<String>,
-            Vec<String>,
-            Vec<UiCell>,
-            Vec<usize>,
-        )>::new();
-        for change in self.table_mutation.staged_changes.iter() {
-            if retry_target
-                .as_ref()
-                .is_some_and(|target| !Self::change_matches_target(change, target))
-            {
-                continue;
-            }
-            match change {
-                StagedChange::Update {
-                    identity,
-                    current_row_index,
-                    column_index,
-                    column,
-                    data_type,
-                    value,
-                    ..
-                } => {
-                    if let Some(entry) = updates.iter_mut().find(|entry| entry.0 == *identity) {
-                        entry.2.push(column.clone());
-                        entry.3.push(data_type.clone());
-                        entry.4.push(value.clone());
-                        entry.5.push(*column_index);
-                    } else {
-                        updates.push((
-                            identity.clone(),
-                            *current_row_index,
-                            vec![column.clone()],
-                            vec![data_type.clone()],
-                            vec![value.clone()],
-                            vec![*column_index],
-                        ));
-                    }
-                }
-                StagedChange::Delete {
-                    identity,
-                    current_row_index,
-                } => deletes.push((
-                    UiTableMutation::Delete {
-                        pk_columns: identity.original_pk_columns.clone(),
-                        pk_values: identity.original_pk_values.clone(),
-                    },
-                    MutationTarget::Delete {
-                        identity: identity.clone(),
-                        current_row_index: *current_row_index,
-                    },
-                )),
-                StagedChange::Insert { columns, values, .. } => inserts.push((
-                    UiTableMutation::Insert {
-                        columns: columns.clone(),
-                        values: values.clone(),
-                    },
-                    MutationTarget::Insert,
-                )),
-            }
-        }
-        for (change, target) in deletes {
-            changes.push(change);
-            targets.push(target);
-        }
-        for (identity, current_row_index, columns, data_types, values, column_indexes) in updates {
-            changes.push(UiTableMutation::Update {
-                columns,
-                data_types,
-                values,
-                pk_columns: identity.original_pk_columns.clone(),
-                pk_values: identity.original_pk_values.clone(),
-            });
-            targets.push(MutationTarget::Update {
-                identity,
-                current_row_index,
-                columns: column_indexes,
-            });
-        }
-        for (change, target) in inserts {
-            changes.push(change);
-            targets.push(target);
-        }
-        if changes.is_empty() {
+        let plan = self.table_mutation.build_apply_plan();
+        if plan.changes.is_empty() {
             self.table_mutation.table_mutation_retry_after_reload = false;
             self.feedback.runtime_message = "The related staged change is no longer available".to_owned();
             return;
@@ -2325,12 +2236,12 @@ impl DbProApp {
             connection_id: connection.id,
             schema: self.active_schema().to_owned(),
             table,
-            changes,
+            changes: plan.changes,
         };
         if self.dispatch_command(command) {
             self.table_mutation.staged_apply_request = Some(request_id);
             self.table_mutation.table_mutation_request = Some(request_id);
-            self.table_mutation.staged_apply_targets = targets;
+            self.table_mutation.staged_apply_targets = plan.targets;
             self.table_mutation.table_mutation_error = None;
             let counts = self.table_mutation.staged_changes.counts();
             self.feedback.runtime_message = format!(
@@ -2342,27 +2253,6 @@ impl DbProApp {
             );
         } else {
             self.feedback.runtime_message = "Could not send staged change to runtime".to_owned();
-        }
-    }
-
-    fn change_matches_target(change: &StagedChange, target: &MutationTarget) -> bool {
-        match (change, target) {
-            (
-                StagedChange::Update { identity, .. },
-                MutationTarget::Update {
-                    identity: target_identity,
-                    ..
-                },
-            )
-            | (
-                StagedChange::Delete { identity, .. },
-                MutationTarget::Delete {
-                    identity: target_identity,
-                    ..
-                },
-            ) => identity == target_identity,
-            (StagedChange::Insert { .. }, MutationTarget::Insert) => true,
-            _ => false,
         }
     }
 
