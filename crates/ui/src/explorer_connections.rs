@@ -1,5 +1,6 @@
 //! Explorer connection/schema tree rendering.
 use super::explorer_connection_row_view::{ConnectionRowAction, ConnectionRowContext};
+use super::explorer_schema_node_view::SchemaNodeContext;
 use super::explorer_tree::{draw_codex_tree_row, draw_hint_row, CodexTreeRow};
 use super::*;
 
@@ -191,57 +192,18 @@ impl DbProApp {
     /// A schema folder node inside the Database node (e.g. `public`).
     pub(super) fn draw_dbeaver_schema_node(&mut self, ui: &mut egui::Ui, connection_id: &str, schema: &str) {
         let is_active_schema = self.active_schema() == schema;
-        let schema_id = ui.make_persistent_id(("codex_schema_node", connection_id, schema));
         let table_count = self.schema_table_count(schema);
-
-        let mut collapsing =
-            egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), schema_id, is_active_schema);
-        let is_open = collapsing.is_open();
-
-        let (resp, chevron_clicked) = draw_codex_tree_row(
-            ui,
-            &self.theme,
-            CodexTreeRow {
-                depth: 2,
-                is_expandable: true,
-                is_expanded: is_open,
-                icon: if is_open { Icon::FolderOpen } else { Icon::Folder },
-                icon_color: if is_active_schema {
-                    self.theme.warning // warm amber for the active schema
-                } else {
-                    self.theme.text_secondary
-                },
-                label: schema,
-                is_selected: false,
-                is_dimmed: !is_active_schema,
-                status_dot: None,
-                badge_text: None,
-                badge_accent: false,
-                count_text: if table_count > 0 {
-                    Some(table_count.to_string())
-                } else {
-                    None
-                },
-                detail_text: None,
-            },
-        );
-
-        let mut activate_schema = false;
-        if chevron_clicked {
-            collapsing.set_open(!is_open);
-            collapsing.store(ui.ctx());
-        } else if resp.clicked() {
-            if !is_active_schema {
-                activate_schema = true;
-                collapsing.set_open(true);
-                collapsing.store(ui.ctx());
-            } else {
-                collapsing.set_open(!is_open);
-                collapsing.store(ui.ctx());
-            }
+        let render = SchemaNodeContext {
+            theme: self.theme,
+            connection_id,
+            schema,
+            is_active: is_active_schema,
+            table_count,
         }
+        .draw(ui);
 
-        if collapsing.is_open() {
+        let mut activate_schema = render.should_activate;
+        if render.is_open {
             if is_active_schema {
                 self.draw_dbeaver_schema_objects(ui, schema);
             } else if draw_hint_row(ui, &self.theme, 3, Icon::Circle, "Inactive schema — click to activate").clicked()
