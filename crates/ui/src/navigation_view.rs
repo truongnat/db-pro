@@ -766,67 +766,11 @@ impl DbProApp {
     }
 
     pub(crate) fn preview_masking_sample(&mut self) {
-        use db_pro_core::domain::masking::{preview_masking, ColumnMask, MaskingProfile};
-        let cols: Vec<String> = self
-            .masking
-            .masking_columns_csv
-            .split(',')
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_owned)
-            .collect();
-        let headers = if cols.is_empty() {
-            vec!["email".into(), "phone".into(), "id".into()]
-        } else {
-            let mut h = cols.clone();
-            if !h.iter().any(|c| c == "id") {
-                h.push("id".into());
-            }
-            h
-        };
-        let sample = vec![
-            headers
-                .iter()
-                .map(|h| match h.as_str() {
-                    "email" => "ada@example.com".into(),
-                    "phone" => "1234567890".into(),
-                    "id" => "42".into(),
-                    _ => format!("val_{h}"),
-                })
-                .collect::<Vec<_>>(),
-            headers
-                .iter()
-                .map(|h| match h.as_str() {
-                    "email" => "grace@example.com".into(),
-                    "phone" => "0987654321".into(),
-                    "id" => "42".into(),
-                    _ => format!("val2_{h}"),
-                })
-                .collect::<Vec<_>>(),
-        ];
-        let profile = MaskingProfile {
-            name: "preview".into(),
-            schema: String::new(),
-            table: String::new(),
-            columns: cols
-                .into_iter()
-                .map(|column| ColumnMask {
-                    column,
-                    rule: self.masking.masking_rule,
-                    replacement: "[masked]".into(),
-                    keep_prefix: 2,
-                    keep_suffix: 2,
-                })
-                .collect(),
-            keyed: self.masking.masking_keyed,
-            key_id: "local-dev".into(),
-        };
-        let key_material = if self.masking.masking_keyed {
-            "db-pro-local-masking-key"
-        } else {
-            ""
-        };
-        self.masking.masking_preview = Some(preview_masking(&headers, &sample, &profile, key_material));
+        self.masking.masking_preview = Some(masking::build_preview(
+            &self.masking.masking_columns_csv,
+            self.masking.masking_rule,
+            self.masking.masking_keyed,
+        ));
         self.masking.masking_error = None;
     }
 

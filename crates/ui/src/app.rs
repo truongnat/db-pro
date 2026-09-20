@@ -98,6 +98,8 @@ mod git_workspace;
 mod ide_workspace;
 #[path = "management_events.rs"]
 mod management_events;
+#[path = "masking.rs"]
+mod masking;
 #[path = "navigation_view.rs"]
 mod navigation_view;
 #[path = "operation_events.rs"]
