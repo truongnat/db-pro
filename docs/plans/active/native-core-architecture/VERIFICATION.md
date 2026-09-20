@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `28779ec0`.
+Source checkpoint: `c042b89e`.
 
 ## Current change
 
@@ -237,11 +237,12 @@ Source checkpoint: `28779ec0`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 596 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 602 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1268 passed, 0 failed, 42 ignored.
+- `cargo test --workspace --no-fail-fast`: 1274 passed, 0 failed, 42 ignored;
+  all workspace doc-tests passed with 0 tests.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 11 pass, 5 warnings, 0 failures; warnings are ratcheted size/cast/clone heuristics.
