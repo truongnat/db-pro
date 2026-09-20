@@ -525,71 +525,13 @@ impl DbProApp {
 
     /// Discovered bind placeholders for the active document (#225 discovery slice).
     fn draw_sql_parameters_panel(&mut self, ui: &mut egui::Ui) {
-        let sql = self.query.session.active_text().to_owned();
-        let params = crate::query::discover_sql_parameters(&sql);
-        if params.is_empty() {
-            return;
-        }
         let supports_parameters = self.query_capabilities().allows(|caps| caps.query.parameters);
-        let doc_index = self.query.session.active_document_index;
-        ui.add_space(SPACE_XS);
-        ui.horizontal(|ui| {
-            ui.colored_label(self.theme.accent, format!("Parameters · {}", params.len()));
-            if !supports_parameters {
-                ui.label(
-                    RichText::new("provider does not advertise bindings yet")
-                        .small()
-                        .color(self.theme.warning),
-                );
-            }
-        });
-        for param in params {
-            let mut value = self
-                .query
-                .session
-                .documents
-                .get(doc_index)
-                .and_then(|doc| doc.parameter_values.get(&param.name).cloned())
-                .unwrap_or_default();
-            let mut is_secret = self
-                .query
-                .session
-                .documents
-                .get(doc_index)
-                .is_some_and(|doc| doc.parameter_secrets.contains(&param.name));
-            ui.horizontal(|ui| {
-                let kind = match param.kind {
-                    crate::query::ParameterKind::Numbered => "numbered",
-                    crate::query::ParameterKind::Named => "named",
-                    crate::query::ParameterKind::Positional => "positional",
-                };
-                ui.label(
-                    RichText::new(format!("{} ({kind})", param.name))
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
-                let edit = if is_secret {
-                    egui::TextEdit::singleline(&mut value).password(true)
-                } else {
-                    egui::TextEdit::singleline(&mut value)
-                };
-                ui.add(edit.desired_width(180.0));
-                ui.checkbox(&mut is_secret, "secret");
-            });
-            if let Some(doc) = self.query.session.documents.get_mut(doc_index) {
-                doc.parameter_values.insert(param.name.clone(), value);
-                if is_secret {
-                    doc.parameter_secrets.insert(param.name.clone());
-                } else {
-                    doc.parameter_secrets.remove(&param.name);
-                }
-            }
-        }
-        ui.label(
-            RichText::new("Values stay in-memory for this document; secret values are never persisted with drafts.")
-                .small()
-                .color(self.theme.text_muted),
-        );
+        let mut context = query_parameters_view::QueryParametersContext {
+            theme: self.theme,
+            session: &mut self.query.session,
+            supports_parameters,
+        };
+        query_parameters_view::draw_parameters_panel(&mut context, ui);
     }
 }
 
