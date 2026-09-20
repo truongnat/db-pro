@@ -1071,6 +1071,19 @@ the architecture guard protects the pure module from root coupling.
 
 Severity: P2 layering/maintainability risk, resolved.
 
+## F66 — Query Run/Stop control dispatched commands from the view root
+
+Evidence at discovery: capability checks, running-request presentation and
+Run/Stop click handling were all embedded in `query_view.rs`, coupling a small
+control to query dispatch, cancellation and feedback mutation on `DbProApp`.
+
+Fix in `072f44be`: moved the control to `query_run_control_view.rs`. It
+consumes connection/capability/request state and returns typed `Run`, `Cancel`,
+or blocked-action intents; the root applies the runtime command and feedback.
+The architecture guard rejects `DbProApp` from the control module.
+
+Severity: P1 feature-boundary risk, resolved for query run control.
+
 ## F35 — Navigation view owned transfer activity
 
 Evidence at discovery: the navigation module rendered backup/restore entry

@@ -682,6 +682,14 @@ Source checkpoint: `5d42d5e9`.
   architecture guard and clean scan (16 pass, 0 warnings). Runtime capture is
   `/tmp/db-pro-native-core-764548e1.png`; the New Connection dialog remains
   centered with a separated header and right-aligned close control.
+- Query run-control follow-up at source SHA `072f44be`: Run/Stop rendering now
+  returns typed command intents and the root remains the command executor.
+  Full gate PASS: fmt, workspace check, workspace clippy with `-D warnings`,
+  workspace tests (`630` UI tests and `0 failed` overall), native release
+  build, capture-feature release build, architecture guard and clean scan
+  (16 pass, 0 warnings). Runtime capture is
+  `/tmp/db-pro-native-core-072f44be.png`; the New Connection dialog remains
+  centered with a separated header and right-aligned close control.
 
 ## Not yet proven
 
