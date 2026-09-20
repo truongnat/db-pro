@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `d5c591c9`.
+Source checkpoint: `43a1f0f4`.
 
 ## Current change
 
@@ -178,6 +178,9 @@ Source checkpoint: `d5c591c9`.
   grid identity algorithm has one state owner.
 - Result-grid identity lookup now also lives on `TableDataState`; grid views
   pass table metadata explicitly and no longer depend on a root lookup facade.
+- Mutation-error clearing now lives on `TableMutationState`; table-editor
+  views keep feedback and request orchestration but no longer implement the
+  target-matching state transition.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.

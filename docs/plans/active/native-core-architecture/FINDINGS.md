@@ -261,6 +261,9 @@ but no longer owns the grid identity algorithm.
 Result-grid identity lookup now follows the same rule on `TableDataState`; grid
 views pass table metadata explicitly and no longer depend on a root lookup
 facade.
+Mutation-error clearing now follows the same rule on `TableMutationState`; the
+table editor keeps feedback and request orchestration but no longer implements
+target matching and state clearing.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
