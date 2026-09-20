@@ -1,4 +1,5 @@
 //! Schema object workspace — views/triggers/routines (#192 routine workbench).
+use super::schema_object_resolver::resolve_schema_object;
 use super::*;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use db_pro_core::application::ObjectMutationService;
@@ -8,16 +9,6 @@ use db_pro_core::domain::object_mutation::{
 use db_pro_core::ports::dialect::SqlDialect;
 use egui::RichText;
 use lucide_icons::Icon;
-
-struct SchemaObjectDetails {
-    icon: Icon,
-    kind: String,
-    name: String,
-    schema: String,
-    definition: String,
-    metadata: Option<String>,
-    query: String,
-}
 
 struct QuoteDialect;
 
@@ -39,7 +30,7 @@ impl DbProApp {
         };
         let is_view = matches!(selection, SchemaObjectSelection::View(_));
         let is_function = matches!(selection, SchemaObjectSelection::Function { .. });
-        let Some(details) = self.resolve_schema_object(&selection) else {
+        let Some(details) = resolve_schema_object(&self.schema.explorer.schema, &selection) else {
             return;
         };
 
@@ -365,89 +356,6 @@ impl DbProApp {
             Err(error) => {
                 self.management.routine.routine_ddl_preview = None;
                 self.feedback.runtime_message = format!("Routine plan failed: {error}");
-            }
-        }
-    }
-
-    fn resolve_schema_object(&self, selection: &SchemaObjectSelection) -> Option<SchemaObjectDetails> {
-        match selection {
-            SchemaObjectSelection::View(name) => {
-                let view = self
-                    .schema
-                    .explorer
-                    .schema
-                    .views
-                    .iter()
-                    .find(|view| &view.name == name)?
-                    .clone();
-                Some(SchemaObjectDetails {
-                    icon: Icon::Eye,
-                    kind: "VIEW".to_owned(),
-                    name: view.name.clone(),
-                    schema: view.schema.clone(),
-                    definition: view.definition,
-                    metadata: None,
-                    query: format!("SELECT *\nFROM \"{}\".\"{}\"\nLIMIT 100;", view.schema, view.name),
-                })
-            }
-            SchemaObjectSelection::Trigger(name) => {
-                let trigger = self
-                    .schema
-                    .explorer
-                    .schema
-                    .triggers
-                    .iter()
-                    .find(|trigger| &trigger.name == name)?
-                    .clone();
-                Some(SchemaObjectDetails {
-                    icon: Icon::Zap,
-                    kind: "TRIGGER".to_owned(),
-                    name: trigger.name,
-                    schema: trigger.schema,
-                    definition: trigger.definition.clone(),
-                    metadata: Some(format!(
-                        "{} · {} · {}",
-                        trigger.table_name, trigger.timing, trigger.event
-                    )),
-                    query: trigger.definition,
-                })
-            }
-            SchemaObjectSelection::Function {
-                name,
-                identity_arguments,
-            } => {
-                let function = self
-                    .schema
-                    .explorer
-                    .schema
-                    .functions
-                    .iter()
-                    .find(|function| &function.name == name && &function.identity_arguments == identity_arguments)?
-                    .clone();
-                let display_name = if function.identity_arguments.is_empty() {
-                    function.name.clone()
-                } else {
-                    format!("{}({})", function.name, function.identity_arguments)
-                };
-                Some(SchemaObjectDetails {
-                    icon: Icon::Code2,
-                    kind: function.routine_type,
-                    name: display_name,
-                    schema: function.schema,
-                    definition: function.definition.clone(),
-                    metadata: Some(format!(
-                        "{} · {} · returns {}{}",
-                        function.language,
-                        function.volatility,
-                        function.data_type,
-                        if function.security_definer {
-                            " · SECURITY DEFINER"
-                        } else {
-                            ""
-                        }
-                    )),
-                    query: function.definition,
-                })
             }
         }
     }
