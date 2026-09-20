@@ -43,33 +43,20 @@ impl DbProApp {
             return;
         };
 
-        toolbar_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width(ui.available_width().max(0.0));
-            ui.horizontal_wrapped(|ui| {
-                self.draw_schema_object_breadcrumb(
-                    ui,
-                    details.icon,
-                    &details.kind,
-                    &details.schema,
-                    &details.name,
-                    details.metadata.as_deref(),
-                );
-                if is_view {
-                    self.draw_schema_object_view_tabs(ui);
-                }
-                if Button::new(self.theme)
-                    .icon(Icon::FileCode2)
-                    .text("Open in Query")
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.set_active_query_text(details.query.clone());
-                    self.workspace.active_tab = WorkspaceTab::Query;
-                }
-            });
-        });
+        let surface_context = schema_object_surface_view::SchemaObjectSurfaceContext {
+            theme: self.theme,
+            icon: details.icon,
+            kind: &details.kind,
+            schema: &details.schema,
+            name: &details.name,
+            metadata: details.metadata.as_deref(),
+            query: &details.query,
+            is_view,
+            active_view: self.schema.explorer.schema_object_view,
+        };
+        for action in surface_context.draw(ui) {
+            self.apply_schema_object_surface_action(action);
+        }
         ui.add_space(SPACE_MD);
         if is_function {
             self.draw_routine_workbench(ui, &selection);
@@ -465,37 +452,13 @@ impl DbProApp {
         }
     }
 
-    fn draw_schema_object_breadcrumb(
-        &self,
-        ui: &mut egui::Ui,
-        icon: Icon,
-        kind: &str,
-        schema: &str,
-        name: &str,
-        metadata: Option<&str>,
-    ) {
-        ui.label(icon_text(icon, kind, self.theme.text_primary));
-        ui.label(icon_text(Icon::ChevronRight, "", self.theme.text_muted));
-        ui.label(
-            RichText::new(format!("{schema}.{name}"))
-                .strong()
-                .color(self.theme.accent),
-        );
-        if let Some(metadata) = metadata {
-            badge(ui, metadata, self.theme.surface_active, self.theme.text_secondary);
-        }
-    }
-
-    fn draw_schema_object_view_tabs(&mut self, ui: &mut egui::Ui) {
-        for (view, icon, label) in [
-            (SchemaObjectView::Definition, Icon::Code2, "Definition"),
-            (SchemaObjectView::Data, Icon::Table2, "Data"),
-        ] {
-            let selected = self.schema.explorer.schema_object_view == view;
-            let tab = tab_frame(self.theme, selected).show(ui, |ui| {
-                ui.selectable_label(selected, icon_text(icon, label, self.theme.text_primary))
-            });
-            if tab.inner.clicked() {
+    fn apply_schema_object_surface_action(&mut self, action: schema_object_surface_view::SchemaObjectSurfaceAction) {
+        match action {
+            schema_object_surface_view::SchemaObjectSurfaceAction::OpenQuery(query) => {
+                self.set_active_query_text(query);
+                self.workspace.active_tab = WorkspaceTab::Query;
+            }
+            schema_object_surface_view::SchemaObjectSurfaceAction::SelectView(view) => {
                 self.schema.explorer.schema_object_view = view;
                 if view == SchemaObjectView::Data {
                     self.table.data_query.result = None;

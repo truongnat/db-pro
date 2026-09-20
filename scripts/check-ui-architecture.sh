@@ -124,6 +124,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/result_grid_export.rs"
   "$repo_root/crates/ui/src/result_grid_selection.rs"
   "$repo_root/crates/ui/src/schema_compare_view.rs"
+  "$repo_root/crates/ui/src/schema_object_surface_view.rs"
   "$repo_root/crates/ui/src/schema_workbench_form.rs"
   "$repo_root/crates/ui/src/schema_workbench_secondary_view.rs"
   "$repo_root/crates/ui/src/query_search_view.rs"

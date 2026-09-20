@@ -404,6 +404,8 @@ mod schema_compare_view;
 mod schema_events;
 #[path = "schema_explorer_state.rs"]
 mod schema_explorer_state;
+#[path = "schema_object_surface_view.rs"]
+mod schema_object_surface_view;
 #[path = "schema_object_view.rs"]
 mod schema_object_view;
 #[path = "schema_workbench.rs"]
