@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::result_grid_projection::GridSelectionCache;
 
 /// The criterion bench (`benches/result_grid_benchmarks.rs`) is a separate crate, so it reaches
 /// this type through the crate-root re-export only. Resolving it the same way here — instead of

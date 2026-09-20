@@ -282,6 +282,8 @@ mod result_grid_edit;
 mod result_grid_export;
 #[path = "result_grid_header.rs"]
 mod result_grid_header;
+#[path = "result_grid_projection.rs"]
+mod result_grid_projection;
 #[path = "result_grid_selection.rs"]
 mod result_grid_selection;
 #[path = "result_grid_toolbar_view.rs"]
@@ -339,7 +341,7 @@ pub(crate) use query_editor_state::QueryEditorState;
 pub(crate) use query_feature_state::QueryFeatureState;
 pub(crate) use query_output_state::QueryOutputState;
 pub(crate) use query_state::QuerySessionState;
-pub(crate) use result_grid_view::GridSelectionCache;
+pub(crate) use result_grid_projection::GridSelectionCache;
 use schema_compare_state::SchemaCompareState;
 pub(crate) use schema_explorer_state::SchemaExplorerState;
 use schema_workspace_state::SchemaWorkspaceState;
