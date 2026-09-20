@@ -153,18 +153,6 @@ impl DbProApp {
         }
     }
 
-    /// The projection key for the result currently being drawn.
-    pub(super) fn grid_projection_key(&self, result: &UiQueryResult) -> GridProjectionKey {
-        GridProjectionKey {
-            epoch: self.table_data.grid_projection_epoch,
-            filter: self.table_data.grid_filter.clone(),
-            sort_column: self.table_data.grid_sort_column,
-            sort_desc: self.table_data.grid_sort_desc,
-            row_count: result.row_count,
-            column_count: result.columns.len(),
-        }
-    }
-
     pub(crate) fn active_query_messages(&self) -> &[String] {
         self.query_session_state.active_messages()
     }

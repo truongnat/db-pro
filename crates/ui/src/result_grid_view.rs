@@ -136,7 +136,7 @@ impl DbProApp {
         // The projection is memoized across frames: sorting a 200k-row result on a timestamp-shaped
         // column costs seconds per invocation in debug, so rebuilding it in the draw path is what
         // made a sorted large result unusable (crates/ui/src/result_grid.rs, `GridProjectionCache`).
-        let projection_key = self.grid_projection_key(result);
+        let projection_key = self.table_data.projection_key(result);
         let indexes = self
             .table_data
             .grid_projection_cache

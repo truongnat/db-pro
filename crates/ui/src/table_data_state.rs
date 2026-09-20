@@ -77,6 +77,17 @@ impl Default for TableDataState {
 }
 
 impl TableDataState {
+    pub(crate) fn projection_key(&self, result: &UiQueryResult) -> GridProjectionKey {
+        GridProjectionKey {
+            epoch: self.grid_projection_epoch,
+            filter: self.grid_filter.clone(),
+            sort_column: self.grid_sort_column,
+            sort_desc: self.grid_sort_desc,
+            row_count: result.row_count,
+            column_count: result.columns.len(),
+        }
+    }
+
     pub(crate) fn layout_scope(connection_id: Option<&str>, schema: &str, table: Option<&str>) -> Option<String> {
         Some(format!("{}|{}|{}", connection_id?, schema, table?))
     }
@@ -458,6 +469,44 @@ mod tests {
         assert_eq!(
             state.navigation_target(&indexes, &order, &lookup, egui::Key::ArrowDown, false),
             Some((7, 0))
+        );
+    }
+
+    #[test]
+    fn projection_key_tracks_grid_state_and_result_shape() {
+        let mut state = TableDataState::default();
+        state.grid_projection_epoch = 7;
+        state.grid_filter = "active".to_owned();
+        state.grid_sort_column = Some(2);
+        state.grid_sort_desc = true;
+        let result = UiQueryResult {
+            columns: vec![
+                crate::UiColumn {
+                    name: "id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    nullable: false,
+                },
+                crate::UiColumn {
+                    name: "status".to_owned(),
+                    data_type: "text".to_owned(),
+                    nullable: false,
+                },
+            ],
+            rows: Vec::new(),
+            row_count: 12,
+            duration_ms: 4,
+        };
+
+        assert_eq!(
+            state.projection_key(&result),
+            GridProjectionKey {
+                epoch: 7,
+                filter: "active".to_owned(),
+                sort_column: Some(2),
+                sort_desc: true,
+                row_count: 12,
+                column_count: 2,
+            }
         );
     }
 }
