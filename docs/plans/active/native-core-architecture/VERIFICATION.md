@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `2b98d804`.
+Source checkpoint: `10d6697e`.
 
 ## Current change
 
@@ -210,6 +210,8 @@ Source checkpoint: `2b98d804`.
   document condition is evaluated by the feature state, not by query view code.
 - Row-identity matching now uses the published `table_events` function
   directly; the composition root no longer exposes a forwarding helper.
+- Toast mutations now live on `FeedbackState`; error/success/info notifications
+  no longer route through `DbProApp` wrappers.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.

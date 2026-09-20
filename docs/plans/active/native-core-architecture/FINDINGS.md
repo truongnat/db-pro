@@ -299,6 +299,8 @@ Per-document output-tab routing now follows the same rule on
 instead of query view code.
 Row-identity matching now uses the published `table_events` function directly;
 the composition root no longer exposes a forwarding helper.
+Toast mutations now follow the same rule on `FeedbackState`; error, success and
+info notifications no longer route through `DbProApp` wrappers.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
