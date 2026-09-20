@@ -955,6 +955,19 @@ architecture guard now rejects `DbProApp` from this view module.
 
 Severity: P1 feature-boundary risk, resolved for schema comparison rendering.
 
+## F57 — Schema Workbench form reached root orchestration directly
+
+Evidence at discovery: `schema_workbench_form.rs` rendered mutable workbench
+fields and directly invoked planning, DDL apply, query-document creation and
+workspace navigation methods on `DbProApp`.
+
+Fix in `c9720057`: `schema_workbench_form.rs` now consumes
+`SchemaWorkbenchFormContext` and returns `SchemaWorkbenchFormAction`; the root
+adapter in `schema_workbench_actions.rs` applies those intents. The form module
+is now included in the architecture guard and cannot depend on `DbProApp`.
+
+Severity: P1 feature-boundary risk, resolved for schema-workbench form UI.
+
 ## F35 — Navigation view owned transfer activity
 
 Evidence at discovery: the navigation module rendered backup/restore entry
