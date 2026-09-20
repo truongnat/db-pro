@@ -306,6 +306,8 @@ mod sidebar_view;
 mod synthetic_data;
 #[path = "table_data_filter_view.rs"]
 mod table_data_filter_view;
+#[path = "table_data_mutation_toolbar_view.rs"]
+mod table_data_mutation_toolbar_view;
 #[path = "table_data_pagination_view.rs"]
 mod table_data_pagination_view;
 #[path = "table_data_placeholder_view.rs"]

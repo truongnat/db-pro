@@ -1,6 +1,4 @@
 use super::*;
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use lucide_icons::Icon;
 
 pub(super) struct TableDataPaging {
     pub(super) page_range: String,
@@ -82,185 +80,35 @@ impl DbProApp {
 
         toolbar_frame(self.theme).show(ui, |ui| {
             ui.horizontal(|ui| {
-                if compact_button_with_icon(ui, Icon::RotateCcw, "Refresh", self.theme)
-                    .on_hover_text("Reload table data (F5)")
-                    .clicked()
-                {
-                    if self.table.mutation.staged_changes.is_empty() {
-                        self.request_table_data();
-                    } else {
-                        self.feedback.runtime_message = "Apply or discard staged changes before refreshing".to_owned();
+                let mutation_context = table_data_mutation_toolbar_view::TableDataMutationToolbarContext {
+                    theme: self.theme,
+                    can_mutate,
+                    connected: self.connection.lifecycle.is_connected(),
+                    has_primary_key: self.table.state.has_primary_key(),
+                    staged_changes: &self.table.mutation.staged_changes,
+                    staged_apply_pending: self.table.mutation.staged_apply_request.is_some(),
+                    has_data_edit_error: self.table.editing.data_edit_error.is_some(),
+                    failure: self.table.mutation.table_mutation_error.as_ref(),
+                    selected_rows: self.table.data.selected_rows.len(),
+                };
+                if let Some(action) = table_data_mutation_toolbar_view::draw_mutation_controls(&mutation_context, ui) {
+                    use table_data_mutation_toolbar_view::TableDataMutationToolbarAction as Action;
+                    match action {
+                        Action::Refresh => self.request_table_data(),
+                        Action::RefreshBlocked => {
+                            self.feedback.runtime_message =
+                                "Apply or discard staged changes before refreshing".to_owned();
+                        }
+                        Action::AddRow => self.open_insert_row(),
+                        Action::OpenPendingChanges => self.table.mutation.pending_changes_open = true,
+                        Action::ApplyStagedChanges => self.apply_staged_changes(),
+                        Action::ConfirmDiscardChanges => self.table.editing.discard_changes_confirmation = true,
+                        Action::DiscardStagedChanges => self.discard_staged_changes(),
+                        Action::ReloadFailedMutation => self.reload_failed_mutation(),
+                        Action::DiscardFailedMutation => self.discard_failed_mutation(false),
+                        Action::ResolveConflict => self.table.mutation.conflict_dialog_open = true,
+                        Action::RetryFailedMutation => self.retry_failed_mutation_after_reload(),
                     }
-                }
-
-                if can_mutate {
-                    ui.separator();
-                    if Button::new(self.theme)
-                        .text("Add Row")
-                        .icon(Icon::Plus)
-                        .variant(ButtonVariant::Secondary)
-                        .size(ButtonSize::Sm)
-                        .tooltip("Insert new row")
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.open_insert_row();
-                    }
-
-                    if !self.table.state.has_primary_key() {
-                        ui.label(
-                            RichText::new("Table has no primary key; safe row editing is unavailable.")
-                                .font(font_caption())
-                                .color(self.theme.warning),
-                        )
-                        .on_hover_text(
-                            "This table has no primary key; safe row editing is unavailable. Inserts remain available.",
-                        );
-                    }
-
-                    if !self.table.mutation.staged_changes.is_empty() {
-                        ui.separator();
-                        let counts = self.table.mutation.staged_changes.counts();
-                        if ui
-                            .small_button(format!(
-                                "{} pending · +{} ~{} -{}",
-                                counts.total(),
-                                counts.inserts,
-                                counts.updates,
-                                counts.deletes
-                            ))
-                            .on_hover_text("Open pending changes")
-                            .clicked()
-                        {
-                            self.table.mutation.pending_changes_open = true;
-                        }
-                        let apply_enabled = self.table.mutation.staged_apply_request.is_none()
-                            && self.table.editing.data_edit_error.is_none();
-                        if Button::new(self.theme)
-                            .text("Apply")
-                            .icon(Icon::Check)
-                            .variant(ButtonVariant::Default)
-                            .size(ButtonSize::Sm)
-                            .enabled(apply_enabled)
-                            .tooltip(format!(
-                                "Apply all staged changes ({}S)",
-                                Self::primary_modifier_label()
-                            ))
-                            .show(ui)
-                            .clicked()
-                        {
-                            self.apply_staged_changes();
-                        }
-                        if Button::new(self.theme)
-                            .text("Discard")
-                            .icon(Icon::Undo2)
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::Sm)
-                            .tooltip(format!(
-                                "Discard all staged changes ({}Z)",
-                                Self::primary_modifier_label()
-                            ))
-                            .show(ui)
-                            .clicked()
-                        {
-                            if self.table.mutation.staged_changes.counts().total() > 1 {
-                                self.table.editing.discard_changes_confirmation = true;
-                            } else {
-                                self.discard_staged_changes();
-                            }
-                        }
-                    }
-                } else if self.connection.lifecycle.is_connected() {
-                    ui.separator();
-                    ui.label(
-                        RichText::new(if self.table.state.has_primary_key() {
-                            "Read-only"
-                        } else {
-                            "Table has no primary key; safe row editing is unavailable."
-                        })
-                        .font(font_caption())
-                        .color(if self.table.state.has_primary_key() {
-                            self.theme.warning
-                        } else {
-                            self.theme.danger
-                        }),
-                    );
-                }
-
-                if let Some(failure) = self.table.mutation.table_mutation_error.as_ref() {
-                    let is_conflict = failure.code == "CONFLICT";
-                    ui.separator();
-                    ui.label(
-                        RichText::new(format!(
-                            "{} · {}",
-                            failure.code,
-                            failure.target.as_ref().map_or_else(
-                                || "Transaction failed".to_owned(),
-                                |_| format!("Mutation #{} failed", failure.statement_index.saturating_add(1)),
-                            )
-                        ))
-                        .font(font_caption())
-                        .color(self.theme.danger),
-                    )
-                    .on_hover_text(failure.message.as_str());
-                    if failure.target.is_some() {
-                        if Button::new(self.theme)
-                            .text("Reload Row")
-                            .icon(Icon::RotateCcw)
-                            .variant(ButtonVariant::Secondary)
-                            .size(ButtonSize::Sm)
-                            .tooltip("Reload database values while keeping the local staged mutation")
-                            .show(ui)
-                            .clicked()
-                        {
-                            self.reload_failed_mutation();
-                        }
-                        if Button::new(self.theme)
-                            .text("Discard Local Change")
-                            .icon(Icon::Undo2)
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::Sm)
-                            .tooltip("Revert only the failed staged mutation")
-                            .show(ui)
-                            .clicked()
-                        {
-                            self.discard_failed_mutation(false);
-                        }
-                        if is_conflict {
-                            if Button::new(self.theme)
-                                .text("Resolve Conflict")
-                                .icon(Icon::GitCompare)
-                                .variant(ButtonVariant::Secondary)
-                                .size(ButtonSize::Sm)
-                                .tooltip("Open 3-way conflict resolution panel")
-                                .show(ui)
-                                .clicked()
-                            {
-                                self.table.mutation.conflict_dialog_open = true;
-                            }
-                            if Button::new(self.theme)
-                                .text("Retry")
-                                .icon(Icon::RotateCcw)
-                                .variant(ButtonVariant::Default)
-                                .size(ButtonSize::Sm)
-                                .tooltip("Reload the row, then retry the staged mutation")
-                                .show(ui)
-                                .clicked()
-                            {
-                                self.retry_failed_mutation_after_reload();
-                            }
-                        }
-                    }
-                }
-
-                if self.table.data.selected_rows.len() > 1 {
-                    crate::components::badge::Badge::new(
-                        format!("{} rows selected", self.table.data.selected_rows.len()),
-                        self.theme,
-                    )
-                    .variant(crate::components::badge::BadgeVariant::Secondary)
-                    .compact(true)
-                    .show(ui);
                 }
 
                 if !column_names.is_empty() {
