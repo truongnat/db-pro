@@ -515,6 +515,22 @@ implementation block.
 
 Severity: P2 composition-root maintainability, resolved.
 
+## F48 — Runtime transport adapter was embedded in the protocol module
+
+Source SHA: `b85d65da`.
+
+Evidence: `runtime.rs` combined the typed `UiCommand`/`UiEvent` contract,
+connection/schema/query DTOs and the `TaskBridge` channel adapter. The
+protocol is a stable message boundary, while channel ownership, bounded
+draining and request-id allocation are transport concerns.
+
+Fix in the current refactor: moved `UiCommand` and `UiEvent` into
+`runtime_protocol.rs` and `TaskBridge` plus channel limits into
+`task_bridge.rs`; `runtime.rs` preserves the existing public re-exports and
+keeps DTO definitions separate from transport.
+
+Severity: P1 boundary risk and P2 maintainability, resolved.
+
 ## F47 — Schema Workbench mixed mutation planning with view rendering
 
 Source SHA: `08acab31`.

@@ -582,6 +582,12 @@ Source checkpoint: `08acab31`.
   `schema_workbench_actions.rs`; `schema_workbench.rs` retains state and view
   composition at source SHA `08acab31`. Focused UI tests (632 passed), UI clippy, architecture guard,
   clean scan (14 pass, ratcheted legacy/planner warnings) and diff checks PASS.
+- Runtime protocol ownership follow-up: `UiCommand`/`UiEvent` now live in
+  `runtime_protocol.rs`, while the bounded `TaskBridge` transport and channel
+  limits live in `task_bridge.rs`; `runtime.rs` retains DTOs and public API
+  re-exports at source SHA `b85d65da`. Focused UI tests (632 passed), UI
+  clippy, architecture guard, clean scan (16 pass, 0 warnings) and diff
+  checks PASS.
 
 ## Not yet proven
 
