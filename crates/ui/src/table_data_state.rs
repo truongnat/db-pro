@@ -470,10 +470,12 @@ mod tests {
 
     #[test]
     fn layout_persists_and_restores_named_columns() {
-        let mut state = TableDataState::default();
-        state.grid_layout_column_names = vec!["id".to_owned(), "email".to_owned()];
-        state.grid_column_order = vec![1, 0];
-        state.grid_column_widths = vec![100.0, 240.0];
+        let mut state = TableDataState {
+            grid_layout_column_names: vec!["id".to_owned(), "email".to_owned()],
+            grid_column_order: vec![1, 0],
+            grid_column_widths: vec![100.0, 240.0],
+            ..Default::default()
+        };
         state.grid_hidden_columns.insert(0);
 
         state.persist_layout(Some("connection|public|users".to_owned()));
@@ -499,9 +501,11 @@ mod tests {
 
     #[test]
     fn restoring_unknown_layout_scope_clears_grid_projection() {
-        let mut state = TableDataState::default();
-        state.grid_column_order = vec![1, 0];
-        state.grid_column_widths = vec![120.0, 180.0];
+        let mut state = TableDataState {
+            grid_column_order: vec![1, 0],
+            grid_column_widths: vec![120.0, 180.0],
+            ..Default::default()
+        };
         state.grid_hidden_columns.insert(1);
         state.grid_pending_named_layout = Some(Vec::new());
         state.grid_legacy_layout_pending = true;
@@ -564,11 +568,13 @@ mod tests {
 
     #[test]
     fn projection_key_tracks_grid_state_and_result_shape() {
-        let mut state = TableDataState::default();
-        state.grid_projection_epoch = 7;
-        state.grid_filter = "active".to_owned();
-        state.grid_sort_column = Some(2);
-        state.grid_sort_desc = true;
+        let state = TableDataState {
+            grid_projection_epoch: 7,
+            grid_filter: "active".to_owned(),
+            grid_sort_column: Some(2),
+            grid_sort_desc: true,
+            ..Default::default()
+        };
         let result = UiQueryResult {
             columns: vec![
                 crate::UiColumn {
