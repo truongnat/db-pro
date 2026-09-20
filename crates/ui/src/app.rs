@@ -438,6 +438,8 @@ mod table_relations_view;
 mod table_structure_view;
 #[path = "table_view.rs"]
 mod table_view;
+#[path = "table_workspace_surface_view.rs"]
+mod table_workspace_surface_view;
 #[cfg(test)]
 #[path = "app_tests.rs"]
 mod tests;
