@@ -285,6 +285,9 @@ message slice directly.
 Active query result projection now follows the same rule on
 `QuerySessionState`; output, navigation, palette and agent surfaces consume
 the session-owned result.
+Active query text read projection now follows the same rule on
+`QuerySessionState`; the root setter remains only for prediction cancellation
+and text mutation orchestration.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

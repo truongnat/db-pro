@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `76864527`.
+Source checkpoint: `7daaf9df`.
 
 ## Current change
 
@@ -198,6 +198,9 @@ Source checkpoint: `76864527`.
   and navigation surfaces consume the session-owned message slice directly.
 - Active query result projection now lives on `QuerySessionState`; output,
   navigation, palette and agent surfaces consume the session-owned result.
+- Active query text read projection now lives on `QuerySessionState`; callers
+  read the session directly, while the root setter remains only for prediction
+  cancellation plus text mutation orchestration.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.
