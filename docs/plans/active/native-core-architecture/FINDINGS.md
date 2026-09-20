@@ -585,6 +585,20 @@ action boundary.
 
 Severity: P1 feature-boundary risk, resolved for Design Mode orchestration.
 
+## F30 — ER view mixed canvas interaction with diagram composition
+
+Evidence at discovery: the ER module combined schema-map composition, empty
+states, canvas painting, pan handling and table-opening transitions in one
+renderer file. That made changes to canvas interaction coupled to toolbar and
+Design Mode UI composition.
+
+Fix in the current refactor: moved empty-state/canvas rendering, pan handling
+and diagram-table navigation into `diagram_canvas_view.rs`. The source view
+now coordinates schema candidates, toolbar and Design Mode while the canvas
+surface owns its interaction lifecycle.
+
+Severity: P2 feature-boundary risk, resolved for ER canvas interaction.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and

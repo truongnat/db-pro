@@ -477,6 +477,11 @@ Source checkpoint: `0070d374`.
   `diagram_design_actions.rs`; `diagram_view.rs` retains the Design Mode UI
   surface and diagram rendering. Focused UI check, clippy, 632 UI tests,
   architecture guard and diff checks PASS.
+- ER canvas interaction ownership follow-up: empty state, canvas surface,
+  pan handling and click-through table navigation now live in
+  `diagram_canvas_view.rs`; `diagram_view.rs` coordinates schema candidates,
+  toolbar and Design Mode. Focused UI check, clippy, 632 UI tests,
+  architecture guard, clean scan and diff checks PASS.
 
 ## Not yet proven
 

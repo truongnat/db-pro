@@ -68,6 +68,8 @@ mod audit_activity_view;
 mod capability_lookup;
 #[path = "ddl_events.rs"]
 mod ddl_events;
+#[path = "diagram_canvas_view.rs"]
+mod diagram_canvas_view;
 #[path = "diagram_design_actions.rs"]
 mod diagram_design_actions;
 #[path = "diagram_state.rs"]
