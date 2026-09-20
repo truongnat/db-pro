@@ -282,6 +282,9 @@ directly without root projection facades.
 Active query messages projection now follows the same rule on
 `QuerySessionState`; output and navigation surfaces consume the session-owned
 message slice directly.
+Active query result projection now follows the same rule on
+`QuerySessionState`; output, navigation, palette and agent surfaces consume
+the session-owned result.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
