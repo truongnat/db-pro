@@ -406,7 +406,14 @@ impl DbProApp {
             egui::vec2(ui.available_width(), body_h),
             Layout::top_down(Align::Min),
             |ui| {
-                self.draw_output_tabs(ui, true);
+                let mut tabs_context = query_output_tabs_view::QueryOutputTabsContext {
+                    theme: self.theme,
+                    output: &mut self.query.output,
+                    session: &self.query.session,
+                    editor: &mut self.query.editor,
+                    bottom_panel_open: &mut self.workspace.bottom_panel_open,
+                };
+                query_output_tabs_view::draw_output_tabs(&mut tabs_context, ui, true);
                 let result = self.query.session.active_result().cloned();
                 self.draw_output_pane(ui, result.as_ref());
             },

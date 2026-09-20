@@ -250,6 +250,8 @@ mod query_feature_state;
 mod query_folder_delete_dialog;
 #[path = "query_output_state.rs"]
 mod query_output_state;
+#[path = "query_output_tabs_view.rs"]
+mod query_output_tabs_view;
 #[path = "query_output_view.rs"]
 mod query_output_view;
 #[path = "query_search_view.rs"]
