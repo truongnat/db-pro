@@ -233,6 +233,10 @@ Source checkpoint: `c042b89e`.
 - Release runtime smoke: PASS; `target/release/db-pro-native` launched from
   the verified HEAD and rendered the Welcome/empty state in a `1440x870` DB Pro
   window. Capture was inspected from the native window after startup settled.
+- Post-refactor release framebuffer capture: PASS at logical `1280x800`
+  (`/tmp/db-pro-native-post-refactor.png`); Welcome/empty state, activity rail,
+  sidebar, query tabs and status bar were inspected after the state-owner
+  changes.
 - Unit tests for the extracted aggregates are included in the UI test suite.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
