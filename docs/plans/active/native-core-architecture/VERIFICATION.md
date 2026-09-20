@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `097c121d`.
+Source checkpoint: `46da8e22`.
 
 ## Current change
 
@@ -39,6 +39,9 @@ Source checkpoint: `097c121d`.
 - Primary-key row-reload filter construction now lives in
   `TableMutationState::row_reload_filters`, with composite-key metadata
   coverage in the state tests.
+- Insert and duplicate-row mapping now live in pure functions in
+  `table_editor_values.rs`; identity/generated-column handling, required-field
+  validation and typed parsing are covered by focused tests.
 - The architecture guard now freezes `table_editor_context.rs` and
   `table_editor_values.rs` as explicit-state modules that may not depend on
   the composition-root type.
@@ -311,11 +314,11 @@ Source checkpoint: `097c121d`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 608 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 610 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1280 passed, 0 failed, 42 ignored;
+- `cargo test --workspace --no-fail-fast`: 1282 passed, 0 failed, 42 ignored;
   all workspace doc-tests passed with 0 tests.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.

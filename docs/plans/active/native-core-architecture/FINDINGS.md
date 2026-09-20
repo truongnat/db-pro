@@ -86,6 +86,9 @@ Staged transaction grouping and retry-target filtering now belong to
 boundary adapter rather than a second mutation planner.
 Composite-primary-key row reload filters are also built by the mutation state,
 with missing-key metadata reported as a typed transition error.
+Fix in `46da8e22`: insert/duplicate row value mapping and validation now live in
+the pure `table_editor_values.rs` boundary; the table view only coordinates the
+selected table, staged change and feedback transitions.
 The architecture guard now enforces that the extracted table-editor context
 and value modules cannot regress to a root dependency.
 
