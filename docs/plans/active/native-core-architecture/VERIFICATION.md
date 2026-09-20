@@ -384,6 +384,11 @@ Source checkpoint: `0070d374`.
   `table_mutation_dialogs_view.rs`. Focused clippy, architecture guard, clean
   scan and 632 UI tests all PASS; clean scan remains 12 pass, 4 ratcheted
   warnings, 0 failures.
+- Insert-row workflow extraction: `table_editor_view.rs` reduced from 2146 to
+  1795 lines; the 357-line open/duplicate/submit/dialog slice now lives in
+  `table_insert_row_view.rs`. Focused clippy, architecture guard, clean scan
+  and 632 UI tests all PASS; clean scan remains 12 pass, 4 ratcheted warnings,
+  0 failures.
 
 ## Not yet proven
 

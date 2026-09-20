@@ -444,3 +444,17 @@ editing and mutation execution boundary.
 
 Severity: P2 maintainability and feature-boundary risk, resolved for the table
 mutation-dialog slice.
+
+## F16 — Insert-row workflow was embedded in the table editor renderer
+
+Evidence at discovery: duplicate/open/submit insert actions and the complete
+insert-row dialog lived beside the table data toolbar, row editing and reload
+logic in `table_editor_view.rs`.
+
+Fix in the current refactor: moved the insert-row workflow to
+`crates/ui/src/table_insert_row_view.rs`. Existing callers now cross an
+explicit app-level method boundary, while parsing and sample generation remain
+in the dedicated `table_editor_values` module.
+
+Severity: P2 maintainability and feature-boundary risk, resolved for the
+insert-row workflow slice.

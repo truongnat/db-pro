@@ -301,6 +301,8 @@ mod table_editor_context;
 mod table_editor_values;
 #[path = "table_editor_view.rs"]
 mod table_editor_view;
+#[path = "table_insert_row_view.rs"]
+mod table_insert_row_view;
 #[path = "table_metadata_view.rs"]
 mod table_metadata_view;
 #[path = "table_view.rs"]
