@@ -429,3 +429,18 @@ against the same state and domain APIs, with no behavior change.
 Severity: P2 maintainability and feature-boundary risk, resolved for the
 synthetic/transfer harness slice. The remaining view/reducer seams are tracked
 as follow-up work rather than hidden behind another facade.
+
+## F15 — Table mutation dialogs were coupled to the data editor module
+
+Evidence at discovery: discard confirmation, pending-change review and conflict
+resolution rendering occupied the middle of `table_editor_view.rs` alongside
+row editing and mutation dispatch, making the editor responsible for several
+independent UI surfaces.
+
+Fix in the current refactor: moved the complete dialog slice to
+`crates/ui/src/table_mutation_dialogs_view.rs`. Cross-module mutation actions
+are explicit `pub(crate)` entry points; the table editor retains only the data
+editing and mutation execution boundary.
+
+Severity: P2 maintainability and feature-boundary risk, resolved for the table
+mutation-dialog slice.

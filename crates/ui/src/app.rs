@@ -239,6 +239,8 @@ mod synthetic_data;
 mod table_data_state;
 #[path = "table_events.rs"]
 mod table_events;
+#[path = "table_mutation_dialogs_view.rs"]
+mod table_mutation_dialogs_view;
 #[path = "table_mutation_state.rs"]
 mod table_mutation_state;
 #[path = "table_state.rs"]

@@ -379,6 +379,11 @@ Source checkpoint: `0070d374`.
   `cargo test -p db-pro-ui --lib` 632 passed, architecture guard PASS,
   `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS, and
   `git diff --check` PASS.
+- Table mutation-dialog extraction: `table_editor_view.rs` reduced from 2643
+  to 2146 lines; the 504-line discard/pending/conflict slice now lives in
+  `table_mutation_dialogs_view.rs`. Focused clippy, architecture guard, clean
+  scan and 632 UI tests all PASS; clean scan remains 12 pass, 4 ratcheted
+  warnings, 0 failures.
 
 ## Not yet proven
 
