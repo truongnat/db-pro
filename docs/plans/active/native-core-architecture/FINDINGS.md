@@ -517,6 +517,8 @@ Severity: P2 composition-root maintainability, resolved.
 
 ## F47 — Schema Workbench mixed mutation planning with view rendering
 
+Source SHA: `08acab31`.
+
 Evidence: `schema_workbench.rs` combined the schema form compositor/sidebar
 with object-mutation request construction, provider-aware preview planning and
 DDL dispatch across table, column, view, index, constraint, trigger, sequence,
@@ -532,6 +534,8 @@ Severity: P1 feature-boundary risk, resolved for mutation action ownership.
 
 ## F45 — Chart projection and egui rendering shared one module
 
+Source SHA: `0ba94810`.
+
 Evidence: `chart_view.rs` combined chart configuration/value projection,
 aggregation/downsampling and all egui painter primitives in one module.
 Those paths have different dependencies and test lifecycles: the projection
@@ -545,6 +549,8 @@ re-exports/API.
 Severity: P2 feature-boundary maintainability risk, resolved.
 
 ## F46 — Agent panel mixed thread rendering with panel composition
+
+Source SHA: `f0ddf324`.
 
 Evidence: `agent_view.rs` combined side-panel composition, settings/context
 controls and a long message/activity/confirmation thread renderer. The thread

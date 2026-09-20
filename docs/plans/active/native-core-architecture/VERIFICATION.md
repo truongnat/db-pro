@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `0070d374`.
+Source checkpoint: `08acab31`.
 
 ## Current change
 
@@ -566,20 +566,21 @@ Source checkpoint: `0070d374`.
 - Chart ownership follow-up: chart configuration/projection, numeric parsing,
   aggregation, downsampling and engine tests now live in `chart_engine.rs`;
   `chart_view.rs` retains only the egui renderer facade and public API
-  re-exports. Focused UI tests (632 passed), UI clippy, architecture guard,
-  clean scan and diff checks PASS. The timing-sensitive diagram benchmark
+  re-exports at source SHA `0ba94810`. Focused UI tests (632 passed), UI
+  clippy, architecture guard, clean scan (14 pass, 2 ratcheted warnings) and
+  diff checks PASS. The timing-sensitive diagram benchmark
   failed once during the first full run, then passed in isolation and in the
   subsequent full UI run.
 - Agent thread ownership follow-up: message/activity/result rendering,
   confirmation preview/actions, empty state and retry/thinking controls now
   live in `agent_thread_view.rs`; panel/settings/context composition remains in
-  `agent_view.rs`. Focused UI tests (632 passed), UI clippy, architecture
+  `agent_view.rs` at source SHA `f0ddf324`. Focused UI tests (632 passed), UI clippy, architecture
   guard, clean scan (15 pass, 1 ratcheted legacy function-size warning) and
   diff checks PASS.
 - Schema Workbench action ownership follow-up: mutation request construction,
   object preview planning, database actions and DDL application now live in
   `schema_workbench_actions.rs`; `schema_workbench.rs` retains state and view
-  composition. Focused UI tests (632 passed), UI clippy, architecture guard,
+  composition at source SHA `08acab31`. Focused UI tests (632 passed), UI clippy, architecture guard,
   clean scan (14 pass, ratcheted legacy/planner warnings) and diff checks PASS.
 
 ## Not yet proven
