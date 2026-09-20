@@ -85,7 +85,12 @@ impl QueryDocumentContext<'_> {
         }
 
         self.sync_active_cursor_and_selection();
-        self.feedback.set_runtime_message(format!("Closed {}", closed.title));
+        let active_title = self
+            .query_session
+            .active_document()
+            .map(|document| document.title.as_str())
+            .unwrap_or(closed.title.as_str());
+        self.feedback.set_runtime_message(format!("Closed {active_title}"));
     }
 
     pub(crate) fn request_close_document(&mut self, index: usize) {
@@ -380,7 +385,6 @@ mod tests {
         query_session.select_document(0);
         let mut query_editor = QueryEditorState::default();
         let mut workspace = WorkspaceFeatureState::default();
-        workspace.active_tab = WorkspaceTab::Query;
         let mut agent = AgentState::default();
         let mut query_output = QueryOutputState::default();
         query_output
@@ -410,6 +414,6 @@ mod tests {
             Some("query-2")
         );
         assert!(!query_output.tabs_by_document.contains_key("query-1"));
-        assert_eq!(workspace.active_tab, WorkspaceTab::Query);
+        assert_eq!(workspace.active_tab, WorkspaceTab::Welcome);
     }
 }
