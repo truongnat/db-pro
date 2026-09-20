@@ -159,7 +159,7 @@ impl DbProApp {
             return;
         };
         let sql = if self.query_session_state.selected_text.trim().is_empty() {
-            self.active_query_text().trim().to_owned()
+            self.query_session_state.active_text().trim().to_owned()
         } else {
             self.query_session_state.selected_text.trim().to_owned()
         };
@@ -789,7 +789,7 @@ impl DbProApp {
                 deduplicate_diagnostics(structured.into_iter().chain(doc.execution_diagnostic.clone()).collect());
         } else {
             self.query_editor.diagnostics =
-                Self::analyze_sql_diagnostics_with_lint(self.active_query_text(), &driver, &lint).0;
+                Self::analyze_sql_diagnostics_with_lint(self.query_session_state.active_text(), &driver, &lint).0;
             self.query_editor.diagnostics_lint_structured.clear();
         }
         self.query_editor.diagnostics_cache_key = Some(cache_key);

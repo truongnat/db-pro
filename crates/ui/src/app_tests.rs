@@ -1782,7 +1782,7 @@ fn closing_query_document_restores_the_next_valid_document() {
 
     assert_eq!(app.query_session_state.documents.len(), 1);
     assert_eq!(app.query_session_state.active_document_index, 0);
-    assert_eq!(app.active_query_text(), "select 2");
+    assert_eq!(app.query_session_state.active_text(), "select 2");
     assert_eq!(app.feedback.runtime_message, "Closed Query 2");
 }
 
@@ -1804,7 +1804,7 @@ fn closing_last_query_document_returns_to_welcome() {
     assert!(app.query_session_state.documents.is_empty());
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Welcome);
     assert!(app.workspace.welcome_open);
-    assert!(app.active_query_text().is_empty());
+    assert!(app.query_session_state.active_text().is_empty());
 }
 
 #[test]
@@ -2629,7 +2629,7 @@ fn command_palette_opens_saved_query_into_editor() {
         .any(|item| item.title == "Active users"));
     app.execute_palette_action(PaletteAction::OpenSavedQuery("sq-1".to_owned()), &ctx);
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Query);
-    assert!(app.active_query_text().contains("SELECT 1"));
+    assert!(app.query_session_state.active_text().contains("SELECT 1"));
     assert_eq!(
         app.query_session_state.documents[app.query_session_state.active_document_index]
             .saved_query_id
@@ -2650,13 +2650,13 @@ fn sql_snippet_insert_is_one_undoable_buffer_edit() {
             "SELECT 1;",
         ));
     app.query_session_state.active_document_index = 0;
-    let before = app.active_query_text().to_owned();
+    let before = app.query_session_state.active_text().to_owned();
     app.insert_snippet("SELECT 2;");
-    assert!(app.active_query_text().contains("SELECT 2;"));
-    assert_ne!(app.active_query_text(), before);
+    assert!(app.query_session_state.active_text().contains("SELECT 2;"));
+    assert_ne!(app.query_session_state.active_text(), before);
     assert!(app.query_session_state.documents[0].buffer.undo_stack.can_undo());
     app.query_session_state.documents[0].buffer.undo();
-    assert_eq!(app.active_query_text(), before);
+    assert_eq!(app.query_session_state.active_text(), before);
 }
 
 #[test]

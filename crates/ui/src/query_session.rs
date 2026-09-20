@@ -2,10 +2,6 @@
 use super::*;
 
 impl DbProApp {
-    pub(crate) fn active_query_text(&self) -> &str {
-        self.query_session_state.active_text()
-    }
-
     pub(crate) fn set_active_query_text(&mut self, text: impl Into<String>) {
         self.cancel_prediction_for_document(self.query_session_state.active_document_index);
         self.query_session_state.set_active_text(text);

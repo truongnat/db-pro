@@ -61,7 +61,7 @@ impl DbProApp {
             .map(|info| info.columns.iter().map(|column| column.name.clone()).collect())
             .unwrap_or_default();
         let current_sql = if self.query_session_state.selected_text.trim().is_empty() {
-            self.active_query_text().to_owned()
+            self.query_session_state.active_text().to_owned()
         } else {
             self.query_session_state.selected_text.clone()
         };

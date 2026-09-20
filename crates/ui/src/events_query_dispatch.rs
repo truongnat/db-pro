@@ -102,8 +102,8 @@ impl DbProApp {
             .map(|doc| doc.resolve_executable_range())
             .unwrap_or_else(|| {
                 (
-                    self.active_query_text().trim().to_owned(),
-                    (0, self.active_query_text().len()),
+                    self.query_session_state.active_text().trim().to_owned(),
+                    (0, self.query_session_state.active_text().len()),
                 )
             });
         if sql.trim().is_empty() {
@@ -140,8 +140,8 @@ impl DbProApp {
             })
             .unwrap_or_else(|| {
                 (
-                    self.active_query_text().trim().to_owned(),
-                    (0, self.active_query_text().len()),
+                    self.query_session_state.active_text().trim().to_owned(),
+                    (0, self.query_session_state.active_text().len()),
                 )
             });
         if sql.is_empty() {

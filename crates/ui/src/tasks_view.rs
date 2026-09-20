@@ -271,7 +271,7 @@ impl DbProApp {
             description: String::new(),
             connection_id,
             payload: SavedTaskPayload::Sql {
-                sql: self.active_query_text().to_owned(),
+                sql: self.query_session_state.active_text().to_owned(),
             },
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),

@@ -413,7 +413,8 @@ impl DbProApp {
         );
         if self.query_editor.param_count_cache_key != Some(param_key) {
             self.query_editor.param_count_cache_key = Some(param_key);
-            self.query_editor.param_count_cache = crate::query::discover_sql_parameters(self.active_query_text()).len();
+            self.query_editor.param_count_cache =
+                crate::query::discover_sql_parameters(self.query_session_state.active_text()).len();
         }
         let param_count = self.query_editor.param_count_cache;
         let diagnostic_count = self.query_editor.diagnostics.len();
@@ -936,7 +937,7 @@ impl DbProApp {
 
     /// Discovered bind placeholders for the active document (#225 discovery slice).
     fn draw_sql_parameters_panel(&mut self, ui: &mut egui::Ui) {
-        let sql = self.active_query_text().to_owned();
+        let sql = self.query_session_state.active_text().to_owned();
         let params = crate::query::discover_sql_parameters(&sql);
         if params.is_empty() {
             return;
