@@ -248,6 +248,8 @@ mod query_editor_support;
 mod query_feature_state;
 #[path = "query_folder_delete_dialog.rs"]
 mod query_folder_delete_dialog;
+#[path = "query_output_actions_view.rs"]
+mod query_output_actions_view;
 #[path = "query_output_panes_view.rs"]
 mod query_output_panes_view;
 #[path = "query_output_state.rs"]
