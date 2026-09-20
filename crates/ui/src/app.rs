@@ -282,6 +282,8 @@ mod result_grid_export;
 mod result_grid_header;
 #[path = "result_grid_selection.rs"]
 mod result_grid_selection;
+#[path = "result_grid_toolbar_view.rs"]
+mod result_grid_toolbar_view;
 #[path = "result_grid_view.rs"]
 pub(crate) mod result_grid_view;
 #[path = "runtime_event_handlers.rs"]

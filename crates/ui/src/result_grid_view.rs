@@ -137,7 +137,37 @@ impl DbProApp {
         self.handle_grid_keyboard(ui, result, &indexes, &order, editable, &selection_lookup);
 
         if !is_table_data {
-            self.draw_grid_toolbar(ui, result, editable, indexes.len(), &indexes);
+            let action = {
+                let mut context = result_grid_toolbar_view::ResultGridToolbarContext {
+                    theme: self.theme,
+                    data: &mut self.table.data,
+                    editing: &mut self.table.editing,
+                    feedback: &self.feedback,
+                    editable,
+                    matching_rows: indexes.len(),
+                };
+                result_grid_toolbar_view::draw_toolbar(&mut context, ui)
+            };
+            if let Some(action) = action {
+                match action {
+                    result_grid_toolbar_view::ResultGridToolbarAction::CopySelectedCell => {
+                        self.copy_selected_cell(ui, result);
+                    }
+                    result_grid_toolbar_view::ResultGridToolbarAction::CopySelectedRow => {
+                        self.copy_selected_row(ui, result);
+                    }
+                    result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleCsv => {
+                        self.copy_all_as_csv(ui, result, &indexes);
+                    }
+                    result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleJson => {
+                        self.copy_all_as_json(ui, result, &indexes);
+                    }
+                    result_grid_toolbar_view::ResultGridToolbarAction::InspectSelectedCell {
+                        row_index,
+                        column_index,
+                    } => self.open_cell_inspector(result, row_index, column_index),
+                }
+            }
         }
         self.draw_record_inspector_panel(ui, result);
 
@@ -394,140 +424,6 @@ impl DbProApp {
     ) -> Option<ColumnWriteBlock> {
         let column = result.columns.get(column_index)?;
         self.table.state.column_write_block(&column.name)
-    }
-
-    pub(crate) fn draw_grid_toolbar(
-        &mut self,
-        ui: &mut egui::Ui,
-        result: &UiQueryResult,
-        editable: bool,
-        matching_rows: usize,
-        indexes: &[usize],
-    ) {
-        toolbar_frame(self.theme).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                input(
-                    ui,
-                    &mut self.table.data.grid_filter,
-                    "Filter visible rows…",
-                    200.0,
-                    self.theme,
-                );
-                if !self.table.data.grid_filter.is_empty()
-                    && Button::new(self.theme)
-                        .icon(Icon::X)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .tooltip("Clear filter")
-                        .show(ui)
-                        .clicked()
-                {
-                    self.table.data.grid_filter.clear();
-                }
-
-                crate::components::badge::Badge::new(format!("{matching_rows} rows"), self.theme)
-                    .variant(crate::components::badge::BadgeVariant::Secondary)
-                    .compact(true)
-                    .show(ui);
-
-                ui.separator();
-
-                if Button::new(self.theme)
-                    .text("Copy Cell")
-                    .icon(Icon::Copy)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .tooltip(format!(
-                        "Copy selected cell value ({modifier}C)",
-                        modifier = Self::primary_modifier_label()
-                    ))
-                    .show(ui)
-                    .clicked()
-                {
-                    self.copy_selected_cell(ui, result);
-                }
-                if Button::new(self.theme)
-                    .text("Copy Row")
-                    .icon(Icon::Table2)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .tooltip(format!(
-                        "Copy entire selected row as tab-separated text ({modifier}Shift+C)",
-                        modifier = Self::primary_modifier_label()
-                    ))
-                    .show(ui)
-                    .clicked()
-                {
-                    self.copy_selected_row(ui, result);
-                }
-                if Button::new(self.theme)
-                    .text("CSV")
-                    .icon(Icon::FileSpreadsheet)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .tooltip("Copy visible rows as CSV")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.copy_all_as_csv(ui, result, indexes);
-                }
-                if Button::new(self.theme)
-                    .text("JSON")
-                    .icon(Icon::Braces)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .tooltip("Copy visible rows as JSON array")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.copy_all_as_json(ui, result, indexes);
-                }
-                if Button::new(self.theme)
-                    .text("Record")
-                    .icon(Icon::PanelRight)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .tooltip("Toggle record / value inspector panel")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.table.editing.record_inspector_open = !self.table.editing.record_inspector_open;
-                }
-                if let Some((row_index, column_index)) = self.table.data.selected_cell {
-                    if Button::new(self.theme)
-                        .text("Inspect")
-                        .icon(Icon::ScanSearch)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::Sm)
-                        .tooltip("Open advanced value inspector for the selected cell")
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.open_cell_inspector(result, row_index, column_index);
-                    }
-                }
-
-                if !self.feedback.copy_status.is_empty() {
-                    crate::components::badge::Badge::new(&self.feedback.copy_status, self.theme)
-                        .variant(crate::components::badge::BadgeVariant::Success)
-                        .compact(true)
-                        .show(ui);
-                }
-
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(
-                        RichText::new(if editable {
-                            "Double-click / Enter to edit · Right-click for actions · Drag divider to resize"
-                        } else {
-                            "Click cell to select · Right-click for actions · Drag divider to resize"
-                        })
-                        .font(font_caption())
-                        .color(self.theme.text_muted),
-                    );
-                });
-            });
-        });
-        ui.add_space(4.0);
     }
 
     /// Scrollable grid: continuous spreadsheet header plus visible slice of rows.
