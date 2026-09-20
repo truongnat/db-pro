@@ -95,6 +95,9 @@ FK seed-pool generation are passed in explicitly from the view adapter.
 Fix in `91a3975e`: masking preview headers, sample rows and profile mapping now
 live in the pure `masking.rs` boundary; the navigation view only commits the
 preview result to `MaskingState`.
+Fix in `393ae525`: RLS/table-policy mutation preview planning now lives in the
+pure `security_rls.rs` boundary with one shared identifier dialect; navigation
+only coordinates state, feedback and command dispatch.
 The architecture guard now enforces that the extracted table-editor context
 and value modules cannot regress to a root dependency.
 

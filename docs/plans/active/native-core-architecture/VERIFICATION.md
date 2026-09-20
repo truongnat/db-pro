@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `91a3975e`.
+Source checkpoint: `393ae525`.
 
 ## Current change
 
@@ -50,6 +50,9 @@ Source checkpoint: `91a3975e`.
 - Masking preview construction now lives in `masking.rs`; requested-column
   parsing, stable fallback headers, sample rows and mask-rule output are covered
   by focused tests.
+- PostgreSQL RLS/table-policy preview planning now lives in `security_rls.rs`
+  with a shared quote dialect and explicit request structs; missing identity,
+  role parsing and generated SQL are covered by focused tests.
 - The architecture guard now freezes `table_editor_context.rs` and
   `table_editor_values.rs` as explicit-state modules that may not depend on
   the composition-root type.
@@ -322,11 +325,11 @@ Source checkpoint: `91a3975e`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 614 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 616 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1286 passed, 0 failed, 42 ignored;
+- `cargo test --workspace --no-fail-fast`: 1288 passed, 0 failed, 42 ignored;
   all workspace doc-tests passed with 0 tests.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.
