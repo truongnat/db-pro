@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `a99da22d`.
+Source checkpoint: `28779ec0`.
 
 ## Current change
 
@@ -183,6 +183,9 @@ Source checkpoint: `a99da22d`.
   target-matching state transition.
 - Selected-row projection now lives on `TableDataState`; clipboard code only
   consumes the state-owned indexes for copy/export operations.
+- Table metadata primary-key and column-write-policy projections now live on
+  `TableState`; connection mutability remains an explicit lifecycle concern at
+  the composition boundary.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.

@@ -267,6 +267,9 @@ target matching and state clearing.
 Selected-row projection now follows the same rule on `TableDataState`; the
 clipboard surface consumes state-owned indexes instead of owning selection
 projection.
+Table metadata primary-key and column-write-policy projections now follow the
+same rule on `TableState`; connection mutability remains an explicit lifecycle
+concern at the composition boundary.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
