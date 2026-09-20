@@ -184,6 +184,9 @@ Agent provider/workflow events now follow the same boundary: `agent_events.rs`
 reduces explicit `AgentState` and `FeedbackState`, including request-scoped
 configuration failures and provider readiness, with the root limited to event
 composition.
+Fix in `ce304360`: workflow event routing and stale session/run/document
+validation now live in `agent_events.rs`; the root wrapper only passes the
+event and Agent aggregate into that reducer.
 Table runtime events now follow the same boundary: `table_events.rs` owns
 request matching and table/grid state transitions, returning typed effects for
 cache invalidation and staged-change retry instead of reaching through the

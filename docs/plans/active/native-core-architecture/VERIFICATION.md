@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `dbb43442`.
+Source checkpoint: `ce304360`.
 
 ## Current change
 
@@ -117,6 +117,9 @@ Source checkpoint: `dbb43442`.
   reducer tests cover stale configuration events and provider readiness. Toast
   emission is owned by `FeedbackState`, not an app-only helper, and the
   architecture guard rejects `DbProApp` references in the agent reducer.
+- Agent workflow event routing now also lives in `agent_events.rs`; document,
+  session and run identity checks are performed against `AgentState` there,
+  while the `DbProApp` method is only a thin composition-root adapter.
 - Table event handling now lives in explicit-state reducers in
   `table_events.rs`; metadata/data/row-reload transitions return typed cache
   invalidation and staged-apply effects, while the root only executes those
