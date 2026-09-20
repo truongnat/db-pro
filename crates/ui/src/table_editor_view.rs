@@ -1664,24 +1664,13 @@ impl DbProApp {
             self.feedback.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
-        let mut filters = Vec::with_capacity(identity.original_pk_columns.len());
-        for (column, value) in identity.original_pk_columns.iter().zip(&identity.original_pk_values) {
-            let Some(data_type) = info
-                .columns
-                .iter()
-                .find(|candidate| candidate.name == *column)
-                .map(|candidate| candidate.data_type.clone())
-            else {
-                self.feedback.runtime_message = format!("Primary-key metadata is missing for {column}");
+        let filters = match TableMutationState::row_reload_filters(info, &identity) {
+            Ok(filters) => filters,
+            Err(error) => {
+                self.feedback.runtime_message = error;
                 return;
-            };
-            filters.push(UiTableDataFilter {
-                column: column.clone(),
-                data_type,
-                operator: UiTableFilterOperator::Equals,
-                value: crate::cell_text(value),
-            });
-        }
+            }
+        };
         let request_id = self.task_bridge.next_request_id();
         self.table_state.table_row_reload_request = Some(request_id);
         self.table_state.table_row_reload_identity = Some(identity);

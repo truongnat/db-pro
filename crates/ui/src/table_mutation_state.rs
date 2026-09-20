@@ -31,6 +31,31 @@ impl Default for TableMutationState {
 }
 
 impl TableMutationState {
+    pub(crate) fn row_reload_filters(
+        info: &UiTableInfo,
+        identity: &RowIdentity,
+    ) -> Result<Vec<UiTableDataFilter>, String> {
+        identity
+            .original_pk_columns
+            .iter()
+            .zip(&identity.original_pk_values)
+            .map(|(column, value)| {
+                let data_type = info
+                    .columns
+                    .iter()
+                    .find(|candidate| candidate.name == *column)
+                    .map(|candidate| candidate.data_type.clone())
+                    .ok_or_else(|| format!("Primary-key metadata is missing for {column}"))?;
+                Ok(UiTableDataFilter {
+                    column: column.clone(),
+                    data_type,
+                    operator: UiTableFilterOperator::Equals,
+                    value: crate::cell_text(value),
+                })
+            })
+            .collect()
+    }
+
     pub(crate) fn build_apply_plan(&mut self) -> TableApplyPlan {
         let retry_target = self.table_mutation_retry_target.take();
         let mut changes = Vec::new();
@@ -282,5 +307,43 @@ mod tests {
         assert!(matches!(plan.changes[0], UiTableMutation::Delete { .. }));
         assert!(matches!(plan.changes[1], UiTableMutation::Update { .. }));
         assert!(matches!(plan.changes[2], UiTableMutation::Insert { .. }));
+    }
+
+    #[test]
+    fn row_reload_filters_are_built_from_primary_key_metadata() {
+        let info = UiTableInfo {
+            schema: "public".to_owned(),
+            name: "customers".to_owned(),
+            row_count: None,
+            columns: vec![
+                crate::UiTableColumn {
+                    name: "tenant_id".to_owned(),
+                    data_type: "uuid".to_owned(),
+                    ..Default::default()
+                },
+                crate::UiTableColumn {
+                    name: "id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    ..Default::default()
+                },
+            ],
+            primary_key: Some(vec!["tenant_id".to_owned(), "id".to_owned()]),
+            indexes: Vec::new(),
+            foreign_keys: Vec::new(),
+            check_constraints: Vec::new(),
+            dependencies: Vec::new(),
+        };
+        let identity = RowIdentity {
+            original_pk_columns: vec!["tenant_id".to_owned(), "id".to_owned()],
+            original_pk_values: vec![UiCell::Text("tenant-a".to_owned()), UiCell::Number("7".to_owned())],
+        };
+
+        let filters = TableMutationState::row_reload_filters(&info, &identity).expect("filters");
+
+        assert_eq!(filters.len(), 2);
+        assert_eq!(filters[0].column, "tenant_id");
+        assert_eq!(filters[0].data_type, "uuid");
+        assert_eq!(filters[1].column, "id");
+        assert_eq!(filters[1].value, "7");
     }
 }
