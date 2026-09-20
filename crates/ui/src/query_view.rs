@@ -126,7 +126,14 @@ impl DbProApp {
                     },
                 );
                 self.draw_floating_completion_popup(ui.ctx());
-                self.draw_editor_search_overlay(ui.ctx());
+                {
+                    let mut context = query_search_view::QuerySearchContext {
+                        theme: self.theme,
+                        editor: &mut self.query.editor,
+                        session: &mut self.query.session,
+                    };
+                    query_search_view::draw_editor_search_overlay(&mut context, ui.ctx());
+                }
 
                 // Snippets remain opt-in via More; keep them out of the default stack
                 // unless the user opened them (floating-ish card is acceptable for now).
