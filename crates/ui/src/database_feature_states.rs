@@ -59,19 +59,6 @@ impl Default for MaskingState {
 }
 
 #[derive(Default)]
-pub(super) struct AuditState {
-    pub(super) audit_page: Option<db_pro_core::domain::audit::AuditPage>,
-    pub(super) audit_error: Option<String>,
-    pub(super) audit_filter_text: String,
-    pub(super) audit_filter_database: String,
-    pub(super) audit_filter_username: String,
-    pub(super) audit_filter_severity: String,
-    pub(super) audit_bookmarks: std::collections::HashSet<String>,
-    pub(super) audit_selected: std::collections::HashSet<String>,
-    pub(super) audit_export_preview: Option<String>,
-}
-
-#[derive(Default)]
 pub(super) struct PgSettingsState {
     pub(super) pg_settings: Option<db_pro_core::domain::pg_settings::PgSettingsSnapshot>,
     pub(super) pg_settings_filter: String,

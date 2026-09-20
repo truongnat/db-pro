@@ -2449,42 +2449,17 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::AuditEventsLoad {
-            request_id,
-            connection_id,
-            filter: db_pro_core::domain::audit::AuditFilter {
-                text: self.audit.audit_filter_text.clone(),
-                database: self.audit.audit_filter_database.clone(),
-                username: self.audit.audit_filter_username.clone(),
-                severity: self.audit.audit_filter_severity.clone(),
-                command_tag: String::new(),
-            },
-            limit: Some(100),
-        });
+        self.dispatch_command(self.audit.events_load_command(request_id, connection_id));
     }
 
     fn export_selected_audit_events(&mut self) {
-        let Some(page) = &self.audit.audit_page else {
-            self.audit.audit_error = Some("Load an audit page before exporting".into());
-            return;
-        };
-        let selected: Vec<_> = page
-            .events
-            .iter()
-            .filter(|e| self.audit.audit_selected.contains(&e.id) || self.audit.audit_bookmarks.contains(&e.id))
-            .cloned()
-            .collect();
-        if selected.is_empty() {
-            self.audit.audit_error = Some("Select or bookmark events to export".into());
-            return;
+        match self.audit.build_export_preview() {
+            Ok((selected_count, export_warning)) => {
+                self.feedback.runtime_message =
+                    format!("Audit export preview · {selected_count} row(s) · {export_warning}");
+            }
+            Err(error) => self.audit.audit_error = Some(error),
         }
-        self.audit.audit_export_preview = Some(db_pro_core::application::AuditService::export_selected(&selected));
-        self.audit.audit_error = None;
-        self.feedback.runtime_message = format!(
-            "Audit export preview · {} row(s) · {}",
-            selected.len(),
-            page.export_warning
-        );
     }
 
     fn request_pg_settings(&mut self) {

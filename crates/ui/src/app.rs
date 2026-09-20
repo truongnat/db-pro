@@ -40,6 +40,8 @@ mod agent_workflow_state;
 mod app_state;
 #[path = "app_types.rs"]
 mod app_types;
+#[path = "audit_state.rs"]
+mod audit_state;
 #[path = "cell_inspector.rs"]
 mod cell_inspector;
 #[path = "change_set.rs"]
@@ -140,10 +142,11 @@ mod saved_task_state;
 mod settings_model;
 #[path = "settings_view.rs"]
 mod settings_view;
+use audit_state::AuditState;
 pub(crate) use capability_lookup::CapabilityLookup;
 use database_feature_states::{
-    AuditState, EventTriggerState, FdwState, MaskingState, PgSettingsState, ReplicationState, RoutineState,
-    SecurityState, SyntheticDataState, TransferState,
+    EventTriggerState, FdwState, MaskingState, PgSettingsState, ReplicationState, RoutineState, SecurityState,
+    SyntheticDataState, TransferState,
 };
 pub(crate) use diagram_state::DiagramState;
 pub(crate) use feedback_state::FeedbackState;
