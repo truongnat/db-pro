@@ -114,6 +114,10 @@ mod files_activity_view;
 mod git_workspace;
 #[path = "ide_workspace.rs"]
 mod ide_workspace;
+#[path = "ide_workspace_scan.rs"]
+mod ide_workspace_scan;
+#[path = "ide_workspace_types.rs"]
+mod ide_workspace_types;
 #[path = "maintenance_activity_view.rs"]
 mod maintenance_activity_view;
 #[path = "management_events.rs"]

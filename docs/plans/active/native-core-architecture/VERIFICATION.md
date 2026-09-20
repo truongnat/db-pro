@@ -550,6 +550,11 @@ Source checkpoint: `0070d374`.
   live in `table_relations_view.rs`; `table_metadata_view.rs` owns indexes only.
   Focused UI tests (632 passed), UI clippy, architecture guard and diff checks
   PASS; clean scan has no failures.
+- IDE workspace ownership follow-up: persisted workspace types now live in
+  `ide_workspace_types.rs`, and bounded filesystem scanning/indexing lives in
+  `ide_workspace_scan.rs`; the state operation module is 712 lines. Focused UI
+  tests (632 passed), UI clippy, architecture guard and diff checks PASS; clean
+  scan has no failures after documenting the retained contract allowance.
 
 ## Not yet proven
 

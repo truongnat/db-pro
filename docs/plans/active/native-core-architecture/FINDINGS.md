@@ -572,6 +572,21 @@ Fix in the current refactor: moved structure/column rendering to
 
 Severity: P1 schema-metadata boundary risk, resolved.
 
+## F42 — IDE workspace model mixed types, filesystem scan and state operations
+
+Evidence at discovery: `ide_workspace.rs` owned the workspace data contract,
+filesystem traversal/indexing and all workspace mutations in one nearly
+1,000-line module, including a module-level dead-code allowance.
+
+Fix in the current refactor: moved the persisted workspace data contract to
+`ide_workspace_types.rs` and bounded filesystem discovery/index construction
+to `ide_workspace_scan.rs`. The remaining `ide_workspace.rs` now owns state
+operations and compatibility helpers; the allowance is retained with an
+explicit reason because those operations are a persisted contract while shell
+adoption is incremental.
+
+Severity: P1 workspace-core boundary risk, resolved for types and scanning.
+
 ## F25 — Table metadata state still owned the data-query lifecycle
 
 Evidence at discovery: `TableState` combined table metadata/DDL with the data
