@@ -8,6 +8,22 @@ use db_pro_core::application::ObjectMutationService;
 use db_pro_core::domain::object_mutation::*;
 
 impl DbProApp {
+    pub(crate) fn apply_workbench_form_action(&mut self, action: schema_workbench_form::SchemaWorkbenchFormAction) {
+        match action {
+            schema_workbench_form::SchemaWorkbenchFormAction::PlanObject(action) => self.plan_workbench_action(action),
+            schema_workbench_form::SchemaWorkbenchFormAction::PlanDatabase(action) => self.plan_database_action(action),
+            schema_workbench_form::SchemaWorkbenchFormAction::ApplyDdl => self.apply_workbench_ddl(),
+            schema_workbench_form::SchemaWorkbenchFormAction::OpenSql(sql) => {
+                self.new_query_document();
+                if let Some(doc) = self.query.session.documents.last_mut() {
+                    doc.set_text(sql);
+                }
+                self.workspace.active_tab = WorkspaceTab::Query;
+                self.workspace.activity = Activity::Queries;
+            }
+        }
+    }
+
     pub(crate) fn plan_workbench_action(&mut self, action: ObjectAction) {
         match self.build_mutation_request(action) {
             Ok(request) => self.run_plan(request),

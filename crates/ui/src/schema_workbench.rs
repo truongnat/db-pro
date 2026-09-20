@@ -231,10 +231,32 @@ impl DbProApp {
                                     ui.set_min_width(form_width - 8.0);
                                     section_label(ui, "DEFINITION", self.theme);
                                     ui.add_space(SPACE_SM);
-                                    self.draw_workbench_form(ui);
+                                    let action = {
+                                        let can_mutate = self.can_mutate_active_connection();
+                                        let mut context = schema_workbench_form::SchemaWorkbenchFormContext {
+                                            theme: self.theme,
+                                            workbench: &mut self.schema.workbench,
+                                            can_mutate,
+                                        };
+                                        schema_workbench_form::draw_workbench_form(&mut context, ui)
+                                    };
+                                    if let Some(action) = action {
+                                        self.apply_workbench_form_action(action);
+                                    }
                                 });
                                 ui.add_space(SPACE_MD);
-                                self.draw_workbench_preview(ui);
+                                let action = {
+                                    let can_mutate = self.can_mutate_active_connection();
+                                    let mut context = schema_workbench_form::SchemaWorkbenchFormContext {
+                                        theme: self.theme,
+                                        workbench: &mut self.schema.workbench,
+                                        can_mutate,
+                                    };
+                                    schema_workbench_form::draw_workbench_preview(&mut context, ui)
+                                };
+                                if let Some(action) = action {
+                                    self.apply_workbench_form_action(action);
+                                }
                             },
                         );
                     }
