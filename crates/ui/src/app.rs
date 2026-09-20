@@ -304,6 +304,8 @@ mod sidebar_activities_view;
 mod sidebar_view;
 #[path = "synthetic_data.rs"]
 mod synthetic_data;
+#[path = "table_data_pagination_view.rs"]
+mod table_data_pagination_view;
 #[path = "table_data_placeholder_view.rs"]
 mod table_data_placeholder_view;
 #[path = "table_data_query_state.rs"]

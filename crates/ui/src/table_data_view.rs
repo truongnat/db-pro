@@ -3,12 +3,12 @@ use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use egui::{FontFamily, FontId, Frame, Margin, Rounding, Stroke};
 use lucide_icons::Icon;
 
-struct TableDataPaging {
-    page_range: String,
-    total_rows: u64,
-    total_known: bool,
-    has_next: bool,
-    has_previous: bool,
+pub(super) struct TableDataPaging {
+    pub(super) page_range: String,
+    pub(super) total_rows: u64,
+    pub(super) total_known: bool,
+    pub(super) has_next: bool,
+    pub(super) has_previous: bool,
 }
 
 impl DbProApp {
@@ -585,100 +585,23 @@ impl DbProApp {
                         });
                 }
 
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if paging.total_known
-                        && paging.total_rows > 0
-                        && Button::new(self.theme)
-                            .text("Last")
-                            .icon(Icon::ChevronsRight)
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::Sm)
-                            .enabled(paging.has_next && self.table.mutation.staged_changes.is_empty())
-                            .tooltip("Last page")
-                            .show(ui)
-                            .clicked()
-                        && paging.has_next
-                        && self.table.mutation.staged_changes.is_empty()
-                    {
-                        let last_page = paging.total_rows.saturating_sub(1) / self.table.data_query.limit;
-                        self.table.data_query.offset = last_page.saturating_mul(self.table.data_query.limit);
-                        self.request_table_data();
+                let mut pagination_context = table_data_pagination_view::TableDataPaginationContext {
+                    theme: self.theme,
+                    table_name,
+                    paging,
+                    query: &mut self.table.data_query,
+                    has_staged_changes: !self.table.mutation.staged_changes.is_empty(),
+                };
+                if let Some(action) = table_data_pagination_view::draw_pagination(&mut pagination_context, ui) {
+                    match action {
+                        table_data_pagination_view::TableDataPaginationAction::RequestData => {
+                            self.request_table_data();
+                        }
+                        table_data_pagination_view::TableDataPaginationAction::ResetPage => {
+                            self.reset_table_data_page();
+                        }
                     }
-
-                    if Button::new(self.theme)
-                        .icon(Icon::ChevronRight)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .enabled(paging.has_next && self.table.mutation.staged_changes.is_empty())
-                        .tooltip("Next page")
-                        .show(ui)
-                        .clicked()
-                        && self.table.mutation.staged_changes.is_empty()
-                    {
-                        self.table.data_query.offset =
-                            self.table.data_query.offset.saturating_add(self.table.data_query.limit);
-                        self.request_table_data();
-                    }
-
-                    ui.label(
-                        RichText::new(&paging.page_range)
-                            .font(font_caption())
-                            .color(self.theme.text_secondary),
-                    );
-
-                    if Button::new(self.theme)
-                        .icon(Icon::ChevronLeft)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .enabled(paging.has_previous && self.table.mutation.staged_changes.is_empty())
-                        .tooltip("Previous page")
-                        .show(ui)
-                        .clicked()
-                        && self.table.mutation.staged_changes.is_empty()
-                    {
-                        self.table.data_query.offset =
-                            self.table.data_query.offset.saturating_sub(self.table.data_query.limit);
-                        self.request_table_data();
-                    }
-
-                    if paging.total_known
-                        && paging.total_rows > 0
-                        && Button::new(self.theme)
-                            .text("First")
-                            .icon(Icon::ChevronsLeft)
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::Sm)
-                            .enabled(self.table.data_query.offset > 0 && self.table.mutation.staged_changes.is_empty())
-                            .tooltip("First page")
-                            .show(ui)
-                            .clicked()
-                        && self.table.data_query.offset > 0
-                        && self.table.mutation.staged_changes.is_empty()
-                    {
-                        self.table.data_query.offset = 0;
-                        self.request_table_data();
-                    }
-
-                    ui.separator();
-
-                    let prev_limit = self.table.data_query.limit;
-                    let limit_label = format!("{} / page", self.table.data_query.limit);
-                    egui::ComboBox::from_id_salt(("table-data-limit-select", table_name))
-                        .selected_text(RichText::new(&limit_label).size(11.0).color(self.theme.text_secondary))
-                        .width(90.0)
-                        .show_ui(ui, |ui| {
-                            for limit_opt in [50, 100, 250, 500, 1000] {
-                                ui.selectable_value(
-                                    &mut self.table.data_query.limit,
-                                    limit_opt,
-                                    format!("{limit_opt} / page"),
-                                );
-                            }
-                        });
-                    if self.table.data_query.limit != prev_limit {
-                        self.reset_table_data_page();
-                    }
-                });
+                }
             });
         });
     }
