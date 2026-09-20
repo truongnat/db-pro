@@ -1309,12 +1309,15 @@ impl DbProApp {
     }
 
     pub(crate) fn can_mutate_active_connection(&self) -> bool {
-        self.connection.lifecycle.is_connected()
-            && self.active_connection().is_some_and(|connection| !connection.readonly)
+        table_editor_context::can_mutate_active_connection(&self.connection.catalog, &self.connection.lifecycle)
     }
 
     pub(crate) fn can_edit_table_rows(&self) -> bool {
-        self.can_mutate_active_connection() && self.table_state.has_primary_key()
+        table_editor_context::can_edit_table_rows(
+            &self.table_state,
+            &self.connection.catalog,
+            &self.connection.lifecycle,
+        )
     }
 
     pub(crate) fn begin_data_cell_edit(
@@ -1542,68 +1545,48 @@ impl DbProApp {
         row_index: usize,
         column_index: usize,
     ) -> Option<UiCell> {
-        let identity =
-            self.table_data
-                .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)?;
-        self.table_mutation.staged_changes.cell_value(&identity, column_index)
+        table_editor_context::staged_cell_value(
+            &self.table_data,
+            &self.table_state,
+            &self.table_mutation,
+            result,
+            row_index,
+            column_index,
+        )
     }
 
     pub(crate) fn staged_row_deleted(&self, result: &UiQueryResult, row_index: usize) -> bool {
-        let Some(identity) =
-            self.table_data
-                .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
-        else {
-            return false;
-        };
-        self.table_mutation.staged_changes.row_deleted(&identity)
+        table_editor_context::staged_row_deleted(
+            &self.table_data,
+            &self.table_state,
+            &self.table_mutation,
+            result,
+            row_index,
+        )
     }
 
     pub(crate) fn revert_staged_cell(&mut self, result: &UiQueryResult, row_index: usize, column_index: usize) {
-        let Some(identity) =
-            self.table_data
-                .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
-        else {
-            return;
-        };
-        if self.table_mutation.staged_changes.revert_cell(&identity, column_index) {
-            self.table_mutation
-                .clear_error_for_identity(&identity, Some(column_index));
-            self.feedback.runtime_message = "Cell change reverted".to_owned();
-        }
+        self.table_mutation_context()
+            .revert_staged_cell(result, row_index, column_index);
     }
 
     pub(crate) fn revert_staged_row(&mut self, result: &UiQueryResult, row_index: usize) {
-        let Some(identity) =
-            self.table_data
-                .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
-        else {
-            return;
-        };
-        if self.table_mutation.staged_changes.revert_row(&identity) {
-            self.table_mutation.clear_error_for_identity(&identity, None);
-            self.feedback.runtime_message = "Row changes reverted".to_owned();
-        }
+        self.table_mutation_context().revert_staged_row(result, row_index);
     }
 
     pub(crate) fn discard_staged_changes(&mut self) {
-        if self.table_mutation.staged_apply_request.is_some() {
-            self.feedback.runtime_message = "Wait for the current database write before discarding".to_owned();
-            return;
+        if self.table_mutation_context().discard_staged_changes() {
+            self.request_table_data();
         }
-        self.table_mutation.staged_changes.clear();
-        self.table_mutation.staged_apply_targets.clear();
-        self.table_mutation.table_mutation_error = None;
-        self.table_data.data_editing_cell = None;
-        self.table_data.expanded_data_editor = None;
-        self.table_data.data_edit_error = None;
-        self.table_data.data_delete_confirmation = false;
-        self.table_data.discard_changes_confirmation = false;
-        self.table_mutation.pending_changes_open = false;
-        self.table_data.data_edit_value.clear();
-        self.table_state.table_data_result = None;
-        self.table_state.table_data_error = None;
-        self.feedback.runtime_message = "Staged changes discarded".to_owned();
-        self.request_table_data();
+    }
+
+    fn table_mutation_context(&mut self) -> table_editor_context::TableMutationContext<'_> {
+        table_editor_context::TableMutationContext::new(
+            &mut self.table_state,
+            &mut self.table_data,
+            &mut self.table_mutation,
+            &mut self.feedback,
+        )
     }
 
     fn discard_failed_mutation(&mut self, reload: bool) {

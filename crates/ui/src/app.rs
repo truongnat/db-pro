@@ -254,6 +254,8 @@ mod schema_workbench;
 mod schema_workbench_form;
 #[path = "table_ddl_view.rs"]
 mod table_ddl_view;
+#[path = "table_editor_context.rs"]
+mod table_editor_context;
 #[path = "table_editor_values.rs"]
 mod table_editor_values;
 #[path = "table_editor_view.rs"]
