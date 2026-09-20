@@ -239,7 +239,7 @@ impl DbProApp {
         self.workspace.bottom_panel_open = false;
         self.query_editor.query_output_dock_maximized = false;
         self.query_editor.query_params_panel_open = false;
-        self.query_editor.visual_query_builder_open = false;
+        self.query_editor.visual_builder.open = false;
         self.query_editor.editor_search_open = false;
         self.query_editor.snippets_open = false;
         self.query_execution.query_txn_bar_open = false;

@@ -210,6 +210,8 @@ mod table_mutation_state;
 mod table_state;
 #[path = "tasks_view.rs"]
 mod tasks_view;
+#[path = "visual_query_builder_state.rs"]
+mod visual_query_builder_state;
 #[path = "visual_query_builder_view.rs"]
 mod visual_query_builder_view;
 #[path = "welcome_state.rs"]

@@ -88,7 +88,7 @@ impl DbProApp {
 
                 // Builder stays secondary: prefer a compact side/bottom split later;
                 // for now keep it out of the default vertical stack unless opened.
-                if self.query_editor.visual_query_builder_open {
+                if self.query_editor.visual_builder.open {
                     ui.add_space(SPACE_XS);
                     egui::CollapsingHeader::new("Visual query builder")
                         .default_open(true)
@@ -1103,13 +1103,13 @@ impl DbProApp {
             self.open_save_as_dialog();
             close_menu = true;
         }
-        let builder_label = if self.query_editor.visual_query_builder_open {
+        let builder_label = if self.query_editor.visual_builder.open {
             "Hide visual query builder"
         } else {
             "Visual query builder"
         };
         if menu_button_with_icon(ui, Icon::LayoutTemplate, builder_label, self.theme).clicked() {
-            self.query_editor.visual_query_builder_open = !self.query_editor.visual_query_builder_open;
+            self.query_editor.visual_builder.open = !self.query_editor.visual_builder.open;
             close_menu = true;
         }
         close_menu

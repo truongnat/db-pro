@@ -17,24 +17,7 @@ pub(crate) struct QueryEditorState {
     pub(super) query_editor_rect: egui::Rect,
     pub(super) completion_open: bool,
     pub(super) snippets_open: bool,
-    pub(super) visual_query_builder_open: bool,
-    pub(super) visual_query_model: crate::query::visual_builder::VisualQueryModel,
-    pub(super) visual_query_sql_preview: String,
-    pub(super) visual_query_error: Option<String>,
-    pub(super) visual_query_add_table: String,
-    pub(super) visual_query_join_table: String,
-    pub(super) visual_query_join_left: String,
-    pub(super) visual_query_join_right: String,
-    pub(super) visual_query_col_ref: String,
-    pub(super) visual_query_col_alias: String,
-    pub(super) visual_query_col_agg: String,
-    pub(super) visual_query_where_left: String,
-    pub(super) visual_query_where_op: String,
-    pub(super) visual_query_where_value: String,
-    pub(super) visual_query_order: String,
-    pub(super) visual_query_order_desc: bool,
-    pub(super) visual_query_limit: String,
-    pub(super) visual_query_offset: String,
+    pub(super) visual_builder: super::visual_query_builder_state::VisualQueryBuilderState,
     pub(super) diagnostics: Vec<String>,
     pub(super) diagnostics_cache_key: Option<(usize, u64)>,
     pub(super) diagnostics_cache_driver: String,
@@ -69,24 +52,7 @@ impl Default for QueryEditorState {
             query_editor_rect: egui::Rect::NOTHING,
             completion_open: false,
             snippets_open: false,
-            visual_query_builder_open: false,
-            visual_query_model: crate::query::visual_builder::VisualQueryModel::default(),
-            visual_query_sql_preview: String::new(),
-            visual_query_error: None,
-            visual_query_add_table: String::new(),
-            visual_query_join_table: String::new(),
-            visual_query_join_left: String::new(),
-            visual_query_join_right: String::new(),
-            visual_query_col_ref: String::new(),
-            visual_query_col_alias: String::new(),
-            visual_query_col_agg: String::new(),
-            visual_query_where_left: String::new(),
-            visual_query_where_op: "=".to_owned(),
-            visual_query_where_value: String::new(),
-            visual_query_order: String::new(),
-            visual_query_order_desc: false,
-            visual_query_limit: "100".to_owned(),
-            visual_query_offset: String::new(),
+            visual_builder: super::visual_query_builder_state::VisualQueryBuilderState::default(),
             diagnostics: Vec::new(),
             diagnostics_cache_key: None,
             diagnostics_cache_driver: String::new(),
@@ -117,8 +83,8 @@ mod tests {
         assert_eq!(state.query_cursor_line, 1);
         assert_eq!(state.query_cursor_column, 1);
         assert_eq!(state.editor_font_size, 14.0);
-        assert_eq!(state.visual_query_where_op, "=");
-        assert_eq!(state.visual_query_limit, "100");
+        assert_eq!(state.visual_builder.where_op, "=");
+        assert_eq!(state.visual_builder.limit, "100");
         assert!(state.diagnostics.is_empty());
     }
 }
