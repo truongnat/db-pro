@@ -459,6 +459,10 @@ Source checkpoint: `0070d374`.
   table-query reset/invalidate/page transitions now live in
   `TableDataQueryState`; focused UI tests (632 passed), clippy, fmt and
   architecture guard PASS.
+- Final merged `main` checkpoint `5332876c`: after merging the concurrent SQL
+  Server PR, workspace format/check/clippy/tests and both native release builds
+  passed again; final modal capture is `/tmp/db-pro-native-final-main.png` at
+  logical `1280x800`.
 
 ## Not yet proven
 
