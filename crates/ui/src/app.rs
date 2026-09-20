@@ -250,6 +250,8 @@ mod query_editor_panel;
 mod query_editor_state;
 #[path = "query_editor_support.rs"]
 mod query_editor_support;
+#[path = "query_editor_surface_view.rs"]
+mod query_editor_surface_view;
 #[path = "query_feature_state.rs"]
 mod query_feature_state;
 #[path = "query_folder_delete_dialog.rs"]
