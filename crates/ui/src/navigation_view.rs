@@ -3608,37 +3608,13 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect a source database first".into();
             return;
         };
-        let target_id = self.schema_compare.data_diff_target_id.trim().to_owned();
-        if target_id.is_empty() {
-            self.feedback.runtime_message = "Target connection id is required".into();
-            return;
-        }
-        let table = self.schema_compare.data_diff_table.trim().to_owned();
-        if table.is_empty() {
-            self.feedback.runtime_message = "Table is required".into();
-            return;
-        }
-        let key_columns = self
-            .schema_compare
-            .data_diff_keys
-            .split(',')
-            .map(|s| s.trim().to_owned())
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<_>>();
-        if key_columns.is_empty() {
-            self.feedback.runtime_message = "At least one key column is required".into();
-            return;
-        }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::DiffTableDataKeyed {
-            request_id,
-            source_id,
-            target_id,
-            schema: self.schema_compare.data_diff_schema.trim().to_owned(),
-            table,
-            key_columns,
-            sample_limit: Some(1_000),
-        });
-        self.feedback.runtime_message = "Running key-aware data compare…".into();
+        match self.schema_compare.build_data_diff_request(request_id, source_id) {
+            Ok(command) => {
+                self.dispatch_command(command);
+                self.feedback.runtime_message = "Running key-aware data compare…".into();
+            }
+            Err(error) => self.feedback.runtime_message = error,
+        }
     }
 }

@@ -1,7 +1,7 @@
 //! UI state for schema comparison, migration planning and cross-connection diff.
 
 use super::schema_compare::{self, UiSchemaDiffResult, UiSchemaSnapshot};
-use super::{FeedbackState, UiSchemaSummary};
+use super::{FeedbackState, RequestId, UiCommand, UiSchemaSummary};
 
 /// State owned by the schema-comparison workspace and its migration preview.
 pub(super) struct SchemaCompareState {
@@ -79,11 +79,46 @@ impl SchemaCompareState {
         self.migration_plan = Some(plan);
         feedback.set_runtime_message("Migration plan ready — review SQL before apply");
     }
+
+    pub(super) fn build_data_diff_request(
+        &self,
+        request_id: RequestId,
+        source_id: String,
+    ) -> Result<UiCommand, String> {
+        let target_id = self.data_diff_target_id.trim();
+        if target_id.is_empty() {
+            return Err("Target connection id is required".to_owned());
+        }
+        let table = self.data_diff_table.trim();
+        if table.is_empty() {
+            return Err("Table is required".to_owned());
+        }
+        let key_columns = self
+            .data_diff_keys
+            .split(',')
+            .map(str::trim)
+            .filter(|column| !column.is_empty())
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        if key_columns.is_empty() {
+            return Err("At least one key column is required".to_owned());
+        }
+        Ok(UiCommand::DiffTableDataKeyed {
+            request_id,
+            source_id,
+            target_id: target_id.to_owned(),
+            schema: self.data_diff_schema.trim().to_owned(),
+            table: table.to_owned(),
+            key_columns,
+            sample_limit: Some(1_000),
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::SchemaCompareState;
+    use crate::{RequestId, UiCommand};
 
     #[test]
     fn defaults_are_safe_for_schema_change_operations() {
@@ -95,5 +130,46 @@ mod tests {
         assert!(!state.migration_confirm_destructive);
         assert_eq!(state.data_diff_schema, "public");
         assert_eq!(state.data_diff_filter, "all");
+    }
+
+    #[test]
+    fn data_diff_request_requires_target_table_and_key_columns() {
+        let state = SchemaCompareState::default();
+
+        assert_eq!(
+            state.build_data_diff_request(RequestId(1), "source".to_owned()),
+            Err("Target connection id is required".to_owned())
+        );
+    }
+
+    #[test]
+    fn data_diff_request_normalizes_keys_and_keeps_schema_scope() {
+        let state = SchemaCompareState {
+            data_diff_target_id: " target ".to_owned(),
+            data_diff_schema: " public ".to_owned(),
+            data_diff_table: " orders ".to_owned(),
+            data_diff_keys: "id, tenant_id, ".to_owned(),
+            ..Default::default()
+        };
+
+        let command = state
+            .build_data_diff_request(RequestId(2), "source".to_owned())
+            .expect("request");
+        assert!(matches!(
+            command,
+            UiCommand::DiffTableDataKeyed {
+                request_id: RequestId(2),
+                source_id,
+                target_id,
+                schema,
+                table,
+                key_columns,
+                sample_limit: Some(1_000),
+            } if source_id == "source"
+                && target_id == "target"
+                && schema == "public"
+                && table == "orders"
+                && key_columns == vec!["id", "tenant_id"]
+        ));
     }
 }
