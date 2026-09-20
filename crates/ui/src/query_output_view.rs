@@ -1,6 +1,5 @@
 //! Query output composition and the result-grid shell.
 use super::*;
-use egui::RichText;
 use lucide_icons::Icon;
 
 impl DbProApp {
@@ -26,37 +25,23 @@ impl DbProApp {
         let results_width = ui.max_rect().width();
         grid_frame(self.theme).show(ui, |ui| {
             ui.set_min_width(results_width.max(0.0));
-            let result_count = self.query.session.active_result_count();
-            if result_count > 1 {
-                ui.horizontal(|ui| {
-                    let active_index = self
-                        .query
-                        .session
-                        .documents
-                        .get(self.query.session.active_document_index)
-                        .map_or(0, |document| document.active_result_index);
-                    for index in 0..result_count {
-                        if ui
-                            .selectable_label(active_index == index, format!("Result {}", index + 1))
-                            .clicked()
-                        {
-                            self.set_active_query_result(index);
-                        }
+            let header_action = {
+                let context = query_results_pane_view::QueryResultsPaneContext {
+                    theme: self.theme,
+                    session: &self.query.session,
+                };
+                query_results_pane_view::draw_results_header(&context, ui, result)
+            };
+            if let Some(action) = header_action {
+                match action {
+                    query_results_pane_view::QueryResultsPaneAction::SelectResult(index) => {
+                        self.set_active_query_result(index);
                     }
-                });
-            }
-            ui.horizontal(|ui| {
-                if let Some(value) = result {
-                    ui.label(
-                        RichText::new(format!("{} rows · {} ms", value.row_count, value.duration_ms))
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                    if compact_button(ui, "Export", self.theme).clicked() {
+                    query_results_pane_view::QueryResultsPaneAction::OpenExport => {
                         self.overlay.export_open = true;
                     }
                 }
-            });
+            }
             if let Some(result) = result {
                 self.draw_result_grid(ui, result);
             } else {

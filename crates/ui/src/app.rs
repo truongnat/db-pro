@@ -258,6 +258,8 @@ mod query_output_state;
 mod query_output_tabs_view;
 #[path = "query_output_view.rs"]
 mod query_output_view;
+#[path = "query_results_pane_view.rs"]
+mod query_results_pane_view;
 #[path = "query_search_view.rs"]
 mod query_search_view;
 #[path = "query_session.rs"]

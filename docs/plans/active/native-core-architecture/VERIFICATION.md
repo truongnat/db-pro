@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `43a43503`.
+Source checkpoint: `5d42d5e9`.
 
 ## Current change
 
@@ -79,6 +79,15 @@ Source checkpoint: `43a43503`.
 - `43a43503`: Query search rendering now consumes `QuerySearchContext`; overlay
   close, match navigation and selection updates stay inside the query feature
   context, with no `DbProApp` dependency in the search module.
+- `fe7c554f`: Query output tab chrome now consumes `QueryOutputTabsContext`;
+  document-specific tab selection and dock controls are isolated in a guarded
+  module without `DbProApp`.
+- `9fab05c8`: Query chart and message panes now consume
+  `QueryOutputPanesContext`; chart configuration and message presentation no
+  longer depend on the composition root.
+- `5d42d5e9`: Query explain/history panes now consume
+  `QueryOutputActionsContext` and return explicit actions; only the root
+  applies runtime/document orchestration.
 - Monitoring state and snapshot/workload/session-control command planning now
   live in `monitoring_state.rs`; tests cover bounded workload requests and
   explicit confirmation flags for destructive commands.
@@ -657,6 +666,12 @@ Source checkpoint: `43a43503`.
   centered, its header is separated by a divider, and the close action is
   aligned to the header's right edge. The release binary is running for
   manual verification.
+- Query output boundary follow-ups at source SHA `5d42d5e9` and the current
+  result-pane header change: output tabs, chart/messages, explain/history and
+  result selection/export now use explicit contexts and typed intents. Focused
+  UI check, clippy, 633 UI tests, architecture guard and clean scan PASS for
+  the current working tree; the full workspace/release gate is being rerun
+  before this checkpoint is published.
 
 ## Not yet proven
 

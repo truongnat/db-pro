@@ -980,6 +980,57 @@ architecture guard rejects `DbProApp` from the search module.
 
 Severity: P1 feature-boundary risk, resolved for query search UI.
 
+## F59 — Query output tab chrome lived in the composition root
+
+Evidence at discovery: the output-tab strip was implemented inside
+`query_output_view.rs` as an `impl DbProApp`, so tab selection and dock chrome
+could reach the full application facade instead of the query output aggregate.
+
+Fix in `fe7c554f`: moved the strip to `query_output_tabs_view.rs`, which owns
+`QueryOutputTabsContext` and only publishes output-tab state transitions. The
+architecture guard rejects `DbProApp` from that module.
+
+Severity: P1 feature-boundary risk, resolved for output-tab chrome.
+
+## F60 — Query output chart and message panes depended on the root
+
+Evidence at discovery: chart configuration/rendering and query-message
+presentation lived as `DbProApp` methods beside result-grid orchestration,
+allowing a presentation-only pane to reach unrelated application state.
+
+Fix in `9fab05c8`: chart and message panes now consume
+`QueryOutputPanesContext`; the root wrapper supplies only query-session state
+and the architecture guard freezes the new pane module.
+
+Severity: P1 feature-boundary risk, resolved for chart/message panes.
+
+## F61 — Query explain/history panes invoked root actions directly
+
+Evidence at discovery: explain-plan rendering, destructive EXPLAIN ANALYZE
+confirmation, history filtering and history-open actions were all methods on
+`DbProApp` inside `query_output_view.rs`.
+
+Fix in `5d42d5e9`: those panes now consume `QueryOutputActionsContext` and
+return `QueryOutputAction`; only the composition root applies Explain and
+history-document intents. The new module is guarded against `DbProApp` access.
+
+Severity: P1 feature-boundary risk, resolved for explain/history panes.
+
+## F62 — Query results header owned selection and export controls in the root
+
+Evidence at discovery: result-tab selection, result metrics and export intent
+were rendered directly in `query_output_view.rs` alongside result-grid and
+dialog orchestration. That left a presentation header coupled to the full
+application facade.
+
+Fix in the current refactor: moved the header to
+`query_results_pane_view.rs`, which consumes `QueryResultsPaneContext` and
+returns `QueryResultsPaneAction`; the root now only applies result selection
+and export intents. The architecture guard rejects `DbProApp` from the new
+module.
+
+Severity: P1 feature-boundary risk, resolved for the result-pane header.
+
 ## F35 — Navigation view owned transfer activity
 
 Evidence at discovery: the navigation module rendered backup/restore entry
