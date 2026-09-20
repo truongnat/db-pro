@@ -697,6 +697,13 @@ Source checkpoint: `5d42d5e9`.
   rebuilt from this SHA. Runtime capture is
   `/tmp/db-pro-native-core-ecde08d7.png`; the New Connection dialog remains
   centered with a separated header and right-aligned close control.
+- Query parameter-panel follow-up at source SHA `925b8b83`: placeholder
+  discovery and in-memory parameter editing now cross an explicit session
+  context. Focused UI check, clippy, 630 UI tests, architecture guard and
+  clean scan PASS; full workspace check/clippy/tests also pass (`0 failed`),
+  both native release builds were rebuilt from this SHA. Runtime capture is
+  `/tmp/db-pro-native-core-925b8b83.png`; the New Connection dialog remains
+  centered with a separated header and right-aligned close control.
 
 ## Not yet proven
 

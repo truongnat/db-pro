@@ -1098,6 +1098,20 @@ architecture guard rejects `DbProApp` from the picker module.
 
 Severity: P1 feature-boundary risk, resolved for the query context picker.
 
+## F68 — Query parameter panel lived in the query composition root
+
+Evidence at discovery: placeholder discovery, provider capability messaging
+and in-memory parameter/secret editing were rendered directly by
+`query_view.rs`, coupling a bounded editor panel to the full application
+facade.
+
+Fix in `925b8b83`: moved the panel to `query_parameters_view.rs`, which owns
+`QueryParametersContext` and only receives query-session state plus the
+parameter capability. The architecture guard rejects `DbProApp` from the
+panel module.
+
+Severity: P1 feature-boundary risk, resolved for query parameter editing.
+
 ## F35 — Navigation view owned transfer activity
 
 Evidence at discovery: the navigation module rendered backup/restore entry
