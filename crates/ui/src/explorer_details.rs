@@ -1,332 +1,161 @@
 //! Table rows and the nested detail folders (Columns / Foreign keys / Indexes)
 //! of the Codex / DBeaver navigator tree.
 
+use super::explorer_table_row_view::{TableRowAction, TableRowContext};
 use super::explorer_tree::{
     column_icon_and_color, draw_category_folder, draw_codex_tree_row, shorten_data_type, CategoryFolder, CodexTreeRow,
 };
 use super::*;
 use lucide_icons::Icon;
 
-/// Actions selectable from a table row's context menu.
-#[derive(Default)]
-struct TableRowActions {
-    open_data: bool,
-    open_structure: bool,
-    open_query: bool,
-    gen_sql_insert: bool,
-    gen_sql_update: bool,
-    gen_sql_delete: bool,
-    open_ddl: bool,
-    copy_name: bool,
-    copy_qualified_name: bool,
-    ask_agent: bool,
-    refresh_schema: bool,
+struct TableRowActionInput<'a> {
+    table: &'a str,
+    schema: &'a str,
 }
 
-/// Collects the table row context-menu choices without touching `self`, so the
-/// caller keeps a single mutable borrow for applying them.
-fn table_row_context_menu(ui: &mut egui::Ui, response: &egui::Response, theme: DbProTheme) -> TableRowActions {
-    let mut actions = TableRowActions::default();
-    context_action_menu(ui, response, theme, |ui, close_menu| {
-        if ctx_menu_item(ui, Some(Icon::Table2), "View Data", None, theme.text_primary, theme).clicked() {
-            actions.open_data = true;
-            *close_menu = true;
-        }
-        if ctx_menu_item(
-            ui,
-            Some(Icon::Columns3),
-            "View Structure",
-            None,
-            theme.text_primary,
-            theme,
-        )
-        .clicked()
-        {
-            actions.open_structure = true;
-            *close_menu = true;
-        }
-        ui.separator();
-        if ctx_menu_item(
-            ui,
-            Some(Icon::Play),
-            "Generate SQL: SELECT *",
-            None,
-            theme.text_primary,
-            theme,
-        )
-        .clicked()
-        {
-            actions.open_query = true;
-            *close_menu = true;
-        }
-        if ctx_menu_item(
-            ui,
-            Some(Icon::Plus),
-            "Generate SQL: INSERT",
-            None,
-            theme.text_primary,
-            theme,
-        )
-        .clicked()
-        {
-            actions.gen_sql_insert = true;
-            *close_menu = true;
-        }
-        if ctx_menu_item(
-            ui,
-            Some(Icon::Pencil),
-            "Generate SQL: UPDATE",
-            None,
-            theme.text_primary,
-            theme,
-        )
-        .clicked()
-        {
-            actions.gen_sql_update = true;
-            *close_menu = true;
-        }
-        if ctx_menu_item(
-            ui,
-            Some(Icon::Trash2),
-            "Generate SQL: DELETE",
-            None,
-            theme.danger,
-            theme,
-        )
-        .clicked()
-        {
-            actions.gen_sql_delete = true;
-            *close_menu = true;
-        }
-        if ctx_menu_item(
-            ui,
-            Some(Icon::Code2),
-            "View DDL / CREATE Script",
-            None,
-            theme.text_primary,
-            theme,
-        )
-        .clicked()
-        {
-            actions.open_ddl = true;
-            *close_menu = true;
-        }
-        ui.separator();
-        if ctx_menu_item(
-            ui,
-            Some(Icon::Copy),
-            "Copy Qualified Name",
-            None,
-            theme.text_primary,
-            theme,
-        )
-        .clicked()
-        {
-            actions.copy_qualified_name = true;
-            *close_menu = true;
-        }
-        if ctx_menu_item(ui, Some(Icon::Copy), "Copy Table Name", None, theme.text_primary, theme).clicked() {
-            actions.copy_name = true;
-            *close_menu = true;
-        }
-        if ctx_menu_item(
-            ui,
-            Some(Icon::Bot),
-            "Ask Agent about table",
-            None,
-            theme.text_primary,
-            theme,
-        )
-        .clicked()
-        {
-            actions.ask_agent = true;
-            *close_menu = true;
-        }
-        ui.separator();
-        if ctx_menu_item(
-            ui,
-            Some(Icon::RotateCcw),
-            "Refresh Schema",
-            Some("F5"),
-            theme.text_primary,
-            theme,
-        )
-        .clicked()
-        {
-            actions.refresh_schema = true;
-            *close_menu = true;
-        }
-    });
-    actions
+fn build_insert_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> String {
+    let columns = info
+        .map(|table_info| {
+            table_info
+                .columns
+                .iter()
+                .map(|column| column.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .filter(|columns| !columns.is_empty())
+        .unwrap_or_else(|| "column1, column2".to_owned());
+    let values = info
+        .map(|table_info| {
+            table_info
+                .columns
+                .iter()
+                .map(|_| "DEFAULT")
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .filter(|values| !values.is_empty())
+        .unwrap_or_else(|| "'value1', 'value2'".to_owned());
+    format!("INSERT INTO {schema}.{table} ({columns})\nVALUES ({values});")
+}
+
+fn build_update_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> String {
+    let set_clause = info
+        .map(|table_info| {
+            table_info
+                .columns
+                .iter()
+                .filter(|column| !column.is_primary_key)
+                .map(|column| format!("    {} = DEFAULT", column.name))
+                .collect::<Vec<_>>()
+                .join(",\n")
+        })
+        .filter(|set_clause| !set_clause.is_empty())
+        .unwrap_or_else(|| "    column1 = 'value1'".to_owned());
+    format!(
+        "UPDATE {schema}.{table}\nSET\n{set_clause}\nWHERE {};",
+        primary_key_clause(info)
+    )
+}
+
+fn build_delete_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> String {
+    format!("DELETE FROM {schema}.{table}\nWHERE {};", primary_key_clause(info))
+}
+
+fn primary_key_clause(info: Option<&UiTableInfo>) -> String {
+    info.and_then(|table_info| table_info.primary_key.as_ref())
+        .map(|columns| {
+            columns
+                .iter()
+                .map(|column| format!("{column} = 1"))
+                .collect::<Vec<_>>()
+                .join(" AND ")
+        })
+        .filter(|clause| !clause.is_empty())
+        .unwrap_or_else(|| "id = 1".to_owned())
 }
 
 impl DbProApp {
     /// Renders an individual table item in the tree with selection and expandable details.
     pub(super) fn draw_dbeaver_table_item(&mut self, ui: &mut egui::Ui, table: &str) {
         let is_selected = self.schema.explorer.selected_table.as_deref() == Some(table);
-        let table_details_id = ui.make_persistent_id(("codex_tbl_details", table));
         let has_details = is_selected && self.table.state.table_info.is_some();
+        let render = TableRowContext {
+            theme: self.theme,
+            table,
+            is_selected,
+            has_details,
+        }
+        .draw(ui);
 
-        let mut collapsing =
-            egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), table_details_id, true);
-        let is_open = collapsing.is_open();
-
-        let (response, chevron_clicked) = draw_codex_tree_row(
-            ui,
-            &self.theme,
-            CodexTreeRow {
-                depth: 4,
-                is_expandable: has_details,
-                is_expanded: is_open,
-                icon: Icon::Table2,
-                icon_color: if is_selected {
-                    self.theme.accent
-                } else {
-                    self.theme.text_secondary
-                },
-                label: table,
-                is_selected,
-                is_dimmed: false,
-                status_dot: None,
-                badge_text: None,
-                badge_accent: false,
-                count_text: None,
-                detail_text: None,
-            },
-        );
-
-        let is_ctx = is_context_menu_triggered(&response, ui);
-        let actions = table_row_context_menu(ui, &response, self.theme);
-
-        if chevron_clicked && has_details {
-            collapsing.set_open(!is_open);
-            collapsing.store(ui.ctx());
-        } else if (response.clicked() && !is_ctx)
-            || actions.open_query
-            || actions.open_data
-            || actions.open_structure
-            || actions.open_ddl
-            || actions.gen_sql_insert
-            || actions.gen_sql_update
-            || actions.gen_sql_delete
-            || actions.ask_agent
-        {
+        if render.should_select {
             self.select_table(table);
         }
 
         let schema = self.active_schema().to_owned();
-
-        if actions.open_data {
-            self.table.state.table_view = TableView::Data;
-            self.workspace.active_tab = WorkspaceTab::Table;
-        }
-        if actions.open_structure {
-            self.table.state.table_view = TableView::Structure;
-            self.workspace.active_tab = WorkspaceTab::Table;
-        }
-        if actions.open_ddl {
-            self.table.state.table_view = TableView::Ddl;
-            self.workspace.active_tab = WorkspaceTab::Table;
-        }
-        if actions.open_query {
-            self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
-            self.workspace.active_tab = WorkspaceTab::Query;
-        }
-        if actions.gen_sql_insert {
-            let cols = if let Some(info) = self.table.state.table_info.as_ref() {
-                info.columns
-                    .iter()
-                    .map(|c| c.name.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            } else {
-                "column1, column2".to_owned()
-            };
-            let vals = if let Some(info) = self.table.state.table_info.as_ref() {
-                info.columns.iter().map(|_| "DEFAULT").collect::<Vec<_>>().join(", ")
-            } else {
-                "'value1', 'value2'".to_owned()
-            };
-            self.set_active_query_text(format!("INSERT INTO {schema}.{table} ({cols})\nVALUES ({vals});"));
-            self.workspace.active_tab = WorkspaceTab::Query;
-        }
-        if actions.gen_sql_update {
-            let set_clause = if let Some(info) = self.table.state.table_info.as_ref() {
-                info.columns
-                    .iter()
-                    .filter(|c| !c.is_primary_key)
-                    .map(|c| format!("    {} = DEFAULT", c.name))
-                    .collect::<Vec<_>>()
-                    .join(",\n")
-            } else {
-                "    column1 = 'value1'".to_owned()
-            };
-            let pk_clause = if let Some(pk_cols) = self
-                .table
-                .state
-                .table_info
-                .as_ref()
-                .and_then(|i| i.primary_key.as_ref())
-            {
-                pk_cols
-                    .iter()
-                    .map(|name| format!("{name} = 1"))
-                    .collect::<Vec<_>>()
-                    .join(" AND ")
-            } else {
-                "id = 1".to_owned()
-            };
-            self.set_active_query_text(format!(
-                "UPDATE {schema}.{table}\nSET\n{set_clause}\nWHERE {pk_clause};"
-            ));
-            self.workspace.active_tab = WorkspaceTab::Query;
-        }
-        if actions.gen_sql_delete {
-            let pk_clause = if let Some(pk_cols) = self
-                .table
-                .state
-                .table_info
-                .as_ref()
-                .and_then(|i| i.primary_key.as_ref())
-            {
-                pk_cols
-                    .iter()
-                    .map(|name| format!("{name} = 1"))
-                    .collect::<Vec<_>>()
-                    .join(" AND ")
-            } else {
-                "id = 1".to_owned()
-            };
-            self.set_active_query_text(format!("DELETE FROM {schema}.{table}\nWHERE {pk_clause};"));
-            self.workspace.active_tab = WorkspaceTab::Query;
-        }
-        if actions.copy_qualified_name {
-            let qname = format!("{schema}.{table}");
-            ui.output_mut(|o| o.copied_text = qname.clone());
-            self.feedback.runtime_message = format!("Copied `{qname}` to clipboard");
-        }
-        if actions.copy_name {
-            ui.output_mut(|o| o.copied_text = table.to_owned());
-            self.feedback.runtime_message = format!("Copied `{table}` to clipboard");
-        }
-        if actions.ask_agent {
-            self.open_agent_prompt(
-                format!("Explain the `{schema}.{table}` table structure and suggest useful queries"),
-                ui.ctx(),
-            );
-        }
-        if actions.refresh_schema {
-            if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-                self.request_schema_introspection(connection_id, true);
-            }
+        for action in render.actions {
+            self.apply_table_row_action(action, TableRowActionInput { table, schema: &schema }, ui);
         }
 
         // If table is selected and expanded, show nested details (Columns, Foreign keys, Indexes)
-        if is_selected && collapsing.is_open() {
+        if is_selected && render.is_open {
             if let Some(info) = self.table.state.table_info.clone() {
                 self.draw_table_detail_folders(ui, table, &info);
             }
         }
+    }
+
+    fn apply_table_row_action(&mut self, action: TableRowAction, input: TableRowActionInput<'_>, ui: &mut egui::Ui) {
+        let table = input.table;
+        let schema = input.schema;
+        match action {
+            TableRowAction::OpenData => self.open_table_view(TableView::Data),
+            TableRowAction::OpenStructure => self.open_table_view(TableView::Structure),
+            TableRowAction::OpenDdl => self.open_table_view(TableView::Ddl),
+            TableRowAction::OpenQuery => {
+                self.open_query_document(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"))
+            }
+            TableRowAction::GenerateInsert => {
+                let query = build_insert_query(schema, table, self.table.state.table_info.as_ref());
+                self.open_query_document(query);
+            }
+            TableRowAction::GenerateUpdate => {
+                let query = build_update_query(schema, table, self.table.state.table_info.as_ref());
+                self.open_query_document(query);
+            }
+            TableRowAction::GenerateDelete => {
+                let query = build_delete_query(schema, table, self.table.state.table_info.as_ref());
+                self.open_query_document(query);
+            }
+            TableRowAction::CopyQualifiedName => {
+                let qualified_name = format!("{schema}.{table}");
+                ui.output_mut(|output| output.copied_text = qualified_name.clone());
+                self.feedback.runtime_message = format!("Copied `{qualified_name}` to clipboard");
+            }
+            TableRowAction::CopyName => {
+                ui.output_mut(|output| output.copied_text = table.to_owned());
+                self.feedback.runtime_message = format!("Copied `{table}` to clipboard");
+            }
+            TableRowAction::AskAgent => self.open_agent_prompt(
+                format!("Explain the `{schema}.{table}` table structure and suggest useful queries"),
+                ui.ctx(),
+            ),
+            TableRowAction::RefreshSchema => {
+                if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+                    self.request_schema_introspection(connection_id, true);
+                }
+            }
+        }
+    }
+
+    fn open_table_view(&mut self, view: TableView) {
+        self.table.state.table_view = view;
+        self.workspace.active_tab = WorkspaceTab::Table;
+    }
+
+    fn open_query_document(&mut self, query: String) {
+        self.set_active_query_text(query);
+        self.workspace.active_tab = WorkspaceTab::Query;
     }
 
     /// Selects a table and resets the table workspace to a clean slate.
