@@ -132,6 +132,10 @@ mod navigation_view;
 mod operation_events;
 #[path = "overlay_state.rs"]
 mod overlay_state;
+#[path = "palette_actions.rs"]
+mod palette_actions;
+#[path = "palette_catalog.rs"]
+mod palette_catalog;
 #[path = "palette_state.rs"]
 mod palette_state;
 #[path = "pg_settings_activity_view.rs"]

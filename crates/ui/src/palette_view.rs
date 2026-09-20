@@ -38,11 +38,11 @@ impl DbProApp {
             items.extend(self.query_history_items());
             items.extend(self.schema_column_items());
             items.extend(self.snippet_items());
-            items.extend(self.agent_action_items());
+            items.extend(Self::agent_action_items());
         }
         if mode == PaletteMode::Commands {
             items.extend(self.connection_items());
-            items.extend(self.agent_action_items());
+            items.extend(Self::agent_action_items());
         }
         items
     }
@@ -77,212 +77,6 @@ impl DbProApp {
         }
         let entries = self.palette_entries(mode);
         self.palette.search_index.replace(fingerprint, entries);
-    }
-
-    fn quick_open_items() -> Vec<PaletteItem> {
-        vec![
-            PaletteItem {
-                icon: Icon::House,
-                title: "Welcome".to_owned(),
-                subtitle: "Database workspace home".to_owned(),
-                shortcut: None,
-                action: PaletteAction::Welcome,
-            },
-            PaletteItem {
-                icon: Icon::FileCode2,
-                title: "Query".to_owned(),
-                subtitle: "Open the SQL editor".to_owned(),
-                shortcut: Some(format!("{}K", Self::primary_modifier_label())),
-                action: PaletteAction::Query,
-            },
-            PaletteItem {
-                icon: Icon::History,
-                title: "Query history".to_owned(),
-                subtitle: "Browse saved and recent queries".to_owned(),
-                shortcut: None,
-                action: PaletteAction::History,
-            },
-            PaletteItem {
-                icon: Icon::Table2,
-                title: "Data".to_owned(),
-                subtitle: "Recent and pinned tables".to_owned(),
-                shortcut: None,
-                action: PaletteAction::Data,
-            },
-            PaletteItem {
-                icon: Icon::FolderOpen,
-                title: "Files".to_owned(),
-                subtitle: "Workspace folder and project SQL files".to_owned(),
-                shortcut: None,
-                action: PaletteAction::Files,
-            },
-            PaletteItem {
-                icon: Icon::ArrowRightLeft,
-                title: "ER diagram".to_owned(),
-                subtitle: "Explore tables and relationships".to_owned(),
-                shortcut: None,
-                action: PaletteAction::Diagram,
-            },
-            PaletteItem {
-                icon: Icon::Boxes,
-                title: "Schema workbench".to_owned(),
-                subtitle: "Create and alter schema objects".to_owned(),
-                shortcut: None,
-                action: PaletteAction::SchemaWorkbench,
-            },
-            PaletteItem {
-                icon: Icon::GitCompare,
-                title: "Schema compare".to_owned(),
-                subtitle: "Diff two schema snapshots".to_owned(),
-                shortcut: None,
-                action: PaletteAction::SchemaCompare,
-            },
-            PaletteItem {
-                icon: Icon::Upload,
-                title: "Transfers".to_owned(),
-                subtitle: "Import, export, and background copy jobs".to_owned(),
-                shortcut: None,
-                action: PaletteAction::Transfers,
-            },
-            PaletteItem {
-                icon: Icon::Gauge,
-                title: "Monitor".to_owned(),
-                subtitle: "Connection health and recent statements".to_owned(),
-                shortcut: None,
-                action: PaletteAction::Monitor,
-            },
-            PaletteItem {
-                icon: Icon::Settings2,
-                title: "Settings".to_owned(),
-                subtitle: "Connections, backups and restore".to_owned(),
-                shortcut: None,
-                action: PaletteAction::Settings,
-            },
-            PaletteItem {
-                icon: Icon::Bot,
-                title: "Agent".to_owned(),
-                subtitle: "Open the database copilot".to_owned(),
-                shortcut: None,
-                action: PaletteAction::Agent,
-            },
-            PaletteItem {
-                icon: Icon::TriangleAlert,
-                title: "Problems".to_owned(),
-                subtitle: "Open SQL diagnostics across documents".to_owned(),
-                shortcut: None,
-                action: PaletteAction::Problems,
-            },
-            PaletteItem {
-                icon: Icon::Activity,
-                title: "Diagnostics".to_owned(),
-                subtitle: "App version, drivers, and redacted support summary".to_owned(),
-                shortcut: None,
-                action: PaletteAction::Diagnostics,
-            },
-        ]
-    }
-
-    fn command_items() -> Vec<PaletteItem> {
-        vec![
-            PaletteItem {
-                icon: Icon::Plus,
-                title: "New query".to_owned(),
-                subtitle: "Create a fresh SQL document".to_owned(),
-                shortcut: None,
-                action: PaletteAction::NewQuery,
-            },
-            PaletteItem {
-                icon: Icon::Play,
-                title: "Run query".to_owned(),
-                subtitle: "Execute the current SQL or selection".to_owned(),
-                shortcut: Some(format!("{}↵", Self::primary_modifier_label())),
-                action: PaletteAction::RunQuery,
-            },
-            PaletteItem {
-                icon: Icon::WandSparkles,
-                title: "Format SQL".to_owned(),
-                subtitle: "Format the active SQL document".to_owned(),
-                shortcut: None,
-                action: PaletteAction::FormatSql,
-            },
-            PaletteItem {
-                icon: Icon::Database,
-                title: "New connection".to_owned(),
-                subtitle: "Add a PostgreSQL or SQLite connection".to_owned(),
-                shortcut: None,
-                action: PaletteAction::NewConnection,
-            },
-            PaletteItem {
-                icon: Icon::RotateCcw,
-                title: "Refresh schema".to_owned(),
-                subtitle: "Reload tables, views and relationships".to_owned(),
-                shortcut: None,
-                action: PaletteAction::RefreshSchema,
-            },
-            PaletteItem {
-                icon: Icon::Pin,
-                title: "Pin / unpin selected table".to_owned(),
-                subtitle: "Toggle the active table in pinned Quick Open entries".to_owned(),
-                shortcut: None,
-                action: PaletteAction::TogglePinTable(String::new()),
-            },
-            PaletteItem {
-                icon: Icon::FolderOpen,
-                title: "Open Folder…".to_owned(),
-                subtitle: "Open a local workspace folder (#261)".to_owned(),
-                shortcut: None,
-                action: PaletteAction::OpenWorkspaceFolder,
-            },
-            PaletteItem {
-                icon: Icon::Folder,
-                title: "Close Workspace".to_owned(),
-                subtitle: "Close the active workspace folder".to_owned(),
-                shortcut: None,
-                action: PaletteAction::CloseWorkspaceFolder,
-            },
-            PaletteItem {
-                icon: Icon::PanelLeft,
-                title: "Toggle explorer".to_owned(),
-                subtitle: "Show or hide the connection sidebar".to_owned(),
-                shortcut: Some(format!("{}B", Self::primary_modifier_label())),
-                action: PaletteAction::ToggleExplorer,
-            },
-            PaletteItem {
-                icon: Icon::Bot,
-                title: "Open Agent".to_owned(),
-                subtitle: "Ask Agent about the active schema".to_owned(),
-                shortcut: None,
-                action: PaletteAction::Agent,
-            },
-            PaletteItem {
-                icon: Icon::ArrowRightLeft,
-                title: "Open ER diagram".to_owned(),
-                subtitle: "Show the active schema map".to_owned(),
-                shortcut: None,
-                action: PaletteAction::Diagram,
-            },
-            PaletteItem {
-                icon: Icon::ChartNoAxesCombined,
-                title: "Explain query".to_owned(),
-                subtitle: "Inspect a read-only query plan".to_owned(),
-                shortcut: None,
-                action: PaletteAction::ExplainQuery,
-            },
-            PaletteItem {
-                icon: Icon::Download,
-                title: "Export results".to_owned(),
-                subtitle: "Open export options for the current result".to_owned(),
-                shortcut: None,
-                action: PaletteAction::ExportResults,
-            },
-            PaletteItem {
-                icon: Icon::Palette,
-                title: "Open Component Gallery".to_owned(),
-                subtitle: "Preview DB Pro common UI design system".to_owned(),
-                shortcut: None,
-                action: PaletteAction::ComponentGallery,
-            },
-        ]
     }
 
     fn schema_table_items(&self) -> Vec<(SearchKind, PaletteItem)> {
@@ -545,31 +339,6 @@ impl DbProApp {
             .collect()
     }
 
-    fn agent_action_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        vec![
-            (
-                SearchKind::Agent,
-                PaletteItem {
-                    icon: Icon::Bot,
-                    title: "Ask Agent".to_owned(),
-                    subtitle: "Open the database copilot".to_owned(),
-                    shortcut: None,
-                    action: PaletteAction::Agent,
-                },
-            ),
-            (
-                SearchKind::Agent,
-                PaletteItem {
-                    icon: Icon::Sparkles,
-                    title: "Explain current query".to_owned(),
-                    subtitle: "Agent action · explain plan".to_owned(),
-                    shortcut: None,
-                    action: PaletteAction::ExplainQuery,
-                },
-            ),
-        ]
-    }
-
     pub(crate) fn filtered_palette_items(&self, mode: PaletteMode) -> Vec<PaletteItem> {
         let entries = if self.palette.search_index.fingerprint().contains(&format!("{mode:?}"))
             && !self.palette.search_index.is_empty()
@@ -587,134 +356,7 @@ impl DbProApp {
         self.filtered_palette_items(mode)
     }
 
-    pub(crate) fn execute_palette_action(&mut self, action: PaletteAction, _ctx: &egui::Context) {
-        self.palette.mode = None;
-        match action {
-            PaletteAction::Welcome => self.activate_welcome_tab(),
-            PaletteAction::Query => {
-                self.workspace.active_tab = WorkspaceTab::Query;
-            }
-            PaletteAction::History => {
-                self.workspace.activity = Activity::History;
-                self.workspace.sidebar_open = true;
-            }
-            PaletteAction::Data => {
-                self.workspace.activity = Activity::Data;
-                self.workspace.sidebar_open = true;
-            }
-            PaletteAction::Files => {
-                self.workspace.activity = Activity::Files;
-                self.workspace.sidebar_open = true;
-            }
-            PaletteAction::Diagram => self.workspace.active_tab = WorkspaceTab::Diagram,
-            PaletteAction::SchemaWorkbench => self.open_schema_workbench(),
-            PaletteAction::SchemaCompare => {
-                self.workspace.activity = Activity::Compare;
-                self.workspace.active_tab = WorkspaceTab::SchemaCompare;
-                self.workspace.sidebar_open = true;
-            }
-            PaletteAction::Transfers => {
-                self.workspace.activity = Activity::Transfers;
-                self.workspace.sidebar_open = true;
-            }
-            PaletteAction::Monitor => {
-                self.workspace.activity = Activity::Monitor;
-                self.workspace.sidebar_open = true;
-            }
-            PaletteAction::Settings => {
-                self.workspace.activity = Activity::Settings;
-                self.workspace.sidebar_open = true;
-            }
-            PaletteAction::Agent => {
-                self.workspace.agent_open = true;
-            }
-            PaletteAction::Problems => {
-                self.workspace.activity = Activity::Problems;
-                self.workspace.sidebar_open = true;
-            }
-            PaletteAction::Diagnostics => {
-                self.workspace.activity = Activity::Settings;
-                self.workspace.sidebar_open = true;
-                self.feedback.runtime_message = "Opened Settings → Diagnostics".to_owned();
-            }
-            PaletteAction::NewQuery => {
-                self.workspace.active_tab = WorkspaceTab::Query;
-                self.new_query_document();
-                self.feedback.runtime_message = "New query ready".to_owned();
-            }
-            PaletteAction::NewConnection => {
-                self.connection.open_new();
-            }
-            PaletteAction::RefreshSchema => self.refresh_schema_palette(),
-            PaletteAction::ToggleExplorer => self.workspace.sidebar_open = !self.workspace.sidebar_open,
-            PaletteAction::OpenTable(table) => self.open_table_from_palette(table),
-            PaletteAction::OpenView(name) => {
-                let schema = self.active_schema().to_owned();
-                self.open_schema_object(SchemaObjectSelection::View(name.clone()), &schema, &name, "view");
-            }
-            PaletteAction::OpenFunction {
-                name,
-                identity_arguments,
-            } => {
-                let schema = self.active_schema().to_owned();
-                self.open_schema_object(
-                    SchemaObjectSelection::Function {
-                        name: name.clone(),
-                        identity_arguments,
-                    },
-                    &schema,
-                    &name,
-                    "function",
-                );
-            }
-            PaletteAction::OpenWorkspaceFile(path) => self.open_workspace_sql_file(path),
-            PaletteAction::OpenWorkspaceFolder => self.request_open_workspace_folder(),
-            PaletteAction::CloseWorkspaceFolder => self
-                .workspace
-                .files
-                .close(&mut self.workspace.shell, &mut self.feedback),
-            PaletteAction::OpenSavedQuery(query_id) => self.open_saved_query_from_palette(query_id),
-            PaletteAction::OpenHistoryEntry(index) => {
-                if let Some(entry) = self.query.editor.query_history_entries.get(index).cloned() {
-                    self.open_history_entry(&entry, false);
-                } else {
-                    self.feedback.runtime_message = "History entry is no longer available".to_owned();
-                }
-            }
-            PaletteAction::InsertColumn(column) => {
-                self.workspace.active_tab = WorkspaceTab::Query;
-                self.append_to_active_query(&column);
-                self.feedback.runtime_message = format!("Inserted column {column}");
-            }
-            PaletteAction::InsertSnippet(index) => {
-                if let Some((_, snippet)) = Self::builtin_sql_snippets().get(index) {
-                    self.insert_snippet(snippet);
-                }
-            }
-            PaletteAction::ExplainQuery => self.explain_query(),
-            PaletteAction::ExportResults => self.export_results_from_palette(),
-            PaletteAction::RunQuery => {
-                self.workspace.active_tab = WorkspaceTab::Query;
-                self.dispatch_query();
-            }
-            PaletteAction::FormatSql => {
-                self.workspace.active_tab = WorkspaceTab::Query;
-                self.format_active_query();
-                self.feedback.runtime_message = "SQL formatted".to_owned();
-            }
-            PaletteAction::SwitchConnection(connection_id) => {
-                self.switch_connection_from_palette(connection_id);
-            }
-            PaletteAction::TogglePinTable(table) => {
-                self.toggle_pinned_table(table);
-            }
-            PaletteAction::ComponentGallery => {
-                self.workspace.active_tab = WorkspaceTab::ComponentGallery;
-            }
-        }
-    }
-
-    fn refresh_schema_palette(&mut self) {
+    pub(super) fn refresh_schema_palette(&mut self) {
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             self.table.state.refresh_table_info_after_schema = self.schema.explorer.selected_table.is_some();
             self.request_schema_introspection(connection_id, true);
@@ -754,7 +396,7 @@ impl DbProApp {
         self.feedback.runtime_message = format!("Opening table {table}");
     }
 
-    fn open_saved_query_from_palette(&mut self, query_id: String) {
+    pub(super) fn open_saved_query_from_palette(&mut self, query_id: String) {
         let Some(query) = self
             .query
             .library
@@ -807,7 +449,7 @@ impl DbProApp {
         }
     }
 
-    fn export_results_from_palette(&mut self) {
+    pub(super) fn export_results_from_palette(&mut self) {
         if self.query.session.active_result().is_some() {
             self.query.output.active_tab = OutputTab::Results;
             self.overlay.export_open = true;
@@ -817,7 +459,7 @@ impl DbProApp {
         }
     }
 
-    fn switch_connection_from_palette(&mut self, connection_id: String) {
+    pub(super) fn switch_connection_from_palette(&mut self, connection_id: String) {
         let connection = self.connection.catalog.find(&connection_id).cloned();
         if let Some(connection) = connection {
             *self.connection.lifecycle.active_connection_id_mut() = Some(connection.id.clone());

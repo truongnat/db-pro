@@ -515,6 +515,20 @@ implementation block.
 
 Severity: P2 composition-root maintainability, resolved.
 
+## F38 — Palette catalog and action routing were embedded in the palette view
+
+Evidence at discovery: `palette_view.rs` combined static command/catalog data,
+palette action routing and dialog rendering. That made a search index change
+or a command action change require editing the same rendering-heavy module.
+
+Fix in the current refactor: moved static catalog construction to
+`palette_catalog.rs` and action routing to `palette_actions.rs`. The palette
+view now owns indexing/filtering and coordinates the dialog surface; existing
+action helper methods remain explicit feature-boundary entry points.
+
+Severity: P2 palette-boundary maintainability risk, resolved for catalog and
+action ownership.
+
 ## F25 — Table metadata state still owned the data-query lifecycle
 
 Evidence at discovery: `TableState` combined table metadata/DDL with the data

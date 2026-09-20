@@ -529,6 +529,11 @@ Source checkpoint: `0070d374`.
   `query_search_view.rs`; `query_view.rs` is below the 800-line file boundary.
   Focused UI tests (632 passed), clippy, architecture guard, clean scan (15
   pass, 1 ratcheted warning) and diff checks PASS.
+- Palette ownership follow-up: static Quick Open/Command catalog builders now
+  live in `palette_catalog.rs`, and palette action routing lives in
+  `palette_actions.rs`; `palette_view.rs` is reduced to indexing/filtering and
+  dialog coordination. Focused UI tests (632 passed), UI clippy, architecture
+  guard, clean scan (14 pass, 2 ratcheted warnings) and diff checks PASS.
 
 ## Not yet proven
 
