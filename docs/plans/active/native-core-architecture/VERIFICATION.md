@@ -666,12 +666,14 @@ Source checkpoint: `5d42d5e9`.
   centered, its header is separated by a divider, and the close action is
   aligned to the header's right edge. The release binary is running for
   manual verification.
-- Query output boundary follow-ups at source SHA `5d42d5e9` and the current
-  result-pane header change: output tabs, chart/messages, explain/history and
-  result selection/export now use explicit contexts and typed intents. Focused
-  UI check, clippy, 633 UI tests, architecture guard and clean scan PASS for
-  the current working tree; the full workspace/release gate is being rerun
-  before this checkpoint is published.
+- Query output boundary follow-ups at source SHA `441d3972`: output tabs,
+  chart/messages, explain/history and result selection/export now use explicit
+  contexts and typed intents. Full gate PASS: fmt, workspace check, workspace
+  clippy with `-D warnings`, workspace tests (`633` UI tests passed), native
+  release build, capture-feature release build, architecture guard and clean
+  scan (16 pass, 0 warnings). Runtime capture is
+  `/tmp/db-pro-native-core-441d3972.png`; the New Connection dialog is
+  centered with a separated header and right-aligned close control.
 
 ## Not yet proven
 
