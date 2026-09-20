@@ -57,29 +57,6 @@ impl DbProApp {
     // Problems / diagnostics: `problems_view.rs`.
 
     pub(crate) fn apply_migration_preview(&mut self) {
-        use db_pro_core::application::MigrationPlanner;
-
-        let Some(plan) = self.schema_compare.migration_plan.clone() else {
-            self.feedback.runtime_message = "Plan a migration before applying".into();
-            return;
-        };
-        if !MigrationPlanner::verify_fingerprint(&plan, &self.schema_compare.migration_fingerprint_at_preview) {
-            self.feedback.runtime_message = "Migration fingerprint changed — re-plan before apply".into();
-            return;
-        }
-        if plan.has_destructive && !self.schema_compare.migration_confirm_destructive {
-            self.feedback.runtime_message = "Destructive migration requires explicit confirmation checkbox".into();
-            return;
-        }
-        let sql = if plan.has_destructive && self.schema_compare.migration_confirm_destructive {
-            MigrationPlanner::preview_sql(&plan, false)
-        } else {
-            MigrationPlanner::non_destructive_sql(&plan)
-        };
-        if sql.trim().is_empty() {
-            self.feedback.runtime_message = "No supported SQL operations to apply".into();
-            return;
-        }
         if self.table_state.ddl_execution_request.is_some() {
             return;
         }
@@ -87,11 +64,17 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ExecuteDdl {
-            request_id,
-            connection_id,
-            sql,
-        });
+        let command = match self
+            .schema_compare
+            .build_migration_apply_command(request_id, connection_id)
+        {
+            Ok(command) => command,
+            Err(error) => {
+                self.feedback.runtime_message = error;
+                return;
+            }
+        };
+        self.dispatch_command(command);
         self.table_state.ddl_execution_request = Some(request_id);
         self.feedback.runtime_message = "Applying migration plan…".into();
     }

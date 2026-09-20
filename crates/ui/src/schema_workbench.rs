@@ -122,6 +122,20 @@ impl Default for SchemaWorkbenchState {
     }
 }
 
+impl SchemaWorkbenchState {
+    pub(super) fn apply_ddl_command(&self, request_id: RequestId, connection_id: String) -> Result<UiCommand, String> {
+        let sql = self.preview_sql.trim();
+        if sql.is_empty() {
+            return Err("Plan a mutation before applying".to_owned());
+        }
+        Ok(UiCommand::ExecuteDdl {
+            request_id,
+            connection_id,
+            sql: sql.to_owned(),
+        })
+    }
+}
+
 struct QuoteDialect;
 
 impl SqlDialect for QuoteDialect {
@@ -460,21 +474,19 @@ impl DbProApp {
         if self.table_state.ddl_execution_request.is_some() {
             return;
         }
-        let sql = self.schema_workbench.preview_sql.trim().to_owned();
-        if sql.is_empty() {
-            self.feedback.runtime_message = "Plan a mutation before applying".into();
-            return;
-        }
         let Some(connection) = self.active_connection().cloned() else {
             self.feedback.runtime_message = "Connect to a database before applying DDL".into();
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ExecuteDdl {
-            request_id,
-            connection_id: connection.id,
-            sql,
-        });
+        let command = match self.schema_workbench.apply_ddl_command(request_id, connection.id) {
+            Ok(command) => command,
+            Err(error) => {
+                self.feedback.runtime_message = error;
+                return;
+            }
+        };
+        self.dispatch_command(command);
         self.table_state.ddl_execution_request = Some(request_id);
         self.feedback.runtime_message = "Applying schema mutation…".into();
     }
@@ -779,5 +791,15 @@ mod tests {
         assert_eq!(cols.len(), 2);
         assert!(cols[0].is_pk);
         assert!(!cols[0].nullable);
+    }
+
+    #[test]
+    fn apply_ddl_command_requires_a_preview() {
+        let state = SchemaWorkbenchState::default();
+
+        assert_eq!(
+            state.apply_ddl_command(RequestId(1), "source".to_owned()),
+            Err("Plan a mutation before applying".to_owned())
+        );
     }
 }

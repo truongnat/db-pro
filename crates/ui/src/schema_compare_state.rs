@@ -113,6 +113,38 @@ impl SchemaCompareState {
             sample_limit: Some(1_000),
         })
     }
+
+    pub(super) fn build_migration_apply_command(
+        &self,
+        request_id: RequestId,
+        connection_id: String,
+    ) -> Result<UiCommand, String> {
+        use db_pro_core::application::MigrationPlanner;
+
+        let plan = self
+            .migration_plan
+            .as_ref()
+            .ok_or_else(|| "Plan a migration before applying".to_owned())?;
+        if !MigrationPlanner::verify_fingerprint(plan, &self.migration_fingerprint_at_preview) {
+            return Err("Migration fingerprint changed — re-plan before apply".to_owned());
+        }
+        if plan.has_destructive && !self.migration_confirm_destructive {
+            return Err("Destructive migration requires explicit confirmation checkbox".to_owned());
+        }
+        let sql = if plan.has_destructive && self.migration_confirm_destructive {
+            MigrationPlanner::preview_sql(plan, false)
+        } else {
+            MigrationPlanner::non_destructive_sql(plan)
+        };
+        if sql.trim().is_empty() {
+            return Err("No supported SQL operations to apply".to_owned());
+        }
+        Ok(UiCommand::ExecuteDdl {
+            request_id,
+            connection_id,
+            sql,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -171,5 +203,15 @@ mod tests {
                 && table == "orders"
                 && key_columns == vec!["id", "tenant_id"]
         ));
+    }
+
+    #[test]
+    fn migration_apply_requires_a_planned_migration() {
+        let state = SchemaCompareState::default();
+
+        assert_eq!(
+            state.build_migration_apply_command(RequestId(3), "source".to_owned()),
+            Err("Plan a migration before applying".to_owned())
+        );
     }
 }
