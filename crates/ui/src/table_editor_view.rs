@@ -26,31 +26,32 @@ impl DbProApp {
         // Temporarily move the result out while rendering. The grid mutates
         // selection/edit state, so borrowing it directly from `self` would
         // conflict with those updates; moving avoids cloning every frame.
-        let Some(result) = self.table_state.table_data_result.take() else {
+        let Some(result) = self.table.state.table_data_result.take() else {
             self.draw_table_data_placeholder(ui, table_name);
             return;
         };
 
         let can_mutate = self.can_mutate_active_connection();
-        let total_known = self.table_state.table_data_total_rows.is_some();
-        let total_rows = self.table_state.table_data_total_rows.unwrap_or(result.row_count);
+        let total_known = self.table.state.table_data_total_rows.is_some();
+        let total_rows = self.table.state.table_data_total_rows.unwrap_or(result.row_count);
         let paging = TableDataPaging {
             page_range: crate::components::common_utils::format_page_range(
-                self.table_state.table_data_offset,
+                self.table.state.table_data_offset,
                 result.row_count,
-                self.table_state.table_data_total_rows,
+                self.table.state.table_data_total_rows,
             ),
             total_rows,
             total_known,
             has_next: if total_known {
-                self.table_state
+                self.table
+                    .state
                     .table_data_offset
-                    .saturating_add(self.table_state.table_data_limit)
+                    .saturating_add(self.table.state.table_data_limit)
                     < total_rows
             } else {
-                result.row_count >= self.table_state.table_data_limit
+                result.row_count >= self.table.state.table_data_limit
             },
-            has_previous: self.table_state.table_data_offset > 0,
+            has_previous: self.table.state.table_data_offset > 0,
         };
 
         self.draw_table_data_unified_toolbar(ui, table_name, &result, can_mutate, &paging);
@@ -63,8 +64,8 @@ impl DbProApp {
         });
         self.draw_pending_changes_dialog(ui);
         self.draw_conflict_dialog(ui, &result);
-        if self.table_state.table_data_result.is_none() {
-            self.table_state.table_data_result = Some(result);
+        if self.table.state.table_data_result.is_none() {
+            self.table.state.table_data_result = Some(result);
         }
     }
 
@@ -73,7 +74,7 @@ impl DbProApp {
         grid_frame(self.theme).show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(28.0);
-                let failed = self.table_state.table_data_error.as_deref();
+                let failed = self.table.state.table_data_error.as_deref();
                 ui.label(icon_text(
                     if failed.is_some() {
                         Icon::TriangleAlert
@@ -101,7 +102,7 @@ impl DbProApp {
                     ui.label(RichText::new(error).small().color(self.theme.text_secondary));
                     ui.add_space(12.0);
                     if secondary_button_with_icon(ui, Icon::RotateCcw, "Retry", self.theme).clicked() {
-                        self.table_state.table_data_error = None;
+                        self.table.state.table_data_error = None;
                         self.request_table_data();
                     }
                 } else {
@@ -133,7 +134,7 @@ impl DbProApp {
                     .on_hover_text("Reload table data (F5)")
                     .clicked()
                 {
-                    if self.table_mutation.staged_changes.is_empty() {
+                    if self.table.mutation.staged_changes.is_empty() {
                         self.request_table_data();
                     } else {
                         self.feedback.runtime_message = "Apply or discard staged changes before refreshing".to_owned();
@@ -154,7 +155,7 @@ impl DbProApp {
                         self.open_insert_row();
                     }
 
-                    if !self.table_state.has_primary_key() {
+                    if !self.table.state.has_primary_key() {
                         ui.label(
                             RichText::new("Table has no primary key; safe row editing is unavailable.")
                                 .font(font_caption())
@@ -165,9 +166,9 @@ impl DbProApp {
                         );
                     }
 
-                    if !self.table_mutation.staged_changes.is_empty() {
+                    if !self.table.mutation.staged_changes.is_empty() {
                         ui.separator();
-                        let counts = self.table_mutation.staged_changes.counts();
+                        let counts = self.table.mutation.staged_changes.counts();
                         if ui
                             .small_button(format!(
                                 "{} pending · +{} ~{} -{}",
@@ -179,10 +180,10 @@ impl DbProApp {
                             .on_hover_text("Open pending changes")
                             .clicked()
                         {
-                            self.table_mutation.pending_changes_open = true;
+                            self.table.mutation.pending_changes_open = true;
                         }
-                        let apply_enabled = self.table_mutation.staged_apply_request.is_none()
-                            && self.table_data.data_edit_error.is_none();
+                        let apply_enabled = self.table.mutation.staged_apply_request.is_none()
+                            && self.table.data.data_edit_error.is_none();
                         if Button::new(self.theme)
                             .text("Apply")
                             .icon(Icon::Check)
@@ -210,8 +211,8 @@ impl DbProApp {
                             .show(ui)
                             .clicked()
                         {
-                            if self.table_mutation.staged_changes.counts().total() > 1 {
-                                self.table_data.discard_changes_confirmation = true;
+                            if self.table.mutation.staged_changes.counts().total() > 1 {
+                                self.table.data.discard_changes_confirmation = true;
                             } else {
                                 self.discard_staged_changes();
                             }
@@ -220,13 +221,13 @@ impl DbProApp {
                 } else if self.connection.lifecycle.is_connected() {
                     ui.separator();
                     ui.label(
-                        RichText::new(if self.table_state.has_primary_key() {
+                        RichText::new(if self.table.state.has_primary_key() {
                             "Read-only"
                         } else {
                             "Table has no primary key; safe row editing is unavailable."
                         })
                         .font(font_caption())
-                        .color(if self.table_state.has_primary_key() {
+                        .color(if self.table.state.has_primary_key() {
                             self.theme.warning
                         } else {
                             self.theme.danger
@@ -234,7 +235,7 @@ impl DbProApp {
                     );
                 }
 
-                if let Some(failure) = self.table_mutation.table_mutation_error.as_ref() {
+                if let Some(failure) = self.table.mutation.table_mutation_error.as_ref() {
                     let is_conflict = failure.code == "CONFLICT";
                     ui.separator();
                     ui.label(
@@ -283,7 +284,7 @@ impl DbProApp {
                                 .show(ui)
                                 .clicked()
                             {
-                                self.table_mutation.conflict_dialog_open = true;
+                                self.table.mutation.conflict_dialog_open = true;
                             }
                             if Button::new(self.theme)
                                 .text("Retry")
@@ -300,9 +301,9 @@ impl DbProApp {
                     }
                 }
 
-                if self.table_data.selected_rows.len() > 1 {
+                if self.table.data.selected_rows.len() > 1 {
                     crate::components::badge::Badge::new(
-                        format!("{} rows selected", self.table_data.selected_rows.len()),
+                        format!("{} rows selected", self.table.data.selected_rows.len()),
                         self.theme,
                     )
                     .variant(crate::components::badge::BadgeVariant::Secondary)
@@ -331,12 +332,12 @@ impl DbProApp {
                             );
 
                             // Column Scope Dropdown
-                            let col_label = if self.table_state.table_data_filter_column.is_empty() {
+                            let col_label = if self.table.state.table_data_filter_column.is_empty() {
                                 "All columns".to_owned()
                             } else {
-                                self.table_state.table_data_filter_column.clone()
+                                self.table.state.table_data_filter_column.clone()
                             };
-                            let col_color = if self.table_state.table_data_filter_column.is_empty() {
+                            let col_color = if self.table.state.table_data_filter_column.is_empty() {
                                 self.theme.text_secondary
                             } else {
                                 self.theme.accent
@@ -348,18 +349,18 @@ impl DbProApp {
                                 .show_ui(ui, |ui| {
                                     if ui
                                         .selectable_value(
-                                            &mut self.table_state.table_data_filter_column,
+                                            &mut self.table.state.table_data_filter_column,
                                             String::new(),
                                             "All columns (Instant)",
                                         )
                                         .clicked()
                                     {
-                                        self.table_state.table_data_filter_operator = UiTableFilterOperator::default();
-                                        self.table_data.grid_filter = self.table_state.table_data_filter_value.clone();
+                                        self.table.state.table_data_filter_operator = UiTableFilterOperator::default();
+                                        self.table.data.grid_filter = self.table.state.table_data_filter_value.clone();
                                     }
                                     for col in &column_names {
                                         ui.selectable_value(
-                                            &mut self.table_state.table_data_filter_column,
+                                            &mut self.table.state.table_data_filter_column,
                                             col.clone(),
                                             col.as_str(),
                                         );
@@ -369,34 +370,35 @@ impl DbProApp {
                             ui.add(egui::Separator::default().vertical());
 
                             let filter_data_type = self
-                                .table_state
+                                .table
+                                .state
                                 .table_info
                                 .as_ref()
                                 .and_then(|info| {
                                     info.columns
                                         .iter()
-                                        .find(|column| column.name == self.table_state.table_data_filter_column)
+                                        .find(|column| column.name == self.table.state.table_data_filter_column)
                                 })
                                 .map(|column| column.data_type.clone())
                                 .or_else(|| {
                                     result
                                         .columns
                                         .iter()
-                                        .find(|column| column.name == self.table_state.table_data_filter_column)
+                                        .find(|column| column.name == self.table.state.table_data_filter_column)
                                         .map(|column| column.data_type.clone())
                                 })
                                 .unwrap_or_else(|| "text".to_owned());
                             let filter_operator_options = Self::filter_operator_options(&filter_data_type);
                             if !filter_operator_options
                                 .iter()
-                                .any(|(operator, _)| operator == &self.table_state.table_data_filter_operator)
+                                .any(|(operator, _)| operator == &self.table.state.table_data_filter_operator)
                             {
-                                self.table_state.table_data_filter_operator = filter_operator_options
+                                self.table.state.table_data_filter_operator = filter_operator_options
                                     .first()
                                     .map(|(operator, _)| operator.clone())
                                     .unwrap_or_default();
                             }
-                            let operator_label = match self.table_state.table_data_filter_operator {
+                            let operator_label = match self.table.state.table_data_filter_operator {
                                 UiTableFilterOperator::Equals => "equals",
                                 UiTableFilterOperator::NotEquals => "not equals",
                                 UiTableFilterOperator::Contains => "contains",
@@ -421,7 +423,7 @@ impl DbProApp {
                                     for (operator, label) in &filter_operator_options {
                                         if ui
                                             .selectable_value(
-                                                &mut self.table_state.table_data_filter_operator,
+                                                &mut self.table.state.table_data_filter_operator,
                                                 operator.clone(),
                                                 *label,
                                             )
@@ -433,9 +435,9 @@ impl DbProApp {
                                 });
 
                             // Search / Filter Input
-                            let is_all_cols = self.table_state.table_data_filter_column.is_empty();
+                            let is_all_cols = self.table.state.table_data_filter_column.is_empty();
                             let is_null_operator = matches!(
-                                self.table_state.table_data_filter_operator,
+                                self.table.state.table_data_filter_operator,
                                 UiTableFilterOperator::IsNull | UiTableFilterOperator::IsNotNull
                             );
                             let placeholder = if is_all_cols {
@@ -447,9 +449,9 @@ impl DbProApp {
                             };
 
                             let edit_target = if is_all_cols {
-                                &mut self.table_data.grid_filter
+                                &mut self.table.data.grid_filter
                             } else {
-                                &mut self.table_state.table_data_filter_value
+                                &mut self.table.state.table_data_filter_value
                             };
 
                             let edit = egui::TextEdit::singleline(edit_target)
@@ -464,16 +466,16 @@ impl DbProApp {
                                 && !is_all_cols
                             {
                                 if is_null_operator {
-                                    self.table_state.table_data_filter_value.clear();
+                                    self.table.state.table_data_filter_value.clear();
                                 }
                                 self.commit_table_filter_draft();
                             }
 
                             // Trailing clear button
                             let has_text = if is_all_cols {
-                                !self.table_data.grid_filter.is_empty()
+                                !self.table.data.grid_filter.is_empty()
                             } else {
-                                !self.table_state.table_data_filter_value.is_empty()
+                                !self.table.state.table_data_filter_value.is_empty()
                             };
 
                             if has_text
@@ -486,27 +488,28 @@ impl DbProApp {
                                     .clicked()
                             {
                                 if is_all_cols {
-                                    self.table_data.grid_filter.clear();
+                                    self.table.data.grid_filter.clear();
                                 } else {
-                                    let filter_column = self.table_state.table_data_filter_column.clone();
-                                    self.table_state
+                                    let filter_column = self.table.state.table_data_filter_column.clone();
+                                    self.table
+                                        .state
                                         .table_data_filters
                                         .retain(|filter| filter.column != filter_column);
-                                    self.table_state.table_data_filter_value.clear();
-                                    self.table_state.table_data_filter_operator = UiTableFilterOperator::default();
-                                    self.table_state.table_data_offset = 0;
+                                    self.table.state.table_data_filter_value.clear();
+                                    self.table.state.table_data_filter_operator = UiTableFilterOperator::default();
+                                    self.table.state.table_data_offset = 0;
                                     self.request_table_data();
                                 }
                             }
                         });
                     });
 
-                    if !self.table_state.table_data_filters.is_empty() {
+                    if !self.table.state.table_data_filters.is_empty() {
                         let mut remove_filter = None;
                         let mut edit_filter = None;
                         ui.horizontal_wrapped(|ui| {
                             ui.label(RichText::new("Filters:").small().color(self.theme.text_muted));
-                            for (index, filter) in self.table_state.table_data_filters.iter().enumerate() {
+                            for (index, filter) in self.table.state.table_data_filters.iter().enumerate() {
                                 let operator = match filter.operator {
                                     UiTableFilterOperator::Equals => "=",
                                     UiTableFilterOperator::NotEquals => "!=",
@@ -541,11 +544,11 @@ impl DbProApp {
                             }
                         });
                         if let Some(index) = edit_filter {
-                            if let Some(filter) = self.table_state.table_data_filters.get(index).cloned() {
-                                self.table_state.table_data_filter_column = filter.column;
-                                self.table_state.table_data_filter_operator = filter.operator;
-                                self.table_state.table_data_filter_value = filter.value;
-                                self.table_state.table_data_filter_editing = Some(index);
+                            if let Some(filter) = self.table.state.table_data_filters.get(index).cloned() {
+                                self.table.state.table_data_filter_column = filter.column;
+                                self.table.state.table_data_filter_operator = filter.operator;
+                                self.table.state.table_data_filter_value = filter.value;
+                                self.table.state.table_data_filter_editing = Some(index);
                             }
                         }
                         if let Some(index) = remove_filter {
@@ -559,10 +562,11 @@ impl DbProApp {
 
                     // Compact Sort Selector
                     let sort_active =
-                        !self.table_state.table_data_sorts.is_empty() || self.table_data.grid_sort_column.is_some();
-                    let sort_label = if !self.table_state.table_data_sorts.is_empty() {
+                        !self.table.state.table_data_sorts.is_empty() || self.table.data.grid_sort_column.is_some();
+                    let sort_label = if !self.table.state.table_data_sorts.is_empty() {
                         let clauses = self
-                            .table_state
+                            .table
+                            .state
                             .table_data_sorts
                             .iter()
                             .enumerate()
@@ -576,9 +580,9 @@ impl DbProApp {
                             })
                             .collect::<Vec<_>>();
                         format!("Sort: {}", clauses.join(", "))
-                    } else if let Some(idx) = self.table_data.grid_sort_column {
+                    } else if let Some(idx) = self.table.data.grid_sort_column {
                         if let Some(col) = column_names.get(idx) {
-                            format!("Sort: {col} {}", if self.table_data.grid_sort_desc { "↓" } else { "↑" })
+                            format!("Sort: {col} {}", if self.table.data.grid_sort_desc { "↓" } else { "↑" })
                         } else {
                             "Sort".to_owned()
                         }
@@ -595,9 +599,9 @@ impl DbProApp {
                         .width(100.0)
                         .show_ui(ui, |ui| {
                             if ui.selectable_label(!sort_active, "Default (None)").clicked() {
-                                if self.table_mutation.staged_changes.is_empty() {
-                                    self.table_state.table_data_sorts.clear();
-                                    self.table_data.grid_sort_column = None;
+                                if self.table.mutation.staged_changes.is_empty() {
+                                    self.table.state.table_data_sorts.clear();
+                                    self.table.data.grid_sort_column = None;
                                     self.reload_table_data_from_start();
                                 } else {
                                     self.feedback.runtime_message =
@@ -606,21 +610,22 @@ impl DbProApp {
                             }
                             for col in &column_names {
                                 let is_sel = self
-                                    .table_state
+                                    .table
+                                    .state
                                     .table_data_sorts
                                     .first()
                                     .map(|sort| sort.column.as_str())
                                     == Some(col.as_str());
                                 if ui.selectable_label(is_sel, col.as_str()).clicked() {
-                                    if !self.table_mutation.staged_changes.is_empty() {
+                                    if !self.table.mutation.staged_changes.is_empty() {
                                         self.feedback.runtime_message =
                                             "Apply or discard staged changes before changing sort".to_owned();
                                     } else if is_sel {
-                                        if let Some(sort) = self.table_state.table_data_sorts.first_mut() {
+                                        if let Some(sort) = self.table.state.table_data_sorts.first_mut() {
                                             sort.descending = !sort.descending;
                                         }
                                     } else {
-                                        self.table_state.table_data_sorts = vec![UiTableDataSort {
+                                        self.table.state.table_data_sorts = vec![UiTableDataSort {
                                             column: col.clone(),
                                             descending: false,
                                         }];
@@ -639,16 +644,16 @@ impl DbProApp {
                             .icon(Icon::ChevronsRight)
                             .variant(ButtonVariant::Ghost)
                             .size(ButtonSize::Sm)
-                            .enabled(paging.has_next && self.table_mutation.staged_changes.is_empty())
+                            .enabled(paging.has_next && self.table.mutation.staged_changes.is_empty())
                             .tooltip("Last page")
                             .show(ui)
                             .clicked()
                         && paging.has_next
-                        && self.table_mutation.staged_changes.is_empty()
+                        && self.table.mutation.staged_changes.is_empty()
                     {
-                        let last_page = paging.total_rows.saturating_sub(1) / self.table_state.table_data_limit;
-                        self.table_state.table_data_offset =
-                            last_page.saturating_mul(self.table_state.table_data_limit);
+                        let last_page = paging.total_rows.saturating_sub(1) / self.table.state.table_data_limit;
+                        self.table.state.table_data_offset =
+                            last_page.saturating_mul(self.table.state.table_data_limit);
                         self.request_table_data();
                     }
 
@@ -656,16 +661,17 @@ impl DbProApp {
                         .icon(Icon::ChevronRight)
                         .variant(ButtonVariant::Ghost)
                         .size(ButtonSize::IconSm)
-                        .enabled(paging.has_next && self.table_mutation.staged_changes.is_empty())
+                        .enabled(paging.has_next && self.table.mutation.staged_changes.is_empty())
                         .tooltip("Next page")
                         .show(ui)
                         .clicked()
-                        && self.table_mutation.staged_changes.is_empty()
+                        && self.table.mutation.staged_changes.is_empty()
                     {
-                        self.table_state.table_data_offset = self
-                            .table_state
+                        self.table.state.table_data_offset = self
+                            .table
+                            .state
                             .table_data_offset
-                            .saturating_add(self.table_state.table_data_limit);
+                            .saturating_add(self.table.state.table_data_limit);
                         self.request_table_data();
                     }
 
@@ -679,16 +685,17 @@ impl DbProApp {
                         .icon(Icon::ChevronLeft)
                         .variant(ButtonVariant::Ghost)
                         .size(ButtonSize::IconSm)
-                        .enabled(paging.has_previous && self.table_mutation.staged_changes.is_empty())
+                        .enabled(paging.has_previous && self.table.mutation.staged_changes.is_empty())
                         .tooltip("Previous page")
                         .show(ui)
                         .clicked()
-                        && self.table_mutation.staged_changes.is_empty()
+                        && self.table.mutation.staged_changes.is_empty()
                     {
-                        self.table_state.table_data_offset = self
-                            .table_state
+                        self.table.state.table_data_offset = self
+                            .table
+                            .state
                             .table_data_offset
-                            .saturating_sub(self.table_state.table_data_limit);
+                            .saturating_sub(self.table.state.table_data_limit);
                         self.request_table_data();
                     }
 
@@ -700,35 +707,35 @@ impl DbProApp {
                             .variant(ButtonVariant::Ghost)
                             .size(ButtonSize::Sm)
                             .enabled(
-                                self.table_state.table_data_offset > 0 && self.table_mutation.staged_changes.is_empty(),
+                                self.table.state.table_data_offset > 0 && self.table.mutation.staged_changes.is_empty(),
                             )
                             .tooltip("First page")
                             .show(ui)
                             .clicked()
-                        && self.table_state.table_data_offset > 0
-                        && self.table_mutation.staged_changes.is_empty()
+                        && self.table.state.table_data_offset > 0
+                        && self.table.mutation.staged_changes.is_empty()
                     {
-                        self.table_state.table_data_offset = 0;
+                        self.table.state.table_data_offset = 0;
                         self.request_table_data();
                     }
 
                     ui.separator();
 
-                    let prev_limit = self.table_state.table_data_limit;
-                    let limit_label = format!("{} / page", self.table_state.table_data_limit);
+                    let prev_limit = self.table.state.table_data_limit;
+                    let limit_label = format!("{} / page", self.table.state.table_data_limit);
                     egui::ComboBox::from_id_salt(("table-data-limit-select", table_name))
                         .selected_text(RichText::new(&limit_label).size(11.0).color(self.theme.text_secondary))
                         .width(90.0)
                         .show_ui(ui, |ui| {
                             for limit_opt in [50, 100, 250, 500, 1000] {
                                 ui.selectable_value(
-                                    &mut self.table_state.table_data_limit,
+                                    &mut self.table.state.table_data_limit,
                                     limit_opt,
                                     format!("{limit_opt} / page"),
                                 );
                             }
                         });
-                    if self.table_state.table_data_limit != prev_limit {
+                    if self.table.state.table_data_limit != prev_limit {
                         self.reset_table_data_page();
                     }
                 });
@@ -741,7 +748,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect with write access to execute DDL".to_owned();
             return;
         }
-        if self.table_state.ddl_execution_request.is_some() {
+        if self.table.state.ddl_execution_request.is_some() {
             return;
         }
         let Some(connection) = self.active_connection().cloned() else {
@@ -749,7 +756,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        let command = match self.table_state.execute_ddl_command(request_id, connection.id) {
+        let command = match self.table.state.execute_ddl_command(request_id, connection.id) {
             Ok(command) => command,
             Err(error) => {
                 self.feedback.runtime_message = error;
@@ -757,8 +764,8 @@ impl DbProApp {
             }
         };
         self.dispatch_command(command);
-        self.table_state.ddl_execution_request = Some(request_id);
-        self.table_state.ddl_execute_confirmation = false;
+        self.table.state.ddl_execution_request = Some(request_id);
+        self.table.state.ddl_execute_confirmation = false;
         self.feedback.runtime_message = "Executing DDL…".to_owned();
     }
 
@@ -767,7 +774,7 @@ impl DbProApp {
         grid_frame(self.theme).show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(28.0);
-                let failed = self.table_state.table_ddl_error.as_deref();
+                let failed = self.table.state.table_ddl_error.as_deref();
                 ui.label(icon_text(
                     if failed.is_some() {
                         Icon::TriangleAlert
@@ -819,7 +826,7 @@ impl DbProApp {
                 // control stays visible and says why rather than looking live and doing
                 // nothing — pressing it used to store the buffer back and stop there.
                 if writable
-                    && self.table_state.ddl_execution_request.is_none()
+                    && self.table.state.ddl_execution_request.is_none()
                     && Button::new(self.theme)
                         .icon(Icon::Play)
                         .text("Apply DDL")
@@ -838,7 +845,7 @@ impl DbProApp {
                 }
             });
             ui.add_space(8.0);
-            if let Some(error) = self.table_state.table_ddl_error.as_deref() {
+            if let Some(error) = self.table.state.table_ddl_error.as_deref() {
                 ui.label(
                     RichText::new(format!("DDL execution failed · {error}"))
                         .small()
@@ -855,7 +862,7 @@ impl DbProApp {
                         .interactive(writable),
                 );
                 if response.changed() {
-                    self.table_state.table_ddl_error = None;
+                    self.table.state.table_ddl_error = None;
                 }
             });
         });
@@ -864,7 +871,7 @@ impl DbProApp {
 
     /// Confirmation gate shown before the DDL is executed against the database.
     pub(super) fn draw_ddl_confirmation_card(&mut self, ui: &mut egui::Ui, impact: &str) {
-        let Some(ddl) = self.table_state.table_ddl.as_deref() else {
+        let Some(ddl) = self.table.state.table_ddl.as_deref() else {
             return;
         };
         let risk = if impact.contains("destructive") || impact.contains("drop") {
@@ -879,7 +886,7 @@ impl DbProApp {
                     self.submit_ddl();
                 }
                 ExecutionApprovalAction::Cancel => {
-                    self.table_state.ddl_execute_confirmation = false;
+                    self.table.state.ddl_execute_confirmation = false;
                 }
                 _ => {}
             }
@@ -893,8 +900,8 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.table_state.table_info_request = Some(request_id);
-        self.dispatch_command(self.table_state.load_info_command(
+        self.table.state.table_info_request = Some(request_id);
+        self.dispatch_command(self.table.state.load_info_command(
             request_id,
             connection_id,
             self.active_schema().to_owned(),
@@ -909,7 +916,7 @@ impl DbProApp {
 
     pub(crate) fn can_edit_table_rows(&self) -> bool {
         table_editor_context::can_edit_table_rows(
-            &self.table_state,
+            &self.table.state,
             &self.connection.catalog,
             &self.connection.lifecycle,
         )
@@ -923,7 +930,7 @@ impl DbProApp {
         cell: &UiCell,
     ) {
         if !self.can_edit_table_rows() {
-            if self.can_mutate_active_connection() && !self.table_state.has_primary_key() {
+            if self.can_mutate_active_connection() && !self.table.state.has_primary_key() {
                 self.feedback.runtime_message = "Table has no primary key; safe row editing is unavailable.".to_owned();
             } else {
                 self.feedback.runtime_message = "Connect with write access to edit rows".to_owned();
@@ -941,7 +948,7 @@ impl DbProApp {
         if let Some(block) = result
             .columns
             .get(column_index)
-            .and_then(|column| self.table_state.column_write_policy(&column.name))
+            .and_then(|column| self.table.state.column_write_policy(&column.name))
             .and_then(|policy| policy.write_block())
         {
             // Still allow the advanced inspector for binary / blocked columns (#228).
@@ -949,20 +956,22 @@ impl DbProApp {
             self.feedback.runtime_message = block.reason().to_owned();
             return;
         }
-        self.table_data.selected_cell = Some((row_index, column_index));
-        self.table_data.selected_row = Some(row_index);
-        self.table_data.selected_rows.clear();
-        self.table_data.selected_rows.insert(row_index);
-        self.table_data.selection_anchor_row = Some(row_index);
-        self.table_data.selection_anchor_cell = Some((row_index, column_index));
+        self.table.data.selected_cell = Some((row_index, column_index));
+        self.table.data.selected_row = Some(row_index);
+        self.table.data.selected_rows.clear();
+        self.table.data.selected_rows.insert(row_index);
+        self.table.data.selection_anchor_row = Some(row_index);
+        self.table.data.selection_anchor_cell = Some((row_index, column_index));
         if let Some(identity) =
-            self.table_data
-                .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
+            self.table
+                .data
+                .row_identity_for_result(result, self.table.state.table_info.as_ref(), row_index)
         {
-            self.table_mutation
+            self.table
+                .mutation
                 .clear_error_for_identity(&identity, Some(column_index));
         }
-        self.table_data.data_editing_cell = Some((row_index, column_index));
+        self.table.data.data_editing_cell = Some((row_index, column_index));
         let should_expand = result.columns.get(column_index).is_some_and(|column| {
             let data_type = column.data_type.to_ascii_lowercase();
             data_type.contains("json")
@@ -973,9 +982,9 @@ impl DbProApp {
         if should_expand {
             self.open_cell_inspector(result, row_index, column_index);
         } else {
-            self.table_data.expanded_data_editor = None;
-            self.table_data.data_edit_error = None;
-            self.table_data.data_edit_value = match cell {
+            self.table.data.expanded_data_editor = None;
+            self.table.data.data_edit_error = None;
+            self.table.data.data_edit_value = match cell {
                 UiCell::Null => "NULL".to_owned(),
                 _ => crate::cell_text(cell),
             };
@@ -989,45 +998,45 @@ impl DbProApp {
         row_index: usize,
         column_index: usize,
     ) -> bool {
-        let Some(info) = self.table_state.table_info.clone() else {
+        let Some(info) = self.table.state.table_info.clone() else {
             self.feedback.runtime_message = "Table structure is still loading".to_owned();
             return false;
         };
         let Some(column) = result.columns.get(column_index).map(|column| column.name.clone()) else {
-            self.table_data.data_editing_cell = None;
+            self.table.data.data_editing_cell = None;
             return false;
         };
         let Some(column_info) = info.columns.iter().find(|item| item.name == column) else {
             self.feedback.runtime_message = "The selected column is not present in the table metadata".to_owned();
-            self.table_data.data_editing_cell = None;
+            self.table.data.data_editing_cell = None;
             return false;
         };
         if let Some(block) = ColumnWritePolicy::read(column_info).write_block() {
             let error = block.reason().to_owned();
-            self.table_data.data_edit_error = Some(error.clone());
+            self.table.data.data_edit_error = Some(error.clone());
             self.feedback.runtime_message = format!("{}: {error}", column_info.name);
             return false;
         }
         let value =
-            match table_editor_values::parse_update_value(&self.table_data.data_edit_value, &column_info.data_type) {
+            match table_editor_values::parse_update_value(&self.table.data.data_edit_value, &column_info.data_type) {
                 Ok(value) => value,
                 Err(error) => {
                     self.feedback.runtime_message = format!("{}: {error}", column_info.name);
-                    self.table_data.data_edit_error = Some(error);
+                    self.table.data.data_edit_error = Some(error);
                     return false;
                 }
             };
         if matches!(value, UiCell::Null) && !column_info.nullable {
             let error = format!("{} is NOT NULL; enter a value instead", column_info.name);
             self.feedback.runtime_message = error.clone();
-            self.table_data.data_edit_error = Some(error);
+            self.table.data.data_edit_error = Some(error);
             return false;
         }
         let identity = match TableDataState::row_identity(result, &info, row_index) {
             Ok(identity) => identity,
             Err(error) => {
                 self.feedback.runtime_message = error;
-                self.table_data.data_edit_error = Some(self.feedback.runtime_message.clone());
+                self.table.data.data_edit_error = Some(self.feedback.runtime_message.clone());
                 return false;
             }
         };
@@ -1038,15 +1047,15 @@ impl DbProApp {
             .cloned()
             .ok_or_else(|| "The selected cell is no longer available".to_owned());
         let Ok(original) = original else {
-            self.table_data.data_editing_cell = None;
+            self.table.data.data_editing_cell = None;
             self.feedback.runtime_message = "The selected cell is no longer available".to_owned();
-            self.table_data.data_edit_error = Some(self.feedback.runtime_message.clone());
+            self.table.data.data_edit_error = Some(self.feedback.runtime_message.clone());
             return false;
         };
         if let Some(table) = self.schema_explorer.selected_table.as_deref() {
-            self.table_mutation.staged_changes.ensure_target(table);
+            self.table.mutation.staged_changes.ensure_target(table);
         }
-        self.table_mutation.staged_changes.stage_update(StagedChange::Update {
+        self.table.mutation.staged_changes.stage_update(StagedChange::Update {
             identity,
             current_row_index: Some(row_index),
             column_index,
@@ -1055,12 +1064,12 @@ impl DbProApp {
             original,
             value,
         });
-        self.table_mutation.table_mutation_error = None;
-        self.table_mutation.staged_apply_targets.clear();
-        self.table_data.data_editing_cell = None;
-        self.table_data.expanded_data_editor = None;
-        self.table_data.data_edit_error = None;
-        let counts = self.table_mutation.staged_changes.counts();
+        self.table.mutation.table_mutation_error = None;
+        self.table.mutation.staged_apply_targets.clear();
+        self.table.data.data_editing_cell = None;
+        self.table.data.expanded_data_editor = None;
+        self.table.data.data_edit_error = None;
+        let counts = self.table.mutation.staged_changes.counts();
         self.feedback.runtime_message = format!(
             "Staged edit · {} pending (+{} ~{} -{})",
             counts.total(),
@@ -1073,7 +1082,7 @@ impl DbProApp {
 
     pub(crate) fn request_delete_selected_data_rows(&mut self, result: &UiQueryResult) {
         if !self.can_edit_table_rows() {
-            if self.can_mutate_active_connection() && !self.table_state.has_primary_key() {
+            if self.can_mutate_active_connection() && !self.table.state.has_primary_key() {
                 self.feedback.runtime_message = "Table has no primary key; safe row editing is unavailable.".to_owned();
             } else {
                 self.feedback.runtime_message = "Connect with write access to delete rows".to_owned();
@@ -1084,27 +1093,27 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect with write access to delete rows".to_owned();
             return;
         }
-        let row_indexes: Vec<usize> = if self.table_data.selected_rows.is_empty() {
-            self.table_data.selected_row.into_iter().collect()
+        let row_indexes: Vec<usize> = if self.table.data.selected_rows.is_empty() {
+            self.table.data.selected_row.into_iter().collect()
         } else {
-            self.table_data.selected_rows.iter().copied().collect()
+            self.table.data.selected_rows.iter().copied().collect()
         };
         if row_indexes.is_empty() {
             self.feedback.runtime_message = "Select a row before deleting".to_owned();
             return;
         }
-        let Some(info) = self.table_state.table_info.clone() else {
+        let Some(info) = self.table.state.table_info.clone() else {
             self.feedback.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
         if let Some(table) = self.schema_explorer.selected_table.as_deref() {
-            self.table_mutation.staged_changes.ensure_target(table);
+            self.table.mutation.staged_changes.ensure_target(table);
         }
-        self.table_data.data_editing_cell = None;
-        self.table_data.expanded_data_editor = None;
-        self.table_data.data_edit_value.clear();
-        self.table_data.data_edit_error = None;
-        self.table_data.data_delete_confirmation = false;
+        self.table.data.data_editing_cell = None;
+        self.table.data.expanded_data_editor = None;
+        self.table.data.data_edit_value.clear();
+        self.table.data.data_edit_error = None;
+        self.table.data.data_delete_confirmation = false;
         for row_index in row_indexes {
             if self.staged_row_deleted(result, row_index) {
                 continue;
@@ -1116,21 +1125,22 @@ impl DbProApp {
                     return;
                 }
             };
-            self.table_mutation.staged_changes.stage_delete(StagedChange::Delete {
+            self.table.mutation.staged_changes.stage_delete(StagedChange::Delete {
                 identity,
                 current_row_index: Some(row_index),
             });
         }
-        self.table_mutation.table_mutation_error = None;
-        self.table_mutation.staged_apply_targets.clear();
+        self.table.mutation.table_mutation_error = None;
+        self.table.mutation.staged_apply_targets.clear();
         self.feedback.runtime_message = format!(
             "{} row(s) marked for deletion · {} staged change(s)",
-            self.table_mutation
+            self.table
+                .mutation
                 .staged_changes
                 .iter()
                 .filter(|change| matches!(change, StagedChange::Delete { .. }))
                 .count(),
-            self.table_mutation.staged_changes.counts().total()
+            self.table.mutation.staged_changes.counts().total()
         );
     }
 
@@ -1141,9 +1151,9 @@ impl DbProApp {
         column_index: usize,
     ) -> Option<UiCell> {
         table_editor_context::staged_cell_value(
-            &self.table_data,
-            &self.table_state,
-            &self.table_mutation,
+            &self.table.data,
+            &self.table.state,
+            &self.table.mutation,
             result,
             row_index,
             column_index,
@@ -1152,9 +1162,9 @@ impl DbProApp {
 
     pub(crate) fn staged_row_deleted(&self, result: &UiQueryResult, row_index: usize) -> bool {
         table_editor_context::staged_row_deleted(
-            &self.table_data,
-            &self.table_state,
-            &self.table_mutation,
+            &self.table.data,
+            &self.table.state,
+            &self.table.mutation,
             result,
             row_index,
         )
@@ -1177,16 +1187,17 @@ impl DbProApp {
 
     fn table_mutation_context(&mut self) -> table_editor_context::TableMutationContext<'_> {
         table_editor_context::TableMutationContext::new(
-            &mut self.table_state,
-            &mut self.table_data,
-            &mut self.table_mutation,
+            &mut self.table.state,
+            &mut self.table.data,
+            &mut self.table.mutation,
             &mut self.feedback,
         )
     }
 
     pub(crate) fn discard_failed_mutation(&mut self, reload: bool) {
         let Some(target) = self
-            .table_mutation
+            .table
+            .mutation
             .table_mutation_error
             .as_ref()
             .and_then(|failure| failure.target.clone())
@@ -1196,28 +1207,29 @@ impl DbProApp {
         match target {
             MutationTarget::Update { identity, columns, .. } => {
                 for column_index in columns {
-                    self.table_mutation.staged_changes.revert_cell(&identity, column_index);
+                    self.table.mutation.staged_changes.revert_cell(&identity, column_index);
                 }
             }
             MutationTarget::Delete { identity, .. } => {
-                self.table_mutation.staged_changes.revert_row(&identity);
+                self.table.mutation.staged_changes.revert_row(&identity);
             }
             MutationTarget::Insert => {}
         }
-        self.table_mutation.table_mutation_error = None;
-        self.table_mutation.table_mutation_retry_after_reload = false;
-        self.table_mutation.table_mutation_retry_target = None;
+        self.table.mutation.table_mutation_error = None;
+        self.table.mutation.table_mutation_retry_after_reload = false;
+        self.table.mutation.table_mutation_retry_target = None;
         if reload {
-            self.table_state.table_data_result = None;
-            self.table_state.table_data_total_rows = None;
-            self.table_state.table_data_error = None;
+            self.table.state.table_data_result = None;
+            self.table.state.table_data_total_rows = None;
+            self.table.state.table_data_error = None;
             self.request_table_data();
         }
     }
 
     fn reload_failed_mutation(&mut self) {
         let target = self
-            .table_mutation
+            .table
+            .mutation
             .table_mutation_error
             .as_ref()
             .and_then(|failure| failure.target.clone());
@@ -1225,16 +1237,17 @@ impl DbProApp {
             self.request_table_row_reload(identity);
             return;
         }
-        self.table_mutation.table_mutation_error = None;
-        self.table_state.table_data_result = None;
-        self.table_state.table_data_total_rows = None;
-        self.table_state.table_data_error = None;
+        self.table.mutation.table_mutation_error = None;
+        self.table.state.table_data_result = None;
+        self.table.state.table_data_total_rows = None;
+        self.table.state.table_data_error = None;
         self.request_table_data();
     }
 
     pub(crate) fn retry_failed_mutation_after_reload(&mut self) {
         let Some(target) = self
-            .table_mutation
+            .table
+            .mutation
             .table_mutation_error
             .as_ref()
             .and_then(|failure| failure.target.clone())
@@ -1242,8 +1255,8 @@ impl DbProApp {
             self.feedback.runtime_message = "This failure has no retryable mutation target".to_owned();
             return;
         };
-        self.table_mutation.table_mutation_retry_target = Some(target);
-        self.table_mutation.table_mutation_retry_after_reload = true;
+        self.table.mutation.table_mutation_retry_target = Some(target);
+        self.table.mutation.table_mutation_retry_after_reload = true;
         self.reload_failed_mutation();
     }
 
@@ -1255,7 +1268,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect to a database before reloading the row".to_owned();
             return;
         };
-        let Some(info) = self.table_state.table_info.as_ref() else {
+        let Some(info) = self.table.state.table_info.as_ref() else {
             self.feedback.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
@@ -1267,9 +1280,9 @@ impl DbProApp {
             }
         };
         let request_id = self.task_bridge.next_request_id();
-        self.table_state.table_row_reload_request = Some(request_id);
-        self.table_state.table_row_reload_identity = Some(identity);
-        self.dispatch_command(self.table_state.load_row_command(
+        self.table.state.table_row_reload_request = Some(request_id);
+        self.table.state.table_row_reload_identity = Some(identity);
+        self.dispatch_command(self.table.state.load_row_command(
             request_id,
             connection_id,
             self.active_schema().to_owned(),
@@ -1280,13 +1293,13 @@ impl DbProApp {
     }
 
     pub(crate) fn apply_staged_changes(&mut self) {
-        if self.table_mutation.staged_apply_request.is_some() {
+        if self.table.mutation.staged_apply_request.is_some() {
             return;
         }
-        if self.table_mutation.staged_changes.is_empty() {
+        if self.table.mutation.staged_changes.is_empty() {
             return;
         }
-        if self.table_data.data_edit_error.is_some() {
+        if self.table.data.data_edit_error.is_some() {
             self.feedback.runtime_message = "Fix the validation error before applying changes".to_owned();
             return;
         }
@@ -1298,15 +1311,15 @@ impl DbProApp {
             self.feedback.runtime_message = "Select a table before applying changes".to_owned();
             return;
         };
-        if let Some(target) = self.table_mutation.staged_changes.target_table() {
+        if let Some(target) = self.table.mutation.staged_changes.target_table() {
             if target != table {
                 self.feedback.runtime_message = format!("Staged changes belong to table `{target}`, not `{table}`");
                 return;
             }
         }
-        let plan = self.table_mutation.build_apply_plan();
+        let plan = self.table.mutation.build_apply_plan();
         if plan.changes.is_empty() {
-            self.table_mutation.table_mutation_retry_after_reload = false;
+            self.table.mutation.table_mutation_retry_after_reload = false;
             self.feedback.runtime_message = "The related staged change is no longer available".to_owned();
             return;
         }
@@ -1319,11 +1332,11 @@ impl DbProApp {
             changes: plan.changes,
         };
         if self.dispatch_command(command) {
-            self.table_mutation.staged_apply_request = Some(request_id);
-            self.table_mutation.table_mutation_request = Some(request_id);
-            self.table_mutation.staged_apply_targets = plan.targets;
-            self.table_mutation.table_mutation_error = None;
-            let counts = self.table_mutation.staged_changes.counts();
+            self.table.mutation.staged_apply_request = Some(request_id);
+            self.table.mutation.table_mutation_request = Some(request_id);
+            self.table.mutation.staged_apply_targets = plan.targets;
+            self.table.mutation.table_mutation_error = None;
+            let counts = self.table.mutation.staged_changes.counts();
             self.feedback.runtime_message = format!(
                 "Applying {} changes in one transaction (+{} ~{} -{})…",
                 counts.total(),
@@ -1337,13 +1350,13 @@ impl DbProApp {
     }
 
     pub(crate) fn staged_apply_completed(&mut self) {
-        self.table_mutation.staged_apply_request = None;
-        self.table_mutation.table_mutation_request = None;
-        self.table_mutation.table_mutation_retry_after_reload = false;
-        self.table_mutation.table_mutation_retry_target = None;
-        self.table_mutation.staged_changes.clear();
-        self.table_mutation.staged_apply_targets.clear();
-        self.table_mutation.table_mutation_error = None;
+        self.table.mutation.staged_apply_request = None;
+        self.table.mutation.table_mutation_request = None;
+        self.table.mutation.table_mutation_retry_after_reload = false;
+        self.table.mutation.table_mutation_retry_target = None;
+        self.table.mutation.staged_changes.clear();
+        self.table.mutation.staged_apply_targets.clear();
+        self.table.mutation.table_mutation_error = None;
         self.feedback.runtime_message = "All staged changes applied".to_owned();
         self.feedback
             .show_success_toast("All staged changes applied successfully");
@@ -1351,19 +1364,19 @@ impl DbProApp {
             self.execute_pending_navigation(action);
             return;
         }
-        self.table_state.table_data_result = None;
-        self.table_state.table_data_total_rows = None;
-        self.table_state.table_data_error = None;
+        self.table.state.table_data_result = None;
+        self.table.state.table_data_total_rows = None;
+        self.table.state.table_data_error = None;
         self.request_table_data();
     }
 
     pub(crate) fn staged_apply_failed(&mut self, statement_index: usize, code: &str, message: &str, rolled_back: bool) {
         self.workspace.pending_navigation_action = None;
-        self.table_mutation.staged_apply_request = None;
-        self.table_mutation.table_mutation_request = None;
-        self.table_mutation.table_mutation_retry_after_reload = false;
-        self.table_mutation.table_mutation_retry_target = None;
-        let target = self.table_mutation.staged_apply_targets.get(statement_index).cloned();
+        self.table.mutation.staged_apply_request = None;
+        self.table.mutation.table_mutation_request = None;
+        self.table.mutation.table_mutation_retry_after_reload = false;
+        self.table.mutation.table_mutation_retry_target = None;
+        let target = self.table.mutation.staged_apply_targets.get(statement_index).cloned();
         let has_target = target.is_some();
         if let Some(target) = target.as_ref() {
             match target {
@@ -1373,13 +1386,13 @@ impl DbProApp {
                     columns,
                 } => {
                     let row_index = self.current_row_index_for_identity(identity, *current_row_index);
-                    self.table_data.selected_row = row_index;
-                    self.table_data.selected_rows.clear();
+                    self.table.data.selected_row = row_index;
+                    self.table.data.selected_rows.clear();
                     if let Some(row_index) = row_index {
-                        self.table_data.selected_rows.insert(row_index);
+                        self.table.data.selected_rows.insert(row_index);
                         if let Some(column_index) = columns.first().copied() {
-                            self.table_data.selected_cell = Some((row_index, column_index));
-                            self.table_data.selection_anchor_cell = Some((row_index, column_index));
+                            self.table.data.selected_cell = Some((row_index, column_index));
+                            self.table.data.selection_anchor_cell = Some((row_index, column_index));
                         }
                     }
                 }
@@ -1388,13 +1401,13 @@ impl DbProApp {
                     current_row_index,
                 } => {
                     let row_index = self.current_row_index_for_identity(identity, *current_row_index);
-                    self.table_data.selected_row = row_index;
-                    self.table_data.selected_rows.clear();
+                    self.table.data.selected_row = row_index;
+                    self.table.data.selected_rows.clear();
                     if let Some(row_index) = row_index {
-                        self.table_data.selected_rows.insert(row_index);
+                        self.table.data.selected_rows.insert(row_index);
                     }
-                    self.table_data.selected_cell = None;
-                    self.table_data.selection_anchor_cell = None;
+                    self.table.data.selected_cell = None;
+                    self.table.data.selection_anchor_cell = None;
                 }
                 MutationTarget::Insert => {}
             }
@@ -1418,9 +1431,9 @@ impl DbProApp {
             message: display_message.clone(),
             rolled_back,
         };
-        self.table_mutation.table_mutation_error = Some(mutation_failure);
+        self.table.mutation.table_mutation_error = Some(mutation_failure);
         if normalized_code == "CONFLICT" {
-            self.table_mutation.conflict_dialog_open = true;
+            self.table.mutation.conflict_dialog_open = true;
             if let Some(MutationTarget::Update { identity, .. } | MutationTarget::Delete { identity, .. }) =
                 target.as_ref()
             {
@@ -1449,14 +1462,16 @@ impl DbProApp {
         identity: &RowIdentity,
         fallback: Option<usize>,
     ) -> Option<usize> {
-        self.table_state
+        self.table
+            .state
             .table_data_result
             .as_ref()
             .and_then(|result| {
                 result.rows.iter().enumerate().find_map(|(row_index, _)| {
                     (self
-                        .table_data
-                        .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
+                        .table
+                        .data
+                        .row_identity_for_result(result, self.table.state.table_info.as_ref(), row_index)
                         .as_ref()
                         == Some(identity))
                     .then_some(row_index)
@@ -1473,8 +1488,8 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.table_state.table_ddl_request = Some(request_id);
-        self.dispatch_command(self.table_state.load_ddl_command(
+        self.table.state.table_ddl_request = Some(request_id);
+        self.dispatch_command(self.table.state.load_ddl_command(
             request_id,
             connection_id,
             self.active_schema().to_owned(),
@@ -1497,44 +1512,45 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.table_state.table_data_request = Some(request_id);
-        self.dispatch_command(self.table_state.load_data_command(
+        self.table.state.table_data_request = Some(request_id);
+        self.dispatch_command(self.table.state.load_data_command(
             request_id,
             connection_id,
             self.active_schema().to_owned(),
             table,
-            self.table_state.table_data_filters.clone(),
-            self.table_state.table_data_sorts.clone(),
+            self.table.state.table_data_filters.clone(),
+            self.table.state.table_data_sorts.clone(),
         ));
         self.feedback.runtime_message = "Loading table data…".to_owned();
     }
 
     pub(crate) fn commit_table_filter_draft(&mut self) {
-        if !self.table_mutation.staged_changes.is_empty() {
+        if !self.table.mutation.staged_changes.is_empty() {
             self.feedback.runtime_message = "Apply or discard staged changes before changing filters".to_owned();
             return;
         }
-        let column = self.table_state.table_data_filter_column.trim();
+        let column = self.table.state.table_data_filter_column.trim();
         if column.is_empty() {
             return;
         }
         let is_null_operator = matches!(
-            self.table_state.table_data_filter_operator,
+            self.table.state.table_data_filter_operator,
             UiTableFilterOperator::IsNull | UiTableFilterOperator::IsNotNull
         );
         let data_type = self
-            .table_state
+            .table
+            .state
             .table_info
             .as_ref()
             .and_then(|info| info.columns.iter().find(|item| item.name == column))
             .map(|item| item.data_type.clone())
             .unwrap_or_else(|| "text".to_owned());
-        if !Self::filter_operator_supported(&data_type, &self.table_state.table_data_filter_operator) {
+        if !Self::filter_operator_supported(&data_type, &self.table.state.table_data_filter_operator) {
             self.feedback.runtime_message = format!("That filter operator is not supported for {data_type}");
             return;
         }
         if !is_null_operator
-            && self.table_state.table_data_filter_value.is_empty()
+            && self.table.state.table_data_filter_value.is_empty()
             && !table_editor_values::is_text_type(&data_type.to_ascii_lowercase())
         {
             self.feedback.runtime_message = "Enter a filter value first".to_owned();
@@ -1542,7 +1558,7 @@ impl DbProApp {
         }
         if !is_null_operator {
             if let Err(error) =
-                table_editor_values::parse_update_value(&self.table_state.table_data_filter_value, &data_type)
+                table_editor_values::parse_update_value(&self.table.state.table_data_filter_value, &data_type)
             {
                 self.feedback.runtime_message = format!("Invalid filter for {column}: {error}");
                 return;
@@ -1551,56 +1567,56 @@ impl DbProApp {
         let filter = UiTableDataFilter {
             column: column.to_owned(),
             data_type,
-            operator: self.table_state.table_data_filter_operator.clone(),
+            operator: self.table.state.table_data_filter_operator.clone(),
             value: if is_null_operator {
                 String::new()
             } else {
-                self.table_state.table_data_filter_value.clone()
+                self.table.state.table_data_filter_value.clone()
             },
         };
-        if let Some(index) = self.table_state.table_data_filter_editing.take() {
-            if let Some(existing) = self.table_state.table_data_filters.get_mut(index) {
+        if let Some(index) = self.table.state.table_data_filter_editing.take() {
+            if let Some(existing) = self.table.state.table_data_filters.get_mut(index) {
                 *existing = filter;
             } else {
-                self.table_state.table_data_filters.push(filter);
+                self.table.state.table_data_filters.push(filter);
             }
         } else {
-            self.table_state.table_data_filters.push(filter);
+            self.table.state.table_data_filters.push(filter);
         }
-        self.table_state.table_data_offset = 0;
+        self.table.state.table_data_offset = 0;
         self.request_table_data();
     }
 
     pub(crate) fn remove_table_filter(&mut self, index: usize) {
-        if !self.table_mutation.staged_changes.is_empty() {
+        if !self.table.mutation.staged_changes.is_empty() {
             self.feedback.runtime_message = "Apply or discard staged changes before changing filters".to_owned();
             return;
         }
-        if index < self.table_state.table_data_filters.len() {
-            self.table_state.table_data_filters.remove(index);
-            self.table_state.table_data_filter_editing = match self.table_state.table_data_filter_editing {
+        if index < self.table.state.table_data_filters.len() {
+            self.table.state.table_data_filters.remove(index);
+            self.table.state.table_data_filter_editing = match self.table.state.table_data_filter_editing {
                 Some(editing) if editing == index => None,
                 Some(editing) if editing > index => Some(editing - 1),
                 other => other,
             };
-            self.table_state.table_data_offset = 0;
+            self.table.state.table_data_offset = 0;
             self.request_table_data();
         }
     }
 
     pub(crate) fn clear_table_filters(&mut self) {
-        if !self.table_mutation.staged_changes.is_empty() {
+        if !self.table.mutation.staged_changes.is_empty() {
             self.feedback.runtime_message = "Apply or discard staged changes before changing filters".to_owned();
             return;
         }
-        self.table_state.table_data_filters.clear();
-        self.table_state.table_data_filter_editing = None;
-        self.table_state.table_data_offset = 0;
+        self.table.state.table_data_filters.clear();
+        self.table.state.table_data_filter_editing = None;
+        self.table.state.table_data_offset = 0;
         self.request_table_data();
     }
 
     pub(crate) fn reset_table_data_page(&mut self) {
-        self.table_state.table_data_offset = 0;
+        self.table.state.table_data_offset = 0;
         self.request_table_data();
     }
 
@@ -1655,14 +1671,14 @@ impl DbProApp {
     }
 
     pub(crate) fn reload_table_data_from_start(&mut self) {
-        if !self.table_mutation.staged_changes.is_empty() {
+        if !self.table.mutation.staged_changes.is_empty() {
             self.feedback.runtime_message = "Apply or discard staged changes before reloading".to_owned();
             return;
         }
-        self.table_state.table_data_offset = 0;
-        self.table_state.table_data_result = None;
-        self.table_state.table_data_total_rows = None;
-        self.table_state.table_data_error = None;
+        self.table.state.table_data_offset = 0;
+        self.table.state.table_data_result = None;
+        self.table.state.table_data_total_rows = None;
+        self.table.state.table_data_error = None;
         self.request_table_data();
     }
 }
@@ -1754,42 +1770,45 @@ mod tests {
     #[test]
     fn filter_draft_supports_multiple_and_editable_same_column_filters() {
         let mut app = DbProApp {
-            table_state: TableState {
-                table_info: Some(UiTableInfo {
-                    schema: "public".to_owned(),
-                    name: "orders".to_owned(),
-                    row_count: None,
-                    columns: vec![crate::UiTableColumn {
-                        name: "amount".to_owned(),
-                        data_type: "numeric(12,2)".to_owned(),
-                        nullable: false,
-                        default: None,
-                        is_primary_key: false,
-                        ..Default::default()
-                    }],
-                    primary_key: None,
-                    indexes: Vec::new(),
-                    foreign_keys: Vec::new(),
-                    check_constraints: Vec::new(),
-                    dependencies: Vec::new(),
-                }),
-                table_data_filter_column: "amount".to_owned(),
-                table_data_filter_operator: UiTableFilterOperator::GreaterThan,
-                table_data_filter_value: "10.00".to_owned(),
+            table: TableEditorState {
+                state: TableState {
+                    table_info: Some(UiTableInfo {
+                        schema: "public".to_owned(),
+                        name: "orders".to_owned(),
+                        row_count: None,
+                        columns: vec![crate::UiTableColumn {
+                            name: "amount".to_owned(),
+                            data_type: "numeric(12,2)".to_owned(),
+                            nullable: false,
+                            default: None,
+                            is_primary_key: false,
+                            ..Default::default()
+                        }],
+                        primary_key: None,
+                        indexes: Vec::new(),
+                        foreign_keys: Vec::new(),
+                        check_constraints: Vec::new(),
+                        dependencies: Vec::new(),
+                    }),
+                    table_data_filter_column: "amount".to_owned(),
+                    table_data_filter_operator: UiTableFilterOperator::GreaterThan,
+                    table_data_filter_value: "10.00".to_owned(),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             ..Default::default()
         };
         app.commit_table_filter_draft();
-        app.table_state.table_data_filter_operator = UiTableFilterOperator::LessThan;
-        app.table_state.table_data_filter_value = "20.00".to_owned();
+        app.table.state.table_data_filter_operator = UiTableFilterOperator::LessThan;
+        app.table.state.table_data_filter_value = "20.00".to_owned();
         app.commit_table_filter_draft();
 
-        assert_eq!(app.table_state.table_data_filters.len(), 2);
-        app.table_state.table_data_filter_editing = Some(0);
-        app.table_state.table_data_filter_value = "11.00".to_owned();
+        assert_eq!(app.table.state.table_data_filters.len(), 2);
+        app.table.state.table_data_filter_editing = Some(0);
+        app.table.state.table_data_filter_value = "11.00".to_owned();
         app.commit_table_filter_draft();
-        assert_eq!(app.table_state.table_data_filters[0].value, "11.00");
-        assert_eq!(app.table_state.table_data_filters.len(), 2);
+        assert_eq!(app.table.state.table_data_filters[0].value, "11.00");
+        assert_eq!(app.table.state.table_data_filters.len(), 2);
     }
 }

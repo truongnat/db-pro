@@ -3,7 +3,7 @@ use super::*;
 
 impl DbProApp {
     pub(super) fn copy_selected_cell(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let Some((row_index, column_index)) = self.table_data.selected_cell else {
+        let Some((row_index, column_index)) = self.table.data.selected_cell else {
             self.feedback.copy_status = "Select a cell first".to_owned();
             return;
         };
@@ -39,7 +39,7 @@ impl DbProApp {
     }
 
     pub(super) fn copy_selected_row(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let Some(row_index) = self.table_data.selected_row else {
+        let Some(row_index) = self.table.data.selected_row else {
             self.feedback.copy_status = "Select a row first".to_owned();
             return;
         };
@@ -53,7 +53,7 @@ impl DbProApp {
     }
 
     pub(super) fn copy_selected_rows(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let row_indexes = self.table_data.selected_row_indexes();
+        let row_indexes = self.table.data.selected_row_indexes();
         if row_indexes.is_empty() {
             self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;
@@ -69,7 +69,7 @@ impl DbProApp {
     }
 
     pub(super) fn copy_selected_rows_with_headers(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let row_indexes = self.table_data.selected_row_indexes();
+        let row_indexes = self.table.data.selected_row_indexes();
         if row_indexes.is_empty() {
             self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;
@@ -93,19 +93,19 @@ impl DbProApp {
     }
 
     pub(super) fn copy_selected_rows_as_json(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let indexes = self.table_data.selected_row_indexes();
+        let indexes = self.table.data.selected_row_indexes();
         self.copy_all_as_json(ui, result, &indexes);
     }
 
     pub(super) fn copy_selected_rows_as_insert(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        let indexes = self.table_data.selected_row_indexes();
+        let indexes = self.table.data.selected_row_indexes();
         if indexes.is_empty() {
             self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;
         }
         let table = self.schema_explorer.selected_table.as_deref().unwrap_or("table_name");
         let target =
-            if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
+            if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
                 format!(
                     "{}.{}",
                     Self::quote_sql_identifier(self.active_schema()),
@@ -419,7 +419,7 @@ impl DbProApp {
         column_index: usize,
     ) -> Option<crate::UiCell> {
         let cell = result.rows.get(row_index).and_then(|row| row.get(column_index))?;
-        if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
+        if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
             Some(
                 self.staged_cell_value(result, row_index, column_index)
                     .unwrap_or_else(|| cell.clone()),

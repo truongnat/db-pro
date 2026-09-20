@@ -383,10 +383,10 @@ impl DbProApp {
         {
             return;
         }
-        if !self.table_mutation.staged_changes.is_empty() {
+        if !self.table.mutation.staged_changes.is_empty() {
             self.workspace.pending_navigation_action =
                 Some(PendingNavigationAction::ChangeConnection(connection.id.clone()));
-            self.table_data.discard_changes_confirmation = true;
+            self.table.data.discard_changes_confirmation = true;
             self.feedback.runtime_message = "Apply or discard staged changes before changing connection".to_owned();
             return;
         }

@@ -8,9 +8,9 @@ impl DbProApp {
             self.schema_explorer.record_recent_table(&table);
             return;
         }
-        if !self.table_mutation.staged_changes.is_empty() {
+        if !self.table.mutation.staged_changes.is_empty() {
             self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable(table));
-            self.table_data.discard_changes_confirmation = true;
+            self.table.data.discard_changes_confirmation = true;
             self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
@@ -20,7 +20,7 @@ impl DbProApp {
             self.active_schema(),
             self.schema_explorer.selected_table.as_deref(),
         );
-        self.table_data.persist_layout(scope);
+        self.table.data.persist_layout(scope);
         self.schema_explorer.record_recent_table(&table);
         self.schema_explorer.selected_table = Some(table);
         let scope = TableDataState::layout_scope(
@@ -28,7 +28,7 @@ impl DbProApp {
             self.active_schema(),
             self.schema_explorer.selected_table.as_deref(),
         );
-        self.table_data.restore_layout(scope);
+        self.table.data.restore_layout(scope);
         self.request_table_info();
         self.request_table_data();
         self.workspace.active_tab = WorkspaceTab::Table;
@@ -255,47 +255,47 @@ impl DbProApp {
     pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
         match tab {
             WorkspaceTab::Table => {
-                if !self.table_mutation.staged_changes.is_empty() {
+                if !self.table.mutation.staged_changes.is_empty() {
                     self.workspace.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
-                    self.table_data.discard_changes_confirmation = true;
+                    self.table.data.discard_changes_confirmation = true;
                     self.feedback.runtime_message =
                         "Apply or discard staged changes before closing the table".to_owned();
                     return;
                 }
                 self.workspace.pending_navigation_action = None;
                 self.schema_explorer.selected_table = None;
-                self.table_state.table_info = None;
-                self.table_state.table_ddl = None;
-                self.table_state.table_info_error = None;
-                self.table_state.table_ddl_error = None;
-                self.table_state.table_data_result = None;
-                self.table_state.table_data_total_rows = None;
-                self.table_state.table_data_request = None;
-                self.table_state.table_info_request = None;
-                self.table_state.table_ddl_request = None;
-                self.table_mutation.table_mutation_request = None;
-                self.table_mutation.staged_changes.clear();
-                self.table_mutation.staged_apply_request = None;
-                self.table_mutation.staged_apply_targets.clear();
-                self.table_mutation.table_mutation_retry_after_reload = false;
-                self.table_mutation.table_mutation_retry_target = None;
-                self.table_mutation.table_mutation_error = None;
-                self.table_data.selected_cell = None;
-                self.table_data.selected_row = None;
-                self.table_data.selected_rows.clear();
-                self.table_data.selection_anchor_row = None;
-                self.table_data.selection_anchor_cell = None;
-                self.table_data.data_editing_cell = None;
-                self.table_data.data_edit_error = None;
-                self.table_data.data_delete_confirmation = false;
-                self.table_data.discard_changes_confirmation = false;
+                self.table.state.table_info = None;
+                self.table.state.table_ddl = None;
+                self.table.state.table_info_error = None;
+                self.table.state.table_ddl_error = None;
+                self.table.state.table_data_result = None;
+                self.table.state.table_data_total_rows = None;
+                self.table.state.table_data_request = None;
+                self.table.state.table_info_request = None;
+                self.table.state.table_ddl_request = None;
+                self.table.mutation.table_mutation_request = None;
+                self.table.mutation.staged_changes.clear();
+                self.table.mutation.staged_apply_request = None;
+                self.table.mutation.staged_apply_targets.clear();
+                self.table.mutation.table_mutation_retry_after_reload = false;
+                self.table.mutation.table_mutation_retry_target = None;
+                self.table.mutation.table_mutation_error = None;
+                self.table.data.selected_cell = None;
+                self.table.data.selected_row = None;
+                self.table.data.selected_rows.clear();
+                self.table.data.selection_anchor_row = None;
+                self.table.data.selection_anchor_cell = None;
+                self.table.data.data_editing_cell = None;
+                self.table.data.data_edit_error = None;
+                self.table.data.data_delete_confirmation = false;
+                self.table.data.discard_changes_confirmation = false;
             }
             WorkspaceTab::SchemaObject => {
                 self.schema_explorer.selected_schema_object = None;
                 self.schema_explorer.schema_object_view = SchemaObjectView::Definition;
-                self.table_state.table_data_result = None;
-                self.table_state.table_data_total_rows = None;
-                self.table_state.table_data_request = None;
+                self.table.state.table_data_result = None;
+                self.table.state.table_data_total_rows = None;
+                self.table.state.table_data_request = None;
             }
             WorkspaceTab::Diagram => {
                 self.diagram.search.clear();

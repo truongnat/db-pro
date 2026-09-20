@@ -515,6 +515,21 @@ implementation block.
 
 Severity: P2 composition-root maintainability, resolved.
 
+## F22 — Table editor state was fragmented across the composition root
+
+Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and
+`table_mutation` as separate root fields. Table metadata, grid interaction and
+staged database mutations are one feature lifecycle, but views and reducers
+could reach each fragment independently through the shell.
+
+Fix in the current refactor: introduced `TableEditorState` with explicit
+`state`, `data` and `mutation` children. All table consumers now cross the
+single `DbProApp.table` feature boundary, while reducer/context APIs continue
+to receive the smallest state references they need.
+
+Severity: P1 feature-boundary risk and P2 composition-root maintainability,
+resolved for table-editor state ownership.
+
 ## F21 — Native lifecycle adapter mixed persistence and frame rendering
 
 Evidence at discovery: the `eframe::App` implementation combined storage

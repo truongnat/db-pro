@@ -69,41 +69,44 @@ mod row_reload_tests {
 
     fn row_reload_app() -> DbProApp {
         DbProApp {
-            table_state: TableState {
-                table_info: Some(UiTableInfo {
-                    schema: "public".to_owned(),
-                    name: "customers".to_owned(),
-                    row_count: Some(1),
-                    columns: vec![
-                        UiTableColumn {
-                            name: "id".to_owned(),
-                            data_type: "integer".to_owned(),
-                            nullable: false,
-                            default: None,
-                            is_primary_key: true,
-                            ..Default::default()
-                        },
-                        UiTableColumn {
-                            name: "name".to_owned(),
-                            data_type: "text".to_owned(),
-                            nullable: false,
-                            default: None,
-                            is_primary_key: false,
-                            ..Default::default()
-                        },
-                    ],
-                    primary_key: Some(vec!["id".to_owned()]),
-                    indexes: Vec::new(),
-                    foreign_keys: Vec::new(),
-                    check_constraints: Vec::new(),
-                    dependencies: Vec::new(),
-                }),
-                table_data_result: Some(row_result("local server value")),
-                table_row_reload_request: Some(RequestId(9)),
-                table_row_reload_identity: Some(RowIdentity {
-                    original_pk_columns: vec!["id".to_owned()],
-                    original_pk_values: vec![UiCell::Number("7".to_owned())],
-                }),
+            table: TableEditorState {
+                state: TableState {
+                    table_info: Some(UiTableInfo {
+                        schema: "public".to_owned(),
+                        name: "customers".to_owned(),
+                        row_count: Some(1),
+                        columns: vec![
+                            UiTableColumn {
+                                name: "id".to_owned(),
+                                data_type: "integer".to_owned(),
+                                nullable: false,
+                                default: None,
+                                is_primary_key: true,
+                                ..Default::default()
+                            },
+                            UiTableColumn {
+                                name: "name".to_owned(),
+                                data_type: "text".to_owned(),
+                                nullable: false,
+                                default: None,
+                                is_primary_key: false,
+                                ..Default::default()
+                            },
+                        ],
+                        primary_key: Some(vec!["id".to_owned()]),
+                        indexes: Vec::new(),
+                        foreign_keys: Vec::new(),
+                        check_constraints: Vec::new(),
+                        dependencies: Vec::new(),
+                    }),
+                    table_data_result: Some(row_result("local server value")),
+                    table_row_reload_request: Some(RequestId(9)),
+                    table_row_reload_identity: Some(RowIdentity {
+                        original_pk_columns: vec!["id".to_owned()],
+                        original_pk_values: vec![UiCell::Number("7".to_owned())],
+                    }),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             ..Default::default()
@@ -116,11 +119,12 @@ mod row_reload_tests {
         app.on_table_data_loaded(RequestId(9), row_result("fresh server value"), 1);
 
         let result = app
-            .table_state
+            .table
+            .state
             .table_data_result
             .expect("table result should remain visible");
         assert_eq!(result.rows[0][1], UiCell::Text("fresh server value".to_owned()));
-        assert!(app.table_state.table_row_reload_request.is_none());
+        assert!(app.table.state.table_row_reload_request.is_none());
     }
 
     #[test]
@@ -135,7 +139,7 @@ mod row_reload_tests {
         app.on_table_data_loaded(RequestId(9), empty, 0);
 
         assert_eq!(app.feedback.runtime_message, "Row was deleted");
-        assert!(app.table_state.table_data_result.is_some());
+        assert!(app.table.state.table_data_result.is_some());
     }
 
     #[test]

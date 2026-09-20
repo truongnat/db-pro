@@ -11,16 +11,16 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect with write access to insert rows".to_owned();
             return;
         }
-        let Some(info) = self.table_state.table_info.clone() else {
+        let Some(info) = self.table.state.table_info.clone() else {
             self.feedback.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
         let Some(row) = result.rows.get(row_index) else {
             return;
         };
-        self.table_data.insert_row_values = table_editor_values::duplicate_row_values(&info, row);
-        self.table_data.insert_row_error.clear();
-        self.table_data.insert_row_open = true;
+        self.table.data.insert_row_values = table_editor_values::duplicate_row_values(&info, row);
+        self.table.data.insert_row_error.clear();
+        self.table.data.insert_row_open = true;
     }
 
     pub(crate) fn open_insert_row(&mut self) {
@@ -28,48 +28,48 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect with write access to insert rows".to_owned();
             return;
         }
-        let Some(info) = self.table_state.table_info.clone() else {
+        let Some(info) = self.table.state.table_info.clone() else {
             self.feedback.runtime_message = "Table structure is still loading".to_owned();
             return;
         };
-        self.table_data.insert_row_values = vec![String::new(); info.columns.len()];
-        self.table_data.insert_row_error.clear();
-        self.table_data.insert_row_open = true;
+        self.table.data.insert_row_values = vec![String::new(); info.columns.len()];
+        self.table.data.insert_row_error.clear();
+        self.table.data.insert_row_open = true;
     }
 
     pub(crate) fn submit_insert_row(&mut self) {
         let Some(table) = self.schema_explorer.selected_table.clone() else {
-            self.table_data.insert_row_error = "Select a table before inserting a row".to_owned();
+            self.table.data.insert_row_error = "Select a table before inserting a row".to_owned();
             return;
         };
-        let Some(info) = self.table_state.table_info.clone() else {
-            self.table_data.insert_row_error = "Table structure is still loading".to_owned();
+        let Some(info) = self.table.state.table_info.clone() else {
+            self.table.data.insert_row_error = "Table structure is still loading".to_owned();
             return;
         };
         let (columns, values) =
-            match table_editor_values::parse_insert_row_values(&info, &self.table_data.insert_row_values) {
+            match table_editor_values::parse_insert_row_values(&info, &self.table.data.insert_row_values) {
                 Ok(parsed) => parsed,
                 Err(error) => {
-                    self.table_data.insert_row_error = error;
+                    self.table.data.insert_row_error = error;
                     return;
                 }
             };
-        self.table_mutation.staged_changes.ensure_target(&table);
-        self.table_mutation.staged_changes.stage_insert(columns, values);
-        self.table_data.insert_row_open = false;
-        self.table_data.insert_row_error.clear();
+        self.table.mutation.staged_changes.ensure_target(&table);
+        self.table.mutation.staged_changes.stage_insert(columns, values);
+        self.table.data.insert_row_open = false;
+        self.table.data.insert_row_error.clear();
         self.feedback.runtime_message = format!("Row staged for {}", table);
     }
 
     pub(super) fn draw_insert_row_dialog(&mut self, ctx: &egui::Context) {
-        let Some(info) = self.table_state.table_info.clone() else {
-            self.table_data.insert_row_open = false;
+        let Some(info) = self.table.state.table_info.clone() else {
+            self.table.data.insert_row_open = false;
             return;
         };
-        if self.table_data.insert_row_values.len() != info.columns.len() {
-            self.table_data.insert_row_values = vec![String::new(); info.columns.len()];
+        if self.table.data.insert_row_values.len() != info.columns.len() {
+            self.table.data.insert_row_values = vec![String::new(); info.columns.len()];
         }
-        let mut open = self.table_data.insert_row_open;
+        let mut open = self.table.data.insert_row_open;
         let mut submit = false;
         let mut cancel = false;
         let title = format!("Insert Row · {}", info.name);
@@ -98,7 +98,7 @@ impl DbProApp {
                             .on_hover_text("Clear all field inputs")
                             .clicked()
                         {
-                            for val in &mut self.table_data.insert_row_values {
+                            for val in &mut self.table.data.insert_row_values {
                                 val.clear();
                             }
                         }
@@ -115,9 +115,9 @@ impl DbProApp {
                             for (index, column) in info.columns.iter().enumerate() {
                                 if !column.nullable
                                     && column.default.is_none()
-                                    && self.table_data.insert_row_values[index].trim().is_empty()
+                                    && self.table.data.insert_row_values[index].trim().is_empty()
                                 {
-                                    self.table_data.insert_row_values[index] =
+                                    self.table.data.insert_row_values[index] =
                                         table_editor_values::generate_sample_value(&column.name, &column.data_type);
                                 }
                             }
@@ -133,8 +133,8 @@ impl DbProApp {
                             .clicked()
                         {
                             for (index, column) in info.columns.iter().enumerate() {
-                                if self.table_data.insert_row_values[index].trim().is_empty() {
-                                    self.table_data.insert_row_values[index] =
+                                if self.table.data.insert_row_values[index].trim().is_empty() {
+                                    self.table.data.insert_row_values[index] =
                                         table_editor_values::generate_sample_value(&column.name, &column.data_type);
                                 }
                             }
@@ -205,25 +205,25 @@ impl DbProApp {
                                     // Per-field actions
                                     if ColumnWritePolicy::read(column).is_writable() {
                                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                            if !self.table_data.insert_row_values[index].is_empty() {
+                                            if !self.table.data.insert_row_values[index].is_empty() {
                                                 let clear_btn = Button::new(self.theme)
                                                     .icon(Icon::X)
                                                     .size(ButtonSize::IconSm)
                                                     .variant(ButtonVariant::Ghost)
                                                     .show(ui);
                                                 if clear_btn.on_hover_text("Clear this field").clicked() {
-                                                    self.table_data.insert_row_values[index].clear();
+                                                    self.table.data.insert_row_values[index].clear();
                                                 }
                                             }
 
-                                            if column.nullable && self.table_data.insert_row_values[index] != "NULL" {
+                                            if column.nullable && self.table.data.insert_row_values[index] != "NULL" {
                                                 let null_btn = Button::new(self.theme)
                                                     .text("NULL")
                                                     .size(ButtonSize::Sm)
                                                     .variant(ButtonVariant::Ghost)
                                                     .show(ui);
                                                 if null_btn.on_hover_text("Set value to literal NULL").clicked() {
-                                                    self.table_data.insert_row_values[index] = "NULL".to_owned();
+                                                    self.table.data.insert_row_values[index] = "NULL".to_owned();
                                                 }
                                             }
 
@@ -244,7 +244,7 @@ impl DbProApp {
                                             let tooltip =
                                                 format!("Generate sample {} for {}", column.data_type, column.name);
                                             if gen_btn.on_hover_text(tooltip).clicked() {
-                                                self.table_data.insert_row_values[index] =
+                                                self.table.data.insert_row_values[index] =
                                                     table_editor_values::generate_sample_value(
                                                         &column.name,
                                                         &column.data_type,
@@ -256,7 +256,7 @@ impl DbProApp {
 
                                 ui.add_space(4.0);
 
-                                let is_null_val = self.table_data.insert_row_values[index]
+                                let is_null_val = self.table.data.insert_row_values[index]
                                     .trim()
                                     .eq_ignore_ascii_case("null");
                                 let write_block = ColumnWritePolicy::read(column).write_block();
@@ -275,7 +275,7 @@ impl DbProApp {
                                         "Enter value or click Gen..."
                                     };
 
-                                    let val_ref = &mut self.table_data.insert_row_values[index];
+                                    let val_ref = &mut self.table.data.insert_row_values[index];
                                     let edit = egui::TextEdit::singleline(val_ref)
                                         .hint_text(
                                             RichText::new(placeholder)
@@ -313,9 +313,9 @@ impl DbProApp {
                         }
                     });
 
-                if !self.table_data.insert_row_error.is_empty() {
+                if !self.table.data.insert_row_error.is_empty() {
                     ui.add_space(8.0);
-                    Alert::new("Cannot Stage Insert", &self.table_data.insert_row_error, self.theme)
+                    Alert::new("Cannot Stage Insert", &self.table.data.insert_row_error, self.theme)
                         .variant(AlertVariant::Destructive)
                         .icon(Icon::AlertCircle)
                         .show(ui);
@@ -350,8 +350,8 @@ impl DbProApp {
             self.submit_insert_row();
         }
         if cancel || !open {
-            self.table_data.insert_row_open = false;
-            self.table_data.insert_row_error.clear();
+            self.table.data.insert_row_open = false;
+            self.table.data.insert_row_error.clear();
         }
     }
 }

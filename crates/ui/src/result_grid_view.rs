@@ -131,14 +131,15 @@ impl DbProApp {
 
         let order = self.column_order_for_columns(&result.columns);
         let editable = self.workspace.active_tab == WorkspaceTab::Table
-            && self.table_state.table_view == TableView::Data
+            && self.table.state.table_view == TableView::Data
             && self.can_edit_table_rows();
         // The projection is memoized across frames: sorting a 200k-row result on a timestamp-shaped
         // column costs seconds per invocation in debug, so rebuilding it in the draw path is what
         // made a sorted large result unusable (crates/ui/src/result_grid.rs, `GridProjectionCache`).
-        let projection_key = self.table_data.projection_key(result);
+        let projection_key = self.table.data.projection_key(result);
         let indexes = self
-            .table_data
+            .table
+            .data
             .grid_projection_cache
             .take(projection_key.clone(), result);
         // The selection lookup is memoized on the same inputs: `draw_grid_body` used to
@@ -146,41 +147,45 @@ impl DbProApp {
         // every frame, which measured ~36.5 ms of a ~40 ms frame at 200k rows. Reuse it while the
         // projection and column order are unchanged.
         let selection_lookup = self
-            .table_data
+            .table
+            .data
             .grid_selection_cache
             .take(&projection_key, &order)
             .unwrap_or_else(|| GridSelectionLookup::new(&indexes, &order));
 
-        if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
-            self.table_data
-                .rebuild_row_identity_cache(result, self.table_state.table_info.as_ref());
+        if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
+            self.table
+                .data
+                .rebuild_row_identity_cache(result, self.table.state.table_info.as_ref());
         } else {
-            self.table_data.grid_row_identity_cache.clear();
-            self.table_data.grid_row_identity_cache_ready = false;
+            self.table.data.grid_row_identity_cache.clear();
+            self.table.data.grid_row_identity_cache_ready = false;
         }
 
         self.handle_grid_keyboard(ui, result, &indexes, &order, editable, &selection_lookup);
 
         let is_table_data =
-            self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data;
+            self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data;
         if !is_table_data {
             self.draw_grid_toolbar(ui, result, editable, indexes.len(), &indexes);
         }
         self.draw_record_inspector_panel(ui, result);
 
         let row_offset = if is_table_data {
-            self.table_state.table_data_offset
+            self.table.state.table_data_offset
         } else {
             0
         };
         self.draw_grid_body(ui, result, &indexes, &order, editable, row_offset, &selection_lookup);
 
-        self.table_data
+        self.table
+            .data
             .grid_projection_cache
             .restore(projection_key.clone(), indexes);
         // Restore the selection lookup in all cases — take() always moves it out, and it must
         // be handed back so the next frame can reuse it.
-        self.table_data
+        self.table
+            .data
             .grid_selection_cache
             .restore(projection_key, order, selection_lookup);
     }
@@ -188,9 +193,9 @@ impl DbProApp {
     /// Retrieve or initialize column visual ordering.
     pub(crate) fn column_order_for_columns(&mut self, columns: &[crate::UiColumn]) -> Vec<usize> {
         let count = columns.len();
-        self.table_data.grid_layout_column_names = columns.iter().map(|column| column.name.clone()).collect();
+        self.table.data.grid_layout_column_names = columns.iter().map(|column| column.name.clone()).collect();
 
-        if let Some(mut persisted) = self.table_data.grid_pending_named_layout.take() {
+        if let Some(mut persisted) = self.table.data.grid_pending_named_layout.take() {
             let indexes_by_name: HashMap<&str, usize> = columns
                 .iter()
                 .enumerate()
@@ -222,33 +227,33 @@ impl DbProApp {
                     order.push(index);
                 }
             }
-            self.table_data.grid_column_order = order;
-            self.table_data.grid_column_widths = widths;
-            self.table_data.grid_hidden_columns = hidden;
-            self.table_data.grid_columns_user_resized = true;
-        } else if self.table_data.grid_legacy_layout_pending {
+            self.table.data.grid_column_order = order;
+            self.table.data.grid_column_widths = widths;
+            self.table.data.grid_hidden_columns = hidden;
+            self.table.data.grid_columns_user_resized = true;
+        } else if self.table.data.grid_legacy_layout_pending {
             // Index-based layouts cannot be safely migrated across a schema
             // shape change. Keep the old layout only when it exactly matches
             // the current schema; otherwise start from a safe default.
             let widths_match =
-                self.table_data.grid_column_widths.is_empty() || self.table_data.grid_column_widths.len() == count;
-            if self.table_data.grid_column_order.len() != count || !widths_match {
-                self.table_data.grid_column_order.clear();
-                self.table_data.grid_column_widths.clear();
-                self.table_data.grid_hidden_columns.clear();
-                self.table_data.grid_columns_user_resized = false;
+                self.table.data.grid_column_widths.is_empty() || self.table.data.grid_column_widths.len() == count;
+            if self.table.data.grid_column_order.len() != count || !widths_match {
+                self.table.data.grid_column_order.clear();
+                self.table.data.grid_column_widths.clear();
+                self.table.data.grid_hidden_columns.clear();
+                self.table.data.grid_columns_user_resized = false;
             }
-            self.table_data.grid_legacy_layout_pending = false;
+            self.table.data.grid_legacy_layout_pending = false;
         }
 
         self.column_order(count)
     }
 
     pub(crate) fn column_order(&mut self, count: usize) -> Vec<usize> {
-        self.table_data.grid_hidden_columns.retain(|&column| column < count);
+        self.table.data.grid_hidden_columns.retain(|&column| column < count);
         let mut normalized_order = Vec::with_capacity(count);
         let mut seen = HashSet::with_capacity(count);
-        for column in self.table_data.grid_column_order.iter().copied() {
+        for column in self.table.data.grid_column_order.iter().copied() {
             if column < count && seen.insert(column) {
                 normalized_order.push(column);
             }
@@ -258,21 +263,23 @@ impl DbProApp {
                 normalized_order.push(column);
             }
         }
-        if normalized_order != self.table_data.grid_column_order {
-            self.table_data.grid_column_order = normalized_order;
+        if normalized_order != self.table.data.grid_column_order {
+            self.table.data.grid_column_order = normalized_order;
         }
-        if !self.table_data.grid_column_widths.is_empty() {
-            self.table_data.grid_column_widths.resize(count, 180.0);
-            self.table_data
+        if !self.table.data.grid_column_widths.is_empty() {
+            self.table.data.grid_column_widths.resize(count, 180.0);
+            self.table
+                .data
                 .grid_column_widths
                 .iter_mut()
                 .for_each(|width| *width = width.clamp(60.0, 1000.0));
         }
-        self.table_data
+        self.table
+            .data
             .grid_column_order
             .iter()
             .copied()
-            .filter(|column| !self.table_data.grid_hidden_columns.contains(column))
+            .filter(|column| !self.table.data.grid_hidden_columns.contains(column))
             .collect()
     }
 
@@ -286,19 +293,21 @@ impl DbProApp {
             let from_column = visible_order[from_visual_idx];
             let to_column = visible_order[to_visual_idx];
             let from = self
-                .table_data
+                .table
+                .data
                 .grid_column_order
                 .iter()
                 .position(|column| *column == from_column)
                 .unwrap_or(from_visual_idx);
             let to = self
-                .table_data
+                .table
+                .data
                 .grid_column_order
                 .iter()
                 .position(|column| *column == to_column)
                 .unwrap_or(to_visual_idx);
-            let column = self.table_data.grid_column_order.remove(from);
-            self.table_data.grid_column_order.insert(to, column);
+            let column = self.table.data.grid_column_order.remove(from);
+            self.table.data.grid_column_order.insert(to, column);
         }
     }
 
@@ -306,26 +315,26 @@ impl DbProApp {
         if visible_count <= 1 {
             return;
         }
-        self.table_data.grid_hidden_columns.insert(column_index);
+        self.table.data.grid_hidden_columns.insert(column_index);
     }
 
     pub(crate) fn show_all_columns(&mut self) {
-        self.table_data.grid_hidden_columns.clear();
+        self.table.data.grid_hidden_columns.clear();
     }
 
     pub(crate) fn reset_grid_layout(&mut self, count: usize) {
-        self.table_data.grid_column_order = (0..count).collect();
-        self.table_data.grid_hidden_columns.clear();
-        self.table_data.grid_column_widths.clear();
-        self.table_data.grid_columns_user_resized = false;
+        self.table.data.grid_column_order = (0..count).collect();
+        self.table.data.grid_hidden_columns.clear();
+        self.table.data.grid_column_widths.clear();
+        self.table.data.grid_columns_user_resized = false;
     }
 
     pub(crate) fn auto_size_column(&mut self, result: &UiQueryResult, indexes: &[usize], column_index: usize) {
         if column_index >= result.columns.len() {
             return;
         }
-        if self.table_data.grid_column_widths.len() < result.columns.len() {
-            self.table_data.grid_column_widths.resize(result.columns.len(), 180.0);
+        if self.table.data.grid_column_widths.len() < result.columns.len() {
+            self.table.data.grid_column_widths.resize(result.columns.len(), 180.0);
         }
         let column = &result.columns[column_index];
         let content_width = indexes
@@ -335,8 +344,8 @@ impl DbProApp {
             .map(crate::cell_text)
             .map(|value| value.chars().count() as f32 * 7.0 + 24.0)
             .fold(column.name.chars().count() as f32 * 7.0 + 42.0, f32::max);
-        self.table_data.grid_column_widths[column_index] = content_width.clamp(60.0, 520.0);
-        self.table_data.grid_columns_user_resized = true;
+        self.table.data.grid_column_widths[column_index] = content_width.clamp(60.0, 520.0);
+        self.table.data.grid_columns_user_resized = true;
     }
 
     pub(crate) fn set_table_or_grid_sort(
@@ -345,12 +354,12 @@ impl DbProApp {
         column_index: usize,
         descending: Option<bool>,
     ) {
-        if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
-            if !self.table_mutation.staged_changes.is_empty() {
+        if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
+            if !self.table.mutation.staged_changes.is_empty() {
                 self.feedback.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
                 return;
             }
-            self.table_state.table_data_sorts = descending
+            self.table.state.table_data_sorts = descending
                 .and_then(|_| {
                     result.columns.get(column_index).map(|column| UiTableDataSort {
                         column: column.name.clone(),
@@ -359,12 +368,12 @@ impl DbProApp {
                 })
                 .into_iter()
                 .collect();
-            self.table_data.grid_sort_column = None;
-            self.table_data.grid_sort_desc = false;
+            self.table.data.grid_sort_column = None;
+            self.table.data.grid_sort_desc = false;
             self.reload_table_data_from_start();
         } else {
-            self.table_data.grid_sort_column = descending.map(|_| column_index);
-            self.table_data.grid_sort_desc = descending.unwrap_or(false);
+            self.table.data.grid_sort_column = descending.map(|_| column_index);
+            self.table.data.grid_sort_desc = descending.unwrap_or(false);
         }
     }
 
@@ -372,7 +381,7 @@ impl DbProApp {
     /// makes the clicked column the next priority; plain click selects one
     /// clause and cycles ASC -> DESC -> none.
     pub(crate) fn cycle_table_data_sort(&mut self, result: &UiQueryResult, column_index: usize, additive: bool) {
-        if !self.table_mutation.staged_changes.is_empty() {
+        if !self.table.mutation.staged_changes.is_empty() {
             self.feedback.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
             return;
         }
@@ -381,43 +390,45 @@ impl DbProApp {
         };
         if additive {
             if let Some(index) = self
-                .table_state
+                .table
+                .state
                 .table_data_sorts
                 .iter()
                 .position(|sort| sort.column == column)
             {
-                if self.table_state.table_data_sorts[index].descending {
-                    self.table_state.table_data_sorts.remove(index);
+                if self.table.state.table_data_sorts[index].descending {
+                    self.table.state.table_data_sorts.remove(index);
                 } else {
-                    self.table_state.table_data_sorts[index].descending = true;
+                    self.table.state.table_data_sorts[index].descending = true;
                 }
             } else {
-                self.table_state.table_data_sorts.push(UiTableDataSort {
+                self.table.state.table_data_sorts.push(UiTableDataSort {
                     column,
                     descending: false,
                 });
             }
-        } else if self.table_state.table_data_sorts.len() == 1
+        } else if self.table.state.table_data_sorts.len() == 1
             && self
-                .table_state
+                .table
+                .state
                 .table_data_sorts
                 .first()
                 .map(|sort| sort.column.as_str())
                 == Some(column.as_str())
         {
-            if self.table_state.table_data_sorts[0].descending {
-                self.table_state.table_data_sorts.clear();
+            if self.table.state.table_data_sorts[0].descending {
+                self.table.state.table_data_sorts.clear();
             } else {
-                self.table_state.table_data_sorts[0].descending = true;
+                self.table.state.table_data_sorts[0].descending = true;
             }
         } else {
-            self.table_state.table_data_sorts = vec![UiTableDataSort {
+            self.table.state.table_data_sorts = vec![UiTableDataSort {
                 column,
                 descending: false,
             }];
         }
-        self.table_data.grid_sort_column = None;
-        self.table_data.grid_sort_desc = false;
+        self.table.data.grid_sort_column = None;
+        self.table.data.grid_sort_desc = false;
         self.reload_table_data_from_start();
     }
 
@@ -437,17 +448,17 @@ impl DbProApp {
         if !ui.ctx().wants_keyboard_input()
             && ui.input(|input| input.key_pressed(egui::Key::A) && Self::primary_modifier_pressed(input))
         {
-            self.table_data.select_all_visible_cells(indexes, order);
+            self.table.data.select_all_visible_cells(indexes, order);
             self.feedback.copy_status.clear();
             return;
         }
 
         if !ui.ctx().wants_keyboard_input() && ui.input(|input| input.key_pressed(egui::Key::Escape)) {
-            self.table_data.selected_cell = None;
-            self.table_data.selected_row = None;
-            self.table_data.selected_rows.clear();
-            self.table_data.selection_anchor_row = None;
-            self.table_data.selection_anchor_cell = None;
+            self.table.data.selected_cell = None;
+            self.table.data.selected_row = None;
+            self.table.data.selected_rows.clear();
+            self.table.data.selection_anchor_row = None;
+            self.table.data.selection_anchor_cell = None;
             self.feedback.copy_status.clear();
             return;
         }
@@ -463,14 +474,14 @@ impl DbProApp {
                 self.apply_staged_changes();
             }
             if ui.input(|input| input.key_pressed(egui::Key::Z) && Self::primary_modifier_pressed(input)) {
-                if self.table_mutation.staged_changes.counts().total() > 1 {
-                    self.table_data.discard_changes_confirmation = true;
+                if self.table.mutation.staged_changes.counts().total() > 1 {
+                    self.table.data.discard_changes_confirmation = true;
                 } else {
                     self.discard_staged_changes();
                 }
             }
             if editable
-                && self.table_data.data_editing_cell.is_none()
+                && self.table.data.data_editing_cell.is_none()
                 && ui.input(|input| input.key_pressed(egui::Key::Delete) || input.key_pressed(egui::Key::Backspace))
             {
                 self.request_delete_selected_data_rows(result);
@@ -485,7 +496,7 @@ impl DbProApp {
         if editable {
             self.handle_grid_edit_input(ui, result, pasted);
         }
-        if self.table_data.data_editing_cell.is_some() && ui.input(|input| input.key_pressed(egui::Key::Tab)) {
+        if self.table.data.data_editing_cell.is_some() && ui.input(|input| input.key_pressed(egui::Key::Tab)) {
             self.handle_grid_navigation(ui, indexes, order, editable, result, selection_lookup);
             return;
         }
@@ -500,20 +511,20 @@ impl DbProApp {
 
     /// Paste-into-cell and Enter/F2-to-edit while the grid is editable.
     pub(crate) fn handle_grid_edit_input(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, pasted: Option<String>) {
-        if let (Some((row_index, column_index)), Some(text)) = (self.table_data.selected_cell, pasted) {
+        if let (Some((row_index, column_index)), Some(text)) = (self.table.data.selected_cell, pasted) {
             if let Some(block) = self.blocked_write_for_cell(result, column_index) {
                 self.feedback.copy_status = block.reason().to_owned();
                 return;
             }
-            self.table_data.data_editing_cell = Some((row_index, column_index));
-            self.table_data.data_edit_value = text;
+            self.table.data.data_editing_cell = Some((row_index, column_index));
+            self.table.data.data_edit_value = text;
             self.submit_data_cell_edit(result, row_index, column_index);
         }
-        if self.table_data.data_editing_cell.is_none()
-            && self.table_data.selected_cell.is_some()
+        if self.table.data.data_editing_cell.is_none()
+            && self.table.data.selected_cell.is_some()
             && ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::F2))
         {
-            if let Some((row_index, column_index)) = self.table_data.selected_cell {
+            if let Some((row_index, column_index)) = self.table.data.selected_cell {
                 if let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) {
                     self.begin_data_cell_edit(result, row_index, column_index, cell);
                 }
@@ -528,7 +539,7 @@ impl DbProApp {
         column_index: usize,
     ) -> Option<ColumnWriteBlock> {
         let column = result.columns.get(column_index)?;
-        self.table_state.column_write_block(&column.name)
+        self.table.state.column_write_block(&column.name)
     }
 
     pub(crate) fn draw_grid_toolbar(
@@ -543,12 +554,12 @@ impl DbProApp {
             ui.horizontal(|ui| {
                 input(
                     ui,
-                    &mut self.table_data.grid_filter,
+                    &mut self.table.data.grid_filter,
                     "Filter visible rows…",
                     200.0,
                     self.theme,
                 );
-                if !self.table_data.grid_filter.is_empty()
+                if !self.table.data.grid_filter.is_empty()
                     && Button::new(self.theme)
                         .icon(Icon::X)
                         .variant(ButtonVariant::Ghost)
@@ -557,7 +568,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                 {
-                    self.table_data.grid_filter.clear();
+                    self.table.data.grid_filter.clear();
                 }
 
                 crate::components::badge::Badge::new(format!("{matching_rows} rows"), self.theme)
@@ -626,9 +637,9 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.table_data.record_inspector_open = !self.table_data.record_inspector_open;
+                    self.table.data.record_inspector_open = !self.table.data.record_inspector_open;
                 }
-                if let Some((row_index, column_index)) = self.table_data.selected_cell {
+                if let Some((row_index, column_index)) = self.table.data.selected_cell {
                     if Button::new(self.theme)
                         .text("Inspect")
                         .icon(Icon::ScanSearch)
@@ -723,14 +734,15 @@ impl DbProApp {
     ) {
         let row_index = rows.indexes[position];
         let row = &result.rows[row_index];
-        let row_selected = self.table_data.selected_rows.contains(&row_index);
+        let row_selected = self.table.data.selected_rows.contains(&row_index);
         let row_dirty = self.staged_row_deleted(result, row_index)
             || (0..result.columns.len())
                 .any(|column_index| self.staged_cell_value(result, row_index, column_index).is_some());
         let row_mutation_error = self
-            .table_data
-            .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
-            .is_some_and(|identity| self.table_mutation.mutation_error_for_identity(&identity));
+            .table
+            .data
+            .row_identity_for_result(result, self.table.state.table_info.as_ref(), row_index)
+            .is_some_and(|identity| self.table.mutation.mutation_error_for_identity(&identity));
 
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
@@ -769,21 +781,21 @@ impl DbProApp {
             );
 
             if gutter_resp.clicked() {
-                if self.table_data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+                if self.table.data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
-                self.table_data.selected_cell = None;
+                self.table.data.selected_cell = None;
                 let modifiers = ui.input(|input| input.modifiers);
-                self.table_data.select_visible_row(
+                self.table.data.select_visible_row(
                     rows.indexes,
                     &rows.selection_lookup.row_positions,
                     position,
                     modifiers.shift,
                     modifiers.command || modifiers.ctrl,
                 );
-                self.table_data.selection_anchor_cell = None;
-                self.table_data.data_editing_cell = None;
-                self.table_data.data_edit_value.clear();
+                self.table.data.selection_anchor_cell = None;
+                self.table.data.data_editing_cell = None;
+                self.table.data.data_edit_value.clear();
                 self.feedback.copy_status.clear();
             }
 
@@ -803,10 +815,11 @@ impl DbProApp {
                         row_dirty,
                         row_mutation_error,
                         cell_mutation_error: self
-                            .table_data
-                            .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
+                            .table
+                            .data
+                            .row_identity_for_result(result, self.table.state.table_info.as_ref(), row_index)
                             .is_some_and(|identity| {
-                                self.table_mutation.mutation_error_for_cell(&identity, column_index)
+                                self.table.mutation.mutation_error_for_cell(&identity, column_index)
                             }),
                         editable: rows.editable,
                         width,
@@ -819,12 +832,12 @@ impl DbProApp {
 
     /// One grid cell: crisp background, grid borders, active cell highlight, and formatted value.
     pub(super) fn column_widths(&mut self, count: usize, available_width: f32) -> Vec<f32> {
-        if self.table_data.grid_column_widths.len() != count {
-            self.table_data.grid_column_widths = vec![180.0; count];
-            self.table_data.grid_columns_user_resized = false;
+        if self.table.data.grid_column_widths.len() != count {
+            self.table.data.grid_column_widths = vec![180.0; count];
+            self.table.data.grid_columns_user_resized = false;
         }
-        let mut widths = self.table_data.grid_column_widths.clone();
-        if count > 0 && !self.table_data.grid_columns_user_resized {
+        let mut widths = self.table.data.grid_column_widths.clone();
+        if count > 0 && !self.table.data.grid_columns_user_resized {
             let usable_width = (available_width - GRID_ROW_NUMBER_WIDTH - 4.0 * count as f32).max(0.0);
             let default_width = (usable_width / count as f32).clamp(180.0, 520.0);
             widths.fill(default_width);

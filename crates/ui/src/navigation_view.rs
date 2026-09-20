@@ -280,10 +280,10 @@ impl DbProApp {
                                 .color(self.theme.text_muted),
                         );
                     }
-                    if let Some(result) = self
-                        .query_session_state
-                        .active_result()
-                        .or(self.table_state.table_data_result.as_ref())
+                    if let Some(result) =
+                        self.query_session_state
+                            .active_result()
+                            .or(self.table.state.table_data_result.as_ref())
                     {
                         ui.label(
                             RichText::new(format!("{} ms", result.duration_ms))
@@ -374,10 +374,10 @@ impl DbProApp {
                 ui.separator();
                 match self.query_output_state.active_tab {
                     OutputTab::Results => {
-                        let result = self
-                            .query_session_state
-                            .active_result()
-                            .or(self.table_state.table_data_result.as_ref());
+                        let result =
+                            self.query_session_state
+                                .active_result()
+                                .or(self.table.state.table_data_result.as_ref());
                         ui.label(
                             RichText::new(
                                 result

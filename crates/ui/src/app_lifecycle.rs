@@ -28,7 +28,7 @@ impl DbProApp {
             self.active_schema(),
             self.schema_explorer.selected_table.as_deref(),
         );
-        self.table_data.persist_layout(scope);
+        self.table.data.persist_layout(scope);
         self.sync_settings_from_runtime();
         if let Ok(settings) = serde_json::to_string(&self.preferences.settings) {
             storage.set_string(SETTINGS_STORAGE_KEY, settings);
@@ -38,15 +38,15 @@ impl DbProApp {
         if let Ok(raw) = serde_json::to_string(self.connection.dialog.ssh_profiles()) {
             storage.set_string("dbpro.native.ssh-profiles-v1", raw);
         }
-        if let Ok(layouts) = serde_json::to_string(&self.table_data.grid_layout_preferences) {
+        if let Ok(layouts) = serde_json::to_string(&self.table.data.grid_layout_preferences) {
             storage.set_string("dbpro.native.grid-layouts", layouts);
         }
-        if let Ok(widths) = serde_json::to_string(&self.table_data.grid_column_widths) {
+        if let Ok(widths) = serde_json::to_string(&self.table.data.grid_column_widths) {
             storage.set_string("dbpro.native.grid-widths", widths);
         }
         storage.set_string(
             "dbpro.native.grid-widths-customized",
-            self.table_data.grid_columns_user_resized.to_string(),
+            self.table.data.grid_columns_user_resized.to_string(),
         );
     }
 
@@ -242,7 +242,7 @@ impl DbProApp {
                 &mut self.feedback,
             );
         }
-        if self.table_data.insert_row_open {
+        if self.table.data.insert_row_open {
             self.draw_insert_row_dialog(ctx);
         }
         if self.palette.mode.is_some() {

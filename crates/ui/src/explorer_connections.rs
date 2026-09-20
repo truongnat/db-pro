@@ -322,9 +322,9 @@ impl DbProApp {
         if self.schema_explorer.selected_schema.as_deref() == Some(schema) {
             return;
         }
-        if !self.table_mutation.staged_changes.is_empty() {
+        if !self.table.mutation.staged_changes.is_empty() {
             self.workspace.pending_navigation_action = Some(PendingNavigationAction::ChangeSchema(schema.to_owned()));
-            self.table_data.discard_changes_confirmation = true;
+            self.table.data.discard_changes_confirmation = true;
             self.feedback.runtime_message = "Apply or discard staged changes before changing schema".to_owned();
             return;
         }
@@ -332,12 +332,12 @@ impl DbProApp {
         self.schema_explorer.selected_schema = Some(schema.to_owned());
         self.schema_explorer.selected_table = None;
         self.schema_explorer.selected_schema_object = None;
-        self.table_state.table_info = None;
-        self.table_state.table_ddl = None;
-        self.table_state.table_data_result = None;
-        self.table_mutation.staged_changes.clear();
-        self.table_mutation.staged_apply_targets.clear();
-        self.table_mutation.table_mutation_error = None;
+        self.table.state.table_info = None;
+        self.table.state.table_ddl = None;
+        self.table.state.table_data_result = None;
+        self.table.mutation.staged_changes.clear();
+        self.table.mutation.staged_apply_targets.clear();
+        self.table.mutation.table_mutation_error = None;
         self.schema_explorer.explorer_nav_cache = None;
         self.activate_welcome_tab();
     }

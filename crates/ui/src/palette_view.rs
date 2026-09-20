@@ -710,7 +710,7 @@ impl DbProApp {
 
     fn refresh_schema_palette(&mut self) {
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-            self.table_state.refresh_table_info_after_schema = self.schema_explorer.selected_table.is_some();
+            self.table.state.refresh_table_info_after_schema = self.schema_explorer.selected_table.is_some();
             self.request_schema_introspection(connection_id, true);
         } else {
             self.feedback.runtime_message = "Connect to a database before refreshing schema".to_owned();
@@ -719,7 +719,7 @@ impl DbProApp {
 
     pub(crate) fn open_table_from_palette(&mut self, table: String) {
         if self.schema_explorer.selected_table.as_deref() != Some(table.as_str())
-            && !self.table_mutation.staged_changes.is_empty()
+            && !self.table.mutation.staged_changes.is_empty()
         {
             self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
@@ -729,7 +729,7 @@ impl DbProApp {
             self.active_schema(),
             self.schema_explorer.selected_table.as_deref(),
         );
-        self.table_data.persist_layout(scope);
+        self.table.data.persist_layout(scope);
         self.schema_explorer.record_recent_table(&table);
         self.schema_explorer.selected_table = Some(table.clone());
         let scope = TableDataState::layout_scope(
@@ -737,12 +737,12 @@ impl DbProApp {
             self.active_schema(),
             self.schema_explorer.selected_table.as_deref(),
         );
-        self.table_data.restore_layout(scope);
+        self.table.data.restore_layout(scope);
         self.schema_explorer.selected_schema_object = None;
-        self.table_state.table_view = TableView::Structure;
-        self.table_state.table_info = None;
-        self.table_state.table_ddl = None;
-        self.table_state.table_data_result = None;
+        self.table.state.table_view = TableView::Structure;
+        self.table.state.table_info = None;
+        self.table.state.table_ddl = None;
+        self.table.state.table_data_result = None;
         self.request_table_info();
         self.workspace.active_tab = WorkspaceTab::Table;
         self.feedback.runtime_message = format!("Opening table {table}");

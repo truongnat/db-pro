@@ -559,7 +559,7 @@ impl DbProApp {
     }
 
     fn apply_security_rls_preview(&mut self) {
-        if self.table_state.ddl_execution_request.is_some() {
+        if self.table.state.ddl_execution_request.is_some() {
             return;
         }
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
@@ -568,7 +568,7 @@ impl DbProApp {
         let request_id = self.task_bridge.next_request_id();
         if let Some(command) = self.security.apply_rls_preview_command(request_id, connection_id) {
             self.dispatch_command(command);
-            self.table_state.ddl_execution_request = Some(request_id);
+            self.table.state.ddl_execution_request = Some(request_id);
             self.feedback.runtime_message = "Applying RLS mutation…".into();
         }
     }

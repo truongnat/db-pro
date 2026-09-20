@@ -53,8 +53,11 @@ fn primary_key_identity(value: &str) -> RowIdentity {
 #[test]
 fn filter_returns_original_row_indexes() {
     let app = DbProApp {
-        table_data: TableDataState {
-            grid_filter: "gamma".to_owned(),
+        table: TableEditorState {
+            data: TableDataState {
+                grid_filter: "gamma".to_owned(),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -63,9 +66,9 @@ fn filter_returns_original_row_indexes() {
     assert_eq!(
         crate::filtered_sorted_indexes(
             &value,
-            &app.table_data.grid_filter,
-            app.table_data.grid_sort_column,
-            app.table_data.grid_sort_desc
+            &app.table.data.grid_filter,
+            app.table.data.grid_sort_column,
+            app.table.data.grid_sort_desc
         ),
         vec![2]
     );
@@ -74,8 +77,11 @@ fn filter_returns_original_row_indexes() {
 #[test]
 fn sort_is_stable_over_filtered_indexes() {
     let mut app = DbProApp {
-        table_data: TableDataState {
-            grid_sort_column: Some(0),
+        table: TableEditorState {
+            data: TableDataState {
+                grid_sort_column: Some(0),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -84,19 +90,19 @@ fn sort_is_stable_over_filtered_indexes() {
     assert_eq!(
         crate::filtered_sorted_indexes(
             &value,
-            &app.table_data.grid_filter,
-            app.table_data.grid_sort_column,
-            app.table_data.grid_sort_desc
+            &app.table.data.grid_filter,
+            app.table.data.grid_sort_column,
+            app.table.data.grid_sort_desc
         ),
         vec![1, 0, 2]
     );
-    app.table_data.grid_sort_desc = true;
+    app.table.data.grid_sort_desc = true;
     assert_eq!(
         crate::filtered_sorted_indexes(
             &value,
-            &app.table_data.grid_filter,
-            app.table_data.grid_sort_column,
-            app.table_data.grid_sort_desc
+            &app.table.data.grid_filter,
+            app.table.data.grid_sort_column,
+            app.table.data.grid_sort_desc
         ),
         vec![2, 0, 1]
     );
@@ -159,8 +165,8 @@ fn grid_columns_fill_the_viewport_until_manually_resized() {
     let widths = app.column_widths(3, 1200.0);
     assert!(widths.iter().all(|width| (*width - 380.0).abs() < 0.01));
 
-    app.table_data.grid_column_widths = vec![240.0, 320.0, 180.0];
-    app.table_data.grid_columns_user_resized = true;
+    app.table.data.grid_column_widths = vec![240.0, 320.0, 180.0];
+    app.table.data.grid_columns_user_resized = true;
     assert_eq!(app.column_widths(3, 1200.0), vec![240.0, 320.0, 180.0]);
 }
 
@@ -175,31 +181,34 @@ fn grid_copy_uses_staged_values_only_for_data_editor() {
             },
             ..Default::default()
         },
-        table_state: TableState {
-            table_view: TableView::Data,
-            table_info: Some(UiTableInfo {
-                schema: "public".to_owned(),
-                name: "customers".to_owned(),
-                row_count: Some(1),
-                columns: Vec::new(),
-                primary_key: Some(vec!["id".to_owned()]),
-                indexes: Vec::new(),
-                foreign_keys: Vec::new(),
-                check_constraints: Vec::new(),
-                dependencies: Vec::new(),
-            }),
-            ..Default::default()
-        },
-        table_mutation: TableMutationState {
-            staged_changes: ChangeSet::from(vec![StagedChange::Update {
-                identity: primary_key_identity("2"),
-                current_row_index: Some(0),
-                column_index: 1,
-                column: "name".to_owned(),
-                data_type: "TEXT".to_owned(),
-                original: UiCell::Text("Beta".to_owned()),
-                value: UiCell::Text("Updated".to_owned()),
-            }]),
+        table: TableEditorState {
+            mutation: TableMutationState {
+                staged_changes: ChangeSet::from(vec![StagedChange::Update {
+                    identity: primary_key_identity("2"),
+                    current_row_index: Some(0),
+                    column_index: 1,
+                    column: "name".to_owned(),
+                    data_type: "TEXT".to_owned(),
+                    original: UiCell::Text("Beta".to_owned()),
+                    value: UiCell::Text("Updated".to_owned()),
+                }]),
+                ..Default::default()
+            },
+            state: TableState {
+                table_view: TableView::Data,
+                table_info: Some(UiTableInfo {
+                    schema: "public".to_owned(),
+                    name: "customers".to_owned(),
+                    row_count: Some(1),
+                    columns: Vec::new(),
+                    primary_key: Some(vec!["id".to_owned()]),
+                    indexes: Vec::new(),
+                    foreign_keys: Vec::new(),
+                    check_constraints: Vec::new(),
+                    dependencies: Vec::new(),
+                }),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -500,7 +509,7 @@ fn table_edits_stage_until_explicit_apply() {
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.connection.lifecycle.set_connected(true);
     app.schema_explorer.selected_table = Some("customers".to_owned());
-    app.table_state.table_info = Some(UiTableInfo {
+    app.table.state.table_info = Some(UiTableInfo {
         schema: "public".to_owned(),
         name: "customers".to_owned(),
         row_count: Some(1),
@@ -528,7 +537,7 @@ fn table_edits_stage_until_explicit_apply() {
         check_constraints: Vec::new(),
         dependencies: Vec::new(),
     });
-    app.table_data.data_edit_value = "Updated".to_owned();
+    app.table.data.data_edit_value = "Updated".to_owned();
     let value = UiQueryResult {
         columns: vec![
             crate::UiColumn {
@@ -552,7 +561,7 @@ fn table_edits_stage_until_explicit_apply() {
 
     app.submit_data_cell_edit(&value, 0, 1);
 
-    assert_eq!(app.table_mutation.staged_changes.counts().total(), 1);
+    assert_eq!(app.table.mutation.staged_changes.counts().total(), 1);
     assert!(command_rx.try_recv().is_err());
     app.apply_staged_changes();
     assert!(matches!(command_rx.try_recv(), Ok(UiCommand::ApplyTableChanges { changes, .. }) if changes.len() == 1));
@@ -562,7 +571,7 @@ fn table_edits_stage_until_explicit_apply() {
 fn apply_is_blocked_while_a_validation_error_exists() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
-    app.table_mutation.staged_changes.stage_update(StagedChange::Update {
+    app.table.mutation.staged_changes.stage_update(StagedChange::Update {
         identity: primary_key_identity("1"),
         current_row_index: Some(0),
         column_index: 1,
@@ -571,7 +580,7 @@ fn apply_is_blocked_while_a_validation_error_exists() {
         original: UiCell::Text("Original".to_owned()),
         value: UiCell::Text("Updated".to_owned()),
     });
-    app.table_data.data_edit_error = Some("invalid value".to_owned());
+    app.table.data.data_edit_error = Some("invalid value".to_owned());
 
     app.apply_staged_changes();
 
@@ -580,7 +589,7 @@ fn apply_is_blocked_while_a_validation_error_exists() {
         app.feedback.runtime_message,
         "Fix the validation error before applying changes"
     );
-    assert_eq!(app.table_mutation.staged_changes.counts().total(), 1);
+    assert_eq!(app.table.mutation.staged_changes.counts().total(), 1);
 }
 
 #[test]
@@ -613,30 +622,32 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
 
             dialog: ConnectionDialogState::default(),
         },
-
-        table_state: TableState {
-            table_info: Some(UiTableInfo {
-                schema: "public".to_owned(),
-                name: "customers".to_owned(),
-                row_count: Some(1),
-                columns: vec![crate::UiTableColumn {
-                    name: "id".to_owned(),
-                    data_type: "integer".to_owned(),
-                    nullable: false,
-                    default: None,
-                    is_primary_key: true,
-                    ..Default::default()
-                }],
-                primary_key: Some(vec!["id".to_owned()]),
-                indexes: Vec::new(),
-                foreign_keys: Vec::new(),
-                check_constraints: Vec::new(),
-                dependencies: Vec::new(),
-            }),
-            ..Default::default()
-        },
-        table_data: TableDataState {
-            data_edit_value: "2".to_owned(),
+        table: TableEditorState {
+            data: TableDataState {
+                data_edit_value: "2".to_owned(),
+                ..Default::default()
+            },
+            state: TableState {
+                table_info: Some(UiTableInfo {
+                    schema: "public".to_owned(),
+                    name: "customers".to_owned(),
+                    row_count: Some(1),
+                    columns: vec![crate::UiTableColumn {
+                        name: "id".to_owned(),
+                        data_type: "integer".to_owned(),
+                        nullable: false,
+                        default: None,
+                        is_primary_key: true,
+                        ..Default::default()
+                    }],
+                    primary_key: Some(vec!["id".to_owned()]),
+                    indexes: Vec::new(),
+                    foreign_keys: Vec::new(),
+                    check_constraints: Vec::new(),
+                    dependencies: Vec::new(),
+                }),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -652,7 +663,7 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
         duration_ms: 0,
     };
     assert!(app.submit_data_cell_edit(&result, 0, 0));
-    let Some(StagedChange::Update { value, identity, .. }) = app.table_mutation.staged_changes.iter().next() else {
+    let Some(StagedChange::Update { value, identity, .. }) = app.table.mutation.staged_changes.iter().next() else {
         panic!("primary-key edit was not staged");
     };
     assert_eq!(value, &UiCell::Number("2".to_owned()));
@@ -689,19 +700,21 @@ fn no_primary_key_table_blocks_safe_row_mutations() {
 
             dialog: ConnectionDialogState::default(),
         },
-
-        table_state: TableState {
-            table_info: Some(UiTableInfo {
-                schema: "public".to_owned(),
-                name: "logs".to_owned(),
-                row_count: Some(1),
-                columns: Vec::new(),
-                primary_key: None,
-                indexes: Vec::new(),
-                foreign_keys: Vec::new(),
-                check_constraints: Vec::new(),
-                dependencies: Vec::new(),
-            }),
+        table: TableEditorState {
+            state: TableState {
+                table_info: Some(UiTableInfo {
+                    schema: "public".to_owned(),
+                    name: "logs".to_owned(),
+                    row_count: Some(1),
+                    columns: Vec::new(),
+                    primary_key: None,
+                    indexes: Vec::new(),
+                    foreign_keys: Vec::new(),
+                    check_constraints: Vec::new(),
+                    dependencies: Vec::new(),
+                }),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -741,36 +754,38 @@ fn binary_cell_edit_is_refused_with_a_reason() {
 
             dialog: ConnectionDialogState::default(),
         },
-
-        table_state: TableState {
-            table_info: Some(UiTableInfo {
-                schema: "public".to_owned(),
-                name: "files".to_owned(),
-                row_count: Some(1),
-                columns: vec![
-                    crate::UiTableColumn {
-                        name: "id".to_owned(),
-                        data_type: "integer".to_owned(),
-                        nullable: false,
-                        default: None,
-                        is_primary_key: true,
-                        ..Default::default()
-                    },
-                    crate::UiTableColumn {
-                        name: "payload".to_owned(),
-                        data_type: "bytea".to_owned(),
-                        nullable: true,
-                        default: None,
-                        is_primary_key: false,
-                        ..Default::default()
-                    },
-                ],
-                primary_key: Some(vec!["id".to_owned()]),
-                indexes: Vec::new(),
-                foreign_keys: Vec::new(),
-                check_constraints: Vec::new(),
-                dependencies: Vec::new(),
-            }),
+        table: TableEditorState {
+            state: TableState {
+                table_info: Some(UiTableInfo {
+                    schema: "public".to_owned(),
+                    name: "files".to_owned(),
+                    row_count: Some(1),
+                    columns: vec![
+                        crate::UiTableColumn {
+                            name: "id".to_owned(),
+                            data_type: "integer".to_owned(),
+                            nullable: false,
+                            default: None,
+                            is_primary_key: true,
+                            ..Default::default()
+                        },
+                        crate::UiTableColumn {
+                            name: "payload".to_owned(),
+                            data_type: "bytea".to_owned(),
+                            nullable: true,
+                            default: None,
+                            is_primary_key: false,
+                            ..Default::default()
+                        },
+                    ],
+                    primary_key: Some(vec!["id".to_owned()]),
+                    indexes: Vec::new(),
+                    foreign_keys: Vec::new(),
+                    check_constraints: Vec::new(),
+                    dependencies: Vec::new(),
+                }),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -799,7 +814,7 @@ fn binary_cell_edit_is_refused_with_a_reason() {
     app.begin_data_cell_edit(&result, 0, 1, &result.rows[0][1]);
 
     assert!(
-        app.table_data.data_editing_cell.is_none(),
+        app.table.data.data_editing_cell.is_none(),
         "no editor may open for a blocked column"
     );
     assert!(
@@ -807,7 +822,7 @@ fn binary_cell_edit_is_refused_with_a_reason() {
         "the reason must be visible: {}",
         app.feedback.runtime_message
     );
-    assert_eq!(app.table_mutation.staged_changes.counts().total(), 0);
+    assert_eq!(app.table.mutation.staged_changes.counts().total(), 0);
 }
 
 /// A generated column cannot be staged, even through the commit path.
@@ -841,41 +856,43 @@ fn generated_column_edit_is_refused_before_staging() {
 
             dialog: ConnectionDialogState::default(),
         },
-
-        table_state: TableState {
-            table_info: Some(UiTableInfo {
-                schema: "public".to_owned(),
-                name: "line_items".to_owned(),
-                row_count: Some(1),
-                columns: vec![
-                    crate::UiTableColumn {
-                        name: "id".to_owned(),
-                        data_type: "integer".to_owned(),
-                        nullable: false,
-                        default: None,
-                        is_primary_key: true,
-                        ..Default::default()
-                    },
-                    crate::UiTableColumn {
-                        name: "total".to_owned(),
-                        data_type: "numeric".to_owned(),
-                        nullable: false,
-                        default: None,
-                        is_primary_key: false,
-                        is_generated: true,
-                        ..Default::default()
-                    },
-                ],
-                primary_key: Some(vec!["id".to_owned()]),
-                indexes: Vec::new(),
-                foreign_keys: Vec::new(),
-                check_constraints: Vec::new(),
-                dependencies: Vec::new(),
-            }),
-            ..Default::default()
-        },
-        table_data: TableDataState {
-            data_edit_value: "99.99".to_owned(),
+        table: TableEditorState {
+            data: TableDataState {
+                data_edit_value: "99.99".to_owned(),
+                ..Default::default()
+            },
+            state: TableState {
+                table_info: Some(UiTableInfo {
+                    schema: "public".to_owned(),
+                    name: "line_items".to_owned(),
+                    row_count: Some(1),
+                    columns: vec![
+                        crate::UiTableColumn {
+                            name: "id".to_owned(),
+                            data_type: "integer".to_owned(),
+                            nullable: false,
+                            default: None,
+                            is_primary_key: true,
+                            ..Default::default()
+                        },
+                        crate::UiTableColumn {
+                            name: "total".to_owned(),
+                            data_type: "numeric".to_owned(),
+                            nullable: false,
+                            default: None,
+                            is_primary_key: false,
+                            is_generated: true,
+                            ..Default::default()
+                        },
+                    ],
+                    primary_key: Some(vec!["id".to_owned()]),
+                    indexes: Vec::new(),
+                    foreign_keys: Vec::new(),
+                    check_constraints: Vec::new(),
+                    dependencies: Vec::new(),
+                }),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -902,13 +919,14 @@ fn generated_column_edit_is_refused_before_staging() {
 
     assert!(!accepted, "the generated column must refuse the edit");
     assert!(app
-        .table_data
+        .table
+        .data
         .data_edit_error
         .as_deref()
         .unwrap_or_default()
         .contains("computed"));
     assert_eq!(
-        app.table_mutation.staged_changes.counts().total(),
+        app.table.mutation.staged_changes.counts().total(),
         0,
         "nothing may be staged"
     );
@@ -955,48 +973,51 @@ fn generated_column_is_never_staged_by_insert() {
             selected_table: Some("line_items".to_owned()),
             ..Default::default()
         },
-        table_state: TableState {
-            table_info: Some(UiTableInfo {
-                schema: "public".to_owned(),
-                name: "line_items".to_owned(),
-                row_count: Some(0),
-                columns: vec![
-                    crate::UiTableColumn {
-                        name: "id".to_owned(),
-                        data_type: "integer".to_owned(),
-                        nullable: false,
-                        default: None,
-                        is_primary_key: true,
-                        ..Default::default()
-                    },
-                    crate::UiTableColumn {
-                        name: "qty".to_owned(),
-                        data_type: "integer".to_owned(),
-                        nullable: false,
-                        default: None,
-                        is_primary_key: false,
-                        ..Default::default()
-                    },
-                    crate::UiTableColumn {
-                        name: "total".to_owned(),
-                        data_type: "numeric".to_owned(),
-                        nullable: false,
-                        default: None,
-                        is_primary_key: false,
-                        is_generated: true,
-                        ..Default::default()
-                    },
-                ],
-                primary_key: Some(vec!["id".to_owned()]),
-                indexes: Vec::new(),
-                foreign_keys: Vec::new(),
-                check_constraints: Vec::new(),
-                dependencies: Vec::new(),
-            }),
-            ..Default::default()
-        },
-        table_data: TableDataState {
-            insert_row_values: vec!["1".to_owned(), "2".to_owned(), String::new()],
+        table: TableEditorState {
+            data: TableDataState {
+                insert_row_values: vec!["1".to_owned(), "2".to_owned(), String::new()],
+                ..Default::default()
+            },
+            state: TableState {
+                table_info: Some(UiTableInfo {
+                    schema: "public".to_owned(),
+                    name: "line_items".to_owned(),
+                    row_count: Some(0),
+                    columns: vec![
+                        crate::UiTableColumn {
+                            name: "id".to_owned(),
+                            data_type: "integer".to_owned(),
+                            nullable: false,
+                            default: None,
+                            is_primary_key: true,
+                            ..Default::default()
+                        },
+                        crate::UiTableColumn {
+                            name: "qty".to_owned(),
+                            data_type: "integer".to_owned(),
+                            nullable: false,
+                            default: None,
+                            is_primary_key: false,
+                            ..Default::default()
+                        },
+                        crate::UiTableColumn {
+                            name: "total".to_owned(),
+                            data_type: "numeric".to_owned(),
+                            nullable: false,
+                            default: None,
+                            is_primary_key: false,
+                            is_generated: true,
+                            ..Default::default()
+                        },
+                    ],
+                    primary_key: Some(vec!["id".to_owned()]),
+                    indexes: Vec::new(),
+                    foreign_keys: Vec::new(),
+                    check_constraints: Vec::new(),
+                    dependencies: Vec::new(),
+                }),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -1004,7 +1025,7 @@ fn generated_column_is_never_staged_by_insert() {
 
     app.submit_insert_row();
 
-    let Some(StagedChange::Insert { columns, .. }) = app.table_mutation.staged_changes.iter().next() else {
+    let Some(StagedChange::Insert { columns, .. }) = app.table.mutation.staged_changes.iter().next() else {
         panic!("the insert was not staged");
     };
     assert_eq!(
@@ -1013,7 +1034,7 @@ fn generated_column_is_never_staged_by_insert() {
         "the generated column must be skipped"
     );
     assert!(
-        app.table_data.insert_row_error.is_empty(),
+        app.table.data.insert_row_error.is_empty(),
         "skipping a generated column is not an error"
     );
 
@@ -1051,23 +1072,26 @@ fn generated_column_is_never_staged_by_insert() {
             selected_table: Some("line_items".to_owned()),
             ..Default::default()
         },
-        table_state: TableState {
-            table_info: app.table_state.table_info.clone(),
-            ..Default::default()
-        },
-        table_data: TableDataState {
-            insert_row_values: vec!["1".to_owned(), "2".to_owned(), "3.0".to_owned()],
+        table: TableEditorState {
+            data: TableDataState {
+                insert_row_values: vec!["1".to_owned(), "2".to_owned(), "3.0".to_owned()],
+                ..Default::default()
+            },
+            state: TableState {
+                table_info: app.table.state.table_info.clone(),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
     };
     second.submit_insert_row();
     assert!(
-        second.table_data.insert_row_error.contains("computed"),
+        second.table.data.insert_row_error.contains("computed"),
         "the refusal must be visible: {}",
-        second.table_data.insert_row_error
+        second.table.data.insert_row_error
     );
-    assert_eq!(second.table_mutation.staged_changes.counts().total(), 0);
+    assert_eq!(second.table.mutation.staged_changes.counts().total(), 0);
 }
 
 /// Duplicating a row must not prefill a column the policy blocks.
@@ -1101,37 +1125,39 @@ fn duplicated_row_leaves_blocked_columns_empty() {
 
             dialog: ConnectionDialogState::default(),
         },
-
-        table_state: TableState {
-            table_info: Some(UiTableInfo {
-                schema: "public".to_owned(),
-                name: "line_items".to_owned(),
-                row_count: Some(1),
-                columns: vec![
-                    crate::UiTableColumn {
-                        name: "id".to_owned(),
-                        data_type: "integer".to_owned(),
-                        nullable: false,
-                        default: None,
-                        is_primary_key: true,
-                        ..Default::default()
-                    },
-                    crate::UiTableColumn {
-                        name: "total".to_owned(),
-                        data_type: "numeric".to_owned(),
-                        nullable: false,
-                        default: None,
-                        is_primary_key: false,
-                        is_generated: true,
-                        ..Default::default()
-                    },
-                ],
-                primary_key: Some(vec!["id".to_owned()]),
-                indexes: Vec::new(),
-                foreign_keys: Vec::new(),
-                check_constraints: Vec::new(),
-                dependencies: Vec::new(),
-            }),
+        table: TableEditorState {
+            state: TableState {
+                table_info: Some(UiTableInfo {
+                    schema: "public".to_owned(),
+                    name: "line_items".to_owned(),
+                    row_count: Some(1),
+                    columns: vec![
+                        crate::UiTableColumn {
+                            name: "id".to_owned(),
+                            data_type: "integer".to_owned(),
+                            nullable: false,
+                            default: None,
+                            is_primary_key: true,
+                            ..Default::default()
+                        },
+                        crate::UiTableColumn {
+                            name: "total".to_owned(),
+                            data_type: "numeric".to_owned(),
+                            nullable: false,
+                            default: None,
+                            is_primary_key: false,
+                            is_generated: true,
+                            ..Default::default()
+                        },
+                    ],
+                    primary_key: Some(vec!["id".to_owned()]),
+                    indexes: Vec::new(),
+                    foreign_keys: Vec::new(),
+                    check_constraints: Vec::new(),
+                    dependencies: Vec::new(),
+                }),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -1156,9 +1182,9 @@ fn duplicated_row_leaves_blocked_columns_empty() {
 
     app.open_duplicate_row(&result, 0);
 
-    assert_eq!(app.table_data.insert_row_values, vec![String::new(), String::new()]);
-    assert!(app.table_data.insert_row_open);
-    assert!(app.table_data.insert_row_error.is_empty());
+    assert_eq!(app.table.data.insert_row_values, vec![String::new(), String::new()]);
+    assert!(app.table.data.insert_row_open);
+    assert!(app.table.data.insert_row_error.is_empty());
 }
 
 #[test]
@@ -1174,20 +1200,23 @@ fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
         value: UiCell::Text("new".to_owned()),
     });
     let mut app = DbProApp {
-        table_mutation: TableMutationState {
-            staged_apply_request: Some(crate::RequestId(7)),
-            staged_apply_targets: vec![
-                MutationTarget::Delete {
-                    identity: primary_key_identity("1"),
-                    current_row_index: Some(0),
-                },
-                MutationTarget::Update {
-                    identity: primary_key_identity("3"),
-                    current_row_index: Some(2),
-                    columns: vec![1, 3],
-                },
-            ],
-            staged_changes,
+        table: TableEditorState {
+            mutation: TableMutationState {
+                staged_apply_request: Some(crate::RequestId(7)),
+                staged_apply_targets: vec![
+                    MutationTarget::Delete {
+                        identity: primary_key_identity("1"),
+                        current_row_index: Some(0),
+                    },
+                    MutationTarget::Update {
+                        identity: primary_key_identity("3"),
+                        current_row_index: Some(2),
+                        columns: vec![1, 3],
+                    },
+                ],
+                staged_changes,
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -1195,11 +1224,11 @@ fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
 
     app.staged_apply_failed(1, "CONSTRAINT_VIOLATION", "duplicate key value", true);
 
-    assert_eq!(app.table_mutation.staged_apply_request, None);
-    assert_eq!(app.table_mutation.staged_changes.counts().updates, 1);
-    assert_eq!(app.table_data.selected_cell, Some((2, 1)));
+    assert_eq!(app.table.mutation.staged_apply_request, None);
+    assert_eq!(app.table.mutation.staged_changes.counts().updates, 1);
+    assert_eq!(app.table.data.selected_cell, Some((2, 1)));
     assert!(matches!(
-        app.table_mutation.table_mutation_error.as_ref().and_then(|failure| failure.target.as_ref()),
+        app.table.mutation.table_mutation_error.as_ref().and_then(|failure| failure.target.as_ref()),
         Some(MutationTarget::Update {
             current_row_index: Some(2),
             columns,
@@ -1215,13 +1244,16 @@ fn staged_apply_failure_maps_statement_to_mutation_and_keeps_changes() {
 #[test]
 fn conflict_failure_has_distinct_code_and_user_action_message() {
     let mut app = DbProApp {
-        table_mutation: TableMutationState {
-            staged_apply_request: Some(crate::RequestId(8)),
-            staged_apply_targets: vec![MutationTarget::Update {
-                identity: primary_key_identity("3"),
-                current_row_index: Some(2),
-                columns: vec![1],
-            }],
+        table: TableEditorState {
+            mutation: TableMutationState {
+                staged_apply_request: Some(crate::RequestId(8)),
+                staged_apply_targets: vec![MutationTarget::Update {
+                    identity: primary_key_identity("3"),
+                    current_row_index: Some(2),
+                    columns: vec![1],
+                }],
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -1230,7 +1262,8 @@ fn conflict_failure_has_distinct_code_and_user_action_message() {
     app.staged_apply_failed(0, "CONFLICT", "row count was zero", true);
 
     let failure = app
-        .table_mutation
+        .table
+        .mutation
         .table_mutation_error
         .expect("conflict should be visible");
     assert_eq!(failure.code, "CONFLICT");
@@ -1242,8 +1275,11 @@ fn conflict_failure_has_distinct_code_and_user_action_message() {
 #[test]
 fn internal_error_code_is_normalized_for_mutation_state() {
     let mut app = DbProApp {
-        table_mutation: TableMutationState {
-            staged_apply_request: Some(crate::RequestId(9)),
+        table: TableEditorState {
+            mutation: TableMutationState {
+                staged_apply_request: Some(crate::RequestId(9)),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -1252,7 +1288,8 @@ fn internal_error_code_is_normalized_for_mutation_state() {
     app.staged_apply_failed(usize::MAX, "INTERNAL_ERROR", "invariant violation", true);
 
     assert_eq!(
-        app.table_mutation
+        app.table
+            .mutation
             .table_mutation_error
             .expect("error should be visible")
             .code,
@@ -1507,7 +1544,7 @@ fn editor_status_lives_on_query_strip_not_shell_statusbar() {
     app.workspace.active_tab = WorkspaceTab::Table;
     assert!(!app.shows_editor_status());
     assert_eq!(app.statusbar_context_label(), "Table Structure");
-    app.table_state.table_view = TableView::Data;
+    app.table.state.table_view = TableView::Data;
     assert_eq!(app.statusbar_context_label(), "Data Editor");
     app.workspace.active_tab = WorkspaceTab::Diagram;
     assert!(!app.shows_editor_status());
@@ -3846,7 +3883,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.schema_explorer.selected_table = Some("customers".to_owned());
     app.workspace.active_tab = WorkspaceTab::Table;
-    app.table_state.refresh_table_info_after_schema = true;
+    app.table.state.refresh_table_info_after_schema = true;
     event_tx
         .send(UiEvent::SchemaLoaded {
             request_id: crate::RequestId(1),
@@ -3876,7 +3913,7 @@ fn schema_refresh_reloads_the_selected_table_after_summary_completion() {
     assert_eq!(connection_id, "active");
     assert_eq!(schema, "main");
     assert_eq!(table, "customers");
-    assert!(!app.table_state.refresh_table_info_after_schema);
+    assert!(!app.table.state.refresh_table_info_after_schema);
 }
 
 #[test]
@@ -3920,11 +3957,14 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
             selected_table: Some("customers".to_owned()),
             ..Default::default()
         },
-        table_state: TableState {
-            table_info_request: Some(crate::RequestId(1)),
-            table_ddl_request: Some(crate::RequestId(2)),
-            table_data_request: Some(crate::RequestId(3)),
-            table_data_result: Some(result()),
+        table: TableEditorState {
+            state: TableState {
+                table_info_request: Some(crate::RequestId(1)),
+                table_ddl_request: Some(crate::RequestId(2)),
+                table_data_request: Some(crate::RequestId(3)),
+                table_data_result: Some(result()),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -3934,10 +3974,10 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
 
     assert_eq!(app.workspace.active_tab, WorkspaceTab::Welcome);
     assert_eq!(app.schema_explorer.selected_table, None);
-    assert_eq!(app.table_state.table_info_request, None);
-    assert_eq!(app.table_state.table_ddl_request, None);
-    assert_eq!(app.table_state.table_data_request, None);
-    assert_eq!(app.table_state.table_data_result, None);
+    assert_eq!(app.table.state.table_info_request, None);
+    assert_eq!(app.table.state.table_ddl_request, None);
+    assert_eq!(app.table.state.table_data_request, None);
+    assert_eq!(app.table.state.table_data_result, None);
 }
 
 #[test]
@@ -4007,7 +4047,7 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
     }];
     *app.connection.lifecycle.active_connection_id_mut() = Some("active".to_owned());
     app.connection.lifecycle.set_connected(true);
-    app.table_state.table_ddl = Some("CREATE TABLE \"public\".\"audit\" (id INTEGER)".to_owned());
+    app.table.state.table_ddl = Some("CREATE TABLE \"public\".\"audit\" (id INTEGER)".to_owned());
 
     app.submit_ddl();
 
@@ -4016,7 +4056,7 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
     };
     assert_eq!(connection_id, "active");
     assert_eq!(sql, "CREATE TABLE \"public\".\"audit\" (id INTEGER)");
-    assert!(app.table_state.ddl_execution_request.is_some());
+    assert!(app.table.state.ddl_execution_request.is_some());
 }
 
 #[test]
@@ -4026,10 +4066,10 @@ fn test_column_order_and_move_column() {
     assert_eq!(order, vec![0, 1, 2, 3]);
 
     app.move_column(0, 2, 4);
-    assert_eq!(app.table_data.grid_column_order, vec![1, 2, 0, 3]);
+    assert_eq!(app.table.data.grid_column_order, vec![1, 2, 0, 3]);
 
     app.move_column(3, 1, 4);
-    assert_eq!(app.table_data.grid_column_order, vec![1, 3, 2, 0]);
+    assert_eq!(app.table.data.grid_column_order, vec![1, 3, 2, 0]);
 
     // Invalid persisted indexes are removed while valid order is preserved.
     let new_order = app.column_order(2);
@@ -4183,12 +4223,12 @@ fn test_export_result_writes_escaped_delimited_text() {
 #[test]
 fn test_table_data_limit_and_paging_offset() {
     let mut app = DbProApp::default();
-    assert_eq!(app.table_state.table_data_limit, 100);
+    assert_eq!(app.table.state.table_data_limit, 100);
 
-    app.table_state.table_data_limit = 50;
-    app.table_state.table_data_offset = 100;
+    app.table.state.table_data_limit = 50;
+    app.table.state.table_data_offset = 100;
     app.reset_table_data_page();
-    assert_eq!(app.table_state.table_data_offset, 0);
+    assert_eq!(app.table.state.table_data_offset, 0);
 }
 
 #[test]
@@ -4260,8 +4300,8 @@ fn test_open_table_blocked_with_unapplied_staged_changes() {
         },
         ..Default::default()
     };
-    app.table_mutation.staged_changes.ensure_target("users");
-    app.table_mutation.staged_changes.stage_update(StagedChange::Update {
+    app.table.mutation.staged_changes.ensure_target("users");
+    app.table.mutation.staged_changes.stage_update(StagedChange::Update {
         identity: primary_key_identity("1"),
         current_row_index: Some(0),
         column_index: 0,
@@ -4274,14 +4314,14 @@ fn test_open_table_blocked_with_unapplied_staged_changes() {
     // Opening another table should be blocked to prevent mutation retargeting
     app.open_table("orders".to_owned());
     assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
-    assert!(app.table_data.discard_changes_confirmation);
+    assert!(app.table.data.discard_changes_confirmation);
     assert!(app.feedback.runtime_message.contains("Apply or discard staged changes"));
 
     // Closing table tab with staged changes is guarded
-    app.table_data.discard_changes_confirmation = false;
+    app.table.data.discard_changes_confirmation = false;
     app.request_close_workspace_tab(WorkspaceTab::Table);
     assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
-    assert!(app.table_data.discard_changes_confirmation);
+    assert!(app.table.data.discard_changes_confirmation);
 
     // Discarding changes allows opening a new table
     app.discard_staged_changes();
@@ -4357,8 +4397,8 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
         },
         ..Default::default()
     };
-    app.table_mutation.staged_changes.ensure_target("users");
-    app.table_mutation.staged_changes.stage_update(StagedChange::Update {
+    app.table.mutation.staged_changes.ensure_target("users");
+    app.table.mutation.staged_changes.stage_update(StagedChange::Update {
         identity: primary_key_identity("1"),
         current_row_index: Some(0),
         column_index: 0,
@@ -4374,14 +4414,14 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
         app.workspace.pending_navigation_action,
         Some(PendingNavigationAction::OpenTable("orders".to_owned()))
     );
-    assert!(app.table_data.discard_changes_confirmation);
+    assert!(app.table.data.discard_changes_confirmation);
     assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
 
     // 2. Cancel retains current context and clears pending action
-    app.table_data.discard_changes_confirmation = false;
+    app.table.data.discard_changes_confirmation = false;
     app.workspace.pending_navigation_action = None;
     assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
-    assert!(!app.table_mutation.staged_changes.is_empty());
+    assert!(!app.table.mutation.staged_changes.is_empty());
 
     // 3. Staged apply success executes pending navigation action
     app.open_table("products".to_owned());
@@ -4391,7 +4431,7 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
     );
     app.staged_apply_completed();
     assert_eq!(app.schema_explorer.selected_table, Some("products".to_owned()));
-    assert!(app.table_mutation.staged_changes.is_empty());
+    assert!(app.table.mutation.staged_changes.is_empty());
     assert!(app.workspace.pending_navigation_action.is_none());
 }
 
@@ -4474,7 +4514,7 @@ fn test_grid_layout_schema_reconciliation() {
         },
     ];
 
-    app.table_data.grid_pending_named_layout = Some(vec![
+    app.table.data.grid_pending_named_layout = Some(vec![
         PersistedGridColumnLayout {
             column_name: "email".to_owned(),
             width: 240.0,
@@ -4499,8 +4539,8 @@ fn test_grid_layout_schema_reconciliation() {
     let order = app.column_order_for_columns(&initial_columns);
     // email was index 1, id was index 0
     assert_eq!(order, vec![1, 0]);
-    assert_eq!(app.table_data.grid_column_widths[1], 240.0);
-    assert_eq!(app.table_data.grid_column_widths[0], 100.0);
+    assert_eq!(app.table.data.grid_column_widths[1], 240.0);
+    assert_eq!(app.table.data.grid_column_widths[0], 100.0);
 }
 
 #[test]
@@ -5664,7 +5704,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
     let mut app = DbProApp::with_task_bridge(bridge);
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.schema_explorer.selected_table = Some("user_roles".to_owned());
-    app.table_state.table_info = Some(UiTableInfo {
+    app.table.state.table_info = Some(UiTableInfo {
         schema: "public".to_owned(),
         name: "user_roles".to_owned(),
         row_count: Some(2),
@@ -5694,7 +5734,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
         check_constraints: Vec::new(),
         dependencies: Vec::new(),
     });
-    app.table_state.table_data_result = Some(UiQueryResult {
+    app.table.state.table_data_result = Some(UiQueryResult {
         columns: vec![
             crate::UiColumn {
                 name: "tenant_id".to_owned(),
@@ -5751,7 +5791,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
     assert_eq!(filters[1].value, "20");
 
     let server_reloaded = UiQueryResult {
-        columns: app.table_state.table_data_result.as_ref().unwrap().columns.clone(),
+        columns: app.table.state.table_data_result.as_ref().unwrap().columns.clone(),
         rows: vec![vec![
             UiCell::Number("1".to_owned()),
             UiCell::Number("20".to_owned()),
@@ -5763,7 +5803,7 @@ fn test_composite_pk_targeted_reload_and_merge() {
 
     app.on_table_row_reloaded(server_reloaded);
 
-    let result = app.table_state.table_data_result.as_ref().unwrap();
+    let result = app.table.state.table_data_result.as_ref().unwrap();
     assert_eq!(result.rows[0][2], UiCell::Text("admin".to_owned()));
     assert_eq!(result.rows[1][2], UiCell::Text("manager".to_owned()));
 }
@@ -5775,7 +5815,7 @@ fn test_inserted_row_delete_removes_from_changeset_without_db_delete() {
     *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
     app.schema_explorer.selected_table = Some("users".to_owned());
 
-    let local_id = app.table_mutation.staged_changes.stage_insert(
+    let local_id = app.table.mutation.staged_changes.stage_insert(
         vec!["username".to_owned(), "email".to_owned()],
         vec![
             UiCell::Text("alice".to_owned()),
@@ -5783,13 +5823,13 @@ fn test_inserted_row_delete_removes_from_changeset_without_db_delete() {
         ],
     );
 
-    assert_eq!(app.table_mutation.staged_changes.counts().inserts, 1);
-    assert_eq!(app.table_mutation.staged_changes.counts().total(), 1);
+    assert_eq!(app.table.mutation.staged_changes.counts().inserts, 1);
+    assert_eq!(app.table.mutation.staged_changes.counts().total(), 1);
 
     // Deleting the draft insert row removes it locally
-    let removed = app.table_mutation.staged_changes.remove_insert(local_id);
+    let removed = app.table.mutation.staged_changes.remove_insert(local_id);
     assert!(removed);
-    assert!(app.table_mutation.staged_changes.is_empty());
+    assert!(app.table.mutation.staged_changes.is_empty());
 
     // Apply now has zero changes and dispatches nothing
     app.apply_staged_changes();
@@ -5799,32 +5839,35 @@ fn test_inserted_row_delete_removes_from_changeset_without_db_delete() {
 #[test]
 fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
     let mut app = DbProApp {
-        table_mutation: TableMutationState {
-            staged_apply_request: Some(crate::RequestId(12)),
-            ..Default::default()
-        },
-        table_state: TableState {
-            table_data_result: Some(UiQueryResult {
-                columns: vec![
-                    crate::UiColumn {
-                        name: "id".to_owned(),
-                        data_type: "INTEGER".to_owned(),
-                        nullable: false,
-                    },
-                    crate::UiColumn {
-                        name: "name".to_owned(),
-                        data_type: "TEXT".to_owned(),
-                        nullable: false,
-                    },
-                ],
-                rows: vec![
-                    vec![UiCell::Number("1".to_owned()), UiCell::Text("Alice".to_owned())],
-                    vec![UiCell::Number("2".to_owned()), UiCell::Text("Bob".to_owned())],
-                    vec![UiCell::Number("3".to_owned()), UiCell::Text("Charlie".to_owned())],
-                ],
-                row_count: 3,
-                duration_ms: 0,
-            }),
+        table: TableEditorState {
+            mutation: TableMutationState {
+                staged_apply_request: Some(crate::RequestId(12)),
+                ..Default::default()
+            },
+            state: TableState {
+                table_data_result: Some(UiQueryResult {
+                    columns: vec![
+                        crate::UiColumn {
+                            name: "id".to_owned(),
+                            data_type: "INTEGER".to_owned(),
+                            nullable: false,
+                        },
+                        crate::UiColumn {
+                            name: "name".to_owned(),
+                            data_type: "TEXT".to_owned(),
+                            nullable: false,
+                        },
+                    ],
+                    rows: vec![
+                        vec![UiCell::Number("1".to_owned()), UiCell::Text("Alice".to_owned())],
+                        vec![UiCell::Number("2".to_owned()), UiCell::Text("Bob".to_owned())],
+                        vec![UiCell::Number("3".to_owned()), UiCell::Text("Charlie".to_owned())],
+                    ],
+                    row_count: 3,
+                    duration_ms: 0,
+                }),
+                ..Default::default()
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -5843,7 +5886,7 @@ fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
         original_pk_values: vec![UiCell::Number("3".to_owned())],
     };
 
-    app.table_mutation.staged_changes.stage_update(StagedChange::Update {
+    app.table.mutation.staged_changes.stage_update(StagedChange::Update {
         identity: id_1.clone(),
         current_row_index: Some(0),
         column_index: 1,
@@ -5852,7 +5895,7 @@ fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
         original: UiCell::Text("Alice".to_owned()),
         value: UiCell::Text("Alice Updated".to_owned()),
     });
-    app.table_mutation.staged_changes.stage_update(StagedChange::Update {
+    app.table.mutation.staged_changes.stage_update(StagedChange::Update {
         identity: id_2.clone(),
         current_row_index: Some(1),
         column_index: 1,
@@ -5861,12 +5904,12 @@ fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
         original: UiCell::Text("Bob".to_owned()),
         value: UiCell::Text("Bob Conflicting".to_owned()),
     });
-    app.table_mutation.staged_changes.stage_delete(StagedChange::Delete {
+    app.table.mutation.staged_changes.stage_delete(StagedChange::Delete {
         identity: id_3.clone(),
         current_row_index: Some(2),
     });
 
-    app.table_mutation.staged_apply_targets = vec![
+    app.table.mutation.staged_apply_targets = vec![
         MutationTarget::Update {
             identity: id_1,
             current_row_index: Some(0),
@@ -5888,7 +5931,8 @@ fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
 
     // 1. Transaction rolled back
     let failure = app
-        .table_mutation
+        .table
+        .mutation
         .table_mutation_error
         .as_ref()
         .expect("failure recorded");
@@ -5896,15 +5940,15 @@ fn test_apply_mutation_failure_preserves_changeset_and_focuses_failed_cell() {
     assert_eq!(failure.code, "CONFLICT");
 
     // 2. ChangeSet remains intact (2 updates + 1 delete)
-    assert_eq!(app.table_mutation.staged_changes.counts().updates, 2);
-    assert_eq!(app.table_mutation.staged_changes.counts().deletes, 1);
+    assert_eq!(app.table.mutation.staged_changes.counts().updates, 2);
+    assert_eq!(app.table.mutation.staged_changes.counts().deletes, 1);
 
     // 3. Focus moves to failed row and cell
-    assert_eq!(app.table_data.selected_row, Some(1));
-    assert_eq!(app.table_data.selected_cell, Some((1, 1)));
+    assert_eq!(app.table.data.selected_row, Some(1));
+    assert_eq!(app.table.data.selected_cell, Some((1, 1)));
 
     // 4. Conflict resolution dialog opened
-    assert!(app.table_mutation.conflict_dialog_open);
+    assert!(app.table.mutation.conflict_dialog_open);
 }
 
 #[test]
@@ -5916,7 +5960,7 @@ fn test_conflict_keep_mine_and_use_database_resolution_actions() {
         original_pk_values: vec![UiCell::Number("42".to_owned())],
     };
 
-    app.table_state.table_data_result = Some(UiQueryResult {
+    app.table.state.table_data_result = Some(UiQueryResult {
         columns: vec![
             crate::UiColumn {
                 name: "id".to_owned(),
@@ -5937,7 +5981,7 @@ fn test_conflict_keep_mine_and_use_database_resolution_actions() {
         duration_ms: 0,
     });
 
-    app.table_mutation.staged_changes.stage_update(StagedChange::Update {
+    app.table.mutation.staged_changes.stage_update(StagedChange::Update {
         identity: id.clone(),
         current_row_index: Some(0),
         column_index: 1,
@@ -5947,7 +5991,7 @@ fn test_conflict_keep_mine_and_use_database_resolution_actions() {
         value: UiCell::Text("val_mine".to_owned()),
     });
 
-    app.table_mutation.table_mutation_error = Some(MutationFailure {
+    app.table.mutation.table_mutation_error = Some(MutationFailure {
         statement_index: 0,
         target: Some(MutationTarget::Update {
             identity: id.clone(),
@@ -5958,13 +6002,13 @@ fn test_conflict_keep_mine_and_use_database_resolution_actions() {
         message: "Conflict".to_owned(),
         rolled_back: true,
     });
-    app.table_mutation.conflict_dialog_open = true;
+    app.table.mutation.conflict_dialog_open = true;
 
     // Test Use Database: reverts local staged changes
     app.conflict_use_database();
-    assert!(app.table_mutation.staged_changes.is_empty());
-    assert!(app.table_mutation.table_mutation_error.is_none());
-    assert!(!app.table_mutation.conflict_dialog_open);
+    assert!(app.table.mutation.staged_changes.is_empty());
+    assert!(app.table.mutation.table_mutation_error.is_none());
+    assert!(!app.table.mutation.conflict_dialog_open);
 }
 
 /// The status bar used to render `runtime_message` only when the text happened to

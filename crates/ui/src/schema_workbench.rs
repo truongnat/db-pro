@@ -471,7 +471,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect with write access to apply DDL".into();
             return;
         }
-        if self.table_state.ddl_execution_request.is_some() {
+        if self.table.state.ddl_execution_request.is_some() {
             return;
         }
         let Some(connection) = self.active_connection().cloned() else {
@@ -487,7 +487,7 @@ impl DbProApp {
             }
         };
         self.dispatch_command(command);
-        self.table_state.ddl_execution_request = Some(request_id);
+        self.table.state.ddl_execution_request = Some(request_id);
         self.feedback.runtime_message = "Applying schema mutation…".into();
     }
 

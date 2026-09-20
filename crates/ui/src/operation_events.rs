@@ -147,7 +147,7 @@ impl DbProApp {
     /// DDL applied; re-introspect so the tree and table view pick up the change.
     pub(super) fn on_ddl_completed(&mut self, request_id: RequestId, affected_rows: u64) {
         if let Some(transition) = ddl_events::on_ddl_completed(
-            &mut self.table_state,
+            &mut self.table.state,
             &mut self.security,
             &mut self.feedback,
             request_id,
@@ -254,18 +254,18 @@ impl DbProApp {
 
     /// Row mutation follow-up: finalise a staged apply, or refresh the grid.
     fn on_table_row_operation_completed(&mut self, request_id: RequestId) {
-        self.table_data.data_editing_cell = None;
-        self.table_data.data_edit_value.clear();
-        self.table_data.data_edit_error = None;
-        self.table_data.data_delete_confirmation = false;
-        if self.table_mutation.staged_apply_request == Some(request_id) {
+        self.table.data.data_editing_cell = None;
+        self.table.data.data_edit_value.clear();
+        self.table.data.data_edit_error = None;
+        self.table.data.data_delete_confirmation = false;
+        if self.table.mutation.staged_apply_request == Some(request_id) {
             self.staged_apply_completed();
-        } else if self.table_mutation.table_mutation_request == Some(request_id) {
-            self.table_mutation.table_mutation_request = None;
-            self.table_state.table_data_result = None;
-            self.table_state.table_data_total_rows = None;
-            self.table_state.table_data_error = None;
-            self.table_state.table_data_request = None;
+        } else if self.table.mutation.table_mutation_request == Some(request_id) {
+            self.table.mutation.table_mutation_request = None;
+            self.table.state.table_data_result = None;
+            self.table.state.table_data_total_rows = None;
+            self.table.state.table_data_error = None;
+            self.table.state.table_data_request = None;
             if self.workspace.active_tab == WorkspaceTab::Table {
                 self.request_table_data();
             }
@@ -288,7 +288,7 @@ impl DbProApp {
         statement_index: usize,
         rolled_back: bool,
     ) {
-        if self.table_mutation.staged_apply_request == Some(request_id) {
+        if self.table.mutation.staged_apply_request == Some(request_id) {
             self.staged_apply_failed(statement_index, &code, &message, rolled_back);
         }
     }

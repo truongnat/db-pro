@@ -44,13 +44,15 @@ impl DbProApp {
         let staged_cell = self.staged_cell_value(result, row_index, column_index);
         let display_cell = staged_cell.as_ref().unwrap_or(cell);
         let cell_selected = self
-            .table_data
+            .table
+            .data
             .is_cell_selected(selection_lookup, (row_index, column_index));
-        let editing = editable && self.table_data.data_editing_cell == Some((row_index, column_index));
-        let validation_error = editing && self.table_data.data_edit_error.is_some();
+        let editing = editable && self.table.data.data_editing_cell == Some((row_index, column_index));
+        let validation_error = editing && self.table.data.data_edit_error.is_some();
         let conflict_error = (cell_mutation_error || row_mutation_error)
             && self
-                .table_mutation
+                .table
+                .mutation
                 .table_mutation_error
                 .as_ref()
                 .is_some_and(|failure| failure.code == "CONFLICT");
@@ -100,7 +102,7 @@ impl DbProApp {
                 Rounding::ZERO,
                 Stroke::new(1.5, self.theme.danger),
             );
-            if let Some(error) = self.table_data.data_edit_error.as_deref() {
+            if let Some(error) = self.table.data.data_edit_error.as_deref() {
                 cell_resp.clone().on_hover_text(error);
             }
         }
@@ -117,7 +119,7 @@ impl DbProApp {
                     },
                 ),
             );
-            if let Some(error) = self.table_mutation.table_mutation_error.as_ref() {
+            if let Some(error) = self.table.mutation.table_mutation_error.as_ref() {
                 cell_resp.clone().on_hover_text(error.message.as_str());
             }
         }
@@ -186,16 +188,16 @@ impl DbProApp {
             );
 
             if cell_resp.double_clicked() && editable {
-                if self.table_data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+                if self.table.data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
                 self.begin_data_cell_edit(result, row_index, column_index, display_cell);
             } else if cell_resp.clicked() && !is_ctx {
-                if self.table_data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+                if self.table.data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
                 let modifiers = ui.input(|input| input.modifiers);
-                self.table_data.select_cell_range(
+                self.table.data.select_cell_range(
                     visible_indexes,
                     &selection_lookup.row_positions,
                     (row_index, column_index),
@@ -368,10 +370,11 @@ impl DbProApp {
                     *close_menu = true;
                 }
                 let has_row_change = self
-                    .table_data
-                    .row_identity_for_result(result, self.table_state.table_info.as_ref(), row_index)
+                    .table
+                    .data
+                    .row_identity_for_result(result, self.table.state.table_info.as_ref(), row_index)
                     .as_ref()
-                    .map(|identity| self.table_mutation.staged_changes.row_has_changes(identity))
+                    .map(|identity| self.table.mutation.staged_changes.row_has_changes(identity))
                     .unwrap_or(false);
                 if has_row_change
                     && ctx_menu_item(
@@ -463,7 +466,8 @@ impl DbProApp {
 
         if is_ctx
             && self
-                .table_data
+                .table
+                .data
                 .data_editing_cell
                 .is_some_and(|editing_cell| editing_cell != (row_index, column_index))
             && !self.commit_active_data_edit(result)
@@ -476,16 +480,17 @@ impl DbProApp {
             // is opened inside it. Right-clicking outside the range starts
             // a new selection at the clicked cell.
             let is_inside_range = self
-                .table_data
+                .table
+                .data
                 .is_cell_selected(selection_lookup, (row_index, column_index));
             if !is_inside_range {
-                self.table_data.select_single_cell((row_index, column_index));
+                self.table.data.select_single_cell((row_index, column_index));
             }
-            if !self.table_data.selected_rows.contains(&row_index) {
-                self.table_data.select_single_row(row_index);
+            if !self.table.data.selected_rows.contains(&row_index) {
+                self.table.data.select_single_row(row_index);
             } else if !is_inside_range {
-                self.table_data.selected_row = Some(row_index);
-                self.table_data.selection_anchor_row = Some(row_index);
+                self.table.data.selected_row = Some(row_index);
+                self.table.data.selection_anchor_row = Some(row_index);
             }
         }
         self.apply_grid_cell_menu_requests(
@@ -521,48 +526,48 @@ impl DbProApp {
             self.copy_cell_at(ui, result, row_index, column_index);
         }
         if req.copy_row {
-            self.table_data.select_single_row(row_index);
+            self.table.data.select_single_row(row_index);
             self.copy_selected_row(ui, result);
         }
         if req.copy_selected_rows {
-            if !self.table_data.selected_rows.contains(&row_index) {
-                self.table_data.select_single_row(row_index);
+            if !self.table.data.selected_rows.contains(&row_index) {
+                self.table.data.select_single_row(row_index);
             }
             self.copy_selected_rows(ui, result);
         }
         if req.copy_selected_rows_headers {
-            if !self.table_data.selected_rows.contains(&row_index) {
-                self.table_data.select_single_row(row_index);
+            if !self.table.data.selected_rows.contains(&row_index) {
+                self.table.data.select_single_row(row_index);
             }
             self.copy_selected_rows_with_headers(ui, result);
         }
         if req.copy_selected_rows_json {
-            if !self.table_data.selected_rows.contains(&row_index) {
-                self.table_data.select_single_row(row_index);
+            if !self.table.data.selected_rows.contains(&row_index) {
+                self.table.data.select_single_row(row_index);
             }
             self.copy_selected_rows_as_json(ui, result);
         }
         if req.copy_selected_rows_insert {
-            if !self.table_data.selected_rows.contains(&row_index) {
-                self.table_data.select_single_row(row_index);
+            if !self.table.data.selected_rows.contains(&row_index) {
+                self.table.data.select_single_row(row_index);
             }
             self.copy_selected_rows_as_insert(ui, result);
         }
         if req.copy_json {
-            self.table_data.selected_row = Some(row_index);
+            self.table.data.selected_row = Some(row_index);
             self.copy_row_as_json(ui, result, row_index);
         }
         if req.copy_csv {
-            self.table_data.selected_row = Some(row_index);
+            self.table.data.selected_row = Some(row_index);
             self.copy_row_as_csv(ui, result, row_index);
         }
         if req.edit_cell && editable {
             self.begin_data_cell_edit(result, row_index, column_index, display_cell);
         }
         if req.set_null && editable {
-            self.table_data.data_editing_cell = Some((row_index, column_index));
-            self.table_data.data_edit_value = "NULL".to_owned();
-            self.table_data.data_edit_error = None;
+            self.table.data.data_editing_cell = Some((row_index, column_index));
+            self.table.data.data_edit_value = "NULL".to_owned();
+            self.table.data.data_edit_error = None;
             self.submit_data_cell_edit(result, row_index, column_index);
         }
         if req.revert_cell && editable {
@@ -575,28 +580,28 @@ impl DbProApp {
             self.open_duplicate_row(result, row_index);
         }
         if req.delete_row && editable {
-            if !self.table_data.selected_rows.contains(&row_index) {
-                self.table_data.select_single_row(row_index);
+            if !self.table.data.selected_rows.contains(&row_index) {
+                self.table.data.select_single_row(row_index);
             }
             self.request_delete_selected_data_rows(result);
         }
         if req.filter_this_val {
-            if self.workspace.active_tab == WorkspaceTab::Table && self.table_state.table_view == TableView::Data {
-                self.table_state.table_data_filter_column = result
+            if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
+                self.table.state.table_data_filter_column = result
                     .columns
                     .get(column_index)
                     .map(|column| column.name.clone())
                     .unwrap_or_default();
                 if matches!(display_cell, UiCell::Null) {
-                    self.table_state.table_data_filter_operator = UiTableFilterOperator::IsNull;
-                    self.table_state.table_data_filter_value.clear();
+                    self.table.state.table_data_filter_operator = UiTableFilterOperator::IsNull;
+                    self.table.state.table_data_filter_value.clear();
                 } else {
-                    self.table_state.table_data_filter_operator = UiTableFilterOperator::Equals;
-                    self.table_state.table_data_filter_value = crate::cell_text(display_cell);
+                    self.table.state.table_data_filter_operator = UiTableFilterOperator::Equals;
+                    self.table.state.table_data_filter_value = crate::cell_text(display_cell);
                 }
                 self.commit_table_filter_draft();
             } else {
-                self.table_data.grid_filter = crate::cell_text(display_cell);
+                self.table.data.grid_filter = crate::cell_text(display_cell);
             }
         }
         if req.sort_asc {

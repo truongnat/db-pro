@@ -90,16 +90,16 @@ impl DbProApp {
             };
             if let Some(widths) = storage.get_string("dbpro.native.grid-widths") {
                 if let Ok(widths) = serde_json::from_str::<Vec<f32>>(&widths) {
-                    app.table_data.grid_column_widths =
+                    app.table.data.grid_column_widths =
                         widths.into_iter().map(|width| width.clamp(90.0, 520.0)).collect();
                 }
             }
             if let Some(layouts) = storage.get_string("dbpro.native.grid-layouts") {
                 if let Ok(layouts) = serde_json::from_str(&layouts) {
-                    app.table_data.grid_layout_preferences = layouts;
+                    app.table.data.grid_layout_preferences = layouts;
                 }
             }
-            app.table_data.grid_columns_user_resized = storage
+            app.table.data.grid_columns_user_resized = storage
                 .get_string("dbpro.native.grid-widths-customized")
                 .is_some_and(|value| value == "true");
             if let Some(documents) = storage.get_string("dbpro.native.query-documents") {
@@ -180,7 +180,15 @@ impl Default for DbProApp {
                 ..Default::default()
             },
             query_output_state: QueryOutputState::default(),
-            table_data: TableDataState::default(),
+            table: TableEditorState {
+                data: TableDataState::default(),
+                mutation: TableMutationState::default(),
+                state: TableState {
+                    table_dependency_filter: "all".to_owned(),
+                    table_constraint_filter: "all".to_owned(),
+                    ..Default::default()
+                },
+            },
             overlay: OverlayState::default(),
             connection: ConnectionFeatureState::default(),
             query_library: QueryLibraryState::default(),
@@ -201,12 +209,6 @@ impl Default for DbProApp {
             saved_tasks: SavedTaskState::default(),
             transfer: TransferState::default(),
             diagram: DiagramState::default(),
-            table_state: TableState {
-                table_dependency_filter: "all".to_owned(),
-                table_constraint_filter: "all".to_owned(),
-                ..Default::default()
-            },
-            table_mutation: TableMutationState::default(),
             initial_frames_count: 0,
             gallery_state: ComponentGalleryState::default(),
         }

@@ -165,7 +165,7 @@ impl DbProApp {
     pub(super) fn draw_dbeaver_table_item(&mut self, ui: &mut egui::Ui, table: &str) {
         let is_selected = self.schema_explorer.selected_table.as_deref() == Some(table);
         let table_details_id = ui.make_persistent_id(("codex_tbl_details", table));
-        let has_details = is_selected && self.table_state.table_info.is_some();
+        let has_details = is_selected && self.table.state.table_info.is_some();
 
         let mut collapsing =
             egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), table_details_id, true);
@@ -217,15 +217,15 @@ impl DbProApp {
         let schema = self.active_schema().to_owned();
 
         if actions.open_data {
-            self.table_state.table_view = TableView::Data;
+            self.table.state.table_view = TableView::Data;
             self.workspace.active_tab = WorkspaceTab::Table;
         }
         if actions.open_structure {
-            self.table_state.table_view = TableView::Structure;
+            self.table.state.table_view = TableView::Structure;
             self.workspace.active_tab = WorkspaceTab::Table;
         }
         if actions.open_ddl {
-            self.table_state.table_view = TableView::Ddl;
+            self.table.state.table_view = TableView::Ddl;
             self.workspace.active_tab = WorkspaceTab::Table;
         }
         if actions.open_query {
@@ -233,7 +233,7 @@ impl DbProApp {
             self.workspace.active_tab = WorkspaceTab::Query;
         }
         if actions.gen_sql_insert {
-            let cols = if let Some(info) = self.table_state.table_info.as_ref() {
+            let cols = if let Some(info) = self.table.state.table_info.as_ref() {
                 info.columns
                     .iter()
                     .map(|c| c.name.as_str())
@@ -242,7 +242,7 @@ impl DbProApp {
             } else {
                 "column1, column2".to_owned()
             };
-            let vals = if let Some(info) = self.table_state.table_info.as_ref() {
+            let vals = if let Some(info) = self.table.state.table_info.as_ref() {
                 info.columns.iter().map(|_| "DEFAULT").collect::<Vec<_>>().join(", ")
             } else {
                 "'value1', 'value2'".to_owned()
@@ -251,7 +251,7 @@ impl DbProApp {
             self.workspace.active_tab = WorkspaceTab::Query;
         }
         if actions.gen_sql_update {
-            let set_clause = if let Some(info) = self.table_state.table_info.as_ref() {
+            let set_clause = if let Some(info) = self.table.state.table_info.as_ref() {
                 info.columns
                     .iter()
                     .filter(|c| !c.is_primary_key)
@@ -262,7 +262,8 @@ impl DbProApp {
                 "    column1 = 'value1'".to_owned()
             };
             let pk_clause = if let Some(pk_cols) = self
-                .table_state
+                .table
+                .state
                 .table_info
                 .as_ref()
                 .and_then(|i| i.primary_key.as_ref())
@@ -282,7 +283,8 @@ impl DbProApp {
         }
         if actions.gen_sql_delete {
             let pk_clause = if let Some(pk_cols) = self
-                .table_state
+                .table
+                .state
                 .table_info
                 .as_ref()
                 .and_then(|i| i.primary_key.as_ref())
@@ -321,7 +323,7 @@ impl DbProApp {
 
         // If table is selected and expanded, show nested details (Columns, Foreign keys, Indexes)
         if is_selected && collapsing.is_open() {
-            if let Some(info) = self.table_state.table_info.clone() {
+            if let Some(info) = self.table.state.table_info.clone() {
                 self.draw_table_detail_folders(ui, table, &info);
             }
         }
@@ -330,7 +332,7 @@ impl DbProApp {
     /// Selects a table and resets the table workspace to a clean slate.
     pub(crate) fn select_table(&mut self, table: &str) {
         if self.schema_explorer.selected_table.as_deref() != Some(table)
-            && !self.table_mutation.staged_changes.is_empty()
+            && !self.table.mutation.staged_changes.is_empty()
         {
             self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
@@ -340,7 +342,7 @@ impl DbProApp {
             self.active_schema(),
             self.schema_explorer.selected_table.as_deref(),
         );
-        self.table_data.persist_layout(scope);
+        self.table.data.persist_layout(scope);
         self.schema_explorer.selected_table = Some(table.to_owned());
         self.schema_explorer.record_recent_table(table);
         self.schema_explorer.selected_schema_object = None;
@@ -351,8 +353,8 @@ impl DbProApp {
             self.active_schema(),
             self.schema_explorer.selected_table.as_deref(),
         );
-        self.table_data.restore_layout(scope);
-        self.table_state.table_view = TableView::Data;
+        self.table.data.restore_layout(scope);
+        self.table.state.table_view = TableView::Data;
         let schema = self.active_schema();
         self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
         self.request_table_info();
@@ -363,42 +365,42 @@ impl DbProApp {
     /// Clears every table-workspace field. Shared by "select a table" and
     /// "connect to a connection" so both start from an identical slate.
     pub(super) fn reset_table_workspace_state(&mut self) {
-        self.table_state.table_info = None;
-        self.table_state.table_ddl = None;
-        self.table_state.table_info_error = None;
-        self.table_state.table_ddl_error = None;
-        self.table_state.ddl_execute_confirmation = false;
-        self.table_state.ddl_execution_request = None;
-        self.table_state.table_data_result = None;
-        self.table_state.table_data_total_rows = None;
-        self.table_state.table_data_offset = 0;
-        self.table_state.table_data_filter_column.clear();
-        self.table_state.table_data_filter_operator = UiTableFilterOperator::default();
-        self.table_state.table_data_filter_value.clear();
-        self.table_state.table_data_filters.clear();
-        self.table_state.table_data_sorts.clear();
-        self.table_state.table_data_error = None;
-        self.table_state.table_info_request = None;
-        self.table_state.table_ddl_request = None;
-        self.table_state.table_data_request = None;
-        self.table_mutation.table_mutation_request = None;
-        self.table_mutation.staged_changes.clear();
-        self.table_mutation.staged_apply_request = None;
-        self.table_mutation.staged_apply_targets.clear();
-        self.table_mutation.table_mutation_retry_after_reload = false;
-        self.table_mutation.table_mutation_retry_target = None;
-        self.table_mutation.table_mutation_error = None;
-        self.table_data.selected_cell = None;
-        self.table_data.selected_row = None;
-        self.table_data.selected_rows.clear();
-        self.table_data.selection_anchor_row = None;
-        self.table_data.selection_anchor_cell = None;
-        self.table_data.data_editing_cell = None;
-        self.table_data.data_edit_value.clear();
-        self.table_data.data_edit_error = None;
-        self.table_data.data_delete_confirmation = false;
-        self.table_data.discard_changes_confirmation = false;
-        self.table_state.table_view = TableView::Data;
+        self.table.state.table_info = None;
+        self.table.state.table_ddl = None;
+        self.table.state.table_info_error = None;
+        self.table.state.table_ddl_error = None;
+        self.table.state.ddl_execute_confirmation = false;
+        self.table.state.ddl_execution_request = None;
+        self.table.state.table_data_result = None;
+        self.table.state.table_data_total_rows = None;
+        self.table.state.table_data_offset = 0;
+        self.table.state.table_data_filter_column.clear();
+        self.table.state.table_data_filter_operator = UiTableFilterOperator::default();
+        self.table.state.table_data_filter_value.clear();
+        self.table.state.table_data_filters.clear();
+        self.table.state.table_data_sorts.clear();
+        self.table.state.table_data_error = None;
+        self.table.state.table_info_request = None;
+        self.table.state.table_ddl_request = None;
+        self.table.state.table_data_request = None;
+        self.table.mutation.table_mutation_request = None;
+        self.table.mutation.staged_changes.clear();
+        self.table.mutation.staged_apply_request = None;
+        self.table.mutation.staged_apply_targets.clear();
+        self.table.mutation.table_mutation_retry_after_reload = false;
+        self.table.mutation.table_mutation_retry_target = None;
+        self.table.mutation.table_mutation_error = None;
+        self.table.data.selected_cell = None;
+        self.table.data.selected_row = None;
+        self.table.data.selected_rows.clear();
+        self.table.data.selection_anchor_row = None;
+        self.table.data.selection_anchor_cell = None;
+        self.table.data.data_editing_cell = None;
+        self.table.data.data_edit_value.clear();
+        self.table.data.data_edit_error = None;
+        self.table.data.data_delete_confirmation = false;
+        self.table.data.discard_changes_confirmation = false;
+        self.table.state.table_view = TableView::Data;
     }
 
     /// Nested detail folders shown under a selected, expanded table.

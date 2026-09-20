@@ -20,7 +20,7 @@ impl DbProApp {
         let is_tab = ui.input(|input| input.key_pressed(egui::Key::Tab));
         let is_shift_tab = is_tab && ui.input(|input| input.modifiers.shift);
 
-        if is_tab && editable && self.table_data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+        if is_tab && editable && self.table.data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
             return;
         }
 
@@ -45,17 +45,18 @@ impl DbProApp {
         };
 
         if let Some(selection) = self
-            .table_data
+            .table
+            .data
             .navigation_target(indexes, order, selection_lookup, key, is_shift_tab)
         {
-            self.table_data.select_cell_range(
+            self.table.data.select_cell_range(
                 indexes,
                 &selection_lookup.row_positions,
                 selection,
                 ui.input(|input| input.modifiers.shift),
             );
-            self.table_data.data_editing_cell = None;
-            self.table_data.data_edit_value.clear();
+            self.table.data.data_editing_cell = None;
+            self.table.data.data_edit_value.clear();
             self.feedback.copy_status.clear();
         }
     }

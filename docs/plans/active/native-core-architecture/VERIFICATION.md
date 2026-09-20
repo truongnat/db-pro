@@ -421,6 +421,18 @@ Source checkpoint: `0070d374`.
   `eframe::App` adapter plus persistence/frame helpers live in
   `app_lifecycle.rs` (253 lines). Focused clippy, architecture guard and 632 UI
   tests PASS; clean scan is 16 pass, 0 warnings, 0 failures.
+- Table editor state aggregation: `DbProApp` now owns one `TableEditorState`
+  aggregate instead of separate `table_state`, `table_data` and
+  `table_mutation` root fields. Consumers use `self.table.state`,
+  `self.table.data` or `self.table.mutation`; the architecture allowlist was
+  updated to require the aggregate. Focused UI tests (632 passed), focused
+  clippy, architecture guard and clean scan PASS; clean scan reports 12 pass,
+  4 ratcheted baseline warnings, 0 failures.
+- Current release runtime capture: PASS at logical `1280x800`
+  (`/tmp/db-pro-native-table-state-aggregate.png`) after rebuilding both
+  `db-pro-native` release variants. The New Connection surface still shows a
+  centered modal card, separated header, right-aligned close action, scrollable
+  body and footer; the state-owner refactor did not regress the visual surface.
 
 ## Not yet proven
 

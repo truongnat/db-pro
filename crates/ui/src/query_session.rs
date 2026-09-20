@@ -57,7 +57,7 @@ impl DbProApp {
     // Problems / diagnostics: `problems_view.rs`.
 
     pub(crate) fn apply_migration_preview(&mut self) {
-        if self.table_state.ddl_execution_request.is_some() {
+        if self.table.state.ddl_execution_request.is_some() {
             return;
         }
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
@@ -75,7 +75,7 @@ impl DbProApp {
             }
         };
         self.dispatch_command(command);
-        self.table_state.ddl_execution_request = Some(request_id);
+        self.table.state.ddl_execution_request = Some(request_id);
         self.feedback.runtime_message = "Applying migration plan…".into();
     }
 
@@ -100,7 +100,7 @@ impl DbProApp {
 
     pub(crate) fn set_active_query_result(&mut self, index: usize) {
         if self.query_session_state.set_active_result(index) {
-            self.table_data.invalidate_grid_projection();
+            self.table.data.invalidate_grid_projection();
         }
     }
 

@@ -308,7 +308,7 @@ impl DbProApp {
                             // 3. Table Tab
                             if let Some(table_name) = self.schema_explorer.selected_table.clone() {
                                 let selected = self.workspace.active_tab == WorkspaceTab::Table;
-                                let unsaved = !self.table_mutation.staged_changes.is_empty();
+                                let unsaved = !self.table.mutation.staged_changes.is_empty();
                                 let mut close_table = false;
                                 let mut refresh_table = false;
                                 let table_action = draw_workspace_tab_item(

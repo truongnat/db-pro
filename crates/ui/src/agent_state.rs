@@ -49,7 +49,8 @@ impl DbProApp {
         let connection_name = Some(self.active_connection_name().to_owned());
         let driver = self.active_driver().to_owned();
         let selected_columns = self
-            .table_state
+            .table
+            .state
             .table_info
             .as_ref()
             .map(|info| info.columns.iter().map(|column| column.name.clone()).collect())
@@ -62,7 +63,7 @@ impl DbProApp {
         let result_summary = self
             .query_session_state
             .active_result()
-            .or(self.table_state.table_data_result.as_ref())
+            .or(self.table.state.table_data_result.as_ref())
             .map(|result| format!("{} rows returned in {} ms", result.row_count, result.duration_ms));
         let last_error = self.has_runtime_error().then(|| self.feedback.runtime_message.clone());
 
@@ -337,7 +338,7 @@ impl DbProApp {
             document.active_result_index = 0;
             self.query_output_state.active_tab = OutputTab::Results;
             // The agent's result replaces the rows behind the grid.
-            self.table_data.invalidate_grid_projection();
+            self.table.data.invalidate_grid_projection();
             if total_rows > sample_len as u64 {
                 self.feedback.runtime_message =
                     format!("Showing {sample_len} sampled rows of {total_rows} total rows.");

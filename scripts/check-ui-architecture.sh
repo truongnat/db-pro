@@ -37,9 +37,7 @@ schema_explorer
 schema_workbench
 schema_compare
 synthetic_data
-table_data
-table_mutation
-table_state
+table
 task_bridge
 theme
 transfer

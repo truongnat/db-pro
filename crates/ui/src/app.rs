@@ -253,6 +253,8 @@ mod sidebar_view;
 mod synthetic_data;
 #[path = "table_data_state.rs"]
 mod table_data_state;
+#[path = "table_editor_state.rs"]
+mod table_editor_state;
 #[path = "table_events.rs"]
 mod table_events;
 #[path = "table_mutation_dialogs_view.rs"]
@@ -287,6 +289,7 @@ pub(crate) use result_grid_view::GridSelectionCache;
 use schema_compare_state::SchemaCompareState;
 pub(crate) use schema_explorer_state::SchemaExplorerState;
 pub(crate) use table_data_state::TableDataState;
+pub(crate) use table_editor_state::TableEditorState;
 pub(crate) use table_mutation_state::TableMutationState;
 pub(crate) use table_state::TableState;
 pub(crate) use welcome_state::WelcomeState;
@@ -352,7 +355,7 @@ pub struct DbProApp {
     task_bridge: TaskBridge,
     feedback: FeedbackState,
     query_output_state: QueryOutputState,
-    table_data: TableDataState,
+    table: TableEditorState,
     overlay: OverlayState,
     connection: ConnectionFeatureState,
     query_library: QueryLibraryState,
@@ -373,8 +376,6 @@ pub struct DbProApp {
     query_execution: QueryExecutionPolicyState,
     saved_tasks: SavedTaskState,
     diagram: DiagramState,
-    table_state: TableState,
-    table_mutation: TableMutationState,
     /// Counter for initial render frames to ensure window is maximized on startup.
     initial_frames_count: u8,
     gallery_state: component_gallery_view::ComponentGalleryState,
@@ -553,7 +554,7 @@ impl DbProApp {
     }
 
     pub(super) fn statusbar_context_label(&self) -> &'static str {
-        connection_status::statusbar_context_label(&self.workspace, &self.table_state)
+        connection_status::statusbar_context_label(&self.workspace, &self.table.state)
     }
 
     pub(super) fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, egui::Color32) {
@@ -707,12 +708,12 @@ impl DbProApp {
                 .sessions
                 .values()
                 .any(|session| session.request_id.is_some() || session.active_run_id.is_some())
-            || self.table_state.table_info_request.is_some()
-            || self.table_state.table_ddl_request.is_some()
-            || self.table_state.table_data_request.is_some()
-            || self.table_mutation.table_mutation_request.is_some()
-            || self.table_mutation.staged_apply_request.is_some()
-            || self.table_state.ddl_execution_request.is_some()
+            || self.table.state.table_info_request.is_some()
+            || self.table.state.table_ddl_request.is_some()
+            || self.table.state.table_data_request.is_some()
+            || self.table.mutation.table_mutation_request.is_some()
+            || self.table.mutation.staged_apply_request.is_some()
+            || self.table.state.ddl_execution_request.is_some()
     }
 
     fn request_schema_introspection(&mut self, connection_id: String, force_refresh: bool) {

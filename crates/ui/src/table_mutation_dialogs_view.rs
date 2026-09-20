@@ -2,10 +2,10 @@ use super::*;
 
 impl DbProApp {
     pub(crate) fn draw_discard_changes_confirmation(&mut self, ui: &mut egui::Ui) {
-        if !self.table_data.discard_changes_confirmation {
+        if !self.table.data.discard_changes_confirmation {
             return;
         }
-        let counts = self.table_mutation.staged_changes.counts();
+        let counts = self.table.mutation.staged_changes.counts();
         let description = format!(
             "You have {} unapplied staged change(s) (+{} inserts, {} updates, {} deletes). Apply changes to database, discard them, or cancel navigation?",
             counts.total(),
@@ -50,26 +50,26 @@ impl DbProApp {
                 });
             });
         if apply {
-            self.table_data.discard_changes_confirmation = false;
+            self.table.data.discard_changes_confirmation = false;
             self.apply_staged_changes();
         } else if discard {
-            self.table_data.discard_changes_confirmation = false;
+            self.table.data.discard_changes_confirmation = false;
             let pending = self.workspace.pending_navigation_action.take();
             self.discard_staged_changes();
             if let Some(action) = pending {
                 self.execute_pending_navigation(action);
             }
         } else if cancel || !open {
-            self.table_data.discard_changes_confirmation = false;
+            self.table.data.discard_changes_confirmation = false;
             self.workspace.pending_navigation_action = None;
         }
     }
 
     pub(crate) fn draw_pending_changes_dialog(&mut self, ui: &mut egui::Ui) {
-        if !self.table_mutation.pending_changes_open {
+        if !self.table.mutation.pending_changes_open {
             return;
         }
-        let entries: Vec<StagedChange> = self.table_mutation.staged_changes.iter().cloned().collect();
+        let entries: Vec<StagedChange> = self.table.mutation.staged_changes.iter().cloned().collect();
         let mut groups: Vec<(Option<RowIdentity>, Option<u64>, Vec<StagedChange>)> = Vec::new();
         for entry in entries {
             let (identity, local_id) = match &entry {
@@ -108,7 +108,7 @@ impl DbProApp {
                 ui.horizontal(|ui| {
                     ui.label(format!("{} row group(s)", groups.len()));
                     if ui.small_button("Discard All").clicked() {
-                        self.table_data.discard_changes_confirmation = true;
+                        self.table.data.discard_changes_confirmation = true;
                     }
                 });
                 egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
@@ -174,27 +174,28 @@ impl DbProApp {
         if let Some(action) = action {
             match action {
                 PendingAction::Cell(identity, column_index) => {
-                    self.table_mutation.staged_changes.revert_cell(&identity, column_index);
-                    self.table_mutation
+                    self.table.mutation.staged_changes.revert_cell(&identity, column_index);
+                    self.table
+                        .mutation
                         .clear_error_for_identity(&identity, Some(column_index));
                 }
                 PendingAction::Row(identity) => {
-                    self.table_mutation.staged_changes.revert_row(&identity);
-                    self.table_mutation.clear_error_for_identity(&identity, None);
+                    self.table.mutation.staged_changes.revert_row(&identity);
+                    self.table.mutation.clear_error_for_identity(&identity, None);
                 }
                 PendingAction::Insert(local_id) => {
-                    self.table_mutation.staged_changes.remove_insert(local_id);
-                    self.table_mutation.table_mutation_error = None;
+                    self.table.mutation.staged_changes.remove_insert(local_id);
+                    self.table.mutation.table_mutation_error = None;
                 }
             }
         }
         if !open {
-            self.table_mutation.pending_changes_open = false;
+            self.table.mutation.pending_changes_open = false;
         }
     }
 
     pub(crate) fn conflict_keep_mine(&mut self) {
-        let Some(failure) = self.table_mutation.table_mutation_error.as_ref() else {
+        let Some(failure) = self.table.mutation.table_mutation_error.as_ref() else {
             return;
         };
         let Some(target) = failure.target.clone() else {
@@ -202,7 +203,7 @@ impl DbProApp {
         };
         match &target {
             MutationTarget::Update { identity, .. } => {
-                if let Some(result) = self.table_state.table_data_result.as_ref() {
+                if let Some(result) = self.table.state.table_data_result.as_ref() {
                     let col_map: std::collections::HashMap<&str, usize> = result
                         .columns
                         .iter()
@@ -217,7 +218,7 @@ impl DbProApp {
                         let current_db_row = &result.rows[row_index];
                         for (col_idx, _col) in result.columns.iter().enumerate() {
                             if let Some(val) = current_db_row.get(col_idx) {
-                                self.table_mutation.staged_changes.update_original_baseline(
+                                self.table.mutation.staged_changes.update_original_baseline(
                                     identity,
                                     col_idx,
                                     val.clone(),
@@ -226,27 +227,27 @@ impl DbProApp {
                         }
                     }
                 }
-                self.table_mutation.table_mutation_retry_target = Some(target);
-                self.table_mutation.table_mutation_error = None;
-                self.table_mutation.conflict_dialog_open = false;
+                self.table.mutation.table_mutation_retry_target = Some(target);
+                self.table.mutation.table_mutation_error = None;
+                self.table.mutation.conflict_dialog_open = false;
                 self.apply_staged_changes();
             }
             MutationTarget::Delete { identity: _, .. } => {
-                self.table_mutation.table_mutation_retry_target = Some(target);
-                self.table_mutation.table_mutation_error = None;
-                self.table_mutation.conflict_dialog_open = false;
+                self.table.mutation.table_mutation_retry_target = Some(target);
+                self.table.mutation.table_mutation_error = None;
+                self.table.mutation.conflict_dialog_open = false;
                 self.apply_staged_changes();
             }
             MutationTarget::Insert => {
-                self.table_mutation.table_mutation_error = None;
-                self.table_mutation.conflict_dialog_open = false;
+                self.table.mutation.table_mutation_error = None;
+                self.table.mutation.conflict_dialog_open = false;
                 self.apply_staged_changes();
             }
         }
     }
 
     pub(crate) fn conflict_use_database(&mut self) {
-        let Some(failure) = self.table_mutation.table_mutation_error.as_ref() else {
+        let Some(failure) = self.table.mutation.table_mutation_error.as_ref() else {
             return;
         };
         let Some(target) = failure.target.clone() else {
@@ -254,35 +255,35 @@ impl DbProApp {
         };
         match &target {
             MutationTarget::Update { identity, .. } => {
-                self.table_mutation.staged_changes.revert_row(identity);
-                self.table_mutation.table_mutation_error = None;
-                self.table_mutation.conflict_dialog_open = false;
+                self.table.mutation.staged_changes.revert_row(identity);
+                self.table.mutation.table_mutation_error = None;
+                self.table.mutation.conflict_dialog_open = false;
                 self.feedback
                     .show_info_toast("Reverted local changes; adopted database values");
             }
             MutationTarget::Delete { identity, .. } => {
-                self.table_mutation.staged_changes.revert_row(identity);
-                self.table_mutation.table_mutation_error = None;
-                self.table_mutation.conflict_dialog_open = false;
+                self.table.mutation.staged_changes.revert_row(identity);
+                self.table.mutation.table_mutation_error = None;
+                self.table.mutation.conflict_dialog_open = false;
                 self.feedback.show_info_toast("Reverted staged delete");
             }
             MutationTarget::Insert => {
-                self.table_mutation.table_mutation_error = None;
-                self.table_mutation.conflict_dialog_open = false;
+                self.table.mutation.table_mutation_error = None;
+                self.table.mutation.conflict_dialog_open = false;
             }
         }
     }
 
     pub(crate) fn draw_conflict_dialog(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        if !self.table_mutation.conflict_dialog_open {
+        if !self.table.mutation.conflict_dialog_open {
             return;
         }
-        let Some(failure) = self.table_mutation.table_mutation_error.as_ref() else {
-            self.table_mutation.conflict_dialog_open = false;
+        let Some(failure) = self.table.mutation.table_mutation_error.as_ref() else {
+            self.table.mutation.conflict_dialog_open = false;
             return;
         };
         let Some(target) = failure.target.clone() else {
-            self.table_mutation.conflict_dialog_open = false;
+            self.table.mutation.conflict_dialog_open = false;
             return;
         };
 
@@ -346,9 +347,9 @@ impl DbProApp {
                                     for &col_idx in changed_col_indices {
                                         let col_name = result.columns.get(col_idx).map_or("?", |c| c.name.as_str());
                                         let local_val =
-                                            self.table_mutation.staged_changes.cell_value(identity, col_idx);
+                                            self.table.mutation.staged_changes.cell_value(identity, col_idx);
                                         let staged_entry =
-                                            self.table_mutation.staged_changes.iter().find(|e| match e {
+                                            self.table.mutation.staged_changes.iter().find(|e| match e {
                                                 StagedChange::Update {
                                                     identity: id,
                                                     column_index: idx,
@@ -488,16 +489,16 @@ impl DbProApp {
             });
 
         if !open || close_dialog {
-            self.table_mutation.conflict_dialog_open = false;
+            self.table.mutation.conflict_dialog_open = false;
         } else if keep_mine {
             self.conflict_keep_mine();
         } else if use_database {
             self.conflict_use_database();
         } else if retry {
-            self.table_mutation.conflict_dialog_open = false;
+            self.table.mutation.conflict_dialog_open = false;
             self.retry_failed_mutation_after_reload();
         } else if discard {
-            self.table_mutation.conflict_dialog_open = false;
+            self.table.mutation.conflict_dialog_open = false;
             self.discard_failed_mutation(false);
         }
     }

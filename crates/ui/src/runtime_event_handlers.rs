@@ -71,7 +71,7 @@ impl DbProApp {
             query_session: &mut self.query_session_state,
             query_editor: &mut self.query_editor,
             query_output: &mut self.query_output_state,
-            table_data: &mut self.table_data,
+            table_data: &mut self.table.data,
             workspace: &mut self.workspace.shell,
             feedback: &mut self.feedback,
         };
@@ -83,7 +83,7 @@ impl DbProApp {
             query_session: &mut self.query_session_state,
             query_editor: &mut self.query_editor,
             query_output: &mut self.query_output_state,
-            table_data: &mut self.table_data,
+            table_data: &mut self.table.data,
             workspace: &mut self.workspace.shell,
             feedback: &mut self.feedback,
         };
@@ -125,7 +125,7 @@ impl DbProApp {
     pub(super) fn on_schema_loaded(&mut self, request_id: RequestId, schema: UiSchemaSummary) {
         let transition = schema_events::on_schema_loaded(
             &mut self.schema_explorer,
-            &mut self.table_state,
+            &mut self.table.state,
             &mut self.workspace.shell,
             &mut self.palette,
             &mut self.feedback,
@@ -159,9 +159,9 @@ impl DbProApp {
 
     pub(super) fn handle_table_request_failure(&mut self, request_id: RequestId, message: &str) -> bool {
         match table_events::handle_table_request_failure(
-            &mut self.table_state,
-            &mut self.table_mutation,
-            &mut self.table_data,
+            &mut self.table.state,
+            &mut self.table.mutation,
+            &mut self.table.data,
             &mut self.feedback,
             request_id,
             message,
@@ -177,37 +177,37 @@ impl DbProApp {
 
     pub(super) fn on_table_info_loaded(&mut self, request_id: RequestId, table_info: UiTableInfo) {
         if let Some(transition) =
-            table_events::on_table_info_loaded(&mut self.table_state, &mut self.feedback, request_id, table_info)
+            table_events::on_table_info_loaded(&mut self.table.state, &mut self.feedback, request_id, table_info)
         {
             if transition.invalidate_grid_caches {
-                self.table_data.invalidate_grid_row_caches();
+                self.table.data.invalidate_grid_row_caches();
             }
         }
     }
 
     pub(super) fn on_table_ddl_loaded(&mut self, request_id: RequestId, sql: String) {
-        table_events::on_table_ddl_loaded(&mut self.table_state, &mut self.feedback, request_id, sql);
+        table_events::on_table_ddl_loaded(&mut self.table.state, &mut self.feedback, request_id, sql);
     }
 
     pub(super) fn on_table_data_loaded(&mut self, request_id: RequestId, result: UiQueryResult, total_rows: u64) {
-        if self.table_state.table_row_reload_request == Some(request_id) {
+        if self.table.state.table_row_reload_request == Some(request_id) {
             self.on_table_row_reloaded(result);
             return;
         }
         if let Some(transition) = table_events::on_table_data_loaded(
-            &mut self.table_state,
-            &mut self.table_mutation,
-            &mut self.table_data,
+            &mut self.table.state,
+            &mut self.table.mutation,
+            &mut self.table.data,
             &mut self.feedback,
             request_id,
             result,
             total_rows,
         ) {
             if transition.invalidate_grid_caches {
-                self.table_data.invalidate_grid_row_caches();
+                self.table.data.invalidate_grid_row_caches();
             }
             if transition.apply_staged_changes {
-                self.table_mutation.table_mutation_retry_after_reload = false;
+                self.table.mutation.table_mutation_retry_after_reload = false;
                 self.apply_staged_changes();
             }
         }
@@ -215,16 +215,16 @@ impl DbProApp {
 
     pub(crate) fn on_table_row_reloaded(&mut self, result: UiQueryResult) {
         let transition = table_events::on_table_row_reloaded(
-            &mut self.table_state,
-            &mut self.table_mutation,
+            &mut self.table.state,
+            &mut self.table.mutation,
             &mut self.feedback,
             result,
         );
         if transition.invalidate_grid_caches {
-            self.table_data.invalidate_grid_row_caches();
+            self.table.data.invalidate_grid_row_caches();
         }
         if transition.apply_staged_changes {
-            self.table_mutation.table_mutation_retry_after_reload = false;
+            self.table.mutation.table_mutation_retry_after_reload = false;
             self.apply_staged_changes();
         }
     }

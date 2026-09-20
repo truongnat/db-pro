@@ -673,7 +673,7 @@ impl DbProApp {
 
     fn open_diagram_table(&mut self, table: &str) {
         if self.schema_explorer.selected_table.as_deref() != Some(table)
-            && !self.table_mutation.staged_changes.is_empty()
+            && !self.table.mutation.staged_changes.is_empty()
         {
             self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
@@ -683,45 +683,45 @@ impl DbProApp {
             self.active_schema(),
             self.schema_explorer.selected_table.as_deref(),
         );
-        self.table_data.persist_layout(scope);
+        self.table.data.persist_layout(scope);
         self.schema_explorer.selected_table = Some(table.to_owned());
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
             self.schema_explorer.selected_table.as_deref(),
         );
-        self.table_data.restore_layout(scope);
+        self.table.data.restore_layout(scope);
         self.schema_explorer.selected_schema_object = None;
         self.schema_explorer.schema_object_view = SchemaObjectView::Definition;
-        self.table_state.table_info = None;
-        self.table_state.table_ddl = None;
-        self.table_state.table_info_error = None;
-        self.table_state.table_ddl_error = None;
-        self.table_state.ddl_execute_confirmation = false;
-        self.table_state.ddl_execution_request = None;
-        self.table_state.table_data_result = None;
-        self.table_state.table_data_total_rows = None;
-        self.table_state.table_data_offset = 0;
-        self.table_state.table_data_filter_column.clear();
-        self.table_state.table_data_filter_operator = UiTableFilterOperator::default();
-        self.table_state.table_data_filter_value.clear();
-        self.table_state.table_data_filters.clear();
-        self.table_state.table_data_sorts.clear();
-        self.table_state.table_data_error = None;
-        self.table_state.table_info_request = None;
-        self.table_state.table_ddl_request = None;
-        self.table_state.table_data_request = None;
-        self.table_data.selected_cell = None;
-        self.table_data.selected_row = None;
-        self.table_data.selected_rows.clear();
-        self.table_data.selection_anchor_row = None;
-        self.table_data.selection_anchor_cell = None;
-        self.table_data.data_editing_cell = None;
-        self.table_data.data_edit_value.clear();
-        self.table_data.data_edit_error = None;
-        self.table_data.data_delete_confirmation = false;
-        self.table_data.discard_changes_confirmation = false;
-        self.table_state.table_view = TableView::Structure;
+        self.table.state.table_info = None;
+        self.table.state.table_ddl = None;
+        self.table.state.table_info_error = None;
+        self.table.state.table_ddl_error = None;
+        self.table.state.ddl_execute_confirmation = false;
+        self.table.state.ddl_execution_request = None;
+        self.table.state.table_data_result = None;
+        self.table.state.table_data_total_rows = None;
+        self.table.state.table_data_offset = 0;
+        self.table.state.table_data_filter_column.clear();
+        self.table.state.table_data_filter_operator = UiTableFilterOperator::default();
+        self.table.state.table_data_filter_value.clear();
+        self.table.state.table_data_filters.clear();
+        self.table.state.table_data_sorts.clear();
+        self.table.state.table_data_error = None;
+        self.table.state.table_info_request = None;
+        self.table.state.table_ddl_request = None;
+        self.table.state.table_data_request = None;
+        self.table.data.selected_cell = None;
+        self.table.data.selected_row = None;
+        self.table.data.selected_rows.clear();
+        self.table.data.selection_anchor_row = None;
+        self.table.data.selection_anchor_cell = None;
+        self.table.data.data_editing_cell = None;
+        self.table.data.data_edit_value.clear();
+        self.table.data.data_edit_error = None;
+        self.table.data.data_delete_confirmation = false;
+        self.table.data.discard_changes_confirmation = false;
+        self.table.state.table_view = TableView::Structure;
         self.set_active_query_text(format!("SELECT *\nFROM {table}\nLIMIT 100;"));
         self.request_table_info();
         self.workspace.activity = Activity::Explorer;
