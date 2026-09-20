@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `4a356721`.
+Source checkpoint: `0070d374`.
 
 ## Current change
 
@@ -81,6 +81,16 @@ Source checkpoint: `4a356721`.
 - Table metadata, DDL, paged data, row reload and DDL execution effects now
   build in `TableState`; focused coverage verifies empty DDL is rejected at the
   state boundary.
+- Migration apply and schema-workbench DDL effects now build in their owning
+  aggregates; focused coverage verifies both apply paths reject missing plans.
+- Query-folder creation and saved-query save/rename/delete effects now build in
+  `QueryLibraryState`; focused coverage checks folder normalization and the
+  empty-folder precondition.
+- Backup/restore and file-picker effects now build in `OverlayState`; focused
+  coverage checks both path-bearing effects and their connection identity.
+- Palette and explorer connection switching now use the lifecycle-owned
+  `Connect` effect builder; focused coverage checks request and connection
+  identity preservation.
 - The architecture guard now freezes `table_editor_context.rs` and
   `table_editor_values.rs` as explicit-state modules that may not depend on
   the composition-root type.
@@ -353,11 +363,11 @@ Source checkpoint: `4a356721`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 627 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 632 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1299 passed, 0 failed, 42 ignored;
+- `cargo test --workspace --no-fail-fast`: 1304 passed, 0 failed, 42 ignored;
   all workspace doc-tests passed with 0 tests.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.

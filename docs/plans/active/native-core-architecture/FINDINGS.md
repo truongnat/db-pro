@@ -125,6 +125,18 @@ dispatch the resulting effects.
 Fix in `4a356721`: table metadata, table DDL, paged data, row reload and DDL
 execution effect construction now belongs to `TableState`; the table view keeps
 only context resolution, request lifecycle and feedback.
+Fix in `b13e9d5c`: migration apply and schema-workbench DDL effects now build in
+their owning state aggregates; root methods retain only capability gates,
+request identity and dispatch lifecycle.
+Fix in `d327635a`: query-folder creation and saved-query save/rename/delete
+effects now build in `QueryLibraryState`; query and sidebar views no longer
+construct remote library payloads inline.
+Fix in `d83a77cd`: backup/restore and file-picker effects now build from
+`OverlayState`, keeping settings UI responsible only for capability gates,
+confirmation and dispatch lifecycle.
+Fix in `0070d374`: palette and explorer connection switching now use the
+connection lifecycle's explicit `Connect` effect builder instead of constructing
+runtime commands in view code.
 The architecture guard now enforces that the extracted table-editor context
 and value modules cannot regress to a root dependency.
 
