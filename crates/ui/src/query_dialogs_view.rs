@@ -239,9 +239,9 @@ impl DbProApp {
 
         let delimiter = if self.overlay.export_format == "CSV" { "," } else { "\t" };
         let output = match self.overlay.export_format.as_str() {
-            "SQL" => DbProApp::format_result_sql_insert(result, "exported_rows"),
-            "COPY" => DbProApp::format_result_copy(result, "exported_rows"),
-            _ => DbProApp::format_result_delimited(result, delimiter),
+            "SQL" => result_grid_export::format_result_sql_insert(result, "exported_rows"),
+            "COPY" => result_grid_export::format_result_copy(result, "exported_rows"),
+            _ => result_grid_export::format_result_delimited(result, delimiter),
         };
         let exported_rows = result.rows.len();
         match write_file_atomically(&path, output.as_bytes()) {

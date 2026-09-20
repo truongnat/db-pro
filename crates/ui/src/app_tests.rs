@@ -4106,25 +4106,31 @@ fn test_column_order_and_move_column() {
 
 #[test]
 fn test_format_cell_csv_and_cell_to_json() {
-    assert_eq!(DbProApp::format_cell_csv(&UiCell::Null), "");
-    assert_eq!(DbProApp::format_cell_csv(&UiCell::Boolean(true)), "true");
-    assert_eq!(DbProApp::format_cell_csv(&UiCell::Number("42.50".to_owned())), "42.50");
+    assert_eq!(result_grid_export::format_cell_csv(&UiCell::Null), "");
+    assert_eq!(result_grid_export::format_cell_csv(&UiCell::Boolean(true)), "true");
     assert_eq!(
-        DbProApp::format_cell_csv(&UiCell::Text("Hello, \"World\"".to_owned())),
+        result_grid_export::format_cell_csv(&UiCell::Number("42.50".to_owned())),
+        "42.50"
+    );
+    assert_eq!(
+        result_grid_export::format_cell_csv(&UiCell::Text("Hello, \"World\"".to_owned())),
         "\"Hello, \"\"World\"\"\""
     );
 
-    assert_eq!(DbProApp::cell_to_json_value(&UiCell::Null), serde_json::Value::Null);
     assert_eq!(
-        DbProApp::cell_to_json_value(&UiCell::Boolean(false)),
+        result_grid_export::cell_to_json_value(&UiCell::Null),
+        serde_json::Value::Null
+    );
+    assert_eq!(
+        result_grid_export::cell_to_json_value(&UiCell::Boolean(false)),
         serde_json::Value::Bool(false)
     );
     assert_eq!(
-        DbProApp::cell_to_json_value(&UiCell::Number("100".to_owned())),
+        result_grid_export::cell_to_json_value(&UiCell::Number("100".to_owned())),
         serde_json::json!(100)
     );
     assert_eq!(
-        DbProApp::cell_to_json_value(&UiCell::Text("admin".to_owned())),
+        result_grid_export::cell_to_json_value(&UiCell::Text("admin".to_owned())),
         serde_json::Value::String("admin".to_owned())
     );
 }
@@ -4134,25 +4140,25 @@ fn test_format_cell_csv_and_cell_to_json() {
 fn test_copy_as_json_keeps_exact_numeric_digits() {
     // Beyond f64's 2^53 exact-integer range: must stay the identical text.
     assert_eq!(
-        DbProApp::cell_to_json_value(&UiCell::Number("9007199254740993".to_owned())),
+        result_grid_export::cell_to_json_value(&UiCell::Number("9007199254740993".to_owned())),
         serde_json::Value::String("9007199254740993".to_owned())
     );
     // Exact decimal with trailing zeroes: the digits are the value.
     assert_eq!(
-        DbProApp::cell_to_json_value(&UiCell::Number("42.50".to_owned())),
+        result_grid_export::cell_to_json_value(&UiCell::Number("42.50".to_owned())),
         serde_json::Value::String("42.50".to_owned())
     );
     assert_eq!(
-        DbProApp::cell_to_json_value(&UiCell::Number("12345678901234567890.12345".to_owned())),
+        result_grid_export::cell_to_json_value(&UiCell::Number("12345678901234567890.12345".to_owned())),
         serde_json::Value::String("12345678901234567890.12345".to_owned())
     );
     // A value f64 represents exactly still serializes as a JSON number.
     assert_eq!(
-        DbProApp::cell_to_json_value(&UiCell::Number("1.5".to_owned())),
+        result_grid_export::cell_to_json_value(&UiCell::Number("1.5".to_owned())),
         serde_json::json!(1.5)
     );
     // ... and the serialized text of that number is the original text.
-    let copied = DbProApp::cell_to_json_value(&UiCell::Number("100".to_owned())).to_string();
+    let copied = result_grid_export::cell_to_json_value(&UiCell::Number("100".to_owned())).to_string();
     assert_eq!(copied, "100");
 }
 
@@ -4181,14 +4187,14 @@ fn test_delimited_export_keeps_field_count_for_awkward_values() {
         duration_ms: 0,
     };
 
-    let csv = DbProApp::format_result_delimited(&value, ",");
+    let csv = result_grid_export::format_result_delimited(&value, ",");
     assert_eq!(
         csv, "id,note\n9007199254740993,\"first, \"\"second\"\"\nthird\"\n",
         "the delimiter, the quotes and the newline must be escaped inside one field, \
          and the exact digits must survive unquoted"
     );
 
-    let tsv = DbProApp::format_result_delimited(&value, "\t");
+    let tsv = result_grid_export::format_result_delimited(&value, "\t");
     assert_eq!(
         tsv, "id\tnote\n9007199254740993\t\"first, \"\"second\"\"\nthird\"\n",
         "the tab-separated shape must survive too"

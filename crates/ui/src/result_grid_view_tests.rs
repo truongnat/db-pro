@@ -540,11 +540,11 @@ fn sql_insert_and_copy_export_preserve_null_and_quotes() {
         row_count: 2,
         duration_ms: 0,
     };
-    let insert = DbProApp::format_result_sql_insert(&result, "people");
+    let insert = result_grid_export::format_result_sql_insert(&result, "people");
     assert!(insert.contains("INSERT INTO \"people\""));
     assert!(insert.contains("'O''Brien'"));
     assert!(insert.contains("NULL"));
-    let copy = DbProApp::format_result_copy(&result, "people");
+    let copy = result_grid_export::format_result_copy(&result, "people");
     assert!(copy.contains("COPY \"people\""));
     assert!(copy.contains("\\N"));
     assert!(copy.contains("\\."));
