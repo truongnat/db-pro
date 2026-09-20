@@ -244,6 +244,8 @@ returned prediction-cancel command.
 Result-grid row/cell selection and mutation-error matching now follow the same
 rule on `TableDataState` and `TableMutationState`; grid cells and views no
 longer call selection helpers through `DbProApp`.
+Result-grid keyboard navigation target calculation now follows the same rule
+on `TableDataState`; the root handles only egui input and commit-edit effects.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `623d6331`.
+Source checkpoint: `a131b6da`.
 
 ## Current change
 
@@ -168,6 +168,8 @@ Source checkpoint: `623d6331`.
 - Result-grid row/cell selection and mutation-error matching now live on
   `TableDataState` and `TableMutationState`; grid cells/views no longer call
   selection helpers through `DbProApp`.
+- Result-grid keyboard navigation target calculation now lives on
+  `TableDataState`; the root handles only egui input and commit-edit effects.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
