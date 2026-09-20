@@ -455,6 +455,10 @@ Source checkpoint: `0070d374`.
   1304 passed, 42 ignored, 0 failed), both native release builds passed, and
   the deterministic capture at `/tmp/db-pro-native-table-data-query.png`
   passed at logical `1280x800`.
+- Table-data behavior ownership follow-up: filter-operator compatibility and
+  table-query reset/invalidate/page transitions now live in
+  `TableDataQueryState`; focused UI tests (632 passed), clippy, fmt and
+  architecture guard PASS.
 
 ## Not yet proven
 

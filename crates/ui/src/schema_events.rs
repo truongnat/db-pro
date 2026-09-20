@@ -123,18 +123,9 @@ fn clear_missing_selected_table(
     table_state.table_ddl_error = None;
     table_state.ddl_execute_confirmation = false;
     table_state.ddl_execution_request = None;
-    data_query.result = None;
-    data_query.total_rows = None;
-    data_query.offset = 0;
-    data_query.filter_column.clear();
-    data_query.filter_operator = UiTableFilterOperator::default();
-    data_query.filter_value.clear();
-    data_query.filters.clear();
-    data_query.sorts.clear();
-    data_query.error = None;
+    data_query.reset_for_table();
     table_state.table_info_request = None;
     table_state.table_ddl_request = None;
-    data_query.request = None;
     if workspace.active_tab == WorkspaceTab::Table {
         activate_welcome_tab(workspace);
     }

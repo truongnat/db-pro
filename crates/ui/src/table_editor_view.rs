@@ -384,7 +384,8 @@ impl DbProApp {
                                         .map(|column| column.data_type.clone())
                                 })
                                 .unwrap_or_else(|| "text".to_owned());
-                            let filter_operator_options = Self::filter_operator_options(&filter_data_type);
+                            let filter_operator_options =
+                                TableDataQueryState::filter_operator_options(&filter_data_type);
                             if !filter_operator_options
                                 .iter()
                                 .any(|(operator, _)| operator == &self.table.data_query.filter_operator)
@@ -1526,7 +1527,7 @@ impl DbProApp {
             .and_then(|info| info.columns.iter().find(|item| item.name == column))
             .map(|item| item.data_type.clone())
             .unwrap_or_else(|| "text".to_owned());
-        if !Self::filter_operator_supported(&data_type, &self.table.data_query.filter_operator) {
+        if !TableDataQueryState::filter_operator_supported(&data_type, &self.table.data_query.filter_operator) {
             self.feedback.runtime_message = format!("That filter operator is not supported for {data_type}");
             return;
         }
@@ -1600,65 +1601,13 @@ impl DbProApp {
         self.request_table_data();
     }
 
-    pub(crate) fn filter_operator_supported(data_type: &str, operator: &UiTableFilterOperator) -> bool {
-        Self::filter_operator_options(data_type)
-            .iter()
-            .any(|(candidate, _)| candidate == operator)
-    }
-
-    fn filter_operator_options(data_type: &str) -> Vec<(UiTableFilterOperator, &'static str)> {
-        let normalized = data_type.to_ascii_lowercase();
-        let mut operators = if table_editor_values::is_text_type(&normalized) {
-            vec![
-                (UiTableFilterOperator::Equals, "equals"),
-                (UiTableFilterOperator::NotEquals, "not equals"),
-                (UiTableFilterOperator::Contains, "contains"),
-                (UiTableFilterOperator::StartsWith, "starts with"),
-                (UiTableFilterOperator::EndsWith, "ends with"),
-            ]
-        } else if normalized.contains("bool") {
-            vec![
-                (UiTableFilterOperator::Equals, "equals"),
-                (UiTableFilterOperator::NotEquals, "not equals"),
-            ]
-        } else if normalized.contains("int")
-            || normalized.contains("serial")
-            || normalized.contains("real")
-            || normalized.contains("float")
-            || normalized.contains("double")
-            || table_editor_values::is_decimal_type(&normalized)
-            || normalized == "date"
-            || normalized.starts_with("time")
-            || normalized.contains("timestamp")
-        {
-            vec![
-                (UiTableFilterOperator::Equals, "equals"),
-                (UiTableFilterOperator::NotEquals, "not equals"),
-                (UiTableFilterOperator::GreaterThan, ">"),
-                (UiTableFilterOperator::GreaterThanOrEqual, ">="),
-                (UiTableFilterOperator::LessThan, "<"),
-                (UiTableFilterOperator::LessThanOrEqual, "<="),
-            ]
-        } else {
-            vec![
-                (UiTableFilterOperator::Equals, "equals"),
-                (UiTableFilterOperator::NotEquals, "not equals"),
-            ]
-        };
-        operators.push((UiTableFilterOperator::IsNull, "IS NULL"));
-        operators.push((UiTableFilterOperator::IsNotNull, "IS NOT NULL"));
-        operators
-    }
-
     pub(crate) fn reload_table_data_from_start(&mut self) {
         if !self.table.mutation.staged_changes.is_empty() {
             self.feedback.runtime_message = "Apply or discard staged changes before reloading".to_owned();
             return;
         }
-        self.table.data_query.offset = 0;
-        self.table.data_query.result = None;
-        self.table.data_query.total_rows = None;
-        self.table.data_query.error = None;
+        self.table.data_query.reset_page();
+        self.table.data_query.invalidate_result();
         self.request_table_data();
     }
 }
@@ -1725,23 +1674,23 @@ mod tests {
 
     #[test]
     fn filter_operators_follow_column_type_and_keep_null_operators_universally() {
-        assert!(DbProApp::filter_operator_supported(
+        assert!(TableDataQueryState::filter_operator_supported(
             "numeric(20,4)",
             &UiTableFilterOperator::GreaterThan
         ));
-        assert!(!DbProApp::filter_operator_supported(
+        assert!(!TableDataQueryState::filter_operator_supported(
             "numeric(20,4)",
             &UiTableFilterOperator::Contains
         ));
-        assert!(DbProApp::filter_operator_supported(
+        assert!(TableDataQueryState::filter_operator_supported(
             "uuid",
             &UiTableFilterOperator::Equals
         ));
-        assert!(!DbProApp::filter_operator_supported(
+        assert!(!TableDataQueryState::filter_operator_supported(
             "uuid",
             &UiTableFilterOperator::StartsWith
         ));
-        assert!(DbProApp::filter_operator_supported(
+        assert!(TableDataQueryState::filter_operator_supported(
             "boolean",
             &UiTableFilterOperator::IsNotNull
         ));

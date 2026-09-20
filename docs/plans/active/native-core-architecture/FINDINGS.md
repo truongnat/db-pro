@@ -530,6 +530,20 @@ without expanding reducer argument lists.
 
 Severity: P1 feature-boundary risk, resolved for table data-query ownership.
 
+## F26 — Table data-query policy and reset behavior leaked into views
+
+Evidence at discovery: table views and the composition-root methods directly
+implemented filter-operator compatibility and repeated the same result/paging
+reset sequence. That made state invariants easy to diverge when a new table
+surface was added.
+
+Fix in the current refactor: `TableDataQueryState` now owns filter-operator
+policy plus `reset_for_table`, `invalidate_result` and `reset_page` transitions.
+Callers keep only user-flow guards and command orchestration; the query state
+owns its own lifecycle invariants.
+
+Severity: P2 maintainability and feature-boundary risk, resolved.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and

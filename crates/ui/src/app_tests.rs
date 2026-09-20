@@ -4429,61 +4429,61 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
 #[test]
 fn test_typed_filter_operator_support() {
     // Text types support full text operators
-    assert!(DbProApp::filter_operator_supported(
+    assert!(TableDataQueryState::filter_operator_supported(
         "text",
         &UiTableFilterOperator::Contains
     ));
-    assert!(DbProApp::filter_operator_supported(
+    assert!(TableDataQueryState::filter_operator_supported(
         "varchar(255)",
         &UiTableFilterOperator::StartsWith
     ));
-    assert!(DbProApp::filter_operator_supported(
+    assert!(TableDataQueryState::filter_operator_supported(
         "character varying",
         &UiTableFilterOperator::EndsWith
     ));
 
     // Numeric and timestamp types support comparison operators
-    assert!(DbProApp::filter_operator_supported(
+    assert!(TableDataQueryState::filter_operator_supported(
         "integer",
         &UiTableFilterOperator::GreaterThan
     ));
-    assert!(DbProApp::filter_operator_supported(
+    assert!(TableDataQueryState::filter_operator_supported(
         "bigint",
         &UiTableFilterOperator::LessThanOrEqual
     ));
-    assert!(DbProApp::filter_operator_supported(
+    assert!(TableDataQueryState::filter_operator_supported(
         "numeric(10,2)",
         &UiTableFilterOperator::GreaterThanOrEqual
     ));
-    assert!(DbProApp::filter_operator_supported(
+    assert!(TableDataQueryState::filter_operator_supported(
         "timestamptz",
         &UiTableFilterOperator::GreaterThan
     ));
 
     // Boolean only supports equals / not equals
-    assert!(DbProApp::filter_operator_supported(
+    assert!(TableDataQueryState::filter_operator_supported(
         "boolean",
         &UiTableFilterOperator::Equals
     ));
-    assert!(DbProApp::filter_operator_supported(
+    assert!(TableDataQueryState::filter_operator_supported(
         "bool",
         &UiTableFilterOperator::NotEquals
     ));
-    assert!(!DbProApp::filter_operator_supported(
+    assert!(!TableDataQueryState::filter_operator_supported(
         "boolean",
         &UiTableFilterOperator::GreaterThan
     ));
 
     // All types support IS NULL and IS NOT NULL
-    assert!(DbProApp::filter_operator_supported(
+    assert!(TableDataQueryState::filter_operator_supported(
         "integer",
         &UiTableFilterOperator::IsNull
     ));
-    assert!(DbProApp::filter_operator_supported(
+    assert!(TableDataQueryState::filter_operator_supported(
         "text",
         &UiTableFilterOperator::IsNotNull
     ));
-    assert!(DbProApp::filter_operator_supported(
+    assert!(TableDataQueryState::filter_operator_supported(
         "uuid",
         &UiTableFilterOperator::IsNull
     ));

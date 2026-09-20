@@ -46,6 +46,83 @@ impl Default for TableDataQueryState {
 }
 
 impl TableDataQueryState {
+    pub(crate) fn reset_for_table(&mut self) {
+        self.result = None;
+        self.total_rows = None;
+        self.offset = 0;
+        self.filter_column.clear();
+        self.filter_operator = UiTableFilterOperator::default();
+        self.filter_value.clear();
+        self.filter_editing = None;
+        self.filters.clear();
+        self.sorts.clear();
+        self.error = None;
+        self.request = None;
+        self.row_reload_request = None;
+        self.row_reload_identity = None;
+    }
+
+    pub(crate) fn invalidate_result(&mut self) {
+        self.result = None;
+        self.total_rows = None;
+        self.error = None;
+        self.request = None;
+    }
+
+    pub(crate) fn reset_page(&mut self) {
+        self.offset = 0;
+    }
+
+    pub(crate) fn filter_operator_supported(data_type: &str, operator: &UiTableFilterOperator) -> bool {
+        Self::filter_operator_options(data_type)
+            .iter()
+            .any(|(candidate, _)| candidate == operator)
+    }
+
+    pub(crate) fn filter_operator_options(data_type: &str) -> Vec<(UiTableFilterOperator, &'static str)> {
+        let normalized = data_type.to_ascii_lowercase();
+        let mut operators = if table_editor_values::is_text_type(&normalized) {
+            vec![
+                (UiTableFilterOperator::Equals, "equals"),
+                (UiTableFilterOperator::NotEquals, "not equals"),
+                (UiTableFilterOperator::Contains, "contains"),
+                (UiTableFilterOperator::StartsWith, "starts with"),
+                (UiTableFilterOperator::EndsWith, "ends with"),
+            ]
+        } else if normalized.contains("bool") {
+            vec![
+                (UiTableFilterOperator::Equals, "equals"),
+                (UiTableFilterOperator::NotEquals, "not equals"),
+            ]
+        } else if normalized.contains("int")
+            || normalized.contains("serial")
+            || normalized.contains("real")
+            || normalized.contains("float")
+            || normalized.contains("double")
+            || table_editor_values::is_decimal_type(&normalized)
+            || normalized == "date"
+            || normalized.starts_with("time")
+            || normalized.contains("timestamp")
+        {
+            vec![
+                (UiTableFilterOperator::Equals, "equals"),
+                (UiTableFilterOperator::NotEquals, "not equals"),
+                (UiTableFilterOperator::GreaterThan, ">"),
+                (UiTableFilterOperator::GreaterThanOrEqual, ">="),
+                (UiTableFilterOperator::LessThan, "<"),
+                (UiTableFilterOperator::LessThanOrEqual, "<="),
+            ]
+        } else {
+            vec![
+                (UiTableFilterOperator::Equals, "equals"),
+                (UiTableFilterOperator::NotEquals, "not equals"),
+            ]
+        };
+        operators.push((UiTableFilterOperator::IsNull, "IS NULL"));
+        operators.push((UiTableFilterOperator::IsNotNull, "IS NOT NULL"));
+        operators
+    }
+
     pub(super) fn load_data_command(
         &self,
         request_id: RequestId,
