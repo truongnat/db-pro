@@ -548,6 +548,24 @@ modules, re-exports the stable API and keeps only cross-family invariants.
 
 Severity: P2 maintainability and protocol-boundary risk, resolved.
 
+## F50 — ER diagram view owned cross-feature mutations through `DbProApp`
+
+Evidence at source `3f8ec33b`: the diagram canvas, layout worker, design-mode
+planner and egui panel were split into several files, but each file still
+implemented methods on `DbProApp`. A canvas click could therefore reach table,
+query, workspace and feedback state directly from the renderer.
+
+Impact: the diagram surface was not a real feature boundary; rendering code
+could mutate unrelated feature state and the composition root was reachable
+from sibling diagram modules.
+
+Fix: `DiagramViewContext` now owns the diagram presentation inputs,
+diagram/design modules return typed `DiagramAction` intents, and the root only
+applies the cross-feature `OpenTable`/`ExecuteQuery` effects. The architecture
+guard freezes the four diagram modules against `DbProApp` dependencies.
+
+Severity: P1 feature-boundary risk, resolved for the ER diagram slice.
+
 ## F47 — Schema Workbench mixed mutation planning with view rendering
 
 Source SHA: `08acab31`.

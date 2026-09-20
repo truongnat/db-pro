@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `4bb3d21d`.
+Source checkpoint: `3f8ec33b`.
 
 ## Current change
 
@@ -601,6 +601,11 @@ Source checkpoint: `4bb3d21d`.
   modules; `runtime.rs` is a 104-line facade. Focused UI tests (632 passed),
   UI clippy, architecture guard, clean scan (16 pass, 0 warnings) and diff
   checks PASS.
+- ER diagram boundary refactor at source SHA `3f8ec33b`: layout polling,
+  diagram canvas and design-mode actions now receive `DiagramViewContext` and
+  return typed `DiagramAction` intents; only composition-root orchestration
+  applies cross-feature table/query effects. Focused UI check, clippy, 632 UI
+  tests, architecture guard, clean scan and diff checks PASS.
 - Final full gate at source SHA `4bb3d21d`: `cargo fmt --all -- --check`,
   workspace `cargo check`, workspace clippy with `-D warnings`, workspace
   tests, release native build, capture build and architecture guard all PASS.
