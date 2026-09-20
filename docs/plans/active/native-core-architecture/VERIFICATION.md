@@ -399,6 +399,17 @@ Source checkpoint: `0070d374`.
   trigger slice now lives in `database_management_view.rs`. Focused clippy,
   architecture guard, clean scan and 632 UI tests all PASS; clean scan remains
   12 pass, 4 ratcheted warnings, 0 failures.
+- Final source checkpoint: `426c8790` on `main`; worktree clean after the
+  management extraction.
+- Final full-gate rerun at this checkpoint: `cargo fmt --all -- --check`,
+  `cargo check --workspace`, `cargo clippy --workspace --all-targets -- -D
+  warnings`, `cargo test --workspace --no-fail-fast` (1304 passed, 0 failed,
+  42 ignored), `cargo build --release --locked -p db-pro-native`, and the
+  capture-feature release build all PASS.
+- Final runtime evidence: `/tmp/db-pro-native-core-current.png`, captured
+  from the release binary at logical `1280x800` with the New Connection modal
+  open; centered card, separated header, right-aligned close control, scroll
+  body and footer were visually inspected.
 
 ## Not yet proven
 
