@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `7daaf9df`.
+Source checkpoint: `c4d0cea9`.
 
 ## Current change
 
@@ -201,6 +201,9 @@ Source checkpoint: `7daaf9df`.
 - Active query text read projection now lives on `QuerySessionState`; callers
   read the session directly, while the root setter remains only for prediction
   cancellation plus text mutation orchestration.
+- Active output-tab read projection now lives on `QueryOutputState`; output
+  rendering reads the tab by active document identity, while tab mutations
+  remain explicit orchestration transitions.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.

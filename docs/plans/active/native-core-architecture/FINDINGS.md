@@ -288,6 +288,9 @@ the session-owned result.
 Active query text read projection now follows the same rule on
 `QuerySessionState`; the root setter remains only for prediction cancellation
 and text mutation orchestration.
+Active output-tab read projection now follows the same rule on
+`QueryOutputState`; output rendering resolves the tab by active document
+identity while tab mutations remain explicit orchestration transitions.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.
