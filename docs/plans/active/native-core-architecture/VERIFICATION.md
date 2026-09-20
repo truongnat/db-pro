@@ -711,6 +711,11 @@ Source checkpoint: `5d42d5e9`.
   rebuilt from this SHA. Runtime capture is
   `/tmp/db-pro-native-core-edd17b0f.png`; the New Connection dialog remains
   centered with a separated header and right-aligned close control.
+- Table-data placeholder follow-up at source SHA `aef4c270`: loading and error
+  rendering now consume `TableDataPlaceholderContext` and return a typed retry
+  intent; the root remains the request executor. Focused UI check, clippy, 630
+  UI tests, architecture guard and clean scan PASS. Release/runtime evidence
+  is pending until the next native rebuild.
 
 ## Not yet proven
 

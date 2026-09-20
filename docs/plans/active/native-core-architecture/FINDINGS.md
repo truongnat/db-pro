@@ -515,6 +515,21 @@ implementation block.
 
 Severity: P2 composition-root maintainability, resolved.
 
+## F70 — Table-data loading/error placeholder lived in the composition root
+
+Evidence at discovery: `table_data_view.rs` rendered the loading and failed
+states inline inside `DbProApp`, including the retry button and its visual
+state mapping. That made a reusable table-data surface depend on the root
+receiver and left the feature's retry intent implicit in a widget callback.
+
+Fix in the current refactor: moved placeholder rendering into
+`table_data_placeholder_view.rs`. The module receives an explicit theme/error
+context and returns `TableDataPlaceholderAction::Retry`; the root only clears
+the error and schedules the table-data request.
+
+Severity: P2 feature-boundary maintainability risk, resolved for table-data
+loading/error presentation.
+
 ## F48 — Runtime transport adapter was embedded in the protocol module
 
 Source SHA: `b85d65da`.
