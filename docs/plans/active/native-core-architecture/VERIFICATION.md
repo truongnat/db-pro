@@ -463,6 +463,10 @@ Source checkpoint: `0070d374`.
   Server PR, workspace format/check/clippy/tests and both native release builds
   passed again; final modal capture is `/tmp/db-pro-native-final-main.png` at
   logical `1280x800`.
+- Grid layout ownership follow-up: `TableDataState` now owns column ordering,
+  visibility, movement, auto-sizing and width calculation; `result_grid_view`
+  no longer exposes those as `DbProApp` methods. Focused UI tests (632 passed),
+  clippy, fmt and architecture guard PASS.
 
 ## Not yet proven
 

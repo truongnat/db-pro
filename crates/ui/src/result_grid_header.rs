@@ -389,12 +389,12 @@ impl DbProApp {
 
         if let Some(idx) = move_left_req {
             if idx > 0 {
-                self.move_column(idx, idx - 1, order.len());
+                self.table.data.move_column(idx, idx - 1, order.len());
             }
         }
         if let Some(idx) = move_right_req {
             if idx + 1 < order.len() {
-                self.move_column(idx, idx + 1, order.len());
+                self.table.data.move_column(idx, idx + 1, order.len());
             }
         }
         if reset_order_req {
@@ -404,7 +404,7 @@ impl DbProApp {
             self.table.data.grid_columns_user_resized = false;
         }
         if let Some(column_index) = hide_column_req {
-            self.hide_column(column_index, order.len());
+            self.table.data.hide_column(column_index, order.len());
         }
         if let Some(column_index) = add_filter_req {
             if let Some(column) = result.columns.get(column_index) {
@@ -416,15 +416,15 @@ impl DbProApp {
             }
         }
         if show_columns_req {
-            self.show_all_columns();
+            self.table.data.show_all_columns();
         }
         if reset_layout_req {
-            self.reset_grid_layout(result.columns.len());
+            self.table.data.reset_grid_layout(result.columns.len());
         }
         if let Some(column_index) = auto_size_req {
             // `indexes` is the projection this frame already holds; recomputing it here would repeat
             // the whole filter/sort pass for one column-width change.
-            self.auto_size_column(result, indexes, column_index);
+            self.table.data.auto_size_column(result, indexes, column_index);
         }
     }
 }

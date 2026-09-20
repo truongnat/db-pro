@@ -1,6 +1,7 @@
 //! Feature-owned state for the table/data grid interaction surface.
 
 use super::*;
+use std::collections::HashSet;
 
 pub(crate) struct TableDataState {
     pub(super) grid_filter: String,
@@ -77,6 +78,171 @@ impl Default for TableDataState {
 }
 
 impl TableDataState {
+    pub(crate) fn column_order_for_columns(&mut self, columns: &[crate::UiColumn]) -> Vec<usize> {
+        let count = columns.len();
+        self.grid_layout_column_names = columns.iter().map(|column| column.name.clone()).collect();
+        self.restore_named_layout(columns, count);
+        self.reconcile_legacy_layout(count);
+        self.column_order(count)
+    }
+
+    fn restore_named_layout(&mut self, columns: &[crate::UiColumn], count: usize) {
+        if let Some(mut persisted) = self.grid_pending_named_layout.take() {
+            let indexes_by_name: HashMap<&str, usize> = columns
+                .iter()
+                .enumerate()
+                .map(|(index, column)| (column.name.as_str(), index))
+                .collect();
+            persisted.sort_by_key(|column| column.order);
+            let mut seen_names = HashSet::with_capacity(persisted.len());
+            let mut seen_indices = HashSet::with_capacity(count);
+            let mut order = Vec::with_capacity(count);
+            let mut widths = vec![180.0; count];
+            let mut hidden = BTreeSet::new();
+
+            for entry in persisted {
+                let Some(&index) = indexes_by_name.get(entry.column_name.as_str()) else {
+                    continue;
+                };
+                if !seen_names.insert(entry.column_name) {
+                    continue;
+                }
+                seen_indices.insert(index);
+                order.push(index);
+                widths[index] = entry.width.clamp(60.0, 1000.0);
+                if entry.hidden {
+                    hidden.insert(index);
+                }
+            }
+            for index in 0..count {
+                if seen_indices.insert(index) {
+                    order.push(index);
+                }
+            }
+            self.grid_column_order = order;
+            self.grid_column_widths = widths;
+            self.grid_hidden_columns = hidden;
+            self.grid_columns_user_resized = true;
+        }
+    }
+
+    fn reconcile_legacy_layout(&mut self, count: usize) {
+        if !self.grid_legacy_layout_pending {
+            return;
+        }
+        let widths_match = self.grid_column_widths.is_empty() || self.grid_column_widths.len() == count;
+        if self.grid_column_order.len() != count || !widths_match {
+            self.grid_column_order.clear();
+            self.grid_column_widths.clear();
+            self.grid_hidden_columns.clear();
+            self.grid_columns_user_resized = false;
+        }
+        self.grid_legacy_layout_pending = false;
+    }
+
+    pub(crate) fn column_order(&mut self, count: usize) -> Vec<usize> {
+        self.grid_hidden_columns.retain(|&column| column < count);
+        let mut normalized_order = Vec::with_capacity(count);
+        let mut seen = HashSet::with_capacity(count);
+        for column in self.grid_column_order.iter().copied() {
+            if column < count && seen.insert(column) {
+                normalized_order.push(column);
+            }
+        }
+        for column in 0..count {
+            if seen.insert(column) {
+                normalized_order.push(column);
+            }
+        }
+        if normalized_order != self.grid_column_order {
+            self.grid_column_order = normalized_order;
+        }
+        if !self.grid_column_widths.is_empty() {
+            self.grid_column_widths.resize(count, 180.0);
+            self.grid_column_widths
+                .iter_mut()
+                .for_each(|width| *width = width.clamp(60.0, 1000.0));
+        }
+        self.grid_column_order
+            .iter()
+            .copied()
+            .filter(|column| !self.grid_hidden_columns.contains(column))
+            .collect()
+    }
+
+    pub(crate) fn move_column(&mut self, from_visual_idx: usize, to_visual_idx: usize, count: usize) {
+        let visible_order = self.column_order(count);
+        if from_visual_idx < visible_order.len()
+            && to_visual_idx < visible_order.len()
+            && from_visual_idx != to_visual_idx
+        {
+            let from_column = visible_order[from_visual_idx];
+            let to_column = visible_order[to_visual_idx];
+            let from = self
+                .grid_column_order
+                .iter()
+                .position(|column| *column == from_column)
+                .unwrap_or(from_visual_idx);
+            let to = self
+                .grid_column_order
+                .iter()
+                .position(|column| *column == to_column)
+                .unwrap_or(to_visual_idx);
+            let column = self.grid_column_order.remove(from);
+            self.grid_column_order.insert(to, column);
+        }
+    }
+
+    pub(crate) fn hide_column(&mut self, column_index: usize, visible_count: usize) {
+        if visible_count > 1 {
+            self.grid_hidden_columns.insert(column_index);
+        }
+    }
+
+    pub(crate) fn show_all_columns(&mut self) {
+        self.grid_hidden_columns.clear();
+    }
+
+    pub(crate) fn reset_grid_layout(&mut self, count: usize) {
+        self.grid_column_order = (0..count).collect();
+        self.grid_hidden_columns.clear();
+        self.grid_column_widths.clear();
+        self.grid_columns_user_resized = false;
+    }
+
+    pub(crate) fn auto_size_column(&mut self, result: &UiQueryResult, indexes: &[usize], column_index: usize) {
+        if column_index >= result.columns.len() {
+            return;
+        }
+        if self.grid_column_widths.len() < result.columns.len() {
+            self.grid_column_widths.resize(result.columns.len(), 180.0);
+        }
+        let column = &result.columns[column_index];
+        let content_width = indexes
+            .iter()
+            .take(100)
+            .filter_map(|row_index| result.rows.get(*row_index).and_then(|row| row.get(column_index)))
+            .map(crate::cell_text)
+            .map(|value| value.chars().count() as f32 * 7.0 + 24.0)
+            .fold(column.name.chars().count() as f32 * 7.0 + 42.0, f32::max);
+        self.grid_column_widths[column_index] = content_width.clamp(60.0, 520.0);
+        self.grid_columns_user_resized = true;
+    }
+
+    pub(crate) fn column_widths(&mut self, count: usize, available_width: f32) -> Vec<f32> {
+        if self.grid_column_widths.len() != count {
+            self.grid_column_widths = vec![180.0; count];
+            self.grid_columns_user_resized = false;
+        }
+        let mut widths = self.grid_column_widths.clone();
+        if count > 0 && !self.grid_columns_user_resized {
+            let usable_width = (available_width - GRID_ROW_NUMBER_WIDTH - 4.0 * count as f32).max(0.0);
+            let default_width = (usable_width / count as f32).clamp(180.0, 520.0);
+            widths.fill(default_width);
+        }
+        widths
+    }
+
     pub(crate) fn row_identity(
         result: &UiQueryResult,
         info: &UiTableInfo,

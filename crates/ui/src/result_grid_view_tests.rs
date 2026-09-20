@@ -182,7 +182,7 @@ fn named_layout_drops_removed_columns_and_appends_new_columns() {
         },
     ];
 
-    assert_eq!(app.column_order_for_columns(&columns), vec![1]);
+    assert_eq!(app.table.data.column_order_for_columns(&columns), vec![1]);
     assert_eq!(app.table.data.grid_column_order, vec![0, 1]);
     assert_eq!(app.table.data.grid_column_widths, vec![240.0, 180.0]);
     assert_eq!(app.table.data.grid_hidden_columns, [0].into_iter().collect());
@@ -211,7 +211,7 @@ fn named_layout_does_not_map_renamed_column_state() {
         nullable: true,
     }];
 
-    assert_eq!(app.column_order_for_columns(&columns), vec![0]);
+    assert_eq!(app.table.data.column_order_for_columns(&columns), vec![0]);
     assert_eq!(app.table.data.grid_column_widths, vec![180.0]);
     assert!(app.table.data.grid_hidden_columns.is_empty());
 }
@@ -236,7 +236,7 @@ fn legacy_layout_is_discarded_when_schema_shape_changes() {
         nullable: true,
     }];
 
-    assert_eq!(app.column_order_for_columns(&columns), vec![0]);
+    assert_eq!(app.table.data.column_order_for_columns(&columns), vec![0]);
     assert!(app.table.data.grid_column_widths.is_empty());
     assert!(app.table.data.grid_hidden_columns.is_empty());
 }
@@ -256,7 +256,7 @@ fn persisted_layout_is_normalized_when_schema_changes() {
         ..Default::default()
     };
 
-    assert_eq!(app.column_order(3), vec![1, 0, 2]);
+    assert_eq!(app.table.data.column_order(3), vec![1, 0, 2]);
     assert!(app.table.data.grid_hidden_columns.is_empty());
     assert_eq!(app.table.data.grid_column_widths, vec![60.0, 120.0, 1000.0]);
 }

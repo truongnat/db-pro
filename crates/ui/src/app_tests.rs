@@ -162,12 +162,12 @@ fn grid_keyboard_navigation_starts_at_first_visible_cell() {
 fn grid_columns_fill_the_viewport_until_manually_resized() {
     let mut app = DbProApp::default();
 
-    let widths = app.column_widths(3, 1200.0);
+    let widths = app.table.data.column_widths(3, 1200.0);
     assert!(widths.iter().all(|width| (*width - 380.0).abs() < 0.01));
 
     app.table.data.grid_column_widths = vec![240.0, 320.0, 180.0];
     app.table.data.grid_columns_user_resized = true;
-    assert_eq!(app.column_widths(3, 1200.0), vec![240.0, 320.0, 180.0]);
+    assert_eq!(app.table.data.column_widths(3, 1200.0), vec![240.0, 320.0, 180.0]);
 }
 
 #[test]
@@ -4053,17 +4053,17 @@ fn ddl_apply_dispatch_requires_an_explicit_request_and_uses_active_connection() 
 #[test]
 fn test_column_order_and_move_column() {
     let mut app = DbProApp::default();
-    let order = app.column_order(4);
+    let order = app.table.data.column_order(4);
     assert_eq!(order, vec![0, 1, 2, 3]);
 
-    app.move_column(0, 2, 4);
+    app.table.data.move_column(0, 2, 4);
     assert_eq!(app.table.data.grid_column_order, vec![1, 2, 0, 3]);
 
-    app.move_column(3, 1, 4);
+    app.table.data.move_column(3, 1, 4);
     assert_eq!(app.table.data.grid_column_order, vec![1, 3, 2, 0]);
 
     // Invalid persisted indexes are removed while valid order is preserved.
-    let new_order = app.column_order(2);
+    let new_order = app.table.data.column_order(2);
     assert_eq!(new_order, vec![1, 0]);
 }
 
@@ -4527,7 +4527,7 @@ fn test_grid_layout_schema_reconciliation() {
         },
     ]);
 
-    let order = app.column_order_for_columns(&initial_columns);
+    let order = app.table.data.column_order_for_columns(&initial_columns);
     // email was index 1, id was index 0
     assert_eq!(order, vec![1, 0]);
     assert_eq!(app.table.data.grid_column_widths[1], 240.0);

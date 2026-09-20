@@ -544,6 +544,19 @@ owns its own lifecycle invariants.
 
 Severity: P2 maintainability and feature-boundary risk, resolved.
 
+## F27 — Grid layout behavior leaked through `DbProApp`
+
+Evidence at discovery: column ordering, visibility, movement, auto-sizing and
+viewport width calculation were implemented as `DbProApp` methods in
+`result_grid_view.rs`, even though they only mutated `TableDataState`.
+
+Fix in the current refactor: moved those transitions to `TableDataState` and
+updated the grid/header/test callers to cross the state boundary directly.
+`DbProApp` retains only behavior that coordinates workspace mode, mutation
+guards, query sorting and command/reload orchestration.
+
+Severity: P2 feature-boundary risk, resolved for grid layout state.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and

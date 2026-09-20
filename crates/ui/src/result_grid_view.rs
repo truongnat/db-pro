@@ -1,7 +1,7 @@
 use super::*;
 use crate::GridProjectionKey;
 use egui::{Align2, Pos2, Rounding, Stroke, Vec2};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 /// Coordinate lookup for the current visible grid slice.
 ///
@@ -129,43 +129,13 @@ impl DbProApp {
             return;
         }
 
-        let order = self.column_order_for_columns(&result.columns);
-        let editable = self.workspace.active_tab == WorkspaceTab::Table
-            && self.table.state.table_view == TableView::Data
-            && self.can_edit_table_rows();
-        // The projection is memoized across frames: sorting a 200k-row result on a timestamp-shaped
-        // column costs seconds per invocation in debug, so rebuilding it in the draw path is what
-        // made a sorted large result unusable (crates/ui/src/result_grid.rs, `GridProjectionCache`).
-        let projection_key = self.table.data.projection_key(result);
-        let indexes = self
-            .table
-            .data
-            .grid_projection_cache
-            .take(projection_key.clone(), result);
-        // The selection lookup is memoized on the same inputs: `draw_grid_body` used to
-        // build a `GridSelectionLookup` — two `HashMap`s, one entry per filtered row index — on
-        // every frame, which measured ~36.5 ms of a ~40 ms frame at 200k rows. Reuse it while the
-        // projection and column order are unchanged.
-        let selection_lookup = self
-            .table
-            .data
-            .grid_selection_cache
-            .take(&projection_key, &order)
-            .unwrap_or_else(|| GridSelectionLookup::new(&indexes, &order));
-
-        if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
-            self.table
-                .data
-                .rebuild_row_identity_cache(result, self.table.state.table_info.as_ref());
-        } else {
-            self.table.data.grid_row_identity_cache.clear();
-            self.table.data.grid_row_identity_cache_ready = false;
-        }
+        let is_table_data =
+            self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data;
+        let editable = is_table_data && self.can_edit_table_rows();
+        let (projection_key, indexes, order, selection_lookup) = self.prepare_grid_cache(result, is_table_data);
 
         self.handle_grid_keyboard(ui, result, &indexes, &order, editable, &selection_lookup);
 
-        let is_table_data =
-            self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data;
         if !is_table_data {
             self.draw_grid_toolbar(ui, result, editable, indexes.len(), &indexes);
         }
@@ -174,174 +144,55 @@ impl DbProApp {
         let row_offset = if is_table_data { self.table.data_query.offset } else { 0 };
         self.draw_grid_body(ui, result, &indexes, &order, editable, row_offset, &selection_lookup);
 
+        self.restore_grid_cache(projection_key, indexes, order, selection_lookup);
+    }
+
+    fn prepare_grid_cache(
+        &mut self,
+        result: &UiQueryResult,
+        is_table_data: bool,
+    ) -> (GridProjectionKey, Vec<usize>, Vec<usize>, GridSelectionLookup) {
+        let order = self.table.data.column_order_for_columns(&result.columns);
+        let projection_key = self.table.data.projection_key(result);
+        let indexes = self
+            .table
+            .data
+            .grid_projection_cache
+            .take(projection_key.clone(), result);
+        let selection_lookup = self
+            .table
+            .data
+            .grid_selection_cache
+            .take(&projection_key, &order)
+            .unwrap_or_else(|| GridSelectionLookup::new(&indexes, &order));
+
+        if is_table_data {
+            self.table
+                .data
+                .rebuild_row_identity_cache(result, self.table.state.table_info.as_ref());
+        } else {
+            self.table.data.grid_row_identity_cache.clear();
+            self.table.data.grid_row_identity_cache_ready = false;
+        }
+
+        (projection_key, indexes, order, selection_lookup)
+    }
+
+    fn restore_grid_cache(
+        &mut self,
+        projection_key: GridProjectionKey,
+        indexes: Vec<usize>,
+        order: Vec<usize>,
+        selection_lookup: GridSelectionLookup,
+    ) {
         self.table
             .data
             .grid_projection_cache
             .restore(projection_key.clone(), indexes);
-        // Restore the selection lookup in all cases — take() always moves it out, and it must
-        // be handed back so the next frame can reuse it.
         self.table
             .data
             .grid_selection_cache
             .restore(projection_key, order, selection_lookup);
-    }
-
-    /// Retrieve or initialize column visual ordering.
-    pub(crate) fn column_order_for_columns(&mut self, columns: &[crate::UiColumn]) -> Vec<usize> {
-        let count = columns.len();
-        self.table.data.grid_layout_column_names = columns.iter().map(|column| column.name.clone()).collect();
-
-        if let Some(mut persisted) = self.table.data.grid_pending_named_layout.take() {
-            let indexes_by_name: HashMap<&str, usize> = columns
-                .iter()
-                .enumerate()
-                .map(|(index, column)| (column.name.as_str(), index))
-                .collect();
-            persisted.sort_by_key(|column| column.order);
-            let mut seen_names = HashSet::with_capacity(persisted.len());
-            let mut seen_indices = HashSet::with_capacity(count);
-            let mut order = Vec::with_capacity(count);
-            let mut widths = vec![180.0; count];
-            let mut hidden = BTreeSet::new();
-
-            for entry in persisted {
-                let Some(&index) = indexes_by_name.get(entry.column_name.as_str()) else {
-                    continue;
-                };
-                if !seen_names.insert(entry.column_name) {
-                    continue;
-                }
-                seen_indices.insert(index);
-                order.push(index);
-                widths[index] = entry.width.clamp(60.0, 1000.0);
-                if entry.hidden {
-                    hidden.insert(index);
-                }
-            }
-            for index in 0..count {
-                if seen_indices.insert(index) {
-                    order.push(index);
-                }
-            }
-            self.table.data.grid_column_order = order;
-            self.table.data.grid_column_widths = widths;
-            self.table.data.grid_hidden_columns = hidden;
-            self.table.data.grid_columns_user_resized = true;
-        } else if self.table.data.grid_legacy_layout_pending {
-            // Index-based layouts cannot be safely migrated across a schema
-            // shape change. Keep the old layout only when it exactly matches
-            // the current schema; otherwise start from a safe default.
-            let widths_match =
-                self.table.data.grid_column_widths.is_empty() || self.table.data.grid_column_widths.len() == count;
-            if self.table.data.grid_column_order.len() != count || !widths_match {
-                self.table.data.grid_column_order.clear();
-                self.table.data.grid_column_widths.clear();
-                self.table.data.grid_hidden_columns.clear();
-                self.table.data.grid_columns_user_resized = false;
-            }
-            self.table.data.grid_legacy_layout_pending = false;
-        }
-
-        self.column_order(count)
-    }
-
-    pub(crate) fn column_order(&mut self, count: usize) -> Vec<usize> {
-        self.table.data.grid_hidden_columns.retain(|&column| column < count);
-        let mut normalized_order = Vec::with_capacity(count);
-        let mut seen = HashSet::with_capacity(count);
-        for column in self.table.data.grid_column_order.iter().copied() {
-            if column < count && seen.insert(column) {
-                normalized_order.push(column);
-            }
-        }
-        for column in 0..count {
-            if seen.insert(column) {
-                normalized_order.push(column);
-            }
-        }
-        if normalized_order != self.table.data.grid_column_order {
-            self.table.data.grid_column_order = normalized_order;
-        }
-        if !self.table.data.grid_column_widths.is_empty() {
-            self.table.data.grid_column_widths.resize(count, 180.0);
-            self.table
-                .data
-                .grid_column_widths
-                .iter_mut()
-                .for_each(|width| *width = width.clamp(60.0, 1000.0));
-        }
-        self.table
-            .data
-            .grid_column_order
-            .iter()
-            .copied()
-            .filter(|column| !self.table.data.grid_hidden_columns.contains(column))
-            .collect()
-    }
-
-    /// Reorder a column visually from one position to another.
-    pub(crate) fn move_column(&mut self, from_visual_idx: usize, to_visual_idx: usize, count: usize) {
-        let visible_order = self.column_order(count);
-        if from_visual_idx < visible_order.len()
-            && to_visual_idx < visible_order.len()
-            && from_visual_idx != to_visual_idx
-        {
-            let from_column = visible_order[from_visual_idx];
-            let to_column = visible_order[to_visual_idx];
-            let from = self
-                .table
-                .data
-                .grid_column_order
-                .iter()
-                .position(|column| *column == from_column)
-                .unwrap_or(from_visual_idx);
-            let to = self
-                .table
-                .data
-                .grid_column_order
-                .iter()
-                .position(|column| *column == to_column)
-                .unwrap_or(to_visual_idx);
-            let column = self.table.data.grid_column_order.remove(from);
-            self.table.data.grid_column_order.insert(to, column);
-        }
-    }
-
-    pub(crate) fn hide_column(&mut self, column_index: usize, visible_count: usize) {
-        if visible_count <= 1 {
-            return;
-        }
-        self.table.data.grid_hidden_columns.insert(column_index);
-    }
-
-    pub(crate) fn show_all_columns(&mut self) {
-        self.table.data.grid_hidden_columns.clear();
-    }
-
-    pub(crate) fn reset_grid_layout(&mut self, count: usize) {
-        self.table.data.grid_column_order = (0..count).collect();
-        self.table.data.grid_hidden_columns.clear();
-        self.table.data.grid_column_widths.clear();
-        self.table.data.grid_columns_user_resized = false;
-    }
-
-    pub(crate) fn auto_size_column(&mut self, result: &UiQueryResult, indexes: &[usize], column_index: usize) {
-        if column_index >= result.columns.len() {
-            return;
-        }
-        if self.table.data.grid_column_widths.len() < result.columns.len() {
-            self.table.data.grid_column_widths.resize(result.columns.len(), 180.0);
-        }
-        let column = &result.columns[column_index];
-        let content_width = indexes
-            .iter()
-            .take(100)
-            .filter_map(|row_index| result.rows.get(*row_index).and_then(|row| row.get(column_index)))
-            .map(crate::cell_text)
-            .map(|value| value.chars().count() as f32 * 7.0 + 24.0)
-            .fold(column.name.chars().count() as f32 * 7.0 + 42.0, f32::max);
-        self.table.data.grid_column_widths[column_index] = content_width.clamp(60.0, 520.0);
-        self.table.data.grid_columns_user_resized = true;
     }
 
     pub(crate) fn set_table_or_grid_sort(
@@ -680,7 +531,7 @@ impl DbProApp {
     ) {
         let grid_height = ui.available_height().max(180.0);
         let grid_width = ui.available_width().max(0.0);
-        let widths = self.column_widths(result.columns.len(), grid_width);
+        let widths = self.table.data.column_widths(result.columns.len(), grid_width);
 
         ui.allocate_ui_with_layout(
             egui::vec2(grid_width, grid_height),
@@ -818,21 +669,6 @@ impl DbProApp {
                 );
             }
         });
-    }
-
-    /// One grid cell: crisp background, grid borders, active cell highlight, and formatted value.
-    pub(super) fn column_widths(&mut self, count: usize, available_width: f32) -> Vec<f32> {
-        if self.table.data.grid_column_widths.len() != count {
-            self.table.data.grid_column_widths = vec![180.0; count];
-            self.table.data.grid_columns_user_resized = false;
-        }
-        let mut widths = self.table.data.grid_column_widths.clone();
-        if count > 0 && !self.table.data.grid_columns_user_resized {
-            let usable_width = (available_width - GRID_ROW_NUMBER_WIDTH - 4.0 * count as f32).max(0.0);
-            let default_width = (usable_width / count as f32).clamp(180.0, 520.0);
-            widths.fill(default_width);
-        }
-        widths
     }
 
     pub(crate) fn cell_label(cell: &crate::UiCell) -> String {
