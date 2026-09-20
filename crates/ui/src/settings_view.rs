@@ -1,4 +1,5 @@
 //! Settings activity sidebar panels (#205).
+use super::settings_navigation_view::{SettingsNavigationAction, SettingsNavigationContext};
 use super::*;
 use crate::editor::PredictionMode;
 use egui::RichText;
@@ -49,17 +50,14 @@ impl DbProApp {
     pub(super) fn draw_settings(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
-                ui.set_width(128.0);
-                for section in SettingsSection::all() {
-                    let selected = self.preferences.section == *section;
-                    let label = RichText::new(section.label()).color(if selected {
-                        self.theme.accent
-                    } else {
-                        self.theme.text_secondary
-                    });
-                    if ui.selectable_label(selected, label).clicked() {
-                        self.preferences.section = *section;
-                    }
+                let actions = SettingsNavigationContext {
+                    theme: self.theme,
+                    selected: self.preferences.section,
+                }
+                .draw(ui);
+                for action in actions {
+                    let SettingsNavigationAction::SelectSection(section) = action;
+                    self.preferences.section = section;
                 }
             });
             ui.separator();

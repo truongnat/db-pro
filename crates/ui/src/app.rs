@@ -210,6 +210,8 @@ mod saved_task_state;
 mod security_state;
 #[path = "settings_model.rs"]
 mod settings_model;
+#[path = "settings_navigation_view.rs"]
+mod settings_navigation_view;
 #[path = "settings_view.rs"]
 mod settings_view;
 #[path = "synthetic_data_state.rs"]
