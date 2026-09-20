@@ -50,6 +50,39 @@ pub(super) enum AgentRunPreparationError {
 }
 
 impl AgentState {
+    pub(super) fn clear_session(&mut self, document_id: &str) {
+        if let Some(session) = self.sessions.get_mut(document_id) {
+            session.messages.clear();
+            session.activities.clear();
+            session.streaming_text.clear();
+            session.tool_results.clear();
+            session.state = db_pro_core::domain::agent::AgentSessionState::Idle;
+            session.active_run_id = None;
+            session.request_id = None;
+            session.pending_confirmation = None;
+        }
+    }
+
+    pub(super) fn open_settings(&mut self) {
+        self.settings_open = true;
+        self.api_key_draft.clear();
+        self.api_key_show_password = false;
+    }
+
+    pub(super) fn close_settings(&mut self) {
+        self.settings_open = false;
+        self.api_key_draft.clear();
+        self.api_key_show_password = false;
+    }
+
+    pub(super) fn toggle_settings(&mut self) {
+        if self.settings_open {
+            self.close_settings();
+        } else {
+            self.open_settings();
+        }
+    }
+
     pub(super) fn prepare_run(
         &mut self,
         request_id: crate::RequestId,

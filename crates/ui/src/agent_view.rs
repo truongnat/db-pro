@@ -1,3 +1,4 @@
+use super::agent_header_view::{AgentHeaderAction, AgentHeaderContext};
 use super::agent_settings_view::{AgentSettingsAction, AgentSettingsContext};
 use super::*;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
@@ -47,118 +48,46 @@ impl DbProApp {
     }
 
     fn draw_agent_header(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        let typed_session_busy = self
+        let Some(document_id) = self
             .query
             .session
             .documents
             .get(self.query.session.active_document_index)
-            .and_then(|document| self.agent.sessions.get(&document.id))
-            .is_some_and(|session| {
-                session.active_run_id.is_some()
-                    || session.request_id.is_some()
-                    || session.pending_confirmation.is_some()
-            });
-        let can_clear_conversation = !typed_session_busy;
-        ui.horizontal(|ui| {
-            ui.label(icon_text(Icon::Sparkles, "Agent", self.theme.accent));
-            if let Some(document_id) = self
-                .query
-                .session
-                .documents
-                .get(self.query.session.active_document_index)
-                .map(|document| document.id.clone())
-            {
-                let session = self.agent.sessions.entry(document_id).or_default();
-                let is_disabled = session.active_run_id.is_some()
-                    || session.request_id.is_some()
-                    || session.pending_confirmation.is_some();
-                ui.add_enabled_ui(!is_disabled, |ui| {
-                    egui::ComboBox::from_id_salt("agent-workflow-mode")
-                        .selected_text(match session.mode {
-                            db_pro_core::domain::agent::AgentMode::Ask => "Ask",
-                            db_pro_core::domain::agent::AgentMode::Edit => "Edit",
-                            db_pro_core::domain::agent::AgentMode::Agent => "Agent",
-                        })
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut session.mode, db_pro_core::domain::agent::AgentMode::Ask, "Ask");
-                            ui.selectable_value(&mut session.mode, db_pro_core::domain::agent::AgentMode::Edit, "Edit");
-                            ui.selectable_value(
-                                &mut session.mode,
-                                db_pro_core::domain::agent::AgentMode::Agent,
-                                "Agent",
-                            );
-                        });
-                });
+            .map(|document| document.id.clone())
+        else {
+            return;
+        };
+        let (mode, mode_disabled, has_messages) = {
+            let session = self.agent.sessions.entry(document_id.clone()).or_default();
+            let disabled = session.active_run_id.is_some()
+                || session.request_id.is_some()
+                || session.pending_confirmation.is_some();
+            (&mut session.mode, disabled, !session.messages.is_empty())
+        };
+        let actions = {
+            let mut header = AgentHeaderContext {
+                theme: self.theme,
+                mode: Some(mode),
+                mode_disabled,
+                can_clear_conversation: !mode_disabled,
+                has_messages,
+            };
+            header.draw(ui)
+        };
+        for action in actions {
+            match action {
+                AgentHeaderAction::ClearConversation => self.agent.clear_session(&document_id),
+                AgentHeaderAction::Close => self.set_agent_open(false, ctx),
+                AgentHeaderAction::ToggleSettings => self.agent.toggle_settings(),
             }
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                let typed_has_messages = self
-                    .query
-                    .session
-                    .documents
-                    .get(self.query.session.active_document_index)
-                    .and_then(|document| self.agent.sessions.get(&document.id))
-                    .is_some_and(|session| !session.messages.is_empty());
-                if can_clear_conversation
-                    && typed_has_messages
-                    && Button::new(self.theme)
-                        .icon(Icon::RotateCcw)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .tooltip("Clear conversation")
-                        .show(ui)
-                        .clicked()
-                {
-                    if let Some(document) = self
-                        .query
-                        .session
-                        .documents
-                        .get(self.query.session.active_document_index)
-                    {
-                        if let Some(session) = self.agent.sessions.get_mut(&document.id) {
-                            session.messages.clear();
-                            session.activities.clear();
-                            session.streaming_text.clear();
-                            session.tool_results.clear();
-                            session.state = db_pro_core::domain::agent::AgentSessionState::Idle;
-                            session.active_run_id = None;
-                        }
-                    }
-                }
-                if Button::new(self.theme)
-                    .icon(Icon::X)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("Close Agent")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.set_agent_open(false, ctx);
-                }
-                if Button::new(self.theme)
-                    .icon(Icon::Settings)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("Agent settings (API key)")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.agent.settings_open = !self.agent.settings_open;
-                    if self.agent.settings_open {
-                        self.agent.api_key_draft.clear();
-                        self.agent.api_key_show_password = false;
-                    }
-                }
-            });
-        });
+        }
     }
 
     fn apply_agent_settings_actions(&mut self, actions: Vec<AgentSettingsAction>) {
         for action in actions {
             match action {
                 AgentSettingsAction::Close => {
-                    self.agent.settings_open = false;
-                    self.agent.api_key_draft.clear();
-                    self.agent.api_key_show_password = false;
+                    self.agent.close_settings();
                 }
                 AgentSettingsAction::SaveKey(api_key) => {
                     let request_id = self.task_bridge.next_request_id();
