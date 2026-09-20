@@ -490,6 +490,13 @@ Source checkpoint: `0070d374`.
   captured from the rebuilt release binary at logical `1280x800` with the
   New Connection modal open. Visual inspection confirms the centered card,
   separated header, right-aligned close control, scrollable body and footer.
+- Design Mode panel ownership follow-up: draft table/column/FK form rendering
+  now lives in `diagram_design_panel_view.rs`; `diagram_view.rs` only
+  coordinates whether the panel is shown. Focused UI tests (632 passed),
+  clippy, architecture guard and clean scan (14 pass, 2 ratcheted warnings)
+  PASS. One timing-sensitive chart performance assertion exceeded its budget
+  once at 300.7ms and passed on the isolated rerun and subsequent full UI run;
+  no product test failure remains.
 
 ## Not yet proven
 

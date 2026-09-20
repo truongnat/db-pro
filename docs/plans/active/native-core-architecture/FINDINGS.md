@@ -599,6 +599,20 @@ surface owns its interaction lifecycle.
 
 Severity: P2 feature-boundary risk, resolved for ER canvas interaction.
 
+## F31 — ER view still owned the Design Mode surface
+
+Evidence at discovery: `diagram_view.rs` still rendered the full Design Mode
+draft panel alongside schema search, toolbar and canvas composition. That kept
+draft-table/column/FK form rendering coupled to the ER map coordinator even
+after mutation actions had moved out.
+
+Fix in the current refactor: moved the Design Mode panel surface into
+`diagram_design_panel_view.rs`. The coordinator now only decides when the
+panel is shown; panel rendering and its controls cross the feature-owned view
+boundary.
+
+Severity: P2 feature-boundary risk, resolved for Design Mode presentation.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and

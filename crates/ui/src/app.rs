@@ -72,6 +72,8 @@ mod ddl_events;
 mod diagram_canvas_view;
 #[path = "diagram_design_actions.rs"]
 mod diagram_design_actions;
+#[path = "diagram_design_panel_view.rs"]
+mod diagram_design_panel_view;
 #[path = "diagram_state.rs"]
 mod diagram_state;
 #[path = "diagram_view.rs"]
