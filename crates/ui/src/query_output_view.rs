@@ -58,7 +58,11 @@ impl DbProApp {
                     (OutputTab::Explain, Icon::ChartNoAxesCombined, "Explain"),
                     (OutputTab::History, Icon::History, "History"),
                 ] {
-                    let selected = self.active_query_output_tab() == tab;
+                    let selected = self.query_output_state.active_tab_for_document(
+                        self.query_session_state
+                            .active_document()
+                            .map(|document| document.id.as_str()),
+                    ) == tab;
                     let bg_color = if selected {
                         self.theme.surface_active
                     } else {
@@ -121,7 +125,11 @@ impl DbProApp {
 
     /// Body of the selected output tab.
     pub(super) fn draw_output_pane(&mut self, ui: &mut egui::Ui, result: Option<&UiQueryResult>) {
-        match self.active_query_output_tab() {
+        match self.query_output_state.active_tab_for_document(
+            self.query_session_state
+                .active_document()
+                .map(|document| document.id.as_str()),
+        ) {
             OutputTab::Results => self.draw_results_pane(ui, result),
             OutputTab::Chart => self.draw_chart_pane(ui, result),
             OutputTab::Messages => self.draw_messages_pane(ui),

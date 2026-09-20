@@ -1298,7 +1298,14 @@ fn explain_query_uses_selected_connection_and_switches_output() {
     assert_eq!(sql, "SELECT 1");
     assert!(!analyze);
     assert_eq!(app.query_session_state.active_explain_request(), Some(request_id));
-    assert_eq!(app.active_query_output_tab(), OutputTab::Explain);
+    assert_eq!(
+        app.query_output_state.active_tab_for_document(
+            app.query_session_state
+                .active_document()
+                .map(|document| document.id.as_str())
+        ),
+        OutputTab::Explain
+    );
 }
 
 #[test]
@@ -1347,17 +1354,45 @@ fn query_output_tab_is_scoped_to_each_document() {
 
     app.set_active_query_output_tab(OutputTab::Explain);
     app.switch_query_document(1);
-    assert_eq!(app.active_query_output_tab(), OutputTab::Results);
+    assert_eq!(
+        app.query_output_state.active_tab_for_document(
+            app.query_session_state
+                .active_document()
+                .map(|document| document.id.as_str())
+        ),
+        OutputTab::Results
+    );
 
     app.set_active_query_output_tab(OutputTab::History);
     app.switch_query_document(0);
-    assert_eq!(app.active_query_output_tab(), OutputTab::Explain);
+    assert_eq!(
+        app.query_output_state.active_tab_for_document(
+            app.query_session_state
+                .active_document()
+                .map(|document| document.id.as_str())
+        ),
+        OutputTab::Explain
+    );
 
     app.set_query_output_tab("query-2", OutputTab::Messages);
     app.switch_query_document(1);
-    assert_eq!(app.active_query_output_tab(), OutputTab::Messages);
+    assert_eq!(
+        app.query_output_state.active_tab_for_document(
+            app.query_session_state
+                .active_document()
+                .map(|document| document.id.as_str())
+        ),
+        OutputTab::Messages
+    );
     app.switch_query_document(0);
-    assert_eq!(app.active_query_output_tab(), OutputTab::Explain);
+    assert_eq!(
+        app.query_output_state.active_tab_for_document(
+            app.query_session_state
+                .active_document()
+                .map(|document| document.id.as_str())
+        ),
+        OutputTab::Explain
+    );
 }
 
 #[test]

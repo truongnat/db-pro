@@ -26,6 +26,12 @@ impl QueryOutputState {
             .unwrap_or(OutputTab::Results)
     }
 
+    pub(crate) fn active_tab_for_document(&self, document_id: Option<&str>) -> OutputTab {
+        document_id
+            .map(|document_id| self.tab_for_document(document_id))
+            .unwrap_or(OutputTab::Results)
+    }
+
     pub(super) fn set_active_for_document(&mut self, document_id: &str, tab: OutputTab) {
         self.active_tab = tab;
         self.tabs_by_document.insert(document_id.to_owned(), tab);
