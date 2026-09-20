@@ -726,6 +726,11 @@ Source checkpoint: `5d42d5e9`.
   return typed commit/reload/remove/clear intents. Focused UI fmt/check,
   clippy, 630 UI tests, architecture guard and clean scan PASS; release/runtime
   evidence is pending until the next native rebuild.
+- Table-data sort follow-up at source SHA `cffae04f`: sort label/selection and
+  staged-change guard now consume explicit context and return typed reload or
+  blocked intents. Focused UI fmt/check, clippy, 630 UI tests, architecture
+  guard and clean scan PASS; release/runtime evidence is pending until the next
+  native rebuild.
 
 ## Not yet proven
 

@@ -561,6 +561,20 @@ remove and clear intents for the root to execute.
 Severity: P1 feature-boundary maintainability risk, resolved for table-data
 filter presentation and intent routing.
 
+## F73 — Table-data sort selector mixed state changes with reload scheduling
+
+Evidence at discovery: the toolbar computed sort labels, mutated server-sort
+state, handled staged-change guards and called the reload method in one root
+closure. The selector was therefore coupled to the table orchestration object
+instead of exposing a small interaction contract.
+
+Fix in the current refactor: moved sorting into `table_data_sort_view.rs`. The
+view receives explicit query/grid state and returns `ReloadFromStart` or
+`BlockedByStagedChanges`; the root owns feedback and request orchestration.
+
+Severity: P2 feature-boundary maintainability risk, resolved for table-data
+sorting.
+
 ## F48 — Runtime transport adapter was embedded in the protocol module
 
 Source SHA: `b85d65da`.
