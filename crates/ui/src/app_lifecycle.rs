@@ -97,7 +97,10 @@ impl DbProApp {
     }
 
     fn persist_ui_preferences(&mut self, storage: &mut dyn eframe::Storage) {
-        storage.set_string("dbpro.native.theme-version", "light-first-v1".to_owned());
+        storage.set_string(
+            "dbpro.native.theme-version",
+            app_storage::THEME_STORAGE_VERSION.to_owned(),
+        );
         storage.set_string("dbpro.native.dark-mode", self.preferences.dark_mode.to_string());
         storage.set_string("dbpro.native.reduce-motion", self.preferences.reduce_motion.to_string());
         if let Ok(prediction_mode) = serde_json::to_string(&self.preferences.prediction_mode) {

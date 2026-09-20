@@ -545,6 +545,22 @@ event reducers still receive explicit narrow state references.
 Severity: P1 feature-boundary risk and P2 composition-root maintainability,
 resolved for query state ownership.
 
+## F24 — Storage hydration was embedded in app construction
+
+Evidence at discovery: `app_state.rs` parsed connection profiles, shell layout,
+grid preferences, query documents, schema pins and workspace roots directly in
+the constructor. That made startup composition own every persistence key and
+made feature storage changes require editing the app initializer.
+
+Fix in the current refactor: introduced `NativeStorageContext` with explicit
+feature-state dependencies and moved key parsing/clamping plus preference-state
+hydration into `app_storage.rs`. The constructor now only sequences preference,
+feature and workspace restore phases; workspace-session restore still happens
+after query documents and pinned tables, preserving the existing invariant.
+
+Severity: P1 boundary risk for persistence changes, resolved for native storage
+hydration.
+
 ## F21 — Native lifecycle adapter mixed persistence and frame rendering
 
 Evidence at discovery: the `eframe::App` implementation combined storage

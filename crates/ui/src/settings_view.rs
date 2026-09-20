@@ -4,37 +4,46 @@ use crate::editor::PredictionMode;
 use egui::RichText;
 use lucide_icons::Icon;
 
-impl DbProApp {
-    pub(crate) fn apply_settings_to_runtime(&mut self) {
-        self.preferences.settings.general.language.apply();
-        self.preferences.dark_mode = self.preferences.settings.appearance.dark_mode;
-        self.preferences.reduce_motion = self.preferences.settings.appearance.reduce_motion;
-        self.query.editor.editor_font_size = self.preferences.settings.editor.font_size;
-        self.preferences.prediction_mode = match self.preferences.settings.editor.prediction_mode.as_str() {
-            "off" => PredictionMode::Off,
-            "subtle" => PredictionMode::Subtle,
-            _ => PredictionMode::Eager,
-        };
-        self.agent.auto_run_read_only = self.preferences.settings.ai.auto_run_read_only;
-        self.theme = if self.preferences.dark_mode {
-            DbProTheme::dark()
-        } else {
-            DbProTheme::light()
-        };
-    }
+pub(crate) fn apply_settings_state(
+    preferences: &mut PreferencesState,
+    query: &mut QueryFeatureState,
+    agent: &mut AgentState,
+    theme: &mut DbProTheme,
+) {
+    preferences.settings.general.language.apply();
+    preferences.dark_mode = preferences.settings.appearance.dark_mode;
+    preferences.reduce_motion = preferences.settings.appearance.reduce_motion;
+    query.editor.editor_font_size = preferences.settings.editor.font_size;
+    preferences.prediction_mode = match preferences.settings.editor.prediction_mode.as_str() {
+        "off" => PredictionMode::Off,
+        "subtle" => PredictionMode::Subtle,
+        _ => PredictionMode::Eager,
+    };
+    agent.auto_run_read_only = preferences.settings.ai.auto_run_read_only;
+    *theme = if preferences.dark_mode {
+        DbProTheme::dark()
+    } else {
+        DbProTheme::light()
+    };
+}
 
+pub(crate) fn sync_settings_state(preferences: &mut PreferencesState, query: &QueryFeatureState, agent: &AgentState) {
+    preferences.settings.version = settings_model::SETTINGS_VERSION;
+    preferences.settings.appearance.dark_mode = preferences.dark_mode;
+    preferences.settings.appearance.reduce_motion = preferences.reduce_motion;
+    preferences.settings.editor.font_size = query.editor.editor_font_size;
+    preferences.settings.editor.prediction_mode = match preferences.prediction_mode {
+        PredictionMode::Off => "off".to_owned(),
+        PredictionMode::Subtle => "subtle".to_owned(),
+        PredictionMode::Eager => "eager".to_owned(),
+    };
+    preferences.settings.ai.auto_run_read_only = agent.auto_run_read_only;
+    preferences.settings.ai.provider_label = agent.provider_label.clone();
+}
+
+impl DbProApp {
     pub(crate) fn sync_settings_from_runtime(&mut self) {
-        self.preferences.settings.version = settings_model::SETTINGS_VERSION;
-        self.preferences.settings.appearance.dark_mode = self.preferences.dark_mode;
-        self.preferences.settings.appearance.reduce_motion = self.preferences.reduce_motion;
-        self.preferences.settings.editor.font_size = self.query.editor.editor_font_size;
-        self.preferences.settings.editor.prediction_mode = match self.preferences.prediction_mode {
-            PredictionMode::Off => "off".to_owned(),
-            PredictionMode::Subtle => "subtle".to_owned(),
-            PredictionMode::Eager => "eager".to_owned(),
-        };
-        self.preferences.settings.ai.auto_run_read_only = self.agent.auto_run_read_only;
-        self.preferences.settings.ai.provider_label = self.agent.provider_label.clone();
+        sync_settings_state(&mut self.preferences, &self.query, &self.agent);
     }
 
     pub(super) fn draw_settings(&mut self, ui: &mut egui::Ui) {

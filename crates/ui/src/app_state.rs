@@ -1,7 +1,5 @@
 use super::*;
 
-const THEME_STORAGE_VERSION: &str = "light-first-v1";
-
 /// Query seeded into the editor and the first query tab at startup.
 const DEFAULT_QUERY: &str = "select\n  id, name, status\nfrom customers\nlimit 100;";
 
@@ -16,145 +14,39 @@ impl DbProApp {
             ..Self::default()
         };
         if let Some(storage) = storage {
-            app.preferences.dark_mode =
-                if storage.get_string("dbpro.native.theme-version").as_deref() == Some(THEME_STORAGE_VERSION) {
-                    storage
-                        .get_string("dbpro.native.dark-mode")
-                        .map(|value| value == "true")
-                        .unwrap_or(false)
-                } else {
-                    false
-                };
-            app.preferences.reduce_motion = storage
-                .get_string("dbpro.native.reduce-motion")
-                .is_some_and(|value| value == "true");
-            if let Some(mode) = storage
-                .get_string("dbpro.native.prediction-mode")
-                .and_then(|value| serde_json::from_str::<PredictionMode>(&value).ok())
-            {
-                app.preferences.prediction_mode = mode;
-            }
-            // Typed settings blob wins when present (#205).
-            if let Some(raw) = storage.get_string(SETTINGS_STORAGE_KEY) {
-                if let Some(settings) = AppSettings::from_json(&raw) {
-                    app.preferences.settings = settings;
-                    app.apply_settings_to_runtime();
-                }
-            } else {
-                app.sync_settings_from_runtime();
-            }
             app.load_saved_tasks_from_storage(storage);
             app.load_named_sessions_from_storage(storage);
-            if let Some(raw) = storage.get_string("dbpro.native.ssh-profiles-v1") {
-                if let Ok(profiles) = serde_json::from_str(&raw) {
-                    app.connection.dialog.set_ssh_profiles(profiles);
-                }
-            }
-            if let Some(width) = storage
-                .get_string("dbpro.native.sidebar-width")
-                .and_then(|value| value.parse::<f32>().ok())
             {
-                app.workspace.set_sidebar_width(width);
-            }
-            if let Some(width) = storage
-                .get_string("dbpro.native.agent-width")
-                .and_then(|value| value.parse::<f32>().ok())
-            {
-                app.workspace.set_agent_width(width);
-            }
-            app.workspace.bottom_panel_open = storage
-                .get_string("dbpro.native.output-open")
-                .is_some_and(|value| value == "true");
-            if let Some(height) = storage
-                .get_string("dbpro.native.output-height")
-                .and_then(|value| value.parse::<f32>().ok())
-            {
-                app.workspace.set_bottom_panel_height(height);
-            }
-            if let Some(height) = storage
-                .get_string("dbpro.native.connections-pane-height")
-                .and_then(|value| value.parse::<f32>().ok())
-            {
-                app.schema_explorer.connections_pane_height = height.clamp(80.0, 400.0);
-            }
-            if let Some(height) = storage
-                .get_string("dbpro.native.schemas-pane-height")
-                .and_then(|value| value.parse::<f32>().ok())
-            {
-                app.schema_explorer.schemas_pane_height = height.clamp(60.0, 200.0);
-            }
-            app.theme = if app.preferences.dark_mode {
-                DbProTheme::dark()
-            } else {
-                DbProTheme::light()
-            };
-            if let Some(widths) = storage.get_string("dbpro.native.grid-widths") {
-                if let Ok(widths) = serde_json::from_str::<Vec<f32>>(&widths) {
-                    app.table.data.grid_column_widths =
-                        widths.into_iter().map(|width| width.clamp(90.0, 520.0)).collect();
-                }
-            }
-            if let Some(layouts) = storage.get_string("dbpro.native.grid-layouts") {
-                if let Ok(layouts) = serde_json::from_str(&layouts) {
-                    app.table.data.grid_layout_preferences = layouts;
-                }
-            }
-            app.table.data.grid_columns_user_resized = storage
-                .get_string("dbpro.native.grid-widths-customized")
-                .is_some_and(|value| value == "true");
-            if let Some(documents) = storage.get_string("dbpro.native.query-documents") {
-                if let Ok(documents) = serde_json::from_str::<Vec<QueryDocument>>(&documents) {
-                    if !documents.is_empty() {
-                        app.query.session.documents = documents;
-                    }
-                }
-            }
-            if let Some(history) = storage.get_string("dbpro.native.query-history-v1") {
-                if let Ok(history) = serde_json::from_str(&history) {
-                    app.query.editor.query_history_entries = history;
-                }
-            }
-            if let Some(pinned) = storage.get_string("dbpro.native.pinned-tables-v1") {
-                if let Ok(tables) = serde_json::from_str::<Vec<String>>(&pinned) {
-                    app.schema_explorer.pinned_tables = tables;
-                }
+                let mut storage_context =
+                    app_storage::NativeStorageContext::new(app_storage::NativeStorageDependencies {
+                        preferences: &mut app.preferences,
+                        agent: &mut app.agent,
+                        theme: &mut app.theme,
+                        workspace: &mut app.workspace,
+                        query: &mut app.query,
+                        table: &mut app.table,
+                        connection: &mut app.connection,
+                        schema_explorer: &mut app.schema_explorer,
+                    });
+                storage_context.restore_preferences(storage);
+                storage_context.restore_connection_profiles(storage);
+                storage_context.restore_shell_layout(storage);
+                storage_context.restore_table_layout(storage);
+                storage_context.restore_query_state(storage);
             }
             // Shell/layout restore after documents + pins so tab refs resolve (#222).
             app.restore_last_workspace_session_from_storage(storage);
-            if let Some(recent) = storage.get_string("dbpro.native.recent-tables-v1") {
-                if let Ok(tables) = serde_json::from_str::<Vec<String>>(&recent) {
-                    app.schema_explorer.recent_tables = tables;
-                }
-            }
-            if let Some(recent_ws) = storage.get_string("dbpro.native.workspace-recent-v1") {
-                if let Ok(paths) = serde_json::from_str::<Vec<String>>(&recent_ws) {
-                    app.workspace.files.ide_workspace.recent_roots =
-                        paths.into_iter().map(std::path::PathBuf::from).collect();
-                }
-            }
-            let roots = storage
-                .get_string("dbpro.native.workspace-roots-v1")
-                .and_then(|raw| serde_json::from_str::<Vec<String>>(&raw).ok())
-                .or_else(|| {
-                    storage
-                        .get_string("dbpro.native.workspace-root-v1")
-                        .filter(|root| !root.is_empty())
-                        .map(|root| vec![root])
-                })
-                .unwrap_or_default();
-            for root in roots {
-                let path = std::path::PathBuf::from(root);
-                if path.is_dir() {
-                    let _ = if app.workspace.files.ide_workspace.roots.is_empty() {
-                        app.workspace.files.ide_workspace.open_root(path)
-                    } else {
-                        app.workspace.files.ide_workspace.add_root(path)
-                    };
-                }
-            }
-            if storage.get_string("dbpro.native.workspace-trusted-v1").as_deref() == Some("true") {
-                app.workspace.files.ide_workspace.set_trusted(true);
-            }
+            app_storage::NativeStorageContext::new(app_storage::NativeStorageDependencies {
+                preferences: &mut app.preferences,
+                agent: &mut app.agent,
+                theme: &mut app.theme,
+                workspace: &mut app.workspace,
+                query: &mut app.query,
+                table: &mut app.table,
+                connection: &mut app.connection,
+                schema_explorer: &mut app.schema_explorer,
+            })
+            .restore_workspace_files(storage);
         }
         app
     }
@@ -257,7 +149,7 @@ mod tests {
         let mut storage = MemoryStorage::default();
         storage.values.insert(
             "dbpro.native.theme-version".to_owned(),
-            THEME_STORAGE_VERSION.to_owned(),
+            app_storage::THEME_STORAGE_VERSION.to_owned(),
         );
         storage
             .values

@@ -345,6 +345,8 @@ pub use crate::query::{QueryDocument, QueryExecutionState};
 pub(crate) use app_types::*;
 #[path = "app_lifecycle.rs"]
 mod app_lifecycle;
+#[path = "app_storage.rs"]
+mod app_storage;
 
 pub struct DbProApp {
     theme: DbProTheme,
