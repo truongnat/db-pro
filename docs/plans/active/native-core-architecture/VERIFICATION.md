@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `f64ae90d`.
+Source checkpoint: `84f94f26`.
 
 ## Current change
 
@@ -622,6 +622,10 @@ Source checkpoint: `f64ae90d`.
   INSERT/COPY and literal formatting are pure module functions rather than
   `DbProApp` methods. Focused check, clippy, 633 UI tests, architecture guard,
   clean scan and diff checks PASS.
+- Grid navigation boundary at source SHA `84f94f26`: keyboard selection now
+  receives `GridNavigationContext`; edit commit stays explicit at the table
+  orchestration boundary. Focused check, clippy, 633 UI tests, architecture
+  guard, clean scan (16 pass, 0 warnings) and diff checks PASS.
 - Final full gate at source SHA `4bb3d21d`: `cargo fmt --all -- --check`,
   workspace `cargo check`, workspace clippy with `-D warnings`, workspace
   tests, release native build, capture build and architecture guard all PASS.

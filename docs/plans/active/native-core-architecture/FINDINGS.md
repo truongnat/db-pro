@@ -634,6 +634,24 @@ architecture guard freezes it against `DbProApp` dependencies.
 
 Severity: P1 data-contract boundary risk, resolved for result export.
 
+## F55 — Grid keyboard navigation was attached to `DbProApp`
+
+Evidence at source `84f94f26`: arrow/tab/home/end navigation and selection
+projection were implemented as a `DbProApp` method, even though the
+transition only needs table data, transient editing state and feedback.
+The method also reached into the root to decide when an edit should commit.
+
+Impact: a core data-grid interaction could silently depend on unrelated root
+aggregates, and keyboard selection behavior could not be exercised through a
+narrow feature context.
+
+Fix: `GridNavigationContext` now owns the three state references required by
+the transition; edit commit remains an explicit table-editor orchestration
+step at the caller, while navigation itself is a root-free module function.
+The architecture guard freezes the boundary.
+
+Severity: P1 table-core boundary risk, resolved for keyboard navigation.
+
 ## F47 — Schema Workbench mixed mutation planning with view rendering
 
 Source SHA: `08acab31`.
