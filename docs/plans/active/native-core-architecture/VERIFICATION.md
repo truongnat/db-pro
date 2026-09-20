@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `393ae525`.
+Source checkpoint: `932f15d4`.
 
 ## Current change
 
@@ -53,6 +53,9 @@ Source checkpoint: `393ae525`.
 - PostgreSQL RLS/table-policy preview planning now lives in `security_rls.rs`
   with a shared quote dialect and explicit request structs; missing identity,
   role parsing and generated SQL are covered by focused tests.
+- Schema compare keyed data-diff request validation and effect construction now
+  live in `SchemaCompareState`; tests cover required target/table/key fields and
+  normalized schema/key payloads.
 - The architecture guard now freezes `table_editor_context.rs` and
   `table_editor_values.rs` as explicit-state modules that may not depend on
   the composition-root type.
@@ -325,15 +328,15 @@ Source checkpoint: `393ae525`.
 - `cargo check -p db-pro-ui`: PASS.
 - `cargo fmt --all`: executed.
 - `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
-- `cargo test -p db-pro-ui --lib`: 616 passed, 0 failed.
+- `cargo test -p db-pro-ui --lib`: 618 passed, 0 failed.
 - `cargo fmt --all -- --check`: PASS.
 - `cargo check --workspace`: PASS.
 - `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
-- `cargo test --workspace --no-fail-fast`: 1288 passed, 0 failed, 42 ignored;
+- `cargo test --workspace --no-fail-fast`: 1290 passed, 0 failed, 42 ignored;
   all workspace doc-tests passed with 0 tests.
 - `cargo build --release --locked -p db-pro-native`: PASS.
 - `cargo build --release --locked -p db-pro-native --features capture`: PASS.
-- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 11 pass, 5 warnings, 0 failures; warnings are ratcheted size/cast/clone heuristics.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 12 pass, 4 warnings, 0 failures; warnings are ratcheted size/file/clone heuristics.
 
 ## Not yet proven
 
