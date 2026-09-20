@@ -70,8 +70,9 @@ Fix in `0bde3a5f`: document lifecycle values now have one owner,
 `QuerySessionState`. Fix in `24f8692a`: output-tab selection and per-document
 output-tab overrides now have one owner, `QueryOutputState`. Query-document
 lifecycle orchestration now runs through `QueryDocumentContext`, which receives
-explicit aggregate dependencies and leaves query execution at the composition
-root.
+explicit aggregate dependencies, keeps switching/cursor synchronization in the
+same boundary, owns active-document text/binding mutations and leaves query
+execution plus cross-aggregate grid invalidation at the composition root.
 
 Severity: P1 boundary leak, resolved for document lifecycle.
 

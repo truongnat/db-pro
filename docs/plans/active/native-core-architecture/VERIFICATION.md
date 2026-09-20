@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `46694d54`.
+Source checkpoint: `25fee7f0`.
 
 ## Current change
 
@@ -19,6 +19,11 @@ Source checkpoint: `46694d54`.
   `QueryDocumentContext`; opening, duplication, closing and fallback-tab
   behavior receive their feature aggregates directly, while query execution
   remains a composition-root command decision.
+- Query-document switching now uses the same context, so active cursor and
+  selected-text synchronization is kept beside the document transition.
+- Active query text edits, document connection/schema binding and prediction
+  cancellation now use the same context; the root retains only cross-aggregate
+  result-grid invalidation and command-level orchestration.
 - `QueryOutputState` now owns the active output tab and per-document output-tab
   overrides.
 - `TableDataState` now owns grid projection/layout, filtering/sorting,
