@@ -238,6 +238,9 @@ and active index independently through the composition root.
 Active query text, explain state, running request, result selection/count and
 message projections now follow the same rule on `QuerySessionState`; the root
 only coordinates cancellation, connection lookup and grid invalidation.
+Query-document connection/schema metadata changes and prediction invalidation
+now follow the same rule on `QuerySessionState`; the root only dispatches the
+returned prediction-cancel command.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

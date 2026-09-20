@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `f1f2d0eb`.
+Source checkpoint: `e34c3396`.
 
 ## Current change
 
@@ -162,6 +162,9 @@ Source checkpoint: `f1f2d0eb`.
 - Active query text, explain state, running request, result selection/count and
   message projections now live on `QuerySessionState`; the root keeps only
   cancellation, connection lookup and grid-invalidation orchestration.
+- Query-document connection/schema metadata changes and prediction
+  invalidation now live on `QuerySessionState`; the root only dispatches the
+  returned prediction-cancel command.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
