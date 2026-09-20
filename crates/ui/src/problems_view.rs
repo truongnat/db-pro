@@ -51,6 +51,7 @@ impl DbProApp {
         entries
     }
 
+    #[cfg(test)]
     pub(super) fn problem_matches_filters(&self, entry: &ProblemEntry) -> bool {
         let severity_ok = match self.query.editor.problems_severity_filter {
             ProblemsSeverityFilter::All => true,

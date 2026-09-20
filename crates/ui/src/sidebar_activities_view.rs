@@ -1,8 +1,9 @@
 //! Queries / Data / Problems / History sidebar activities.
 use super::sidebar_data_view::{SidebarDataAction, SidebarDataContext};
+use super::sidebar_problems_view::{SidebarProblemsAction, SidebarProblemsContext};
 use super::sidebar_queries_view::{SidebarQueriesAction, SidebarQueriesContext};
 use super::*;
-use egui::{Align, Layout, RichText};
+use egui::RichText;
 use lucide_icons::Icon;
 
 impl DbProApp {
@@ -103,145 +104,45 @@ impl DbProApp {
 
     pub(super) fn draw_problems(&mut self, ui: &mut egui::Ui) {
         let entries = self.collect_problem_entries();
-        let error_count = entries
-            .iter()
-            .filter(|entry| entry.severity == crate::editor::DiagnosticSeverity::Error)
-            .count();
-        let warning_count = entries
-            .iter()
-            .filter(|entry| entry.severity == crate::editor::DiagnosticSeverity::Warning)
-            .count();
-
-        ui.horizontal(|ui| {
-            section_label(ui, "PROBLEMS", self.theme);
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                badge(
-                    ui,
-                    &format!("{error_count}E · {warning_count}W"),
-                    self.theme.surface_hover,
-                    self.theme.text_muted,
-                );
-            });
-        });
-        ui.add_space(8.0);
-
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 6.0;
-            egui::ComboBox::from_id_salt("problems_severity_filter")
-                .selected_text(match self.query.editor.problems_severity_filter {
-                    ProblemsSeverityFilter::All => "All",
-                    ProblemsSeverityFilter::Errors => "Errors",
-                    ProblemsSeverityFilter::Warnings => "Warnings",
-                })
-                .width(96.0)
-                .show_ui(ui, |ui| {
-                    for (filter, label) in [
-                        (ProblemsSeverityFilter::All, "All"),
-                        (ProblemsSeverityFilter::Errors, "Errors"),
-                        (ProblemsSeverityFilter::Warnings, "Warnings"),
-                    ] {
-                        ui.selectable_value(&mut self.query.editor.problems_severity_filter, filter, label);
-                    }
-                });
-            egui::ComboBox::from_id_salt("problems_source_filter")
-                .selected_text(match self.query.editor.problems_source_filter {
-                    ProblemsSourceFilter::All => "All sources",
-                    ProblemsSourceFilter::Parser => "Parser",
-                    ProblemsSourceFilter::Lint => "Lint",
-                    ProblemsSourceFilter::Delimiter => "Delimiter",
-                    ProblemsSourceFilter::Database => "Database",
-                })
-                .width(120.0)
-                .show_ui(ui, |ui| {
-                    for (filter, label) in [
-                        (ProblemsSourceFilter::All, "All sources"),
-                        (ProblemsSourceFilter::Parser, "Parser"),
-                        (ProblemsSourceFilter::Lint, "Lint"),
-                        (ProblemsSourceFilter::Delimiter, "Delimiter"),
-                        (ProblemsSourceFilter::Database, "Database"),
-                    ] {
-                        ui.selectable_value(&mut self.query.editor.problems_source_filter, filter, label);
-                    }
-                });
-        });
-        ui.add_space(8.0);
-
-        let filtered: Vec<_> = entries
-            .into_iter()
-            .filter(|entry| self.problem_matches_filters(entry))
-            .collect();
-
-        if filtered.is_empty() {
-            ui.add_space(24.0);
-            ui.vertical_centered(|ui| {
-                ui.label(icon_text(Icon::TriangleAlert, "", self.theme.text_muted));
-                ui.add_space(8.0);
-                ui.label(RichText::new("No problems in open documents").color(self.theme.text_secondary));
-                ui.label(
-                    RichText::new("Lint, parser, and execution diagnostics appear here.")
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-            });
-            return;
-        }
-
-        let mut navigate: Option<(usize, usize)> = None;
-        let mut last_doc: Option<usize> = None;
-        for entry in &filtered {
-            if last_doc != Some(entry.document_index) {
-                last_doc = Some(entry.document_index);
-                ui.add_space(6.0);
-                ui.label(
-                    RichText::new(&entry.document_title)
-                        .small()
-                        .strong()
-                        .color(self.theme.text_muted),
-                );
-            }
-            let selected = self.query.editor.problems_selected.as_ref()
-                == Some(&(entry.document_id.clone(), entry.diagnostic_index));
-            let (icon, _color) = match entry.severity {
-                crate::editor::DiagnosticSeverity::Error => (Icon::AlertCircle, self.theme.danger),
-                crate::editor::DiagnosticSeverity::Warning => (Icon::TriangleAlert, self.theme.warning),
-                crate::editor::DiagnosticSeverity::Information | crate::editor::DiagnosticSeverity::Hint => {
-                    (Icon::Info, self.theme.text_muted)
+        let actions = {
+            let context = SidebarProblemsContext {
+                theme: self.theme,
+                entries: &entries,
+                severity_filter: self.query.editor.problems_severity_filter,
+                source_filter: self.query.editor.problems_source_filter,
+                selected: self
+                    .query
+                    .editor
+                    .problems_selected
+                    .as_ref()
+                    .map(|(document_id, index)| (document_id.as_str(), *index)),
+            };
+            context.draw(ui)
+        };
+        for action in actions {
+            match action {
+                SidebarProblemsAction::SetSeverityFilter(filter) => {
+                    self.query.editor.problems_severity_filter = filter;
                 }
-            };
-            let source = match entry.source {
-                crate::editor::DiagnosticSource::Parser => "parser",
-                crate::editor::DiagnosticSource::Lint => "lint",
-                crate::editor::DiagnosticSource::Delimiter => "delimiter",
-                crate::editor::DiagnosticSource::Database => "database",
-            };
-            let label = format!(
-                "L{}:{}  {}  · {source}",
-                entry.line + 1,
-                entry.column + 1,
-                entry.message
-            );
-            let response = sidebar_item(ui, icon, &label, selected, self.theme);
-            if response.clicked() {
-                self.query.editor.problems_selected = Some((entry.document_id.clone(), entry.diagnostic_index));
-                if entry.document_index == usize::MAX {
-                    // Workspace-indexed diagnostic (#269): open the SQL file if possible.
-                    self.open_workspace_sql_file(entry.document_title.clone());
-                    self.workspace.files_panel_tab = FilesPanelTab::Search;
-                } else {
-                    navigate = Some((entry.document_index, entry.diagnostic_index));
+                SidebarProblemsAction::SetSourceFilter(filter) => {
+                    self.query.editor.problems_source_filter = filter;
+                }
+                SidebarProblemsAction::Select(entry) => {
+                    self.query.editor.problems_selected = Some((entry.document_id, entry.diagnostic_index));
+                    if entry.document_index == usize::MAX {
+                        self.open_workspace_sql_file(entry.document_title);
+                        self.workspace.files_panel_tab = FilesPanelTab::Search;
+                    } else {
+                        self.navigate_to_problem(entry.document_index, entry.diagnostic_index);
+                    }
+                }
+                SidebarProblemsAction::QuickFix {
+                    document_index,
+                    diagnostic_index,
+                } => {
+                    self.apply_problem_fix(document_index, diagnostic_index);
                 }
             }
-            if entry.has_fix {
-                ui.horizontal(|ui| {
-                    ui.add_space(12.0);
-                    if compact_button(ui, "Quick fix", self.theme).clicked() {
-                        self.apply_problem_fix(entry.document_index, entry.diagnostic_index);
-                    }
-                });
-            }
-        }
-        if let Some((doc_index, diagnostic_index)) = navigate {
-            self.navigate_to_problem(doc_index, diagnostic_index);
         }
     }
 

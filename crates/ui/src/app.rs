@@ -336,6 +336,8 @@ mod runtime_event_handlers;
 mod sidebar_activities_view;
 #[path = "sidebar_data_view.rs"]
 mod sidebar_data_view;
+#[path = "sidebar_problems_view.rs"]
+mod sidebar_problems_view;
 #[path = "sidebar_queries_view.rs"]
 mod sidebar_queries_view;
 #[path = "sidebar_view.rs"]
