@@ -575,6 +575,21 @@ view receives explicit query/grid state and returns `ReloadFromStart` or
 Severity: P2 feature-boundary maintainability risk, resolved for table-data
 sorting.
 
+## F74 — Table-data mutation/status controls lived in the root toolbar
+
+Evidence at discovery: refresh, read-only/primary-key status, staged-change
+controls, mutation-failure recovery and selection badges were all rendered in
+the same `DbProApp` toolbar closure. The root mixed visual status, button
+affordances and mutation command dispatch across one large interaction block.
+
+Fix in the current refactor: moved these controls into
+`table_data_mutation_toolbar_view.rs`. The view consumes explicit mutation
+status and returns typed refresh, staged-change and failure-recovery intents;
+the root remains the only place that executes table mutations and requests.
+
+Severity: P1 feature-boundary maintainability risk, resolved for table-data
+mutation/status controls.
+
 ## F48 — Runtime transport adapter was embedded in the protocol module
 
 Source SHA: `b85d65da`.

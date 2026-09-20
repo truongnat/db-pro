@@ -731,6 +731,11 @@ Source checkpoint: `5d42d5e9`.
   blocked intents. Focused UI fmt/check, clippy, 630 UI tests, architecture
   guard and clean scan PASS; release/runtime evidence is pending until the next
   native rebuild.
+- Table-data mutation-toolbar follow-up at source SHA `fe7c5aea`: refresh,
+  staged-change, mutation-failure and selection-status controls now consume
+  explicit context and return typed intents. Focused UI fmt/check, clippy, 630
+  UI tests, architecture guard and clean scan PASS; release/runtime evidence is
+  pending until the next native rebuild.
 
 ## Not yet proven
 
