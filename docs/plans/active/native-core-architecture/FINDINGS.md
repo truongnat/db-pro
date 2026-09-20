@@ -1112,6 +1112,20 @@ panel module.
 
 Severity: P1 feature-boundary risk, resolved for query parameter editing.
 
+## F69 — Schema Workbench secondary surfaces lived in the root view
+
+Evidence at discovery: dependency filtering/table rendering and documentation
+export controls were implemented directly in `schema_workbench.rs`, alongside
+the workbench compositor and mutation orchestration.
+
+Fix in `edd17b0f`: moved dependency navigation and docs export rendering to
+`schema_workbench_secondary_view.rs`. The module consumes workbench state and
+edges, returning typed docs actions; the root remains responsible for schema
+document generation and opening a new query document. The architecture guard
+rejects `DbProApp` from the secondary-surface module.
+
+Severity: P1 feature-boundary risk, resolved for Workbench secondary views.
+
 ## F35 — Navigation view owned transfer activity
 
 Evidence at discovery: the navigation module rendered backup/restore entry
