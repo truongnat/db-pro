@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `e34c3396`.
+Source checkpoint: `623d6331`.
 
 ## Current change
 
@@ -165,6 +165,9 @@ Source checkpoint: `e34c3396`.
 - Query-document connection/schema metadata changes and prediction
   invalidation now live on `QuerySessionState`; the root only dispatches the
   returned prediction-cancel command.
+- Result-grid row/cell selection and mutation-error matching now live on
+  `TableDataState` and `TableMutationState`; grid cells/views no longer call
+  selection helpers through `DbProApp`.
 - Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
   transition handlers remain independently callable from the router.
 - Agent and table event handlers now live in `agent_events.rs` and
