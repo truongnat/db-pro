@@ -126,6 +126,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/sidebar_problems_view.rs"
   "$repo_root/crates/ui/src/sidebar_query_library_view.rs"
   "$repo_root/crates/ui/src/sidebar_query_shortcuts_view.rs"
+  "$repo_root/crates/ui/src/explorer_toolbar_view.rs"
   "$repo_root/crates/ui/src/table_workspace_surface_view.rs"
   "$repo_root/crates/ui/src/query_snippets.rs"
   "$repo_root/crates/ui/src/query_diagnostics_view.rs"

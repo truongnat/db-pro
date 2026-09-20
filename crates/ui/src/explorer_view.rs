@@ -4,8 +4,9 @@
 //! Row painting lives in `explorer_tree`, table details in `explorer_details`,
 //! and the Views / Functions / Triggers folders in `explorer_folders`.
 
+use super::explorer_toolbar_view::{ExplorerToolbarAction, ExplorerToolbarContext};
 use super::*;
-use egui::FontFamily;
+use egui::{Align, Layout, RichText};
 use lucide_icons::Icon;
 
 /// Actions selectable from a connection row's context menu.
@@ -247,71 +248,34 @@ impl DbProApp {
     /// Filter + refresh above the tree. New-connection lives in the sidebar header
     /// so we do not duplicate the Plus control here.
     pub(crate) fn draw_explorer_toolbar(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            // Lay the trailing action out first and hand the remainder to the filter
-            // field. Its width must be *measured*, never assumed: `compact_icon_button`
-            // is a `Button` sized by the style, so it ignores the 24×24 handed to
-            // `add_sized` and a hardcoded reservation under-counts. The row then
-            // overflows its column, and because `set_max_width` unions with `min_rect`
-            // that overflow inflates `max_rect` for every width measured later in the
-            // same frame — which is how tree rows ended up wider than the sidebar and
-            // lost their trailing badge to the clip.
-            ui.allocate_ui_with_layout(ui.available_size(), Layout::right_to_left(Align::Center), |ui| {
-                let mut refresh_schema = false;
-                let refresh_btn =
-                    compact_icon_button(ui, Icon::RotateCcw, self.theme).on_hover_text("Refresh active schema");
-                refresh_btn.context_menu(|ui| {
-                    if ctx_menu_item(
-                        ui,
-                        Some(Icon::RotateCcw),
-                        "Refresh Schema",
-                        Some("F5"),
-                        self.theme.text_primary,
-                        self.theme,
-                    )
-                    .clicked()
-                    {
-                        refresh_schema = true;
-                        ui.close_menu();
-                    }
-                });
-                if refresh_btn.clicked() || refresh_schema {
-                    if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-                        self.request_schema_introspection(connection_id, true);
-                    }
+        let actions = {
+            let mut context = ExplorerToolbarContext {
+                theme: self.theme,
+                search: &mut self.schema.explorer.explorer_search,
+            };
+            context.draw_toolbar(ui)
+        };
+        for action in actions {
+            if matches!(action, ExplorerToolbarAction::RefreshSchema) {
+                if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+                    self.request_schema_introspection(connection_id, true);
                 }
-
-                // The field reads left to right whatever the row direction is.
-                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                    SearchInput::new(&mut self.schema.explorer.explorer_search, "Filter objects…", self.theme).show(ui);
-                });
-            });
-        });
+            }
+        }
     }
 
     /// Empty state shown when no connections exist yet.
     pub(crate) fn draw_dbeaver_empty_state(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(36.0);
-        ui.vertical_centered(|ui| {
-            ui.label(
-                RichText::new(char::from(Icon::Database).to_string())
-                    .family(FontFamily::Name("lucide".into()))
-                    .size(28.0)
-                    .color(self.theme.text_muted),
-            );
-            ui.add_space(8.0);
-            ui.label(RichText::new("No connections").strong().color(self.theme.text_primary));
-            ui.add_space(3.0);
-            ui.label(
-                RichText::new("Create a database connection to begin.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-            ui.add_space(12.0);
-            if compact_button_with_icon(ui, Icon::Plus, "New connection", self.theme).clicked() {
+        let actions = ExplorerToolbarContext {
+            theme: self.theme,
+            search: &mut self.schema.explorer.explorer_search,
+        }
+        .draw_empty_state(ui);
+        for action in actions {
+            if matches!(action, ExplorerToolbarAction::NewConnection) {
                 self.connection.open_new();
             }
-        });
+        }
     }
 
     pub(crate) fn draw_explorer_schema_feedback(&mut self, ui: &mut egui::Ui) {

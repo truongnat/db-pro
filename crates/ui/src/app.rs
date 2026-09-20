@@ -96,6 +96,8 @@ mod explorer_connections;
 mod explorer_details;
 #[path = "explorer_folders.rs"]
 mod explorer_folders;
+#[path = "explorer_toolbar_view.rs"]
+mod explorer_toolbar_view;
 #[path = "explorer_tree.rs"]
 mod explorer_tree;
 #[path = "explorer_view.rs"]
