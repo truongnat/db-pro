@@ -319,6 +319,8 @@ pub(crate) use workspace_session_state::WorkspaceSessionState;
 mod schema_compare;
 #[path = "schema_compare_state.rs"]
 mod schema_compare_state;
+#[path = "schema_compare_view.rs"]
+mod schema_compare_view;
 #[path = "schema_events.rs"]
 mod schema_events;
 #[path = "schema_explorer_state.rs"]

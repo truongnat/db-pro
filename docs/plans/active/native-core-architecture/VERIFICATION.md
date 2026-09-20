@@ -508,6 +508,11 @@ Source checkpoint: `0070d374`.
   `SchemaWorkspaceState` aggregate through `DbProApp.schema`; storage and
   reducer contexts still receive explicit child dependencies. Focused UI
   tests (632 passed), clippy, architecture guard and diff checks PASS.
+- Schema comparison view ownership follow-up: schema-compare sidebar,
+  migration/data-compare surface and keyed data-diff dispatch now live in
+  `schema_compare_view.rs`; `navigation_view.rs` is reduced to shell and
+  activity surfaces. Focused UI tests (632 passed), clippy, architecture
+  guard, clean scan (15 pass, 1 ratcheted warning) and diff checks PASS.
 
 ## Not yet proven
 

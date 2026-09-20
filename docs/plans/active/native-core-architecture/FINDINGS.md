@@ -644,6 +644,20 @@ contexts remain narrow and continue receiving only the child state they need.
 Severity: P1 composition-root boundary risk, resolved for schema workspace
 state ownership.
 
+## F34 — Navigation view owned schema comparison UI
+
+Evidence at discovery: `navigation_view.rs` contained the schema-compare
+sidebar, full diff/migration/data-compare surface and keyed data-diff command
+alongside shell navigation and activity rendering. This coupled a schema
+feature lifecycle to the navigation shell.
+
+Fix in the current refactor: moved schema-compare presentation and its keyed
+data-diff action into `schema_compare_view.rs`; navigation keeps only the shell
+and activity surfaces and delegates compare rendering through the same
+`DbProApp` feature boundary.
+
+Severity: P1 feature-boundary risk, resolved for schema comparison UI.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and
