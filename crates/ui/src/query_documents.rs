@@ -76,6 +76,32 @@ impl QueryDocumentContext<'_> {
         self.feedback.set_runtime_message(format!("Opened {title}"));
     }
 
+    pub(crate) fn set_active_text(&mut self, text: impl Into<String>) {
+        let index = self.query_session.active_document_index;
+        self.cancel_prediction(index);
+        self.query_session.set_active_text(text);
+    }
+
+    pub(crate) fn append_active_text(&mut self, text: &str) {
+        let index = self.query_session.active_document_index;
+        self.cancel_prediction(index);
+        self.query_session.append_active_text(text);
+    }
+
+    pub(crate) fn set_document_connection(&mut self, index: usize, connection_id: Option<String>) {
+        self.cancel_prediction(index);
+        self.query_session.set_document_connection(index, connection_id);
+    }
+
+    pub(crate) fn set_document_schema(&mut self, index: usize, schema: Option<String>) {
+        self.cancel_prediction(index);
+        self.query_session.set_document_schema(index, schema);
+    }
+
+    pub(crate) fn cancel_prediction_for_document(&mut self, index: usize) {
+        self.cancel_prediction(index);
+    }
+
     pub(crate) fn close_document(&mut self, index: usize) {
         if index >= self.query_session.documents.len() {
             return;
@@ -296,6 +322,27 @@ impl DbProApp {
 
     pub(crate) fn switch_query_document(&mut self, index: usize) {
         self.query_document_context().switch_document(index);
+    }
+
+    pub(crate) fn set_active_query_text(&mut self, text: impl Into<String>) {
+        self.query_document_context().set_active_text(text);
+    }
+
+    pub(crate) fn append_to_active_query(&mut self, text: &str) {
+        self.query_document_context().append_active_text(text);
+    }
+
+    pub(crate) fn set_document_connection(&mut self, index: usize, connection_id: Option<String>) {
+        self.query_document_context()
+            .set_document_connection(index, connection_id);
+    }
+
+    pub(crate) fn set_document_schema(&mut self, index: usize, schema: Option<String>) {
+        self.query_document_context().set_document_schema(index, schema);
+    }
+
+    pub(crate) fn cancel_prediction_for_document(&mut self, index: usize) {
+        self.query_document_context().cancel_prediction_for_document(index);
     }
 
     pub(crate) fn open_history_entry(&mut self, entry: &UiQueryHistoryEntry, run: bool) {

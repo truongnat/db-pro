@@ -2,16 +2,6 @@
 use super::*;
 
 impl DbProApp {
-    pub(crate) fn set_active_query_text(&mut self, text: impl Into<String>) {
-        self.cancel_prediction_for_document(self.query_session_state.active_document_index);
-        self.query_session_state.set_active_text(text);
-    }
-
-    pub(crate) fn append_to_active_query(&mut self, text: &str) {
-        self.cancel_prediction_for_document(self.query_session_state.active_document_index);
-        self.query_session_state.append_active_text(text);
-    }
-
     // Problems / diagnostics: `problems_view.rs`.
 
     pub(crate) fn apply_migration_preview(&mut self) {
@@ -122,24 +112,6 @@ impl DbProApp {
         self.query_session_state
             .active_schema()
             .unwrap_or_else(|| self.active_schema())
-    }
-
-    pub(crate) fn set_document_connection(&mut self, doc_index: usize, connection_id: Option<String>) {
-        self.cancel_prediction_for_document(doc_index);
-        self.query_session_state
-            .set_document_connection(doc_index, connection_id);
-    }
-
-    pub(crate) fn set_document_schema(&mut self, doc_index: usize, schema: Option<String>) {
-        self.cancel_prediction_for_document(doc_index);
-        self.query_session_state.set_document_schema(doc_index, schema);
-    }
-
-    pub(crate) fn cancel_prediction_for_document(&mut self, doc_index: usize) {
-        let request_id = self.query_session_state.invalidate_prediction(doc_index);
-        if let Some(request_id) = request_id {
-            self.dispatch_command(UiCommand::CancelSqlPrediction { request_id });
-        }
     }
 
     // Query documents: `query_documents.rs`.
