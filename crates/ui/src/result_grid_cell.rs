@@ -47,8 +47,8 @@ impl DbProApp {
             .table
             .data
             .is_cell_selected(selection_lookup, (row_index, column_index));
-        let editing = editable && self.table.data.data_editing_cell == Some((row_index, column_index));
-        let validation_error = editing && self.table.data.data_edit_error.is_some();
+        let editing = editable && self.table.editing.data_editing_cell == Some((row_index, column_index));
+        let validation_error = editing && self.table.editing.data_edit_error.is_some();
         let conflict_error = (cell_mutation_error || row_mutation_error)
             && self
                 .table
@@ -102,7 +102,7 @@ impl DbProApp {
                 Rounding::ZERO,
                 Stroke::new(1.5, self.theme.danger),
             );
-            if let Some(error) = self.table.data.data_edit_error.as_deref() {
+            if let Some(error) = self.table.editing.data_edit_error.as_deref() {
                 cell_resp.clone().on_hover_text(error);
             }
         }
@@ -188,12 +188,12 @@ impl DbProApp {
             );
 
             if cell_resp.double_clicked() && editable {
-                if self.table.data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+                if self.table.editing.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
                 self.begin_data_cell_edit(result, row_index, column_index, display_cell);
             } else if cell_resp.clicked() && !is_ctx {
-                if self.table.data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+                if self.table.editing.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
                 let modifiers = ui.input(|input| input.modifiers);
@@ -467,7 +467,7 @@ impl DbProApp {
         if is_ctx
             && self
                 .table
-                .data
+                .editing
                 .data_editing_cell
                 .is_some_and(|editing_cell| editing_cell != (row_index, column_index))
             && !self.commit_active_data_edit(result)
@@ -565,9 +565,9 @@ impl DbProApp {
             self.begin_data_cell_edit(result, row_index, column_index, display_cell);
         }
         if req.set_null && editable {
-            self.table.data.data_editing_cell = Some((row_index, column_index));
-            self.table.data.data_edit_value = "NULL".to_owned();
-            self.table.data.data_edit_error = None;
+            self.table.editing.data_editing_cell = Some((row_index, column_index));
+            self.table.editing.data_edit_value = "NULL".to_owned();
+            self.table.editing.data_edit_error = None;
             self.submit_data_cell_edit(result, row_index, column_index);
         }
         if req.revert_cell && editable {

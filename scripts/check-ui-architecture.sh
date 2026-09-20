@@ -101,6 +101,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/table_editor_context.rs"
   "$repo_root/crates/ui/src/table_data_state.rs"
   "$repo_root/crates/ui/src/table_data_query_state.rs"
+  "$repo_root/crates/ui/src/table_editing_state.rs"
   "$repo_root/crates/ui/src/table_editor_values.rs"
   "$repo_root/crates/ui/src/visual_query_builder_state.rs"
   "$repo_root/crates/ui/src/agent_context.rs"

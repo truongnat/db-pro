@@ -467,6 +467,11 @@ Source checkpoint: `0070d374`.
   visibility, movement, auto-sizing and width calculation; `result_grid_view`
   no longer exposes those as `DbProApp` methods. Focused UI tests (632 passed),
   clippy, fmt and architecture guard PASS.
+- Table editing ownership follow-up: cell-edit buffers, inspector state,
+  discard confirmations and insert-row form state now live in
+  `TableEditingState`, separate from grid projection/layout/selection state.
+  Focused UI tests (632 passed), clippy, architecture guard and diff checks
+  PASS.
 
 ## Not yet proven
 

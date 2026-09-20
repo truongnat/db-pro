@@ -8,7 +8,7 @@ impl DbProApp {
             || self.connection.dialog.is_open()
             || self.overlay.delete_confirmation_id.is_some()
             || self.overlay.folder_delete_confirmation.is_some()
-            || self.table.data.insert_row_open
+            || self.table.editing.insert_row_open
         {
             return;
         }

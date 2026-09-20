@@ -20,7 +20,7 @@ pub(crate) fn handle_table_request_failure(
     table_state: &mut TableState,
     data_query: &mut TableDataQueryState,
     table_mutation: &mut TableMutationState,
-    table_data: &mut TableDataState,
+    table_editing: &mut TableEditingState,
     feedback: &mut FeedbackState,
     request_id: RequestId,
     message: &str,
@@ -32,10 +32,10 @@ pub(crate) fn handle_table_request_failure(
     }
     if table_mutation.table_mutation_request == Some(request_id) {
         table_mutation.table_mutation_request = None;
-        table_data.data_editing_cell = None;
-        table_data.data_edit_value.clear();
-        table_data.data_edit_error = None;
-        table_data.data_delete_confirmation = false;
+        table_editing.data_editing_cell = None;
+        table_editing.data_edit_value.clear();
+        table_editing.data_edit_error = None;
+        table_editing.data_delete_confirmation = false;
         let formatted = format!("Row mutation failed · {message}");
         feedback.set_runtime_message(formatted.clone());
         feedback.show_error_toast(formatted);

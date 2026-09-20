@@ -537,7 +537,7 @@ fn table_edits_stage_until_explicit_apply() {
         check_constraints: Vec::new(),
         dependencies: Vec::new(),
     });
-    app.table.data.data_edit_value = "Updated".to_owned();
+    app.table.editing.data_edit_value = "Updated".to_owned();
     let value = UiQueryResult {
         columns: vec![
             crate::UiColumn {
@@ -580,7 +580,7 @@ fn apply_is_blocked_while_a_validation_error_exists() {
         original: UiCell::Text("Original".to_owned()),
         value: UiCell::Text("Updated".to_owned()),
     });
-    app.table.data.data_edit_error = Some("invalid value".to_owned());
+    app.table.editing.data_edit_error = Some("invalid value".to_owned());
 
     app.apply_staged_changes();
 
@@ -623,7 +623,8 @@ fn editing_primary_key_stages_new_value_with_original_identity() {
             dialog: ConnectionDialogState::default(),
         },
         table: TableEditorState {
-            data: TableDataState {
+            data: TableDataState { ..Default::default() },
+            editing: TableEditingState {
                 data_edit_value: "2".to_owned(),
                 ..Default::default()
             },
@@ -814,7 +815,7 @@ fn binary_cell_edit_is_refused_with_a_reason() {
     app.begin_data_cell_edit(&result, 0, 1, &result.rows[0][1]);
 
     assert!(
-        app.table.data.data_editing_cell.is_none(),
+        app.table.editing.data_editing_cell.is_none(),
         "no editor may open for a blocked column"
     );
     assert!(
@@ -857,7 +858,8 @@ fn generated_column_edit_is_refused_before_staging() {
             dialog: ConnectionDialogState::default(),
         },
         table: TableEditorState {
-            data: TableDataState {
+            data: TableDataState { ..Default::default() },
+            editing: TableEditingState {
                 data_edit_value: "99.99".to_owned(),
                 ..Default::default()
             },
@@ -920,7 +922,7 @@ fn generated_column_edit_is_refused_before_staging() {
     assert!(!accepted, "the generated column must refuse the edit");
     assert!(app
         .table
-        .data
+        .editing
         .data_edit_error
         .as_deref()
         .unwrap_or_default()
@@ -974,7 +976,8 @@ fn generated_column_is_never_staged_by_insert() {
             ..Default::default()
         },
         table: TableEditorState {
-            data: TableDataState {
+            data: TableDataState { ..Default::default() },
+            editing: TableEditingState {
                 insert_row_values: vec!["1".to_owned(), "2".to_owned(), String::new()],
                 ..Default::default()
             },
@@ -1034,7 +1037,7 @@ fn generated_column_is_never_staged_by_insert() {
         "the generated column must be skipped"
     );
     assert!(
-        app.table.data.insert_row_error.is_empty(),
+        app.table.editing.insert_row_error.is_empty(),
         "skipping a generated column is not an error"
     );
 
@@ -1073,7 +1076,8 @@ fn generated_column_is_never_staged_by_insert() {
             ..Default::default()
         },
         table: TableEditorState {
-            data: TableDataState {
+            data: TableDataState { ..Default::default() },
+            editing: TableEditingState {
                 insert_row_values: vec!["1".to_owned(), "2".to_owned(), "3.0".to_owned()],
                 ..Default::default()
             },
@@ -1087,9 +1091,9 @@ fn generated_column_is_never_staged_by_insert() {
     };
     second.submit_insert_row();
     assert!(
-        second.table.data.insert_row_error.contains("computed"),
+        second.table.editing.insert_row_error.contains("computed"),
         "the refusal must be visible: {}",
-        second.table.data.insert_row_error
+        second.table.editing.insert_row_error
     );
     assert_eq!(second.table.mutation.staged_changes.counts().total(), 0);
 }
@@ -1182,9 +1186,9 @@ fn duplicated_row_leaves_blocked_columns_empty() {
 
     app.open_duplicate_row(&result, 0);
 
-    assert_eq!(app.table.data.insert_row_values, vec![String::new(), String::new()]);
-    assert!(app.table.data.insert_row_open);
-    assert!(app.table.data.insert_row_error.is_empty());
+    assert_eq!(app.table.editing.insert_row_values, vec![String::new(), String::new()]);
+    assert!(app.table.editing.insert_row_open);
+    assert!(app.table.editing.insert_row_error.is_empty());
 }
 
 #[test]
@@ -4305,14 +4309,14 @@ fn test_open_table_blocked_with_unapplied_staged_changes() {
     // Opening another table should be blocked to prevent mutation retargeting
     app.open_table("orders".to_owned());
     assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
-    assert!(app.table.data.discard_changes_confirmation);
+    assert!(app.table.editing.discard_changes_confirmation);
     assert!(app.feedback.runtime_message.contains("Apply or discard staged changes"));
 
     // Closing table tab with staged changes is guarded
-    app.table.data.discard_changes_confirmation = false;
+    app.table.editing.discard_changes_confirmation = false;
     app.request_close_workspace_tab(WorkspaceTab::Table);
     assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
-    assert!(app.table.data.discard_changes_confirmation);
+    assert!(app.table.editing.discard_changes_confirmation);
 
     // Discarding changes allows opening a new table
     app.discard_staged_changes();
@@ -4405,11 +4409,11 @@ fn test_navigation_staged_changes_apply_discard_cancel_flows() {
         app.workspace.pending_navigation_action,
         Some(PendingNavigationAction::OpenTable("orders".to_owned()))
     );
-    assert!(app.table.data.discard_changes_confirmation);
+    assert!(app.table.editing.discard_changes_confirmation);
     assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
 
     // 2. Cancel retains current context and clears pending action
-    app.table.data.discard_changes_confirmation = false;
+    app.table.editing.discard_changes_confirmation = false;
     app.workspace.pending_navigation_action = None;
     assert_eq!(app.schema_explorer.selected_table, Some("users".to_owned()));
     assert!(!app.table.mutation.staged_changes.is_empty());

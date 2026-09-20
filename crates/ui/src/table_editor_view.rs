@@ -179,7 +179,7 @@ impl DbProApp {
                             self.table.mutation.pending_changes_open = true;
                         }
                         let apply_enabled = self.table.mutation.staged_apply_request.is_none()
-                            && self.table.data.data_edit_error.is_none();
+                            && self.table.editing.data_edit_error.is_none();
                         if Button::new(self.theme)
                             .text("Apply")
                             .icon(Icon::Check)
@@ -208,7 +208,7 @@ impl DbProApp {
                             .clicked()
                         {
                             if self.table.mutation.staged_changes.counts().total() > 1 {
-                                self.table.data.discard_changes_confirmation = true;
+                                self.table.editing.discard_changes_confirmation = true;
                             } else {
                                 self.discard_staged_changes();
                             }
@@ -954,7 +954,7 @@ impl DbProApp {
                 .mutation
                 .clear_error_for_identity(&identity, Some(column_index));
         }
-        self.table.data.data_editing_cell = Some((row_index, column_index));
+        self.table.editing.data_editing_cell = Some((row_index, column_index));
         let should_expand = result.columns.get(column_index).is_some_and(|column| {
             let data_type = column.data_type.to_ascii_lowercase();
             data_type.contains("json")
@@ -965,9 +965,9 @@ impl DbProApp {
         if should_expand {
             self.open_cell_inspector(result, row_index, column_index);
         } else {
-            self.table.data.expanded_data_editor = None;
-            self.table.data.data_edit_error = None;
-            self.table.data.data_edit_value = match cell {
+            self.table.editing.expanded_data_editor = None;
+            self.table.editing.data_edit_error = None;
+            self.table.editing.data_edit_value = match cell {
                 UiCell::Null => "NULL".to_owned(),
                 _ => crate::cell_text(cell),
             };
@@ -986,40 +986,42 @@ impl DbProApp {
             return false;
         };
         let Some(column) = result.columns.get(column_index).map(|column| column.name.clone()) else {
-            self.table.data.data_editing_cell = None;
+            self.table.editing.data_editing_cell = None;
             return false;
         };
         let Some(column_info) = info.columns.iter().find(|item| item.name == column) else {
             self.feedback.runtime_message = "The selected column is not present in the table metadata".to_owned();
-            self.table.data.data_editing_cell = None;
+            self.table.editing.data_editing_cell = None;
             return false;
         };
         if let Some(block) = ColumnWritePolicy::read(column_info).write_block() {
             let error = block.reason().to_owned();
-            self.table.data.data_edit_error = Some(error.clone());
+            self.table.editing.data_edit_error = Some(error.clone());
             self.feedback.runtime_message = format!("{}: {error}", column_info.name);
             return false;
         }
-        let value =
-            match table_editor_values::parse_update_value(&self.table.data.data_edit_value, &column_info.data_type) {
-                Ok(value) => value,
-                Err(error) => {
-                    self.feedback.runtime_message = format!("{}: {error}", column_info.name);
-                    self.table.data.data_edit_error = Some(error);
-                    return false;
-                }
-            };
+        let value = match table_editor_values::parse_update_value(
+            &self.table.editing.data_edit_value,
+            &column_info.data_type,
+        ) {
+            Ok(value) => value,
+            Err(error) => {
+                self.feedback.runtime_message = format!("{}: {error}", column_info.name);
+                self.table.editing.data_edit_error = Some(error);
+                return false;
+            }
+        };
         if matches!(value, UiCell::Null) && !column_info.nullable {
             let error = format!("{} is NOT NULL; enter a value instead", column_info.name);
             self.feedback.runtime_message = error.clone();
-            self.table.data.data_edit_error = Some(error);
+            self.table.editing.data_edit_error = Some(error);
             return false;
         }
         let identity = match TableDataState::row_identity(result, &info, row_index) {
             Ok(identity) => identity,
             Err(error) => {
                 self.feedback.runtime_message = error;
-                self.table.data.data_edit_error = Some(self.feedback.runtime_message.clone());
+                self.table.editing.data_edit_error = Some(self.feedback.runtime_message.clone());
                 return false;
             }
         };
@@ -1030,9 +1032,9 @@ impl DbProApp {
             .cloned()
             .ok_or_else(|| "The selected cell is no longer available".to_owned());
         let Ok(original) = original else {
-            self.table.data.data_editing_cell = None;
+            self.table.editing.data_editing_cell = None;
             self.feedback.runtime_message = "The selected cell is no longer available".to_owned();
-            self.table.data.data_edit_error = Some(self.feedback.runtime_message.clone());
+            self.table.editing.data_edit_error = Some(self.feedback.runtime_message.clone());
             return false;
         };
         if let Some(table) = self.schema_explorer.selected_table.as_deref() {
@@ -1049,9 +1051,9 @@ impl DbProApp {
         });
         self.table.mutation.table_mutation_error = None;
         self.table.mutation.staged_apply_targets.clear();
-        self.table.data.data_editing_cell = None;
-        self.table.data.expanded_data_editor = None;
-        self.table.data.data_edit_error = None;
+        self.table.editing.data_editing_cell = None;
+        self.table.editing.expanded_data_editor = None;
+        self.table.editing.data_edit_error = None;
         let counts = self.table.mutation.staged_changes.counts();
         self.feedback.runtime_message = format!(
             "Staged edit · {} pending (+{} ~{} -{})",
@@ -1092,11 +1094,11 @@ impl DbProApp {
         if let Some(table) = self.schema_explorer.selected_table.as_deref() {
             self.table.mutation.staged_changes.ensure_target(table);
         }
-        self.table.data.data_editing_cell = None;
-        self.table.data.expanded_data_editor = None;
-        self.table.data.data_edit_value.clear();
-        self.table.data.data_edit_error = None;
-        self.table.data.data_delete_confirmation = false;
+        self.table.editing.data_editing_cell = None;
+        self.table.editing.expanded_data_editor = None;
+        self.table.editing.data_edit_value.clear();
+        self.table.editing.data_edit_error = None;
+        self.table.editing.data_delete_confirmation = false;
         for row_index in row_indexes {
             if self.staged_row_deleted(result, row_index) {
                 continue;
@@ -1173,6 +1175,7 @@ impl DbProApp {
             &mut self.table.state,
             &mut self.table.data_query,
             &mut self.table.data,
+            &mut self.table.editing,
             &mut self.table.mutation,
             &mut self.feedback,
         )
@@ -1283,7 +1286,7 @@ impl DbProApp {
         if self.table.mutation.staged_changes.is_empty() {
             return;
         }
-        if self.table.data.data_edit_error.is_some() {
+        if self.table.editing.data_edit_error.is_some() {
             self.feedback.runtime_message = "Fix the validation error before applying changes".to_owned();
             return;
         }

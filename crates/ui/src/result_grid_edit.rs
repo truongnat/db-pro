@@ -16,38 +16,38 @@ impl DbProApp {
             .columns
             .get(column_index)
             .is_some_and(|column| column.data_type.to_ascii_lowercase().contains("bool"));
-        let is_expanded = self.table.data.expanded_data_editor == Some((row_index, column_index));
+        let is_expanded = self.table.editing.expanded_data_editor == Some((row_index, column_index));
         if !is_expanded {
             ui.allocate_new_ui(egui::UiBuilder::new().max_rect(cell_rect.shrink(1.0)), |ui| {
                 let response = if is_boolean {
-                    let mut checked = self.table.data.data_edit_value.eq_ignore_ascii_case("true");
+                    let mut checked = self.table.editing.data_edit_value.eq_ignore_ascii_case("true");
                     let response = ui.checkbox(&mut checked, "");
                     if response.changed() {
-                        self.table.data.data_edit_value = checked.to_string();
-                        self.table.data.data_edit_error = None;
+                        self.table.editing.data_edit_value = checked.to_string();
+                        self.table.editing.data_edit_error = None;
                     }
                     response
                 } else {
                     ui.add_sized(
                         ui.available_size(),
-                        TextEdit::singleline(&mut self.table.data.data_edit_value)
+                        TextEdit::singleline(&mut self.table.editing.data_edit_value)
                             .margin(egui::Margin::symmetric(6.0, 2.0))
                             .text_color(self.theme.text_primary),
                     )
                 };
                 response.request_focus();
                 if response.changed() {
-                    self.table.data.data_edit_error = None;
+                    self.table.editing.data_edit_error = None;
                 }
             });
             let commit = ui.input(|input| input.key_pressed(egui::Key::Enter));
             if commit {
                 self.submit_data_cell_edit(result, row_index, column_index);
             } else if ui.input(|input| input.key_pressed(egui::Key::Escape)) {
-                self.table.data.data_editing_cell = None;
-                self.table.data.expanded_data_editor = None;
-                self.table.data.data_edit_value.clear();
-                self.table.data.data_edit_error = None;
+                self.table.editing.data_editing_cell = None;
+                self.table.editing.expanded_data_editor = None;
+                self.table.editing.data_edit_value.clear();
+                self.table.editing.data_edit_error = None;
             }
             return;
         }
@@ -81,7 +81,7 @@ impl DbProApp {
             .state
             .column_write_policy(&column_name)
             .and_then(|policy| policy.write_block());
-        let writable = write_block.is_none() && self.table.data.data_editing_cell.is_some();
+        let writable = write_block.is_none() && self.table.editing.data_editing_cell.is_some();
         let cell = result
             .rows
             .get(row_index)
@@ -130,13 +130,13 @@ impl DbProApp {
                 };
                 let mut selected_mode = modes
                     .iter()
-                    .position(|mode| *mode == self.table.data.cell_inspector_mode)
+                    .position(|mode| *mode == self.table.editing.cell_inspector_mode)
                     .unwrap_or_default();
                 let mode_labels: Vec<&str> = modes.iter().map(|mode| mode.as_label()).collect();
                 ui.horizontal(|ui| {
                     SegmentedTabs::new(&mut selected_mode, &mode_labels, self.theme).show(ui);
                     if let Some(mode) = modes.get(selected_mode) {
-                        self.table.data.cell_inspector_mode = *mode;
+                        self.table.editing.cell_inspector_mode = *mode;
                     }
                     if Button::new(self.theme)
                         .text("Copy raw")
@@ -145,7 +145,7 @@ impl DbProApp {
                         .show(ui)
                         .clicked()
                     {
-                        ui.ctx().copy_text(self.table.data.data_edit_value.clone());
+                        ui.ctx().copy_text(self.table.editing.data_edit_value.clone());
                         self.feedback.runtime_message = "Copied raw value".into();
                     }
                     if kind == cell_inspector::CellInspectorKind::Bytes
@@ -161,20 +161,20 @@ impl DbProApp {
                 });
 
                 ui.add_space(6.0);
-                match self.table.data.cell_inspector_mode {
+                match self.table.editing.cell_inspector_mode {
                     cell_inspector::CellInspectorMode::Raw => {
                         if writable {
                             let response = ui.add(
-                                TextEdit::multiline(&mut self.table.data.data_edit_value)
+                                TextEdit::multiline(&mut self.table.editing.data_edit_value)
                                     .desired_width(ui.available_width())
                                     .desired_rows(16),
                             );
                             if response.changed() {
-                                self.table.data.data_edit_error = None;
+                                self.table.editing.data_edit_error = None;
                             }
                         } else {
                             ui.add(
-                                TextEdit::multiline(&mut self.table.data.data_edit_value)
+                                TextEdit::multiline(&mut self.table.editing.data_edit_value)
                                     .desired_width(ui.available_width())
                                     .desired_rows(16)
                                     .interactive(false),
@@ -182,8 +182,8 @@ impl DbProApp {
                         }
                     }
                     cell_inspector::CellInspectorMode::Pretty => {
-                        let pretty = cell_inspector::pretty_json(&self.table.data.data_edit_value)
-                            .unwrap_or_else(|| self.table.data.data_edit_value.clone());
+                        let pretty = cell_inspector::pretty_json(&self.table.editing.data_edit_value)
+                            .unwrap_or_else(|| self.table.editing.data_edit_value.clone());
                         ui.add(
                             TextEdit::multiline(&mut pretty.clone())
                                 .desired_width(ui.available_width())
@@ -198,22 +198,22 @@ impl DbProApp {
                                 .show(ui)
                                 .clicked()
                         {
-                            self.table.data.data_edit_value = pretty;
-                            self.table.data.cell_inspector_mode = cell_inspector::CellInspectorMode::Raw;
+                            self.table.editing.data_edit_value = pretty;
+                            self.table.editing.cell_inspector_mode = cell_inspector::CellInspectorMode::Raw;
                         }
                     }
                     cell_inspector::CellInspectorMode::Tree => {
                         egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
-                            for line in cell_inspector::json_tree_lines(&self.table.data.data_edit_value, 400) {
+                            for line in cell_inspector::json_tree_lines(&self.table.editing.data_edit_value, 400) {
                                 ui.label(RichText::new(line).monospace().small());
                             }
                         });
                     }
                     cell_inspector::CellInspectorMode::Hex => {
-                        let text = match cell_inspector::decode_bytes_payload(&self.table.data.data_edit_value) {
+                        let text = match cell_inspector::decode_bytes_payload(&self.table.editing.data_edit_value) {
                             Ok(bytes) => {
                                 ui.label(
-                                    RichText::new(cell_inspector::bytes_metadata(&self.table.data.data_edit_value))
+                                    RichText::new(cell_inspector::bytes_metadata(&self.table.editing.data_edit_value))
                                         .small()
                                         .color(self.theme.text_secondary),
                                 );
@@ -229,10 +229,10 @@ impl DbProApp {
                         );
                     }
                     cell_inspector::CellInspectorMode::Base64 => {
-                        let text = match cell_inspector::decode_bytes_payload(&self.table.data.data_edit_value) {
+                        let text = match cell_inspector::decode_bytes_payload(&self.table.editing.data_edit_value) {
                             Ok(bytes) => {
                                 ui.label(
-                                    RichText::new(cell_inspector::bytes_metadata(&self.table.data.data_edit_value))
+                                    RichText::new(cell_inspector::bytes_metadata(&self.table.editing.data_edit_value))
                                         .small()
                                         .color(self.theme.text_secondary),
                                 );
@@ -249,7 +249,7 @@ impl DbProApp {
                     }
                 }
 
-                if let Some(error) = self.table.data.data_edit_error.as_deref() {
+                if let Some(error) = self.table.editing.data_edit_error.as_deref() {
                     ui.label(RichText::new(error).small().color(self.theme.danger));
                 }
                 ui.horizontal(|ui| {
@@ -277,10 +277,10 @@ impl DbProApp {
         if commit {
             self.submit_data_cell_edit(result, row_index, column_index);
         } else if cancel || !open || ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
-            self.table.data.data_editing_cell = None;
-            self.table.data.expanded_data_editor = None;
-            self.table.data.data_edit_value.clear();
-            self.table.data.data_edit_error = None;
+            self.table.editing.data_editing_cell = None;
+            self.table.editing.expanded_data_editor = None;
+            self.table.editing.data_edit_value.clear();
+            self.table.editing.data_edit_error = None;
         }
     }
 
@@ -296,12 +296,12 @@ impl DbProApp {
             .and_then(|column| self.table.state.column_write_policy(&column.name))
             .and_then(|policy| policy.write_block());
         if write_block.is_none() && self.can_mutate_active_connection() {
-            self.table.data.data_editing_cell = Some((row_index, column_index));
+            self.table.editing.data_editing_cell = Some((row_index, column_index));
         } else {
-            self.table.data.data_editing_cell = None;
+            self.table.editing.data_editing_cell = None;
         }
-        self.table.data.expanded_data_editor = Some((row_index, column_index));
-        self.table.data.cell_inspector_mode = match cell_inspector::classify_cell(
+        self.table.editing.expanded_data_editor = Some((row_index, column_index));
+        self.table.editing.cell_inspector_mode = match cell_inspector::classify_cell(
             cell,
             result
                 .columns
@@ -313,15 +313,15 @@ impl DbProApp {
             cell_inspector::CellInspectorKind::Bytes => cell_inspector::CellInspectorMode::Hex,
             _ => cell_inspector::CellInspectorMode::Raw,
         };
-        self.table.data.data_edit_error = None;
-        self.table.data.data_edit_value = cell_inspector::cell_raw_text(cell);
+        self.table.editing.data_edit_error = None;
+        self.table.editing.data_edit_value = cell_inspector::cell_raw_text(cell);
         if let Some(reason) = write_block {
             self.feedback.runtime_message = reason.reason().to_owned();
         }
     }
 
     fn export_inspected_bytes(&mut self) {
-        match cell_inspector::decode_bytes_payload(&self.table.data.data_edit_value) {
+        match cell_inspector::decode_bytes_payload(&self.table.editing.data_edit_value) {
             Ok(bytes) => {
                 let path = std::env::temp_dir().join(format!(
                     "db-pro-cell-export-{}.bin",
@@ -343,7 +343,7 @@ impl DbProApp {
     }
 
     pub(super) fn draw_record_inspector_panel(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
-        if !self.table.data.record_inspector_open {
+        if !self.table.editing.record_inspector_open {
             return;
         }
         let Some(row_index) = self
@@ -365,7 +365,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.label(RichText::new(format!("Record · row {row_index}")).strong());
             if ui.small_button("Close").clicked() {
-                self.table.data.record_inspector_open = false;
+                self.table.editing.record_inspector_open = false;
             }
         });
         egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
@@ -396,7 +396,7 @@ impl DbProApp {
     }
 
     pub(super) fn commit_active_data_edit(&mut self, result: &UiQueryResult) -> bool {
-        if let Some((row_index, column_index)) = self.table.data.data_editing_cell {
+        if let Some((row_index, column_index)) = self.table.editing.data_editing_cell {
             self.submit_data_cell_edit(result, row_index, column_index)
         } else {
             true

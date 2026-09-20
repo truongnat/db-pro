@@ -386,11 +386,11 @@ impl DbProApp {
         self.table.data.selected_rows.clear();
         self.table.data.selection_anchor_row = None;
         self.table.data.selection_anchor_cell = None;
-        self.table.data.data_editing_cell = None;
-        self.table.data.data_edit_value.clear();
-        self.table.data.data_edit_error = None;
-        self.table.data.data_delete_confirmation = false;
-        self.table.data.discard_changes_confirmation = false;
+        self.table.editing.data_editing_cell = None;
+        self.table.editing.data_edit_value.clear();
+        self.table.editing.data_edit_error = None;
+        self.table.editing.data_delete_confirmation = false;
+        self.table.editing.discard_changes_confirmation = false;
         self.table.state.table_view = TableView::Data;
     }
 

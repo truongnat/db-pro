@@ -245,7 +245,7 @@ impl DbProApp {
                 &mut self.feedback,
             );
         }
-        if self.table.data.insert_row_open {
+        if self.table.editing.insert_row_open {
             self.draw_insert_row_dialog(ctx);
         }
         if self.palette.mode.is_some() {

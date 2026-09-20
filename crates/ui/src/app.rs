@@ -257,6 +257,8 @@ mod synthetic_data;
 mod table_data_query_state;
 #[path = "table_data_state.rs"]
 mod table_data_state;
+#[path = "table_editing_state.rs"]
+mod table_editing_state;
 #[path = "table_editor_state.rs"]
 mod table_editor_state;
 #[path = "table_events.rs"]
@@ -295,6 +297,7 @@ use schema_compare_state::SchemaCompareState;
 pub(crate) use schema_explorer_state::SchemaExplorerState;
 pub(crate) use table_data_query_state::TableDataQueryState;
 pub(crate) use table_data_state::TableDataState;
+pub(crate) use table_editing_state::TableEditingState;
 pub(crate) use table_editor_state::TableEditorState;
 pub(crate) use table_mutation_state::TableMutationState;
 pub(crate) use table_state::TableState;

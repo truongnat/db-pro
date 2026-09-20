@@ -162,7 +162,7 @@ impl DbProApp {
             &mut self.table.state,
             &mut self.table.data_query,
             &mut self.table.mutation,
-            &mut self.table.data,
+            &mut self.table.editing,
             &mut self.feedback,
             request_id,
             message,

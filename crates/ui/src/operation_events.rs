@@ -254,10 +254,10 @@ impl DbProApp {
 
     /// Row mutation follow-up: finalise a staged apply, or refresh the grid.
     fn on_table_row_operation_completed(&mut self, request_id: RequestId) {
-        self.table.data.data_editing_cell = None;
-        self.table.data.data_edit_value.clear();
-        self.table.data.data_edit_error = None;
-        self.table.data.data_delete_confirmation = false;
+        self.table.editing.data_editing_cell = None;
+        self.table.editing.data_edit_value.clear();
+        self.table.editing.data_edit_error = None;
+        self.table.editing.data_delete_confirmation = false;
         if self.table.mutation.staged_apply_request == Some(request_id) {
             self.staged_apply_completed();
         } else if self.table.mutation.table_mutation_request == Some(request_id) {

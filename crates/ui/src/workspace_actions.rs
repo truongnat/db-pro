@@ -10,7 +10,7 @@ impl DbProApp {
         }
         if !self.table.mutation.staged_changes.is_empty() {
             self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable(table));
-            self.table.data.discard_changes_confirmation = true;
+            self.table.editing.discard_changes_confirmation = true;
             self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
@@ -259,7 +259,7 @@ impl DbProApp {
             WorkspaceTab::Table => {
                 if !self.table.mutation.staged_changes.is_empty() {
                     self.workspace.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
-                    self.table.data.discard_changes_confirmation = true;
+                    self.table.editing.discard_changes_confirmation = true;
                     self.feedback.runtime_message =
                         "Apply or discard staged changes before closing the table".to_owned();
                     return;
@@ -287,10 +287,10 @@ impl DbProApp {
                 self.table.data.selected_rows.clear();
                 self.table.data.selection_anchor_row = None;
                 self.table.data.selection_anchor_cell = None;
-                self.table.data.data_editing_cell = None;
-                self.table.data.data_edit_error = None;
-                self.table.data.data_delete_confirmation = false;
-                self.table.data.discard_changes_confirmation = false;
+                self.table.editing.data_editing_cell = None;
+                self.table.editing.data_edit_error = None;
+                self.table.editing.data_delete_confirmation = false;
+                self.table.editing.discard_changes_confirmation = false;
             }
             WorkspaceTab::SchemaObject => {
                 self.schema_explorer.selected_schema_object = None;

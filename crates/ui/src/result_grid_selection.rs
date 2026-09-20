@@ -20,7 +20,8 @@ impl DbProApp {
         let is_tab = ui.input(|input| input.key_pressed(egui::Key::Tab));
         let is_shift_tab = is_tab && ui.input(|input| input.modifiers.shift);
 
-        if is_tab && editable && self.table.data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+        if is_tab && editable && self.table.editing.data_editing_cell.is_some() && !self.commit_active_data_edit(result)
+        {
             return;
         }
 
@@ -55,8 +56,8 @@ impl DbProApp {
                 selection,
                 ui.input(|input| input.modifiers.shift),
             );
-            self.table.data.data_editing_cell = None;
-            self.table.data.data_edit_value.clear();
+            self.table.editing.data_editing_cell = None;
+            self.table.editing.data_edit_value.clear();
             self.feedback.copy_status.clear();
         }
     }

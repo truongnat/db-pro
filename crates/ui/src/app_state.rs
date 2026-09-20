@@ -76,6 +76,7 @@ impl Default for DbProApp {
             table: TableEditorState {
                 data: TableDataState::default(),
                 data_query: TableDataQueryState::default(),
+                editing: TableEditingState::default(),
                 mutation: TableMutationState::default(),
                 state: TableState {
                     table_dependency_filter: "all".to_owned(),

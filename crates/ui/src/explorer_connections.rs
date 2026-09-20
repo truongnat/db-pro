@@ -324,7 +324,7 @@ impl DbProApp {
         }
         if !self.table.mutation.staged_changes.is_empty() {
             self.workspace.pending_navigation_action = Some(PendingNavigationAction::ChangeSchema(schema.to_owned()));
-            self.table.data.discard_changes_confirmation = true;
+            self.table.editing.discard_changes_confirmation = true;
             self.feedback.runtime_message = "Apply or discard staged changes before changing schema".to_owned();
             return;
         }

@@ -316,13 +316,13 @@ impl DbProApp {
             }
             if ui.input(|input| input.key_pressed(egui::Key::Z) && Self::primary_modifier_pressed(input)) {
                 if self.table.mutation.staged_changes.counts().total() > 1 {
-                    self.table.data.discard_changes_confirmation = true;
+                    self.table.editing.discard_changes_confirmation = true;
                 } else {
                     self.discard_staged_changes();
                 }
             }
             if editable
-                && self.table.data.data_editing_cell.is_none()
+                && self.table.editing.data_editing_cell.is_none()
                 && ui.input(|input| input.key_pressed(egui::Key::Delete) || input.key_pressed(egui::Key::Backspace))
             {
                 self.request_delete_selected_data_rows(result);
@@ -337,7 +337,7 @@ impl DbProApp {
         if editable {
             self.handle_grid_edit_input(ui, result, pasted);
         }
-        if self.table.data.data_editing_cell.is_some() && ui.input(|input| input.key_pressed(egui::Key::Tab)) {
+        if self.table.editing.data_editing_cell.is_some() && ui.input(|input| input.key_pressed(egui::Key::Tab)) {
             self.handle_grid_navigation(ui, indexes, order, editable, result, selection_lookup);
             return;
         }
@@ -357,11 +357,11 @@ impl DbProApp {
                 self.feedback.copy_status = block.reason().to_owned();
                 return;
             }
-            self.table.data.data_editing_cell = Some((row_index, column_index));
-            self.table.data.data_edit_value = text;
+            self.table.editing.data_editing_cell = Some((row_index, column_index));
+            self.table.editing.data_edit_value = text;
             self.submit_data_cell_edit(result, row_index, column_index);
         }
-        if self.table.data.data_editing_cell.is_none()
+        if self.table.editing.data_editing_cell.is_none()
             && self.table.data.selected_cell.is_some()
             && ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::F2))
         {
@@ -478,7 +478,7 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.table.data.record_inspector_open = !self.table.data.record_inspector_open;
+                    self.table.editing.record_inspector_open = !self.table.editing.record_inspector_open;
                 }
                 if let Some((row_index, column_index)) = self.table.data.selected_cell {
                     if Button::new(self.theme)
@@ -622,7 +622,7 @@ impl DbProApp {
             );
 
             if gutter_resp.clicked() {
-                if self.table.data.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
+                if self.table.editing.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
                     return;
                 }
                 self.table.data.selected_cell = None;
@@ -635,8 +635,8 @@ impl DbProApp {
                     modifiers.command || modifiers.ctrl,
                 );
                 self.table.data.selection_anchor_cell = None;
-                self.table.data.data_editing_cell = None;
-                self.table.data.data_edit_value.clear();
+                self.table.editing.data_editing_cell = None;
+                self.table.editing.data_edit_value.clear();
                 self.feedback.copy_status.clear();
             }
 

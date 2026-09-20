@@ -557,6 +557,20 @@ guards, query sorting and command/reload orchestration.
 
 Severity: P2 feature-boundary risk, resolved for grid layout state.
 
+## F28 — Table grid state still owned transient editing UI
+
+Evidence at discovery: `TableDataState` combined grid projection/layout/
+selection/cache data with cell-edit buffers, inspector mode, discard dialogs
+and insert-row form state. Dialogs and result-grid editors therefore reached
+through the same state object even though their lifecycles differ.
+
+Fix in the current refactor: introduced `TableEditingState` and moved the
+transient editing, inspector, confirmation and insert-row fields there.
+`TableDataState` now represents the grid data model and interaction geometry;
+mutation/event/dialog callers receive the editing boundary explicitly.
+
+Severity: P1 feature-boundary risk, resolved for table editing state ownership.
+
 ## F22 — Table editor state was fragmented across the composition root
 
 Evidence at discovery: `DbProApp` owned `table_state`, `table_data` and

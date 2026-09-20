@@ -386,7 +386,7 @@ impl DbProApp {
         if !self.table.mutation.staged_changes.is_empty() {
             self.workspace.pending_navigation_action =
                 Some(PendingNavigationAction::ChangeConnection(connection.id.clone()));
-            self.table.data.discard_changes_confirmation = true;
+            self.table.editing.discard_changes_confirmation = true;
             self.feedback.runtime_message = "Apply or discard staged changes before changing connection".to_owned();
             return;
         }

@@ -2,7 +2,7 @@
 
 use super::{
     ConnectionCatalogState, ConnectionLifecycleState, FeedbackState, TableDataQueryState, TableDataState,
-    TableMutationState, TableState, UiCell, UiQueryResult,
+    TableEditingState, TableMutationState, TableState, UiCell, UiQueryResult,
 };
 
 pub(crate) fn can_mutate_active_connection(
@@ -28,6 +28,7 @@ pub(crate) struct TableMutationContext<'a> {
     table_state: &'a mut TableState,
     table_data_query: &'a mut TableDataQueryState,
     table_data: &'a mut TableDataState,
+    table_editing: &'a mut TableEditingState,
     table_mutation: &'a mut TableMutationState,
     feedback: &'a mut FeedbackState,
 }
@@ -62,6 +63,7 @@ impl<'a> TableMutationContext<'a> {
         table_state: &'a mut TableState,
         table_data_query: &'a mut TableDataQueryState,
         table_data: &'a mut TableDataState,
+        table_editing: &'a mut TableEditingState,
         table_mutation: &'a mut TableMutationState,
         feedback: &'a mut FeedbackState,
     ) -> Self {
@@ -69,6 +71,7 @@ impl<'a> TableMutationContext<'a> {
             table_state,
             table_data_query,
             table_data,
+            table_editing,
             table_mutation,
             feedback,
         }
@@ -111,13 +114,13 @@ impl<'a> TableMutationContext<'a> {
         self.table_mutation.staged_changes.clear();
         self.table_mutation.staged_apply_targets.clear();
         self.table_mutation.table_mutation_error = None;
-        self.table_data.data_editing_cell = None;
-        self.table_data.expanded_data_editor = None;
-        self.table_data.data_edit_error = None;
-        self.table_data.data_delete_confirmation = false;
-        self.table_data.discard_changes_confirmation = false;
+        self.table_editing.data_editing_cell = None;
+        self.table_editing.expanded_data_editor = None;
+        self.table_editing.data_edit_error = None;
+        self.table_editing.data_delete_confirmation = false;
+        self.table_editing.discard_changes_confirmation = false;
         self.table_mutation.pending_changes_open = false;
-        self.table_data.data_edit_value.clear();
+        self.table_editing.data_edit_value.clear();
         self.table_data_query.result = None;
         self.table_data_query.error = None;
         self.feedback.set_runtime_message("Staged changes discarded");

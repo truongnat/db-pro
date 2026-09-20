@@ -2,7 +2,7 @@ use super::*;
 
 impl DbProApp {
     pub(crate) fn draw_discard_changes_confirmation(&mut self, ui: &mut egui::Ui) {
-        if !self.table.data.discard_changes_confirmation {
+        if !self.table.editing.discard_changes_confirmation {
             return;
         }
         let counts = self.table.mutation.staged_changes.counts();
@@ -50,17 +50,17 @@ impl DbProApp {
                 });
             });
         if apply {
-            self.table.data.discard_changes_confirmation = false;
+            self.table.editing.discard_changes_confirmation = false;
             self.apply_staged_changes();
         } else if discard {
-            self.table.data.discard_changes_confirmation = false;
+            self.table.editing.discard_changes_confirmation = false;
             let pending = self.workspace.pending_navigation_action.take();
             self.discard_staged_changes();
             if let Some(action) = pending {
                 self.execute_pending_navigation(action);
             }
         } else if cancel || !open {
-            self.table.data.discard_changes_confirmation = false;
+            self.table.editing.discard_changes_confirmation = false;
             self.workspace.pending_navigation_action = None;
         }
     }
@@ -108,7 +108,7 @@ impl DbProApp {
                 ui.horizontal(|ui| {
                     ui.label(format!("{} row group(s)", groups.len()));
                     if ui.small_button("Discard All").clicked() {
-                        self.table.data.discard_changes_confirmation = true;
+                        self.table.editing.discard_changes_confirmation = true;
                     }
                 });
                 egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
