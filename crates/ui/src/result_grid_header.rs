@@ -222,136 +222,31 @@ impl DbProApp {
                     },
                 );
 
-                // Header right-click context menu
-                let theme = self.theme;
-                let is_sorted = sort_active;
-                context_action_menu(ui, &col_resp, theme, |ui, close_menu| {
-                    if ctx_menu_item(
-                        ui,
-                        Some(Icon::ArrowUp),
-                        "Sort Ascending (A → Z)",
-                        None,
-                        theme.text_primary,
-                        theme,
-                    )
-                    .clicked()
-                    {
-                        self.set_table_or_grid_sort(result, col_idx, Some(false));
-                        *close_menu = true;
+                let menu_context = result_grid_header_menu_view::GridHeaderMenuContext {
+                    theme: self.theme,
+                    visual_index: visual_idx,
+                    column_count: order.len(),
+                    column_index: col_idx,
+                    is_sorted: sort_active,
+                    table_data_active: self.workspace.active_tab == WorkspaceTab::Table
+                        && self.table.state.table_view == TableView::Data,
+                    has_hidden_columns: !self.table.data.grid_hidden_columns.is_empty(),
+                };
+                if let Some(action) = result_grid_header_menu_view::draw_menu(&menu_context, ui, &col_resp) {
+                    use result_grid_header_menu_view::GridHeaderMenuAction as MenuAction;
+                    match action {
+                        MenuAction::Sort(direction) => self.set_table_or_grid_sort(result, col_idx, direction),
+                        MenuAction::AddFilter => add_filter_req = Some(col_idx),
+                        MenuAction::MoveLeft(index) => move_left_req = Some(index),
+                        MenuAction::MoveRight(index) => move_right_req = Some(index),
+                        MenuAction::ResetOrder => reset_order_req = true,
+                        MenuAction::ResetWidths => reset_widths_req = true,
+                        MenuAction::HideColumn(index) => hide_column_req = Some(index),
+                        MenuAction::ShowColumns => show_columns_req = true,
+                        MenuAction::ResetLayout => reset_layout_req = true,
+                        MenuAction::AutoSize(index) => auto_size_req = Some(index),
                     }
-                    if ctx_menu_item(
-                        ui,
-                        Some(Icon::ArrowDown),
-                        "Sort Descending (Z → A)",
-                        None,
-                        theme.text_primary,
-                        theme,
-                    )
-                    .clicked()
-                    {
-                        self.set_table_or_grid_sort(result, col_idx, Some(true));
-                        *close_menu = true;
-                    }
-                    if is_sorted
-                        && ctx_menu_item(ui, Some(Icon::X), "Clear Sort", None, theme.text_secondary, theme).clicked()
-                    {
-                        self.set_table_or_grid_sort(result, col_idx, None);
-                        *close_menu = true;
-                    }
-                    if self.workspace.active_tab == WorkspaceTab::Table
-                        && self.table.state.table_view == TableView::Data
-                        && ctx_menu_item(ui, Some(Icon::Filter), "Add Filter", None, theme.text_primary, theme)
-                            .clicked()
-                    {
-                        add_filter_req = Some(col_idx);
-                        *close_menu = true;
-                    }
-                    ui.separator();
-                    if visual_idx > 0
-                        && ctx_menu_item(
-                            ui,
-                            Some(Icon::ArrowLeft),
-                            "Move Column Left",
-                            None,
-                            theme.text_primary,
-                            theme,
-                        )
-                        .clicked()
-                    {
-                        move_left_req = Some(visual_idx);
-                        *close_menu = true;
-                    }
-                    if visual_idx + 1 < order.len()
-                        && ctx_menu_item(
-                            ui,
-                            Some(Icon::ArrowRight),
-                            "Move Column Right",
-                            None,
-                            theme.text_primary,
-                            theme,
-                        )
-                        .clicked()
-                    {
-                        move_right_req = Some(visual_idx);
-                        *close_menu = true;
-                    }
-                    ui.separator();
-                    if ctx_menu_item(
-                        ui,
-                        Some(Icon::RotateCcw),
-                        "Reset Column Order",
-                        None,
-                        theme.text_secondary,
-                        theme,
-                    )
-                    .clicked()
-                    {
-                        reset_order_req = true;
-                        *close_menu = true;
-                    }
-                    if ctx_menu_item(
-                        ui,
-                        Some(Icon::Maximize2),
-                        "Reset Column Widths",
-                        None,
-                        theme.text_secondary,
-                        theme,
-                    )
-                    .clicked()
-                    {
-                        reset_widths_req = true;
-                        *close_menu = true;
-                    }
-                    if ctx_menu_item(ui, Some(Icon::EyeOff), "Hide Column", None, theme.text_secondary, theme).clicked()
-                    {
-                        hide_column_req = Some(col_idx);
-                        *close_menu = true;
-                    }
-                    if !self.table.data.grid_hidden_columns.is_empty()
-                        && ctx_menu_item(ui, Some(Icon::Eye), "Show Columns", None, theme.text_secondary, theme)
-                            .clicked()
-                    {
-                        show_columns_req = true;
-                        *close_menu = true;
-                    }
-                    if ctx_menu_item(
-                        ui,
-                        Some(Icon::RotateCcw),
-                        "Reset Layout",
-                        None,
-                        theme.text_secondary,
-                        theme,
-                    )
-                    .clicked()
-                    {
-                        reset_layout_req = true;
-                        *close_menu = true;
-                    }
-                    if ctx_menu_item(ui, Some(Icon::Ruler), "Auto Size", None, theme.text_secondary, theme).clicked() {
-                        auto_size_req = Some(col_idx);
-                        *close_menu = true;
-                    }
-                });
+                }
 
                 if col_resp.clicked() && !divider.dragged() {
                     if self.workspace.active_tab == WorkspaceTab::Table
