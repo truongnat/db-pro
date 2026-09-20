@@ -300,6 +300,8 @@ mod result_grid_header;
 mod result_grid_header_content_view;
 #[path = "result_grid_header_menu_view.rs"]
 mod result_grid_header_menu_view;
+#[path = "result_grid_header_surface_view.rs"]
+mod result_grid_header_surface_view;
 #[path = "result_grid_projection.rs"]
 mod result_grid_projection;
 #[path = "result_grid_selection.rs"]
