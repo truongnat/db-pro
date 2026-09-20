@@ -64,6 +64,8 @@ pub mod connection;
 pub use component_gallery_view::ComponentGalleryState;
 #[path = "capability_lookup.rs"]
 mod capability_lookup;
+#[path = "database_management_view.rs"]
+mod database_management_view;
 #[path = "ddl_events.rs"]
 mod ddl_events;
 #[path = "diagram_state.rs"]

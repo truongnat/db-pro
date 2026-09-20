@@ -394,6 +394,11 @@ Source checkpoint: `0070d374`.
   `security_activity_view.rs`. Focused clippy, architecture guard, clean scan
   and 632 UI tests all PASS; clean scan remains 12 pass, 4 ratcheted warnings,
   0 failures.
+- Management activity extraction: `navigation_view.rs` reduced from 2438 to
+  971 lines; the 1470-line monitoring/audit/settings/FDW/replication/event
+  trigger slice now lives in `database_management_view.rs`. Focused clippy,
+  architecture guard, clean scan and 632 UI tests all PASS; clean scan remains
+  12 pass, 4 ratcheted warnings, 0 failures.
 
 ## Not yet proven
 

@@ -472,3 +472,17 @@ preview transitions stay together with the security renderer.
 
 Severity: P1 boundary risk for security feature changes, resolved for the
 security activity slice.
+
+## F18 — Management activity made navigation a feature god-module
+
+Evidence at discovery: monitoring, health advisor, audit, PostgreSQL settings,
+FDW, logical replication and event-trigger rendering plus their request
+actions occupied one continuous block in `navigation_view.rs`.
+
+Fix in the current refactor: moved the complete management activity slice to
+`crates/ui/src/database_management_view.rs`. The navigation module now keeps
+shell surfaces (top bar, output, transfers, diagram and schema compare) while
+management feature rendering and actions have a named boundary.
+
+Severity: P1 maintainability and feature-boundary risk, resolved for the
+management activity slice.
