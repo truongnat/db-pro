@@ -5,7 +5,60 @@
 //! runtime orchestration.
 
 use super::UiCell;
+use crate::{ColumnWritePolicy, UiTableInfo};
 use bigdecimal::BigDecimal;
+
+pub(crate) fn duplicate_row_values(info: &UiTableInfo, row: &[UiCell]) -> Vec<String> {
+    info.columns
+        .iter()
+        .enumerate()
+        .map(|(index, column)| {
+            if column.is_primary_key || !ColumnWritePolicy::read(column).is_writable() {
+                String::new()
+            } else {
+                row.get(index).map_or_else(String::new, |cell| match cell {
+                    UiCell::Null => String::new(),
+                    _ => crate::cell_text(cell),
+                })
+            }
+        })
+        .collect()
+}
+
+pub(crate) fn parse_insert_row_values(
+    info: &UiTableInfo,
+    raw_values: &[String],
+) -> Result<(Vec<String>, Vec<UiCell>), String> {
+    let mut columns = Vec::new();
+    let mut values = Vec::new();
+    for (column, raw) in info.columns.iter().zip(raw_values) {
+        let write_block = ColumnWritePolicy::read(column).write_block();
+        if raw.trim().is_empty() && write_block.is_some() {
+            continue;
+        }
+        if let Some(block) = write_block {
+            return Err(format!("{}: {}", column.name, block.reason()));
+        }
+        if raw.trim().is_empty() && !column.nullable && column.default.is_none() {
+            return Err(format!("{} is required", column.name));
+        }
+        match parse_insert_value(raw, &column.data_type) {
+            Ok(Some(value)) => {
+                columns.push(column.name.clone());
+                values.push(value);
+            }
+            Ok(None) => {}
+            Err(error) => return Err(format!("{}: {error}", column.name)),
+        }
+        if matches!(values.last(), Some(UiCell::Null)) && !column.nullable {
+            return Err(format!("{} is NOT NULL; enter a value instead", column.name));
+        }
+    }
+    if columns.is_empty() {
+        return Err("Enter at least one value; leave defaulted columns empty".to_owned());
+    }
+    Ok((columns, values))
+}
 
 pub(crate) fn generate_sample_value(column_name: &str, data_type: &str) -> String {
     let lower_type = data_type.to_ascii_lowercase();
@@ -267,4 +320,59 @@ fn parse_decimal_value(value: &str, data_type: &str) -> Result<UiCell, String> {
         }
     }
     Ok(UiCell::Number(value.to_owned()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{UiTableColumn, UiTableInfo};
+
+    fn info() -> UiTableInfo {
+        UiTableInfo {
+            schema: "public".to_owned(),
+            name: "users".to_owned(),
+            row_count: None,
+            columns: vec![
+                UiTableColumn {
+                    name: "id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    nullable: true,
+                    is_primary_key: true,
+                    is_identity: true,
+                    ..Default::default()
+                },
+                UiTableColumn {
+                    name: "name".to_owned(),
+                    data_type: "text".to_owned(),
+                    nullable: false,
+                    ..Default::default()
+                },
+            ],
+            primary_key: Some(vec!["id".to_owned()]),
+            indexes: Vec::new(),
+            foreign_keys: Vec::new(),
+            check_constraints: Vec::new(),
+            dependencies: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn insert_row_mapping_skips_identity_and_preserves_text() {
+        let table = info();
+
+        let (columns, values) = parse_insert_row_values(&table, &[String::new(), "Ada".to_owned()]).expect("row");
+
+        assert_eq!(columns, vec!["name"]);
+        assert_eq!(values, vec![UiCell::Text("Ada".to_owned())]);
+    }
+
+    #[test]
+    fn duplicate_row_mapping_clears_identity_and_copies_writable_values() {
+        let table = info();
+        let row = vec![UiCell::Number("7".to_owned()), UiCell::Text("Ada".to_owned())];
+
+        let values = duplicate_row_values(&table, &row);
+
+        assert_eq!(values, vec![String::new(), "Ada".to_owned()]);
+    }
 }

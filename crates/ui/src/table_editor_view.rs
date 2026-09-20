@@ -750,27 +750,7 @@ impl DbProApp {
         let Some(row) = result.rows.get(row_index) else {
             return;
         };
-        self.table_data.insert_row_values = info
-            .columns
-            .iter()
-            .enumerate()
-            .map(|(i, col)| {
-                if col.is_primary_key {
-                    String::new()
-                } else if !ColumnWritePolicy::read(col).is_writable() {
-                    // A generated column computes itself on insert; a binary column has
-                    // no editor. Neither may carry the duplicated value.
-                    String::new()
-                } else if let Some(cell) = row.get(i) {
-                    match cell {
-                        UiCell::Null => String::new(),
-                        _ => crate::cell_text(cell),
-                    }
-                } else {
-                    String::new()
-                }
-            })
-            .collect();
+        self.table_data.insert_row_values = table_editor_values::duplicate_row_values(&info, row);
         self.table_data.insert_row_error.clear();
         self.table_data.insert_row_open = true;
     }
@@ -798,43 +778,14 @@ impl DbProApp {
             self.table_data.insert_row_error = "Table structure is still loading".to_owned();
             return;
         };
-        let mut columns = Vec::new();
-        let mut values = Vec::new();
-        for (column, raw) in info.columns.iter().zip(&self.table_data.insert_row_values) {
-            let write_block = ColumnWritePolicy::read(column).write_block();
-            if raw.trim().is_empty() && write_block.is_some() {
-                // A blocked column left empty contributes nothing: a generated column
-                // computes itself and a binary column has no editor to fill it.
-                continue;
-            }
-            if let Some(block) = write_block {
-                self.table_data.insert_row_error = format!("{}: {}", column.name, block.reason());
-                return;
-            }
-            if raw.trim().is_empty() && !column.nullable && column.default.is_none() {
-                self.table_data.insert_row_error = format!("{} is required", column.name);
-                return;
-            }
-            match table_editor_values::parse_insert_value(raw, &column.data_type) {
-                Ok(Some(value)) => {
-                    columns.push(column.name.clone());
-                    values.push(value);
-                }
-                Ok(None) => {}
+        let (columns, values) =
+            match table_editor_values::parse_insert_row_values(&info, &self.table_data.insert_row_values) {
+                Ok(parsed) => parsed,
                 Err(error) => {
-                    self.table_data.insert_row_error = format!("{}: {error}", column.name);
+                    self.table_data.insert_row_error = error;
                     return;
                 }
-            }
-            if matches!(values.last(), Some(UiCell::Null)) && !column.nullable {
-                self.table_data.insert_row_error = format!("{} is NOT NULL; enter a value instead", column.name);
-                return;
-            }
-        }
-        if columns.is_empty() {
-            self.table_data.insert_row_error = "Enter at least one value; leave defaulted columns empty".to_owned();
-            return;
-        }
+            };
         self.table_mutation.staged_changes.ensure_target(&table);
         self.table_mutation.staged_changes.stage_insert(columns, values);
         self.table_data.insert_row_open = false;
