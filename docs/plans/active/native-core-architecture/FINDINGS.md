@@ -1452,3 +1452,15 @@ adapter separates loading preparation, requested-surface opening, viewport
 pinning, screenshot handling and frame advancement.
 
 Severity: P2 runtime-evidence reliability risk, resolved.
+
+## F87 — Files tree rendered workspace mutations inside the shell root
+
+Evidence at `e4552773`: `files_activity_tabs.rs` combined recursive tree
+rendering, context menus, file/folder creation, deletion, query opening and
+agent-context/search mutations in `DbProApp`.
+
+Fix at `fc28d660`: `files_tree_view.rs` owns tree and context-menu rendering
+and returns typed file-tree actions; the activity root now reduces those
+actions into workspace and query side effects.
+
+Severity: P1 feature-boundary risk, resolved for Files tree activity.

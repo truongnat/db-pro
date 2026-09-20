@@ -847,3 +847,17 @@ Source checkpoint: `5d42d5e9`.
   centered, header is separated by a divider, and close is right-aligned.
 - Release binary from this code SHA is running as PID `53667` for manual
   verification.
+
+## Current runtime checkpoint at `fc28d660`
+
+- Files tree surface boundary: `fc28d660`.
+- Full fmt/check/clippy/workspace test/release-build/capture-build gate:
+  passed; workspace suites include 630 passing UI tests and only
+  environment-gated tests ignored.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- Clean scan: 16 pass, 0 warnings.
+- Default-settle runtime capture: `/tmp/db-pro-native-core-fc28d660.png`,
+  logical `1280x800`; the New Connection body rendered fully, with centered
+  dialog, separated header/divider and right-aligned close control.
+- Release binary from this code SHA is running as PID `56582` for manual
+  verification.
