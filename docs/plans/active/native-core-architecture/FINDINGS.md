@@ -264,6 +264,9 @@ facade.
 Mutation-error clearing now follows the same rule on `TableMutationState`; the
 table editor keeps feedback and request orchestration but no longer implements
 target matching and state clearing.
+Selected-row projection now follows the same rule on `TableDataState`; the
+clipboard surface consumes state-owned indexes instead of owning selection
+projection.
 remaining architectural slice is to move the other view and reducer APIs from
 `impl DbProApp` onto feature-owned contexts, so sibling features cannot use
 the composition root as a shared mutable facade.

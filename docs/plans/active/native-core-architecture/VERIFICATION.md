@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `43a1f0f4`.
+Source checkpoint: `a99da22d`.
 
 ## Current change
 
@@ -181,6 +181,8 @@ Source checkpoint: `43a1f0f4`.
 - Mutation-error clearing now lives on `TableMutationState`; table-editor
   views keep feedback and request orchestration but no longer implement the
   target-matching state transition.
+- Selected-row projection now lives on `TableDataState`; clipboard code only
+  consumes the state-owned indexes for copy/export operations.
 - Activity-bar rendering now lives in an explicit renderer that owns only
   workspace-shell state and returns navigation intents; it no longer
   implements a `DbProApp` method. The architecture guard enforces this seam.
