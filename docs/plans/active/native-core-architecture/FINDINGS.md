@@ -123,6 +123,10 @@ diagnostics caches, problem filters and query history as unrelated fields.
 
 Fix in `941db901`: these values now have one owner, `QueryEditorState`, with a
 default-state test. The editor view and query event paths address the aggregate.
+Fix in `dbb43442`: the visual builder draft is now an explicit
+`VisualQueryBuilderState`; form transitions, validation, SQL preview generation,
+import and FK-join suggestion are state-owned, while the view keeps only egui
+rendering and query-document/feedback adapters.
 
 Severity: P1 boundary leak, resolved for the query-editor slice.
 
