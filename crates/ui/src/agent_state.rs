@@ -32,6 +32,17 @@ impl Default for AgentState {
 }
 
 #[derive(Debug)]
+pub(super) struct PrepareAgentRunOptions {
+    pub(super) request_id: crate::RequestId,
+    pub(super) prompt: String,
+    pub(super) document: db_pro_core::domain::agent::AgentDocumentSnapshot,
+    pub(super) connection_id: Option<String>,
+    pub(super) schema: Option<String>,
+    pub(super) mode: db_pro_core::domain::agent::AgentMode,
+    pub(super) context: db_pro_core::domain::agent_context::AgentContext,
+}
+
+#[derive(Debug)]
 pub(super) struct PreparedAgentRun {
     pub(super) document_id: String,
     pub(super) request_id: crate::RequestId,
@@ -52,21 +63,15 @@ pub(super) enum AgentRunPreparationError {
 impl AgentState {
     pub(super) fn prepare_run(
         &mut self,
-        request_id: crate::RequestId,
-        prompt: String,
-        document: db_pro_core::domain::agent::AgentDocumentSnapshot,
-        connection_id: Option<String>,
-        schema: Option<String>,
-        mode: db_pro_core::domain::agent::AgentMode,
-        context: db_pro_core::domain::agent_context::AgentContext,
+        options: PrepareAgentRunOptions,
     ) -> Result<PreparedAgentRun, AgentRunPreparationError> {
-        let document_id = document.document_id.clone();
-        let session = self
-            .sessions
-            .entry(document_id.clone())
-            .or_insert_with(|| AgentUiSession::for_document(&document_id, connection_id.clone(), schema.clone()));
+        let document_id = options.document.document_id.clone();
+        let session = self.sessions.entry(document_id.clone()).or_insert_with(|| {
+            AgentUiSession::for_document(&document_id, options.connection_id.clone(), options.schema.clone())
+        });
         if session.session.is_none() {
-            *session = AgentUiSession::for_document(&document_id, connection_id.clone(), schema.clone());
+            *session =
+                AgentUiSession::for_document(&document_id, options.connection_id.clone(), options.schema.clone());
         }
         if session.active_run_id.is_some() || session.request_id.is_some() {
             return Err(AgentRunPreparationError::AlreadyActive);
@@ -75,12 +80,12 @@ impl AgentState {
             return Err(AgentRunPreparationError::SessionUnavailable);
         };
 
-        core_session.connection_id = connection_id;
-        core_session.schema = schema;
+        core_session.connection_id = options.connection_id;
+        core_session.schema = options.schema;
         session.session = Some(core_session.clone());
         session.messages.push(AgentMessage {
             role: AgentRole::User,
-            content: prompt.clone(),
+            content: options.prompt.clone(),
             sql: None,
             requires_confirmation: false,
         });
@@ -89,18 +94,18 @@ impl AgentState {
         session.activities.clear();
         session.pending_confirmation = None;
         session.tool_results.clear();
-        session.request_id = Some(request_id);
+        session.request_id = Some(options.request_id);
         self.input.clear();
 
         Ok(PreparedAgentRun {
             document_id,
-            request_id,
-            prompt,
+            request_id: options.request_id,
+            prompt: options.prompt,
             session: core_session,
-            document,
-            mode,
+            document: options.document,
+            mode: options.mode,
             allow_read_only_auto_run: self.auto_run_read_only,
-            context,
+            context: options.context,
         })
     }
 
@@ -212,10 +217,15 @@ impl DbProApp {
             .get(&document_id)
             .map(|session| session.mode)
             .unwrap_or(db_pro_core::domain::agent::AgentMode::Ask);
-        let prepared = match self
-            .agent
-            .prepare_run(request_id, prompt, snapshot, connection_id, schema, mode, context)
-        {
+        let prepared = match self.agent.prepare_run(PrepareAgentRunOptions {
+            request_id,
+            prompt,
+            document: snapshot,
+            connection_id,
+            schema,
+            mode,
+            context,
+        }) {
             Ok(prepared) => prepared,
             Err(AgentRunPreparationError::AlreadyActive) => {
                 self.feedback.runtime_message = "An Agent run is already active for this query".to_owned();
@@ -442,15 +452,15 @@ mod tests {
         };
 
         let prepared = state
-            .prepare_run(
-                crate::RequestId(7),
-                "inspect".to_owned(),
+            .prepare_run(PrepareAgentRunOptions {
+                request_id: crate::RequestId(7),
+                prompt: "inspect".to_owned(),
                 document,
-                None,
-                None,
-                db_pro_core::domain::agent::AgentMode::Ask,
+                connection_id: None,
+                schema: None,
+                mode: db_pro_core::domain::agent::AgentMode::Ask,
                 context,
-            )
+            })
             .expect("first run should be prepared");
 
         assert_eq!(prepared.request_id, crate::RequestId(7));
@@ -485,27 +495,27 @@ mod tests {
             result_summary: None,
         };
         state
-            .prepare_run(
-                crate::RequestId(1),
-                "first".to_owned(),
-                document.clone(),
-                None,
-                None,
-                db_pro_core::domain::agent::AgentMode::Ask,
-                context.clone(),
-            )
+            .prepare_run(PrepareAgentRunOptions {
+                request_id: crate::RequestId(1),
+                prompt: "first".to_owned(),
+                document: document.clone(),
+                connection_id: None,
+                schema: None,
+                mode: db_pro_core::domain::agent::AgentMode::Ask,
+                context: context.clone(),
+            })
             .expect("first run should be prepared");
 
         assert!(matches!(
-            state.prepare_run(
-                crate::RequestId(2),
-                "second".to_owned(),
+            state.prepare_run(PrepareAgentRunOptions {
+                request_id: crate::RequestId(2),
+                prompt: "second".to_owned(),
                 document,
-                None,
-                None,
-                db_pro_core::domain::agent::AgentMode::Ask,
+                connection_id: None,
+                schema: None,
+                mode: db_pro_core::domain::agent::AgentMode::Ask,
                 context,
-            ),
+            }),
             Err(AgentRunPreparationError::AlreadyActive)
         ));
         assert_eq!(state.sessions["query-1"].messages.len(), 1);
