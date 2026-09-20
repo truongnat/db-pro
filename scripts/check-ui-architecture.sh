@@ -156,6 +156,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/settings_navigation_view.rs"
   "$repo_root/crates/ui/src/settings_keybindings_view.rs"
   "$repo_root/crates/ui/src/settings_diagnostics_view.rs"
+  "$repo_root/crates/ui/src/settings_general_view.rs"
   "$repo_root/crates/ui/src/query_search_view.rs"
   "$repo_root/crates/ui/src/query_context_view.rs"
   "$repo_root/crates/ui/src/query_context_picker_view.rs"

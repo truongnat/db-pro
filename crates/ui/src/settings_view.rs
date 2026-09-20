@@ -1,5 +1,6 @@
 //! Settings activity sidebar panels (#205).
 use super::settings_diagnostics_view::{SettingsDiagnosticsAction, SettingsDiagnosticsContext};
+use super::settings_general_view::{SettingsGeneralAction, SettingsGeneralContext};
 use super::settings_keybindings_view::{SettingsKeybindingsAction, SettingsKeybindingsContext};
 use super::settings_navigation_view::{SettingsNavigationAction, SettingsNavigationContext};
 use super::*;
@@ -81,96 +82,22 @@ impl DbProApp {
     }
 
     fn draw_general_settings(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            section_label(ui, "GENERAL", self.theme);
-            ui.add_space(10.0);
-            ui.horizontal(|ui| {
-                ui.label(RichText::new("Language").color(self.theme.text_secondary));
-                for lang in crate::UiLanguage::ALL {
-                    if ui
-                        .selectable_label(self.preferences.settings.general.language == *lang, lang.label())
-                        .clicked()
-                    {
-                        self.preferences.settings.general.language = *lang;
-                        lang.apply();
-                    }
-                }
-            });
-            ui.add_space(8.0);
-            ui.checkbox(
-                &mut self.preferences.settings.general.confirm_destructive_queries,
-                "Confirm destructive queries",
-            );
-            ui.checkbox(
-                &mut self.preferences.settings.general.restore_tabs_on_startup,
-                "Restore query tabs on startup",
-            );
-            ui.add_space(12.0);
-            section_label(ui, "WORKSPACE SESSIONS", self.theme);
-            ui.add_space(6.0);
-            ui.label(
-                RichText::new(
-                    "Named sessions store layout and tab references — not SQL text, secrets, or result grids.",
-                )
-                .small()
-                .color(self.theme.text_muted),
-            );
-            input_full_width(ui, &mut self.workspace.sessions.name_draft, "Session name", self.theme);
-            ui.horizontal(|ui| {
-                if Button::new(self.theme)
-                    .text("Save workspace")
-                    .variant(ButtonVariant::Default)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.save_named_workspace_session();
-                }
-            });
-            ui.add_space(SPACE_SM);
-            let sessions = self.workspace.sessions.store.sessions.clone();
-            for session in sessions {
-                ui.horizontal(|ui| {
-                    let selected = self.workspace.sessions.selected_id.as_deref() == Some(session.id.as_str());
-                    if ui.selectable_label(selected, &session.name).clicked() {
-                        self.workspace.sessions.selected_id = Some(session.id.clone());
-                    }
-                    if Button::new(self.theme)
-                        .text("Restore")
-                        .variant(ButtonVariant::Secondary)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.restore_named_workspace_session(&session.id);
-                    }
-                    if Button::new(self.theme)
-                        .text("Duplicate")
-                        .variant(ButtonVariant::Secondary)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.duplicate_named_workspace_session(&session.id);
-                    }
-                    if Button::new(self.theme)
-                        .text("Delete")
-                        .variant(ButtonVariant::Destructive)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.workspace.sessions.remove(&session.id);
-                    }
-                });
-            }
-            if !self.workspace.sessions.last_restore_notes.is_empty() {
-                ui.add_space(6.0);
-                for note in &self.workspace.sessions.last_restore_notes {
-                    ui.label(RichText::new(note).small().color(self.theme.warning));
+        let actions = SettingsGeneralContext {
+            theme: self.theme,
+            preferences: &mut self.preferences,
+            sessions: &mut self.workspace.sessions,
+        }
+        .draw(ui);
+        for action in actions {
+            match action {
+                SettingsGeneralAction::Save => self.save_named_workspace_session(),
+                SettingsGeneralAction::Restore(id) => self.restore_named_workspace_session(&id),
+                SettingsGeneralAction::Duplicate(id) => self.duplicate_named_workspace_session(&id),
+                SettingsGeneralAction::Delete(id) => {
+                    self.workspace.sessions.remove(&id);
                 }
             }
-        });
+        }
     }
 
     fn draw_editor_settings(&mut self, ui: &mut egui::Ui) {
