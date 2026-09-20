@@ -770,14 +770,6 @@ impl DbProApp {
         }
     }
 
-    pub(crate) fn row_matches_identity(
-        row: &[UiCell],
-        column_indexes: &std::collections::HashMap<&str, usize>,
-        identity: &RowIdentity,
-    ) -> bool {
-        table_events::row_matches_identity(row, column_indexes, identity)
-    }
-
     /// Apply a driver choice from the connection dialog.
     pub fn select_connection_driver(&mut self, driver: UiDriver) {
         connection::select_connection_driver(self.connection.dialog.draft_mut(), driver);

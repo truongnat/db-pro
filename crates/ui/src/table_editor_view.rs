@@ -2189,7 +2189,7 @@ impl DbProApp {
                     if let Some(row_index) = result
                         .rows
                         .iter()
-                        .position(|row| Self::row_matches_identity(row, &col_map, identity))
+                        .position(|row| table_events::row_matches_identity(row, &col_map, identity))
                     {
                         let current_db_row = &result.rows[row_index];
                         for (col_idx, _col) in result.columns.iter().enumerate() {
