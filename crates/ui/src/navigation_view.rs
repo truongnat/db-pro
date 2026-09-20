@@ -3245,162 +3245,53 @@ impl DbProApp {
     }
 
     fn preview_table_rls(&mut self, force: bool, enable: bool) {
-        use db_pro_core::application::ObjectMutationService;
-        use db_pro_core::domain::object_mutation::{
-            MutationOptions, ObjectAction, ObjectDefinition, ObjectMutationRequest, TableRlsDefinition,
-        };
-        use db_pro_core::ports::SqlDialect;
-
-        struct QuoteDialect;
-        impl SqlDialect for QuoteDialect {
-            fn placeholder(&self, index: usize) -> String {
-                format!("${index}")
-            }
-            fn quote_identifier(&self, name: &str) -> String {
-                format!("\"{}\"", name.replace('"', "\"\""))
-            }
-        }
-
-        let schema = self.security.security_rls_schema.trim().to_owned();
-        let table = self.security.security_rls_table.trim().to_owned();
-        if schema.is_empty() || table.is_empty() {
-            self.feedback.runtime_message = "Schema and table are required".into();
-            return;
-        }
-        let request = ObjectMutationRequest {
-            action: if enable {
-                ObjectAction::Enable
-            } else {
-                ObjectAction::Disable
-            },
-            target: None,
-            definition: ObjectDefinition::TableRls(TableRlsDefinition { schema, table, force }),
-            options: MutationOptions::default(),
-            driver: "postgresql".into(),
-        };
-        match ObjectMutationService::plan(&request, &QuoteDialect) {
-            Ok(preview) => {
-                self.security.security_rls_preview_sql = preview.statements.join(";\n");
-                if !self.security.security_rls_preview_sql.is_empty() {
-                    self.security.security_rls_preview_sql.push(';');
-                }
+        match security_rls::plan_table_rls(security_rls::TableRlsPreviewRequest {
+            schema: &self.security.security_rls_schema,
+            table: &self.security.security_rls_table,
+            force,
+            enable,
+        }) {
+            Ok(sql) => {
+                self.security.security_rls_preview_sql = sql;
                 self.security.security_rls_confirm_apply = false;
             }
-            Err(err) => self.feedback.runtime_message = err.to_string(),
+            Err(error) => self.feedback.runtime_message = error,
         }
     }
 
     fn preview_rls_policy(&mut self, action: db_pro_core::domain::object_mutation::ObjectAction) {
-        use db_pro_core::application::ObjectMutationService;
-        use db_pro_core::domain::object_mutation::{
-            MutationOptions, ObjectDefinition, ObjectMutationRequest, RlsPolicyDefinition,
-        };
-        use db_pro_core::ports::SqlDialect;
-
-        struct QuoteDialect;
-        impl SqlDialect for QuoteDialect {
-            fn placeholder(&self, index: usize) -> String {
-                format!("${index}")
-            }
-            fn quote_identifier(&self, name: &str) -> String {
-                format!("\"{}\"", name.replace('"', "\"\""))
-            }
-        }
-
-        let schema = self.security.security_rls_schema.trim().to_owned();
-        let table = self.security.security_rls_table.trim().to_owned();
-        let name = self.security.security_rls_policy_name.trim().to_owned();
-        if schema.is_empty() || table.is_empty() || name.is_empty() {
-            self.feedback.runtime_message = "Schema, table, and policy name are required".into();
-            return;
-        }
-        let roles = self
-            .security
-            .security_rls_roles
-            .split(',')
-            .map(|s| s.trim().to_owned())
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<_>>();
-        let request = ObjectMutationRequest {
+        match security_rls::plan_policy(security_rls::PolicyPreviewRequest {
             action,
-            target: None,
-            definition: ObjectDefinition::RlsPolicy(RlsPolicyDefinition {
-                schema,
-                table,
-                name,
-                permissive: true,
-                command: self.security.security_rls_command.clone(),
-                roles,
-                using_expr: Some(self.security.security_rls_using.clone()).filter(|s| !s.trim().is_empty()),
-                with_check_expr: Some(self.security.security_rls_with_check.clone()).filter(|s| !s.trim().is_empty()),
-                new_name: None,
-            }),
-            options: MutationOptions::default(),
-            driver: "postgresql".into(),
-        };
-        match ObjectMutationService::plan(&request, &QuoteDialect) {
-            Ok(preview) => {
-                if let Some(reason) = preview.unsupported_reason {
-                    self.feedback.runtime_message = reason;
-                    self.security.security_rls_preview_sql.clear();
-                } else {
-                    self.security.security_rls_preview_sql = preview.statements.join(";\n");
-                    if !self.security.security_rls_preview_sql.is_empty() {
-                        self.security.security_rls_preview_sql.push(';');
-                    }
-                    self.security.security_rls_confirm_apply = false;
-                }
+            schema: &self.security.security_rls_schema,
+            table: &self.security.security_rls_table,
+            name: &self.security.security_rls_policy_name,
+            command: &self.security.security_rls_command,
+            roles_csv: &self.security.security_rls_roles,
+            using_expr: &self.security.security_rls_using,
+            with_check_expr: &self.security.security_rls_with_check,
+        }) {
+            Ok(sql) => {
+                self.security.security_rls_preview_sql = sql;
+                self.security.security_rls_confirm_apply = false;
             }
-            Err(err) => self.feedback.runtime_message = err.to_string(),
+            Err(error) => {
+                self.security.security_rls_preview_sql.clear();
+                self.feedback.runtime_message = error;
+            }
         }
     }
 
     fn preview_drop_rls_policy(&mut self, policy_name: &str) {
-        use db_pro_core::application::ObjectMutationService;
-        use db_pro_core::domain::object_mutation::{
-            MutationOptions, ObjectAction, ObjectDefinition, ObjectMutationRequest, RlsPolicyDefinition,
-        };
-        use db_pro_core::ports::SqlDialect;
-
-        struct QuoteDialect;
-        impl SqlDialect for QuoteDialect {
-            fn placeholder(&self, index: usize) -> String {
-                format!("${index}")
-            }
-            fn quote_identifier(&self, name: &str) -> String {
-                format!("\"{}\"", name.replace('"', "\"\""))
-            }
-        }
-
-        let request = ObjectMutationRequest {
-            action: ObjectAction::Drop,
-            target: None,
-            definition: ObjectDefinition::RlsPolicy(RlsPolicyDefinition {
-                schema: self.security.security_rls_schema.trim().to_owned(),
-                table: self.security.security_rls_table.trim().to_owned(),
-                name: policy_name.to_owned(),
-                permissive: true,
-                command: "ALL".into(),
-                roles: vec![],
-                using_expr: None,
-                with_check_expr: None,
-                new_name: None,
-            }),
-            options: MutationOptions {
-                if_exists: true,
-                ..MutationOptions::default()
-            },
-            driver: "postgresql".into(),
-        };
-        match ObjectMutationService::plan(&request, &QuoteDialect) {
-            Ok(preview) => {
-                self.security.security_rls_preview_sql = preview.statements.join(";\n");
-                if !self.security.security_rls_preview_sql.is_empty() {
-                    self.security.security_rls_preview_sql.push(';');
-                }
+        match security_rls::plan_drop_policy(
+            &self.security.security_rls_schema,
+            &self.security.security_rls_table,
+            policy_name,
+        ) {
+            Ok(sql) => {
+                self.security.security_rls_preview_sql = sql;
                 self.security.security_rls_confirm_apply = false;
             }
-            Err(err) => self.feedback.runtime_message = err.to_string(),
+            Err(error) => self.feedback.runtime_message = error,
         }
     }
 

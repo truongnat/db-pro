@@ -260,6 +260,8 @@ mod schema_object_view;
 mod schema_workbench;
 #[path = "schema_workbench_form.rs"]
 mod schema_workbench_form;
+#[path = "security_rls.rs"]
+mod security_rls;
 #[path = "table_ddl_view.rs"]
 mod table_ddl_view;
 #[path = "table_editor_context.rs"]
