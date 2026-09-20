@@ -530,6 +530,21 @@ to receive the smallest state references they need.
 Severity: P1 feature-boundary risk and P2 composition-root maintainability,
 resolved for table-editor state ownership.
 
+## F23 — Query state was fragmented across the composition root
+
+Evidence at discovery: query documents, editor interaction, output tabs,
+execution policy and saved-query library were five independent `DbProApp`
+fields. Query views and reducers therefore depended on a flat shell surface
+instead of one feature lifecycle.
+
+Fix in the current refactor: introduced `QueryFeatureState` with explicit
+`session`, `editor`, `output`, `execution` and `library` children. The app
+composition root now exposes one `query` aggregate; document contexts and
+event reducers still receive explicit narrow state references.
+
+Severity: P1 feature-boundary risk and P2 composition-root maintainability,
+resolved for query state ownership.
+
 ## F21 — Native lifecycle adapter mixed persistence and frame rendering
 
 Evidence at discovery: the `eframe::App` implementation combined storage

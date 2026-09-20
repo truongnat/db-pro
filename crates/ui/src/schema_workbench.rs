@@ -328,7 +328,7 @@ impl DbProApp {
             {
                 let body = self.schema_workbench.docs_markdown.clone();
                 self.new_query_document();
-                if let Some(doc) = self.query_session_state.documents.last_mut() {
+                if let Some(doc) = self.query.session.documents.last_mut() {
                     doc.set_text(format!("-- Schema docs export\n/*\n{body}\n*/"));
                 }
                 self.workspace.active_tab = WorkspaceTab::Query;

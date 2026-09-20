@@ -293,11 +293,11 @@ impl DbProApp {
         let active_connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
         let active_schema = self.active_schema().to_owned();
         QueryDocumentContext {
-            query_session: &mut self.query_session_state,
-            query_editor: &mut self.query_editor,
+            query_session: &mut self.query.session,
+            query_editor: &mut self.query.editor,
             workspace: &mut self.workspace,
             agent: &mut self.agent,
-            query_output: &mut self.query_output_state,
+            query_output: &mut self.query.output,
             schema_explorer: &mut self.schema_explorer,
             task_bridge: &mut self.task_bridge,
             feedback: &mut self.feedback,

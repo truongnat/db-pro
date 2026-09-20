@@ -18,14 +18,14 @@ impl DbProApp {
                     .clicked()
                 {
                     self.workspace.bottom_panel_open = false;
-                    self.query_editor.query_output_dock_maximized = false;
+                    self.query.editor.query_output_dock_maximized = false;
                 }
-                let max_tip = if self.query_editor.query_output_dock_maximized {
+                let max_tip = if self.query.editor.query_output_dock_maximized {
                     "Restore output"
                 } else {
                     "Maximize output"
                 };
-                let max_icon = if self.query_editor.query_output_dock_maximized {
+                let max_icon = if self.query.editor.query_output_dock_maximized {
                     Icon::Minimize2
                 } else {
                     Icon::Maximize2
@@ -38,10 +38,10 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.query_editor.query_output_dock_maximized = !self.query_editor.query_output_dock_maximized;
+                    self.query.editor.query_output_dock_maximized = !self.query.editor.query_output_dock_maximized;
                 }
             }
-            if let Some(request_id) = self.query_session_state.active_explain_request() {
+            if let Some(request_id) = self.query.session.active_explain_request() {
                 ui.label(
                     RichText::new(format!("Explain request {}…", request_id.0))
                         .font(font_caption())
@@ -58,8 +58,9 @@ impl DbProApp {
                     (OutputTab::Explain, Icon::ChartNoAxesCombined, "Explain"),
                     (OutputTab::History, Icon::History, "History"),
                 ] {
-                    let selected = self.query_output_state.active_tab_for_document(
-                        self.query_session_state
+                    let selected = self.query.output.active_tab_for_document(
+                        self.query
+                            .session
                             .active_document()
                             .map(|document| document.id.as_str()),
                     ) == tab;
@@ -93,7 +94,7 @@ impl DbProApp {
                                 ui.add_space(2.0);
                                 ui.label(RichText::new(label).font(font_ui_label()).color(text_color));
                                 if tab == OutputTab::Results {
-                                    if let Some(res) = self.query_session_state.active_result() {
+                                    if let Some(res) = self.query.session.active_result() {
                                         badge(
                                             ui,
                                             &res.row_count.to_string(),
@@ -101,12 +102,11 @@ impl DbProApp {
                                             self.theme.accent,
                                         );
                                     }
-                                } else if tab == OutputTab::Messages
-                                    && !self.query_session_state.active_messages().is_empty()
+                                } else if tab == OutputTab::Messages && !self.query.session.active_messages().is_empty()
                                 {
                                     badge(
                                         ui,
-                                        &self.query_session_state.active_messages().len().to_string(),
+                                        &self.query.session.active_messages().len().to_string(),
                                         self.theme.surface_hover,
                                         self.theme.text_muted,
                                     );
@@ -115,8 +115,9 @@ impl DbProApp {
                         });
 
                     if resp.response.interact(egui::Sense::click()).clicked() {
-                        self.query_output_state.set_active_for_optional_document(
-                            self.query_session_state
+                        self.query.output.set_active_for_optional_document(
+                            self.query
+                                .session
                                 .active_document()
                                 .map(|document| document.id.as_str()),
                             tab,
@@ -130,8 +131,9 @@ impl DbProApp {
 
     /// Body of the selected output tab.
     pub(super) fn draw_output_pane(&mut self, ui: &mut egui::Ui, result: Option<&UiQueryResult>) {
-        match self.query_output_state.active_tab_for_document(
-            self.query_session_state
+        match self.query.output.active_tab_for_document(
+            self.query
+                .session
                 .active_document()
                 .map(|document| document.id.as_str()),
         ) {
@@ -148,13 +150,14 @@ impl DbProApp {
         let results_width = ui.max_rect().width();
         grid_frame(self.theme).show(ui, |ui| {
             ui.set_min_width(results_width.max(0.0));
-            let result_count = self.query_session_state.active_result_count();
+            let result_count = self.query.session.active_result_count();
             if result_count > 1 {
                 ui.horizontal(|ui| {
                     let active_index = self
-                        .query_session_state
+                        .query
+                        .session
                         .documents
-                        .get(self.query_session_state.active_document_index)
+                        .get(self.query.session.active_document_index)
                         .map_or(0, |doc| doc.active_result_index);
                     for index in 0..result_count {
                         if ui
@@ -199,7 +202,7 @@ impl DbProApp {
     /// Query notice log.
     pub(super) fn draw_messages_pane(&mut self, ui: &mut egui::Ui) {
         let output_width = ui.available_width();
-        let messages = self.query_session_state.active_messages();
+        let messages = self.query.session.active_messages();
         card_frame(self.theme).show(ui, |ui| {
             ui.set_min_width(output_width.max(0.0));
             if messages.is_empty() {
@@ -245,13 +248,13 @@ impl DbProApp {
                 return;
             }
 
-            let doc_index = self.query_session_state.active_document_index;
+            let doc_index = self.query.session.active_document_index;
             let column_names: Vec<String> = result.columns.iter().map(|c| c.name.clone()).collect();
             let column_types: Vec<String> = result.columns.iter().map(|c| c.data_type.clone()).collect();
 
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Type").small().color(self.theme.text_secondary));
-                if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
+                if let Some(doc) = self.query.session.documents.get_mut(doc_index) {
                     egui::ComboBox::from_id_salt("chart_type")
                         .selected_text(doc.chart_config.chart_type.to_string())
                         .show_ui(ui, |ui| {
@@ -272,7 +275,7 @@ impl DbProApp {
                 }
 
                 ui.label(RichText::new("X").small().color(self.theme.text_secondary));
-                if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
+                if let Some(doc) = self.query.session.documents.get_mut(doc_index) {
                     let x_label = doc
                         .chart_config
                         .x_column
@@ -289,7 +292,7 @@ impl DbProApp {
                 }
 
                 ui.label(RichText::new("Y").small().color(self.theme.text_secondary));
-                if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
+                if let Some(doc) = self.query.session.documents.get_mut(doc_index) {
                     let numeric_idxs: Vec<usize> = column_types
                         .iter()
                         .enumerate()
@@ -321,7 +324,7 @@ impl DbProApp {
                 }
 
                 ui.label(RichText::new("Agg").small().color(self.theme.text_secondary));
-                if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
+                if let Some(doc) = self.query.session.documents.get_mut(doc_index) {
                     egui::ComboBox::from_id_salt("chart_agg")
                         .selected_text(doc.chart_config.aggregation.to_string())
                         .show_ui(ui, |ui| {
@@ -339,7 +342,7 @@ impl DbProApp {
                 }
 
                 ui.label(RichText::new("Series").small().color(self.theme.text_secondary));
-                if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
+                if let Some(doc) = self.query.session.documents.get_mut(doc_index) {
                     let series_label = doc
                         .chart_config
                         .series_column
@@ -360,7 +363,8 @@ impl DbProApp {
             ui.add_space(8.0);
 
             let config = self
-                .query_session_state
+                .query
+                .session
                 .documents
                 .get(doc_index)
                 .map(|doc| doc.chart_config.clone())
@@ -399,18 +403,18 @@ impl DbProApp {
                     self.explain_query();
                 }
                 if compact_button(ui, "Explain ANALYZE…", self.theme).clicked() {
-                    self.query_execution.explain_analyze_confirmed = false;
+                    self.query.execution.explain_analyze_confirmed = false;
                     self.explain_query_analyze();
                 }
-                ui.checkbox(&mut self.query_execution.explain_show_raw_json, "Raw JSON");
-                if let Some(plan) = self.query_session_state.active_explain_plan() {
+                ui.checkbox(&mut self.query.execution.explain_show_raw_json, "Raw JSON");
+                if let Some(plan) = self.query.session.active_explain_plan() {
                     if compact_button(ui, "Copy plan", self.theme).clicked() {
                         ui.output_mut(|o| o.copied_text = plan.to_owned());
                         self.feedback.runtime_message = "Query plan copied".to_owned();
                     }
                 }
             });
-            if self.query_execution.pending_explain_analyze {
+            if self.query.execution.pending_explain_analyze {
                 ui.add_space(8.0);
                 ui.label(
                     RichText::new(
@@ -419,14 +423,14 @@ impl DbProApp {
                     .color(self.theme.warning),
                 );
                 ui.checkbox(
-                    &mut self.query_execution.explain_analyze_confirmed,
+                    &mut self.query.execution.explain_analyze_confirmed,
                     "I understand this will execute the query",
                 );
                 if Button::new(self.theme)
                     .text("Run EXPLAIN ANALYZE")
                     .variant(ButtonVariant::Default)
                     .size(ButtonSize::Sm)
-                    .enabled(self.query_execution.explain_analyze_confirmed)
+                    .enabled(self.query.execution.explain_analyze_confirmed)
                     .show(ui)
                     .clicked()
                 {
@@ -434,8 +438,8 @@ impl DbProApp {
                 }
             }
             ui.add_space(8.0);
-            if let Some(plan_json) = self.query_session_state.active_explain_plan() {
-                if self.query_execution.explain_show_raw_json {
+            if let Some(plan_json) = self.query.session.active_explain_plan() {
+                if self.query.execution.explain_show_raw_json {
                     egui::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
                         ui.label(RichText::new(plan_json).monospace().color(self.theme.text_secondary));
                     });
@@ -510,15 +514,15 @@ impl DbProApp {
                 ui.label(RichText::new("Search").small().color(self.theme.text_muted));
                 ui.add_sized(
                     [220.0, 24.0],
-                    egui::TextEdit::singleline(&mut self.query_editor.query_history_search)
+                    egui::TextEdit::singleline(&mut self.query.editor.query_history_search)
                         .hint_text("SQL, connection, schema"),
                 );
                 if compact_button(ui, "Clear History", self.theme).clicked() {
-                    self.query_editor.query_history_entries.clear();
+                    self.query.editor.query_history_entries.clear();
                     self.feedback.runtime_message = "Query history cleared".to_owned();
                 }
             });
-            if self.query_editor.query_history_entries.is_empty() {
+            if self.query.editor.query_history_entries.is_empty() {
                 empty_state(
                     ui,
                     Icon::History,
@@ -527,9 +531,10 @@ impl DbProApp {
                     self.theme,
                 );
             } else {
-                let search = self.query_editor.query_history_search.trim().to_lowercase();
+                let search = self.query.editor.query_history_search.trim().to_lowercase();
                 let entries = self
-                    .query_editor
+                    .query
+                    .editor
                     .query_history_entries
                     .iter()
                     .rev()

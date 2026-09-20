@@ -9,7 +9,7 @@ impl DbProApp {
         self.preferences.settings.general.language.apply();
         self.preferences.dark_mode = self.preferences.settings.appearance.dark_mode;
         self.preferences.reduce_motion = self.preferences.settings.appearance.reduce_motion;
-        self.query_editor.editor_font_size = self.preferences.settings.editor.font_size;
+        self.query.editor.editor_font_size = self.preferences.settings.editor.font_size;
         self.preferences.prediction_mode = match self.preferences.settings.editor.prediction_mode.as_str() {
             "off" => PredictionMode::Off,
             "subtle" => PredictionMode::Subtle,
@@ -27,7 +27,7 @@ impl DbProApp {
         self.preferences.settings.version = settings_model::SETTINGS_VERSION;
         self.preferences.settings.appearance.dark_mode = self.preferences.dark_mode;
         self.preferences.settings.appearance.reduce_motion = self.preferences.reduce_motion;
-        self.preferences.settings.editor.font_size = self.query_editor.editor_font_size;
+        self.preferences.settings.editor.font_size = self.query.editor.editor_font_size;
         self.preferences.settings.editor.prediction_mode = match self.preferences.prediction_mode {
             PredictionMode::Off => "off".to_owned(),
             PredictionMode::Subtle => "subtle".to_owned(),
@@ -171,16 +171,16 @@ impl DbProApp {
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Font size").color(self.theme.text_secondary));
                 if compact_button(ui, "−", self.theme).clicked() {
-                    self.query_editor.editor_font_size = (self.query_editor.editor_font_size - 1.0).max(10.0);
-                    self.preferences.settings.editor.font_size = self.query_editor.editor_font_size;
+                    self.query.editor.editor_font_size = (self.query.editor.editor_font_size - 1.0).max(10.0);
+                    self.preferences.settings.editor.font_size = self.query.editor.editor_font_size;
                 }
                 ui.label(
-                    RichText::new(format!("{:.0} px", self.query_editor.editor_font_size))
+                    RichText::new(format!("{:.0} px", self.query.editor.editor_font_size))
                         .color(self.theme.text_primary),
                 );
                 if compact_button(ui, "+", self.theme).clicked() {
-                    self.query_editor.editor_font_size = (self.query_editor.editor_font_size + 1.0).min(24.0);
-                    self.preferences.settings.editor.font_size = self.query_editor.editor_font_size;
+                    self.query.editor.editor_font_size = (self.query.editor.editor_font_size + 1.0).min(24.0);
+                    self.preferences.settings.editor.font_size = self.query.editor.editor_font_size;
                 }
             });
             ui.add_space(8.0);

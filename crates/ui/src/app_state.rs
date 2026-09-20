@@ -105,13 +105,13 @@ impl DbProApp {
             if let Some(documents) = storage.get_string("dbpro.native.query-documents") {
                 if let Ok(documents) = serde_json::from_str::<Vec<QueryDocument>>(&documents) {
                     if !documents.is_empty() {
-                        app.query_session_state.documents = documents;
+                        app.query.session.documents = documents;
                     }
                 }
             }
             if let Some(history) = storage.get_string("dbpro.native.query-history-v1") {
                 if let Ok(history) = serde_json::from_str(&history) {
-                    app.query_editor.query_history_entries = history;
+                    app.query.editor.query_history_entries = history;
                 }
             }
             if let Some(pinned) = storage.get_string("dbpro.native.pinned-tables-v1") {
@@ -167,11 +167,13 @@ impl Default for DbProApp {
             preferences: PreferencesState::default(),
             workspace: WorkspaceFeatureState::default(),
             welcome: WelcomeState::default(),
-            query_session_state: QuerySessionState {
-                documents: vec![QueryDocument::new("query-1", "Query 1", DEFAULT_QUERY)],
+            query: QueryFeatureState {
+                session: QuerySessionState {
+                    documents: vec![QueryDocument::new("query-1", "Query 1", DEFAULT_QUERY)],
+                    ..Default::default()
+                },
                 ..Default::default()
             },
-            query_editor: QueryEditorState::default(),
             palette: PaletteState::default(),
             agent: AgentState::default(),
             task_bridge: TaskBridge::default(),
@@ -179,7 +181,6 @@ impl Default for DbProApp {
                 runtime_message: "Ready".to_owned(),
                 ..Default::default()
             },
-            query_output_state: QueryOutputState::default(),
             table: TableEditorState {
                 data: TableDataState::default(),
                 mutation: TableMutationState::default(),
@@ -191,7 +192,6 @@ impl Default for DbProApp {
             },
             overlay: OverlayState::default(),
             connection: ConnectionFeatureState::default(),
-            query_library: QueryLibraryState::default(),
             schema_explorer: SchemaExplorerState::default(),
             audit: AuditState::default(),
             event_trigger: EventTriggerState::default(),
@@ -205,7 +205,6 @@ impl Default for DbProApp {
             schema_workbench: schema_workbench::SchemaWorkbenchState::default(),
             schema_compare: SchemaCompareState::default(),
             synthetic_data: SyntheticDataState::default(),
-            query_execution: QueryExecutionPolicyState::default(),
             saved_tasks: SavedTaskState::default(),
             transfer: TransferState::default(),
             diagram: DiagramState::default(),

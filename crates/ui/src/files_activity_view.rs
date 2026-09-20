@@ -268,9 +268,10 @@ impl DbProApp {
                 .clicked()
             {
                 if let Some(doc) = self
-                    .query_session_state
+                    .query
+                    .session
                     .documents
-                    .get(self.query_session_state.active_document_index)
+                    .get(self.query.session.active_document_index)
                 {
                     if let Some(path) = doc.file_path.clone() {
                         self.workspace.files.add_context_item(path);
@@ -287,7 +288,7 @@ impl DbProApp {
                 .show(ui)
                 .clicked()
             {
-                let selected = self.query_session_state.selected_text.clone();
+                let selected = self.query.session.selected_text.clone();
                 if !selected.trim().is_empty() {
                     self.workspace
                         .files
@@ -374,9 +375,10 @@ impl DbProApp {
         ui.add_space(6.0);
         // Breadcrumb for active file-backed document (#266).
         if let Some(path) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get(self.query_session_state.active_document_index)
+            .get(self.query.session.active_document_index)
             .and_then(|doc| doc.file_path.clone())
         {
             ui.label(RichText::new(path).small().monospace().color(self.theme.text_muted));
@@ -628,7 +630,8 @@ impl DbProApp {
         });
         ui.add_space(4.0);
         let documents: Vec<(String, String, bool)> = self
-            .query_session_state
+            .query
+            .session
             .documents
             .iter()
             .filter_map(|doc| {
@@ -855,9 +858,10 @@ impl DbProApp {
                     Icon::FileText
                 };
                 let selected = self
-                    .query_session_state
+                    .query
+                    .session
                     .documents
-                    .get(self.query_session_state.active_document_index)
+                    .get(self.query.session.active_document_index)
                     .and_then(|doc| doc.file_path.as_ref())
                     .is_some_and(|path| path == &node.absolute_path.to_string_lossy());
                 let response =

@@ -55,13 +55,14 @@ impl DbProApp {
             .as_ref()
             .map(|info| info.columns.iter().map(|column| column.name.clone()).collect())
             .unwrap_or_default();
-        let current_sql = if self.query_session_state.selected_text.trim().is_empty() {
-            self.query_session_state.active_text().to_owned()
+        let current_sql = if self.query.session.selected_text.trim().is_empty() {
+            self.query.session.active_text().to_owned()
         } else {
-            self.query_session_state.selected_text.clone()
+            self.query.session.selected_text.clone()
         };
         let result_summary = self
-            .query_session_state
+            .query
+            .session
             .active_result()
             .or(self.table.state.table_data_result.as_ref())
             .map(|result| format!("{} rows returned in {} ms", result.row_count, result.duration_ms));
@@ -77,7 +78,7 @@ impl DbProApp {
             selected_columns,
             current_sql,
             result_summary,
-            explain_plan: self.query_session_state.active_explain_plan().map(str::to_owned),
+            explain_plan: self.query.session.active_explain_plan().map(str::to_owned),
             last_error,
             workspace_files: self.workspace.files.workspace_context_items.clone(),
         }
@@ -99,9 +100,10 @@ impl DbProApp {
 
     fn submit_typed_agent_prompt(&mut self, prompt: String) {
         let Some(document) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get(self.query_session_state.active_document_index)
+            .get(self.query.session.active_document_index)
         else {
             self.feedback.runtime_message = "No query document is available for Agent".to_owned();
             return;
@@ -193,9 +195,10 @@ impl DbProApp {
 
     pub(super) fn agent_confirmation_action(&mut self, approved: bool) {
         let Some(document_id) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get(self.query_session_state.active_document_index)
+            .get(self.query.session.active_document_index)
             .map(|document| document.id.clone())
         else {
             return;
@@ -209,13 +212,15 @@ impl DbProApp {
             return;
         };
         let target_doc_index = self
-            .query_session_state
+            .query
+            .session
             .documents
             .iter()
             .position(|doc| doc.id == pending.document_id)
-            .unwrap_or(self.query_session_state.active_document_index);
+            .unwrap_or(self.query.session.active_document_index);
         let current_document = self
-            .query_session_state
+            .query
+            .session
             .documents
             .get(target_doc_index)
             .map(agent_context::document_snapshot);
@@ -225,7 +230,7 @@ impl DbProApp {
                 self.feedback.runtime_message = "Agent patch preview is unavailable".to_owned();
                 return;
             };
-            let Some(document) = self.query_session_state.documents.get_mut(target_doc_index) else {
+            let Some(document) = self.query.session.documents.get_mut(target_doc_index) else {
                 return;
             };
             if document.id != patch.document_id || document.buffer.version() != patch.expected_version {
@@ -293,9 +298,10 @@ impl DbProApp {
 
     pub(super) fn open_agent_result_in_workspace(&mut self, call_id: &str) {
         let Some(document) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get_mut(self.query_session_state.active_document_index)
+            .get_mut(self.query.session.active_document_index)
         else {
             return;
         };
@@ -336,7 +342,7 @@ impl DbProApp {
             document.query_result = Some(ui_result.clone());
             document.query_results = vec![ui_result];
             document.active_result_index = 0;
-            self.query_output_state.active_tab = OutputTab::Results;
+            self.query.output.active_tab = OutputTab::Results;
             // The agent's result replaces the rows behind the grid.
             self.table.data.invalidate_grid_projection();
             if total_rows > sample_len as u64 {
@@ -350,9 +356,10 @@ impl DbProApp {
 
     pub(super) fn retry_agent_run(&mut self) {
         let Some(document_id) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get(self.query_session_state.active_document_index)
+            .get(self.query.session.active_document_index)
             .map(|document| document.id.clone())
         else {
             return;
@@ -372,9 +379,10 @@ impl DbProApp {
 
     pub(super) fn cancel_active_agent_run(&mut self) {
         let Some(document_id) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get(self.query_session_state.active_document_index)
+            .get(self.query.session.active_document_index)
             .map(|document| document.id.clone())
         else {
             return;

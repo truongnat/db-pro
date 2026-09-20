@@ -81,7 +81,8 @@ impl DbProApp {
 
     pub(crate) fn handle_transaction_action(&mut self, action: crate::components::TransactionAction) {
         if let Some(sql) = self
-            .query_execution
+            .query
+            .execution
             .apply_transaction_action(action, &mut self.feedback)
         {
             self.dispatch_transaction_sql(sql);
@@ -94,12 +95,12 @@ impl DbProApp {
             return;
         };
         // Reuse the normal run path so execution state / cancel / history stay consistent.
-        let version = self.query_session_state.active_buffer_version();
+        let version = self.query.session.active_buffer_version();
         self.send_query_run(connection_id, sql.to_owned(), (0, sql.len()), version, false);
     }
 
     pub(crate) fn set_active_query_result(&mut self, index: usize) {
-        if self.query_session_state.set_active_result(index) {
+        if self.query.session.set_active_result(index) {
             self.table.data.invalidate_grid_projection();
         }
     }
@@ -136,7 +137,7 @@ impl DbProApp {
 
     fn query_connection_context(&self) -> QueryConnectionContext<'_> {
         QueryConnectionContext {
-            query_session: &self.query_session_state,
+            query_session: &self.query.session,
             catalog: &self.connection.catalog,
             lifecycle: &self.connection.lifecycle,
             schema_explorer: &self.schema_explorer,

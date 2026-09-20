@@ -51,10 +51,10 @@ impl DbProApp {
     }
 
     fn persist_query_and_schema_state(&mut self, storage: &mut dyn eframe::Storage) {
-        if let Ok(documents) = serde_json::to_string(&self.query_session_state.documents) {
+        if let Ok(documents) = serde_json::to_string(&self.query.session.documents) {
             storage.set_string("dbpro.native.query-documents", documents);
         }
-        if let Ok(history) = serde_json::to_string(&self.query_editor.query_history_entries) {
+        if let Ok(history) = serde_json::to_string(&self.query.editor.query_history_entries) {
             storage.set_string("dbpro.native.query-history-v1", history);
         }
         if let Ok(pinned) = serde_json::to_string(&self.schema_explorer.pinned_tables) {
@@ -237,7 +237,7 @@ impl DbProApp {
                 ctx,
                 self.theme,
                 &mut self.overlay,
-                &self.query_library,
+                &self.query.library,
                 &mut self.task_bridge,
                 &mut self.feedback,
             );

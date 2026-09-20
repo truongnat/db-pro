@@ -502,7 +502,7 @@ impl DbProApp {
         // Editor owns the allocated region from draw_query — no permanent output reserve.
         let editor_height = ui.available_height().max(120.0);
 
-        if self.query_session_state.active_document_index >= self.query_session_state.documents.len() {
+        if self.query.session.active_document_index >= self.query.session.documents.len() {
             return;
         }
 
@@ -517,18 +517,18 @@ impl DbProApp {
         let active_schema = self.active_query_schema().to_owned();
 
         let theme = self.theme;
-        let font_size = self.query_editor.editor_font_size;
-        let auto_focus = self.query_editor.query_focus_editor_on_open;
+        let font_size = self.query.editor.editor_font_size;
+        let auto_focus = self.query.editor.query_focus_editor_on_open;
         let mut dispatch_statement = false;
         let mut dispatch_all = false;
         let mut save_query = false;
 
         let available_size = egui::vec2(editor_width.max(280.0), editor_height);
 
-        let doc_index = self.query_session_state.active_document_index;
-        let doc = &mut self.query_session_state.documents[doc_index];
+        let doc_index = self.query.session.active_document_index;
+        let doc = &mut self.query.session.documents[doc_index];
 
-        let search_query = self.query_editor.editor_search.clone();
+        let search_query = self.query.editor.editor_search.clone();
         let is_completion_open = doc.completion.is_open;
         let previous_completion_trigger = doc.completion.trigger_kind;
         let execution_range = doc.executing_range;
@@ -553,8 +553,8 @@ impl DbProApp {
         editor.font_size = font_size;
 
         let response = editor.show(ui, available_size);
-        self.query_editor.query_focus_editor_on_open = false;
-        self.query_editor.query_editor_rect = response.rect;
+        self.query.editor.query_focus_editor_on_open = false;
+        self.query.editor.query_editor_rect = response.rect;
 
         let cursor_context_changed = previous_cursor != doc.cursor.offset || previous_selection != doc.selection;
         let completion_intent =
@@ -570,9 +570,9 @@ impl DbProApp {
             doc.invalidate_prediction();
         }
 
-        self.query_editor.query_editor_focused = response.focused;
-        self.query_editor.query_cursor_line = doc.cursor.line + 1;
-        self.query_editor.query_cursor_column = doc.cursor.col + 1;
+        self.query.editor.query_editor_focused = response.focused;
+        self.query.editor.query_cursor_line = doc.cursor.line + 1;
+        self.query.editor.query_cursor_column = doc.cursor.col + 1;
 
         if let Some(accepted_len) = response.accepted_prediction_len {
             if let Some(pred) = doc.prediction.as_mut() {
@@ -617,17 +617,17 @@ impl DbProApp {
             doc.execution_diagnostic = None;
             if !doc.selection.is_empty() {
                 let (start, end) = doc.selection.normalized();
-                self.query_session_state.selected_text = doc.buffer.slice(start, end).to_owned();
+                self.query.session.selected_text = doc.buffer.slice(start, end).to_owned();
             } else {
-                self.query_session_state.selected_text.clear();
+                self.query.session.selected_text.clear();
             }
         }
         if response.wants_format {
             if !doc.selection.is_empty() {
                 let (start, end) = doc.selection.normalized();
-                self.query_session_state.selected_text = doc.buffer.slice(start, end).to_owned();
+                self.query.session.selected_text = doc.buffer.slice(start, end).to_owned();
             } else {
-                self.query_session_state.selected_text.clear();
+                self.query.session.selected_text.clear();
             }
         }
 
@@ -808,9 +808,10 @@ impl DbProApp {
         let theme = self.theme;
 
         let Some(doc) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get_mut(self.query_session_state.active_document_index)
+            .get_mut(self.query.session.active_document_index)
         else {
             return;
         };

@@ -24,9 +24,9 @@ impl DbProApp {
         });
         ui.add_space(8.0);
 
-        for (index, document) in self.query_session_state.documents.clone().into_iter().enumerate() {
-            let selected = self.workspace.active_tab == WorkspaceTab::Query
-                && self.query_session_state.active_document_index == index;
+        for (index, document) in self.query.session.documents.clone().into_iter().enumerate() {
+            let selected =
+                self.workspace.active_tab == WorkspaceTab::Query && self.query.session.active_document_index == index;
             let unsaved = document.is_dirty();
             let title = if unsaved {
                 format!("{}  •", document.title)
@@ -48,7 +48,7 @@ impl DbProApp {
                     rename_requested = true;
                     *close_menu = true;
                 }
-                if self.query_session_state.documents.len() > 1
+                if self.query.session.documents.len() > 1
                     && ctx_menu_item(ui, Some(Icon::Trash2), "Close query", None, theme.danger, theme).clicked()
                 {
                     close_requested = true;
@@ -306,7 +306,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
             egui::ComboBox::from_id_salt("problems_severity_filter")
-                .selected_text(match self.query_editor.problems_severity_filter {
+                .selected_text(match self.query.editor.problems_severity_filter {
                     ProblemsSeverityFilter::All => "All",
                     ProblemsSeverityFilter::Errors => "Errors",
                     ProblemsSeverityFilter::Warnings => "Warnings",
@@ -318,11 +318,11 @@ impl DbProApp {
                         (ProblemsSeverityFilter::Errors, "Errors"),
                         (ProblemsSeverityFilter::Warnings, "Warnings"),
                     ] {
-                        ui.selectable_value(&mut self.query_editor.problems_severity_filter, filter, label);
+                        ui.selectable_value(&mut self.query.editor.problems_severity_filter, filter, label);
                     }
                 });
             egui::ComboBox::from_id_salt("problems_source_filter")
-                .selected_text(match self.query_editor.problems_source_filter {
+                .selected_text(match self.query.editor.problems_source_filter {
                     ProblemsSourceFilter::All => "All sources",
                     ProblemsSourceFilter::Parser => "Parser",
                     ProblemsSourceFilter::Lint => "Lint",
@@ -338,7 +338,7 @@ impl DbProApp {
                         (ProblemsSourceFilter::Delimiter, "Delimiter"),
                         (ProblemsSourceFilter::Database, "Database"),
                     ] {
-                        ui.selectable_value(&mut self.query_editor.problems_source_filter, filter, label);
+                        ui.selectable_value(&mut self.query.editor.problems_source_filter, filter, label);
                     }
                 });
         });
@@ -377,7 +377,7 @@ impl DbProApp {
                         .color(self.theme.text_muted),
                 );
             }
-            let selected = self.query_editor.problems_selected.as_ref()
+            let selected = self.query.editor.problems_selected.as_ref()
                 == Some(&(entry.document_id.clone(), entry.diagnostic_index));
             let (icon, _color) = match entry.severity {
                 crate::editor::DiagnosticSeverity::Error => (Icon::AlertCircle, self.theme.danger),
@@ -400,7 +400,7 @@ impl DbProApp {
             );
             let response = sidebar_item(ui, icon, &label, selected, self.theme);
             if response.clicked() {
-                self.query_editor.problems_selected = Some((entry.document_id.clone(), entry.diagnostic_index));
+                self.query.editor.problems_selected = Some((entry.document_id.clone(), entry.diagnostic_index));
                 if entry.document_index == usize::MAX {
                     // Workspace-indexed diagnostic (#269): open the SQL file if possible.
                     self.open_workspace_sql_file(entry.document_title.clone());
@@ -443,11 +443,11 @@ impl DbProApp {
 
     /// Saved queries, grouped by folder, plus the pending-delete confirmation.
     fn draw_saved_queries_section(&mut self, ui: &mut egui::Ui) {
-        if self.query_library.saved_queries.is_empty() {
+        if self.query.library.saved_queries.is_empty() {
             self.draw_empty_saved_queries(ui);
             return;
         }
-        let saved = self.query_library.saved_queries.clone();
+        let saved = self.query.library.saved_queries.clone();
         let mut groups: Vec<(String, Vec<UiSavedQuerySummary>)> = Vec::new();
         for query in saved {
             let folder = query.folder.clone().unwrap_or_else(|| "Unfiled".to_owned());
@@ -485,7 +485,8 @@ impl DbProApp {
     /// One collapsible folder of saved queries, with a folder-level context menu.
     fn draw_saved_query_folder(&mut self, ui: &mut egui::Ui, folder: String, queries: Vec<UiSavedQuerySummary>) {
         let folder_id = self
-            .query_library
+            .query
+            .library
             .query_folders
             .iter()
             .find(|item| item.name == folder)
@@ -566,13 +567,14 @@ impl DbProApp {
 
     fn rename_saved_query(&mut self, query: &UiSavedQuerySummary) {
         let request_id = self.task_bridge.next_request_id();
-        let name = if self.query_library.query_folder.trim().is_empty() {
+        let name = if self.query.library.query_folder.trim().is_empty() {
             format!("{} (renamed)", query.name)
         } else {
-            self.query_library.query_folder.trim().to_owned()
+            self.query.library.query_folder.trim().to_owned()
         };
         self.dispatch_command(
-            self.query_library
+            self.query
+                .library
                 .rename_query_command(request_id, query.id.clone(), name),
         );
     }
@@ -585,7 +587,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             if compact_button(ui, "Confirm delete", self.theme).clicked() {
                 let request_id = self.task_bridge.next_request_id();
-                self.dispatch_command(self.query_library.delete_query_command(request_id, id));
+                self.dispatch_command(self.query.library.delete_query_command(request_id, id));
                 self.overlay.delete_confirmation_id = None;
             }
             if compact_button(ui, "Cancel", self.theme).clicked() {
@@ -595,11 +597,11 @@ impl DbProApp {
     }
 
     fn draw_local_history_section(&mut self, ui: &mut egui::Ui) {
-        if self.query_editor.query_history.is_empty() {
+        if self.query.editor.query_history.is_empty() {
             ui.label(RichText::new("No queries run yet").color(self.theme.text_muted));
             return;
         }
-        let history = self.query_editor.query_history.clone();
+        let history = self.query.editor.query_history.clone();
         for query in history.iter().rev() {
             let title = query.lines().next().unwrap_or("query");
             if sidebar_item(ui, Icon::History, title, false, self.theme)

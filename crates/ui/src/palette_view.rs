@@ -63,8 +63,8 @@ impl DbProApp {
             views: self.schema_explorer.schema.views.len(),
             functions: self.schema_explorer.schema.functions.len(),
             columns: self.active_schema_column_names().len(),
-            saved_queries: self.query_library.saved_queries.len(),
-            history: self.query_editor.query_history_entries.len(),
+            saved_queries: self.query.library.saved_queries.len(),
+            history: self.query.editor.query_history_entries.len(),
             connections: self.connection.catalog.len(),
             workspace_files,
         })
@@ -442,7 +442,8 @@ impl DbProApp {
     }
 
     fn saved_query_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.query_library
+        self.query
+            .library
             .saved_queries
             .iter()
             .take(40)
@@ -487,7 +488,8 @@ impl DbProApp {
     }
 
     fn query_history_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        self.query_editor
+        self.query
+            .editor
             .query_history_entries
             .iter()
             .take(30)
@@ -669,7 +671,7 @@ impl DbProApp {
                 .close(&mut self.workspace.shell, &mut self.feedback),
             PaletteAction::OpenSavedQuery(query_id) => self.open_saved_query_from_palette(query_id),
             PaletteAction::OpenHistoryEntry(index) => {
-                if let Some(entry) = self.query_editor.query_history_entries.get(index).cloned() {
+                if let Some(entry) = self.query.editor.query_history_entries.get(index).cloned() {
                     self.open_history_entry(&entry, false);
                 } else {
                     self.feedback.runtime_message = "History entry is no longer available".to_owned();
@@ -750,7 +752,8 @@ impl DbProApp {
 
     fn open_saved_query_from_palette(&mut self, query_id: String) {
         let Some(query) = self
-            .query_library
+            .query
+            .library
             .saved_queries
             .iter()
             .find(|item| item.id == query_id)
@@ -761,9 +764,10 @@ impl DbProApp {
         };
         self.new_query_document();
         if let Some(doc) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get_mut(self.query_session_state.active_document_index)
+            .get_mut(self.query.session.active_document_index)
         {
             doc.set_text(query.sql.clone());
             doc.title = query.name.clone();
@@ -799,8 +803,8 @@ impl DbProApp {
     }
 
     fn export_results_from_palette(&mut self) {
-        if self.query_session_state.active_result().is_some() {
-            self.query_output_state.active_tab = OutputTab::Results;
+        if self.query.session.active_result().is_some() {
+            self.query.output.active_tab = OutputTab::Results;
             self.overlay.export_open = true;
             self.workspace.active_tab = WorkspaceTab::Query;
         } else {

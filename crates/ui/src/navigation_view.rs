@@ -46,9 +46,9 @@ impl DbProApp {
                     ui.add_space(2.0);
 
                     // 1. History Navigation (Back / Forward)
-                    let can_go_back = self.query_session_state.active_document_index > 0;
+                    let can_go_back = self.query.session.active_document_index > 0;
                     let can_go_forward =
-                        self.query_session_state.active_document_index + 1 < self.query_session_state.documents.len();
+                        self.query.session.active_document_index + 1 < self.query.session.documents.len();
                     if Button::new(self.theme)
                         .icon(Icon::ArrowLeft)
                         .variant(ButtonVariant::Ghost)
@@ -57,9 +57,9 @@ impl DbProApp {
                         .tooltip("Previous Document")
                         .show(ui)
                         .clicked()
-                        && self.query_session_state.active_document_index > 0
+                        && self.query.session.active_document_index > 0
                     {
-                        self.switch_query_document(self.query_session_state.active_document_index - 1);
+                        self.switch_query_document(self.query.session.active_document_index - 1);
                     }
                     if Button::new(self.theme)
                         .icon(Icon::ArrowRight)
@@ -69,9 +69,9 @@ impl DbProApp {
                         .tooltip("Next Document")
                         .show(ui)
                         .clicked()
-                        && self.query_session_state.active_document_index + 1 < self.query_session_state.documents.len()
+                        && self.query.session.active_document_index + 1 < self.query.session.documents.len()
                     {
-                        self.switch_query_document(self.query_session_state.active_document_index + 1);
+                        self.switch_query_document(self.query.session.active_document_index + 1);
                     }
 
                     ui.add_space(SPACE_SM);
@@ -280,10 +280,11 @@ impl DbProApp {
                                 .color(self.theme.text_muted),
                         );
                     }
-                    if let Some(result) =
-                        self.query_session_state
-                            .active_result()
-                            .or(self.table.state.table_data_result.as_ref())
+                    if let Some(result) = self.query.session.active_result().or(self
+                        .table
+                        .state
+                        .table_data_result
+                        .as_ref())
                     {
                         ui.label(
                             RichText::new(format!("{} ms", result.duration_ms))
@@ -314,7 +315,7 @@ impl DbProApp {
                             ui.label(
                                 RichText::new(format!(
                                     "Ln {}, Col {}",
-                                    self.query_editor.query_cursor_line, self.query_editor.query_cursor_column
+                                    self.query.editor.query_cursor_line, self.query.editor.query_cursor_column
                                 ))
                                 .font(font_mono_sm())
                                 .color(self.theme.text_muted),
@@ -352,14 +353,12 @@ impl DbProApp {
                         (OutputTab::Explain, "Explain"),
                         (OutputTab::History, "History"),
                     ] {
-                        if tab_frame(self.theme, self.query_output_state.active_tab == tab)
-                            .show(ui, |ui| {
-                                ui.selectable_label(self.query_output_state.active_tab == tab, label)
-                            })
+                        if tab_frame(self.theme, self.query.output.active_tab == tab)
+                            .show(ui, |ui| ui.selectable_label(self.query.output.active_tab == tab, label))
                             .inner
                             .clicked()
                         {
-                            self.query_output_state.active_tab = tab;
+                            self.query.output.active_tab = tab;
                         }
                     }
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -372,12 +371,13 @@ impl DbProApp {
                     });
                 });
                 ui.separator();
-                match self.query_output_state.active_tab {
+                match self.query.output.active_tab {
                     OutputTab::Results => {
-                        let result =
-                            self.query_session_state
-                                .active_result()
-                                .or(self.table.state.table_data_result.as_ref());
+                        let result = self
+                            .query
+                            .session
+                            .active_result()
+                            .or(self.table.state.table_data_result.as_ref());
                         ui.label(
                             RichText::new(
                                 result
@@ -396,12 +396,12 @@ impl DbProApp {
                         );
                     }
                     OutputTab::Messages => {
-                        for message in self.query_session_state.active_messages().iter().rev().take(8) {
+                        for message in self.query.session.active_messages().iter().rev().take(8) {
                             ui.label(RichText::new(message).small().color(self.theme.text_secondary));
                         }
                     }
                     OutputTab::Explain => {
-                        if let Some(plan) = self.query_session_state.active_explain_plan() {
+                        if let Some(plan) = self.query.session.active_explain_plan() {
                             egui::ScrollArea::vertical().show(ui, |ui| {
                                 ui.label(RichText::new(plan).monospace().small().color(self.theme.text_secondary));
                             });
@@ -414,7 +414,7 @@ impl DbProApp {
                         }
                     }
                     OutputTab::History => {
-                        for query in self.query_editor.query_history.iter().rev().take(8) {
+                        for query in self.query.editor.query_history.iter().rev().take(8) {
                             ui.label(
                                 RichText::new(query)
                                     .monospace()

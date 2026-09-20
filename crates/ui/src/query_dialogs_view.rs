@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 impl DbProApp {
     pub(super) fn draw_destructive_run_dialog(&mut self, ui: &mut egui::Ui) {
-        let Some(pending) = self.query_execution.pending_destructive_run.clone() else {
+        let Some(pending) = self.query.execution.pending_destructive_run.clone() else {
             return;
         };
         const PREVIEW_CHARS: usize = 600;
@@ -146,7 +146,7 @@ impl DbProApp {
     }
 
     fn dispatch_explain_query(&mut self, analyze: bool) {
-        if self.query_session_state.active_explain_request().is_some() {
+        if self.query.session.active_explain_request().is_some() {
             return;
         }
         let lookup = self.query_capabilities();
@@ -158,19 +158,20 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect to a database before explaining a query".to_owned();
             return;
         };
-        let sql = if self.query_session_state.selected_text.trim().is_empty() {
-            self.query_session_state.active_text().trim().to_owned()
+        let sql = if self.query.session.selected_text.trim().is_empty() {
+            self.query.session.active_text().trim().to_owned()
         } else {
-            self.query_session_state.selected_text.trim().to_owned()
+            self.query.session.selected_text.trim().to_owned()
         };
         if sql.is_empty() {
             self.feedback.runtime_message = "Enter a query before explaining it".to_owned();
             return;
         }
-        if analyze && !self.query_execution.explain_analyze_confirmed {
-            self.query_execution.pending_explain_analyze = true;
-            self.query_output_state.set_active_for_optional_document(
-                self.query_session_state
+        if analyze && !self.query.execution.explain_analyze_confirmed {
+            self.query.execution.pending_explain_analyze = true;
+            self.query.output.set_active_for_optional_document(
+                self.query
+                    .session
                     .active_document()
                     .map(|document| document.id.as_str()),
                 OutputTab::Explain,
@@ -190,15 +191,16 @@ impl DbProApp {
             })
             .is_ok()
         {
-            let doc_index = self.query_session_state.active_document_index;
-            if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
+            let doc_index = self.query.session.active_document_index;
+            if let Some(doc) = self.query.session.documents.get_mut(doc_index) {
                 doc.explain_request = Some(request_id);
                 doc.explain_plan = None;
             }
-            self.query_execution.pending_explain_analyze = false;
-            self.query_execution.explain_analyze_confirmed = false;
-            self.query_output_state.set_active_for_optional_document(
-                self.query_session_state
+            self.query.execution.pending_explain_analyze = false;
+            self.query.execution.explain_analyze_confirmed = false;
+            self.query.output.set_active_for_optional_document(
+                self.query
+                    .session
                     .active_document()
                     .map(|document| document.id.as_str()),
                 OutputTab::Explain,
@@ -266,14 +268,14 @@ impl DbProApp {
     }
 
     pub(crate) fn format_active_query(&mut self) {
-        let doc_index = self.query_session_state.active_document_index;
+        let doc_index = self.query.session.active_document_index;
         self.cancel_prediction_for_document(doc_index);
         let dialect = if self.query_capabilities().allows(|caps| caps.query.numbered_parameters) {
             SqlDialect::Postgres
         } else {
             SqlDialect::SQLite
         };
-        if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
+        if let Some(doc) = self.query.session.documents.get_mut(doc_index) {
             format_query_document(doc, dialect);
         }
     }
@@ -395,23 +397,25 @@ impl DbProApp {
         )
     }
     pub(super) fn save_query_document(&mut self) {
-        self.save_query_document_at(self.query_session_state.active_document_index);
+        self.save_query_document_at(self.query.session.active_document_index);
     }
 
     pub(crate) fn save_query_document_at(&mut self, document_index: usize) {
         if self
-            .query_session_state
+            .query
+            .session
             .documents
             .get(document_index)
             .and_then(|document| document.file_path.as_ref())
             .is_some()
-            && document_index == self.query_session_state.active_document_index
+            && document_index == self.query.session.active_document_index
             && self.save_active_workspace_file()
         {
             return;
         }
         let Some(connection_id) = self
-            .query_session_state
+            .query
+            .session
             .documents
             .get(document_index)
             .and_then(|document| document.connection_id.clone())
@@ -422,27 +426,31 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         let document_id = self
-            .query_session_state
+            .query
+            .session
             .documents
             .get(document_index)
             .map(|document| document.id.clone());
         let name = self
-            .query_session_state
+            .query
+            .session
             .documents
             .get(document_index)
             .map(|document| document.title.clone())
             .unwrap_or_else(|| "Saved query".to_owned());
         let saved_query_id = self
-            .query_session_state
+            .query
+            .session
             .documents
             .get(document_index)
             .and_then(|document| document.saved_query_id.clone());
         let sql = self
-            .query_session_state
+            .query
+            .session
             .documents
             .get(document_index)
             .map_or_else(String::new, |document| document.text().to_owned());
-        self.dispatch_command(self.query_library.save_query_command(
+        self.dispatch_command(self.query.library.save_query_command(
             request_id,
             connection_id,
             saved_query_id,
@@ -450,22 +458,23 @@ impl DbProApp {
             sql,
         ));
         if let Some(document_id) = document_id {
-            self.query_session_state.save_requests.insert(request_id, document_id);
+            self.query.session.save_requests.insert(request_id, document_id);
         }
         self.feedback.runtime_message = "Saving query…".to_owned();
     }
 
     pub(crate) fn open_save_as_dialog(&mut self) {
-        self.query_session_state.save_as_name = self
-            .query_session_state
+        self.query.session.save_as_name = self
+            .query
+            .session
             .documents
-            .get(self.query_session_state.active_document_index)
+            .get(self.query.session.active_document_index)
             .map_or_else(|| "Saved query".to_owned(), |document| document.title.clone());
-        self.query_session_state.save_as_open = true;
+        self.query.session.save_as_open = true;
     }
 
     pub(super) fn draw_save_as_dialog(&mut self, ctx: &egui::Context) {
-        if !self.query_session_state.save_as_open {
+        if !self.query.session.save_as_open {
             return;
         }
         let mut save = false;
@@ -475,7 +484,7 @@ impl DbProApp {
             .resizable(false)
             .show(ctx, |ui| {
                 ui.label("Name");
-                ui.text_edit_singleline(&mut self.query_session_state.save_as_name);
+                ui.text_edit_singleline(&mut self.query.session.save_as_name);
                 ui.horizontal(|ui| {
                     if Button::new(self.theme)
                         .icon(Icon::Save)
@@ -500,34 +509,35 @@ impl DbProApp {
                 });
             });
         if cancel {
-            self.query_session_state.save_as_open = false;
+            self.query.session.save_as_open = false;
         } else if save {
-            let name = self.query_session_state.save_as_name.trim().to_owned();
+            let name = self.query.session.save_as_name.trim().to_owned();
             if name.is_empty() {
                 self.feedback.runtime_message = "Enter a name for the saved query".to_owned();
                 return;
             }
-            let document_index = self.query_session_state.active_document_index;
-            if let Some(document) = self.query_session_state.documents.get_mut(document_index) {
+            let document_index = self.query.session.active_document_index;
+            if let Some(document) = self.query.session.documents.get_mut(document_index) {
                 document.saved_query_id = None;
                 document.title = name;
             }
-            self.query_session_state.save_as_open = false;
+            self.query.session.save_as_open = false;
             self.save_query_document_at(document_index);
         }
     }
 
     pub(super) fn draw_dirty_close_dialog(&mut self, ctx: &egui::Context) {
-        let Some(document_index) = self.query_session_state.pending_dirty_close else {
+        let Some(document_index) = self.query.session.pending_dirty_close else {
             return;
         };
         let Some(title) = self
-            .query_session_state
+            .query
+            .session
             .documents
             .get(document_index)
             .map(|document| document.title.clone())
         else {
-            self.query_session_state.pending_dirty_close = None;
+            self.query.session.pending_dirty_close = None;
             return;
         };
         let mut save = false;
@@ -572,13 +582,13 @@ impl DbProApp {
                 });
             });
         if cancel {
-            self.query_session_state.pending_dirty_close = None;
+            self.query.session.pending_dirty_close = None;
         } else if discard {
-            self.query_session_state.pending_dirty_close = None;
+            self.query.session.pending_dirty_close = None;
             self.close_query_document(document_index);
         } else if save {
-            self.query_session_state.pending_dirty_close = None;
-            self.query_session_state.pending_close_after_save = Some(document_index);
+            self.query.session.pending_dirty_close = None;
+            self.query.session.pending_close_after_save = Some(document_index);
             self.save_query_document_at(document_index);
         }
     }
@@ -739,31 +749,34 @@ impl DbProApp {
 
     pub(crate) fn refresh_diagnostics(&mut self) {
         let driver = self.active_driver().to_owned();
-        let doc_index = self.query_session_state.active_document_index;
+        let doc_index = self.query.session.active_document_index;
         let version = self
-            .query_session_state
+            .query
+            .session
             .documents
             .get(doc_index)
             .map(|doc| doc.buffer.version())
             .unwrap_or(0);
         let cache_key = (doc_index, version);
         let exec_fp = self
-            .query_session_state
+            .query
+            .session
             .documents
             .get(doc_index)
             .and_then(|doc| doc.execution_diagnostic.as_ref())
             .map(|d| d.range);
 
-        if self.query_editor.diagnostics_cache_key == Some(cache_key)
-            && self.query_editor.diagnostics_cache_driver == driver
+        if self.query.editor.diagnostics_cache_key == Some(cache_key)
+            && self.query.editor.diagnostics_cache_driver == driver
         {
             // Cheap path: only rematch when execution diagnostic identity changes.
-            if self.query_editor.diagnostics_exec_fp == exec_fp {
+            if self.query.editor.diagnostics_exec_fp == exec_fp {
                 return;
             }
-            if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
+            if let Some(doc) = self.query.session.documents.get_mut(doc_index) {
                 doc.diagnostics = deduplicate_diagnostics(
-                    self.query_editor
+                    self.query
+                        .editor
                         .diagnostics_lint_structured
                         .iter()
                         .cloned()
@@ -771,38 +784,38 @@ impl DbProApp {
                         .collect(),
                 );
             }
-            self.query_editor.diagnostics_exec_fp = exec_fp;
+            self.query.editor.diagnostics_exec_fp = exec_fp;
             return;
         }
 
         // While typing, defer sqlparser until a short quiet window so keystrokes stay snappy.
         let now = Instant::now();
-        if self.query_editor.diagnostics_debounce_key != Some(cache_key) {
-            self.query_editor.diagnostics_debounce_key = Some(cache_key);
-            self.query_editor.diagnostics_debounce_at = Some(now + Duration::from_millis(180));
+        if self.query.editor.diagnostics_debounce_key != Some(cache_key) {
+            self.query.editor.diagnostics_debounce_key = Some(cache_key);
+            self.query.editor.diagnostics_debounce_at = Some(now + Duration::from_millis(180));
             return;
         }
-        if let Some(deadline) = self.query_editor.diagnostics_debounce_at {
+        if let Some(deadline) = self.query.editor.diagnostics_debounce_at {
             if now < deadline {
                 return;
             }
         }
 
         let lint = self.preferences.settings.editor.lint.clone();
-        if let Some(doc) = self.query_session_state.documents.get_mut(doc_index) {
+        if let Some(doc) = self.query.session.documents.get_mut(doc_index) {
             let (raw_diags, structured) = Self::analyze_sql_diagnostics_with_lint(doc.text(), &driver, &lint);
-            self.query_editor.diagnostics = raw_diags;
-            self.query_editor.diagnostics_lint_structured = structured.clone();
+            self.query.editor.diagnostics = raw_diags;
+            self.query.editor.diagnostics_lint_structured = structured.clone();
             doc.diagnostics =
                 deduplicate_diagnostics(structured.into_iter().chain(doc.execution_diagnostic.clone()).collect());
         } else {
-            self.query_editor.diagnostics =
-                Self::analyze_sql_diagnostics_with_lint(self.query_session_state.active_text(), &driver, &lint).0;
-            self.query_editor.diagnostics_lint_structured.clear();
+            self.query.editor.diagnostics =
+                Self::analyze_sql_diagnostics_with_lint(self.query.session.active_text(), &driver, &lint).0;
+            self.query.editor.diagnostics_lint_structured.clear();
         }
-        self.query_editor.diagnostics_cache_key = Some(cache_key);
-        self.query_editor.diagnostics_cache_driver = driver;
-        self.query_editor.diagnostics_exec_fp = exec_fp;
-        self.query_editor.diagnostics_debounce_at = None;
+        self.query.editor.diagnostics_cache_key = Some(cache_key);
+        self.query.editor.diagnostics_cache_driver = driver;
+        self.query.editor.diagnostics_exec_fp = exec_fp;
+        self.query.editor.diagnostics_debounce_at = None;
     }
 }

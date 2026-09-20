@@ -219,6 +219,8 @@ mod query_documents;
 mod query_editor_panel;
 #[path = "query_editor_state.rs"]
 mod query_editor_state;
+#[path = "query_feature_state.rs"]
+mod query_feature_state;
 #[path = "query_folder_delete_dialog.rs"]
 mod query_folder_delete_dialog;
 #[path = "query_output_state.rs"]
@@ -283,6 +285,7 @@ mod workspace_session_state;
 mod workspace_shell;
 pub(crate) use agent_state::AgentState;
 pub(crate) use query_editor_state::QueryEditorState;
+pub(crate) use query_feature_state::QueryFeatureState;
 pub(crate) use query_output_state::QueryOutputState;
 pub(crate) use query_state::QuerySessionState;
 pub(crate) use result_grid_view::GridSelectionCache;
@@ -348,17 +351,14 @@ pub struct DbProApp {
     preferences: PreferencesState,
     workspace: WorkspaceFeatureState,
     welcome: WelcomeState,
-    query_session_state: QuerySessionState,
-    query_editor: QueryEditorState,
+    query: QueryFeatureState,
     palette: PaletteState,
     agent: AgentState,
     task_bridge: TaskBridge,
     feedback: FeedbackState,
-    query_output_state: QueryOutputState,
     table: TableEditorState,
     overlay: OverlayState,
     connection: ConnectionFeatureState,
-    query_library: QueryLibraryState,
     schema_explorer: SchemaExplorerState,
     audit: AuditState,
     event_trigger: EventTriggerState,
@@ -373,7 +373,6 @@ pub struct DbProApp {
     transfer: TransferState,
     schema_workbench: schema_workbench::SchemaWorkbenchState,
     schema_compare: SchemaCompareState,
-    query_execution: QueryExecutionPolicyState,
     saved_tasks: SavedTaskState,
     diagram: DiagramState,
     /// Counter for initial render frames to ensure window is maximized on startup.
@@ -475,11 +474,12 @@ impl DbProApp {
         self.request_schema_introspection(connection_id.clone(), false);
         let request_id = self.task_bridge.next_request_id();
         self.dispatch_command(
-            self.query_library
+            self.query
+                .library
                 .list_queries_command(request_id, connection_id.clone()),
         );
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.query_library.list_folders_command(request_id, connection_id));
+        self.dispatch_command(self.query.library.list_folders_command(request_id, connection_id));
     }
 
     // Connection read models and shell status are implemented as explicit pure helpers
@@ -644,7 +644,7 @@ impl DbProApp {
             workspace: &mut self.workspace,
             connection: &mut self.connection,
             schema_explorer: &mut self.schema_explorer,
-            query_session_state: &mut self.query_session_state,
+            query_session_state: &mut self.query.session,
             feedback: &mut self.feedback,
             preferences: &self.preferences,
         }
@@ -694,15 +694,12 @@ impl DbProApp {
             || self.connection.lifecycle.pending_request().is_some()
             || self.schema_explorer.schema_request.is_some()
             || self
-                .query_session_state
+                .query
+                .session
                 .documents
                 .iter()
                 .any(|d| d.pending_prediction_request.is_some() || d.prediction_debounce_deadline.is_some())
-            || self
-                .query_session_state
-                .documents
-                .iter()
-                .any(|d| d.explain_request.is_some())
+            || self.query.session.documents.iter().any(|d| d.explain_request.is_some())
             || self
                 .agent
                 .sessions

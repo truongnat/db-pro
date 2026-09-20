@@ -72,7 +72,8 @@ impl DbProApp {
         };
         let absolute_str = absolute.to_string_lossy().into_owned();
         if let Some(index) = self
-            .query_session_state
+            .query
+            .session
             .documents
             .iter()
             .position(|doc| doc.file_path.as_deref() == Some(absolute_str.as_str()))
@@ -101,8 +102,8 @@ impl DbProApp {
         if let Some(mtime) = git_workspace::disk_mtime_secs(&absolute) {
             self.workspace.files.workspace_file_mtimes.insert(absolute_str, mtime);
         }
-        self.query_session_state.documents.push(doc);
-        self.query_session_state.active_document_index = self.query_session_state.documents.len() - 1;
+        self.query.session.documents.push(doc);
+        self.query.session.active_document_index = self.query.session.documents.len() - 1;
         self.workspace.activity = Activity::Queries;
         self.workspace.active_tab = WorkspaceTab::Query;
         self.reset_query_cursor();
@@ -111,9 +112,10 @@ impl DbProApp {
 
     pub(crate) fn save_active_workspace_file(&mut self) -> bool {
         let Some(doc) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get_mut(self.query_session_state.active_document_index)
+            .get_mut(self.query.session.active_document_index)
         else {
             return false;
         };
@@ -144,13 +146,12 @@ impl DbProApp {
             self.feedback.runtime_message = "Split editor closed".to_owned();
             return;
         }
-        if self.query_session_state.documents.len() < 2 {
+        if self.query.session.documents.len() < 2 {
             self.feedback.runtime_message = "Open a second document before splitting".to_owned();
             return;
         }
-        let secondary = if self.query_session_state.active_document_index + 1 < self.query_session_state.documents.len()
-        {
-            self.query_session_state.active_document_index + 1
+        let secondary = if self.query.session.active_document_index + 1 < self.query.session.documents.len() {
+            self.query.session.active_document_index + 1
         } else {
             0
         };
@@ -229,20 +230,21 @@ impl DbProApp {
         self.theme = DbProTheme::dark();
         self.new_query_document();
         if let Some(doc) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get_mut(self.query_session_state.active_document_index)
+            .get_mut(self.query.session.active_document_index)
         {
             doc.set_text("SELECT u.id, u.email\nFROM users u\nWHERE u.active = true;\n");
             doc.dirty = false;
         }
         self.workspace.bottom_panel_open = false;
-        self.query_editor.query_output_dock_maximized = false;
-        self.query_editor.query_params_panel_open = false;
-        self.query_editor.visual_builder.open = false;
-        self.query_editor.editor_search_open = false;
-        self.query_editor.snippets_open = false;
-        self.query_execution.query_txn_bar_open = false;
+        self.query.editor.query_output_dock_maximized = false;
+        self.query.editor.query_params_panel_open = false;
+        self.query.editor.visual_builder.open = false;
+        self.query.editor.editor_search_open = false;
+        self.query.editor.snippets_open = false;
+        self.query.execution.query_txn_bar_open = false;
     }
 
     /// Capture helper: same as query workspace but force light theme.
@@ -324,7 +326,8 @@ impl DbProApp {
             return;
         };
         if let Some(doc) = self
-            .query_session_state
+            .query
+            .session
             .documents
             .iter_mut()
             .find(|doc| doc.file_path.as_deref() == Some(path))

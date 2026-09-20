@@ -27,11 +27,7 @@ pg_settings
 replication
 routine
 security
-query_editor
-query_execution
-query_library
-query_output_state
-query_session_state
+query
 saved_tasks
 schema_explorer
 schema_workbench

@@ -116,7 +116,8 @@ impl DbProApp {
 
                             // 2. Query Documents Tabs
                             let documents: Vec<(usize, String, String)> = self
-                                .query_session_state
+                                .query
+                                .session
                                 .documents
                                 .iter()
                                 .enumerate()
@@ -133,13 +134,14 @@ impl DbProApp {
                             for (index, title, content) in &documents {
                                 let idx = *index;
                                 let selected = self.workspace.active_tab == WorkspaceTab::Query
-                                    && self.query_session_state.active_document_index == idx;
+                                    && self.query.session.active_document_index == idx;
                                 let is_running =
-                                    self.query_session_state.documents.get(idx).is_some_and(|doc| {
+                                    self.query.session.documents.get(idx).is_some_and(|doc| {
                                         matches!(doc.execution_state, QueryExecutionState::Running(_))
                                     });
                                 let unsaved = self
-                                    .query_session_state
+                                    .query
+                                    .session
                                     .documents
                                     .get(idx)
                                     .is_some_and(QueryDocument::is_dirty);
@@ -189,7 +191,7 @@ impl DbProApp {
                                             close_others_idx = Some(idx);
                                             *close_menu = true;
                                         }
-                                        if idx + 1 < self.query_session_state.documents.len()
+                                        if idx + 1 < self.query.session.documents.len()
                                             && ctx_menu_item(
                                                 ui,
                                                 Some(Icon::ArrowRight),

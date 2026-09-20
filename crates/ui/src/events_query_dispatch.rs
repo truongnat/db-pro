@@ -17,7 +17,7 @@ impl DbProApp {
             return;
         }
         if ctx.input(|input| self.shortcut_pressed(input, "query.save")) {
-            self.save_query_document_at(self.query_session_state.active_document_index);
+            self.save_query_document_at(self.query.session.active_document_index);
             return;
         }
         let text_input_has_focus = ctx.wants_keyboard_input();
@@ -45,11 +45,11 @@ impl DbProApp {
             return;
         }
         if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "editor.find")) {
-            self.query_editor.editor_search_open = true;
+            self.query.editor.editor_search_open = true;
         }
         if ctx.input(|i| {
             self.shortcut_pressed(i, "query.run")
-                || (self.query_editor.query_editor_focused
+                || (self.query.editor.query_editor_focused
                     && !self.workspace.agent_open
                     && i.key_pressed(egui::Key::Enter)
                     && Self::primary_modifier_pressed(i))
@@ -57,16 +57,16 @@ impl DbProApp {
             self.dispatch_query();
         }
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            if let Some(request_id) = self.query_session_state.active_running_request() {
+            if let Some(request_id) = self.query.session.active_running_request() {
                 if self.query_capabilities().allows(|c| c.query.cancel) {
                     self.cancel_query(request_id);
                 } else {
                     self.feedback.runtime_message = "Query cancellation is not supported for this provider".to_owned();
                 }
-            } else if self.query_editor.query_tools_open {
-                self.query_editor.query_tools_open = false;
-            } else if self.query_editor.editor_search_open {
-                self.query_editor.editor_search_open = false;
+            } else if self.query.editor.query_tools_open {
+                self.query.editor.query_tools_open = false;
+            } else if self.query.editor.editor_search_open {
+                self.query.editor.editor_search_open = false;
             } else {
                 self.set_agent_open(false, ctx);
             }
@@ -84,7 +84,7 @@ impl DbProApp {
     }
 
     pub(super) fn dispatch_query(&mut self) {
-        if self.query_session_state.active_running_request().is_some() {
+        if self.query.session.active_running_request().is_some() {
             return;
         }
         let Some(connection_id) = self
@@ -96,21 +96,22 @@ impl DbProApp {
             return;
         };
         let (sql, execution_range) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get(self.query_session_state.active_document_index)
+            .get(self.query.session.active_document_index)
             .map(|doc| doc.resolve_executable_range())
             .unwrap_or_else(|| {
                 (
-                    self.query_session_state.active_text().trim().to_owned(),
-                    (0, self.query_session_state.active_text().len()),
+                    self.query.session.active_text().trim().to_owned(),
+                    (0, self.query.session.active_text().len()),
                 )
             });
         if sql.trim().is_empty() {
             self.feedback.runtime_message = "Query is empty".to_owned();
             return;
         }
-        let version = self.query_session_state.active_buffer_version();
+        let version = self.query.session.active_buffer_version();
         if self.hold_destructive_run(&sql, execution_range, version, false) {
             return;
         }
@@ -118,7 +119,7 @@ impl DbProApp {
     }
 
     pub(super) fn dispatch_query_all(&mut self) {
-        if self.query_session_state.active_running_request().is_some() {
+        if self.query.session.active_running_request().is_some() {
             return;
         }
         let Some(connection_id) = self
@@ -130,9 +131,10 @@ impl DbProApp {
             return;
         };
         let (sql, execution_range) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get(self.query_session_state.active_document_index)
+            .get(self.query.session.active_document_index)
             .map(|doc| {
                 let text = doc.text().trim().to_owned();
                 let leading = doc.text().len().saturating_sub(doc.text().trim_start().len());
@@ -140,15 +142,15 @@ impl DbProApp {
             })
             .unwrap_or_else(|| {
                 (
-                    self.query_session_state.active_text().trim().to_owned(),
-                    (0, self.query_session_state.active_text().len()),
+                    self.query.session.active_text().trim().to_owned(),
+                    (0, self.query.session.active_text().len()),
                 )
             });
         if sql.is_empty() {
             self.feedback.runtime_message = "Query is empty".to_owned();
             return;
         }
-        let version = self.query_session_state.active_buffer_version();
+        let version = self.query.session.active_buffer_version();
         if self.hold_destructive_run(&sql, execution_range, version, true) {
             return;
         }
@@ -174,7 +176,7 @@ impl DbProApp {
         {
             return false;
         }
-        self.query_execution.pending_destructive_run = Some(PendingDestructiveRun {
+        self.query.execution.pending_destructive_run = Some(PendingDestructiveRun {
             sql: sql.to_owned(),
             execution_range,
             version,
@@ -189,7 +191,7 @@ impl DbProApp {
     /// the prompt displayed, so a confirmation can never execute something the user did
     /// not see.
     pub(super) fn confirm_pending_destructive_run(&mut self) {
-        let Some(pending) = self.query_execution.pending_destructive_run.take() else {
+        let Some(pending) = self.query.execution.pending_destructive_run.take() else {
             return;
         };
         let Some(connection_id) = self
@@ -211,7 +213,7 @@ impl DbProApp {
 
     /// Drop a held destructive statement without executing it.
     pub(super) fn cancel_pending_destructive_run(&mut self) {
-        if self.query_execution.pending_destructive_run.take().is_some() {
+        if self.query.execution.pending_destructive_run.take().is_some() {
             self.feedback.runtime_message =
                 "Destructive statement cancelled — nothing was sent to the database".to_owned();
         }
@@ -240,9 +242,10 @@ impl DbProApp {
             crate::query::PlaceholderStyle::QuestionMark
         };
         let values = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get(self.query_session_state.active_document_index)
+            .get(self.query.session.active_document_index)
             .map(|doc| doc.parameter_values.clone())
             .unwrap_or_default();
         let (sql, params) = if discovered.is_empty() {
@@ -257,17 +260,18 @@ impl DbProApp {
             }
         };
 
-        if !self.query_editor.query_history.iter().any(|query| query == &sql) {
-            self.query_editor.query_history.push(sql.clone());
-            if self.query_editor.query_history.len() > 20 {
-                self.query_editor.query_history.remove(0);
+        if !self.query.editor.query_history.iter().any(|query| query == &sql) {
+            self.query.editor.query_history.push(sql.clone());
+            if self.query.editor.query_history.len() > 20 {
+                self.query.editor.query_history.remove(0);
             }
         }
         let request_id = self.task_bridge.next_request_id();
         if let Some(doc) = self
-            .query_session_state
+            .query
+            .session
             .documents
-            .get_mut(self.query_session_state.active_document_index)
+            .get_mut(self.query.session.active_document_index)
         {
             doc.execution_state = QueryExecutionState::Running(request_id);
             doc.execution_started_at = Some(Instant::now());
@@ -277,9 +281,7 @@ impl DbProApp {
             doc.executing_version = Some(version);
             doc.last_executed_range = Some(execution_range);
             doc.execution_diagnostic = None;
-            self.query_session_state
-                .document_requests
-                .insert(request_id, doc.id.clone());
+            self.query.session.document_requests.insert(request_id, doc.id.clone());
         }
         self.feedback.runtime_message = if all_statements {
             "Sending full script to runtime…".to_owned()
