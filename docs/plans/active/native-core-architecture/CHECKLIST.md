@@ -27,6 +27,8 @@
 - [x] Table metadata/request aggregate (introspection, paging, filters and table view state).
 - [x] Table mutation/change-set effects aggregate.
 - [x] Agent workspace aggregate.
+- [x] Agent workflow reducer, patch safety, result projection, settings,
+      header, confirmation and quick-action intent boundaries.
 - [x] Query editor/diagnostics/history aggregate.
 - [x] Schema explorer aggregate.
 - [x] Saved-task scheduler and task lifecycle aggregate.
@@ -49,8 +51,8 @@
 - [x] `cargo fmt --all -- --check` (PASS)
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
-- [x] `cargo test -p db-pro-ui --lib` (630 passed)
-- [x] `cargo test --workspace --no-fail-fast --quiet` (PASS at `242b918a`; 0 failed)
+- [x] UI test suite through the workspace gate (639 passed at `bcc9aa2e`)
+- [x] `cargo test --workspace --no-fail-fast --quiet` (PASS at `bcc9aa2e`; 0 failed)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [x] `cargo build --release --locked -p db-pro-native --features capture`
 - [x] New Connection modal runtime capture at logical `1280x800` (centered
@@ -59,4 +61,6 @@
       and schema-object rows.
 - [x] Loading Welcome and New Connection error state captures at logical
       `1280x800`.
+- [x] Latest native release binary left running for manual verification at
+      logical `1280x800` (PID `5415`).
 - [ ] Native runtime evidence for affected surfaces.

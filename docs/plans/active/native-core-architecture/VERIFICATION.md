@@ -1,33 +1,50 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `242b918a`.
+Source checkpoint: `bcc9aa2e`.
 
 ## Current change
 
-The native Explorer interaction boundary is being migrated in vertical slices.
-Connection rows, database nodes, schema nodes, table rows and schema-object
-rows now collect typed intents in view-owned contexts; the composition root
-keeps the stateful reducers and runtime/workspace side effects. The plan
+The native UI interaction boundary is being migrated in vertical slices.
+Explorer rows and the Agent surface now collect typed intents in view-owned
+contexts; Agent workflow reducers, patch safety, result projection,
+confirmation targeting and run preparation are feature-owned. The plan
 remains `IMPLEMENTING` because other large feature surfaces still implement
-rendering directly on the root.
+rendering directly on the root and the full runtime evidence matrix is not
+complete.
 
-## Gate evidence at `242b918a`
+## Gate evidence at `bcc9aa2e`
 
 - `cargo fmt --all -- --check`: passed.
 - `cargo check --workspace`: passed.
 - `cargo clippy --workspace --all-targets -- -D warnings`: passed.
 - `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
-  infrastructure, 32 runtime, 4 Tauri, 630 UI and all other workspace suites
+  infrastructure, 32 runtime, 4 Tauri, 639 UI and all other workspace suites
   passed, with only environment-gated tests ignored.
 - `cargo build --release --locked -p db-pro-native`: passed.
 - `cargo build --release --locked -p db-pro-native --features capture`: passed.
 - `bash scripts/check-ui-architecture.sh`: passed.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
-  passed with no changed production files after the commits.
-- Runtime capture: `/tmp/db-pro-native-core-242b918a.png`, 1280×800, showed
+  passed at the checkpoint; the ratchet reported two existing Agent
+  orchestration-size warnings (`submit_typed_agent_prompt` and
+  `agent_confirmation_action`).
+- Runtime capture: `/tmp/db-pro-native-core-bcc9aa2e.png`, 1280×800, showed
   the centered New Connection dialog with separated header, divider and
   right-aligned close icon. The latest release binary was then left running
-  for manual verification as PID `87302`.
+  for manual verification as PID `5415`.
+
+- `40e875fe`: Agent workflow reducer, SQL patch safety and Agent-result
+  projection moved out of the root state module.
+- `90b72fae`: Agent run preparation became an explicit state transition and
+  unused legacy conversation state was removed.
+- `8720c788`: Agent API-key settings now emit typed intents; command dispatch
+  remains in the composition-root adapter.
+- `40666229`: Agent header mode/clear/close/settings interactions now emit
+  typed intents; session reset is owned by `AgentState`.
+- `68fcb73a`: Agent confirmation target selection, patch application and
+  pending-to-running continuation are feature-owned.
+- `15321ca5`: Agent context quick actions now emit typed submit intents.
+- `bcc9aa2e`: clippy-driven `AgentRunPreparation` DTO and settings condition
+  cleanup; full workspace gates were rerun on this source state.
 
 - `761db9ed`: connection-row painting and context menu now return a typed
   `ConnectionRowAction`; lifecycle/workspace/clipboard/dialog effects remain
