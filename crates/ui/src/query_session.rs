@@ -56,10 +56,6 @@ impl DbProApp {
         }
     }
 
-    pub(crate) fn active_query_running_request(&self) -> Option<crate::RequestId> {
-        self.query_session_state.active_running_request()
-    }
-
     pub(crate) fn switch_query_document(&mut self, index: usize) {
         if index == self.query_session_state.active_document_index || !self.query_session_state.select_document(index) {
             return;

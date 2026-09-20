@@ -57,7 +57,7 @@ impl DbProApp {
             self.dispatch_query();
         }
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            if let Some(request_id) = self.active_query_running_request() {
+            if let Some(request_id) = self.query_session_state.active_running_request() {
                 if self.query_capabilities().allows(|c| c.query.cancel) {
                     self.cancel_query(request_id);
                 } else {
@@ -84,7 +84,7 @@ impl DbProApp {
     }
 
     pub(super) fn dispatch_query(&mut self) {
-        if self.active_query_running_request().is_some() {
+        if self.query_session_state.active_running_request().is_some() {
             return;
         }
         let Some(connection_id) = self
@@ -118,7 +118,7 @@ impl DbProApp {
     }
 
     pub(super) fn dispatch_query_all(&mut self) {
-        if self.active_query_running_request().is_some() {
+        if self.query_session_state.active_running_request().is_some() {
             return;
         }
         let Some(connection_id) = self
