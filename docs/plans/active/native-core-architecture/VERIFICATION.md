@@ -482,7 +482,7 @@ Source checkpoint: `0070d374`.
   `diagram_canvas_view.rs`; `diagram_view.rs` coordinates schema candidates,
   toolbar and Design Mode. Focused UI check, clippy, 632 UI tests,
   architecture guard, clean scan and diff checks PASS.
-- Current source checkpoint: `ebc926e8` on `main`. Full regression gate PASS:
+- Current source checkpoint: `6b258257` on `main`. Full regression gate PASS:
   `cargo fmt --all -- --check`, workspace check, workspace clippy with
   `-D warnings`, workspace tests (`0 failed`), native release build and
   capture-feature release build.
