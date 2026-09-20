@@ -2708,12 +2708,11 @@ impl DbProApp {
         {
             if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                 let request_id = self.task_bridge.next_request_id();
-                self.dispatch_command(UiCommand::CreateRole {
+                self.dispatch_command(self.security.create_role_command(
                     request_id,
                     connection_id,
-                    name: self.security.security_new_role.trim().to_owned(),
-                    login: self.security.security_new_role_login,
-                });
+                    self.security.security_new_role.trim().to_owned(),
+                ));
                 self.security.security_new_role.clear();
             }
         }
@@ -2781,12 +2780,12 @@ impl DbProApp {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                     let password = std::mem::take(&mut self.security.security_password);
                     let request_id = self.task_bridge.next_request_id();
-                    self.dispatch_command(UiCommand::UpdateRolePassword {
+                    self.dispatch_command(self.security.update_password_command(
                         request_id,
                         connection_id,
-                        name: role.clone(),
+                        role.clone(),
                         password,
-                    });
+                    ));
                 }
             }
 
@@ -2813,12 +2812,12 @@ impl DbProApp {
                                 self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(UiCommand::RevokeMembership {
+                                self.dispatch_command(self.security.revoke_membership_command(
                                     request_id,
                                     connection_id,
-                                    role: membership.role,
-                                    member: role.clone(),
-                                });
+                                    membership.role,
+                                    role.clone(),
+                                ));
                             }
                         }
                     });
@@ -2835,12 +2834,12 @@ impl DbProApp {
             {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                     let request_id = self.task_bridge.next_request_id();
-                    self.dispatch_command(UiCommand::GrantMembership {
+                    self.dispatch_command(self.security.grant_membership_command(
                         request_id,
                         connection_id,
-                        role: self.security.security_membership_role.trim().to_owned(),
-                        member: role.clone(),
-                    });
+                        self.security.security_membership_role.trim().to_owned(),
+                        role.clone(),
+                    ));
                     self.security.security_membership_role.clear();
                 }
             }
@@ -2878,15 +2877,12 @@ impl DbProApp {
                                 self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(UiCommand::RevokePrivilege {
+                                self.dispatch_command(self.security.revoke_privilege_command(
                                     request_id,
                                     connection_id,
-                                    role_name: role.clone(),
-                                    object_kind: privs.object_kind,
-                                    schema: privs.schema,
-                                    object_name: privs.object_name,
-                                    privilege: privs.privilege_type,
-                                });
+                                    role.clone(),
+                                    privs,
+                                ));
                             }
                         }
                     });
@@ -2936,15 +2932,7 @@ impl DbProApp {
             {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                     let request_id = self.task_bridge.next_request_id();
-                    self.dispatch_command(UiCommand::GrantPrivilege {
-                        request_id,
-                        connection_id,
-                        role_name: role,
-                        object_kind: self.security.security_grant_kind,
-                        schema: self.security.security_grant_schema.trim().to_owned(),
-                        object_name: self.security.security_grant_object.trim().to_owned(),
-                        privilege: self.security.security_grant_privilege.trim().to_owned(),
-                    });
+                    self.dispatch_command(self.security.grant_privilege_command(request_id, connection_id, role));
                 }
             }
         }
@@ -2962,11 +2950,7 @@ impl DbProApp {
                                 self.connection.lifecycle.active_connection_id().map(str::to_owned)
                             {
                                 let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(UiCommand::DropRole {
-                                    request_id,
-                                    connection_id,
-                                    name,
-                                });
+                                self.dispatch_command(self.security.drop_role_command(request_id, connection_id, name));
                             }
                             self.security.security_drop_confirm = None;
                         }
@@ -3118,10 +3102,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ListUsers {
-            request_id,
-            connection_id,
-        });
+        self.dispatch_command(self.security.list_users_command(request_id, connection_id));
     }
 
     pub(crate) fn request_security_role_details(&mut self, role_name: &str) {
@@ -3129,36 +3110,29 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ListPrivileges {
+        self.dispatch_command(self.security.list_privileges_command(
             request_id,
-            connection_id: connection_id.clone(),
-            role_name: role_name.to_owned(),
-        });
+            connection_id.clone(),
+            role_name.to_owned(),
+        ));
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ListMemberships {
-            request_id,
-            connection_id,
-            member: role_name.to_owned(),
-        });
+        self.dispatch_command(
+            self.security
+                .list_memberships_command(request_id, connection_id, role_name.to_owned()),
+        );
     }
 
     pub(crate) fn request_security_rls(&mut self) {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let schema = self.security.security_rls_schema.trim().to_owned();
-        let table = self.security.security_rls_table.trim().to_owned();
-        if schema.is_empty() || table.is_empty() {
-            self.feedback.runtime_message = "Schema and table are required for RLS inspect".into();
-            return;
-        }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::ListTableRls {
-            request_id,
-            connection_id,
-            schema,
-            table,
-        });
+        match self.security.list_table_rls_command(request_id, connection_id) {
+            Ok(command) => {
+                self.dispatch_command(command);
+            }
+            Err(error) => self.feedback.runtime_message = error,
+        }
     }
 
     fn preview_table_rls(&mut self, force: bool, enable: bool) {
@@ -3238,12 +3212,10 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::AlterRole {
-            request_id,
-            connection_id,
-            name: name.to_owned(),
-            attributes,
-        });
+        self.dispatch_command(
+            self.security
+                .alter_role_command(request_id, connection_id, name.to_owned(), attributes),
+        );
     }
 
     pub(super) fn draw_diagram_sidebar(&mut self, ui: &mut egui::Ui) {
