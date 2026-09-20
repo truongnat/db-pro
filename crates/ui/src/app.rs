@@ -62,10 +62,10 @@ mod component_gallery_view;
 pub mod connection;
 
 pub use component_gallery_view::ComponentGalleryState;
+#[path = "audit_activity_view.rs"]
+mod audit_activity_view;
 #[path = "capability_lookup.rs"]
 mod capability_lookup;
-#[path = "database_management_view.rs"]
-mod database_management_view;
 #[path = "ddl_events.rs"]
 mod ddl_events;
 #[path = "diagram_state.rs"]
@@ -74,6 +74,8 @@ mod diagram_state;
 mod diagram_view;
 #[path = "event_router.rs"]
 mod event_router;
+#[path = "event_trigger_activity_view.rs"]
+mod event_trigger_activity_view;
 #[path = "event_trigger_state.rs"]
 mod event_trigger_state;
 #[path = "events.rs"]
@@ -90,6 +92,8 @@ mod explorer_folders;
 mod explorer_tree;
 #[path = "explorer_view.rs"]
 mod explorer_view;
+#[path = "fdw_activity_view.rs"]
+mod fdw_activity_view;
 #[path = "fdw_state.rs"]
 mod fdw_state;
 #[path = "feedback_state.rs"]
@@ -102,12 +106,16 @@ mod files_activity_view;
 mod git_workspace;
 #[path = "ide_workspace.rs"]
 mod ide_workspace;
+#[path = "maintenance_activity_view.rs"]
+mod maintenance_activity_view;
 #[path = "management_events.rs"]
 mod management_events;
 #[path = "masking.rs"]
 mod masking;
 #[path = "masking_state.rs"]
 mod masking_state;
+#[path = "monitoring_activity_view.rs"]
+mod monitoring_activity_view;
 #[path = "monitoring_state.rs"]
 mod monitoring_state;
 #[path = "navigation_view.rs"]
@@ -118,6 +126,8 @@ mod operation_events;
 mod overlay_state;
 #[path = "palette_state.rs"]
 mod palette_state;
+#[path = "pg_settings_activity_view.rs"]
+mod pg_settings_activity_view;
 #[path = "pg_settings_state.rs"]
 mod pg_settings_state;
 #[path = "preferences_state.rs"]
@@ -144,6 +154,8 @@ mod query_queue_events;
 mod query_result_events;
 #[path = "query_save_events.rs"]
 mod query_save_events;
+#[path = "replication_activity_view.rs"]
+mod replication_activity_view;
 #[path = "replication_state.rs"]
 mod replication_state;
 #[path = "routine_state.rs"]

@@ -410,6 +410,12 @@ Source checkpoint: `0070d374`.
   from the release binary at logical `1280x800` with the New Connection modal
   open; centered card, separated header, right-aligned close control, scroll
   body and footer were visually inspected.
+- Management view topology extraction: deleted the 1490-line aggregate
+  `database_management_view.rs` and split it into seven feature-owned view
+  modules. Monitoring snapshot rendering is now split into health/local,
+  sessions, server stats, workload and confirmation methods. Focused check,
+  632 UI tests, clippy, architecture guard and clean scan all PASS; clean scan
+  reports 14 pass, 2 ratcheted warnings, 0 failures.
 
 ## Not yet proven
 

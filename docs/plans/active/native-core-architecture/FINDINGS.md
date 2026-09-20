@@ -486,3 +486,18 @@ management feature rendering and actions have a named boundary.
 
 Severity: P1 maintainability and feature-boundary risk, resolved for the
 management activity slice.
+
+## F19 — Management feature views were still aggregated after the first split
+
+Evidence at discovery: the first management extraction reduced navigation, but
+left monitoring, audit, FDW, replication, event-trigger and pg-settings views
+inside one 1.5k-line `database_management_view.rs` aggregate.
+
+Fix in the current refactor: deleted that aggregate and published dedicated
+feature view modules (`monitoring_activity_view`, `audit_activity_view`,
+`fdw_activity_view`, `replication_activity_view`, `event_trigger_activity_view`,
+`pg_settings_activity_view`, and `maintenance_activity_view`). Monitoring
+snapshot rendering is further decomposed into health/local, sessions, server
+stats, workload and confirmation surfaces.
+
+Severity: P1 feature-boundary risk, resolved for the management view topology.
