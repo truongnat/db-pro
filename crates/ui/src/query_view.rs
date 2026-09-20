@@ -205,74 +205,27 @@ impl DbProApp {
             .map(|c| (c.id.clone(), c.name.clone(), c.environment.clone()))
             .collect();
 
-        let mut next_conn_id = None;
-        let mut next_schema = None;
-        let mut close = false;
-        let menu_width = 280.0;
-        let menu_position = egui::pos2(anchor.left(), anchor.bottom() + 4.0);
-        let menu = egui::Area::new(egui::Id::new("query_context_picker"))
-            .order(egui::Order::Foreground)
-            .fixed_pos(menu_position)
-            .show(ctx, |ui| {
-                egui::Frame {
-                    fill: self.theme.surface_elevated,
-                    inner_margin: egui::Margin::same(8.0),
-                    rounding: egui::Rounding::same(8.0),
-                    stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
-                    ..Default::default()
+        let context = query_context_picker_view::QueryContextPickerContext {
+            theme: self.theme,
+            current_connection_id: current_conn_id.as_deref(),
+            current_schema: &current_schema,
+            available_schemas: &available_schemas,
+            connections: &connections,
+        };
+        if let Some(action) = query_context_picker_view::draw_picker(&context, ctx, anchor) {
+            match action {
+                query_context_picker_view::QueryContextPickerAction::SelectConnection(id) => {
+                    self.set_document_connection(doc_idx, Some(id));
+                    self.query.editor.query_context_picker_open = false;
                 }
-                .show(ui, |ui| {
-                    ui.set_min_width(menu_width);
-                    ui.label(
-                        RichText::new("Connection")
-                            .small()
-                            .strong()
-                            .color(self.theme.text_muted),
-                    );
-                    ui.add_space(4.0);
-                    egui::ScrollArea::vertical().max_height(180.0).show(ui, |ui| {
-                        for (id, name, environment) in &connections {
-                            let selected = current_conn_id.as_deref() == Some(id.as_str());
-                            let label = if environment.is_empty() {
-                                name.clone()
-                            } else {
-                                format!("{name} · {environment}")
-                            };
-                            if ui.selectable_label(selected, label).clicked() {
-                                next_conn_id = Some(id.clone());
-                                close = true;
-                            }
-                        }
-                    });
-                    ui.separator();
-                    ui.label(RichText::new("Schema").small().strong().color(self.theme.text_muted));
-                    ui.add_space(4.0);
-                    for sch in &available_schemas {
-                        let selected = &current_schema == sch;
-                        if ui.selectable_label(selected, sch).clicked() {
-                            next_schema = Some(sch.clone());
-                            close = true;
-                        }
-                    }
-                });
-            });
-
-        if let Some(cid) = next_conn_id {
-            self.set_document_connection(doc_idx, Some(cid));
-        }
-        if let Some(sch) = next_schema {
-            self.set_document_schema(doc_idx, Some(sch));
-        }
-
-        let clicked_outside = ctx.input(|input| {
-            input.pointer.any_click()
-                && input
-                    .pointer
-                    .interact_pos()
-                    .is_some_and(|position| !menu.response.rect.contains(position) && !anchor.contains(position))
-        });
-        if clicked_outside || close {
-            self.query.editor.query_context_picker_open = false;
+                query_context_picker_view::QueryContextPickerAction::SelectSchema(schema) => {
+                    self.set_document_schema(doc_idx, Some(schema));
+                    self.query.editor.query_context_picker_open = false;
+                }
+                query_context_picker_view::QueryContextPickerAction::Close => {
+                    self.query.editor.query_context_picker_open = false;
+                }
+            }
         }
     }
 
