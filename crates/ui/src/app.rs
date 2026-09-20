@@ -256,6 +256,8 @@ mod query_output_view;
 mod query_search_view;
 #[path = "query_session.rs"]
 mod query_session;
+#[path = "query_snippets.rs"]
+mod query_snippets;
 #[path = "query_state.rs"]
 mod query_state;
 #[path = "query_view.rs"]

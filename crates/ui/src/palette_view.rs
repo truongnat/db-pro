@@ -5,7 +5,7 @@ impl DbProApp {
     /// Build searchable entries for the given mode (schema objects + actions).
     fn palette_entries(&self, mode: PaletteMode) -> Vec<(SearchKind, PaletteItem)> {
         let mut items: Vec<(SearchKind, PaletteItem)> = match mode {
-            PaletteMode::QuickOpen => Self::quick_open_items()
+            PaletteMode::QuickOpen => palette_catalog::quick_open_items()
                 .into_iter()
                 .map(|item| {
                     let kind = if matches!(item.action, PaletteAction::Agent) {
@@ -16,7 +16,7 @@ impl DbProApp {
                     (kind, item)
                 })
                 .collect(),
-            PaletteMode::Commands => Self::command_items()
+            PaletteMode::Commands => palette_catalog::command_items()
                 .into_iter()
                 .map(|item| {
                     let kind = match item.action {
@@ -38,11 +38,11 @@ impl DbProApp {
             items.extend(self.query_history_items());
             items.extend(self.schema_column_items());
             items.extend(self.snippet_items());
-            items.extend(Self::agent_action_items());
+            items.extend(palette_catalog::agent_action_items());
         }
         if mode == PaletteMode::Commands {
             items.extend(self.connection_items());
-            items.extend(Self::agent_action_items());
+            items.extend(palette_catalog::agent_action_items());
         }
         items
     }
@@ -321,7 +321,7 @@ impl DbProApp {
     }
 
     fn snippet_items(&self) -> Vec<(SearchKind, PaletteItem)> {
-        DbProApp::builtin_sql_snippets()
+        query_snippets::builtin_sql_snippets()
             .iter()
             .enumerate()
             .map(|(index, (label, _))| {

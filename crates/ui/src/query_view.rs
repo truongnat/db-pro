@@ -670,7 +670,7 @@ impl DbProApp {
     fn draw_sql_snippets(&mut self, ui: &mut egui::Ui) {
         card_frame(self.theme).show(ui, |ui| {
             ui.label(RichText::new("SQL snippets").strong());
-            for (label, snippet) in Self::builtin_sql_snippets() {
+            for (label, snippet) in query_snippets::builtin_sql_snippets() {
                 if Button::new(self.theme)
                     .text(*label)
                     .variant(ButtonVariant::Secondary)
@@ -683,29 +683,6 @@ impl DbProApp {
                 }
             }
         });
-    }
-
-    pub(crate) fn builtin_sql_snippets() -> &'static [(&'static str, &'static str)] {
-        &[
-            ("SELECT table", "SELECT *\nFROM table_name\nLIMIT 100;"),
-            (
-                "UPDATE by primary key",
-                "UPDATE table_name\nSET column_name = value\nWHERE id = 1;",
-            ),
-            (
-                "INSERT row",
-                "INSERT INTO table_name (column_a, column_b)\nVALUES ($1, $2);",
-            ),
-            ("DELETE with WHERE", "DELETE FROM table_name\nWHERE id = $1;"),
-            (
-                "EXPLAIN ANALYZE",
-                "EXPLAIN (ANALYZE, BUFFERS)\nSELECT *\nFROM table_name\nWHERE id = $1;",
-            ),
-            (
-                "CREATE INDEX",
-                "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_table_column\nON table_name (column_name);",
-            ),
-        ]
     }
 
     /// Parser diagnostics for the current SQL (legacy list — gutter + status count are canonical).

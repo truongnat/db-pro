@@ -83,7 +83,7 @@ impl DbProApp {
         ui.add_space(14.0);
         section_label(ui, "SNIPPETS", self.theme);
         ui.add_space(6.0);
-        for (label, snippet) in Self::builtin_sql_snippets() {
+        for (label, snippet) in query_snippets::builtin_sql_snippets() {
             if sidebar_item(ui, Icon::Braces, label, false, self.theme)
                 .on_hover_text(*snippet)
                 .clicked()
