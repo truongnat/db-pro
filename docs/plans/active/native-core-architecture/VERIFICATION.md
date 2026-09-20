@@ -674,6 +674,14 @@ Source checkpoint: `5d42d5e9`.
   scan (16 pass, 0 warnings). Runtime capture is
   `/tmp/db-pro-native-core-441d3972.png`; the New Connection dialog is
   centered with a separated header and right-aligned close control.
+- Core boundary follow-ups at source SHA `764548e1`: result-grid toolbar,
+  query context strip and grid selection projection now have explicit context
+  or pure-state module boundaries. Full gate PASS: fmt, workspace check,
+  workspace clippy with `-D warnings`, workspace tests (`630` UI tests and
+  `0 failed` overall), native release build, capture-feature release build,
+  architecture guard and clean scan (16 pass, 0 warnings). Runtime capture is
+  `/tmp/db-pro-native-core-764548e1.png`; the New Connection dialog remains
+  centered with a separated header and right-aligned close control.
 
 ## Not yet proven
 

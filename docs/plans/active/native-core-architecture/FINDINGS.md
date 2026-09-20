@@ -1031,6 +1031,46 @@ module.
 
 Severity: P1 feature-boundary risk, resolved for the result-pane header.
 
+## F63 — Result-grid toolbar mixed rendering with root actions
+
+Evidence at discovery: filter controls, copy commands, row-count feedback and
+record inspection toggles were rendered inside `result_grid_view.rs` while
+invoking clipboard and inspector methods on `DbProApp`.
+
+Fix in `6e26738c`: moved toolbar rendering to
+`result_grid_toolbar_view.rs`; it consumes table data/editing and feedback
+context and returns typed copy/inspect actions for the root to apply. The
+architecture guard rejects `DbProApp` from the toolbar module.
+
+Severity: P1 feature-boundary risk, resolved for the result-grid toolbar.
+
+## F64 — Query context strip depended on the composition root
+
+Evidence at discovery: query breadcrumb, connection/schema chip and overflow
+toggle rendering were methods on `DbProApp`, so a local query chrome surface
+read connection lifecycle, query state and editor toggles through the shell.
+
+Fix in `326f800b`: moved the strip to `query_context_view.rs`. The root now
+normalizes connection/schema display data and passes an explicit
+`QueryContextViewContext`; common `truncate_ellipsis` is reused instead of a
+second query-specific truncation helper. The architecture guard rejects
+`DbProApp` from the context module.
+
+Severity: P1 feature-boundary risk, resolved for query context chrome.
+
+## F65 — Grid selection projection primitives lived in a view module
+
+Evidence at discovery: `GridSelectionLookup` and `GridSelectionCache` were
+pure projection/cache types declared beside `DbProApp` grid rendering. This
+made state primitives appear owned by the egui view and forced unrelated table
+state to import the view module.
+
+Fix in `764548e1`: moved both types to `result_grid_projection.rs`; the old
+view and crate-root paths remain explicit re-exports for compatibility, while
+the architecture guard protects the pure module from root coupling.
+
+Severity: P2 layering/maintainability risk, resolved.
+
 ## F35 — Navigation view owned transfer activity
 
 Evidence at discovery: the navigation module rendered backup/restore entry
