@@ -449,72 +449,68 @@ impl DbProApp {
         let row_dirty = self.staged_row_deleted(result, row_index)
             || (0..result.columns.len())
                 .any(|column_index| self.staged_cell_value(result, row_index, column_index).is_some());
-        let row_mutation_error = self
-            .table
-            .data
-            .row_identity_for_result(result, self.table.state.table_info.as_ref(), row_index)
-            .is_some_and(|identity| self.table.mutation.mutation_error_for_identity(&identity));
+        let row_identity =
+            self.table
+                .data
+                .row_identity_for_result(result, self.table.state.table_info.as_ref(), row_index);
+        let row_mutation_error = row_identity
+            .as_ref()
+            .is_some_and(|identity| self.table.mutation.mutation_error_for_identity(identity));
+        let cell_mutation_errors = (0..result.columns.len())
+            .map(|column_index| {
+                row_identity
+                    .as_ref()
+                    .is_some_and(|identity| self.table.mutation.mutation_error_for_cell(identity, column_index))
+            })
+            .collect::<Vec<_>>();
+        let theme = self.theme;
+        let mut renderer = GridRowRenderer { app: self, result };
+        result_grid_row_view::draw_row(
+            ui,
+            result_grid_row_view::GridRowSurfaceContext {
+                row,
+                rows,
+                row_index,
+                display_position: position,
+                row_selected,
+                row_dirty,
+                row_mutation_error,
+                cell_mutation_errors: &cell_mutation_errors,
+                theme,
+            },
+            &mut renderer,
+        );
+    }
+}
 
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing = Vec2::ZERO;
-            let row_number = crate::displayed_row_number(rows.row_offset, row_index);
-            let gutter_resp = result_grid_row_gutter_view::draw_row_gutter(
-                ui,
-                result_grid_row_gutter_view::GridRowGutterContext {
-                    theme: self.theme,
-                    row_number,
-                    selected: row_selected,
-                },
-            );
+struct GridRowRenderer<'a> {
+    app: &'a mut DbProApp,
+    result: &'a UiQueryResult,
+}
 
-            if gutter_resp.clicked() {
-                if self.table.editing.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
-                    return;
-                }
-                self.table.data.selected_cell = None;
-                let modifiers = ui.input(|input| input.modifiers);
-                self.table.data.select_visible_row(
-                    rows.indexes,
-                    &rows.selection_lookup.row_positions,
-                    position,
-                    modifiers.shift,
-                    modifiers.command || modifiers.ctrl,
-                );
-                self.table.data.selection_anchor_cell = None;
-                self.table.editing.data_editing_cell = None;
-                self.table.editing.data_edit_value.clear();
-                self.feedback.copy_status.clear();
-            }
+impl result_grid_row_view::GridRowSurfaceRenderer for GridRowRenderer<'_> {
+    fn on_gutter_click(&mut self, ui: &mut egui::Ui, rows: &GridRows<'_>, position: usize) -> bool {
+        if self.app.table.editing.data_editing_cell.is_some() && !self.app.commit_active_data_edit(self.result) {
+            return false;
+        }
+        self.app.table.data.selected_cell = None;
+        let modifiers = ui.input(|input| input.modifiers);
+        self.app.table.data.select_visible_row(
+            rows.indexes,
+            &rows.selection_lookup.row_positions,
+            position,
+            modifiers.shift,
+            modifiers.command || modifiers.ctrl,
+        );
+        self.app.table.data.selection_anchor_cell = None;
+        self.app.table.editing.data_editing_cell = None;
+        self.app.table.editing.data_edit_value.clear();
+        self.app.feedback.copy_status.clear();
+        true
+    }
 
-            for &column_index in rows.order {
-                let cell = row.get(column_index).unwrap_or(&UiCell::Null);
-                let width = rows.widths.get(column_index).copied().unwrap_or(180.0);
-                self.draw_grid_cell(
-                    ui,
-                    result,
-                    GridCell {
-                        visible_indexes: rows.indexes,
-                        selection_lookup: rows.selection_lookup,
-                        row_index,
-                        column_index,
-                        display_position: position,
-                        row_selected,
-                        row_dirty,
-                        row_mutation_error,
-                        cell_mutation_error: self
-                            .table
-                            .data
-                            .row_identity_for_result(result, self.table.state.table_info.as_ref(), row_index)
-                            .is_some_and(|identity| {
-                                self.table.mutation.mutation_error_for_cell(&identity, column_index)
-                            }),
-                        editable: rows.editable,
-                        width,
-                        cell,
-                    },
-                );
-            }
-        });
+    fn draw_cell(&mut self, ui: &mut egui::Ui, cell: GridCell<'_>) {
+        self.app.draw_grid_cell(ui, self.result, cell);
     }
 }
 

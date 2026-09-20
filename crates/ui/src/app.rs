@@ -314,6 +314,8 @@ mod result_grid_keyboard_view;
 mod result_grid_projection;
 #[path = "result_grid_row_gutter_view.rs"]
 mod result_grid_row_gutter_view;
+#[path = "result_grid_row_view.rs"]
+mod result_grid_row_view;
 #[path = "result_grid_selection.rs"]
 mod result_grid_selection;
 #[path = "result_grid_toolbar_view.rs"]
