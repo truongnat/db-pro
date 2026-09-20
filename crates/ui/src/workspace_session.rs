@@ -165,8 +165,17 @@ fn parse_tab(label: &str) -> WorkspaceTab {
     }
 }
 
-impl DbProApp {
-    pub(crate) fn capture_workspace_session(&self, name: impl Into<String>) -> WorkspaceSession {
+pub(crate) struct WorkspaceSessionContext<'a> {
+    pub(super) workspace: &'a mut WorkspaceFeatureState,
+    pub(super) connection: &'a mut ConnectionFeatureState,
+    pub(super) schema_explorer: &'a mut SchemaExplorerState,
+    pub(super) query_session_state: &'a mut QuerySessionState,
+    pub(super) feedback: &'a mut FeedbackState,
+    pub(super) preferences: &'a PreferencesState,
+}
+
+impl WorkspaceSessionContext<'_> {
+    pub(crate) fn capture(&self, name: impl Into<String>) -> WorkspaceSession {
         let mut session = WorkspaceSession::new_named(name);
         session.activity = activity_label(self.workspace.activity).to_owned();
         session.active_tab = tab_label(self.workspace.active_tab).to_owned();
@@ -193,7 +202,7 @@ impl DbProApp {
         session
     }
 
-    pub(crate) fn apply_workspace_session(&mut self, session: &WorkspaceSession) {
+    pub(crate) fn apply(&mut self, session: &WorkspaceSession) {
         let mut notes = Vec::new();
         self.workspace.activity = parse_activity(&session.activity);
         self.workspace.active_tab = parse_tab(&session.active_tab);
@@ -264,28 +273,28 @@ impl DbProApp {
         }
     }
 
-    pub(crate) fn save_named_workspace_session(&mut self) {
+    pub(crate) fn save_named(&mut self) {
         let name = self.workspace.sessions.name_draft.trim();
         let name = if name.is_empty() {
             format!("Workspace {}", chrono::Utc::now().format("%Y-%m-%d %H:%M"))
         } else {
             name.to_owned()
         };
-        let session = self.capture_workspace_session(name);
+        let session = self.capture(name);
         self.workspace.sessions.name_draft.clear();
         self.workspace.sessions.upsert(session);
         self.feedback.runtime_message = "Named workspace session saved".to_owned();
     }
 
-    pub(crate) fn restore_named_workspace_session(&mut self, id: &str) {
+    pub(crate) fn restore_named(&mut self, id: &str) {
         let Some(session) = self.workspace.sessions.store.get(id).cloned() else {
             self.feedback.runtime_message = "Named session not found".to_owned();
             return;
         };
-        self.apply_workspace_session(&session);
+        self.apply(&session);
     }
 
-    pub(crate) fn duplicate_named_workspace_session(&mut self, id: &str) {
+    pub(crate) fn duplicate_named(&mut self, id: &str) {
         if self.workspace.sessions.duplicate(id).is_none() {
             self.feedback.runtime_message = "Named session not found".to_owned();
             return;
@@ -293,25 +302,25 @@ impl DbProApp {
         self.feedback.runtime_message = "Duplicated workspace session".to_owned();
     }
 
-    pub(crate) fn persist_workspace_sessions(&self, storage: &mut dyn eframe::Storage) {
-        let last = self.capture_workspace_session("Last session");
+    pub(crate) fn persist(&self, storage: &mut dyn eframe::Storage) {
+        let last = self.capture("Last session");
         if let Ok(raw) = serde_json::to_string(&last) {
             storage.set_string(LAST_SESSION_STORAGE_KEY, raw);
         }
         self.workspace.sessions.persist_named_store(storage);
     }
 
-    pub(crate) fn load_named_sessions_from_storage(&mut self, storage: &dyn eframe::Storage) {
+    pub(crate) fn load_named_sessions(&mut self, storage: &dyn eframe::Storage) {
         self.workspace.sessions.load_named_store(storage);
     }
 
-    pub(crate) fn restore_last_workspace_session_from_storage(&mut self, storage: &dyn eframe::Storage) {
+    pub(crate) fn restore_last(&mut self, storage: &dyn eframe::Storage) {
         if !self.preferences.settings.general.restore_tabs_on_startup {
             return;
         }
         if let Some(raw) = storage.get_string(LAST_SESSION_STORAGE_KEY) {
             if let Ok(session) = serde_json::from_str::<WorkspaceSession>(&raw) {
-                self.apply_workspace_session(&session.migrate());
+                self.apply(&session.migrate());
             }
         }
     }

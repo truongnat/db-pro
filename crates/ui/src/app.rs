@@ -1055,6 +1055,41 @@ impl DbProApp {
         }
     }
 
+    fn workspace_session_context(&mut self) -> workspace_session::WorkspaceSessionContext<'_> {
+        workspace_session::WorkspaceSessionContext {
+            workspace: &mut self.workspace,
+            connection: &mut self.connection,
+            schema_explorer: &mut self.schema_explorer,
+            query_session_state: &mut self.query_session_state,
+            feedback: &mut self.feedback,
+            preferences: &self.preferences,
+        }
+    }
+
+    pub(crate) fn save_named_workspace_session(&mut self) {
+        self.workspace_session_context().save_named();
+    }
+
+    pub(crate) fn restore_named_workspace_session(&mut self, id: &str) {
+        self.workspace_session_context().restore_named(id);
+    }
+
+    pub(crate) fn duplicate_named_workspace_session(&mut self, id: &str) {
+        self.workspace_session_context().duplicate_named(id);
+    }
+
+    pub(crate) fn persist_workspace_sessions(&mut self, storage: &mut dyn eframe::Storage) {
+        self.workspace_session_context().persist(storage);
+    }
+
+    pub(crate) fn load_named_sessions_from_storage(&mut self, storage: &dyn eframe::Storage) {
+        self.workspace_session_context().load_named_sessions(storage);
+    }
+
+    pub(crate) fn restore_last_workspace_session_from_storage(&mut self, storage: &dyn eframe::Storage) {
+        self.workspace_session_context().restore_last(storage);
+    }
+
     pub(crate) fn open_agent_prompt(&mut self, prompt: impl Into<String>, ctx: &egui::Context) {
         self.agent.input = prompt.into();
         self.set_agent_open(true, ctx);
