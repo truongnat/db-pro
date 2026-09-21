@@ -268,6 +268,15 @@ for module in "${explicit_state_modules[@]}"; do
     exit 1
   fi
 done
+
+for state_module in "$repo_root"/crates/ui/src/*_state.rs; do
+  [[ "$state_module" == "$repo_root/crates/ui/src/app_state.rs" ]] && continue
+  if rg -n '^impl DbProApp|\bDbProApp\b' "$state_module"; then
+    echo "UI architecture check failed: feature state modules must not depend on DbProApp." >&2
+    exit 1
+  fi
+done
+
 for reducer in \
   "$repo_root/crates/ui/src/agent_events.rs" \
   "$repo_root/crates/ui/src/connection_events.rs" \
