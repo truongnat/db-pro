@@ -58,6 +58,12 @@ tracks both surfaces.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
   passed with 16 checks, 0 warnings and 0 failures.
 - `git diff --check`: passed before the source commit.
+- Full workspace regression after the source and documentation commits passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
 
 The Query output dock now has an explicit `QueryOutputDockContext` for resize
 geometry and tab chrome. The root keeps only the pane callback because result,
