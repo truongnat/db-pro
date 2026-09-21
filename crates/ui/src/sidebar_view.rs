@@ -1,119 +1,48 @@
 //! Primary left sidebar shell: exact-width panel, padded content, and resize grip.
-use super::sidebar_chrome_view::{SidebarChromeAction, SidebarChromeContext};
 use super::*;
-use egui::{vec2, Pos2, Rect, Sense, Stroke};
 
-/// Extra clip width granted around the sidebar content column, in pixels.
+#[path = "sidebar_surface_view.rs"]
+mod sidebar_surface_view;
+
+/// Activity content stays in the root adapter; shell geometry lives in the surface module.
 ///
-/// Layout still stays inside the column; this is only the room a border needs. epaint
-/// strokes a rect *entirely outside* its path (`StrokeKind::Outside`), so a 1px border on a
-/// widget that fills the column — the filter field, the primary action button, the
-/// connection selector — is otherwise cut off flush with the column: it loses both vertical
-/// edges while its horizontal ones survive, because those sit well inside the clip. One
-/// pixel is the least that lets such a border render, and far too little to hide a real
-/// layout overflow.
-const SIDEBAR_CLIP_BLEED: f32 = 1.0;
-
+/// Sidebar content is clipped to the shell surface.
+/// The surface preserves the original clipping and resize behavior.
 impl DbProApp {
     pub(super) fn draw_sidebar(&mut self, ctx: &egui::Context) {
-        // egui SidePanel advances CentralPanel from the *frame response* rect, not
-        // `panel_rect`. Any child that expands `min_rect` past `exact_width` leaves
-        // a dead gutter between our painted splitter and the workspace. Keep the
-        // SidePanel allocation empty/exact, and draw interactive content in a
-        // separate layer clipped to that width.
-        let sidebar_width = self.workspace.sidebar_width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
-        let (panel_left, y_range, full) = self.draw_sidebar_panel(ctx, sidebar_width);
-
-        // IDE-style: breathe on the activity-rail side; keep a clear gap before
-        // the resize splitter so header actions / tree rows are not flush to it.
-        let pad_left = SPACE_SM;
-        let pad_right = SPACE_MD;
-        let pad_y = SPACE_SM;
-        let content_w = (sidebar_width - pad_left - pad_right).max(0.0);
-        let content_rect = Rect::from_min_size(
-            Pos2::new(full.left() + pad_left, full.top() + pad_y),
-            vec2(content_w, (full.height() - 2.0 * pad_y).max(0.0)),
-        );
-
-        // Keep content on the Background-adjacent paint path (raw Ui), not an
-        // `Area(Order::Middle)` window — Middle windows compete with dialog
-        // hit-testing and can leave the palette card under its own dim overlay.
-        // Wheel scroll is fixed by bounding ScrollArea max_height below.
-        {
-            let id = egui::Id::new("dbpro_sidebar_content");
-            let layer_id = egui::LayerId::new(egui::Order::Middle, id);
-            let mut ui = egui::Ui::new(ctx.clone(), layer_id, id, egui::UiBuilder::new().max_rect(content_rect));
-            ui.set_clip_rect(content_rect.expand(SIDEBAR_CLIP_BLEED));
-            ui.set_min_size(content_rect.size());
-            ui.set_max_size(content_rect.size());
-            // Claim the column so wheel hover hit-tests succeed on empty padding.
-            let _ = ui.interact(content_rect, id.with("bg"), Sense::hover());
-            self.draw_sidebar_contents(&mut ui);
-        }
-
-        self.draw_sidebar_resize_handle(ctx, panel_left, y_range);
-    }
-
-    fn draw_sidebar_panel(&self, ctx: &egui::Context, sidebar_width: f32) -> (f32, egui::Rangef, Rect) {
-        let theme = self.theme;
-        let response = egui::SidePanel::left("sidebar")
-            .resizable(false)
-            .exact_width(sidebar_width)
-            .show_separator_line(false)
-            .frame(egui::Frame {
-                fill: theme.surface_panel,
-                inner_margin: egui::Margin::ZERO,
-                outer_margin: egui::Margin::ZERO,
-                stroke: egui::Stroke::NONE,
-                rounding: egui::Rounding::ZERO,
-                shadow: egui::Shadow::NONE,
-            })
-            .show(ctx, |ui| {
-                let panel_origin = ui.max_rect().min;
-                let full = Rect::from_min_size(panel_origin, vec2(sidebar_width, ui.max_rect().height()));
-                ui.painter()
-                    .rect_filled(full, egui::Rounding::ZERO, theme.surface_panel);
-                // Claim exactly `sidebar_width` — nothing else may allocate here.
-                ui.allocate_rect(full, Sense::hover());
-            });
-        let panel_left = response.response.rect.left();
-        let y_range = response.response.rect.y_range();
-        let full = Rect::from_min_size(
-            Pos2::new(panel_left, response.response.rect.top()),
-            vec2(sidebar_width, response.response.rect.height()),
-        );
-        (panel_left, y_range, full)
-    }
-
-    fn draw_sidebar_contents(&mut self, ui: &mut egui::Ui) {
         let active_name = if self.connection.lifecycle.active_connection_id().is_some() {
             self.active_connection_name().to_owned()
         } else {
             "DB Pro".to_owned()
         };
-        let context = SidebarChromeContext {
+        let command_palette_shortcut = Self::format_shortcut(&["Shift", "P"]);
+        let new_connection_shortcut = Self::format_shortcut(&["N"]);
+        let new_query_shortcuts = Self::shortcut_parts(&["T"]);
+        let context = sidebar_surface_view::SidebarSurfaceContext {
             theme: self.theme,
+            sidebar_width: self.workspace.sidebar_width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH),
             active_name: &active_name,
-            command_palette_shortcut: &Self::format_shortcut(&["Shift", "P"]),
-            new_connection_shortcut: &Self::format_shortcut(&["N"]),
-            new_query_shortcuts: &Self::shortcut_parts(&["T"]),
+            command_palette_shortcut: &command_palette_shortcut,
+            new_connection_shortcut: &new_connection_shortcut,
+            new_query_shortcuts: &new_query_shortcuts,
         };
-        for action in context.draw(ui) {
+        for action in sidebar_surface_view::draw(&context, ctx, |ui| self.draw_sidebar_activity_content(ui)) {
             match action {
-                SidebarChromeAction::OpenCommandPalette => self.palette.open(PaletteMode::Commands),
-                SidebarChromeAction::NewConnection => self.connection.open_new(),
-                SidebarChromeAction::NewQuery => {
-                    self.new_query_document();
-                    self.workspace.active_tab = WorkspaceTab::Query;
+                sidebar_surface_view::SidebarSurfaceAction::Chrome(action) => match action {
+                    sidebar_chrome_view::SidebarChromeAction::OpenCommandPalette => {
+                        self.palette.open(PaletteMode::Commands)
+                    }
+                    sidebar_chrome_view::SidebarChromeAction::NewConnection => self.connection.open_new(),
+                    sidebar_chrome_view::SidebarChromeAction::NewQuery => {
+                        self.new_query_document();
+                        self.workspace.active_tab = WorkspaceTab::Query;
+                    }
+                },
+                sidebar_surface_view::SidebarSurfaceAction::Resize(width) => {
+                    self.workspace.set_sidebar_width(width);
                 }
             }
         }
-
-        ui.add_space(SPACE_SM);
-        ui.separator();
-        ui.add_space(SPACE_XS);
-
-        self.draw_sidebar_activity_content(ui);
     }
 
     fn draw_sidebar_activity_content(&mut self, ui: &mut egui::Ui) {
@@ -171,48 +100,5 @@ impl DbProApp {
             Activity::Tasks => self.draw_tasks_activity(ui),
             Activity::Explorer => unreachable!(),
         }
-    }
-
-    /// Drag grip + separator locked to `sidebar_width` from the panel's left edge.
-    fn draw_sidebar_resize_handle(&mut self, ctx: &egui::Context, panel_left: f32, y_range: egui::Rangef) {
-        let theme = self.theme;
-        let sidebar_width = self.workspace.sidebar_width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
-        let grip = ctx.style().interaction.resize_grab_radius_side.max(5.0);
-        let edge_x = panel_left + sidebar_width;
-        let resize_rect = Rect::from_x_y_ranges((edge_x - grip)..=(edge_x + grip), y_range);
-
-        let id = egui::Id::new("dbpro_sidebar_resize");
-        // PanelResizeLine sits between panels and Middle windows — never above
-        // Foreground dialogs/overlays.
-        let layer_id = egui::LayerId::new(egui::Order::PanelResizeLine, id);
-        let mut grip_ui = egui::Ui::new(ctx.clone(), layer_id, id, egui::UiBuilder::new().max_rect(resize_rect));
-        grip_ui.set_clip_rect(ctx.screen_rect());
-        let drag_response = grip_ui.allocate_rect(resize_rect, Sense::drag());
-
-        let hovering = drag_response.hovered();
-        let dragging = drag_response.dragged();
-        if hovering || dragging {
-            ctx.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
-        }
-        if dragging {
-            if let Some(pointer) = ctx
-                .pointer_interact_pos()
-                .or_else(|| drag_response.interact_pointer_pos())
-            {
-                self.workspace.set_sidebar_width(pointer.x - panel_left);
-                ctx.request_repaint();
-            }
-        }
-
-        let stroke = if dragging {
-            Stroke::new(1.5, theme.accent)
-        } else if hovering {
-            Stroke::new(1.0, theme.accent)
-        } else {
-            Stroke::new(1.0, theme.border_subtle)
-        };
-        let painter = ctx.layer_painter(egui::LayerId::background());
-        let line_x = painter.round_to_pixel_center(edge_x - 1.0);
-        painter.vline(line_x, y_range, stroke);
     }
 }

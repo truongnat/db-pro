@@ -2,6 +2,8 @@
 use super::*;
 use egui::Rect;
 
+#[path = "result_grid_cell_editor_surface_view.rs"]
+mod result_grid_cell_editor_surface_view;
 #[path = "result_grid_inspector_surface_view.rs"]
 mod result_grid_inspector_surface_view;
 #[path = "result_grid_record_surface_view.rs"]
@@ -22,36 +24,23 @@ impl DbProApp {
             .is_some_and(|column| column.data_type.to_ascii_lowercase().contains("bool"));
         let is_expanded = self.table.editing.expanded_data_editor == Some((row_index, column_index));
         if !is_expanded {
-            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(cell_rect.shrink(1.0)), |ui| {
-                let response = if is_boolean {
-                    let mut checked = self.table.editing.data_edit_value.eq_ignore_ascii_case("true");
-                    let response = ui.checkbox(&mut checked, "");
-                    if response.changed() {
-                        self.table.editing.data_edit_value = checked.to_string();
-                        self.table.editing.data_edit_error = None;
-                    }
-                    response
-                } else {
-                    ui.add_sized(
-                        ui.available_size(),
-                        TextEdit::singleline(&mut self.table.editing.data_edit_value)
-                            .margin(egui::Margin::symmetric(6.0, 2.0))
-                            .text_color(self.theme.text_primary),
-                    )
+            let action = {
+                let mut context = result_grid_cell_editor_surface_view::CellEditorContext {
+                    theme: self.theme,
+                    is_boolean,
+                    value: &mut self.table.editing.data_edit_value,
+                    error: &mut self.table.editing.data_edit_error,
                 };
-                response.request_focus();
-                if response.changed() {
-                    self.table.editing.data_edit_error = None;
+                result_grid_cell_editor_surface_view::draw(&mut context, ui, cell_rect)
+            };
+            match action {
+                Some(result_grid_cell_editor_surface_view::CellEditorAction::Commit) => {
+                    self.submit_data_cell_edit(result, row_index, column_index);
                 }
-            });
-            let commit = ui.input(|input| input.key_pressed(egui::Key::Enter));
-            if commit {
-                self.submit_data_cell_edit(result, row_index, column_index);
-            } else if ui.input(|input| input.key_pressed(egui::Key::Escape)) {
-                self.table.editing.data_editing_cell = None;
-                self.table.editing.expanded_data_editor = None;
-                self.table.editing.data_edit_value.clear();
-                self.table.editing.data_edit_error = None;
+                Some(result_grid_cell_editor_surface_view::CellEditorAction::Cancel) => {
+                    self.close_data_inspector();
+                }
+                None => {}
             }
             return;
         }
