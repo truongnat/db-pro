@@ -1,6 +1,7 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `bad96b53`.
+Source checkpoint: `4c5b9864` (docs-only follow-up to the fully gated code
+checkpoint `bad96b53`).
 
 ## Current change
 
@@ -35,6 +36,13 @@ matrix is not complete.
   latest release binary from this checkpoint is running in terminal session
   `37627` for manual verification. Explorer table/schema-object runtime capture
   remains pending because deterministic capture has no live schema provider.
+
+- Runtime capture from the rebuilt schema-tree binary:
+  `/tmp/db-pro-native-core-4c5b9864-welcome.png`, logical `1280x800`, was
+  visually inspected and shows the normal Welcome/Explorer empty state. The
+  binary is running in terminal session `47176`. The binary contains the
+  fully gated `4c5b9864` code tree; the only commit after the gate is this
+  documentation update.
 
 ## Gate evidence at `6bbd6b62`
 
@@ -124,6 +132,12 @@ matrix is not complete.
   object actions are returned as typed intents. The complete workspace gate
   passed with 660 UI tests, and the rebuilt release binary is running in
   terminal session `37627`.
+
+- `4c5b9864`: connected database/schema tree rendering now runs through
+  `ExplorerSchemaTreeView`; the root assembles its read model and applies only
+  refresh, schema-activation and schema-object intents. This is a docs-only
+  follow-up to the fully gated code commit `bad96b53`; the rebuilt release
+  binary is running in terminal session `47176`.
 
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and
