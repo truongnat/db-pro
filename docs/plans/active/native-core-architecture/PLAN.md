@@ -72,8 +72,9 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
     Agent thread rendering and panel/context presentation now use explicit
     contexts; Security confirmation, the composed Security surface, monitoring
     presentation and result-grid viewport composition now use the same
-    boundary; query panel geometry, Audit and Event Trigger presentation are
-    now explicit; some dialog/root adapters still require migration.
+    boundary; query panel geometry, Audit, Event Trigger, FDW and Logical
+    Replication presentation are now explicit; some dialog/root adapters still
+    require migration.
 11. Enforce the runtime command boundary as a two-phase transition: prepare
     typed command, dispatch through `TaskBridge`, then commit local pending or
     running state only after dispatch succeeds. This is now applied to the

@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `4c0ba2a4`.
+Source checkpoint: `8d5c1c7c`.
 
 ## Current change
 
@@ -94,6 +94,58 @@ Event Trigger presentation now renders through `EventTriggerSurfaceContext`,
 which owns inventory cards, create form, DDL preview and drop confirmation.
 It emits typed refresh, preview, alter, create and drop actions; command
 builders and provider dispatch remain at the root adapter.
+
+FDW presentation now renders through `FdwSurfaceContext`, which owns inventory
+cards, redacted options, create form, DDL preview and drop confirmation. It
+emits typed refresh, preview, create and drop actions; FDW command builders and
+provider dispatch remain at the root adapter.
+
+Logical Replication presentation now renders through
+`ReplicationSurfaceContext`, which owns inventory cards, redacted subscription
+details, publication creation, DDL preview and drop confirmations. It emits
+typed refresh, preview, create and drop actions; replication command builders
+and provider dispatch remain at the root adapter.
+
+## Gate evidence at `e984bd73`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed for the source checkpoint; documentation changes
+  are recorded after the code commit.
+- Runtime capture: `/tmp/db-pro-native-core-e984bd73.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `59914` for manual verification. Replication provider-state and the full
+  runtime matrix remain unproven.
+
+## Gate evidence at `8d5c1c7c`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- Runtime capture: `/tmp/db-pro-native-core-8d5c1c7c.png`, logical `1280x800`.
+  The inspected New Connection surface remained centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary ran in terminal session `78453`.
+  FDW provider-state and the full runtime matrix remained unproven.
 
 ## Gate evidence at `4c0ba2a4`
 
