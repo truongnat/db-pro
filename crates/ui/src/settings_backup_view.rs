@@ -13,15 +13,41 @@ pub(super) enum SettingsBackupAction {
 pub(super) struct SettingsBackupContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) overlay: &'a mut OverlayState,
+    pub(super) active_driver: &'a str,
+    pub(super) supported: bool,
 }
 
 impl SettingsBackupContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<SettingsBackupAction> {
         let mut actions = Vec::new();
-        self.draw_backup_form(ui, &mut actions);
-        ui.add_space(14.0);
-        self.draw_restore_form(ui, &mut actions);
+        card_frame(self.theme).show(ui, |ui| {
+            section_label(ui, "DATABASE FILES", self.theme);
+            if !self.supported {
+                ui.label(
+                    RichText::new("Backup and restore are unavailable for the active provider")
+                        .small()
+                        .color(self.theme.text_muted),
+                );
+                return;
+            }
+            ui.add_space(10.0);
+            ui.label(RichText::new(self.tool_hint()).small().color(self.theme.text_muted));
+            ui.add_space(10.0);
+            self.draw_backup_form(ui, &mut actions);
+            ui.add_space(14.0);
+            self.draw_restore_form(ui, &mut actions);
+        });
         actions
+    }
+
+    fn tool_hint(&self) -> &'static str {
+        if self.active_driver.eq_ignore_ascii_case("sqlite") {
+            "SQLite uses VACUUM INTO for consistent snapshots (including WAL). Restore refuses while the connection is active — disconnect first."
+        } else if self.active_driver.eq_ignore_ascii_case("mysql") {
+            "MySQL backup/restore is not available yet."
+        } else {
+            "PostgreSQL backups require `pg_dump` on PATH; restores use `psql` (plain) or `pg_restore` (custom). Missing tools are detected before spawn."
+        }
     }
 
     fn draw_backup_form(&mut self, ui: &mut egui::Ui, actions: &mut Vec<SettingsBackupAction>) {

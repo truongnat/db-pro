@@ -6,7 +6,6 @@ use super::settings_keybindings_view::{SettingsKeybindingsAction, SettingsKeybin
 use super::settings_navigation_view::{SettingsNavigationAction, SettingsNavigationContext};
 use super::*;
 use crate::editor::PredictionMode;
-use egui::RichText;
 
 pub(crate) fn apply_settings_state(
     preferences: &mut PreferencesState,
@@ -139,37 +138,16 @@ impl DbProApp {
     }
 
     fn draw_backup_section(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            section_label(ui, "DATABASE FILES", self.theme);
-            if !self.supports_backup_restore() {
-                ui.label(
-                    RichText::new("Backup and restore are unavailable for the active provider")
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-                return;
-            }
-            ui.add_space(10.0);
-            let tool_hint = if self.active_driver().eq_ignore_ascii_case("sqlite") {
-                "SQLite uses VACUUM INTO for consistent snapshots (including WAL). Restore refuses while the connection is active — disconnect first."
-            } else if self.active_driver().eq_ignore_ascii_case("mysql") {
-                "MySQL backup/restore is not available yet."
-            } else {
-                "PostgreSQL backups require `pg_dump` on PATH; restores use `psql` (plain) or `pg_restore` (custom). Missing tools are detected before spawn."
-            };
-            ui.label(
-                RichText::new(tool_hint)
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-            ui.add_space(10.0);
-            let actions = settings_backup_view::SettingsBackupContext {
-                theme: self.theme,
-                overlay: &mut self.overlay,
-            }
-            .draw(ui);
-            self.apply_backup_actions(actions);
-        });
+        let active_driver = self.active_driver().to_owned();
+        let supported = self.supports_backup_restore();
+        let actions = settings_backup_view::SettingsBackupContext {
+            theme: self.theme,
+            overlay: &mut self.overlay,
+            active_driver: &active_driver,
+            supported,
+        }
+        .draw(ui);
+        self.apply_backup_actions(actions);
     }
 
     fn apply_backup_actions(&mut self, actions: Vec<settings_backup_view::SettingsBackupAction>) {
