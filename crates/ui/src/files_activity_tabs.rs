@@ -4,8 +4,9 @@ use super::files_search_view::{FilesSearchAction, FilesSearchContext};
 use super::files_tasks_view::{FilesTasksAction, FilesTasksContext};
 use super::files_tree_view::{FilesTreeAction, FilesTreeContext};
 use super::*;
-use egui::RichText;
-use lucide_icons::Icon;
+
+#[path = "files_secondary_tabs_view.rs"]
+mod files_secondary_tabs_view;
 
 impl DbProApp {
     /// Quiet agent-context strip: icon actions instead of a wrapped button soup.
@@ -157,22 +158,9 @@ impl DbProApp {
 
     pub(super) fn draw_files_migrations_tab(&mut self, ui: &mut egui::Ui) {
         let migrations = self.workspace.files.ide_workspace.detect_migrations();
-        if migrations.is_empty() {
-            ui.label(
-                RichText::new("No migration SQL detected under migrations/ paths.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-            return;
-        }
-        for entry in migrations {
-            let label = format!("{} · {:?}", entry.version, entry.status);
-            if sidebar_item(ui, Icon::FileCode2, &label, false, self.theme)
-                .on_hover_text(&entry.relative_path)
-                .clicked()
-            {
-                self.open_workspace_sql_file(entry.relative_path);
-            }
+        for action in files_secondary_tabs_view::draw_migrations(ui, self.theme, &migrations) {
+            let files_secondary_tabs_view::FilesSecondaryTabAction::OpenFile(path) = action;
+            self.open_workspace_sql_file(path);
         }
     }
 
@@ -212,21 +200,9 @@ impl DbProApp {
 
     pub(super) fn draw_files_graph_tab(&mut self, ui: &mut egui::Ui) {
         let edges = self.workspace.files.ide_workspace.dependency_edges();
-        if edges.is_empty() {
-            ui.label(
-                RichText::new("No FROM/JOIN object references found yet.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-            return;
-        }
-        for edge in edges.into_iter().take(60) {
-            ui.label(
-                RichText::new(format!("{} → {}", edge.from_file, edge.object_name))
-                    .small()
-                    .monospace()
-                    .color(self.theme.text_secondary),
-            );
+        for action in files_secondary_tabs_view::draw_graph(ui, self.theme, &edges) {
+            let files_secondary_tabs_view::FilesSecondaryTabAction::OpenFile(path) = action;
+            self.open_workspace_sql_file(path);
         }
     }
 
