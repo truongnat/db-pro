@@ -147,6 +147,8 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/explorer_connection_node_view.rs"
   "$repo_root/crates/ui/src/explorer_database_node_view.rs"
   "$repo_root/crates/ui/src/explorer_schema_feedback_view.rs"
+  "$repo_root/crates/ui/src/query_dialog_surface_view.rs"
+  "$repo_root/crates/ui/src/query_save_dialog_surface_view.rs"
   "$repo_root/crates/ui/src/explorer_schema_node_view.rs"
   "$repo_root/crates/ui/src/explorer_schema_object_row_view.rs"
   "$repo_root/crates/ui/src/explorer_schema_object_folders_view.rs"

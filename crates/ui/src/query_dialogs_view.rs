@@ -1,9 +1,6 @@
 //! Query destructive-run, export, and SQL diagnostics helpers.
 use super::query_view::write_file_atomically;
 use super::*;
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use egui::RichText;
-use lucide_icons::Icon;
 use std::path::PathBuf;
 
 impl DbProApp {
@@ -11,61 +8,14 @@ impl DbProApp {
         let Some(pending) = self.query.execution.pending_destructive_run().cloned() else {
             return;
         };
-        const PREVIEW_CHARS: usize = 600;
-        let mut open = true;
-        let mut confirmed = false;
-        let mut cancelled = false;
-        Dialog::new(&mut open, "Run Destructive Statement?", self.theme)
-            .id_salt("destructive_run_dialog")
-            .width(560.0)
-            .show(ui, |ui| {
-                ui.label(
-                    RichText::new(if pending.all_statements() {
-                        "The script you are about to run contains a statement that can drop or truncate data. Nothing has been sent yet."
-                    } else {
-                        "This statement can drop or truncate data. Nothing has been sent yet."
-                    })
-                    .color(self.theme.text_primary),
-                );
-                ui.add_space(SPACE_SM);
-                let mut preview = pending.sql().to_owned();
-                if preview.chars().count() > PREVIEW_CHARS {
-                    preview = preview.chars().take(PREVIEW_CHARS).collect::<String>() + "…";
-                }
-                editor_frame(self.theme).show(ui, |ui| {
-                    ui.label(RichText::new(preview).font(font_mono_sm()).color(self.theme.text_secondary));
-                });
-                ui.add_space(SPACE_SM);
-                ui.colored_label(
-                    self.theme.warning,
-                    "It is sent to the server exactly as written; the app cannot undo it.",
-                );
-                ui.add_space(SPACE_MD);
-                ui.horizontal(|ui| {
-                    if Button::new(self.theme)
-                        .text("Run Destructive Statement")
-                        .variant(ButtonVariant::Destructive)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        confirmed = true;
-                    }
-                    if Button::new(self.theme)
-                        .text("Cancel")
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        cancelled = true;
-                    }
-                });
-            });
-        if confirmed {
-            self.confirm_pending_destructive_run();
-        } else if cancelled || !open {
-            self.cancel_pending_destructive_run();
+        match (query_dialog_surface_view::DestructiveDialogContext {
+            theme: self.theme,
+            pending: &pending,
+        })
+        .draw(ui)
+        {
+            query_dialog_surface_view::DestructiveDialogAction::Confirm => self.confirm_pending_destructive_run(),
+            query_dialog_surface_view::DestructiveDialogAction::Cancel => self.cancel_pending_destructive_run(),
         }
     }
 
@@ -73,66 +23,31 @@ impl DbProApp {
         if !self.overlay.export_open {
             return;
         }
-        card_frame(self.theme).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Export results");
-                ui.selectable_value(&mut self.overlay.export_format, "CSV".to_owned(), "CSV");
-                ui.selectable_value(&mut self.overlay.export_format, "TSV".to_owned(), "TSV");
-                ui.selectable_value(&mut self.overlay.export_format, "SQL".to_owned(), "INSERT");
-                ui.selectable_value(&mut self.overlay.export_format, "COPY".to_owned(), "COPY");
-                input(ui, &mut self.overlay.export_path, "output path", 260.0, self.theme);
-                if Button::new(self.theme)
-                    .text("Export")
-                    .variant(ButtonVariant::Default)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    if let Some(result) = result {
-                        self.export_result(result);
-                    }
+        let action = query_dialog_surface_view::ExportDialogContext {
+            theme: self.theme,
+            overlay: &mut self.overlay,
+        }
+        .draw(ui);
+        match action {
+            Some(query_dialog_surface_view::ExportDialogAction::Export) => {
+                if let Some(result) = result {
+                    self.export_result(result);
                 }
-                if Button::new(self.theme)
-                    .text("Cancel")
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.overlay.export_open = false;
-                    self.overlay.export_overwrite_pending = false;
-                }
-            });
-            if self.overlay.export_overwrite_pending {
-                ui.add_space(SPACE_XS);
-                ui.colored_label(
-                    self.theme.warning,
-                    format!("{} already exists. Overwrite it?", self.overlay.export_path.trim()),
-                );
-                ui.horizontal(|ui| {
-                    if Button::new(self.theme)
-                        .text("Overwrite")
-                        .variant(ButtonVariant::Destructive)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        if let Some(result) = result {
-                            self.export_result_confirming_overwrite(result);
-                        }
-                    }
-                    if Button::new(self.theme)
-                        .text("Keep existing file")
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.overlay.export_overwrite_pending = false;
-                    }
-                });
             }
-        });
+            Some(query_dialog_surface_view::ExportDialogAction::Cancel) => {
+                self.overlay.export_open = false;
+                self.overlay.export_overwrite_pending = false;
+            }
+            Some(query_dialog_surface_view::ExportDialogAction::Overwrite) => {
+                if let Some(result) = result {
+                    self.export_result_confirming_overwrite(result);
+                }
+            }
+            Some(query_dialog_surface_view::ExportDialogAction::KeepExisting) => {
+                self.overlay.export_overwrite_pending = false;
+            }
+            None => {}
+        }
     }
 
     pub(crate) fn explain_query(&mut self) {
@@ -285,52 +200,30 @@ impl DbProApp {
         if !self.query.session.save_as_open {
             return;
         }
-        let mut save = false;
-        let mut cancel = false;
-        egui::Window::new("Save Query As")
-            .collapsible(false)
-            .resizable(false)
-            .show(ctx, |ui| {
-                ui.label("Name");
-                ui.text_edit_singleline(&mut self.query.session.save_as_name);
-                ui.horizontal(|ui| {
-                    if Button::new(self.theme)
-                        .icon(Icon::Save)
-                        .text("Save")
-                        .variant(ButtonVariant::Default)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        save = true;
-                    }
-                    if Button::new(self.theme)
-                        .icon(Icon::X)
-                        .text("Cancel")
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        cancel = true;
-                    }
-                });
-            });
-        if cancel {
-            self.query.session.save_as_open = false;
-        } else if save {
-            let name = self.query.session.save_as_name.trim().to_owned();
-            if name.is_empty() {
-                self.feedback.runtime_message = "Enter a name for the saved query".to_owned();
-                return;
+        let action = query_save_dialog_surface_view::SaveAsDialogContext {
+            theme: self.theme,
+            name: &mut self.query.session.save_as_name,
+        }
+        .draw(ctx);
+        match action {
+            Some(query_save_dialog_surface_view::SaveAsDialogAction::Cancel) => {
+                self.query.session.save_as_open = false;
             }
-            let document_index = self.query.session.active_document_index;
-            if let Some(document) = self.query.session.documents.get_mut(document_index) {
-                document.saved_query_id = None;
-                document.title = name;
+            Some(query_save_dialog_surface_view::SaveAsDialogAction::Save) => {
+                let name = self.query.session.save_as_name.trim().to_owned();
+                if name.is_empty() {
+                    self.feedback.runtime_message = "Enter a name for the saved query".to_owned();
+                    return;
+                }
+                let document_index = self.query.session.active_document_index;
+                if let Some(document) = self.query.session.documents.get_mut(document_index) {
+                    document.saved_query_id = None;
+                    document.title = name;
+                }
+                self.query.session.save_as_open = false;
+                self.save_query_document_at(document_index);
             }
-            self.query.session.save_as_open = false;
-            self.save_query_document_at(document_index);
+            None => {}
         }
     }
 
@@ -348,56 +241,25 @@ impl DbProApp {
             self.query.session.pending_dirty_close = None;
             return;
         };
-        let mut save = false;
-        let mut discard = false;
-        let mut cancel = false;
-        egui::Window::new("Unsaved query")
-            .collapsible(false)
-            .resizable(false)
-            .show(ctx, |ui| {
-                ui.label(format!("Save changes to {title} before closing?"));
-                ui.horizontal(|ui| {
-                    if Button::new(self.theme)
-                        .icon(Icon::Save)
-                        .text("Save")
-                        .variant(ButtonVariant::Default)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        save = true;
-                    }
-                    if Button::new(self.theme)
-                        .icon(Icon::Trash2)
-                        .text("Don't Save")
-                        .variant(ButtonVariant::Destructive)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        discard = true;
-                    }
-                    if Button::new(self.theme)
-                        .icon(Icon::X)
-                        .text("Cancel")
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        cancel = true;
-                    }
-                });
-            });
-        if cancel {
-            self.query.session.pending_dirty_close = None;
-        } else if discard {
-            self.query.session.pending_dirty_close = None;
-            self.close_query_document(document_index);
-        } else if save {
-            self.query.session.pending_dirty_close = None;
-            self.query.session.pending_close_after_save = Some(document_index);
-            self.save_query_document_at(document_index);
+        let action = query_save_dialog_surface_view::DirtyCloseDialogContext {
+            theme: self.theme,
+            title: &title,
+        }
+        .draw(ctx);
+        match action {
+            Some(query_save_dialog_surface_view::DirtyCloseDialogAction::Cancel) => {
+                self.query.session.pending_dirty_close = None;
+            }
+            Some(query_save_dialog_surface_view::DirtyCloseDialogAction::Discard) => {
+                self.query.session.pending_dirty_close = None;
+                self.close_query_document(document_index);
+            }
+            Some(query_save_dialog_surface_view::DirtyCloseDialogAction::Save) => {
+                self.query.session.pending_dirty_close = None;
+                self.query.session.pending_close_after_save = Some(document_index);
+                self.save_query_document_at(document_index);
+            }
+            None => {}
         }
     }
 }

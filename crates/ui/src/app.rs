@@ -332,6 +332,8 @@ mod query_context_picker_view;
 mod query_context_view;
 #[path = "query_diagnostics_view.rs"]
 mod query_diagnostics_view;
+#[path = "query_dialog_surface_view.rs"]
+mod query_dialog_surface_view;
 #[path = "query_dialogs_view.rs"]
 mod query_dialogs_view;
 #[path = "query_documents.rs"]
@@ -364,6 +366,8 @@ mod query_parameters_view;
 mod query_results_pane_view;
 #[path = "query_run_control_view.rs"]
 mod query_run_control_view;
+#[path = "query_save_dialog_surface_view.rs"]
+mod query_save_dialog_surface_view;
 #[path = "query_search_view.rs"]
 mod query_search_view;
 #[path = "query_session.rs"]
