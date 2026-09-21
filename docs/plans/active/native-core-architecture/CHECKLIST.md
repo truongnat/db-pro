@@ -34,6 +34,9 @@
 - [x] Query editor/diagnostics/history aggregate.
 - [x] Schema explorer aggregate.
 - [x] Saved-task scheduler and task lifecycle aggregate.
+- [x] Saved Tasks renderer separated into an explicit surface context with
+      typed root actions; scheduler and runtime dispatch remain at the root
+      boundary.
 - [x] Query library, named workspace session and overlay aggregates.
 - [x] Preferences, welcome and shared feedback aggregates.
 - [x] Diagram, workspace files, database operations, palette and query execution policy aggregates.

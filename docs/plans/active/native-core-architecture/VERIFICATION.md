@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `f1df8f36`.
+Source checkpoint: `56973275`.
 
 ## Current change
 
@@ -17,9 +17,33 @@ Runtime-bound request transitions now use a prepare → dispatch → commit shap
 failed dispatches do not leave fake loading, pending, connecting, deleting or
 query-running state behind. This applies to connection/schema/table/query and
 mutation paths, including SQL prediction requests.
+Saved Tasks now follows the same surface boundary: `saved_tasks_surface_view.rs`
+owns egui rendering and emits typed actions, while `tasks_view.rs` keeps only
+draft persistence, scheduler policy, runtime dispatch and the root action
+adapter. Per-payload dispatch is split into focused SQL, backup, export and
+maintenance handlers.
 The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
+
+## Gate evidence at `56973275`
+
+- `cargo check --workspace`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 667 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the exact pre-commit source tree; 15 checks passed, 1 pre-existing
+  `app.rs` size warning was retained by the ratchet, and 0 checks failed.
+- `git diff --check`: passed before commit.
+- Runtime launch: the release binary built from this checkpoint is running in
+  terminal session `43954` for manual verification. No deterministic Saved
+  Tasks interaction capture was collected in this checkpoint.
 
 ## Gate evidence at `f1df8f36`
 

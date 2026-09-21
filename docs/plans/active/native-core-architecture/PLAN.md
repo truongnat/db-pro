@@ -63,8 +63,9 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
 10. Continue the same intent/reducer boundary through the remaining large
     native surfaces. The Agent workflow/settings/header/confirmation/context
     slices, large Settings sections, table surfaces and query execution
-    preparation are now explicit; Explorer adapters, monitoring/security
-    surfaces and some dialog/root adapters still require migration.
+    preparation are now explicit; Saved Tasks rendering now emits typed
+    surface actions; Explorer adapters, monitoring/security surfaces and some
+    dialog/root adapters still require migration.
 11. Enforce the runtime command boundary as a two-phase transition: prepare
     typed command, dispatch through `TaskBridge`, then commit local pending or
     running state only after dispatch succeeds. This is now applied to the
