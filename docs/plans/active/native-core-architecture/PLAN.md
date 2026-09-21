@@ -65,7 +65,9 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
     slices, large Settings sections, table surfaces and query execution
     preparation are now explicit; Saved Tasks, Settings system /
     Appearance/Backup, Welcome, Query dialogs and the shell Output Panel now
-    emit through explicit surface contexts; Explorer adapters,
+    emit through explicit surface contexts; Query output dock geometry and tab
+    chrome now use a dedicated context while pane effects remain at the root;
+    Explorer adapters,
     monitoring/security surfaces and some dialog/root adapters still require
     migration.
 11. Enforce the runtime command boundary as a two-phase transition: prepare

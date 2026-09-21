@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `b0b3d095`.
+Source checkpoint: `ebaed39c`.
 
 ## Current change
 
@@ -39,6 +39,33 @@ owns its panel layout and tab rendering through `ShellOutputPanelContext`;
 The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
+
+The Query output dock now has an explicit `QueryOutputDockContext` for resize
+geometry and tab chrome. The root keeps only the pane callback because result,
+chart, message, explain and history panes dispatch query-specific effects.
+This also removes a duplicate output-tab render call that caused the tab strip
+to be painted twice.
+
+## Gate evidence at `ebaed39c`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the clean post-commit tree; 16 checks passed, 0 warnings and 0
+  failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime launch: the release binary built from this checkpoint is running in
+  terminal session `31444` for manual verification. A dedicated interaction
+  capture for the Query output dock is still pending; launch evidence alone
+  does not satisfy the full runtime surface matrix.
 
 ## Gate evidence at `b0b3d095`
 
