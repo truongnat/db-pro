@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `7dec13d3`.
+Source checkpoint: `de775cc8`.
 
 ## Current change
 
@@ -112,6 +112,46 @@ separated header, right-aligned close icon and typed footer/body actions.
 - Follow-up guard at SHA `f2f58eb0`: `scripts/check-ui-architecture.sh` now
   fails on any direct `egui::Window::new` in native UI code, preserving the
   shared-dialog invariant in future changes.
+
+Result-pane shell follow-up at source SHA `de775cc8`: the result selector,
+row-count/export header, empty state and grid-frame presentation now live in
+`query_results_surface_view.rs`. `query_output_view.rs` keeps the output-tab
+router, typed action application and feature-specific export/destructive
+dialogs; the result-grid renderer remains injected as a callback. The old
+header-only `query_results_pane_view.rs` was removed so the shell has one
+presentation boundary instead of splitting the same surface across two files.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 15 checks, 1 pre-existing file-size warning and 0
+  failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
+- `git diff --check`: passed.
+
+Runtime evidence from the release capture harness:
+
+- At the preceding UI source SHA `7dec13d3`,
+  `/tmp/db-pro-native-core-6e67350e-new-connection.png` documents the New
+  Connection modal at logical `1280x800`: centered card, dim backdrop,
+  separated header, right-aligned close icon, error-free empty form and sticky
+  footer. The matching `/tmp/db-pro-native-core-6e67350e-loading.png` and
+  `/tmp/db-pro-native-core-6e67350e-error.png` document loading and validation
+  error states at the same viewport; the error banner stays inside the shared
+  dialog and the modal remains centered.
+- At current source SHA `de775cc8`,
+  `/tmp/db-pro-native-core-de775cc8-new-1280x800.png` and
+  `/tmp/db-pro-native-core-de775cc8-query-1280x800.png` cover the New
+  Connection and Query editor shells at logical `1280x800`.
+- Additional release captures at the requested `1440x900` logical setting are
+  available as `/tmp/db-pro-native-core-de775cc8-new-1440x900.png` and
+  `/tmp/db-pro-native-core-de775cc8-query-1440x900.png`; the host produced
+  `2880x1676` framebuffer PNGs after title-bar constraints, and the centered
+  dialog/query shell rendered correctly.
+- The PNG framebuffer for the `1280x800` captures is `2560x1600` because the
+  host is Retina-scaled. These captures are temporary local evidence under
+  `/tmp`, not repository assets. The `1920x1080` run did not produce a stable
+  framebuffer on this host and remains a documented environment limitation;
+  the runtime matrix checklist therefore stays open rather than claiming
+  complete viewport coverage.
 
 The Query output dock now has an explicit `QueryOutputDockContext` for resize
 geometry and tab chrome. The root keeps only the pane callback because result,

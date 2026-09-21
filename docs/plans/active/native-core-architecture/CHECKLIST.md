@@ -156,6 +156,9 @@
       Explorer rendering is now explicit; remaining work is the root's
       cross-feature effect adapters and equivalent adapters in other large
       surfaces.
+- [x] Query result-pane shell rendering is owned by an explicit surface
+      context; the root retains only snapshot preparation, grid callback,
+      typed intent application and feature-specific dialog adapters.
 - [x] Architecture boundary check in CI (`scripts/check-ui-architecture.sh`).
 
 ## Gates
