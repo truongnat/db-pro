@@ -43,6 +43,10 @@
       typed runtime actions.
 - [x] Welcome surface separated into an explicit context with typed start,
       connection and draft-query actions.
+- [x] Query destructive/export/save-as/dirty-close dialogs separated into
+      explicit contexts with typed actions.
+- [x] Shell Output Panel separated into an explicit context for panel layout,
+      tab rendering and close/resize state.
 - [x] Query library, named workspace session and overlay aggregates.
 - [x] Preferences, welcome and shared feedback aggregates.
 - [x] Diagram, workspace files, database operations, palette and query execution policy aggregates.

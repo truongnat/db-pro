@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `a919e870`.
+Source checkpoint: `b0b3d095`.
 
 ## Current change
 
@@ -32,9 +32,34 @@ at the root adapter.
 The Welcome surface now renders through `WelcomeSurfaceContext`; it owns the
 responsive start page, connection rows and presentation intent collection,
 while `welcome_view.rs` only applies the typed root actions.
+Query destructive/export/save-as/dirty-close dialogs now render through
+explicit dialog contexts and return typed actions. The shell Output Panel now
+owns its panel layout and tab rendering through `ShellOutputPanelContext`;
+`DbProApp` retains only result selection, persistence and runtime adapters.
 The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
+
+## Gate evidence at `b0b3d095`
+
+- `cargo check --workspace`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 672 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed on the
+  exact pre-commit source tree.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the exact pre-commit source tree; 14 checks passed, 2 inherited
+  `shell_chrome_view.rs` function-size warnings and 1 pre-existing `app.rs`
+  size warning were retained by the ratchet, and 0 checks failed.
+- `git diff --check`: passed before commit.
+- Runtime launch: the latest release binary built from this checkpoint is
+  running in terminal session `19628` for manual verification. No dedicated
+  Output Panel/dialog interaction capture was collected in this checkpoint.
 
 ## Gate evidence at `a919e870`
 
