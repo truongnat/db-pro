@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `ecd3575c`.
+Source checkpoint: `bb76bff4`.
 
 ## Current change
 
@@ -136,6 +136,21 @@ workspace navigation state while painting.
 
 - Focused UI check, clippy, architecture guard and clean-code scan: passed;
   clean scan reported 16 checks, 0 warnings and 0 failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 678 tests, 0 failed.
+- `git diff --check`: passed.
+
+Shell/sidebar composition follow-up at source SHA `bb76bff4`: central-panel
+geometry moved to `shell_frame_view.rs` and is rendered through an immutable
+`ShellFrameContext`; `app_lifecycle.rs` now retains only shell sequencing and
+workspace composition. Queries and History sidebar section layout moved to
+`SidebarQueriesSurfaceContext`, which composes the existing open-query,
+saved-query, history and shortcut renderers and emits one typed action stream.
+The root no longer paints those section headers or coordinates their renderer
+calls directly.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 15 checks, 1 pre-existing `app.rs` size warning and 0
+  failures.
 - `cargo test -p db-pro-ui --quiet`: passed; 678 tests, 0 failed.
 - `git diff --check`: passed.
 

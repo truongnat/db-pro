@@ -162,6 +162,11 @@
 - [x] Activity rail rendering consumes an immutable context and emits typed
       navigation intents; workspace mutation remains in the composition-root
       adapter.
+- [x] Shell central-panel geometry is owned by `ShellFrameContext`; lifecycle
+      only composes feature panels and applies shell actions.
+- [x] Queries and History sidebar composition is owned by
+      `SidebarQueriesSurfaceContext`; the root only applies the unified typed
+      query/library/shortcut action stream.
 - [x] Architecture boundary check in CI (`scripts/check-ui-architecture.sh`).
 
 ## Gates
