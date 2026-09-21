@@ -7,7 +7,6 @@ use super::settings_navigation_view::{SettingsNavigationAction, SettingsNavigati
 use super::*;
 use crate::editor::PredictionMode;
 use egui::RichText;
-use lucide_icons::Icon;
 
 pub(crate) fn apply_settings_state(
     preferences: &mut PreferencesState,
@@ -164,10 +163,42 @@ impl DbProApp {
                     .color(self.theme.text_muted),
             );
             ui.add_space(10.0);
-            self.draw_backup_settings(ui);
-            ui.add_space(14.0);
-            self.draw_restore_settings(ui);
+            let actions = settings_backup_view::SettingsBackupContext {
+                theme: self.theme,
+                overlay: &mut self.overlay,
+            }
+            .draw(ui);
+            self.apply_backup_actions(actions);
         });
+    }
+
+    fn apply_backup_actions(&mut self, actions: Vec<settings_backup_view::SettingsBackupAction>) {
+        use settings_backup_view::SettingsBackupAction;
+
+        for action in actions {
+            match action {
+                SettingsBackupAction::PickBackup => {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.dispatch_command(self.overlay.pick_backup_command(request_id));
+                }
+                SettingsBackupAction::CreateBackup => {
+                    if let Some(connection) = self.active_connection().cloned() {
+                        let request_id = self.task_bridge.next_request_id();
+                        self.dispatch_command(self.overlay.backup_command(request_id, connection.id));
+                    }
+                }
+                SettingsBackupAction::PickRestore => {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.dispatch_command(self.overlay.pick_restore_command(request_id));
+                }
+                SettingsBackupAction::ConfirmRestore => {
+                    if let Some(connection) = self.active_connection().cloned() {
+                        let request_id = self.task_bridge.next_request_id();
+                        self.dispatch_command(self.overlay.restore_command(request_id, connection.id));
+                    }
+                }
+            }
+        }
     }
 
     fn draw_diagnostics_settings(&mut self, ui: &mut egui::Ui) {
@@ -200,70 +231,5 @@ impl DbProApp {
     fn supports_backup_restore(&self) -> bool {
         self.active_capabilities()
             .allows(|capabilities| capabilities.features.backup)
-    }
-
-    fn draw_backup_settings(&mut self, ui: &mut egui::Ui) {
-        ui.label(
-            RichText::new("Backup destination")
-                .small()
-                .color(self.theme.text_secondary),
-        );
-        input_full_width(
-            ui,
-            &mut self.overlay.backup_output_path,
-            "Choose a .sql backup path",
-            self.theme,
-        );
-        ui.horizontal_wrapped(|ui| {
-            if compact_button_with_icon(ui, Icon::FolderOpen, "Choose path", self.theme).clicked() {
-                let request_id = self.task_bridge.next_request_id();
-                self.dispatch_command(self.overlay.pick_backup_command(request_id));
-            }
-            if secondary_button_with_icon(ui, Icon::Archive, "Create backup", self.theme).clicked() {
-                if let Some(connection) = self.active_connection().cloned() {
-                    let request_id = self.task_bridge.next_request_id();
-                    self.dispatch_command(self.overlay.backup_command(request_id, connection.id));
-                }
-            }
-        });
-    }
-
-    fn draw_restore_settings(&mut self, ui: &mut egui::Ui) {
-        ui.label(
-            RichText::new("Restore from backup")
-                .small()
-                .color(self.theme.text_secondary),
-        );
-        input_full_width(
-            ui,
-            &mut self.overlay.restore_input_path,
-            "Choose a backup file",
-            self.theme,
-        );
-        ui.horizontal_wrapped(|ui| {
-            if compact_button_with_icon(ui, Icon::FolderOpen, "Choose file", self.theme).clicked() {
-                let request_id = self.task_bridge.next_request_id();
-                self.dispatch_command(self.overlay.pick_restore_command(request_id));
-            }
-            if secondary_button_with_icon(ui, Icon::RotateCcw, "Restore database", self.theme).clicked() {
-                self.overlay.restore_confirmation = true;
-            }
-        });
-        if self.overlay.restore_confirmation {
-            ui.add_space(10.0);
-            ui.colored_label(self.theme.warning, "Overwrite the active database?");
-            ui.horizontal(|ui| {
-                if danger_button(ui, "Confirm restore", self.theme).clicked() {
-                    if let Some(connection) = self.active_connection().cloned() {
-                        let request_id = self.task_bridge.next_request_id();
-                        self.dispatch_command(self.overlay.restore_command(request_id, connection.id));
-                    }
-                    self.overlay.restore_confirmation = false;
-                }
-                if ghost_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                    self.overlay.restore_confirmation = false;
-                }
-            });
-        }
     }
 }

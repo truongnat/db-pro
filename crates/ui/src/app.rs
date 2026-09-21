@@ -256,6 +256,8 @@ mod saved_task_state;
 mod security_state;
 #[path = "settings_appearance_view.rs"]
 mod settings_appearance_view;
+#[path = "settings_backup_view.rs"]
+mod settings_backup_view;
 #[path = "settings_diagnostics_view.rs"]
 mod settings_diagnostics_view;
 #[path = "settings_editor_view.rs"]
