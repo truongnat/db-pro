@@ -3,7 +3,6 @@
 use super::*;
 use db_pro_core::domain::object_mutation::*;
 use db_pro_core::ports::SqlDialect;
-use egui::RichText;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(super) enum SchemaWorkbenchMode {
@@ -160,136 +159,70 @@ impl DbProApp {
     }
 
     pub(super) fn draw_schema_workbench_sidebar(&mut self, ui: &mut egui::Ui) {
-        section_label(ui, "SCHEMA WORKBENCH", self.theme);
-        ui.add_space(6.0);
-        ui.label(
-            RichText::new("Plan → preview → apply typed object mutations")
-                .small()
-                .color(self.theme.text_muted),
-        );
-        ui.add_space(10.0);
-        for (mode, icon, label) in [
-            (SchemaWorkbenchMode::Table, Icon::Table2, "Table / columns"),
-            (SchemaWorkbenchMode::Column, Icon::Columns3, "Column alter"),
-            (SchemaWorkbenchMode::View, Icon::Eye, "Views"),
-            (SchemaWorkbenchMode::Index, Icon::ListTree, "Indexes"),
-            (SchemaWorkbenchMode::Constraint, Icon::Link, "Constraints"),
-            (SchemaWorkbenchMode::Trigger, Icon::Zap, "Triggers"),
-            (SchemaWorkbenchMode::Sequence, Icon::Hash, "Sequences"),
-            (SchemaWorkbenchMode::Type, Icon::Shapes, "Types / enums"),
-            (SchemaWorkbenchMode::SchemaDb, Icon::Database, "Schema / database"),
-            (SchemaWorkbenchMode::Extension, Icon::Puzzle, "Extensions"),
-            (SchemaWorkbenchMode::Comment, Icon::MessageSquareText, "Comments"),
-            (SchemaWorkbenchMode::Partition, Icon::LayoutGrid, "Partitions"),
-            (SchemaWorkbenchMode::Dependencies, Icon::GitBranch, "Dependencies"),
-            (SchemaWorkbenchMode::Docs, Icon::FileText, "Docs export"),
-        ] {
-            let selected = self.schema.workbench.mode == mode;
-            if sidebar_item(ui, icon, label, selected, self.theme).clicked() {
-                self.schema.workbench.mode = mode;
-                self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
-            }
-            ui.add_space(2.0);
+        let driver = self.active_query_driver().to_owned();
+        let action = {
+            let mut context = schema_workbench_surface_view::SchemaWorkbenchSurfaceContext {
+                theme: self.theme,
+                workbench: &mut self.schema.workbench,
+                can_mutate: false,
+                driver: &driver,
+                edges: &[],
+            };
+            context.draw_sidebar(ui)
+        };
+        if let Some(schema_workbench_surface_view::SchemaWorkbenchSurfaceAction::SelectMode(mode)) = action {
+            self.schema.workbench.mode = mode;
+            self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
         }
     }
 
     pub(super) fn draw_schema_workbench(&mut self, ui: &mut egui::Ui) {
-        ui.set_min_width(ui.available_width());
-        egui::ScrollArea::vertical()
-            .id_salt("schema_workbench_scroll")
-            .show(ui, |ui| {
-                ui.set_min_width(ui.available_width());
-                ui.add_space(SPACE_SM);
-                ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new("Schema Workbench")
-                            .font(font_subheading())
-                            .strong()
-                            .color(self.theme.text_primary),
-                    );
-                    badge(
-                        ui,
-                        self.active_query_driver(),
-                        self.theme.accent_soft,
-                        self.theme.accent,
-                    );
-                });
-                ui.add_space(SPACE_MD);
-
-                match self.schema.workbench.mode {
-                    SchemaWorkbenchMode::Dependencies => self.draw_dependency_navigator(ui),
-                    SchemaWorkbenchMode::Docs => self.draw_docs_export(ui),
-                    _ => {
-                        // Cap form width so fields don't stretch across ultrawide canvases.
-                        let form_width = ui.available_width().min(720.0);
-                        ui.allocate_ui_with_layout(
-                            egui::vec2(form_width, ui.available_height()),
-                            egui::Layout::top_down(egui::Align::Min),
-                            |ui| {
-                                card_frame(self.theme).show(ui, |ui| {
-                                    ui.set_min_width(form_width - 8.0);
-                                    section_label(ui, "DEFINITION", self.theme);
-                                    ui.add_space(SPACE_SM);
-                                    let action = {
-                                        let can_mutate = self.can_mutate_active_connection();
-                                        let mut context = schema_workbench_form::SchemaWorkbenchFormContext {
-                                            theme: self.theme,
-                                            workbench: &mut self.schema.workbench,
-                                            can_mutate,
-                                        };
-                                        schema_workbench_form::draw_workbench_form(&mut context, ui)
-                                    };
-                                    if let Some(action) = action {
-                                        self.apply_workbench_form_action(action);
-                                    }
-                                });
-                                ui.add_space(SPACE_MD);
-                                let action = {
-                                    let can_mutate = self.can_mutate_active_connection();
-                                    let mut context = schema_workbench_form::SchemaWorkbenchFormContext {
-                                        theme: self.theme,
-                                        workbench: &mut self.schema.workbench,
-                                        can_mutate,
-                                    };
-                                    schema_workbench_form::draw_workbench_preview(&mut context, ui)
-                                };
-                                if let Some(action) = action {
-                                    self.apply_workbench_form_action(action);
-                                }
-                            },
-                        );
-                    }
-                }
-            });
-    }
-
-    // Form + preview: `schema_workbench_form.rs`.
-
-    fn draw_dependency_navigator(&mut self, ui: &mut egui::Ui) {
         let edges = self.collect_ui_dependency_edges();
-        let mut context = schema_workbench_secondary_view::SchemaWorkbenchSecondaryContext {
-            theme: self.theme,
-            workbench: &mut self.schema.workbench,
-            edges: &edges,
-        };
-        schema_workbench_secondary_view::draw_dependency_navigator(&mut context, ui);
-    }
-
-    fn draw_docs_export(&mut self, ui: &mut egui::Ui) {
-        let action = {
-            let mut context = schema_workbench_secondary_view::SchemaWorkbenchSecondaryContext {
+        let driver = self.active_query_driver().to_owned();
+        let actions = {
+            let can_mutate = self.can_mutate_active_connection();
+            let mut context = schema_workbench_surface_view::SchemaWorkbenchSurfaceContext {
                 theme: self.theme,
                 workbench: &mut self.schema.workbench,
-                edges: &[],
+                can_mutate,
+                driver: &driver,
+                edges: &edges,
             };
-            schema_workbench_secondary_view::draw_docs_export(&mut context, ui)
+            context.draw_main(ui)
         };
+        for action in actions {
+            self.apply_schema_workbench_surface_action(action);
+        }
+    }
+
+    fn apply_schema_workbench_surface_action(
+        &mut self,
+        action: schema_workbench_surface_view::SchemaWorkbenchSurfaceAction,
+    ) {
         match action {
-            Some(schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::GenerateMarkdown) => {
+            schema_workbench_surface_view::SchemaWorkbenchSurfaceAction::SelectMode(mode) => {
+                self.schema.workbench.mode = mode;
+                self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
+            }
+            schema_workbench_surface_view::SchemaWorkbenchSurfaceAction::Form(action) => {
+                self.apply_workbench_form_action(action);
+            }
+            schema_workbench_surface_view::SchemaWorkbenchSurfaceAction::Secondary(action) => {
+                self.apply_schema_workbench_secondary_action(action);
+            }
+        }
+    }
+
+    fn apply_schema_workbench_secondary_action(
+        &mut self,
+        action: schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction,
+    ) {
+        match action {
+            schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::GenerateMarkdown => {
                 self.schema.workbench.docs_format_html = false;
                 self.schema.workbench.docs_markdown = self.export_schema_docs_markdown();
             }
-            Some(schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::GenerateHtml) => {
+            schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::GenerateHtml => {
                 self.schema.workbench.docs_format_html = true;
                 let md = self.export_schema_docs_markdown();
                 self.schema.workbench.docs_markdown = format!(
@@ -297,14 +230,13 @@ impl DbProApp {
                     md.replace('&', "&amp;").replace('<', "&lt;")
                 );
             }
-            Some(schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::OpenDocsAsQuery(body)) => {
+            schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::OpenDocsAsQuery(body) => {
                 self.new_query_document();
                 if let Some(doc) = self.query.session.documents.last_mut() {
                     doc.set_text(format!("-- Schema docs export\n/*\n{body}\n*/"));
                 }
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
-            None => {}
         }
     }
 
