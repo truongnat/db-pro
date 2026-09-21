@@ -228,45 +228,6 @@ impl TableDataQueryState {
         }
         self.filters.push(filter);
     }
-
-    pub(super) fn load_data_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        schema: String,
-        table: String,
-    ) -> UiCommand {
-        UiCommand::LoadTableData {
-            request_id,
-            connection_id,
-            schema,
-            table,
-            limit: self.limit,
-            offset: self.offset,
-            filters: self.filters.clone(),
-            sorts: self.sorts.clone(),
-        }
-    }
-
-    pub(super) fn load_row_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        schema: String,
-        table: String,
-        filters: Vec<UiTableDataFilter>,
-    ) -> UiCommand {
-        UiCommand::LoadTableData {
-            request_id,
-            connection_id,
-            schema,
-            table,
-            limit: 1,
-            offset: 0,
-            filters,
-            sorts: Vec::new(),
-        }
-    }
 }
 
 #[cfg(test)]

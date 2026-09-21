@@ -1,5 +1,45 @@
 use super::*;
 
+pub(super) struct TableDataTarget {
+    pub(super) connection_id: String,
+    pub(super) schema: String,
+    pub(super) table: String,
+}
+
+pub(super) fn build_load_data_command(
+    state: &TableDataQueryState,
+    request_id: RequestId,
+    target: TableDataTarget,
+) -> UiCommand {
+    UiCommand::LoadTableData {
+        request_id,
+        connection_id: target.connection_id,
+        schema: target.schema,
+        table: target.table,
+        limit: state.limit,
+        offset: state.offset,
+        filters: state.filters.clone(),
+        sorts: state.sorts.clone(),
+    }
+}
+
+pub(super) fn build_load_row_command(
+    request_id: RequestId,
+    target: TableDataTarget,
+    filters: Vec<UiTableDataFilter>,
+) -> UiCommand {
+    UiCommand::LoadTableData {
+        request_id,
+        connection_id: target.connection_id,
+        schema: target.schema,
+        table: target.table,
+        limit: 1,
+        offset: 0,
+        filters,
+        sorts: Vec::new(),
+    }
+}
+
 impl DbProApp {
     pub(crate) fn draw_table_data(&mut self, ui: &mut egui::Ui, table_name: &str) {
         // Temporarily move the result out while rendering. The grid mutates

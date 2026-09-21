@@ -176,10 +176,15 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        let command =
-            self.table
-                .data_query
-                .load_data_command(request_id, connection_id, self.active_schema().to_owned(), table);
+        let command = table_data_view::build_load_data_command(
+            &self.table.data_query,
+            request_id,
+            table_data_view::TableDataTarget {
+                connection_id,
+                schema: self.active_schema().to_owned(),
+                table,
+            },
+        );
         if self.dispatch_command(command) {
             self.table.data_query.request = Some(request_id);
             self.feedback.runtime_message = "Loading table data…".to_owned();

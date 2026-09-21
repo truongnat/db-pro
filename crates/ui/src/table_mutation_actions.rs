@@ -255,11 +255,13 @@ impl DbProApp {
             }
         };
         let request_id = self.task_bridge.next_request_id();
-        let command = self.table.data_query.load_row_command(
+        let command = table_data_view::build_load_row_command(
             request_id,
-            connection_id,
-            self.active_schema().to_owned(),
-            table,
+            table_data_view::TableDataTarget {
+                connection_id,
+                schema: self.active_schema().to_owned(),
+                table,
+            },
             filters,
         );
         if self.dispatch_command(command) {
