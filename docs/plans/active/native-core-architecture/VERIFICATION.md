@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `1b5a6859`.
+Source checkpoint: `fa952484`.
 
 ## Current change
 
@@ -142,6 +142,37 @@ which owns metrics, column filtering, the columns table, cell-level display
 and the centered column-detail dialog. It emits only typed column-selection and
 close actions; `table_structure_view.rs` remains a small root adapter that
 owns the table snapshot, search state and selected-column navigation.
+
+Query snippets now render through `QuerySnippetsContext` and emit an insertion
+intent; document mutation and panel state remain at the query root adapter.
+The unused legacy inline completion and diagnostics renderers were removed,
+along with their dead completion state field.
+
+Table Profile now renders through `table_profile_surface_view.rs`, which owns
+bounded page profiling, empty states and the profile grid. The table root only
+routes the result snapshot. Table-structure loading/error placeholder rendering
+also lives in `TableStructureContext`'s surface module rather than in the
+workspace router.
+
+## Gate evidence at `fa952484`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `32807` for manual verification. The previously inspected New Connection
+  captures at 1280x800, 1440x900 and 1920x1080 remain valid for the unchanged
+  modal surface; provider/runtime state and the full affected-surface matrix
+  remain unproven.
 
 ## Gate evidence at `1b5a6859`
 

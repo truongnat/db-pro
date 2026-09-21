@@ -94,6 +94,11 @@
 - [x] Table structure metrics, columns and column-detail presentation
       separated into an explicit context with typed column-selection/close
       actions; table state and root navigation remain at the adapter.
+- [x] Query snippets presentation separated into an explicit context with a
+      typed insertion action; document mutation remains at the root adapter.
+- [x] Table profile grid, bounded page profiling and structure loading/error
+      placeholder presentation separated into explicit surfaces; table routing
+      and state remain at the root adapters.
 - [x] Workspace Migrations and Graph tabs separated into explicit renderers
       with typed file-open intents; file navigation remains at the root
       adapter.
