@@ -170,6 +170,8 @@ mod masking;
 mod masking_state;
 #[path = "monitoring_activity_view.rs"]
 mod monitoring_activity_view;
+#[path = "monitoring_snapshot_view.rs"]
+mod monitoring_snapshot_view;
 #[path = "monitoring_state.rs"]
 mod monitoring_state;
 #[path = "navigation_view.rs"]
