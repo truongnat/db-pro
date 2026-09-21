@@ -1,5 +1,4 @@
 //! Keyboard shortcuts and query dispatch / destructive-run gate.
-use super::events::PendingDestructiveRun;
 use super::*;
 
 impl DbProApp {
@@ -171,27 +170,15 @@ impl DbProApp {
         version: u64,
         all_statements: bool,
     ) -> bool {
-        if db_pro_core::domain::safety::classify_script_safety(sql)
-            != Some(db_pro_core::domain::safety::StatementSafety::Destructive)
-        {
-            return false;
-        }
-        self.query.execution.pending_destructive_run = Some(PendingDestructiveRun {
-            sql: sql.to_owned(),
-            execution_range,
-            version,
-            all_statements,
-        });
-        self.feedback.runtime_message =
-            "Destructive statement held for confirmation — nothing was sent to the database".to_owned();
-        true
+        self.query_execution_context()
+            .hold_destructive_run(sql, execution_range, version, all_statements)
     }
 
     /// Send the statement the user confirmed. The text and the buffer version are the ones
     /// the prompt displayed, so a confirmation can never execute something the user did
     /// not see.
     pub(super) fn confirm_pending_destructive_run(&mut self) {
-        let Some(pending) = self.query.execution.pending_destructive_run.take() else {
+        let Some(pending) = self.query_execution_context().take_pending_destructive_run() else {
             return;
         };
         let Some(connection_id) = self
@@ -204,19 +191,16 @@ impl DbProApp {
         };
         self.send_query_run(
             connection_id,
-            pending.sql,
-            pending.execution_range,
-            pending.version,
-            pending.all_statements,
+            pending.sql().to_owned(),
+            pending.execution_range(),
+            pending.version(),
+            pending.all_statements(),
         );
     }
 
     /// Drop a held destructive statement without executing it.
     pub(super) fn cancel_pending_destructive_run(&mut self) {
-        if self.query.execution.pending_destructive_run.take().is_some() {
-            self.feedback.runtime_message =
-                "Destructive statement cancelled — nothing was sent to the database".to_owned();
-        }
+        self.query_execution_context().cancel_pending_destructive_run();
     }
 
     pub(crate) fn send_query_run(
@@ -227,80 +211,28 @@ impl DbProApp {
         version: u64,
         all_statements: bool,
     ) {
-        let discovered = crate::query::discover_sql_parameters(&sql);
-        if all_statements && !discovered.is_empty() {
-            self.feedback.runtime_message =
-                "Parameterized scripts are not supported yet — run a single statement with bindings".to_owned();
-            return;
-        }
-
-        let style = if self.active_driver().eq_ignore_ascii_case("postgresql")
-            || self.active_driver().eq_ignore_ascii_case("postgres")
-        {
-            crate::query::PlaceholderStyle::NumberedDollar
-        } else {
-            crate::query::PlaceholderStyle::QuestionMark
-        };
-        let values = self
-            .query
-            .session
-            .documents
-            .get(self.query.session.active_document_index)
-            .map(|doc| doc.parameter_values.clone())
-            .unwrap_or_default();
-        let (sql, params) = if discovered.is_empty() {
-            (sql, Vec::new())
-        } else {
-            match crate::query::prepare_bound_sql(&sql, &values, style) {
-                Ok(prepared) => (prepared.sql, prepared.values),
-                Err(missing) => {
-                    self.feedback.runtime_message = format!("Fill parameter {missing} before running");
-                    return;
-                }
-            }
-        };
-
-        if !self.query.editor.query_history.iter().any(|query| query == &sql) {
-            self.query.editor.query_history.push(sql.clone());
-            if self.query.editor.query_history.len() > 20 {
-                self.query.editor.query_history.remove(0);
-            }
-        }
         let request_id = self.task_bridge.next_request_id();
-        if let Some(doc) = self
-            .query
-            .session
-            .documents
-            .get_mut(self.query.session.active_document_index)
-        {
-            doc.execution_state = QueryExecutionState::Running(request_id);
-            doc.execution_started_at = Some(Instant::now());
-            doc.execution_started_wall_time = Some(chrono::Utc::now().to_rfc3339());
-            doc.executing_range = Some(execution_range);
-            doc.executing_sql = Some(sql.clone());
-            doc.executing_version = Some(version);
-            doc.last_executed_range = Some(execution_range);
-            doc.execution_diagnostic = None;
-            self.query.session.document_requests.insert(request_id, doc.id.clone());
-        }
-        self.feedback.runtime_message = if all_statements {
-            "Sending full script to runtime…".to_owned()
-        } else {
-            "Sending query to runtime…".to_owned()
+        let Some(command) = self.query_execution_context().prepare_query_run(
+            request_id,
+            connection_id,
+            sql,
+            execution_range,
+            version,
+            all_statements,
+        ) else {
+            return;
         };
-        self.dispatch_command(if all_statements {
-            UiCommand::RunQueryMulti {
-                request_id,
-                connection_id,
-                sql,
-            }
-        } else {
-            UiCommand::RunQuery {
-                request_id,
-                connection_id,
-                sql,
-                params,
-            }
-        });
+        self.dispatch_command(command);
+    }
+
+    fn query_execution_context(&mut self) -> query_execution_actions::QueryExecutionContext<'_> {
+        let driver = self.active_driver().to_owned();
+        query_execution_actions::QueryExecutionContext::new(
+            &mut self.query.session,
+            &mut self.query.editor,
+            &mut self.query.execution,
+            &mut self.feedback,
+            driver,
+        )
     }
 }

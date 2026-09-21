@@ -176,7 +176,7 @@ impl DbProApp {
         self.schema.explorer.record_recent_table(table);
         self.schema.explorer.selected_schema_object = None;
         self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
-        self.reset_table_workspace_state();
+        self.table.reset_workspace();
         let scope = TableDataState::layout_scope(
             self.connection.lifecycle.active_connection_id(),
             self.active_schema(),
@@ -189,38 +189,6 @@ impl DbProApp {
         self.request_table_info();
         self.request_table_data();
         self.workspace.active_tab = WorkspaceTab::Table;
-    }
-
-    /// Clears every table-workspace field. Shared by "select a table" and
-    /// "connect to a connection" so both start from an identical slate.
-    pub(super) fn reset_table_workspace_state(&mut self) {
-        self.table.state.table_info = None;
-        self.table.state.table_ddl = None;
-        self.table.state.table_info_error = None;
-        self.table.state.table_ddl_error = None;
-        self.table.state.ddl_execute_confirmation = false;
-        self.table.state.ddl_execution_request = None;
-        self.table.data_query.reset_for_table();
-        self.table.state.table_info_request = None;
-        self.table.state.table_ddl_request = None;
-        self.table.mutation.table_mutation_request = None;
-        self.table.mutation.staged_changes.clear();
-        self.table.mutation.staged_apply_request = None;
-        self.table.mutation.staged_apply_targets.clear();
-        self.table.mutation.table_mutation_retry_after_reload = false;
-        self.table.mutation.table_mutation_retry_target = None;
-        self.table.mutation.table_mutation_error = None;
-        self.table.data.selected_cell = None;
-        self.table.data.selected_row = None;
-        self.table.data.selected_rows.clear();
-        self.table.data.selection_anchor_row = None;
-        self.table.data.selection_anchor_cell = None;
-        self.table.editing.data_editing_cell = None;
-        self.table.editing.data_edit_value.clear();
-        self.table.editing.data_edit_error = None;
-        self.table.editing.data_delete_confirmation = false;
-        self.table.editing.discard_changes_confirmation = false;
-        self.table.state.table_view = TableView::Data;
     }
 
     /// Nested detail folders shown under a selected, expanded table.

@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 impl DbProApp {
     pub(super) fn draw_destructive_run_dialog(&mut self, ui: &mut egui::Ui) {
-        let Some(pending) = self.query.execution.pending_destructive_run.clone() else {
+        let Some(pending) = self.query.execution.pending_destructive_run().cloned() else {
             return;
         };
         const PREVIEW_CHARS: usize = 600;
@@ -20,7 +20,7 @@ impl DbProApp {
             .width(560.0)
             .show(ui, |ui| {
                 ui.label(
-                    RichText::new(if pending.all_statements {
+                    RichText::new(if pending.all_statements() {
                         "The script you are about to run contains a statement that can drop or truncate data. Nothing has been sent yet."
                     } else {
                         "This statement can drop or truncate data. Nothing has been sent yet."
@@ -28,7 +28,7 @@ impl DbProApp {
                     .color(self.theme.text_primary),
                 );
                 ui.add_space(SPACE_SM);
-                let mut preview = pending.sql.clone();
+                let mut preview = pending.sql().to_owned();
                 if preview.chars().count() > PREVIEW_CHARS {
                     preview = preview.chars().take(PREVIEW_CHARS).collect::<String>() + "…";
                 }

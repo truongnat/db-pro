@@ -6103,11 +6103,10 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
     let pending = app
         .query
         .execution
-        .pending_destructive_run
-        .as_ref()
+        .pending_destructive_run()
         .expect("the statement must be held for confirmation");
-    assert_eq!(pending.sql, "DROP TABLE users");
-    assert!(!pending.all_statements);
+    assert_eq!(pending.sql(), "DROP TABLE users");
+    assert!(!pending.all_statements());
     assert!(app.feedback.runtime_message.contains("held for confirmation"));
 
     app.confirm_pending_destructive_run();
@@ -6116,7 +6115,7 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
         panic!("expected RunQuery command");
     };
     assert_eq!(sql, "DROP TABLE users");
-    assert!(app.query.execution.pending_destructive_run.is_none());
+    assert!(app.query.execution.pending_destructive_run().is_none());
 }
 
 #[test]
@@ -6143,14 +6142,14 @@ fn cancelling_a_held_destructive_statement_sends_nothing() {
     app.set_active_query_text("TRUNCATE users");
 
     app.dispatch_query();
-    assert!(app.query.execution.pending_destructive_run.is_some());
+    assert!(app.query.execution.pending_destructive_run().is_some());
     app.cancel_pending_destructive_run();
 
     assert!(
         command_rx.try_recv().is_err(),
         "a cancelled statement must never be dispatched"
     );
-    assert!(app.query.execution.pending_destructive_run.is_none());
+    assert!(app.query.execution.pending_destructive_run().is_none());
     assert!(app.feedback.runtime_message.contains("cancelled"));
 }
 
@@ -6190,7 +6189,7 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
         app.dispatch_query();
 
         assert!(
-            app.query.execution.pending_destructive_run.is_none(),
+            app.query.execution.pending_destructive_run().is_none(),
             "{sql} must not be gated"
         );
         let UiCommand::RunQuery { sql: dispatched, .. } = command_rx
@@ -6234,11 +6233,10 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
     let pending = app
         .query
         .execution
-        .pending_destructive_run
-        .as_ref()
+        .pending_destructive_run()
         .expect("script must be held");
     assert!(
-        pending.all_statements,
+        pending.all_statements(),
         "a run-all must be dispatched as a script on confirm"
     );
 
@@ -6252,7 +6250,7 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
     app.set_active_query_text("SELECT 1;\nSELECT 2;");
     app.query.session.documents[0].execution_state = QueryExecutionState::Idle;
     app.dispatch_query_all();
-    assert!(app.query.execution.pending_destructive_run.is_none());
+    assert!(app.query.execution.pending_destructive_run().is_none());
     assert!(
         command_rx.try_recv().is_ok(),
         "a read-only script must dispatch immediately"

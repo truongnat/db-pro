@@ -154,7 +154,7 @@ impl DbProApp {
         self.schema.explorer.schema_symbol_index = SchemaSymbolIndex::default();
         self.schema.explorer.selected_table = None;
         self.schema.explorer.selected_schema_object = None;
-        self.reset_table_workspace_state();
+        self.table.reset_workspace();
         self.schema.explorer.explorer_search.clear();
         let request_id = self.task_bridge.next_request_id();
         self.connection.lifecycle.set_connected(false);

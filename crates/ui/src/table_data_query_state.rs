@@ -123,6 +123,112 @@ impl TableDataQueryState {
         operators
     }
 
+    pub(crate) fn commit_filter_draft(&mut self, table_info: Option<&UiTableInfo>) -> Result<bool, String> {
+        let column = self.filter_column.trim();
+        if column.is_empty() {
+            return Ok(false);
+        }
+        let is_null_operator = matches!(
+            self.filter_operator,
+            UiTableFilterOperator::IsNull | UiTableFilterOperator::IsNotNull
+        );
+        let data_type = table_info
+            .and_then(|info| info.columns.iter().find(|item| item.name == column))
+            .map(|item| item.data_type.clone())
+            .unwrap_or_else(|| "text".to_owned());
+        if !Self::filter_operator_supported(&data_type, &self.filter_operator) {
+            return Err(format!("That filter operator is not supported for {data_type}"));
+        }
+        if !is_null_operator
+            && self.filter_value.is_empty()
+            && !table_editor_values::is_text_type(&data_type.to_ascii_lowercase())
+        {
+            return Err("Enter a filter value first".to_owned());
+        }
+        if !is_null_operator {
+            table_editor_values::parse_update_value(&self.filter_value, &data_type)
+                .map_err(|error| format!("Invalid filter for {column}: {error}"))?;
+        }
+        let filter = UiTableDataFilter {
+            column: column.to_owned(),
+            data_type,
+            operator: self.filter_operator.clone(),
+            value: if is_null_operator {
+                String::new()
+            } else {
+                self.filter_value.clone()
+            },
+        };
+        self.replace_or_append_filter(filter);
+        Ok(true)
+    }
+
+    pub(crate) fn remove_filter(&mut self, index: usize) -> bool {
+        if index >= self.filters.len() {
+            return false;
+        }
+        self.filters.remove(index);
+        self.filter_editing = match self.filter_editing {
+            Some(editing) if editing == index => None,
+            Some(editing) if editing > index => Some(editing - 1),
+            other => other,
+        };
+        true
+    }
+
+    pub(crate) fn clear_filters(&mut self) {
+        self.filters.clear();
+        self.filter_editing = None;
+    }
+
+    pub(crate) fn set_sort(&mut self, column: Option<String>, descending: Option<bool>) {
+        self.sorts = match (column, descending) {
+            (Some(column), Some(descending)) => vec![UiTableDataSort { column, descending }],
+            _ => Vec::new(),
+        };
+    }
+
+    pub(crate) fn cycle_sort(&mut self, column: String, additive: bool) {
+        if additive {
+            self.cycle_additive_sort(column);
+            return;
+        }
+        if self.sorts.len() == 1 && self.sorts.first().is_some_and(|sort| sort.column == column) {
+            if self.sorts[0].descending {
+                self.sorts.clear();
+            } else {
+                self.sorts[0].descending = true;
+            }
+            return;
+        }
+        self.set_sort(Some(column), Some(false));
+    }
+
+    fn cycle_additive_sort(&mut self, column: String) {
+        if let Some(index) = self.sorts.iter().position(|sort| sort.column == column) {
+            if self.sorts[index].descending {
+                self.sorts.remove(index);
+            } else {
+                self.sorts[index].descending = true;
+            }
+        } else {
+            self.sorts.push(UiTableDataSort {
+                column,
+                descending: false,
+            });
+        }
+    }
+
+    fn replace_or_append_filter(&mut self, filter: UiTableDataFilter) {
+        if let Some(index) = self.filter_editing.take() {
+            if let Some(existing) = self.filters.get_mut(index) {
+                *existing = filter;
+                return;
+            }
+        }
+        self.filters.push(filter);
+    }
+
     pub(super) fn load_data_command(
         &self,
         request_id: RequestId,
@@ -160,5 +266,109 @@ impl TableDataQueryState {
             filters,
             sorts: Vec::new(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::UiTableColumn;
+
+    fn table_info(data_type: &str) -> UiTableInfo {
+        UiTableInfo {
+            schema: "public".to_owned(),
+            name: "orders".to_owned(),
+            row_count: None,
+            columns: vec![UiTableColumn {
+                name: "amount".to_owned(),
+                data_type: data_type.to_owned(),
+                ..Default::default()
+            }],
+            primary_key: None,
+            indexes: Vec::new(),
+            foreign_keys: Vec::new(),
+            check_constraints: Vec::new(),
+            dependencies: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn commit_filter_draft_validates_typed_values_before_mutating_filters() {
+        let mut state = TableDataQueryState {
+            filter_column: "amount".to_owned(),
+            filter_operator: UiTableFilterOperator::GreaterThan,
+            filter_value: "10.00".to_owned(),
+            ..Default::default()
+        };
+
+        assert_eq!(state.commit_filter_draft(Some(&table_info("numeric(12,2)"))), Ok(true));
+        assert_eq!(state.filters.len(), 1);
+        assert_eq!(state.filters[0].value, "10.00");
+
+        state.filter_value = "not-a-number".to_owned();
+        assert!(state.commit_filter_draft(Some(&table_info("numeric(12,2)"))).is_err());
+        assert_eq!(state.filters[0].value, "10.00");
+    }
+
+    #[test]
+    fn commit_filter_draft_replaces_the_selected_filter_and_normalizes_null_values() {
+        let mut state = TableDataQueryState {
+            filter_column: "amount".to_owned(),
+            filter_operator: UiTableFilterOperator::Equals,
+            filter_value: "10".to_owned(),
+            ..Default::default()
+        };
+        assert_eq!(state.commit_filter_draft(Some(&table_info("integer"))), Ok(true));
+
+        state.filter_editing = Some(0);
+        state.filter_operator = UiTableFilterOperator::IsNull;
+        state.filter_value = "ignored".to_owned();
+        assert_eq!(state.commit_filter_draft(Some(&table_info("integer"))), Ok(true));
+        assert_eq!(state.filters.len(), 1);
+        assert_eq!(state.filters[0].value, "");
+        assert_eq!(state.filters[0].operator, UiTableFilterOperator::IsNull);
+    }
+
+    #[test]
+    fn removing_filters_keeps_edit_index_consistent() {
+        let mut state = TableDataQueryState {
+            filters: vec![
+                UiTableDataFilter {
+                    column: "a".to_owned(),
+                    data_type: "text".to_owned(),
+                    operator: UiTableFilterOperator::Equals,
+                    value: "one".to_owned(),
+                },
+                UiTableDataFilter {
+                    column: "b".to_owned(),
+                    data_type: "text".to_owned(),
+                    operator: UiTableFilterOperator::Equals,
+                    value: "two".to_owned(),
+                },
+            ],
+            filter_editing: Some(1),
+            ..Default::default()
+        };
+
+        assert!(state.remove_filter(0));
+        assert_eq!(state.filter_editing, Some(0));
+        assert!(!state.remove_filter(9));
+    }
+
+    #[test]
+    fn sort_transitions_preserve_single_and_additive_cycle_semantics() {
+        let mut state = TableDataQueryState::default();
+
+        state.set_sort(Some("amount".to_owned()), Some(false));
+        state.cycle_sort("amount".to_owned(), false);
+        assert!(state.sorts[0].descending);
+        state.cycle_sort("amount".to_owned(), false);
+        assert!(state.sorts.is_empty());
+
+        state.cycle_sort("amount".to_owned(), true);
+        state.cycle_sort("created_at".to_owned(), true);
+        assert_eq!(state.sorts.len(), 2);
+        state.cycle_sort("amount".to_owned(), true);
+        assert!(state.sorts[0].descending);
     }
 }

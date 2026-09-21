@@ -1,5 +1,52 @@
 use super::*;
 
+/// A statement (or script) the classifier rates `Destructive`, held until the user
+/// confirms the exact text the prompt displayed.
+#[derive(Debug, Clone)]
+pub(crate) struct PendingDestructiveRun {
+    sql: String,
+    metadata: PendingDestructiveRunMetadata,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PendingDestructiveRunMetadata {
+    execution_range: (usize, usize),
+    version: u64,
+    all_statements: bool,
+}
+
+impl PendingDestructiveRunMetadata {
+    pub(crate) fn new(execution_range: (usize, usize), version: u64, all_statements: bool) -> Self {
+        Self {
+            execution_range,
+            version,
+            all_statements,
+        }
+    }
+}
+
+impl PendingDestructiveRun {
+    pub(crate) fn new(sql: String, metadata: PendingDestructiveRunMetadata) -> Self {
+        Self { sql, metadata }
+    }
+
+    pub(crate) fn sql(&self) -> &str {
+        &self.sql
+    }
+
+    pub(crate) fn execution_range(&self) -> (usize, usize) {
+        self.metadata.execution_range
+    }
+
+    pub(crate) fn version(&self) -> u64 {
+        self.metadata.version
+    }
+
+    pub(crate) fn all_statements(&self) -> bool {
+        self.metadata.all_statements
+    }
+}
+
 /// Execution-policy state for the query workspace.
 ///
 /// Editor content belongs to `QuerySessionState`/`QueryEditorState`; this
@@ -13,7 +60,7 @@ pub(crate) struct QueryExecutionPolicyState {
     pub(super) query_txn_pending: usize,
     pub(super) disconnect_txn_guard: bool,
     pub(super) query_txn_bar_open: bool,
-    pub(super) pending_destructive_run: Option<events::PendingDestructiveRun>,
+    pending_destructive_run: Option<PendingDestructiveRun>,
 }
 
 impl Default for QueryExecutionPolicyState {
@@ -33,6 +80,18 @@ impl Default for QueryExecutionPolicyState {
 }
 
 impl QueryExecutionPolicyState {
+    pub(crate) fn pending_destructive_run(&self) -> Option<&PendingDestructiveRun> {
+        self.pending_destructive_run.as_ref()
+    }
+
+    pub(crate) fn set_pending_destructive_run(&mut self, pending: PendingDestructiveRun) {
+        self.pending_destructive_run = Some(pending);
+    }
+
+    pub(crate) fn take_pending_destructive_run(&mut self) -> Option<PendingDestructiveRun> {
+        self.pending_destructive_run.take()
+    }
+
     pub(super) fn apply_transaction_action(
         &mut self,
         action: crate::components::TransactionAction,
@@ -84,7 +143,7 @@ mod tests {
         assert!(state.query_auto_commit);
         assert!(!state.query_in_transaction);
         assert_eq!(state.query_txn_pending, 0);
-        assert!(state.pending_destructive_run.is_none());
+        assert!(state.pending_destructive_run().is_none());
         assert!(!state.pending_explain_analyze);
     }
 

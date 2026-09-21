@@ -169,15 +169,8 @@ impl DbProApp {
                 self.feedback.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
                 return;
             }
-            self.table.data_query.sorts = descending
-                .and_then(|_| {
-                    result.columns.get(column_index).map(|column| UiTableDataSort {
-                        column: column.name.clone(),
-                        descending: descending.unwrap_or(false),
-                    })
-                })
-                .into_iter()
-                .collect();
+            let column = result.columns.get(column_index).map(|column| column.name.clone());
+            self.table.data_query.set_sort(column, descending);
             self.table.data.grid_sort_column = None;
             self.table.data.grid_sort_desc = false;
             self.reload_table_data_from_start();
@@ -198,39 +191,7 @@ impl DbProApp {
         let Some(column) = result.columns.get(column_index).map(|column| column.name.clone()) else {
             return;
         };
-        if additive {
-            if let Some(index) = self
-                .table
-                .data_query
-                .sorts
-                .iter()
-                .position(|sort| sort.column == column)
-            {
-                if self.table.data_query.sorts[index].descending {
-                    self.table.data_query.sorts.remove(index);
-                } else {
-                    self.table.data_query.sorts[index].descending = true;
-                }
-            } else {
-                self.table.data_query.sorts.push(UiTableDataSort {
-                    column,
-                    descending: false,
-                });
-            }
-        } else if self.table.data_query.sorts.len() == 1
-            && self.table.data_query.sorts.first().map(|sort| sort.column.as_str()) == Some(column.as_str())
-        {
-            if self.table.data_query.sorts[0].descending {
-                self.table.data_query.sorts.clear();
-            } else {
-                self.table.data_query.sorts[0].descending = true;
-            }
-        } else {
-            self.table.data_query.sorts = vec![UiTableDataSort {
-                column,
-                descending: false,
-            }];
-        }
+        self.table.data_query.cycle_sort(column, additive);
         self.table.data.grid_sort_column = None;
         self.table.data.grid_sort_desc = false;
         self.reload_table_data_from_start();
@@ -279,11 +240,7 @@ impl DbProApp {
     }
 
     fn clear_grid_selection(&mut self) {
-        self.table.data.selected_cell = None;
-        self.table.data.selected_row = None;
-        self.table.data.selected_rows.clear();
-        self.table.data.selection_anchor_row = None;
-        self.table.data.selection_anchor_cell = None;
+        self.table.data.clear_selection();
         self.feedback.copy_status.clear();
     }
 

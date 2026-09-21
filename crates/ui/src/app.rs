@@ -19,7 +19,7 @@ use crate::{
 use eframe::egui::{self, Align, FontId, Layout, RichText, Sense, TextEdit, TopBottomPanel};
 use lucide_icons::Icon;
 use std::collections::{BTreeSet, HashMap};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use agent_workflow_state::AgentUiSession;
 use change_set::{ChangeSet, MutationFailure, MutationTarget, RowIdentity, StagedChange};
@@ -200,6 +200,8 @@ mod pg_settings_activity_view;
 mod pg_settings_state;
 #[path = "preferences_state.rs"]
 mod preferences_state;
+#[path = "query_execution_actions.rs"]
+mod query_execution_actions;
 #[path = "query_execution_events.rs"]
 mod query_execution_events;
 #[path = "query_execution_state.rs"]
@@ -228,6 +230,8 @@ mod replication_activity_view;
 mod replication_state;
 #[path = "routine_state.rs"]
 mod routine_state;
+#[path = "routine_workbench_surface_view.rs"]
+mod routine_workbench_surface_view;
 #[path = "saved_task_state.rs"]
 mod saved_task_state;
 #[path = "security_state.rs"]
@@ -342,6 +346,8 @@ mod query_session;
 mod query_snippets;
 #[path = "query_state.rs"]
 mod query_state;
+#[path = "query_status_bar_surface_view.rs"]
+mod query_status_bar_surface_view;
 #[path = "query_view.rs"]
 mod query_view;
 #[path = "result_grid_cell.rs"]
@@ -398,6 +404,8 @@ mod sidebar_query_shortcuts_view;
 mod sidebar_view;
 #[path = "synthetic_data.rs"]
 mod synthetic_data;
+#[path = "table_conflict_dialog_surface.rs"]
+mod table_conflict_dialog_surface;
 #[path = "table_data_filter_view.rs"]
 mod table_data_filter_view;
 #[path = "table_data_mutation_toolbar_view.rs"]
@@ -412,6 +420,8 @@ mod table_data_query_state;
 mod table_data_sort_view;
 #[path = "table_data_state.rs"]
 mod table_data_state;
+#[path = "table_data_toolbar_surface_view.rs"]
+mod table_data_toolbar_surface_view;
 #[path = "table_data_view.rs"]
 mod table_data_view;
 #[path = "table_editing_state.rs"]
@@ -422,6 +432,8 @@ mod table_editor_state;
 mod table_events;
 #[path = "table_mutation_actions.rs"]
 mod table_mutation_actions;
+#[path = "table_mutation_dialog_surface.rs"]
+mod table_mutation_dialog_surface;
 #[path = "table_mutation_dialogs_view.rs"]
 mod table_mutation_dialogs_view;
 #[path = "table_mutation_state.rs"]
@@ -504,6 +516,8 @@ mod security_role_details_view;
 mod security_roles_view;
 #[path = "shell_chrome_view.rs"]
 mod shell_chrome_view;
+#[path = "table_ddl_surface_view.rs"]
+mod table_ddl_surface_view;
 #[path = "table_ddl_view.rs"]
 mod table_ddl_view;
 #[path = "table_editor_context.rs"]
@@ -512,8 +526,12 @@ mod table_editor_context;
 mod table_editor_values;
 #[path = "table_editor_view.rs"]
 mod table_editor_view;
+#[path = "table_insert_row_surface_view.rs"]
+mod table_insert_row_surface_view;
 #[path = "table_insert_row_view.rs"]
 mod table_insert_row_view;
+#[path = "table_metadata_surface_view.rs"]
+mod table_metadata_surface_view;
 #[path = "table_metadata_view.rs"]
 mod table_metadata_view;
 #[path = "table_relations_surface_view.rs"]
