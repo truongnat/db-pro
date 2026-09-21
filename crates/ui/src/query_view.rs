@@ -4,6 +4,9 @@ use std::time::Instant;
 #[path = "query_layout_surface_view.rs"]
 mod query_layout_surface_view;
 
+#[path = "query_snippets_surface_view.rs"]
+mod query_snippets_surface_view;
+
 /// Egress note shown with the AI prediction control (#242).
 ///
 /// Inline prediction can still schedule without a click — default is `Subtle`
@@ -339,86 +342,12 @@ impl DbProApp {
 }
 
 impl DbProApp {
-    /// Keyword / table / column completion list (legacy inline card — floating popup is canonical).
-    #[allow(dead_code)]
-    fn draw_sql_completion(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            ui.label(RichText::new("SQL completion").strong());
-            let uses_positional = !self.query_capabilities().allows(|caps| caps.query.numbered_parameters);
-            let mut candidates = vec![
-                "SELECT".to_owned(),
-                "FROM".to_owned(),
-                "WHERE".to_owned(),
-                "JOIN".to_owned(),
-                "GROUP BY".to_owned(),
-                "ORDER BY".to_owned(),
-                "LIMIT".to_owned(),
-                "COUNT(*)".to_owned(),
-            ];
-            if uses_positional {
-                candidates.extend(["GLOB", "strftime", "WITHOUT ROWID"].into_iter().map(str::to_owned));
-            } else {
-                candidates.extend(
-                    ["ILIKE", "RETURNING", "jsonb_build_object"]
-                        .into_iter()
-                        .map(str::to_owned),
-                );
-            }
-            candidates.extend(self.active_schema_table_names());
-            candidates.extend(self.active_schema_column_names());
-            candidates.extend(self.schema.explorer.schema.views.iter().map(|view| view.name.clone()));
-            candidates.extend(
-                self.schema
-                    .explorer
-                    .schema
-                    .functions
-                    .iter()
-                    .map(|function| function.name.clone()),
-            );
-            for keyword in candidates.iter() {
-                if ui
-                    .selectable_label(false, keyword)
-                    .on_hover_text("Insert SQL keyword or expression")
-                    .clicked()
-                {
-                    self.append_to_active_query(keyword);
-                    self.query.editor.completion_open = false;
-                }
-            }
-        });
-    }
-
     /// Quick SQL snippet inserters.
     fn draw_sql_snippets(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            ui.label(RichText::new("SQL snippets").strong());
-            for (label, snippet) in query_snippets::builtin_sql_snippets() {
-                if Button::new(self.theme)
-                    .text(*label)
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.insert_snippet(snippet);
-                    self.query.editor.snippets_open = false;
-                }
-            }
-        });
-    }
-
-    /// Parser diagnostics for the current SQL (legacy list — gutter + status count are canonical).
-    #[allow(dead_code)]
-    fn draw_diagnostics(&mut self, ui: &mut egui::Ui) {
-        if self.query.editor.diagnostics.is_empty() {
-            return;
-        }
-        ui.colored_label(
-            self.theme.warning,
-            format!("Diagnostics · {}", self.query.editor.diagnostics.len()),
-        );
-        for diagnostic in &self.query.editor.diagnostics {
-            ui.colored_label(self.theme.warning, format!("• {diagnostic}"));
+        let context = query_snippets_surface_view::QuerySnippetsContext { theme: self.theme };
+        if let Some(query_snippets_surface_view::QuerySnippetsAction::Insert(snippet)) = context.draw(ui) {
+            self.insert_snippet(snippet);
+            self.query.editor.snippets_open = false;
         }
     }
 
