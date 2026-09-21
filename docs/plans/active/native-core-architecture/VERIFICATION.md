@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `d7dda78f`.
+Source checkpoint: `1d1d92ab`.
 
 ## Current change
 
@@ -53,6 +53,14 @@ matrix is not complete.
   feature context. The full workspace gate passed again with 655 UI tests, and
   the latest release binary is running for manual verification in terminal
   session `84390`.
+
+- `1d1d92ab`: Explorer connection connect/disconnect transitions now use an
+  explicit `ExplorerConnectionContext`. Transaction/staged-change guards,
+  connection-scoped schema/table/Agent resets and lifecycle request state are
+  feature-owned; `DbProApp` retains only request allocation and command
+  dispatch. The complete workspace gate passed with 657 UI tests, and the
+  latest release binary is running for manual verification in terminal session
+  `18507`.
 
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and

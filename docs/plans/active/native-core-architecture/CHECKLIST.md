@@ -80,6 +80,6 @@
       and schema-object rows.
 - [x] Loading Welcome and New Connection error state captures at logical
       `1280x800`.
-- [x] Latest native release binary rebuilt on `d7dda78f`; runtime launch is
+- [x] Latest native release binary rebuilt on `1d1d92ab`; runtime launch is
       recorded below, but no new screenshot was collected for this checkpoint.
 - [ ] Native runtime evidence for affected surfaces.
