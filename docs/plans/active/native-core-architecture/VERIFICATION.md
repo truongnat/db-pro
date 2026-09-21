@@ -2096,6 +2096,11 @@ keeps task policy and execution effects.
   `cargo clippy -p db-pro-ui --all-targets -- -D warnings` and
   `cargo test -p db-pro-ui --lib --quiet` passed; 683 UI tests passed with no
   failures.
+- Full workspace gate rerun after `20d1e190`: `cargo fmt --all -- --check`,
+  `cargo check --workspace`, `cargo clippy --workspace --all-targets --
+  -D warnings` and `cargo test --workspace --no-fail-fast --quiet` passed;
+  404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and
+  683 UI tests passed, with only environment-gated tests ignored.
 - `cargo test --workspace --no-fail-fast --quiet`: passed; workspace suites
   include 404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34,
   31 and 681 UI tests with no failures. Environment-gated tests remain
