@@ -206,6 +206,8 @@ mod query_execution_actions;
 mod query_execution_events;
 #[path = "query_execution_state.rs"]
 mod query_execution_state;
+#[path = "query_explain_actions.rs"]
+mod query_explain_actions;
 #[path = "query_failure_events.rs"]
 mod query_failure_events;
 #[path = "query_history_events.rs"]

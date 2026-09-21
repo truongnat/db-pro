@@ -144,71 +144,33 @@ impl DbProApp {
     }
 
     fn dispatch_explain_query(&mut self, analyze: bool) {
-        if self.query.session.active_explain_request().is_some() {
-            return;
-        }
-        let lookup = self.query_capabilities();
-        if let Some(reason) = lookup.feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Explain) {
-            self.feedback.runtime_message = format!("Explain is unavailable: {reason}");
-            return;
-        }
-        let Some(connection_id) = self.active_query_connection_id().map(str::to_owned) else {
-            self.feedback.runtime_message = "Connect to a database before explaining a query".to_owned();
+        let capabilities = self.query_capabilities();
+        let connection_id = self.active_query_connection_id().map(str::to_owned);
+        let Some(request) = self
+            .query_explain_context()
+            .prepare(connection_id, &capabilities, analyze)
+        else {
             return;
         };
-        let sql = if self.query.session.selected_text.trim().is_empty() {
-            self.query.session.active_text().trim().to_owned()
-        } else {
-            self.query.session.selected_text.trim().to_owned()
-        };
-        if sql.is_empty() {
-            self.feedback.runtime_message = "Enter a query before explaining it".to_owned();
-            return;
-        }
-        if analyze && !self.query.execution.explain_analyze_confirmed {
-            self.query.execution.pending_explain_analyze = true;
-            self.query.output.set_active_for_optional_document(
-                self.query
-                    .session
-                    .active_document()
-                    .map(|document| document.id.as_str()),
-                OutputTab::Explain,
-            );
-            self.feedback.runtime_message =
-                "EXPLAIN ANALYZE executes the statement — confirm in the Explain pane".to_owned();
-            return;
-        }
         let request_id = self.task_bridge.next_request_id();
-        if self
-            .task_bridge
-            .send(UiCommand::ExplainQuery {
-                request_id,
-                connection_id,
-                sql,
-                analyze,
-            })
-            .is_ok()
-        {
-            let doc_index = self.query.session.active_document_index;
-            if let Some(doc) = self.query.session.documents.get_mut(doc_index) {
-                doc.explain_request = Some(request_id);
-                doc.explain_plan = None;
-            }
-            self.query.execution.pending_explain_analyze = false;
-            self.query.execution.explain_analyze_confirmed = false;
-            self.query.output.set_active_for_optional_document(
-                self.query
-                    .session
-                    .active_document()
-                    .map(|document| document.id.as_str()),
-                OutputTab::Explain,
-            );
-            self.feedback.runtime_message = if analyze {
-                "EXPLAIN ANALYZE running (query executes)…".to_owned()
-            } else {
-                "Explaining query…".to_owned()
-            };
+        let command = UiCommand::ExplainQuery {
+            request_id,
+            connection_id: request.connection_id.clone(),
+            sql: request.sql.clone(),
+            analyze: request.analyze,
+        };
+        if self.dispatch_command(command) {
+            self.query_explain_context().commit_dispatched(request_id, &request);
         }
+    }
+
+    fn query_explain_context(&mut self) -> query_explain_actions::QueryExplainContext<'_> {
+        query_explain_actions::QueryExplainContext::new(
+            &mut self.query.session,
+            &mut self.query.execution,
+            &mut self.query.output,
+            &mut self.feedback,
+        )
     }
 
     pub(crate) fn export_result(&mut self, result: &UiQueryResult) {

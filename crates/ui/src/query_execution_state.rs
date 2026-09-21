@@ -80,6 +80,11 @@ impl Default for QueryExecutionPolicyState {
 }
 
 impl QueryExecutionPolicyState {
+    #[cfg(test)]
+    pub(crate) fn confirm_explain_analyze(&mut self) {
+        self.explain_analyze_confirmed = true;
+    }
+
     pub(crate) fn pending_destructive_run(&self) -> Option<&PendingDestructiveRun> {
         self.pending_destructive_run.as_ref()
     }
