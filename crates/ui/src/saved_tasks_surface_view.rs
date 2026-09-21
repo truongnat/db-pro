@@ -24,6 +24,7 @@ impl SavedTasksSurfaceContext<'_> {
     pub(super) fn draw(mut self, ui: &mut egui::Ui) -> Option<SavedTasksSurfaceAction> {
         let mut action = None;
         self.draw_header(ui, &mut action);
+        self.draw_destructive_confirmation(ui, &mut action);
         if self.saved_tasks.draft.is_some() {
             self.draw_draft_form(ui, &mut action);
             ui.add_space(10.0);
@@ -46,6 +47,20 @@ impl SavedTasksSurfaceContext<'_> {
         }
         self.draw_recent_runs(ui);
         action
+    }
+
+    fn draw_destructive_confirmation(&mut self, ui: &mut egui::Ui, action: &mut Option<SavedTasksSurfaceAction>) {
+        let Some(task_id) = self.saved_tasks.pending_destructive_task_id else {
+            return;
+        };
+        ui.checkbox(
+            &mut self.saved_tasks.confirm_destructive,
+            "Confirm destructive task run",
+        );
+        if self.saved_tasks.confirm_destructive && primary_button(ui, "Run destructive task", self.theme).clicked() {
+            *action = Some(SavedTasksSurfaceAction::RunTask(task_id));
+        }
+        ui.add_space(8.0);
     }
 
     fn draw_header(&self, ui: &mut egui::Ui, action: &mut Option<SavedTasksSurfaceAction>) {

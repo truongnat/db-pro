@@ -22,34 +22,7 @@ impl DbProApp {
         // SidePanel allocation empty/exact, and draw interactive content in a
         // separate layer clipped to that width.
         let sidebar_width = self.workspace.sidebar_width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH);
-        let theme = self.theme;
-        let response = egui::SidePanel::left("sidebar")
-            .resizable(false)
-            .exact_width(sidebar_width)
-            .show_separator_line(false)
-            .frame(egui::Frame {
-                fill: theme.surface_panel,
-                inner_margin: egui::Margin::ZERO,
-                outer_margin: egui::Margin::ZERO,
-                stroke: egui::Stroke::NONE,
-                rounding: egui::Rounding::ZERO,
-                shadow: egui::Shadow::NONE,
-            })
-            .show(ctx, |ui| {
-                let panel_origin = ui.max_rect().min;
-                let full = Rect::from_min_size(panel_origin, vec2(sidebar_width, ui.max_rect().height()));
-                ui.painter()
-                    .rect_filled(full, egui::Rounding::ZERO, theme.surface_panel);
-                // Claim exactly `sidebar_width` — nothing else may allocate here.
-                ui.allocate_rect(full, Sense::hover());
-            });
-
-        let panel_left = response.response.rect.left();
-        let y_range = response.response.rect.y_range();
-        let full = Rect::from_min_size(
-            Pos2::new(panel_left, response.response.rect.top()),
-            vec2(sidebar_width, response.response.rect.height()),
-        );
+        let (panel_left, y_range, full) = self.draw_sidebar_panel(ctx, sidebar_width);
 
         // IDE-style: breathe on the activity-rail side; keep a clear gap before
         // the resize splitter so header actions / tree rows are not flush to it.
@@ -81,6 +54,37 @@ impl DbProApp {
         self.draw_sidebar_resize_handle(ctx, panel_left, y_range);
     }
 
+    fn draw_sidebar_panel(&self, ctx: &egui::Context, sidebar_width: f32) -> (f32, egui::Rangef, Rect) {
+        let theme = self.theme;
+        let response = egui::SidePanel::left("sidebar")
+            .resizable(false)
+            .exact_width(sidebar_width)
+            .show_separator_line(false)
+            .frame(egui::Frame {
+                fill: theme.surface_panel,
+                inner_margin: egui::Margin::ZERO,
+                outer_margin: egui::Margin::ZERO,
+                stroke: egui::Stroke::NONE,
+                rounding: egui::Rounding::ZERO,
+                shadow: egui::Shadow::NONE,
+            })
+            .show(ctx, |ui| {
+                let panel_origin = ui.max_rect().min;
+                let full = Rect::from_min_size(panel_origin, vec2(sidebar_width, ui.max_rect().height()));
+                ui.painter()
+                    .rect_filled(full, egui::Rounding::ZERO, theme.surface_panel);
+                // Claim exactly `sidebar_width` — nothing else may allocate here.
+                ui.allocate_rect(full, Sense::hover());
+            });
+        let panel_left = response.response.rect.left();
+        let y_range = response.response.rect.y_range();
+        let full = Rect::from_min_size(
+            Pos2::new(panel_left, response.response.rect.top()),
+            vec2(sidebar_width, response.response.rect.height()),
+        );
+        (panel_left, y_range, full)
+    }
+
     fn draw_sidebar_contents(&mut self, ui: &mut egui::Ui) {
         let active_name = if self.connection.lifecycle.active_connection_id().is_some() {
             self.active_connection_name().to_owned()
@@ -109,76 +113,63 @@ impl DbProApp {
         ui.separator();
         ui.add_space(SPACE_XS);
 
-        // ── 3. Per-activity content ────────────────────────────────────
+        self.draw_sidebar_activity_content(ui);
+    }
+
+    fn draw_sidebar_activity_content(&mut self, ui: &mut egui::Ui) {
+        if self.workspace.activity == Activity::Explorer {
+            self.draw_explorer_sub_panes(ui);
+            return;
+        }
+        let scroll_h = ui.available_height();
+        egui::ScrollArea::vertical()
+            .id_salt("sidebar_scroll")
+            .auto_shrink([false, false])
+            .max_height(scroll_h)
+            .show(ui, |ui| {
+                ui.add_space(4.0);
+                self.draw_sidebar_activity_body(ui);
+            });
+    }
+
+    fn draw_sidebar_activity_body(&mut self, ui: &mut egui::Ui) {
         match self.workspace.activity {
-            Activity::Explorer => self.draw_explorer_sub_panes(ui),
-            _ => {
-                let scroll_h = ui.available_height();
-                egui::ScrollArea::vertical()
-                    .id_salt("sidebar_scroll")
-                    .auto_shrink([false, false])
-                    .max_height(scroll_h)
-                    .show(ui, |ui| {
-                        ui.add_space(4.0);
-                        match self.workspace.activity {
-                            Activity::Queries => self.draw_queries(ui),
-                            Activity::Files => self.draw_files_activity(ui),
-                            Activity::Data => self.draw_data_activity(ui),
-                            Activity::History => self.draw_history(ui),
-                            Activity::Problems => self.draw_problems(ui),
-                            Activity::Transfers => self.draw_transfers_activity(ui),
-                            Activity::Monitor => self.draw_monitor_activity(ui),
-                            Activity::Security => self.draw_security_activity(ui),
-                            Activity::Settings => self.draw_settings(ui),
-                            Activity::Diagram => {
-                                if navigation_view::draw_diagram_sidebar(ui, self.theme, &self.schema.explorer.schema) {
-                                    self.workspace.activity = Activity::Explorer;
-                                    self.workspace.sidebar_open = true;
-                                }
-                            }
-                            Activity::Schema => self.draw_schema_workbench_sidebar(ui),
-                            Activity::Compare => {
-                                let action = {
-                                    let connection_name = self.active_connection_name().to_owned();
-                                    let driver = self.active_driver().to_owned();
-                                    let mut context = schema_compare_view::SchemaCompareViewContext {
-                                        theme: self.theme,
-                                        compare: &mut self.schema.compare,
-                                        schema: &self.schema.explorer.schema,
-                                        connection_name: &connection_name,
-                                        driver: &driver,
-                                        feedback: &mut self.feedback,
-                                    };
-                                    schema_compare_view::draw_schema_compare_sidebar(&mut context, ui)
-                                };
-                                if let Some(action) = action {
-                                    self.apply_schema_compare_action(action);
-                                }
-                            }
-                            Activity::Tasks => {
-                                if self.saved_tasks.pending_destructive_task_id.is_some() {
-                                    ui.checkbox(
-                                        &mut self.saved_tasks.confirm_destructive,
-                                        "Confirm destructive task run",
-                                    );
-                                    if self.saved_tasks.confirm_destructive {
-                                        if let Some(id) = self.saved_tasks.pending_destructive_task_id {
-                                            if primary_button(ui, "Run destructive task", self.theme).clicked() {
-                                                self.run_saved_task(
-                                                    id,
-                                                    db_pro_core::domain::saved_task::SavedTaskRunTrigger::Manual,
-                                                );
-                                            }
-                                        }
-                                    }
-                                    ui.add_space(8.0);
-                                }
-                                self.draw_tasks_activity(ui);
-                            }
-                            Activity::Explorer => unreachable!(),
-                        }
-                    });
+            Activity::Queries => self.draw_queries(ui),
+            Activity::Files => self.draw_files_activity(ui),
+            Activity::Data => self.draw_data_activity(ui),
+            Activity::History => self.draw_history(ui),
+            Activity::Problems => self.draw_problems(ui),
+            Activity::Transfers => self.draw_transfers_activity(ui),
+            Activity::Monitor => self.draw_monitor_activity(ui),
+            Activity::Security => self.draw_security_activity(ui),
+            Activity::Settings => self.draw_settings(ui),
+            Activity::Diagram => {
+                if navigation_view::draw_diagram_sidebar(ui, self.theme, &self.schema.explorer.schema) {
+                    self.workspace.activity = Activity::Explorer;
+                    self.workspace.sidebar_open = true;
+                }
             }
+            Activity::Schema => self.draw_schema_workbench_sidebar(ui),
+            Activity::Compare => {
+                let action = {
+                    let connection_name = self.active_connection_name().to_owned();
+                    let driver = self.active_driver().to_owned();
+                    let mut context = schema_compare_view::SchemaCompareViewContext {
+                        theme: self.theme,
+                        compare: &mut self.schema.compare,
+                        schema: &self.schema.explorer.schema,
+                        connection_name: &connection_name,
+                        driver: &driver,
+                        feedback: &mut self.feedback,
+                    };
+                    schema_compare_view::draw_schema_compare_sidebar(&mut context, ui)
+                };
+                if let Some(action) = action {
+                    self.apply_schema_compare_action(action);
+                }
+            }
+            Activity::Tasks => self.draw_tasks_activity(ui),
+            Activity::Explorer => unreachable!(),
         }
     }
 
