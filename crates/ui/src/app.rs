@@ -498,6 +498,8 @@ mod security_activity_view;
 mod security_rls;
 #[path = "security_rls_view.rs"]
 mod security_rls_view;
+#[path = "security_role_details_view.rs"]
+mod security_role_details_view;
 #[path = "security_roles_view.rs"]
 mod security_roles_view;
 #[path = "shell_chrome_view.rs"]
