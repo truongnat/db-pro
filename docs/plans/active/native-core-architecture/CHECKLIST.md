@@ -173,6 +173,9 @@
 - [x] Query Visual Builder framing and editor-stack allocation are owned by
       `query_shell_surface_view`; query root retains editor/search/effect
       adapters only.
+- [x] Agent panel composition is owned by `AgentPanelContext`; the root retains
+      snapshot preparation and typed header/settings/context/thread/composer
+      effect adapters.
 - [x] Settings navigation, section composition and diagnostics presentation
       are owned by `SettingsSurfaceContext`; settings root retains only
       persistence, runtime/file effects and typed action application.

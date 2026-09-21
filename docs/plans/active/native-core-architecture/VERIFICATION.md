@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `dde32725`.
+Source checkpoint: `6856abdf`.
 
 ## Current change
 
@@ -2053,6 +2053,40 @@ keeps task policy and execution effects.
   `1920x1080` logical heights remains host-limited: macOS capture clamps both
   to a logical height of `838`. The required normal/loading/error/empty states
   are now captured at exact logical `1280x800`.
+
+## Current core checkpoint at `6856abdf`
+
+- Agent panel composition boundary: `6856abdf`; the panel shell now consumes
+  one `AgentPanelContext` and emits typed header/settings/context/thread/
+  composer actions. `agent_view.rs` retains snapshot preparation and effect
+  adapters only; the obsolete thread adapter was removed.
+- Settings composition boundary: `dde32725`; settings navigation, section
+  composition and diagnostics presentation now live in `SettingsSurfaceContext`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; workspace suites
+  include 404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34,
+  31 and 678 UI tests with no failures. Environment-gated tests remain
+  ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 15 checks and 0 failures; one inherited warning remains for
+  `crates/ui/src/app.rs` at 1008 lines.
+- `git diff --check`: passed.
+- Current release runtime capture:
+  `/tmp/db-pro-native-core-58ed06ec-new-1280x800.png`, logical `1280x800`.
+  The New Connection dialog is centered with a separated header/divider,
+  right-aligned close control, complete body and separated footer. The
+  capture-feature binary exited cleanly after writing the artifact; the
+  previous manual-verification process was stopped before the rebuild. The
+  capture predates the Agent-only composition change and covers an unaffected
+  modal surface.
+- The Agent composition change has no new visual state requirement beyond the
+  existing Agent panel runtime matrix; this capture remains valid for the
+  modal boundary but does not close the plan's broader runtime-evidence item.
 
 ## Core boundary checkpoint at `db6013ee`
 
