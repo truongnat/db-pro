@@ -2102,20 +2102,21 @@ keeps task policy and execution effects.
   passed with 16 checks and 0 warnings.
 - `git diff --check`: passed.
 - Current release runtime capture:
-  `/tmp/db-pro-native-core-ba450fe2-new-1280x800.png`, logical `1280x800`,
-  captured from the release binary built after the Saved Tasks run-policy
+  `/tmp/db-pro-native-core-05524c33-new-1280x800.png`, logical `1280x800`,
+  captured from the release binary rebuilt after the workspace-files state
   boundary. The New Connection dialog is centered with a separated
   header/divider, right-aligned close control, complete body and separated
-  footer. The manual-verification release binary is running as PID `32413`.
+  footer. The manual-verification release binary is running as PID `34652`.
 - Current native runtime matrix from the same release source:
-  - normal/empty: `/tmp/db-pro-native-core-ba450fe2-normal-1280x800.png`
-  - loading: `/tmp/db-pro-native-core-ba450fe2-loading-1280x800.png`
-  - New Connection error: `/tmp/db-pro-native-core-ba450fe2-error-1280x800.png`
-  - Query shell: `/tmp/db-pro-native-core-ba450fe2-query-1280x800.png`
-  - New Connection at requested `1440x900`:
-    `/tmp/db-pro-native-core-ba450fe2-new-1440x900.png`
-  - New Connection at requested `1920x1080`:
-    `/tmp/db-pro-native-core-ba450fe2-new-1920x1080.png`
+  - normal/empty: `/tmp/db-pro-native-core-05524c33-normal-1280x800.png`
+  - loading: `/tmp/db-pro-native-core-05524c33-loading-1280x800.png`
+  - New Connection error: `/tmp/db-pro-native-core-05524c33-error-1280x800.png`
+  - Query shell: `/tmp/db-pro-native-core-05524c33-query-1280x800.png`
+  - New Connection: `/tmp/db-pro-native-core-05524c33-new-1280x800.png`
+  All five captures are Retina `2560x1600` framebuffers for logical `1280x800`.
+  The larger requested captures from the previous release remain available:
+  `/tmp/db-pro-native-core-ba450fe2-new-1440x900.png` and
+  `/tmp/db-pro-native-core-ba450fe2-new-1920x1080.png`.
   The two larger captures are host-limited to a logical height of `838`
   (`2880x1676` and `3840x1676` Retina framebuffers respectively); their
   centered modal/header/close/footer layout remains visually verified.
