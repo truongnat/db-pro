@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `2b599ee9`.
+Source checkpoint: `b4a058d2`.
 
 ## Current change
 
@@ -2064,7 +2064,7 @@ keeps task policy and execution effects.
   to a logical height of `838`. The required normal/loading/error/empty states
   are now captured at exact logical `1280x800`.
 
-## Current core checkpoint at `2b599ee9`
+## Current core checkpoint at `b4a058d2`
 
 - Agent state/adapter boundary: `fdaece8d`; `agent_state.rs` now owns only
   lifecycle/preparation state, while `agent_actions.rs` owns cross-feature
@@ -2083,6 +2083,10 @@ keeps task policy and execution effects.
   validation and request lifecycle, while `table_editor_view.rs` maps table
   targets and validated SQL into `UiCommand`. The architecture guard rejects
   protocol construction in `table_state.rs`.
+- Table data command boundary: `b4a058d2`; `TableDataQueryState` now owns
+  filters, sorting, paging and request lifecycle, while table data adapters
+  map page and row-reload targets into `LoadTableData`. The architecture guard
+  rejects protocol construction in `table_data_query_state.rs`.
 - Workspace search draft boundary: `20d1e190`; `FilesSearchContext` now edits
   an owned `WorkspaceSearchDraft` and emits `UpdateDraft` before action intents,
   so Find/Replace/Refactor always run against committed feature state.
@@ -2140,6 +2144,13 @@ keeps task policy and execution effects.
   684 UI tests passed, with environment-gated tests ignored. Both native
   release builds, the architecture guard, clean-code scan (16 pass, 0
   warnings) and `git diff --check` also passed.
+- Full workspace gate after `b4a058d2`: `cargo fmt --all -- --check`,
+  `cargo check --workspace`, `cargo clippy --workspace --all-targets --
+  -D warnings` and `cargo test --workspace --no-fail-fast --quiet` passed;
+  404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and
+  684 UI tests passed, with environment-gated tests ignored. Both native
+  release builds, the architecture guard, clean-code scan (16 pass, 0
+  warnings) and `git diff --check` also passed.
 - Full workspace gate after `7c1efb7a`: `cargo fmt --all -- --check`,
   `cargo check --workspace`, `cargo clippy --workspace --all-targets --
   -D warnings` and `cargo test --workspace --no-fail-fast --quiet` passed;
@@ -2161,11 +2172,12 @@ keeps task policy and execution effects.
   passed with 16 checks and 0 warnings.
 - `git diff --check`: passed.
 - Current release runtime capture:
-  `/tmp/db-pro-native-core-2b599ee9-new-1280x800.png`, logical `1280x800`,
-  captured from the release binary rebuilt after the table command boundary.
+  `/tmp/db-pro-native-core-b4a058d2-new-1280x800.png`, logical `1280x800`,
+  captured from the release binary rebuilt after the table data command
+  boundary.
   The New Connection dialog remains centered with a separated
   header/divider, right-aligned close control, complete body and separated
-  footer. The manual-verification release binary is running as PID `54591`.
+  footer. The manual-verification release binary is running as PID `56603`.
 - Runtime matrix from the preceding release source `05524c33`:
   - normal/empty: `/tmp/db-pro-native-core-05524c33-normal-1280x800.png`
   - loading: `/tmp/db-pro-native-core-05524c33-loading-1280x800.png`
