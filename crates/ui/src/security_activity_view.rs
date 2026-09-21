@@ -26,73 +26,16 @@ impl DbProApp {
             return;
         }
 
-        ui.horizontal(|ui| {
-            if secondary_button_with_icon(ui, Icon::RefreshCw, "Refresh roles", self.theme).clicked() {
-                self.request_security_users();
-            }
-        });
         if let Some(error) = &self.management.security.security_error {
             ui.colored_label(self.theme.warning, error);
         }
 
-        ui.add_space(SPACE_MD);
-        section_label(ui, "ROLES / USERS", self.theme);
-        ui.add_space(SPACE_SM);
-        if self.management.security.security_users.is_empty() {
-            ui.label(
-                RichText::new("No roles loaded yet — click Refresh.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
+        let role_actions = security_roles_view::SecurityRolesContext {
+            theme: self.theme,
+            state: &mut self.management.security,
         }
-        for user in self.management.security.security_users.clone() {
-            let selected = self.management.security.security_selected_role.as_deref() == Some(user.name.as_str());
-            ui.horizontal(|ui| {
-                if ui.selectable_label(selected, &user.name).clicked() {
-                    self.management.security.security_selected_role = Some(user.name.clone());
-                    self.request_security_role_details(&user.name);
-                }
-                if user.can_login {
-                    badge(ui, "login", self.theme.surface_active, self.theme.text_secondary);
-                }
-                if user.is_super {
-                    badge(ui, "super", self.theme.warning, self.theme.text_primary);
-                }
-                if user.can_create_db {
-                    badge(ui, "createdb", self.theme.surface_active, self.theme.text_secondary);
-                }
-                if user.can_create_role {
-                    badge(ui, "createrole", self.theme.surface_active, self.theme.text_secondary);
-                }
-                if danger_button(ui, "Drop", self.theme).clicked() {
-                    self.management.security.security_drop_confirm = Some(user.name.clone());
-                }
-            });
-        }
-
-        ui.add_space(SPACE_MD);
-        section_label(ui, "CREATE ROLE", self.theme);
-        ui.add_space(SPACE_SM);
-        input_full_width(
-            ui,
-            &mut self.management.security.security_new_role,
-            "role name",
-            self.theme,
-        );
-        ui.checkbox(&mut self.management.security.security_new_role_login, "LOGIN");
-        if primary_button_with_icon(ui, Icon::Plus, "Create role", self.theme).clicked()
-            && !self.management.security.security_new_role.trim().is_empty()
-        {
-            if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-                let request_id = self.task_bridge.next_request_id();
-                self.dispatch_command(self.management.security.create_role_command(
-                    request_id,
-                    connection_id,
-                    self.management.security.security_new_role.trim().to_owned(),
-                ));
-                self.management.security.security_new_role.clear();
-            }
-        }
+        .draw(ui);
+        self.apply_security_roles_actions(role_actions);
 
         if let Some(role) = self.management.security.security_selected_role.clone() {
             ui.add_space(SPACE_MD);
@@ -498,6 +441,35 @@ impl DbProApp {
                     self.feedback.runtime_message = "Confirm RLS apply checkbox first".into();
                 } else {
                     self.apply_security_rls_preview();
+                }
+            }
+        }
+    }
+
+    fn apply_security_roles_actions(&mut self, actions: Vec<security_roles_view::SecurityRolesAction>) {
+        for action in actions {
+            match action {
+                security_roles_view::SecurityRolesAction::Refresh => self.request_security_users(),
+                security_roles_view::SecurityRolesAction::Select(role_name) => {
+                    self.management.security.security_selected_role = Some(role_name.clone());
+                    self.request_security_role_details(&role_name);
+                }
+                security_roles_view::SecurityRolesAction::RequestDrop(role_name) => {
+                    self.management.security.security_drop_confirm = Some(role_name);
+                }
+                security_roles_view::SecurityRolesAction::Create { name, login } => {
+                    let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned)
+                    else {
+                        continue;
+                    };
+                    self.management.security.security_new_role_login = login;
+                    let request_id = self.task_bridge.next_request_id();
+                    self.dispatch_command(self.management.security.create_role_command(
+                        request_id,
+                        connection_id,
+                        name,
+                    ));
+                    self.management.security.security_new_role.clear();
                 }
             }
         }
