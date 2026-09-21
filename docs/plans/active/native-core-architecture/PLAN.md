@@ -78,7 +78,8 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
     table-profile, Backup Settings, saved-query confirmation, table-indexes and
     schema-definition, saved-task confirmation, result-grid value inspector,
     record inspector, inline cell editor and sidebar shell presentation are now
-    explicit; some dialog/root adapters still require migration.
+    explicit; native feature dialogs now use the shared Dialog primitive;
+    some root adapters still require migration.
 11. Enforce the runtime command boundary as a two-phase transition: prepare
     typed command, dispatch through `TaskBridge`, then commit local pending or
     running state only after dispatch succeeds. This is now applied to the

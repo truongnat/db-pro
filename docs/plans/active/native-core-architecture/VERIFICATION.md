@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `e6a56fdc`.
+Source checkpoint: `7dec13d3`.
 
 ## Current change
 
@@ -82,6 +82,25 @@ tracks both new surfaces.
   119 infrastructure, 32 runtime, 4 tauri and 677 UI tests passed, with only
   environment-gated tests ignored.
 - The rebuilt release binary is running in terminal session `63219` for manual
+  verification.
+
+Shared-dialog follow-up at source SHA `7dec13d3`: all feature-level direct
+`egui::Window::new` calls were migrated to the common `Dialog` primitive,
+including monitoring, event triggers, FDW, PostgreSQL settings, replication,
+query save/dirty-close, schema workbench confirmation, security, table indexes,
+table structure, pending changes, row conflicts and the result-cell inspector.
+Each migrated surface now gets the shared centered card, dim backdrop,
+separated header, right-aligned close icon and typed footer/body actions.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 16 checks, 0 warnings and 0 failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `rg -n 'egui::Window::new' crates/ui/src -g '*.rs'`: no feature-level
+  direct Window construction remains; the implementation is centralized in
+  `components/dialog/modal.rs`.
+- The rebuilt release binary is running in terminal session `34197` for manual
   verification.
 
 The Query output dock now has an explicit `QueryOutputDockContext` for resize
