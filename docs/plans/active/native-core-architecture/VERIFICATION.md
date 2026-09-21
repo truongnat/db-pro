@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `e91385f8`.
+Source checkpoint: `bfa6d0df`.
 
 ## Current change
 
@@ -131,6 +131,33 @@ joins, columns, predicates, ordering, limits and generated SQL preview. It
 receives explicit builder state/schema/dialect inputs and emits only
 apply/import/clear intents; editor document changes and feedback remain at the
 root adapter.
+
+Workspace Migrations and Graph tabs now render through the explicit secondary
+tab helpers with `OpenFile` intents. The root adapter remains responsible for
+opening the selected SQL document; the tab renderers no longer implement
+`DbProApp` methods.
+
+## Gate evidence at `bfa6d0df`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; source worktree was clean before this docs
+  checkpoint was recorded.
+- Runtime capture: `/tmp/db-pro-native-core-bfa6d0df.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `54226` for manual verification. Workspace secondary-tab provider/runtime
+  state and the full affected-surface matrix remain unproven.
 
 ## Gate evidence at `e91385f8`
 
