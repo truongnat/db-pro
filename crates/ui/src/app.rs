@@ -498,6 +498,8 @@ pub(crate) use welcome_state::WelcomeState;
 pub(crate) use workspace_feature_state::WorkspaceFeatureState;
 pub(crate) use workspace_files_state::WorkspaceFilesState;
 pub(crate) use workspace_session_state::WorkspaceSessionState;
+#[path = "saved_tasks_surface_view.rs"]
+mod saved_tasks_surface_view;
 #[path = "schema_compare.rs"]
 mod schema_compare;
 #[path = "schema_compare_state.rs"]

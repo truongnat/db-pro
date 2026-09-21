@@ -1,11 +1,8 @@
 //! Saved database tasks activity (#206).
 use super::*;
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use db_pro_core::domain::saved_task::{
     SavedTask, SavedTaskPayload, SavedTaskRun, SavedTaskRunStatus, SavedTaskRunTrigger, SavedTaskStore, TaskSchedule,
 };
-use egui::RichText;
-use lucide_icons::Icon;
 use uuid::Uuid;
 
 pub(crate) const SAVED_TASKS_STORAGE_KEY: &str = "dbpro.native.saved-tasks-v1";
@@ -26,236 +23,37 @@ impl DbProApp {
     }
 
     pub(super) fn draw_tasks_activity(&mut self, ui: &mut egui::Ui) {
-        section_label(ui, "SAVED TASKS", self.theme);
-        ui.add_space(6.0);
-        ui.label(
-            RichText::new(
-                "Scheduler runs only while this app is open — there is no background daemon. Secrets stay on the connection.",
-            )
-            .small()
-            .color(self.theme.text_muted),
-        );
-        ui.add_space(8.0);
-
-        ui.horizontal(|ui| {
-            if Button::new(self.theme)
-                .text("New SQL task")
-                .variant(ButtonVariant::Default)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                self.begin_new_sql_task();
-            }
-            if Button::new(self.theme)
-                .text("New backup task")
-                .variant(ButtonVariant::Secondary)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                self.begin_new_backup_task();
-            }
-        });
-        ui.add_space(8.0);
-
-        if self.saved_tasks.draft.is_some() {
-            self.draw_task_draft_form(ui);
-            ui.add_space(10.0);
-            ui.separator();
-            ui.add_space(8.0);
+        let action = saved_tasks_surface_view::SavedTasksSurfaceContext {
+            theme: self.theme,
+            saved_tasks: &mut self.saved_tasks,
         }
-
-        if self.saved_tasks.store.tasks.is_empty() {
-            empty_state(
-                ui,
-                Icon::ListTodo,
-                "No saved tasks",
-                "Create a SQL, export, backup, or maintenance task to run manually.",
-                self.theme,
-            );
-            return;
-        }
-
-        let tasks = self.saved_tasks.store.tasks.clone();
-        for task in tasks {
-            ui.group(|ui| {
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(&task.name).strong().color(self.theme.text_primary));
-                    ui.label(RichText::new(task.kind().label()).small().color(self.theme.text_muted));
-                });
-                if !task.description.is_empty() {
-                    ui.label(
-                        RichText::new(&task.description)
-                            .small()
-                            .color(self.theme.text_secondary),
-                    );
-                }
-                ui.label(
-                    RichText::new(format!("connection · {}", task.connection_id))
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-                if let Some(run) = &task.last_run {
-                    let status = match run.status {
-                        SavedTaskRunStatus::Success => "success",
-                        SavedTaskRunStatus::Failed => "failed",
-                        SavedTaskRunStatus::Cancelled => "cancelled",
-                    };
-                    ui.label(
-                        RichText::new(format!("last · {status} · {} ms · {}", run.duration_ms, run.message))
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                }
-                ui.horizontal(|ui| {
-                    if Button::new(self.theme)
-                        .text("Run")
-                        .variant(ButtonVariant::Default)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.run_saved_task(task.id, SavedTaskRunTrigger::Manual);
-                    }
-                    if task.schedule.as_ref().is_some_and(|s| s.enabled) {
-                        if Button::new(self.theme)
-                            .text("Disable schedule")
-                            .variant(ButtonVariant::Secondary)
-                            .size(ButtonSize::Sm)
-                            .show(ui)
-                            .clicked()
-                        {
-                            let _ = self.saved_tasks.store.set_schedule_enabled(&task.id, false);
-                            self.saved_tasks.dirty = true;
-                        }
-                    } else if Button::new(self.theme)
-                        .text("Schedule 60s")
-                        .variant(ButtonVariant::Secondary)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.enable_task_schedule(task.id, 60);
-                    }
-                    if Button::new(self.theme)
-                        .text("Delete")
-                        .variant(ButtonVariant::Destructive)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.saved_tasks.store.remove(&task.id);
-                        self.saved_tasks.dirty = true;
-                    }
-                });
-                if let Some(schedule) = &task.schedule {
-                    let next = schedule
-                        .next_run_at
-                        .map(|t| t.to_rfc3339())
-                        .unwrap_or_else(|| "—".into());
-                    ui.label(
-                        RichText::new(format!(
-                            "schedule · {} · next {next}",
-                            if schedule.enabled { "on" } else { "off" }
-                        ))
-                        .small()
-                        .color(self.theme.text_muted),
-                    );
-                }
-            });
-            ui.add_space(6.0);
-        }
-
-        if !self.saved_tasks.store.runs.is_empty() {
-            ui.separator();
-            ui.add_space(6.0);
-            section_label(ui, "RECENT RUNS", self.theme);
-            for run in self.saved_tasks.store.runs.iter().take(12) {
-                let status = match run.status {
-                    SavedTaskRunStatus::Success => "OK",
-                    SavedTaskRunStatus::Failed => "FAIL",
-                    SavedTaskRunStatus::Cancelled => "CANCEL",
-                };
-                ui.label(
-                    RichText::new(format!(
-                        "{status} · {} ms · {}",
-                        run.duration_ms,
-                        run.message.chars().take(80).collect::<String>()
-                    ))
-                    .small()
-                    .monospace()
-                    .color(self.theme.text_muted),
-                );
-            }
+        .draw(ui);
+        if let Some(action) = action {
+            self.apply_saved_tasks_surface_action(action);
         }
     }
 
-    fn draw_task_draft_form(&mut self, ui: &mut egui::Ui) {
-        let Some(draft) = self.saved_tasks.draft.as_mut() else {
-            return;
-        };
-        ui.label(RichText::new("New task").strong().color(self.theme.text_primary));
-        input_full_width(ui, &mut draft.name, "Name", self.theme);
-        input_full_width(ui, &mut draft.description, "Description", self.theme);
-        match &mut draft.payload {
-            SavedTaskPayload::Sql { sql } => {
-                ui.label(RichText::new("SQL").small().color(self.theme.text_muted));
-                ui.add(
-                    egui::TextEdit::multiline(sql)
-                        .desired_width(ui.available_width())
-                        .desired_rows(4)
-                        .code_editor(),
-                );
+    fn apply_saved_tasks_surface_action(&mut self, action: saved_tasks_surface_view::SavedTasksSurfaceAction) {
+        use saved_tasks_surface_view::SavedTasksSurfaceAction;
+
+        match action {
+            SavedTasksSurfaceAction::NewSqlTask => self.begin_new_sql_task(),
+            SavedTasksSurfaceAction::NewBackupTask => self.begin_new_backup_task(),
+            SavedTasksSurfaceAction::SaveDraft => self.commit_task_draft(),
+            SavedTasksSurfaceAction::CancelDraft => self.saved_tasks.draft = None,
+            SavedTasksSurfaceAction::RunTask(task_id) => {
+                self.run_saved_task(task_id, SavedTaskRunTrigger::Manual);
             }
-            SavedTaskPayload::Backup {
-                output_path,
-                custom_format,
-            } => {
-                input_full_width(ui, output_path, "Output path", self.theme);
-                ui.checkbox(custom_format, "Custom (pg_dump -Fc) format");
+            SavedTasksSurfaceAction::DisableSchedule(task_id) => {
+                let _ = self.saved_tasks.store.set_schedule_enabled(&task_id, false);
+                self.saved_tasks.dirty = true;
             }
-            SavedTaskPayload::Export { table, format } => {
-                let mut table_text = table.clone().unwrap_or_default();
-                input_full_width(ui, &mut table_text, "Table (optional)", self.theme);
-                *table = if table_text.trim().is_empty() {
-                    None
-                } else {
-                    Some(table_text)
-                };
-                input_full_width(ui, format, "Format (csv/tsv/json)", self.theme);
-            }
-            SavedTaskPayload::Maintenance { operation, target } => {
-                input_full_width(ui, operation, "Operation (vacuum/analyze)", self.theme);
-                let mut target_text = target.clone().unwrap_or_default();
-                input_full_width(ui, &mut target_text, "Target (optional)", self.theme);
-                *target = if target_text.trim().is_empty() {
-                    None
-                } else {
-                    Some(target_text)
-                };
+            SavedTasksSurfaceAction::EnableSchedule(task_id) => self.enable_task_schedule(task_id, 60),
+            SavedTasksSurfaceAction::DeleteTask(task_id) => {
+                self.saved_tasks.store.remove(&task_id);
+                self.saved_tasks.dirty = true;
             }
         }
-        ui.horizontal(|ui| {
-            if Button::new(self.theme)
-                .text("Save task")
-                .variant(ButtonVariant::Default)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                self.commit_task_draft();
-            }
-            if Button::new(self.theme)
-                .text("Cancel")
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                self.saved_tasks.draft = None;
-            }
-        });
     }
 
     fn begin_new_sql_task(&mut self) {
@@ -415,75 +213,100 @@ impl DbProApp {
 
     fn dispatch_saved_task_payload(&mut self, task: &SavedTask) -> Result<String, String> {
         match &task.payload {
-            SavedTaskPayload::Sql { sql } => {
-                if sql.trim().is_empty() {
-                    return Err("SQL payload is empty".to_owned());
-                }
-                *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
-                self.set_active_query_text(sql);
-                self.workspace.active_tab = WorkspaceTab::Query;
-                // Task-level confirmation already satisfied destructive policy (#206).
-                let version = self.query.session.active_buffer_version();
-                let execution_range = (0, sql.len());
-                if self.send_query_run(task.connection_id.clone(), sql.clone(), execution_range, version, false) {
-                    Ok("Dispatched SQL task to query runtime".to_owned())
-                } else {
-                    Err(self.feedback.runtime_message.clone())
-                }
-            }
+            SavedTaskPayload::Sql { sql } => self.dispatch_sql_task(task, sql),
             SavedTaskPayload::Backup {
                 output_path,
                 custom_format,
-            } => {
-                if output_path.trim().is_empty() {
-                    return Err("backup output path is required".to_owned());
-                }
-                let request_id = self.task_bridge.next_request_id();
-                if !self.dispatch_command(UiCommand::Backup {
-                    request_id,
-                    connection_id: task.connection_id.clone(),
-                    output_path: output_path.clone(),
-                    custom_format: *custom_format,
-                }) {
-                    return Err("Runtime worker unavailable".to_owned());
-                }
-                Ok("Dispatched backup task".to_owned())
-            }
-            SavedTaskPayload::Export { table, format } => {
-                let fmt = format.to_ascii_lowercase();
-                if let Some(table) = table {
-                    *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
-                    self.set_active_query_text(format!("SELECT * FROM {table} LIMIT 1000"));
-                    self.workspace.active_tab = WorkspaceTab::Query;
-                    if self.dispatch_query() {
-                        Ok(format!(
-                            "Opened export source for {table} ({fmt}) — use Export on results"
-                        ))
-                    } else {
-                        Err(self.feedback.runtime_message.clone())
-                    }
-                } else {
-                    Err("export task needs a table or an active result set".to_owned())
-                }
-            }
+            } => self.dispatch_backup_task(task, output_path, *custom_format),
+            SavedTaskPayload::Export { table, format } => self.dispatch_export_task(task, table.as_deref(), format),
             SavedTaskPayload::Maintenance { operation, target } => {
-                let op = operation.trim().to_ascii_lowercase();
-                let sql = match (op.as_str(), target.as_deref()) {
-                    ("vacuum", Some(t)) => format!("VACUUM {t}"),
-                    ("vacuum", None) => "VACUUM".to_owned(),
-                    ("analyze", Some(t)) => format!("ANALYZE {t}"),
-                    ("analyze", None) => "ANALYZE".to_owned(),
-                    _ => return Err(format!("unsupported maintenance operation: {operation}")),
-                };
-                *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
-                self.set_active_query_text(&sql);
-                self.workspace.active_tab = WorkspaceTab::Query;
-                if self.dispatch_query() {
-                    Ok(format!("Dispatched maintenance: {sql}"))
-                } else {
-                    Err(self.feedback.runtime_message.clone())
-                }
+                self.dispatch_maintenance_task(task, operation, target.as_deref())
             }
+        }
+    }
+
+    fn dispatch_sql_task(&mut self, task: &SavedTask, sql: &str) -> Result<String, String> {
+        if sql.trim().is_empty() {
+            return Err("SQL payload is empty".to_owned());
+        }
+        *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
+        self.set_active_query_text(sql);
+        self.workspace.active_tab = WorkspaceTab::Query;
+        // Task-level confirmation already satisfied destructive policy (#206).
+        let version = self.query.session.active_buffer_version();
+        let execution_range = (0, sql.len());
+        if self.send_query_run(
+            task.connection_id.clone(),
+            sql.to_owned(),
+            execution_range,
+            version,
+            false,
+        ) {
+            Ok("Dispatched SQL task to query runtime".to_owned())
+        } else {
+            Err(self.feedback.runtime_message.clone())
+        }
+    }
+
+    fn dispatch_backup_task(
+        &mut self,
+        task: &SavedTask,
+        output_path: &str,
+        custom_format: bool,
+    ) -> Result<String, String> {
+        if output_path.trim().is_empty() {
+            return Err("backup output path is required".to_owned());
+        }
+        let request_id = self.task_bridge.next_request_id();
+        if !self.dispatch_command(UiCommand::Backup {
+            request_id,
+            connection_id: task.connection_id.clone(),
+            output_path: output_path.to_owned(),
+            custom_format,
+        }) {
+            return Err("Runtime worker unavailable".to_owned());
+        }
+        Ok("Dispatched backup task".to_owned())
+    }
+
+    fn dispatch_export_task(&mut self, task: &SavedTask, table: Option<&str>, format: &str) -> Result<String, String> {
+        let Some(table) = table else {
+            return Err("export task needs a table or an active result set".to_owned());
+        };
+        let fmt = format.to_ascii_lowercase();
+        *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
+        self.set_active_query_text(format!("SELECT * FROM {table} LIMIT 1000"));
+        self.workspace.active_tab = WorkspaceTab::Query;
+        if self.dispatch_query() {
+            Ok(format!(
+                "Opened export source for {table} ({fmt}) — use Export on results"
+            ))
+        } else {
+            Err(self.feedback.runtime_message.clone())
+        }
+    }
+
+    fn dispatch_maintenance_task(
+        &mut self,
+        task: &SavedTask,
+        operation: &str,
+        target: Option<&str>,
+    ) -> Result<String, String> {
+        let op = operation.trim().to_ascii_lowercase();
+        let sql = match (op.as_str(), target) {
+            ("vacuum", Some(target)) => format!("VACUUM {target}"),
+            ("vacuum", None) => "VACUUM".to_owned(),
+            ("analyze", Some(target)) => format!("ANALYZE {target}"),
+            ("analyze", None) => "ANALYZE".to_owned(),
+            _ => return Err(format!("unsupported maintenance operation: {operation}")),
+        };
+        *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
+        self.set_active_query_text(&sql);
+        self.workspace.active_tab = WorkspaceTab::Query;
+        if self.dispatch_query() {
+            Ok(format!("Dispatched maintenance: {sql}"))
+        } else {
+            Err(self.feedback.runtime_message.clone())
         }
     }
 }

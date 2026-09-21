@@ -110,6 +110,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/transfer_state.rs"
   "$repo_root/crates/ui/src/transfer_harness_view.rs"
   "$repo_root/crates/ui/src/transfer_activity_surface_view.rs"
+  "$repo_root/crates/ui/src/saved_tasks_surface_view.rs"
   "$repo_root/crates/ui/src/synthetic_data_state.rs"
   "$repo_root/crates/ui/src/masking_state.rs"
   "$repo_root/crates/ui/src/pg_settings_state.rs"
