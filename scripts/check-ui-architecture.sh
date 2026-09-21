@@ -63,6 +63,13 @@ if [[ -n "$direct_sends" ]]; then
   exit 1
 fi
 
+direct_windows=$(rg -n 'egui::Window::new' "$repo_root/crates/ui/src" --glob '*.rs' || true)
+if [[ -n "$direct_windows" ]]; then
+  echo "$direct_windows" >&2
+  echo "UI architecture check failed: feature dialogs must use components::dialog::Dialog." >&2
+  exit 1
+fi
+
 if [[ -e "$repo_root/crates/ui/src/database_operations_state.rs" ]]; then
   echo "UI architecture check failed: database_operations_state.rs catch-all must stay deleted." >&2
   exit 1
