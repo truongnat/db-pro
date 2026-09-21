@@ -1,6 +1,9 @@
 use super::*;
 use std::time::Instant;
 
+#[path = "query_layout_surface_view.rs"]
+mod query_layout_surface_view;
+
 /// Egress note shown with the AI prediction control (#242).
 ///
 /// Inline prediction can still schedule without a click — default is `Subtle`
@@ -37,11 +40,16 @@ impl DbProApp {
         self.draw_query_context_chrome(ui);
         self.draw_query_transaction_chrome(ui);
         self.draw_visual_query_builder_surface(ui);
-        let (dock_open, dock_height, editor_height) = self.query_panel_heights(ui.available_height());
-        self.draw_query_editor_stack(ui, editor_height);
+        let layout = query_layout_surface_view::calculate(query_layout_surface_view::QueryPanelLayoutContext {
+            available_height: ui.available_height(),
+            bottom_panel_open: self.workspace.bottom_panel_open,
+            output_dock_maximized: self.query.editor.query_output_dock_maximized,
+            bottom_panel_height: self.workspace.bottom_panel_height,
+        });
+        self.draw_query_editor_stack(ui, layout.editor_height);
         self.draw_query_optional_panels(ui);
-        if dock_open {
-            self.draw_query_output_dock(ui, dock_height);
+        if layout.dock_open {
+            self.draw_query_output_dock(ui, layout.dock_height);
         }
         self.draw_query_status_bar(ui);
         self.draw_dirty_close_dialog(ui.ctx());
@@ -130,26 +138,6 @@ impl DbProApp {
             .default_open(true)
             .show(ui, |ui| self.draw_visual_query_builder(ui));
         ui.add_space(SPACE_XS);
-    }
-
-    fn query_panel_heights(&self, available: f32) -> (bool, f32, f32) {
-        let status_height = query_status_bar_surface_view::QUERY_STATUS_HEIGHT;
-        let dock_open = self.workspace.bottom_panel_open;
-        let dock_height = if !dock_open {
-            0.0
-        } else if self.query.editor.query_output_dock_maximized {
-            (available - status_height - 80.0).max(OUTPUT_MIN_HEIGHT)
-        } else {
-            self.workspace
-                .bottom_panel_height
-                .clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT)
-        };
-        let editor_height = if self.query.editor.query_output_dock_maximized && dock_open {
-            80.0
-        } else {
-            (available - dock_height - status_height).max(120.0)
-        };
-        (dock_open, dock_height, editor_height)
     }
 
     fn draw_query_editor_stack(&mut self, ui: &mut egui::Ui, editor_height: f32) {
