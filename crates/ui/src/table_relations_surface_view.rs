@@ -18,6 +18,10 @@ pub(super) struct TableRelationsContext<'a> {
     pub(super) search: &'a mut String,
 }
 
+pub(super) fn draw_loading(theme: DbProTheme, ui: &mut egui::Ui) {
+    ui.label(RichText::new("Table structure is still loading…").color(theme.text_muted));
+}
+
 impl TableRelationsContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<TableRelationsAction> {
         let mut actions = Vec::new();

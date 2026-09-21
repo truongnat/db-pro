@@ -4,7 +4,7 @@ impl DbProApp {
     /// Draw the Foreign Keys tab: relations table with target jump and copy actions.
     pub(super) fn draw_table_relations_view(&mut self, ui: &mut egui::Ui) {
         let Some(info) = self.table.state.table_info.clone() else {
-            ui.label(RichText::new("Table structure is still loading…").color(self.theme.text_muted));
+            table_relations_surface_view::draw_loading(self.theme, ui);
             return;
         };
         let actions = table_relations_surface_view::TableRelationsContext {
@@ -25,7 +25,7 @@ impl DbProApp {
     /// Draw the Constraints tab: categorized constraints (PK, FK, Unique, Check, NOT NULL).
     pub(super) fn draw_table_constraints_view(&mut self, ui: &mut egui::Ui) {
         let Some(info) = self.table.state.table_info.clone() else {
-            ui.label(RichText::new("Table structure is still loading…").color(self.theme.text_muted));
+            table_relations_surface_view::draw_loading(self.theme, ui);
             return;
         };
         table_metadata_surface_view::TableMetadataContext {
@@ -41,7 +41,7 @@ impl DbProApp {
     /// Draw the Dependencies tab: real dependency graph entries (Incoming & Outgoing).
     pub(super) fn draw_table_dependencies_view(&mut self, ui: &mut egui::Ui) {
         let Some(info) = self.table.state.table_info.clone() else {
-            ui.label(RichText::new("Table structure is still loading…").color(self.theme.text_muted));
+            table_relations_surface_view::draw_loading(self.theme, ui);
             return;
         };
         let actions = table_metadata_surface_view::TableMetadataContext {

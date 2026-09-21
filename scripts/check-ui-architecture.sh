@@ -227,6 +227,8 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/table_data_placeholder_view.rs"
   "$repo_root/crates/ui/src/table_structure_surface_view.rs"
   "$repo_root/crates/ui/src/table_indexes_surface_view.rs"
+  "$repo_root/crates/ui/src/table_relations_surface_view.rs"
+  "$repo_root/crates/ui/src/table_metadata_surface_view.rs"
   "$repo_root/crates/ui/src/table_profile_surface_view.rs"
   "$repo_root/crates/ui/src/table_data_pagination_view.rs"
   "$repo_root/crates/ui/src/table_data_filter_view.rs"
