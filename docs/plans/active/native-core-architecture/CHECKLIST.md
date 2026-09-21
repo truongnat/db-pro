@@ -167,6 +167,12 @@
 - [x] Queries and History sidebar composition is owned by
       `SidebarQueriesSurfaceContext`; the root only applies the unified typed
       query/library/shortcut action stream.
+- [x] Table data grid framing and metadata scroll geometry are owned by
+      explicit layout surfaces; table coordinators retain grid interaction and
+      runtime mutation effects only.
+- [x] Query Visual Builder framing and editor-stack allocation are owned by
+      `query_shell_surface_view`; query root retains editor/search/effect
+      adapters only.
 - [x] Architecture boundary check in CI (`scripts/check-ui-architecture.sh`).
 
 ## Gates

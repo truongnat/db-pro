@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `bb76bff4`.
+Source checkpoint: `9756af9e`.
 
 ## Current change
 
@@ -147,6 +147,30 @@ workspace composition. Queries and History sidebar section layout moved to
 saved-query, history and shortcut renderers and emits one typed action stream.
 The root no longer paints those section headers or coordinates their renderer
 calls directly.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 15 checks, 1 pre-existing `app.rs` size warning and 0
+  failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 678 tests, 0 failed.
+- `git diff --check`: passed.
+
+Table layout follow-up at source SHA `ebbd7a68`: table-data grid framing and
+metadata-pane scroll policy now live in `table_data_surface_view.rs` and
+`table_scroll_surface_view.rs`. `table_data_view.rs` and `table_view.rs` keep
+request, selection, mutation and typed action application, but no longer own
+the grid-frame or scroll-area geometry.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 15 checks, 1 pre-existing `app.rs` size warning and 0
+  failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 678 tests, 0 failed.
+- `git diff --check`: passed.
+
+Query shell layout follow-up at source SHA `9756af9e`: Visual Query Builder
+collapsing-panel framing and editor-stack allocation now live in
+`query_shell_surface_view.rs`. `query_view.rs` retains the editor/search
+contexts, query state preparation and effect adapters, but no longer owns
+those generic layout policies.
 
 - Focused UI check, clippy, architecture guard and clean-code scan: passed;
   clean scan reported 15 checks, 1 pre-existing `app.rs` size warning and 0
