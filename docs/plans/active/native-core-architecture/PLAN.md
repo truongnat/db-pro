@@ -73,9 +73,9 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
     contexts; Security confirmation, the composed Security surface, monitoring
     presentation and result-grid viewport composition now use the same
     boundary; query panel geometry, Audit, Event Trigger, FDW, Logical
-    Replication, PostgreSQL settings, workspace-files and query-actions
-    presentation are now explicit; some dialog/root adapters still require
-    migration.
+    Replication, PostgreSQL settings, workspace-files, query-actions and
+    Visual Query Builder presentation are now explicit; some dialog/root
+    adapters still require migration.
 11. Enforce the runtime command boundary as a two-phase transition: prepare
     typed command, dispatch through `TaskBridge`, then commit local pending or
     running state only after dispatch succeeds. This is now applied to the
