@@ -166,7 +166,18 @@ impl DbProApp {
         for action in actions {
             self.apply_sidebar_query_library_action(ui, action);
         }
-        self.draw_delete_saved_query_confirmation(ui);
+        if let Some(id) = self.overlay.delete_confirmation_id.as_deref() {
+            let action = SidebarQueryLibraryContext {
+                theme: self.theme,
+                saved_queries: &self.query.library.saved_queries,
+                query_folders: &self.query.library.query_folders,
+                history: &self.query.editor.query_history,
+            }
+            .draw_delete_confirmation(ui, id);
+            if let Some(action) = action {
+                self.apply_sidebar_query_library_action(ui, action);
+            }
+        }
     }
 
     fn apply_sidebar_query_library_action(&mut self, ui: &mut egui::Ui, action: SidebarQueryLibraryAction) {
@@ -183,6 +194,14 @@ impl DbProApp {
             SidebarQueryLibraryAction::Rename(query) => self.rename_saved_query(&query),
             SidebarQueryLibraryAction::RequestDelete(id) => {
                 self.overlay.delete_confirmation_id = Some(id);
+            }
+            SidebarQueryLibraryAction::ConfirmDelete(id) => {
+                let request_id = self.task_bridge.next_request_id();
+                self.dispatch_command(self.query.library.delete_query_command(request_id, id));
+                self.overlay.delete_confirmation_id = None;
+            }
+            SidebarQueryLibraryAction::CancelDelete => {
+                self.overlay.delete_confirmation_id = None;
             }
             SidebarQueryLibraryAction::RequestDeleteFolder(id) => {
                 self.overlay.folder_delete_confirmation = id;
@@ -202,23 +221,6 @@ impl DbProApp {
                 .library
                 .rename_query_command(request_id, query.id.clone(), name),
         );
-    }
-
-    fn draw_delete_saved_query_confirmation(&mut self, ui: &mut egui::Ui) {
-        let Some(id) = self.overlay.delete_confirmation_id.clone() else {
-            return;
-        };
-        ui.colored_label(self.theme.warning, "Delete this saved query?");
-        ui.horizontal(|ui| {
-            if compact_button(ui, "Confirm delete", self.theme).clicked() {
-                let request_id = self.task_bridge.next_request_id();
-                self.dispatch_command(self.query.library.delete_query_command(request_id, id));
-                self.overlay.delete_confirmation_id = None;
-            }
-            if compact_button(ui, "Cancel", self.theme).clicked() {
-                self.overlay.delete_confirmation_id = None;
-            }
-        });
     }
 
     fn draw_local_history_section(&mut self, ui: &mut egui::Ui) {

@@ -9,6 +9,8 @@ pub(super) enum SidebarQueryLibraryAction {
     CopySql { name: String, sql: String },
     Rename(UiSavedQuerySummary),
     RequestDelete(String),
+    ConfirmDelete(String),
+    CancelDelete,
     RequestDeleteFolder(Option<String>),
     OpenHistory(String),
 }
@@ -61,6 +63,24 @@ impl SidebarQueryLibraryContext<'_> {
             ui.add_space(12.0);
         }
         actions
+    }
+
+    pub(super) fn draw_delete_confirmation(
+        &self,
+        ui: &mut egui::Ui,
+        query_id: &str,
+    ) -> Option<SidebarQueryLibraryAction> {
+        let mut action = None;
+        ui.colored_label(self.theme.warning, "Delete this saved query?");
+        ui.horizontal(|ui| {
+            if compact_button(ui, "Confirm delete", self.theme).clicked() {
+                action = Some(SidebarQueryLibraryAction::ConfirmDelete(query_id.to_owned()));
+            }
+            if compact_button(ui, "Cancel", self.theme).clicked() {
+                action = Some(SidebarQueryLibraryAction::CancelDelete);
+            }
+        });
+        action
     }
 
     fn draw_empty_saved_queries(&self, ui: &mut egui::Ui) -> Vec<SidebarQueryLibraryAction> {
