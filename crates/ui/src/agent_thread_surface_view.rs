@@ -47,10 +47,8 @@ impl AgentThreadSurfaceContext<'_> {
                         actions.push(action);
                     }
                 }
-                if self.session.state == db_pro_core::domain::agent::AgentSessionState::Failed {
-                    if self.draw_retry(ui) {
-                        actions.push(AgentThreadAction::Retry);
-                    }
+                if self.session.state == db_pro_core::domain::agent::AgentSessionState::Failed && self.draw_retry(ui) {
+                    actions.push(AgentThreadAction::Retry);
                 }
                 if self.session.request_id.is_some() || self.session.active_run_id.is_some() {
                     self.draw_thinking(ui);
