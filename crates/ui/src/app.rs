@@ -552,6 +552,8 @@ mod security_role_details_view;
 mod security_roles_view;
 #[path = "shell_chrome_view.rs"]
 mod shell_chrome_view;
+#[path = "shell_output_panel_view.rs"]
+mod shell_output_panel_view;
 #[path = "table_ddl_surface_view.rs"]
 mod table_ddl_surface_view;
 #[path = "table_ddl_view.rs"]

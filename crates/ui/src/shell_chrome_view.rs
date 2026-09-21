@@ -317,98 +317,19 @@ impl DbProApp {
     }
 
     pub(super) fn draw_output_panel(&mut self, ctx: &egui::Context) {
-        if !self.workspace.bottom_panel_open {
-            return;
+        let active_result = self
+            .query
+            .session
+            .active_result()
+            .or(self.table.data_query.result.as_ref());
+        shell_output_panel_view::ShellOutputPanelContext {
+            theme: self.theme,
+            workspace: &mut self.workspace,
+            output: &mut self.query.output,
+            session: &self.query.session,
+            editor: &self.query.editor,
+            active_result,
         }
-        let height = self.workspace.bottom_panel_height;
-        let response = TopBottomPanel::bottom("output_panel")
-            .resizable(true)
-            .default_height(height)
-            .height_range(OUTPUT_MIN_HEIGHT..=OUTPUT_MAX_HEIGHT)
-            .frame(panel_frame(self.theme))
-            .show(ctx, |ui| {
-                ui.set_min_size(ui.available_size());
-                ui.horizontal(|ui| {
-                    section_label(ui, "OUTPUT", self.theme);
-                    for (tab, label) in [
-                        (OutputTab::Results, "Results"),
-                        (OutputTab::Chart, "Chart"),
-                        (OutputTab::Messages, "Messages"),
-                        (OutputTab::Explain, "Explain"),
-                        (OutputTab::History, "History"),
-                    ] {
-                        if tab_frame(self.theme, self.query.output.active_tab == tab)
-                            .show(ui, |ui| ui.selectable_label(self.query.output.active_tab == tab, label))
-                            .inner
-                            .clicked()
-                        {
-                            self.query.output.active_tab = tab;
-                        }
-                    }
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if compact_icon_button(ui, Icon::X, self.theme)
-                            .on_hover_text("Close output")
-                            .clicked()
-                        {
-                            self.workspace.bottom_panel_open = false;
-                        }
-                    });
-                });
-                ui.separator();
-                match self.query.output.active_tab {
-                    OutputTab::Results => {
-                        let result = self
-                            .query
-                            .session
-                            .active_result()
-                            .or(self.table.data_query.result.as_ref());
-                        ui.label(
-                            RichText::new(
-                                result
-                                    .map(|value| format!("{} rows · {} ms", value.row_count, value.duration_ms))
-                                    .unwrap_or_else(|| "No result".to_owned()),
-                            )
-                            .small()
-                            .color(self.theme.text_secondary),
-                        );
-                    }
-                    OutputTab::Chart => {
-                        ui.label(
-                            RichText::new("Chart view — open the Chart tab for full controls")
-                                .small()
-                                .color(self.theme.text_muted),
-                        );
-                    }
-                    OutputTab::Messages => {
-                        for message in self.query.session.active_messages().iter().rev().take(8) {
-                            ui.label(RichText::new(message).small().color(self.theme.text_secondary));
-                        }
-                    }
-                    OutputTab::Explain => {
-                        if let Some(plan) = self.query.session.active_explain_plan() {
-                            egui::ScrollArea::vertical().show(ui, |ui| {
-                                ui.label(RichText::new(plan).monospace().small().color(self.theme.text_secondary));
-                            });
-                        } else {
-                            ui.label(
-                                RichText::new("Run Explain to inspect the query plan")
-                                    .small()
-                                    .color(self.theme.text_muted),
-                            );
-                        }
-                    }
-                    OutputTab::History => {
-                        for query in self.query.editor.query_history.iter().rev().take(8) {
-                            ui.label(
-                                RichText::new(query)
-                                    .monospace()
-                                    .small()
-                                    .color(self.theme.text_secondary),
-                            );
-                        }
-                    }
-                }
-            });
-        self.workspace.set_bottom_panel_height(response.response.rect.height());
+        .draw(ctx);
     }
 }
