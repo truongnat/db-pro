@@ -20,6 +20,40 @@ pub(super) struct TableStructureContext<'a> {
     pub(super) selected_column: Option<&'a str>,
 }
 
+pub(super) fn draw_placeholder(theme: DbProTheme, error: Option<&str>, ui: &mut egui::Ui) {
+    grid_frame(theme).show(ui, |ui| {
+        ui.vertical_centered(|ui| {
+            ui.add_space(28.0);
+            let failed = error.is_some();
+            ui.label(icon_text(
+                if failed {
+                    Icon::TriangleAlert
+                } else {
+                    Icon::LoaderCircle
+                },
+                "",
+                if failed { theme.warning } else { theme.accent },
+            ));
+            ui.add_space(8.0);
+            ui.label(
+                RichText::new(if failed {
+                    "Table structure could not be loaded"
+                } else {
+                    "Loading table structure…"
+                })
+                .strong()
+                .color(theme.text_primary),
+            );
+            ui.label(
+                RichText::new(error.unwrap_or("Columns, keys and indexes will appear here."))
+                    .small()
+                    .color(theme.text_secondary),
+            );
+            ui.add_space(28.0);
+        });
+    });
+}
+
 impl TableStructureContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) -> Vec<TableStructureAction> {
         self.draw_metrics(ui);

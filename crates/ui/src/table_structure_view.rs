@@ -2,13 +2,17 @@
 use super::*;
 
 #[path = "table_structure_surface_view.rs"]
-mod table_structure_surface_view;
+pub(super) mod table_structure_surface_view;
 
 impl DbProApp {
     /// Draws the structure surface from an immutable table-info snapshot.
     pub(super) fn draw_table_structure_view(&mut self, ui: &mut egui::Ui) {
         let Some(info) = self.table.state.table_info.clone() else {
-            self.draw_table_structure_placeholder(ui);
+            table_structure_surface_view::draw_placeholder(
+                self.theme,
+                self.table.state.table_info_error.as_deref(),
+                ui,
+            );
             return;
         };
         let actions = {
