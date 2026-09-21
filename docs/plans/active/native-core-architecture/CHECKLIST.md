@@ -81,6 +81,6 @@
       and schema-object rows.
 - [x] Loading Welcome and New Connection error state captures at logical
       `1280x800`.
-- [x] Latest native release binary rebuilt on `b0debd01`; runtime launch and
+- [x] Latest native release binary rebuilt on `7a401686`; runtime launch and
       the normal Welcome capture are recorded in `VERIFICATION.md`.
 - [ ] Native runtime evidence for affected surfaces.

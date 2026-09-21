@@ -65,6 +65,11 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
     slices, large Settings sections, table surfaces and query execution
     preparation are now explicit; Explorer adapters, monitoring/security
     surfaces and some dialog/root adapters still require migration.
+11. Enforce the runtime command boundary as a two-phase transition: prepare
+    typed command, dispatch through `TaskBridge`, then commit local pending or
+    running state only after dispatch succeeds. This is now applied to the
+    connection, schema, table, query and mutation paths; remaining surfaces
+    still need the same audit.
 
 ## Non-goals
 

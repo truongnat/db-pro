@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `b0debd01`.
+Source checkpoint: `7a401686`.
 
 ## Current change
 
@@ -13,9 +13,36 @@ planning now collect typed intents/effects in feature-owned contexts. Agent
 confirmation planning now owns document targeting,
 patch application and continuation payload preparation outside the app root.
 Direct multiline channel bypasses are guarded.
+Runtime-bound request transitions now use a prepare → dispatch → commit shape:
+failed dispatches do not leave fake loading, pending, connecting, deleting or
+query-running state behind. This applies to connection/schema/table/query and
+mutation paths, including SQL prediction requests.
 The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
+
+## Gate evidence at `7a401686`
+
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri, 664 UI and all other workspace suites
+  passed, with only environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 14 checks passed, with the existing 9 function-size and `app.rs`
+  size warnings retained by ratchet and 0 failures.
+- `git diff --check`: passed before commit.
+- Runtime capture: `/tmp/db-pro-native-core-7a401686-welcome.png`, logical
+  `1280x800` (PNG framebuffer `2560x1600` on the 2x host), was visually
+  inspected. It shows the native Welcome/Explorer empty state with the New
+  connection entry point. The rebuilt release binary is running in terminal
+  session `68483` for manual verification. Explorer table/schema-object runtime
+  capture remains pending because deterministic capture has no live schema
+  provider.
 
 ## Gate evidence at `bad96b53`
 
