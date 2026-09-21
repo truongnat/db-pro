@@ -168,10 +168,10 @@ impl DbProApp {
                         db_pro_core::domain::masking::suggest_sensitive_columns(&names).join(",");
                 }
                 if secondary_button(ui, "Preview sample", self.theme).clicked() {
-                    self.preview_masking_sample();
+                    self.transfer_harness_context().preview_masking_sample();
                 }
                 if secondary_button(ui, "Masked CSV export", self.theme).clicked() {
-                    self.run_masked_csv_export_harness();
+                    self.transfer_harness_context().run_masked_csv_export_harness();
                 }
             });
             if let Some(error) = &self.management.masking.masking_error {
@@ -187,25 +187,25 @@ impl DbProApp {
         ui.add_space(SPACE_MD);
         ui.horizontal_wrapped(|ui| {
             if primary_button_with_icon(ui, Icon::Play, "Run synthetic harness", self.theme).clicked() {
-                self.run_synthetic_transfer_harness(false);
+                self.transfer_harness_context().run_synthetic_transfer_harness(false);
             }
             if secondary_button_with_icon(ui, Icon::Ban, "Run then cancel", self.theme).clicked() {
-                self.run_synthetic_transfer_harness(true);
+                self.transfer_harness_context().run_synthetic_transfer_harness(true);
             }
             if secondary_button_with_icon(ui, Icon::FileSpreadsheet, "CSV export harness", self.theme).clicked() {
-                self.run_csv_export_harness();
+                self.transfer_harness_context().run_csv_export_harness();
             }
             if secondary_button_with_icon(ui, Icon::Download, "CSV import preview", self.theme).clicked() {
-                self.run_csv_import_preview_harness();
+                self.transfer_harness_context().run_csv_import_preview_harness();
             }
             if secondary_button_with_icon(ui, Icon::Braces, "JSONL export harness", self.theme).clicked() {
-                self.run_jsonl_export_harness();
+                self.transfer_harness_context().run_jsonl_export_harness();
             }
             if secondary_button_with_icon(ui, Icon::Sheet, "Excel export harness", self.theme).clicked() {
-                self.run_excel_export_harness();
+                self.transfer_harness_context().run_excel_export_harness();
             }
             if secondary_button_with_icon(ui, Icon::DatabaseBackup, "DB→DB harness", self.theme).clicked() {
-                self.run_db_to_db_transfer_harness();
+                self.transfer_harness_context().run_db_to_db_transfer_harness();
             }
             if ghost_button_with_icon(ui, Icon::Trash2, "Clear jobs", self.theme).clicked() {
                 self.management.transfer.transfer_jobs.clear();
@@ -261,6 +261,56 @@ impl DbProApp {
                 }
             });
             ui.add_space(SPACE_SM);
+        }
+    }
+}
+
+impl DbProApp {
+    pub(crate) fn preview_synthetic_seed(&mut self) {
+        self.transfer_harness_context().preview_synthetic_seed();
+    }
+
+    pub(crate) fn export_synthetic_seed_sql(&mut self) {
+        match self.transfer_harness_context().build_synthetic_seed_sql() {
+            Ok((sql, count)) => {
+                self.set_active_query_text(sql);
+                self.workspace.active_tab = WorkspaceTab::Query;
+                self.management.synthetic_data.synthetic_error = None;
+                self.feedback.runtime_message = format!("Synthetic INSERT SQL ({count} rows) exported to Query editor");
+            }
+            Err(error) => {
+                self.management.synthetic_data.synthetic_error = Some(error);
+            }
+        }
+    }
+
+    pub(crate) fn apply_synthetic_seed(&mut self) {
+        let is_production = self
+            .active_connection()
+            .map(|connection| connection.environment.eq_ignore_ascii_case("Production"))
+            .unwrap_or(false);
+        if is_production && !self.management.synthetic_data.synthetic_production_confirm {
+            self.management.synthetic_data.synthetic_error =
+                Some("Production confirmation required before applying seed INSERT".into());
+            return;
+        }
+        self.export_synthetic_seed_sql();
+        if self.management.synthetic_data.synthetic_error.is_some() {
+            return;
+        }
+        if self.connection.lifecycle.active_connection_id().is_none() || !self.connection.lifecycle.is_connected() {
+            self.management.synthetic_data.synthetic_error = Some("Connect to a database before applying seed".into());
+            return;
+        }
+        self.dispatch_query();
+        self.feedback.runtime_message = "Synthetic seed INSERT dispatched via query runtime".into();
+    }
+
+    fn transfer_harness_context(&mut self) -> transfer_harness_view::TransferHarnessContext<'_> {
+        transfer_harness_view::TransferHarnessContext {
+            management: &mut self.management,
+            feedback: &mut self.feedback,
+            table_details: &self.schema.explorer.schema.table_details,
         }
     }
 }

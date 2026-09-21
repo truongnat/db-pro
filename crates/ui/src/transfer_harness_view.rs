@@ -1,17 +1,23 @@
 use super::*;
 
-impl DbProApp {
+pub(super) struct TransferHarnessContext<'a> {
+    pub(super) management: &'a mut DatabaseManagementState,
+    pub(super) feedback: &'a mut FeedbackState,
+    pub(super) table_details: &'a [UiTableSummary],
+}
+
+impl TransferHarnessContext<'_> {
     fn build_synthetic_plan(&self) -> Result<db_pro_core::domain::synthetic_data::SyntheticPlan, String> {
         synthetic_data::build_plan(
             &self.management.synthetic_data.synthetic_table,
             &self.management.synthetic_data.synthetic_row_count,
             &self.management.synthetic_data.synthetic_seed,
             &self.management.synthetic_data.synthetic_null_pct,
-            &self.schema.explorer.schema.table_details,
+            self.table_details,
         )
     }
 
-    pub(crate) fn preview_synthetic_seed(&mut self) {
+    pub(super) fn preview_synthetic_seed(&mut self) {
         match self.build_synthetic_plan() {
             Ok(plan) => match db_pro_core::domain::synthetic_data::generate_preview(&plan, 20) {
                 Ok(preview) => {
@@ -30,62 +36,15 @@ impl DbProApp {
         }
     }
 
-    pub(crate) fn export_synthetic_seed_sql(&mut self) {
-        let plan = match self.build_synthetic_plan() {
-            Ok(p) => p,
-            Err(err) => {
-                self.management.synthetic_data.synthetic_error = Some(err);
-                return;
-            }
-        };
-        let count = match usize::try_from(plan.row_count.min(500)) {
-            Ok(count) => count,
-            Err(_) => {
-                self.management.synthetic_data.synthetic_error = Some("invalid row count".to_owned());
-                return;
-            }
-        };
-        let rows = match db_pro_core::domain::synthetic_data::generate_rows(&plan, count) {
-            Ok(r) => r,
-            Err(err) => {
-                self.management.synthetic_data.synthetic_error = Some(err);
-                return;
-            }
-        };
-        match db_pro_core::domain::synthetic_data::render_insert_sql(&plan, &rows) {
-            Ok(sql) => {
-                self.set_active_query_text(sql);
-                self.workspace.active_tab = WorkspaceTab::Query;
-                self.management.synthetic_data.synthetic_error = None;
-                self.feedback.runtime_message = format!("Synthetic INSERT SQL ({count} rows) exported to Query editor");
-            }
-            Err(err) => self.management.synthetic_data.synthetic_error = Some(err),
-        }
+    pub(super) fn build_synthetic_seed_sql(&self) -> Result<(String, usize), String> {
+        let plan = self.build_synthetic_plan()?;
+        let count = usize::try_from(plan.row_count.min(500)).map_err(|_| "invalid row count".to_owned())?;
+        let rows = db_pro_core::domain::synthetic_data::generate_rows(&plan, count)?;
+        let sql = db_pro_core::domain::synthetic_data::render_insert_sql(&plan, &rows)?;
+        Ok((sql, count))
     }
 
-    pub(crate) fn apply_synthetic_seed(&mut self) {
-        let is_production = self
-            .active_connection()
-            .map(|c| c.environment.eq_ignore_ascii_case("Production"))
-            .unwrap_or(false);
-        if is_production && !self.management.synthetic_data.synthetic_production_confirm {
-            self.management.synthetic_data.synthetic_error =
-                Some("Production confirmation required before applying seed INSERT".into());
-            return;
-        }
-        self.export_synthetic_seed_sql();
-        if self.management.synthetic_data.synthetic_error.is_some() {
-            return;
-        }
-        if self.connection.lifecycle.active_connection_id().is_none() || !self.connection.lifecycle.is_connected() {
-            self.management.synthetic_data.synthetic_error = Some("Connect to a database before applying seed".into());
-            return;
-        }
-        self.dispatch_query();
-        self.feedback.runtime_message = "Synthetic seed INSERT dispatched via query runtime".into();
-    }
-
-    pub(crate) fn preview_masking_sample(&mut self) {
+    pub(super) fn preview_masking_sample(&mut self) {
         self.management.masking.masking_preview = Some(masking::build_preview(
             &self.management.masking.masking_columns_csv,
             self.management.masking.masking_rule,
@@ -502,5 +461,43 @@ impl DbProApp {
         if self.management.transfer.transfer_jobs.len() > 20 {
             self.management.transfer.transfer_jobs.truncate(20);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::UiSchemaColumn;
+
+    #[test]
+    fn synthetic_seed_context_builds_sql_from_explicit_management_state() {
+        let mut management = DatabaseManagementState::default();
+        management.synthetic_data.synthetic_table = "public.users".to_owned();
+        management.synthetic_data.synthetic_row_count = "2".to_owned();
+        management.synthetic_data.synthetic_seed = "42".to_owned();
+        management.synthetic_data.synthetic_null_pct = "0".to_owned();
+        let table_details = vec![UiTableSummary {
+            schema: "public".to_owned(),
+            name: "users".to_owned(),
+            row_count: None,
+            columns: vec![UiSchemaColumn {
+                name: "id".to_owned(),
+                data_type: "integer".to_owned(),
+                nullable: false,
+                is_primary_key: true,
+            }],
+            foreign_keys: Vec::new(),
+        }];
+        let mut feedback = FeedbackState::default();
+        let context = TransferHarnessContext {
+            management: &mut management,
+            feedback: &mut feedback,
+            table_details: &table_details,
+        };
+
+        let (sql, count) = context.build_synthetic_seed_sql().expect("synthetic SQL");
+
+        assert_eq!(count, 2);
+        assert!(sql.contains("INSERT INTO \"public\".\"users\""));
     }
 }
