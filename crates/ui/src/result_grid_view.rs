@@ -31,7 +31,8 @@ pub(crate) struct GridRows<'a> {
     pub(crate) selection_lookup: &'a GridSelectionLookup,
 }
 
-struct GridKeyboardApplicationContext<'a> {
+struct GridInteractionApplicationContext<'a> {
+    ui: &'a mut egui::Ui,
     result: &'a UiQueryResult,
     indexes: &'a [usize],
     order: &'a [usize],
@@ -222,91 +223,87 @@ impl DbProApp {
         editable: bool,
         selection_lookup: &GridSelectionLookup,
     ) {
-        let intent = result_grid_keyboard_view::read_keyboard_intent(
-            ui,
-            result_grid_keyboard_view::GridKeyboardInputContext {
+        let actions = {
+            let mut context = result_grid_interaction_surface_view::ResultGridInteractionContext {
+                result,
+                indexes,
+                order,
                 editable,
-                editing_cell: self.table.editing.data_editing_cell.is_some(),
-                connection_dialog_open: self.connection.dialog.is_open(),
+                table_state: &self.table.state,
+                table_data: &mut self.table.data,
+                table_editing: &mut self.table.editing,
+                table_mutation: &self.table.mutation,
+                feedback: &mut self.feedback,
+            };
+            context.handle_keyboard(ui, self.connection.dialog.is_open())
+        };
+        self.apply_grid_interaction_actions(
+            GridInteractionApplicationContext {
+                ui,
+                result,
+                indexes,
+                order,
+                editable,
+                selection_lookup,
             },
+            actions,
         );
-        match intent {
-            result_grid_keyboard_view::GridKeyboardIntent::SelectAll => {
-                self.table.data.select_all_visible_cells(indexes, order);
-                self.feedback.copy_status.clear();
-            }
-            result_grid_keyboard_view::GridKeyboardIntent::ClearSelection => {
-                self.clear_grid_selection();
-            }
-            result_grid_keyboard_view::GridKeyboardIntent::Commands(commands) => {
-                self.apply_grid_keyboard_commands(
-                    ui,
-                    GridKeyboardApplicationContext {
-                        result,
-                        indexes,
-                        order,
-                        editable,
-                        selection_lookup,
-                    },
-                    commands,
-                );
-            }
-        }
     }
 
-    fn clear_grid_selection(&mut self) {
-        self.table.data.clear_selection();
-        self.feedback.copy_status.clear();
-    }
-
-    fn apply_grid_keyboard_commands(
+    fn apply_grid_interaction_actions(
         &mut self,
-        ui: &mut egui::Ui,
-        context: GridKeyboardApplicationContext<'_>,
-        commands: result_grid_keyboard_view::GridKeyboardCommands,
+        context: GridInteractionApplicationContext<'_>,
+        actions: Vec<result_grid_interaction_surface_view::ResultGridInteractionAction>,
     ) {
-        if commands.copy_selected_rows {
-            self.copy_selected_rows(ui, context.result);
-        } else if commands.copy_selected_cell {
-            self.copy_selected_cell(ui, context.result);
-        }
-        if commands.apply_staged_changes {
-            self.apply_staged_changes();
-        }
-        if commands.discard_staged_changes {
-            if self.table.mutation.staged_changes.counts().total() > 1 {
-                self.table.editing.discard_changes_confirmation = true;
-            } else {
-                self.discard_staged_changes();
+        use result_grid_interaction_surface_view::ResultGridInteractionAction as Action;
+
+        for action in actions {
+            match action {
+                Action::CopySelectedRows => self.copy_selected_rows(context.ui, context.result),
+                Action::CopySelectedCell => self.copy_selected_cell(context.ui, context.result),
+                Action::ApplyStagedChanges => self.apply_staged_changes(),
+                Action::DiscardStagedChanges => self.discard_staged_changes(),
+                Action::DeleteSelectedRows => self.request_delete_selected_data_rows(context.result),
+                Action::SubmitCellEdit {
+                    row_index,
+                    column_index,
+                } => {
+                    self.submit_data_cell_edit(context.result, row_index, column_index);
+                }
+                Action::BeginCellEdit {
+                    row_index,
+                    column_index,
+                } => {
+                    if let Some(cell) = context
+                        .result
+                        .rows
+                        .get(row_index)
+                        .and_then(|row| row.get(column_index))
+                        .cloned()
+                    {
+                        self.begin_data_cell_edit(context.result, row_index, column_index, &cell);
+                    }
+                }
+                Action::CommitEditAndNavigate => {
+                    if self.commit_active_data_edit(context.result) {
+                        self.navigate_grid(
+                            context.ui,
+                            context.indexes,
+                            context.order,
+                            context.editable,
+                            context.selection_lookup,
+                        );
+                    }
+                    return;
+                }
+                Action::Navigate => self.navigate_grid(
+                    context.ui,
+                    context.indexes,
+                    context.order,
+                    context.editable,
+                    context.selection_lookup,
+                ),
             }
-        }
-        if commands.delete_selected_rows {
-            self.request_delete_selected_data_rows(context.result);
-        }
-        if context.editable {
-            self.handle_grid_edit_input(ui, context.result, commands.pasted_text);
-        }
-        if commands.commit_edit_and_navigate {
-            if !self.commit_active_data_edit(context.result) {
-                return;
-            }
-            self.navigate_grid(
-                ui,
-                context.indexes,
-                context.order,
-                context.editable,
-                context.selection_lookup,
-            );
-            return;
-        }
-        if commands.navigate {
-            self.navigate_grid(
-                ui,
-                context.indexes,
-                context.order,
-                context.editable,
-                context.selection_lookup,
-            );
         }
     }
 
@@ -324,29 +321,6 @@ impl DbProApp {
             feedback: &mut self.feedback,
         };
         result_grid_selection::handle_grid_navigation(ui, indexes, order, editable, selection_lookup, &mut context);
-    }
-
-    /// Paste-into-cell and Enter/F2-to-edit while the grid is editable.
-    pub(crate) fn handle_grid_edit_input(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, pasted: Option<String>) {
-        if let (Some((row_index, column_index)), Some(text)) = (self.table.data.selected_cell, pasted) {
-            if let Some(block) = self.blocked_write_for_cell(result, column_index) {
-                self.feedback.copy_status = block.reason().to_owned();
-                return;
-            }
-            self.table.editing.data_editing_cell = Some((row_index, column_index));
-            self.table.editing.data_edit_value = text;
-            self.submit_data_cell_edit(result, row_index, column_index);
-        }
-        if self.table.editing.data_editing_cell.is_none()
-            && self.table.data.selected_cell.is_some()
-            && ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::F2))
-        {
-            if let Some((row_index, column_index)) = self.table.data.selected_cell {
-                if let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) {
-                    self.begin_data_cell_edit(result, row_index, column_index, cell);
-                }
-            }
-        }
     }
 
     /// The write policy for the column behind a grid cell, if it is blocked.

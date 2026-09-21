@@ -234,6 +234,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/result_grid_header_menu_view.rs"
   "$repo_root/crates/ui/src/result_grid_header_content_view.rs"
   "$repo_root/crates/ui/src/result_grid_header_surface_view.rs"
+  "$repo_root/crates/ui/src/result_grid_interaction_surface_view.rs"
   "$repo_root/crates/ui/src/result_grid_keyboard_view.rs"
   "$repo_root/crates/ui/src/result_grid_row_gutter_view.rs"
   "$repo_root/crates/ui/src/result_grid_row_view.rs"
