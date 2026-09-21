@@ -378,6 +378,8 @@ mod query_snippets;
 mod query_state;
 #[path = "query_status_bar_surface_view.rs"]
 mod query_status_bar_surface_view;
+#[path = "query_transaction_surface_view.rs"]
+mod query_transaction_surface_view;
 #[path = "query_view.rs"]
 mod query_view;
 #[path = "result_grid_cell.rs"]
