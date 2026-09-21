@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `532de109`.
+Source checkpoint: `a7d35fcb`.
 
 ## Current change
 
@@ -158,6 +158,26 @@ Backup Settings now renders its complete database-files card through
 `SettingsBackupContext`, including provider capability messaging and backup
 tool hints. The root supplies the driver/capability read model and applies the
 typed backup/restore command actions.
+
+Saved-query delete confirmation now renders through
+`SidebarQueryLibraryContext` and emits typed confirm/cancel actions. The root
+retains only delete-command dispatch and overlay-state ownership.
+
+## Gate evidence at `a7d35fcb`
+
+- Focused `cargo fmt --all`, `cargo check -p db-pro-ui` and
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 UI tests passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `25821` for manual verification. Full workspace/provider/runtime evidence
+  remains bounded by the `fa952484` workspace gate and is not a claim that
+  every native surface has been manually traversed.
 
 ## Gate evidence at `532de109`
 
