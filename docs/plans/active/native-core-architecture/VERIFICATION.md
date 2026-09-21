@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `de220cb9`.
+Source checkpoint: `05524c33`.
 
 ## Current change
 
@@ -22,6 +22,9 @@ owns egui rendering and emits typed actions, while `tasks_view.rs` keeps only
 draft persistence, scheduler policy, runtime dispatch and the root action
 adapter. Per-payload dispatch is split into focused SQL, backup, export and
 maintenance handlers.
+Workspace-files transitions now follow the same ownership rule: panel
+selection, root/environment/trust changes, directory expansion, search routing
+and external-change dismissal are reduced through `WorkspaceFilesState`.
 Settings Data Grid, Connections, AI, Security, Advanced and Appearance panes
 now render through explicit settings contexts; `settings_view.rs` keeps
 navigation, persistence/runtime adapters and the remaining backup/diagnostics
@@ -2054,8 +2057,12 @@ keeps task policy and execution effects.
   to a logical height of `838`. The required normal/loading/error/empty states
   are now captured at exact logical `1280x800`.
 
-## Current core checkpoint at `de220cb9`
+## Current core checkpoint at `05524c33`
 
+- Workspace-files state boundary: `05524c33`; `WorkspaceFilesState` now owns
+  panel selection, root/environment/trust transitions, directory expansion,
+  search routing and external-change dismissal. Activity adapters no longer
+  mutate those feature internals directly.
 - Composition-root guard: `de220cb9`; the architecture check now rejects egui
   painting in `app.rs`, keeping the root limited to aggregate ownership and
   cross-feature orchestration.
@@ -2080,6 +2087,10 @@ keeps task policy and execution effects.
 - `cargo fmt --all -- --check`: passed.
 - `cargo check --workspace`: passed.
 - `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- Current focused UI checks after `05524c33`: `cargo check -p db-pro-ui`,
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings` and
+  `cargo test -p db-pro-ui --lib --quiet` passed; 682 UI tests passed with no
+  failures.
 - `cargo test --workspace --no-fail-fast --quiet`: passed; workspace suites
   include 404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34,
   31 and 681 UI tests with no failures. Environment-gated tests remain

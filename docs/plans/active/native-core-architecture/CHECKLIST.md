@@ -185,6 +185,10 @@
 - [x] Saved Tasks destructive-run policy and run-history recording are owned by
       `SavedTaskState`; runtime payload dispatch remains at the composition
       root.
+- [x] Workspace-files panel selection, root/environment/trust transitions,
+      directory expansion, search routing and external-change dismissal are
+      owned by `WorkspaceFilesState`; file activity adapters no longer mutate
+      those internals directly.
 - [x] Settings navigation, section composition and diagnostics presentation
       are owned by `SettingsSurfaceContext`; settings root retains only
       persistence, runtime/file effects and typed action application.
