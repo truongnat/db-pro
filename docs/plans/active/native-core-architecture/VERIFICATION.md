@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `b6949238`.
+Source checkpoint: `00a23cec`.
 
 ## Current change
 
@@ -68,6 +68,13 @@ matrix is not complete.
   query text generation and metadata/data request dispatch. The complete
   workspace gate passed with 659 UI tests, and the latest release binary is
   running for manual verification in terminal session `47888`.
+
+- `00a23cec`: Schema-object activation now uses `SchemaObjectActivationContext`
+  with a typed `SchemaObjectActivation` request; table reset, DDL surface
+  selection, routine preview cleanup/sync and feedback stay outside the root
+  adapter. The complete workspace gate passed with 660 UI tests, and the
+  latest release binary is running for manual verification in terminal session
+  `12401`.
 
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and
