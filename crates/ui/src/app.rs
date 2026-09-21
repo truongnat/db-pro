@@ -104,6 +104,8 @@ mod event_trigger_state;
 mod events;
 #[path = "events_query_dispatch.rs"]
 mod events_query_dispatch;
+#[path = "explorer_connection_node_view.rs"]
+mod explorer_connection_node_view;
 #[path = "explorer_connection_row_view.rs"]
 mod explorer_connection_row_view;
 #[path = "explorer_connections.rs"]
