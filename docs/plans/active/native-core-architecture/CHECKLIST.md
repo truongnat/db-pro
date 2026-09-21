@@ -200,6 +200,9 @@
 - [x] Query editor rendering returns typed runtime effects; request-id allocation,
       dispatch and prediction-request commit remain in the query composition
       adapter, while the surface owns only editor state transitions.
+- [x] `TableState` owns table lifecycle and DDL validation without constructing
+      `UiCommand`; table runtime protocol mapping remains in the table editor
+      effect adapter and is protected by the architecture guard.
 - [x] Settings navigation, section composition and diagnostics presentation
       are owned by `SettingsSurfaceContext`; settings root retains only
       persistence, runtime/file effects and typed action application.
