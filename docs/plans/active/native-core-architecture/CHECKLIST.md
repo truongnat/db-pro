@@ -82,6 +82,9 @@
 - [x] PostgreSQL settings presentation separated into an explicit context with
       typed refresh/edit/reset/preview actions; command dispatch remains at the
       root adapter.
+- [x] Workspace-files shell presentation separated into an explicit context
+      with typed folder/root/trust/environment/tab actions; filesystem and
+      navigation effects remain at the root adapter.
 - [x] Shell Output Panel separated into an explicit context for panel layout,
       tab rendering and close/resize state.
 - [x] Query library, named workspace session and overlay aggregates.
