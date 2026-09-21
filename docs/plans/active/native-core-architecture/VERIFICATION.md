@@ -1,16 +1,16 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `257b7bde`.
+Source checkpoint: `b0debd01`.
 
 ## Current change
 
 The native UI interaction boundary is being migrated in vertical slices.
-Explorer connection nodes, database/schema trees, schema-object folders,
-table-folder/table-detail rendering, the Agent surface, large Settings
-sections, table surfaces and query execution preparation, Explain transitions,
-saved-query preparation and Schema Workbench mutation planning now collect
-typed intents/effects in feature-owned contexts. Agent confirmation planning
-now owns document targeting,
+Explorer surface composition, connection nodes, database/schema trees,
+schema-object folders, table-folder/table-detail rendering, the Agent surface,
+large Settings sections, table surfaces and query execution preparation,
+Explain transitions, saved-query preparation and Schema Workbench mutation
+planning now collect typed intents/effects in feature-owned contexts. Agent
+confirmation planning now owns document targeting,
 patch application and continuation payload preparation outside the app root.
 Direct multiline channel bypasses are guarded.
 The plan remains `IMPLEMENTING` because other large feature surfaces
@@ -50,6 +50,22 @@ matrix is not complete.
 - Runtime capture `/tmp/db-pro-native-core-257b7bde-welcome.png`, logical
   `1280x800`, was visually inspected. The latest release binary is running in
   terminal session `47176` for manual verification. Explorer table/schema-object
+  runtime capture remains pending because deterministic capture has no live
+  schema provider.
+
+## Gate evidence at `b0debd01`
+
+- The full workspace gate was run on the source tree committed as `b0debd01`
+  immediately before commit: formatting, workspace check, clippy with
+  `-D warnings`, workspace tests, both native release builds, architecture
+  boundary, clean-code scan and `git diff --check` all passed.
+- Workspace tests included 404 core, 119 infrastructure, 32 runtime, 4 Tauri,
+  660 UI and all other workspace suites, with only environment-gated tests
+  ignored. Clean-code scan reported 15 passes, 1 pre-existing `app.rs` size
+  warning and 0 failures.
+- Runtime capture `/tmp/db-pro-native-core-b0debd01-welcome.png`, logical
+  `1280x800`, was visually inspected. The latest release binary is running in
+  terminal session `38176` for manual verification. Explorer table/schema-object
   runtime capture remains pending because deterministic capture has no live
   schema provider.
 
@@ -153,6 +169,12 @@ matrix is not complete.
   `ExplorerConnectionNodeView`; the root applies only typed connection and
   schema-tree actions. The full workspace gate passed on this exact source
   tree, and the release binary is running in terminal session `47176`.
+
+- `b0debd01`: the Explorer toolbar, empty state, scroll container and
+  connection-node composition now run through `ExplorerSurfaceContext`; the
+  root only assembles the read model and applies typed surface actions. The
+  full workspace gate passed on this exact source tree, and the release binary
+  is running in terminal session `38176`.
 
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and

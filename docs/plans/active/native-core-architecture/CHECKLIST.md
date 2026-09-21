@@ -61,10 +61,9 @@
 - [x] Connection, schema and operation reducers split out of `events.rs`.
 - [x] Legacy agent command/event path removed; agent runtime uses one workflow contract.
 - [ ] `DbProApp` reduced to composition root (event pump and cross-feature orchestration only).
-      Explorer root effect adapters plus toolbar/empty-state composition still
-      remain under active migration; connection nodes, database/schema trees,
-      schema-object folders, table rows and table details now have explicit
-      view boundaries.
+      Explorer rendering is now explicit; remaining work is the root's
+      cross-feature effect adapters and equivalent adapters in other large
+      surfaces.
 - [x] Architecture boundary check in CI (`scripts/check-ui-architecture.sh`).
 
 ## Gates
@@ -82,6 +81,6 @@
       and schema-object rows.
 - [x] Loading Welcome and New Connection error state captures at logical
       `1280x800`.
-- [x] Latest native release binary rebuilt on `257b7bde`; runtime launch and
+- [x] Latest native release binary rebuilt on `b0debd01`; runtime launch and
       the normal Welcome capture are recorded in `VERIFICATION.md`.
 - [ ] Native runtime evidence for affected surfaces.
