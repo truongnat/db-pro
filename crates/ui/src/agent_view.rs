@@ -92,13 +92,8 @@ impl DbProApp {
                 AgentSettingsAction::SaveKey(api_key) => {
                     let request_id = self.task_bridge.next_request_id();
                     self.agent.configure_request = Some(request_id);
-                    if self
-                        .task_bridge
-                        .send(UiCommand::SaveAgentApiKey { request_id, api_key })
-                        .is_err()
-                    {
+                    if !self.dispatch_command(UiCommand::SaveAgentApiKey { request_id, api_key }) {
                         self.agent.configure_request = None;
-                        self.feedback.runtime_message = "Agent runtime unavailable".to_owned();
                     }
                 }
                 AgentSettingsAction::ForgetKey => {

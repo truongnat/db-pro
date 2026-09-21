@@ -56,7 +56,7 @@ if ! rg -q 'drain_events\(crate::runtime::MAX_RUNTIME_EVENTS_PER_FRAME\)' "$repo
   exit 1
 fi
 
-direct_sends=$(rg -n 'task_bridge\.send\(' "$repo_root/crates/ui/src" --glob '*.rs' | rg -v '/app\.rs:' || true)
+direct_sends=$(rg --pcre2 -U -n 'task_bridge\s*(?:\n\s*)?\.send\(' "$repo_root/crates/ui/src" --glob '*.rs' | rg -v '/app\.rs:' || true)
 if [[ -n "$direct_sends" ]]; then
   echo "$direct_sends" >&2
   echo "UI architecture check failed: feature code bypasses the command dispatch adapter." >&2

@@ -310,21 +310,16 @@ impl DbProApp {
             }
         };
         self.feedback.runtime_message = format!("Sending request to {}…", self.agent.provider_label);
-        if self
-            .task_bridge
-            .send(UiCommand::StartAgentRun {
-                request_id: prepared.request_id,
-                prompt: prepared.prompt,
-                session: prepared.session,
-                document: prepared.document,
-                mode: prepared.mode,
-                allow_read_only_auto_run: prepared.allow_read_only_auto_run,
-                context: prepared.context,
-            })
-            .is_err()
-        {
+        if !self.dispatch_command(UiCommand::StartAgentRun {
+            request_id: prepared.request_id,
+            prompt: prepared.prompt,
+            session: prepared.session,
+            document: prepared.document,
+            mode: prepared.mode,
+            allow_read_only_auto_run: prepared.allow_read_only_auto_run,
+            context: prepared.context,
+        }) {
             self.agent.mark_run_failed(&prepared.document_id);
-            self.feedback.runtime_message = "Agent runtime unavailable".to_owned();
         }
     }
 

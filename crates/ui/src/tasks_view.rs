@@ -436,14 +436,14 @@ impl DbProApp {
                     return Err("backup output path is required".to_owned());
                 }
                 let request_id = self.task_bridge.next_request_id();
-                self.task_bridge
-                    .send(UiCommand::Backup {
-                        request_id,
-                        connection_id: task.connection_id.clone(),
-                        output_path: output_path.clone(),
-                        custom_format: *custom_format,
-                    })
-                    .map_err(|e| e.to_string())?;
+                if !self.dispatch_command(UiCommand::Backup {
+                    request_id,
+                    connection_id: task.connection_id.clone(),
+                    output_path: output_path.clone(),
+                    custom_format: *custom_format,
+                }) {
+                    return Err("Runtime worker unavailable".to_owned());
+                }
                 Ok("Dispatched backup task".to_owned())
             }
             SavedTaskPayload::Export { table, format } => {
