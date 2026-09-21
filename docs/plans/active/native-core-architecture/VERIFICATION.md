@@ -103,6 +103,13 @@ separated header, right-aligned close icon and typed footer/body actions.
 - The rebuilt release binary is running in terminal session `34197` for manual
   verification.
 
+- Full workspace regression at source SHA `7dec13d3` passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+
 The Query output dock now has an explicit `QueryOutputDockContext` for resize
 geometry and tab chrome. The root keeps only the pane callback because result,
 chart, message, explain and history panes dispatch query-specific effects.
