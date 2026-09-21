@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `e0d8105e`.
+Source checkpoint: `3cd32bf2`.
 
 ## Current change
 
@@ -53,6 +53,32 @@ agent, theme and document-navigation effects remain in the root adapter.
 The shell statusbar now has an explicit `ShellStatusbarContext` for connection,
 runtime, editor and output-panel chrome. The root only prepares the read model
 and applies the output-panel toggle.
+
+The Agent thread now renders through an immutable
+`AgentThreadSurfaceContext` and emits typed submit, result, retry and
+confirmation actions. Agent panel shell geometry and context-chip presentation
+now use `AgentPanelSurfaceContext` and `AgentContextSurfaceContext`; Agent
+settings/header/composer runtime effects remain root adapters.
+
+## Gate evidence at `3cd32bf2`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the exact pre-commit source tree; 16 checks passed, 0 warnings and
+  0 failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime launch: the latest release binary is running in terminal session
+  `64169`. No dedicated Agent interaction capture was collected; the runtime
+  matrix remains incomplete.
 
 ## Gate evidence at `e0d8105e`
 

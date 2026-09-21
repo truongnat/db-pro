@@ -51,6 +51,10 @@
       navigation, palette, gallery, agent, theme and quick-open actions.
 - [x] Shell statusbar rendering separated into an explicit context with a
       typed output-panel toggle action.
+- [x] Agent thread rendering separated into an immutable context with typed
+      submit, result, retry and confirmation actions.
+- [x] Agent panel shell and context-chip presentation separated into explicit
+      contexts; settings/header/composer effects remain root adapters.
 - [x] Shell Output Panel separated into an explicit context for panel layout,
       tab rendering and close/resize state.
 - [x] Query library, named workspace session and overlay aggregates.
