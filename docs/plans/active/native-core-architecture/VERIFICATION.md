@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `56973275`.
+Source checkpoint: `7cffc59c`.
 
 ## Current change
 
@@ -22,9 +22,33 @@ owns egui rendering and emits typed actions, while `tasks_view.rs` keeps only
 draft persistence, scheduler policy, runtime dispatch and the root action
 adapter. Per-payload dispatch is split into focused SQL, backup, export and
 maintenance handlers.
+Settings Data Grid, Connections, AI, Security, Advanced and Appearance panes
+now render through explicit settings contexts; `settings_view.rs` keeps
+navigation, persistence/runtime adapters and the remaining backup/diagnostics
+orchestration.
 The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
+
+## Gate evidence at `7cffc59c`
+
+- `cargo check --workspace`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 668 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on each exact pre-commit source tree for the Settings slices; 15
+  checks passed, 1 pre-existing `app.rs` size warning was retained by the
+  ratchet, and 0 checks failed.
+- `git diff --check`: passed before each commit.
+- Runtime launch: the latest release binary built from this checkpoint is
+  running in terminal session `38792` for manual verification. No dedicated
+  Settings interaction capture was collected in this checkpoint.
 
 ## Gate evidence at `56973275`
 
