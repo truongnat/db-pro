@@ -70,8 +70,8 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
     shell topbar navigation and chrome now use the same boundary; Explorer
     statusbar chrome now uses the same boundary; Explorer adapters,
     Agent thread rendering and panel/context presentation now use explicit
-    contexts; monitoring/security surfaces and some dialog/root adapters still
-    require migration.
+    contexts; Security confirmation now uses the same boundary; monitoring
+    surfaces and some dialog/root adapters still require migration.
 11. Enforce the runtime command boundary as a two-phase transition: prepare
     typed command, dispatch through `TaskBridge`, then commit local pending or
     running state only after dispatch succeeds. This is now applied to the

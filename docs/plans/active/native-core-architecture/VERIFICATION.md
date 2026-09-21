@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `3cd32bf2`.
+Source checkpoint: `bac3bbe7`.
 
 ## Current change
 
@@ -59,6 +59,30 @@ The Agent thread now renders through an immutable
 confirmation actions. Agent panel shell geometry and context-chip presentation
 now use `AgentPanelSurfaceContext` and `AgentContextSurfaceContext`; Agent
 settings/header/composer runtime effects remain root adapters.
+
+The Security drop-role confirmation now renders through
+`SecurityConfirmationContext` and returns typed confirm/cancel actions. The
+root keeps only the PostgreSQL command dispatch and state transition.
+
+## Gate evidence at `bac3bbe7`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the clean post-commit tree; 16 checks passed, 0 warnings and 0
+  failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime launch: the latest release binary is running in terminal session
+  `50398`. No dedicated Security interaction capture was collected; the
+  runtime matrix remains incomplete.
 
 ## Gate evidence at `3cd32bf2`
 
