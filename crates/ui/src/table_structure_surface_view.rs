@@ -2,6 +2,7 @@
 use super::super::*;
 use crate::components::badge::{Badge, BadgeVariant};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
+use crate::components::dialog::Dialog;
 use crate::components::table::{Table, TableColumn};
 use crate::UiTableColumn;
 use egui::{Align, Layout, RichText};
@@ -331,24 +332,24 @@ impl TableStructureContext<'_> {
             return;
         };
         let mut open = true;
-        egui::Window::new(format!("Column · {}", column.name))
-            .open(&mut open)
-            .resizable(false)
-            .default_width(360.0)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ctx, |ui| {
-                ui.label(RichText::new(&column.data_type).monospace().strong());
-                ui.separator();
-                ui.label(format!("Ordinal: {}", column.ordinal));
-                ui.label(format!("Nullable: {}", column.nullable));
-                ui.label(format!("Default: {}", column.default.as_deref().unwrap_or("—")));
-                ui.label(format!("Primary key: {}", column.is_primary_key));
-                ui.label(format!("Unique: {}", column.is_unique));
-                ui.label(format!("Identity: {}", column.is_identity));
-                ui.label(format!("Generated: {}", column.is_generated));
-                if let Some(collation) = &column.collation {
-                    ui.label(format!("Collation: {collation}"));
-                }
+        Dialog::new(&mut open, format!("Column · {}", column.name), self.theme)
+            .width(420.0)
+            .id_salt("table_column_detail_dialog")
+            .show_framed_ctx(ctx, |frame| {
+                frame.body(|ui| {
+                    ui.label(RichText::new(&column.data_type).monospace().strong());
+                    ui.separator();
+                    ui.label(format!("Ordinal: {}", column.ordinal));
+                    ui.label(format!("Nullable: {}", column.nullable));
+                    ui.label(format!("Default: {}", column.default.as_deref().unwrap_or("—")));
+                    ui.label(format!("Primary key: {}", column.is_primary_key));
+                    ui.label(format!("Unique: {}", column.is_unique));
+                    ui.label(format!("Identity: {}", column.is_identity));
+                    ui.label(format!("Generated: {}", column.is_generated));
+                    if let Some(collation) = &column.collation {
+                        ui.label(format!("Collation: {collation}"));
+                    }
+                });
             });
         if !open {
             actions.push(TableStructureAction::CloseColumnDetail);

@@ -16,13 +16,15 @@ impl SecurityConfirmationContext<'_> {
     pub(super) fn draw(&self, ctx: &egui::Context) -> Option<SecurityConfirmationAction> {
         let role = self.drop_role?;
         let mut action = None;
-        egui::Window::new("Drop role?")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ctx, |ui| {
-                ui.label(format!("Drop role `{role}`? This cannot be undone."));
-                ui.horizontal(|ui| {
+        let mut open = true;
+        Dialog::new(&mut open, "Drop role?", self.theme)
+            .width(420.0)
+            .id_salt("security_drop_role_dialog")
+            .show_framed_ctx(ctx, |frame| {
+                frame.body(|ui| {
+                    ui.label(format!("Drop role `{role}`? This cannot be undone."));
+                });
+                frame.footer(|ui| {
                     if danger_button(ui, "Drop role", self.theme).clicked() {
                         action = Some(SecurityConfirmationAction::ConfirmDropRole(role.to_owned()));
                     }
@@ -31,6 +33,9 @@ impl SecurityConfirmationContext<'_> {
                     }
                 });
             });
+        if !open && action.is_none() {
+            action = Some(SecurityConfirmationAction::CancelDropRole);
+        }
         action
     }
 }

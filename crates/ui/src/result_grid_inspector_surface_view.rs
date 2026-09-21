@@ -1,6 +1,6 @@
 //! Advanced result-cell inspector presentation and typed effects.
 use super::super::*;
-use crate::components::{Button, ButtonSize, ButtonVariant, SegmentedTabs};
+use crate::components::{Button, ButtonSize, ButtonVariant, Dialog, SegmentedTabs};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ValueInspectorAction {
@@ -32,26 +32,20 @@ pub(super) fn draw(
     let mut action = None;
     let mut open = true;
     let title = format!("Value inspector · {}", context.column_name);
-    egui::Window::new(title)
-        .id(egui::Id::new((
-            "advanced-cell-inspector",
-            context.row_index,
-            context.column_index,
-        )))
-        .open(&mut open)
-        .resizable(true)
-        .default_width(560.0)
-        .default_height(420.0)
-        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-        .show(egui_context, |ui| {
-            draw_metadata(context, ui);
-            draw_toolbar(context, ui, &mut action);
-            ui.add_space(6.0);
-            draw_value(context, ui);
-            if let Some(error) = context.error.as_deref() {
-                ui.label(egui::RichText::new(error).small().color(context.theme.danger));
-            }
-            draw_footer(context, ui, &mut action);
+    Dialog::new(&mut open, title, context.theme)
+        .width(620.0)
+        .id_salt(("advanced-cell-inspector", context.row_index, context.column_index))
+        .show_framed_ctx(egui_context, |frame| {
+            frame.body(|ui| {
+                draw_metadata(context, ui);
+                draw_toolbar(context, ui, &mut action);
+                ui.add_space(6.0);
+                draw_value(context, ui);
+                if let Some(error) = context.error.as_deref() {
+                    ui.label(egui::RichText::new(error).small().color(context.theme.danger));
+                }
+            });
+            frame.footer(|ui| draw_footer(context, ui, &mut action));
         });
     if !open {
         action = Some(ValueInspectorAction::Close);

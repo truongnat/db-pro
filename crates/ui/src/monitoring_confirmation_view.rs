@@ -36,15 +36,17 @@ impl MonitoringConfirmationContext {
 
     fn draw_terminate(&self, ctx: &egui::Context, backend_id: i64) -> Vec<MonitoringConfirmationAction> {
         let mut actions = Vec::new();
-        egui::Window::new("Terminate session?")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ctx, |ui| {
-                ui.label(format!(
-                    "Terminate PostgreSQL backend pid {backend_id}? This disconnects the client."
-                ));
-                ui.horizontal(|ui| {
+        let mut open = true;
+        Dialog::new(&mut open, "Terminate session?", self.theme)
+            .width(460.0)
+            .id_salt("monitoring_terminate_dialog")
+            .show_framed_ctx(ctx, |frame| {
+                frame.body(|ui| {
+                    ui.label(format!(
+                        "Terminate PostgreSQL backend pid {backend_id}? This disconnects the client."
+                    ));
+                });
+                frame.footer(|ui| {
                     if danger_button(ui, "Terminate", self.theme).clicked() {
                         actions.push(MonitoringConfirmationAction::ConfirmTerminate(backend_id));
                     }
@@ -53,6 +55,9 @@ impl MonitoringConfirmationContext {
                     }
                 });
             });
+        if !open {
+            actions.push(MonitoringConfirmationAction::CancelTerminate);
+        }
         actions
     }
 
@@ -62,16 +67,18 @@ impl MonitoringConfirmationContext {
         action: db_pro_core::domain::monitoring::MaintenanceAction,
     ) -> Vec<MonitoringConfirmationAction> {
         let mut actions = Vec::new();
-        egui::Window::new("Run maintenance?")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ctx, |ui| {
-                ui.label(format!(
-                    "Run {} on the active database? Long-running VACUUM can take locks.",
-                    action.as_label()
-                ));
-                ui.horizontal(|ui| {
+        let mut open = true;
+        Dialog::new(&mut open, "Run maintenance?", self.theme)
+            .width(460.0)
+            .id_salt("monitoring_maintenance_dialog")
+            .show_framed_ctx(ctx, |frame| {
+                frame.body(|ui| {
+                    ui.label(format!(
+                        "Run {} on the active database? Long-running VACUUM can take locks.",
+                        action.as_label()
+                    ));
+                });
+                frame.footer(|ui| {
                     if danger_button(ui, action.as_label(), self.theme).clicked() {
                         actions.push(MonitoringConfirmationAction::ConfirmMaintenance(action));
                     }
@@ -80,21 +87,26 @@ impl MonitoringConfirmationContext {
                     }
                 });
             });
+        if !open {
+            actions.push(MonitoringConfirmationAction::CancelMaintenance);
+        }
         actions
     }
 
     fn draw_reset_statistics(&self, ctx: &egui::Context) -> Vec<MonitoringConfirmationAction> {
         let mut actions = Vec::new();
-        egui::Window::new("Reset pg_stat_statements?")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ctx, |ui| {
-                ui.label(
-                    "This clears all accumulated statement statistics on the server. \
-                     It is an administrative action and cannot be undone.",
-                );
-                ui.horizontal(|ui| {
+        let mut open = true;
+        Dialog::new(&mut open, "Reset pg_stat_statements?", self.theme)
+            .width(460.0)
+            .id_salt("monitoring_reset_statistics_dialog")
+            .show_framed_ctx(ctx, |frame| {
+                frame.body(|ui| {
+                    ui.label(
+                        "This clears all accumulated statement statistics on the server. \
+                         It is an administrative action and cannot be undone.",
+                    );
+                });
+                frame.footer(|ui| {
                     if danger_button(ui, "Reset statistics", self.theme).clicked() {
                         actions.push(MonitoringConfirmationAction::ConfirmResetStatistics);
                     }
@@ -103,6 +115,9 @@ impl MonitoringConfirmationContext {
                     }
                 });
             });
+        if !open {
+            actions.push(MonitoringConfirmationAction::CancelResetStatistics);
+        }
         actions
     }
 }

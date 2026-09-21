@@ -1,6 +1,7 @@
 //! PostgreSQL settings presentation and typed user intents.
 use super::super::pg_settings_state::PgSettingsState;
 use super::super::*;
+use crate::components::dialog::Dialog;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum PgSettingsSurfaceAction {
@@ -151,13 +152,15 @@ impl PgSettingsSurfaceContext<'_> {
             return;
         }
         let name = self.state.pg_settings_edit_name.clone();
-        egui::Window::new(format!("SET SESSION · {name}"))
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ui.ctx(), |ui| {
-                ui.text_edit_singleline(&mut self.state.pg_settings_edit_value);
-                ui.horizontal(|ui| {
+        let mut open = true;
+        Dialog::new(&mut open, format!("SET SESSION · {name}"), self.theme)
+            .width(460.0)
+            .id_salt("pg_settings_edit_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.text_edit_singleline(&mut self.state.pg_settings_edit_value);
+                });
+                frame.footer(|ui| {
                     if secondary_button(ui, "Apply SET", self.theme).clicked() {
                         actions.push(PgSettingsSurfaceAction::ApplySession {
                             name: name.clone(),
@@ -169,23 +172,32 @@ impl PgSettingsSurfaceContext<'_> {
                     }
                 });
             });
+        if !open {
+            actions.push(PgSettingsSurfaceAction::CancelEdit);
+        }
     }
 
     fn draw_preview(&self, ui: &mut egui::Ui, actions: &mut Vec<PgSettingsSurfaceAction>) {
         let Some(preview) = self.state.pg_settings_preview.as_ref() else {
             return;
         };
-        egui::Window::new("ALTER SYSTEM preview")
-            .collapsible(false)
-            .resizable(true)
-            .default_width(480.0)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ui.ctx(), |ui| {
-                ui.label(RichText::new(&preview.note).small().color(self.theme.warning));
-                ui.label(RichText::new(&preview.sql).monospace());
-                if secondary_button(ui, "Close", self.theme).clicked() {
-                    actions.push(PgSettingsSurfaceAction::ClosePreview);
-                }
+        let mut open = true;
+        Dialog::new(&mut open, "ALTER SYSTEM preview", self.theme)
+            .width(560.0)
+            .id_salt("pg_settings_preview_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label(RichText::new(&preview.note).small().color(self.theme.warning));
+                    ui.label(RichText::new(&preview.sql).monospace());
+                });
+                frame.footer(|ui| {
+                    if secondary_button(ui, "Close", self.theme).clicked() {
+                        actions.push(PgSettingsSurfaceAction::ClosePreview);
+                    }
+                });
             });
+        if !open {
+            actions.push(PgSettingsSurfaceAction::ClosePreview);
+        }
     }
 }

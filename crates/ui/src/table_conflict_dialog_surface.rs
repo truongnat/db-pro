@@ -3,6 +3,7 @@
 use super::change_set::{ChangeSet, MutationTarget, StagedChange};
 use super::*;
 use crate::components::button::{Button, ButtonVariant};
+use crate::components::dialog::Dialog;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ConflictDialogAction {
@@ -25,26 +26,27 @@ impl ConflictDialogContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Option<ConflictDialogAction> {
         let mut open = true;
         let mut action = None;
-        egui::Window::new("Row Conflict Resolution")
-            .open(&mut open)
-            .resizable(true)
-            .default_width(680.0)
-            .show(ui.ctx(), |ui| {
-                ui.label(
-                    RichText::new("A concurrent modification or deletion was detected for this row.")
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
-                ui.add_space(4.0);
-                match self.target {
-                    MutationTarget::Update { identity, columns, .. } => {
-                        self.draw_update_conflict(ui, identity, columns, &mut action)
+        Dialog::new(&mut open, "Row Conflict Resolution", self.theme)
+            .width(740.0)
+            .id_salt("row_conflict_resolution_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label(
+                        RichText::new("A concurrent modification or deletion was detected for this row.")
+                            .small()
+                            .color(self.theme.text_secondary),
+                    );
+                    ui.add_space(4.0);
+                    match self.target {
+                        MutationTarget::Update { identity, columns, .. } => {
+                            self.draw_update_conflict(ui, identity, columns, &mut action)
+                        }
+                        MutationTarget::Delete { identity, .. } => {
+                            self.draw_delete_conflict(ui, identity, &mut action);
+                        }
+                        MutationTarget::Insert => self.draw_insert_conflict(ui, &mut action),
                     }
-                    MutationTarget::Delete { identity, .. } => {
-                        self.draw_delete_conflict(ui, identity, &mut action);
-                    }
-                    MutationTarget::Insert => self.draw_insert_conflict(ui, &mut action),
-                }
+                });
             });
         action.or_else(|| (!open).then_some(ConflictDialogAction::Close))
     }

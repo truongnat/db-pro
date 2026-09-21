@@ -173,30 +173,40 @@ impl FdwSurfaceContext<'_> {
         let Some(preview) = self.state.fdw_ddl_preview.as_ref() else {
             return;
         };
-        egui::Window::new("FDW DDL preview")
-            .collapsible(false)
-            .resizable(true)
-            .default_width(480.0)
-            .show(ui.ctx(), |ui| {
-                ui.label(RichText::new(preview).monospace());
-                if secondary_button(ui, "Close", self.theme).clicked() {
-                    actions.push(FdwSurfaceAction::ClosePreview);
-                }
+        let mut open = true;
+        Dialog::new(&mut open, "FDW DDL preview", self.theme)
+            .width(520.0)
+            .id_salt("fdw_preview_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label(RichText::new(preview).monospace());
+                });
+                frame.footer(|ui| {
+                    if secondary_button(ui, "Close", self.theme).clicked() {
+                        actions.push(FdwSurfaceAction::ClosePreview);
+                    }
+                });
             });
+        if !open {
+            actions.push(FdwSurfaceAction::ClosePreview);
+        }
     }
 
     fn draw_drop_confirmation(&self, ui: &mut egui::Ui, actions: &mut Vec<FdwSurfaceAction>) {
         let Some(name) = self.state.fdw_drop_confirm.as_ref() else {
             return;
         };
-        egui::Window::new("Drop foreign server?")
-            .collapsible(false)
-            .resizable(false)
-            .show(ui.ctx(), |ui| {
-                ui.label(format!(
-                    "Drop server `{name}` CASCADE? This removes dependent foreign tables/mappings."
-                ));
-                ui.horizontal(|ui| {
+        let mut open = true;
+        Dialog::new(&mut open, "Drop foreign server?", self.theme)
+            .width(500.0)
+            .id_salt("fdw_drop_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label(format!(
+                        "Drop server `{name}` CASCADE? This removes dependent foreign tables/mappings."
+                    ));
+                });
+                frame.footer(|ui| {
                     if danger_button(ui, "Drop CASCADE", self.theme).clicked() {
                         actions.push(FdwSurfaceAction::ConfirmDropServer {
                             name: name.clone(),
@@ -208,5 +218,8 @@ impl FdwSurfaceContext<'_> {
                     }
                 });
             });
+        if !open {
+            actions.push(FdwSurfaceAction::CancelDrop);
+        }
     }
 }

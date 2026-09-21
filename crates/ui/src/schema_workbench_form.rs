@@ -1,6 +1,7 @@
 //! Schema workbench object form and SQL preview panes.
 use super::schema_workbench::{ConstraintKindUi, SchemaWorkbenchMode, SchemaWorkbenchState};
 use super::*;
+use crate::components::dialog::Dialog;
 use crate::components::{Button, ButtonSize, ButtonVariant};
 use db_pro_core::domain::object_mutation::ObjectAction;
 
@@ -345,14 +346,15 @@ pub(super) fn draw_workbench_preview(
     });
 
     if context.workbench.apply_confirmation {
-        egui::Window::new("Confirm DDL apply")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ui.ctx(), |ui| {
-                ui.label("Apply the previewed DDL to the active connection?");
-                ui.add_space(8.0);
-                ui.horizontal(|ui| {
+        let mut open = true;
+        Dialog::new(&mut open, "Confirm DDL apply", context.theme)
+            .width(460.0)
+            .id_salt("schema_workbench_apply_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label("Apply the previewed DDL to the active connection?");
+                });
+                frame.footer(|ui| {
                     if Button::new(context.theme)
                         .text("Cancel")
                         .size(ButtonSize::Sm)
@@ -374,6 +376,9 @@ pub(super) fn draw_workbench_preview(
                     }
                 });
             });
+        if !open {
+            context.workbench.apply_confirmation = false;
+        }
     }
     action
 }

@@ -1,6 +1,7 @@
 //! Logical-replication presentation and typed user intents.
 use super::super::replication_state::ReplicationState;
 use super::super::*;
+use crate::components::dialog::Dialog;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum ReplicationSurfaceAction {
@@ -177,28 +178,36 @@ impl ReplicationSurfaceContext<'_> {
         let Some(preview) = self.state.replication_ddl_preview.as_ref() else {
             return;
         };
-        egui::Window::new("Replication DDL preview")
-            .collapsible(false)
-            .resizable(true)
-            .default_width(480.0)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ui.ctx(), |ui| {
-                ui.label(RichText::new(preview).monospace());
-                if secondary_button(ui, "Close", self.theme).clicked() {
-                    actions.push(ReplicationSurfaceAction::ClosePreview);
-                }
+        let mut open = true;
+        Dialog::new(&mut open, "Replication DDL preview", self.theme)
+            .width(560.0)
+            .id_salt("replication_preview_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label(RichText::new(preview).monospace());
+                });
+                frame.footer(|ui| {
+                    if secondary_button(ui, "Close", self.theme).clicked() {
+                        actions.push(ReplicationSurfaceAction::ClosePreview);
+                    }
+                });
             });
+        if !open {
+            actions.push(ReplicationSurfaceAction::ClosePreview);
+        }
     }
 
     fn draw_drop_confirmations(&self, ui: &mut egui::Ui, actions: &mut Vec<ReplicationSurfaceAction>) {
         if let Some(name) = self.state.replication_drop_publication.as_ref() {
-            egui::Window::new("Drop publication?")
-                .collapsible(false)
-                .resizable(false)
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .show(ui.ctx(), |ui| {
-                    ui.label(format!("Drop publication `{name}`?"));
-                    ui.horizontal(|ui| {
+            let mut open = true;
+            Dialog::new(&mut open, "Drop publication?", self.theme)
+                .width(440.0)
+                .id_salt("replication_drop_publication_dialog")
+                .show_framed_ctx(ui.ctx(), |frame| {
+                    frame.body(|ui| {
+                        ui.label(format!("Drop publication `{name}`?"));
+                    });
+                    frame.footer(|ui| {
                         if danger_button(ui, "Drop", self.theme).clicked() {
                             actions.push(ReplicationSurfaceAction::ConfirmDropPublication(name.clone()));
                         }
@@ -207,17 +216,22 @@ impl ReplicationSurfaceContext<'_> {
                         }
                     });
                 });
+            if !open {
+                actions.push(ReplicationSurfaceAction::CancelDropPublication);
+            }
         }
         if let Some(name) = self.state.replication_drop_subscription.as_ref() {
-            egui::Window::new("Drop subscription?")
-                .collapsible(false)
-                .resizable(false)
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .show(ui.ctx(), |ui| {
-                    ui.label(format!(
-                        "Drop subscription `{name}`? Conninfo is never shown or logged."
-                    ));
-                    ui.horizontal(|ui| {
+            let mut open = true;
+            Dialog::new(&mut open, "Drop subscription?", self.theme)
+                .width(500.0)
+                .id_salt("replication_drop_subscription_dialog")
+                .show_framed_ctx(ui.ctx(), |frame| {
+                    frame.body(|ui| {
+                        ui.label(format!(
+                            "Drop subscription `{name}`? Conninfo is never shown or logged."
+                        ));
+                    });
+                    frame.footer(|ui| {
                         if danger_button(ui, "Drop", self.theme).clicked() {
                             actions.push(ReplicationSurfaceAction::ConfirmDropSubscription(name.clone()));
                         }
@@ -226,6 +240,9 @@ impl ReplicationSurfaceContext<'_> {
                         }
                     });
                 });
+            if !open {
+                actions.push(ReplicationSurfaceAction::CancelDropSubscription);
+            }
         }
     }
 }

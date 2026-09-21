@@ -153,30 +153,40 @@ impl EventTriggerSurfaceContext<'_> {
         let Some(preview) = self.state.event_trigger_ddl_preview.as_ref() else {
             return;
         };
-        egui::Window::new("Event trigger DDL preview")
-            .collapsible(false)
-            .resizable(true)
-            .default_width(520.0)
-            .show(ui.ctx(), |ui| {
-                ui.label(RichText::new(preview).monospace());
-                if secondary_button(ui, "Close", self.theme).clicked() {
-                    actions.push(EventTriggerSurfaceAction::ClosePreview);
-                }
+        let mut open = true;
+        Dialog::new(&mut open, "Event trigger DDL preview", self.theme)
+            .width(560.0)
+            .id_salt("event_trigger_preview_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label(RichText::new(preview).monospace());
+                });
+                frame.footer(|ui| {
+                    if secondary_button(ui, "Close", self.theme).clicked() {
+                        actions.push(EventTriggerSurfaceAction::ClosePreview);
+                    }
+                });
             });
+        if !open {
+            actions.push(EventTriggerSurfaceAction::ClosePreview);
+        }
     }
 
     fn draw_drop_confirmation(&self, ui: &mut egui::Ui, actions: &mut Vec<EventTriggerSurfaceAction>) {
         let Some(name) = self.state.event_trigger_drop_confirm.as_ref() else {
             return;
         };
-        egui::Window::new("Drop event trigger?")
-            .collapsible(false)
-            .resizable(false)
-            .show(ui.ctx(), |ui| {
-                ui.label(format!(
-                    "Drop event trigger `{name}`? This changes global DDL hook behavior."
-                ));
-                ui.horizontal(|ui| {
+        let mut open = true;
+        Dialog::new(&mut open, "Drop event trigger?", self.theme)
+            .width(460.0)
+            .id_salt("event_trigger_drop_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label(format!(
+                        "Drop event trigger `{name}`? This changes global DDL hook behavior."
+                    ));
+                });
+                frame.footer(|ui| {
                     if danger_button(ui, "Drop", self.theme).clicked() {
                         actions.push(EventTriggerSurfaceAction::ConfirmDrop(name.clone()));
                     }
@@ -185,5 +195,8 @@ impl EventTriggerSurfaceContext<'_> {
                     }
                 });
             });
+        if !open {
+            actions.push(EventTriggerSurfaceAction::CancelDrop);
+        }
     }
 }

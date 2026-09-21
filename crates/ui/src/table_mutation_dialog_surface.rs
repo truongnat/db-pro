@@ -82,26 +82,37 @@ impl PendingChangesContext<'_> {
         let mut actions = Vec::new();
         let groups = group_changes(self.changes);
         let mut open = true;
-        egui::Window::new("Pending changes")
-            .open(&mut open)
-            .resizable(true)
-            .default_width(620.0)
-            .show(ui.ctx(), |ui| {
-                ui.label(
-                    RichText::new("Review staged changes before Apply")
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-                ui.separator();
-                ui.horizontal(|ui| {
-                    ui.label(format!("{} row group(s)", groups.len()));
-                    if ui.small_button("Discard All").clicked() {
-                        actions.push(PendingChangesAction::RequestDiscardAll);
-                    }
+        Dialog::new(&mut open, "Pending changes", self.theme)
+            .width(680.0)
+            .id_salt("pending_table_changes_dialog")
+            .show_framed_ctx(ui.ctx(), |frame| {
+                frame.body(|ui| {
+                    ui.label(
+                        RichText::new("Review staged changes before Apply")
+                            .small()
+                            .color(self.theme.text_muted),
+                    );
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        ui.label(format!("{} row group(s)", groups.len()));
+                        if ui.small_button("Discard All").clicked() {
+                            actions.push(PendingChangesAction::RequestDiscardAll);
+                        }
+                    });
+                    egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                        for group in &groups {
+                            self.draw_group(ui, group, &mut actions);
+                        }
+                    });
                 });
-                egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
-                    for group in &groups {
-                        self.draw_group(ui, group, &mut actions);
+                frame.footer(|ui| {
+                    if Button::new(self.theme)
+                        .text("Close")
+                        .variant(ButtonVariant::Ghost)
+                        .show(ui)
+                        .clicked()
+                    {
+                        actions.push(PendingChangesAction::Close);
                     }
                 });
             });

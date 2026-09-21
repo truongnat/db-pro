@@ -1,6 +1,7 @@
 //! Table-index presentation and typed detail intents.
 use super::super::*;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
+use crate::components::dialog::Dialog;
 use crate::components::table::{Table, TableColumn};
 use crate::UiTableIndex;
 use egui::{Align, Layout, RichText};
@@ -191,23 +192,23 @@ impl TableIndexesContext<'_> {
             return;
         };
         let mut open = true;
-        egui::Window::new(format!("Index · {}", index.name))
-            .open(&mut open)
-            .resizable(true)
-            .default_width(520.0)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ctx, |ui| {
-                ui.label(RichText::new(&index.definition).monospace());
-                ui.separator();
-                ui.label(format!("Method: {}", index.method));
-                ui.label(format!("Primary: {} · Unique: {}", index.primary, index.unique));
-                ui.label(format!("Columns: {}", index.columns.join(", ")));
-                if !index.include_columns.is_empty() {
-                    ui.label(format!("INCLUDE: {}", index.include_columns.join(", ")));
-                }
-                if let Some(predicate) = &index.predicate {
-                    ui.label(format!("Predicate: {predicate}"));
-                }
+        Dialog::new(&mut open, format!("Index · {}", index.name), self.theme)
+            .width(560.0)
+            .id_salt("table_index_detail_dialog")
+            .show_framed_ctx(ctx, |frame| {
+                frame.body(|ui| {
+                    ui.label(RichText::new(&index.definition).monospace());
+                    ui.separator();
+                    ui.label(format!("Method: {}", index.method));
+                    ui.label(format!("Primary: {} · Unique: {}", index.primary, index.unique));
+                    ui.label(format!("Columns: {}", index.columns.join(", ")));
+                    if !index.include_columns.is_empty() {
+                        ui.label(format!("INCLUDE: {}", index.include_columns.join(", ")));
+                    }
+                    if let Some(predicate) = &index.predicate {
+                        ui.label(format!("Predicate: {predicate}"));
+                    }
+                });
             });
         if !open {
             actions.push(TableIndexesAction::CloseDetail);
