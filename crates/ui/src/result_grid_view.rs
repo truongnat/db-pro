@@ -1,7 +1,9 @@
 pub use super::result_grid_projection::GridSelectionLookup;
 use super::*;
 use crate::GridProjectionKey;
-use egui::Vec2;
+
+#[path = "result_grid_body_view.rs"]
+mod result_grid_body_view;
 
 /// Per-cell render context for the result grid.
 pub(crate) struct GridCell<'a> {
@@ -65,7 +67,20 @@ impl DbProApp {
         self.draw_record_inspector_panel(ui, result);
 
         let row_offset = if is_table_data { self.table.data_query.offset } else { 0 };
-        self.draw_grid_body(ui, result, &indexes, &order, editable, row_offset, &selection_lookup);
+        let grid_width = ui.available_width().max(0.0);
+        let widths = self.table.data.column_widths(result.columns.len(), grid_width);
+        self.draw_grid_body(
+            ui,
+            result_grid_body_view::ResultGridBodyContext {
+                result,
+                indexes: &indexes,
+                widths: &widths,
+                order: &order,
+                editable,
+                row_offset,
+                selection_lookup: &selection_lookup,
+            },
+        );
 
         self.restore_grid_cache(projection_key, indexes, order, selection_lookup);
     }
@@ -345,51 +360,9 @@ impl DbProApp {
     }
 
     /// Scrollable grid: continuous spreadsheet header plus visible slice of rows.
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn draw_grid_body(
-        &mut self,
-        ui: &mut egui::Ui,
-        result: &UiQueryResult,
-        indexes: &[usize],
-        order: &[usize],
-        editable: bool,
-        row_offset: u64,
-        selection_lookup: &GridSelectionLookup,
-    ) {
-        let grid_height = ui.available_height().max(180.0);
-        let grid_width = ui.available_width().max(0.0);
-        let widths = self.table.data.column_widths(result.columns.len(), grid_width);
-
-        ui.allocate_ui_with_layout(
-            egui::vec2(grid_width, grid_height),
-            Layout::top_down(Align::Min),
-            |ui| {
-                ui.spacing_mut().item_spacing = Vec2::ZERO;
-                egui::ScrollArea::horizontal().show(ui, |ui| {
-                    ui.spacing_mut().item_spacing = Vec2::ZERO;
-                    let content_width = GRID_ROW_NUMBER_WIDTH + widths.iter().sum::<f32>();
-                    ui.set_min_width(content_width);
-                    self.draw_grid_header(ui, result, indexes, &widths, order);
-                    let rows = GridRows {
-                        indexes,
-                        widths: &widths,
-                        order,
-                        editable,
-                        row_offset,
-                        selection_lookup,
-                    };
-                    let row_height = 28.0;
-                    egui::ScrollArea::vertical()
-                        .max_height((grid_height - 34.0).max(140.0))
-                        .show_rows(ui, row_height, indexes.len(), |ui, range| {
-                            ui.spacing_mut().item_spacing = Vec2::ZERO;
-                            for position in range {
-                                self.draw_grid_row(ui, result, &rows, position);
-                            }
-                        });
-                });
-            },
-        );
+    fn draw_grid_body(&mut self, ui: &mut egui::Ui, context: result_grid_body_view::ResultGridBodyContext<'_>) {
+        let mut renderer = GridBodyRenderer { app: self };
+        result_grid_body_view::draw_body(ui, context, &mut renderer);
     }
 
     /// One grid row: the row-number gutter plus every visible cell with continuous borders.
@@ -443,6 +416,27 @@ impl DbProApp {
 struct GridRowRenderer<'a> {
     app: &'a mut DbProApp,
     result: &'a UiQueryResult,
+}
+
+struct GridBodyRenderer<'a> {
+    app: &'a mut DbProApp,
+}
+
+impl result_grid_body_view::ResultGridBodyRenderer for GridBodyRenderer<'_> {
+    fn draw_header(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        indexes: &[usize],
+        widths: &[f32],
+        order: &[usize],
+    ) {
+        self.app.draw_grid_header(ui, result, indexes, widths, order);
+    }
+
+    fn draw_row(&mut self, ui: &mut egui::Ui, input: result_grid_body_view::ResultGridRowInput<'_>) {
+        self.app.draw_grid_row(ui, input.result, input.rows, input.position);
+    }
 }
 
 impl result_grid_row_view::GridRowSurfaceRenderer for GridRowRenderer<'_> {
