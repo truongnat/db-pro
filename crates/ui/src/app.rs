@@ -270,6 +270,8 @@ mod settings_navigation_view;
 mod settings_view;
 #[path = "synthetic_data_state.rs"]
 mod synthetic_data_state;
+#[path = "transfer_activity_surface_view.rs"]
+mod transfer_activity_surface_view;
 #[path = "transfer_harness_view.rs"]
 mod transfer_harness_view;
 #[path = "transfer_state.rs"]
