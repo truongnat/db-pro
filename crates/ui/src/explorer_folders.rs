@@ -261,8 +261,7 @@ impl DbProApp {
         self.schema.explorer.selected_schema_object = Some(selection.clone());
         self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
         self.schema.explorer.selected_table = None;
-        self.table.state.table_info = None;
-        self.table.state.table_ddl = None;
+        self.table.reset_workspace();
         self.table.state.table_view = TableView::Ddl;
         self.workspace.active_tab = WorkspaceTab::SchemaObject;
         self.management.routine.routine_drop_confirm = false;

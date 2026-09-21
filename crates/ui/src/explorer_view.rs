@@ -117,8 +117,11 @@ impl DbProApp {
         self.connection.lifecycle.set_connected(false);
         self.schema.explorer.schema = UiSchemaSummary::default();
         self.schema.explorer.schema_symbol_index = SchemaSymbolIndex::default();
+        self.schema.explorer.selected_schema = None;
         self.schema.explorer.selected_table = None;
         self.schema.explorer.selected_schema_object = None;
+        self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
+        self.table.reset_workspace();
         self.feedback.runtime_message = format!("Disconnected from {}", connection.name);
     }
 

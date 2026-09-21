@@ -209,12 +209,8 @@ impl DbProApp {
         self.schema.explorer.selected_schema = Some(schema.to_owned());
         self.schema.explorer.selected_table = None;
         self.schema.explorer.selected_schema_object = None;
-        self.table.state.table_info = None;
-        self.table.state.table_ddl = None;
-        self.table.data_query.result = None;
-        self.table.mutation.staged_changes.clear();
-        self.table.mutation.staged_apply_targets.clear();
-        self.table.mutation.table_mutation_error = None;
+        self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
+        self.table.reset_workspace();
         self.schema.explorer.explorer_nav_cache = None;
         self.activate_welcome_tab();
     }
