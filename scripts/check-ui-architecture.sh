@@ -167,6 +167,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/query_editor_surface_view.rs"
   "$repo_root/crates/ui/src/query_run_control_view.rs"
   "$repo_root/crates/ui/src/query_explain_actions.rs"
+  "$repo_root/crates/ui/src/query_save_actions.rs"
   "$repo_root/crates/ui/src/query_output_tabs_view.rs"
   "$repo_root/crates/ui/src/query_output_panes_view.rs"
   "$repo_root/crates/ui/src/query_output_actions_view.rs"

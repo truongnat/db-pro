@@ -256,42 +256,17 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        let document_id = self
-            .query
-            .session
-            .documents
-            .get(document_index)
-            .map(|document| document.id.clone());
-        let name = self
-            .query
-            .session
-            .documents
-            .get(document_index)
-            .map(|document| document.title.clone())
-            .unwrap_or_else(|| "Saved query".to_owned());
-        let saved_query_id = self
-            .query
-            .session
-            .documents
-            .get(document_index)
-            .and_then(|document| document.saved_query_id.clone());
-        let sql = self
-            .query
-            .session
-            .documents
-            .get(document_index)
-            .map_or_else(String::new, |document| document.text().to_owned());
-        self.dispatch_command(self.query.library.save_query_command(
-            request_id,
-            connection_id,
-            saved_query_id,
-            name,
-            sql,
-        ));
-        if let Some(document_id) = document_id {
-            self.query.session.save_requests.insert(request_id, document_id);
-        }
-        self.feedback.runtime_message = "Saving query…".to_owned();
+        let Some(command) = self
+            .query_save_context()
+            .prepare_save(request_id, document_index, Some(connection_id))
+        else {
+            return;
+        };
+        self.dispatch_command(command);
+    }
+
+    fn query_save_context(&mut self) -> query_save_actions::QuerySaveContext<'_> {
+        query_save_actions::QuerySaveContext::new(&mut self.query.session, &self.query.library, &mut self.feedback)
     }
 
     pub(crate) fn open_save_as_dialog(&mut self) {
