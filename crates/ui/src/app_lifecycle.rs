@@ -192,26 +192,9 @@ impl DbProApp {
             self.draw_agent_panel(ctx);
         }
 
-        egui::CentralPanel::default()
-            .frame(egui::Frame {
-                // Flush to the sidebar splitter; match `SHELL_SPLIT_INSET` / sidebar
-                // `pad_right` so the body lines up with the navigator across the divider.
-                fill: self.theme.surface_panel,
-                inner_margin: egui::Margin {
-                    left: SHELL_SPLIT_INSET,
-                    right: SHELL_SPLIT_INSET,
-                    top: 0.0,
-                    bottom: 0.0,
-                },
-                outer_margin: egui::Margin::ZERO,
-                stroke: egui::Stroke::NONE,
-                ..Default::default()
-            })
-            .show(ctx, |ui| {
-                ui.set_min_size(ui.available_size());
-                ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
-                self.draw_workspace(ui);
-            });
+        shell_frame_view::draw_central_panel(ctx, &shell_frame_view::ShellFrameContext { theme: self.theme }, |ui| {
+            self.draw_workspace(ui)
+        });
     }
 
     fn apply_activity_bar_action(&mut self, action: activity_bar_view::ActivityBarAction, ctx: &egui::Context) {

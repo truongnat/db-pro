@@ -434,6 +434,8 @@ mod sidebar_chrome_view;
 mod sidebar_data_view;
 #[path = "sidebar_problems_view.rs"]
 mod sidebar_problems_view;
+#[path = "sidebar_queries_surface_view.rs"]
+mod sidebar_queries_surface_view;
 #[path = "sidebar_queries_view.rs"]
 mod sidebar_queries_view;
 #[path = "sidebar_query_library_view.rs"]
@@ -566,6 +568,8 @@ mod security_role_details_view;
 mod security_roles_view;
 #[path = "shell_chrome_view.rs"]
 mod shell_chrome_view;
+#[path = "shell_frame_view.rs"]
+mod shell_frame_view;
 #[path = "shell_output_panel_view.rs"]
 mod shell_output_panel_view;
 #[path = "shell_statusbar_view.rs"]
