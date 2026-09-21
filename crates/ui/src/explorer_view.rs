@@ -4,7 +4,6 @@
 //! Row painting lives in `explorer_tree`, table details in `explorer_details`,
 //! and the Views / Functions / Triggers folders in `explorer_folders`.
 
-use super::explorer_schema_feedback_view::{ExplorerSchemaFeedbackAction, ExplorerSchemaFeedbackContext};
 use super::explorer_toolbar_view::{ExplorerToolbarAction, ExplorerToolbarContext};
 use super::*;
 
@@ -84,24 +83,6 @@ impl DbProApp {
         for action in actions {
             if matches!(action, ExplorerToolbarAction::NewConnection) {
                 self.connection.open_new();
-            }
-        }
-    }
-
-    pub(crate) fn draw_explorer_schema_feedback(&mut self, ui: &mut egui::Ui) {
-        let actions = ExplorerSchemaFeedbackContext {
-            theme: self.theme,
-            error: self.schema.explorer.schema_error.as_deref(),
-            loading: self.schema.explorer.schema_request.is_some(),
-            reduce_motion: self.preferences.reduce_motion,
-            has_active_connection: self.connection.lifecycle.active_connection_id().is_some(),
-        }
-        .draw(ui);
-        for action in actions {
-            if matches!(action, ExplorerSchemaFeedbackAction::RefreshSchema) {
-                if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-                    self.request_schema_introspection(connection_id, true);
-                }
             }
         }
     }

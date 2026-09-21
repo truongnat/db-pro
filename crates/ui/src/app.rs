@@ -126,6 +126,8 @@ mod explorer_schema_object_folders_view;
 mod explorer_schema_object_row_view;
 #[path = "explorer_schema_objects_view.rs"]
 mod explorer_schema_objects_view;
+#[path = "explorer_schema_tree_view.rs"]
+mod explorer_schema_tree_view;
 #[path = "explorer_table_details_view.rs"]
 mod explorer_table_details_view;
 #[path = "explorer_table_folder_view.rs"]
@@ -741,6 +743,7 @@ impl DbProApp {
         )
     }
 
+    #[cfg(test)]
     pub(super) fn schema_table_count(&self, schema: &str) -> usize {
         connection_status::schema_table_count(&self.schema.explorer, schema)
     }
