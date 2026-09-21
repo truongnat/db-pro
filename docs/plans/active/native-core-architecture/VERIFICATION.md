@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `d687de8e`.
+Source checkpoint: `bdf2e363`.
 
 ## Current change
 
@@ -13,7 +13,7 @@ The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
 
-## Gate evidence at `d687de8e`
+## Gate evidence at `bdf2e363`
 
 - `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
   infrastructure, 32 runtime, 4 Tauri, 654 UI and all other workspace suites
@@ -61,6 +61,11 @@ matrix is not complete.
   `dispatch_command` adapter. The architecture guard was strengthened to catch
   multiline direct `TaskBridge::send` calls. Workspace tests report 654 UI tests
   passed.
+
+- `bdf2e363`: Explorer schema changes, disconnects and schema-object activation
+  now use the canonical table workspace reset, clearing stale metadata, query
+  filters/sorts, caches and mutation dialogs together. Workspace tests report
+  654 UI tests passed.
 
 - `40e875fe`: Agent workflow reducer, SQL patch safety and Agent-result
   projection moved out of the root state module.
