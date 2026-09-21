@@ -110,6 +110,8 @@
       the root adapter.
 - [x] Schema-object definition card presentation separated into an explicit
       context; schema-object routing remains at the root adapter.
+- [x] Saved-task destructive-run confirmation presentation moved into the task
+      surface; root retains policy and task execution effects.
 - [x] Workspace Migrations and Graph tabs separated into explicit renderers
       with typed file-open intents; file navigation remains at the root
       adapter.

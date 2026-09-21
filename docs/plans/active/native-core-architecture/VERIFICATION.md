@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `5c15f3f8`.
+Source checkpoint: `54fbc77b`.
 
 ## Current change
 
@@ -171,6 +171,26 @@ typed select/close transitions.
 Schema-object Definition now renders through `SchemaDefinitionContext`; the
 schema-object root only routes the selected object, data view and routine
 effects.
+
+Saved-task destructive-run confirmation now renders inside
+`SavedTasksSurfaceContext`. The sidebar no longer paints task-specific
+checkbox/button controls; it only composes the task activity while the root
+keeps task policy and execution effects.
+
+## Gate evidence at `54fbc77b`
+
+- Focused `cargo fmt --all`, `cargo check -p db-pro-ui` and
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 UI tests passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `81108` for manual verification. Full workspace/provider/runtime evidence
+  remains bounded by the `fa952484` workspace gate.
 
 ## Gate evidence at `5c15f3f8`
 
