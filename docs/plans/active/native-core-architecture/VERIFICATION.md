@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `1d1d92ab`.
+Source checkpoint: `b6949238`.
 
 ## Current change
 
@@ -61,6 +61,13 @@ matrix is not complete.
   dispatch. The complete workspace gate passed with 657 UI tests, and the
   latest release binary is running for manual verification in terminal session
   `18507`.
+
+- `b6949238`: Table selection now uses `TableSelectionContext`; staged-change
+  blocking, layout persistence/restore, selected table/object reset, table-view
+  activation and recent-table state are feature-owned. The root retains only
+  query text generation and metadata/data request dispatch. The complete
+  workspace gate passed with 659 UI tests, and the latest release binary is
+  running for manual verification in terminal session `47888`.
 
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and
