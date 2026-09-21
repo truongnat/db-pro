@@ -352,6 +352,8 @@ mod query_feature_state;
 mod query_folder_delete_dialog;
 #[path = "query_output_actions_view.rs"]
 mod query_output_actions_view;
+#[path = "query_output_dock_surface_view.rs"]
+mod query_output_dock_surface_view;
 #[path = "query_output_panes_view.rs"]
 mod query_output_panes_view;
 #[path = "query_output_state.rs"]

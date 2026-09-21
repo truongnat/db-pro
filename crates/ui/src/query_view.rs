@@ -225,39 +225,20 @@ impl DbProApp {
     }
 
     fn draw_query_output_dock(&mut self, ui: &mut egui::Ui, dock_height: f32) {
-        // Resize grip above the dock.
-        let grip_height = 4.0;
-        let (grip_rect, grip_resp) =
-            ui.allocate_exact_size(egui::vec2(ui.available_width(), grip_height), egui::Sense::drag());
-        ui.painter().rect_filled(
-            grip_rect,
-            0.0,
-            if grip_resp.hovered() || grip_resp.dragged() {
-                self.theme.border_strong
-            } else {
-                self.theme.border_subtle
-            },
-        );
-        if grip_resp.dragged() {
-            let next_height = self.workspace.bottom_panel_height - grip_resp.drag_delta().y;
-            self.workspace.set_bottom_panel_height(next_height);
-            self.query.editor.query_output_dock_maximized = false;
-        }
-        grip_resp.on_hover_cursor(egui::CursorIcon::ResizeVertical);
-
-        let body_h = (dock_height - grip_height).max(OUTPUT_MIN_HEIGHT - grip_height);
+        let body_height = {
+            let mut context = query_output_dock_surface_view::QueryOutputDockContext {
+                theme: self.theme,
+                workspace: &mut self.workspace,
+                output: &mut self.query.output,
+                session: &self.query.session,
+                editor: &mut self.query.editor,
+            };
+            context.draw_chrome(ui, dock_height)
+        };
         ui.allocate_ui_with_layout(
-            egui::vec2(ui.available_width(), body_h),
+            egui::vec2(ui.available_width(), body_height),
             Layout::top_down(Align::Min),
             |ui| {
-                let mut tabs_context = query_output_tabs_view::QueryOutputTabsContext {
-                    theme: self.theme,
-                    output: &mut self.query.output,
-                    session: &self.query.session,
-                    editor: &mut self.query.editor,
-                    bottom_panel_open: &mut self.workspace.bottom_panel_open,
-                };
-                query_output_tabs_view::draw_output_tabs(&mut tabs_context, ui, true);
                 let result = self.query.session.active_result().cloned();
                 self.draw_output_pane(ui, result.as_ref());
             },
