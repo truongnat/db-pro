@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `ebaed39c`.
+Source checkpoint: `d0952762`.
 
 ## Current change
 
@@ -45,6 +45,24 @@ geometry and tab chrome. The root keeps only the pane callback because result,
 chart, message, explain and history panes dispatch query-specific effects.
 This also removes a duplicate output-tab render call that caused the tab strip
 to be painted twice.
+
+The shell topbar now has an explicit `ShellTopbarContext` that renders the
+connection/navigation/search chrome and emits typed intents. Palette, gallery,
+agent, theme and document-navigation effects remain in the root adapter.
+
+## Gate evidence at `d0952762`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check -p db-pro-ui`: passed.
+- `cargo test -p db-pro-ui --no-fail-fast --quiet`: passed; 675 UI tests.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the exact pre-commit tree; 14 checks passed, 2 inherited function
+  size warnings and 0 failures.
+- `git diff --check`: passed before commit.
+- Release rebuild after the commit: both normal and `capture` native builds
+  passed. The rebuilt binary is running in terminal session `99120` for manual
+  verification. No dedicated topbar interaction capture was collected.
 
 ## Gate evidence at `ebaed39c`
 

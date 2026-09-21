@@ -47,6 +47,8 @@
       explicit contexts with typed actions.
 - [x] Query output dock resize geometry and tab chrome separated into an
       explicit context; result-pane effects remain at the root adapter.
+- [x] Shell topbar rendering separated into an explicit context with typed
+      navigation, palette, gallery, agent, theme and quick-open actions.
 - [x] Shell Output Panel separated into an explicit context for panel layout,
       tab rendering and close/resize state.
 - [x] Query library, named workspace session and overlay aggregates.
