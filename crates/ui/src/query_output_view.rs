@@ -1,6 +1,5 @@
 //! Query output composition and the result-grid shell.
 use super::*;
-use lucide_icons::Icon;
 
 impl DbProApp {
     /// Selects an output pane and applies the pane's explicit action at the root boundary.
@@ -22,40 +21,30 @@ impl DbProApp {
 
     /// Results grid plus its row-count / export header.
     pub(super) fn draw_results_pane(&mut self, ui: &mut egui::Ui, result: Option<&UiQueryResult>) {
-        let results_width = ui.max_rect().width();
-        grid_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width(results_width.max(0.0));
-            let header_action = {
-                let context = query_results_pane_view::QueryResultsPaneContext {
-                    theme: self.theme,
-                    session: &self.query.session,
-                };
-                query_results_pane_view::draw_results_header(&context, ui, result)
-            };
-            if let Some(action) = header_action {
-                match action {
-                    query_results_pane_view::QueryResultsPaneAction::SelectResult(index) => {
-                        self.set_active_query_result(index);
-                    }
-                    query_results_pane_view::QueryResultsPaneAction::OpenExport => {
-                        self.overlay.export_open = true;
-                    }
+        let active_result_index = self
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+            .map_or(0, |document| document.active_result_index);
+        let context = query_results_surface_view::QueryResultsSurfaceContext {
+            theme: self.theme,
+            result_count: self.query.session.active_result_count(),
+            active_result_index,
+            result,
+        };
+        if let Some(action) = query_results_surface_view::draw_results(&context, ui, |ui, result| {
+            self.draw_result_grid(ui, result);
+        }) {
+            match action {
+                query_results_surface_view::QueryResultsSurfaceAction::SelectResult(index) => {
+                    self.set_active_query_result(index);
+                }
+                query_results_surface_view::QueryResultsSurfaceAction::OpenExport => {
+                    self.overlay.export_open = true;
                 }
             }
-            if let Some(result) = result {
-                self.draw_result_grid(ui, result);
-            } else {
-                ui.centered_and_justified(|ui| {
-                    empty_state(
-                        ui,
-                        Icon::Table2,
-                        "No results yet",
-                        "Run a query to populate this result grid.",
-                        self.theme,
-                    );
-                });
-            }
-        });
+        }
         self.draw_export_dialog(ui, result);
         self.draw_destructive_run_dialog(ui);
     }

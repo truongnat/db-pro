@@ -219,7 +219,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/query_output_panes_view.rs"
   "$repo_root/crates/ui/src/query_output_actions_view.rs"
   "$repo_root/crates/ui/src/query_layout_surface_view.rs"
-  "$repo_root/crates/ui/src/query_results_pane_view.rs"
+  "$repo_root/crates/ui/src/query_results_surface_view.rs"
   "$repo_root/crates/ui/src/result_grid_toolbar_view.rs"
   "$repo_root/crates/ui/src/result_grid_body_view.rs"
   "$repo_root/crates/ui/src/result_grid_header_menu_view.rs"

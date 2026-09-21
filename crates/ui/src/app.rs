@@ -370,8 +370,8 @@ mod query_output_tabs_view;
 mod query_output_view;
 #[path = "query_parameters_view.rs"]
 mod query_parameters_view;
-#[path = "query_results_pane_view.rs"]
-mod query_results_pane_view;
+#[path = "query_results_surface_view.rs"]
+mod query_results_surface_view;
 #[path = "query_run_control_view.rs"]
 mod query_run_control_view;
 #[path = "query_save_dialog_surface_view.rs"]
