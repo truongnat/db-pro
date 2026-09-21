@@ -16,6 +16,51 @@ pub(crate) struct ExplorerConnectionContext<'a> {
     feedback: &'a mut FeedbackState,
 }
 
+pub(crate) struct TableSelectionContext<'a> {
+    schema: &'a mut SchemaExplorerState,
+    table: &'a mut TableEditorState,
+    workspace: &'a mut WorkspaceShellState,
+    feedback: &'a mut FeedbackState,
+}
+
+impl<'a> TableSelectionContext<'a> {
+    pub(crate) fn new(
+        schema: &'a mut SchemaExplorerState,
+        table: &'a mut TableEditorState,
+        workspace: &'a mut WorkspaceShellState,
+        feedback: &'a mut FeedbackState,
+    ) -> Self {
+        Self {
+            schema,
+            table,
+            workspace,
+            feedback,
+        }
+    }
+
+    pub(crate) fn select(&mut self, table_name: &str, connection_id: Option<&str>, schema_name: &str) -> bool {
+        if self.schema.selected_table.as_deref() != Some(table_name) && !self.table.mutation.staged_changes.is_empty() {
+            self.feedback
+                .set_runtime_message("Apply or discard staged changes before opening another table");
+            return false;
+        }
+
+        let previous_scope =
+            super::TableDataState::layout_scope(connection_id, schema_name, self.schema.selected_table.as_deref());
+        self.table.data.persist_layout(previous_scope);
+        self.schema.selected_table = Some(table_name.to_owned());
+        self.schema.record_recent_table(table_name);
+        self.schema.selected_schema_object = None;
+        self.schema.schema_object_view = super::SchemaObjectView::Definition;
+        self.table.reset_workspace();
+        let next_scope = super::TableDataState::layout_scope(connection_id, schema_name, Some(table_name));
+        self.table.data.restore_layout(next_scope);
+        self.table.state.table_view = super::TableView::Data;
+        self.workspace.active_tab = super::WorkspaceTab::Table;
+        true
+    }
+}
+
 impl<'a> ExplorerConnectionContext<'a> {
     pub(crate) fn new(
         lifecycle: &'a mut ConnectionLifecycleState,
@@ -187,5 +232,58 @@ mod tests {
         assert!(workspace.pending_navigation_action.is_none());
         assert!(agent.input.is_empty());
         assert!(feedback.runtime_message.contains("Connecting to Analytics"));
+    }
+
+    #[test]
+    fn table_selection_blocks_staged_changes_without_changing_selection() {
+        let mut schema = SchemaExplorerState {
+            selected_table: Some("users".to_owned()),
+            ..Default::default()
+        };
+        let mut table = TableEditorState::default();
+        table.mutation.staged_changes.stage_insert(Vec::new(), Vec::new());
+        let mut workspace = WorkspaceShellState::default();
+        let mut feedback = FeedbackState::default();
+
+        let selected = TableSelectionContext::new(&mut schema, &mut table, &mut workspace, &mut feedback).select(
+            "orders",
+            Some("conn-1"),
+            "public",
+        );
+
+        assert!(!selected);
+        assert_eq!(schema.selected_table.as_deref(), Some("users"));
+        assert!(feedback.runtime_message.contains("Apply or discard"));
+    }
+
+    #[test]
+    fn table_selection_resets_workspace_and_opens_table_surface() {
+        let mut schema = SchemaExplorerState {
+            selected_table: Some("users".to_owned()),
+            selected_schema_object: Some(super::super::SchemaObjectSelection::View("active_view".to_owned())),
+            schema_object_view: super::super::SchemaObjectView::Data,
+            ..Default::default()
+        };
+        let mut table = TableEditorState::default();
+        table.editing.data_edit_value = "draft".to_owned();
+        let mut workspace = WorkspaceShellState {
+            active_tab: super::super::WorkspaceTab::SchemaObject,
+            ..Default::default()
+        };
+        let mut feedback = FeedbackState::default();
+
+        let selected = TableSelectionContext::new(&mut schema, &mut table, &mut workspace, &mut feedback).select(
+            "orders",
+            Some("conn-1"),
+            "public",
+        );
+
+        assert!(selected);
+        assert_eq!(schema.selected_table.as_deref(), Some("orders"));
+        assert!(schema.selected_schema_object.is_none());
+        assert_eq!(schema.schema_object_view, super::super::SchemaObjectView::Definition);
+        assert!(table.editing.data_edit_value.is_empty());
+        assert_eq!(table.state.table_view, super::super::TableView::Data);
+        assert_eq!(workspace.active_tab, super::super::WorkspaceTab::Table);
     }
 }

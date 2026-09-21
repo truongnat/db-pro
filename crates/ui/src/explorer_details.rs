@@ -160,35 +160,21 @@ impl DbProApp {
 
     /// Selects a table and resets the table workspace to a clean slate.
     pub(crate) fn select_table(&mut self, table: &str) {
-        if self.schema.explorer.selected_table.as_deref() != Some(table)
-            && !self.table.mutation.staged_changes.is_empty()
-        {
-            self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
+        let connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        let schema = self.active_schema().to_owned();
+        let selected = explorer_navigation::TableSelectionContext::new(
+            &mut self.schema.explorer,
+            &mut self.table,
+            &mut self.workspace,
+            &mut self.feedback,
+        )
+        .select(table, connection_id.as_deref(), &schema);
+        if !selected {
             return;
         }
-        let scope = TableDataState::layout_scope(
-            self.connection.lifecycle.active_connection_id(),
-            self.active_schema(),
-            self.schema.explorer.selected_table.as_deref(),
-        );
-        self.table.data.persist_layout(scope);
-        self.schema.explorer.selected_table = Some(table.to_owned());
-        self.schema.explorer.record_recent_table(table);
-        self.schema.explorer.selected_schema_object = None;
-        self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
-        self.table.reset_workspace();
-        let scope = TableDataState::layout_scope(
-            self.connection.lifecycle.active_connection_id(),
-            self.active_schema(),
-            self.schema.explorer.selected_table.as_deref(),
-        );
-        self.table.data.restore_layout(scope);
-        self.table.state.table_view = TableView::Data;
-        let schema = self.active_schema();
         self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
         self.request_table_info();
         self.request_table_data();
-        self.workspace.active_tab = WorkspaceTab::Table;
     }
 
     /// Nested detail folders shown under a selected, expanded table.
