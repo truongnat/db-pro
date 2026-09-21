@@ -1,5 +1,7 @@
 use chrono::{DateTime, Utc};
-use db_pro_core::domain::saved_task::{SavedTask, SavedTaskPayload, SavedTaskRunTrigger, SavedTaskStore, TaskSchedule};
+use db_pro_core::domain::saved_task::{
+    SavedTask, SavedTaskPayload, SavedTaskRun, SavedTaskRunStatus, SavedTaskRunTrigger, SavedTaskStore, TaskSchedule,
+};
 use uuid::Uuid;
 
 /// UI state for saved-task editing, scheduling, and confirmation flows.
@@ -10,6 +12,13 @@ pub(crate) struct SavedTaskState {
     pub(super) dirty: bool,
     pub(super) confirm_destructive: bool,
     pub(super) pending_destructive_task_id: Option<Uuid>,
+}
+
+pub(crate) enum SavedTaskRunPreparation {
+    Ready(Box<SavedTask>),
+    NeedsConfirmation,
+    Blocked(String),
+    NotFound,
 }
 
 impl Default for SavedTaskState {
@@ -124,12 +133,71 @@ impl SavedTaskState {
         }
         removed
     }
+
+    pub(crate) fn prepare_run(
+        &mut self,
+        task_id: Uuid,
+        trigger: SavedTaskRunTrigger,
+        confirm_destructive_queries: bool,
+    ) -> SavedTaskRunPreparation {
+        let Some(task) = self.store.tasks.iter().find(|task| task.id == task_id).cloned() else {
+            return SavedTaskRunPreparation::NotFound;
+        };
+        if trigger == SavedTaskRunTrigger::Manual
+            && task.payload.is_destructive()
+            && confirm_destructive_queries
+            && !self.confirm_destructive
+        {
+            self.pending_destructive_task_id = Some(task_id);
+            return SavedTaskRunPreparation::NeedsConfirmation;
+        }
+        if trigger != SavedTaskRunTrigger::Manual
+            && task.payload.is_destructive()
+            && !task
+                .schedule
+                .as_ref()
+                .is_some_and(|schedule| schedule.allow_destructive)
+        {
+            return SavedTaskRunPreparation::Blocked("Scheduled destructive task blocked by policy".to_owned());
+        }
+        self.pending_destructive_task_id = None;
+        self.confirm_destructive = false;
+        SavedTaskRunPreparation::Ready(Box::new(task))
+    }
+
+    pub(crate) fn record_run(
+        &mut self,
+        task_id: Uuid,
+        trigger: SavedTaskRunTrigger,
+        started_at: DateTime<Utc>,
+        finished_at: DateTime<Utc>,
+        result: Result<String, String>,
+    ) -> (SavedTaskRunStatus, String) {
+        let (status, message) = match result {
+            Ok(message) => (SavedTaskRunStatus::Success, message),
+            Err(message) => (SavedTaskRunStatus::Failed, message),
+        };
+        let duration_ms = (finished_at - started_at).num_milliseconds().max(0) as u64;
+        self.store.record_run(SavedTaskRun {
+            id: Uuid::new_v4(),
+            task_id,
+            status,
+            started_at,
+            finished_at,
+            duration_ms,
+            message: message.clone(),
+            trigger,
+        });
+        self.dirty = true;
+        (status, message)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::SavedTaskState;
+    use super::{SavedTaskRunPreparation, SavedTaskState};
     use chrono::Utc;
+    use db_pro_core::domain::saved_task::SavedTaskRunTrigger;
 
     #[test]
     fn default_state_is_empty_and_requires_no_confirmation() {
@@ -168,5 +236,24 @@ mod tests {
             .enable_schedule(task_id, 60, now)
             .expect_err("destructive task must be blocked");
         assert!(error.contains("Destructive tasks"));
+    }
+
+    #[test]
+    fn run_policy_requires_manual_confirmation_and_blocks_scheduled_destructive_work() {
+        let now = Utc::now();
+        let mut state = SavedTaskState::default();
+        state.begin_sql_draft("connection-1".to_owned(), "drop table users".to_owned(), now);
+        state.commit_draft(now).expect("valid draft should save");
+        let task_id = state.store.tasks[0].id;
+
+        assert!(matches!(
+            state.prepare_run(task_id, SavedTaskRunTrigger::Manual, true),
+            SavedTaskRunPreparation::NeedsConfirmation
+        ));
+        assert_eq!(state.pending_destructive_task_id, Some(task_id));
+        assert!(matches!(
+            state.prepare_run(task_id, SavedTaskRunTrigger::Scheduled, true),
+            SavedTaskRunPreparation::Blocked(_)
+        ));
     }
 }

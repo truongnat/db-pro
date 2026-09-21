@@ -1,8 +1,6 @@
 //! Saved database tasks activity (#206).
 use super::*;
-use db_pro_core::domain::saved_task::{
-    SavedTask, SavedTaskPayload, SavedTaskRun, SavedTaskRunStatus, SavedTaskRunTrigger, SavedTaskStore,
-};
+use db_pro_core::domain::saved_task::{SavedTask, SavedTaskPayload, SavedTaskRunTrigger, SavedTaskStore};
 use uuid::Uuid;
 
 pub(crate) const SAVED_TASKS_STORAGE_KEY: &str = "dbpro.native.saved-tasks-v1";
@@ -110,50 +108,34 @@ impl DbProApp {
     }
 
     pub(crate) fn run_saved_task(&mut self, task_id: Uuid, trigger: SavedTaskRunTrigger) {
-        let Some(task) = self.saved_tasks.store.tasks.iter().find(|t| t.id == task_id).cloned() else {
-            self.feedback.runtime_message = "Saved task not found".to_owned();
-            return;
+        let task = match self.saved_tasks.prepare_run(
+            task_id,
+            trigger,
+            self.preferences.settings.general.confirm_destructive_queries,
+        ) {
+            saved_task_state::SavedTaskRunPreparation::Ready(task) => *task,
+            saved_task_state::SavedTaskRunPreparation::NeedsConfirmation => {
+                self.feedback.runtime_message =
+                    "Destructive task requires confirmation — check Confirm in the Tasks pane".to_owned();
+                return;
+            }
+            saved_task_state::SavedTaskRunPreparation::Blocked(message) => {
+                self.feedback.runtime_message = message;
+                return;
+            }
+            saved_task_state::SavedTaskRunPreparation::NotFound => {
+                self.feedback.runtime_message = "Saved task not found".to_owned();
+                return;
+            }
         };
-        if trigger == SavedTaskRunTrigger::Manual
-            && task.payload.is_destructive()
-            && self.preferences.settings.general.confirm_destructive_queries
-            && !self.saved_tasks.confirm_destructive
-        {
-            self.saved_tasks.pending_destructive_task_id = Some(task_id);
-            self.feedback.runtime_message =
-                "Destructive task requires confirmation — check Confirm in the Tasks pane".to_owned();
-            return;
-        }
-        if trigger != SavedTaskRunTrigger::Manual
-            && task.payload.is_destructive()
-            && !task.schedule.as_ref().is_some_and(|s| s.allow_destructive)
-        {
-            self.feedback.runtime_message = "Scheduled destructive task blocked by policy".to_owned();
-            return;
-        }
-        self.saved_tasks.pending_destructive_task_id = None;
-        self.saved_tasks.confirm_destructive = false;
 
         let started = chrono::Utc::now();
         let result = self.dispatch_saved_task_payload(&task);
         let finished = chrono::Utc::now();
-        let duration_ms = (finished - started).num_milliseconds().max(0) as u64;
-        let (status, message) = match result {
-            Ok(msg) => (SavedTaskRunStatus::Success, msg),
-            Err(msg) => (SavedTaskRunStatus::Failed, msg),
-        };
-        self.saved_tasks.store.record_run(SavedTaskRun {
-            id: Uuid::new_v4(),
-            task_id,
-            status,
-            started_at: started,
-            finished_at: finished,
-            duration_ms,
-            message: message.clone(),
-            trigger,
-        });
-        self.saved_tasks.dirty = true;
-        if status == SavedTaskRunStatus::Failed && trigger != SavedTaskRunTrigger::Manual {
+        let (status, message) = self.saved_tasks.record_run(task_id, trigger, started, finished, result);
+        if status == db_pro_core::domain::saved_task::SavedTaskRunStatus::Failed
+            && trigger != SavedTaskRunTrigger::Manual
+        {
             self.feedback.runtime_message = format!("Scheduled task failed: {message}");
         } else {
             self.feedback.runtime_message = message;
