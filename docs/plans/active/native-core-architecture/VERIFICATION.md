@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `cac0b77e`.
+Source checkpoint: `d7dda78f`.
 
 ## Current change
 
@@ -46,6 +46,13 @@ matrix is not complete.
   root Agent adapter. The complete workspace gate passed again, and the latest
   release binary is running for manual verification in terminal session
   `93643`.
+
+- `d7dda78f`: Schema activation now uses `SchemaActivationContext`; staged
+  change blocking, schema/table/object selection reset, table workspace reset,
+  navigation-cache invalidation and Welcome activation are owned by the schema
+  feature context. The full workspace gate passed again with 655 UI tests, and
+  the latest release binary is running for manual verification in terminal
+  session `84390`.
 
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and
