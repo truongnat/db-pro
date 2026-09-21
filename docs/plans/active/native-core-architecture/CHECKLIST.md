@@ -44,6 +44,10 @@
 - [x] Saved-query command preparation and document request tracking use an
       explicit feature context; filesystem-backed workspace saves remain at the
       filesystem boundary.
+- [x] Schema Workbench mutation-request planning is owned by
+      `SchemaWorkbenchState`, with the root limited to orchestration.
+- [x] Closing a Table workspace uses the same feature reset transition as table
+      navigation, including filters, sorts, caches and mutation dialogs.
 - [x] Query status, table DDL, insert, metadata, relations, mutation-dialog,
       conflict and data-toolbar surfaces use feature-owned contexts/actions.
 - [x] Database management catch-all split into named feature aggregates and schema comparison state.
@@ -62,8 +66,8 @@
 - [x] `cargo fmt --all -- --check` (PASS)
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
-- [x] UI test suite through the workspace gate (651 passed at `2b711995`)
-- [x] `cargo test --workspace --no-fail-fast --quiet` (PASS at `2b711995`; 0 failed)
+- [x] UI test suite through the workspace gate (654 passed at `1d8647dc`)
+- [x] `cargo test --workspace --no-fail-fast --quiet` (PASS at `1d8647dc`; 0 failed)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [x] `cargo build --release --locked -p db-pro-native --features capture`
 - [x] New Connection modal runtime capture at logical `1280x800` (centered
@@ -72,6 +76,6 @@
       and schema-object rows.
 - [x] Loading Welcome and New Connection error state captures at logical
       `1280x800`.
-- [x] Latest native release binary rebuilt on `2b711995`; runtime launch is
+- [x] Latest native release binary rebuilt on `1d8647dc`; runtime launch is
       recorded below, but no new screenshot was collected for this checkpoint.
 - [ ] Native runtime evidence for affected surfaces.

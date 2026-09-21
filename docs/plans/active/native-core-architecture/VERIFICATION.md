@@ -1,20 +1,21 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `2b711995`.
+Source checkpoint: `1d8647dc`.
 
 ## Current change
 
 The native UI interaction boundary is being migrated in vertical slices.
 Explorer rows, the Agent surface, large Settings sections, table surfaces and
-query execution preparation, Explain transitions and saved-query preparation
-now collect typed intents/effects in feature-owned contexts. The plan remains `IMPLEMENTING` because other large feature surfaces
+query execution preparation, Explain transitions, saved-query preparation and
+Schema Workbench mutation planning now collect typed intents/effects in
+feature-owned contexts. The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
 
-## Gate evidence at `2b711995`
+## Gate evidence at `1d8647dc`
 
 - `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
-  infrastructure, 32 runtime, 4 Tauri, 651 UI and all other workspace suites
+  infrastructure, 32 runtime, 4 Tauri, 654 UI and all other workspace suites
   passed, with only environment-gated tests ignored.
 - `cargo build --release --locked -p db-pro-native`: passed.
 - `cargo build --release --locked -p db-pro-native --features capture`: passed.
@@ -44,6 +45,16 @@ matrix is not complete.
 - `2b711995`: saved-query payload preparation and request tracking moved into
   `QuerySaveContext`; workspace-backed filesystem saves remain at the filesystem
   boundary. Workspace tests report 651 UI tests passed.
+
+- `cae4a9c2`: closing a Table workspace now delegates to the canonical table
+  reset transition, preventing filters, sorts, row caches and mutation dialogs
+  from leaking into the next table session.
+
+- `1d8647dc`: Schema Workbench mutation-request planning moved into
+  `SchemaWorkbenchState`; the root now only resolves driver/orchestration. The
+  workspace gate reports 654 UI tests passed. Clean scan retains one existing
+  large `app.rs` warning and one ownership-conversion clone heuristic in the
+  new planner.
 
 - `40e875fe`: Agent workflow reducer, SQL patch safety and Agent-result
   projection moved out of the root state module.
