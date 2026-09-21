@@ -1,7 +1,11 @@
 //! In-cell editor + advanced value inspector for the result grid (#228).
 use super::*;
-use crate::components::{Button, ButtonSize, ButtonVariant, SegmentedTabs};
 use egui::Rect;
+
+#[path = "result_grid_inspector_surface_view.rs"]
+mod result_grid_inspector_surface_view;
+#[path = "result_grid_record_surface_view.rs"]
+mod result_grid_record_surface_view;
 
 impl DbProApp {
     pub(super) fn draw_grid_cell_editor(
@@ -63,9 +67,6 @@ impl DbProApp {
         column_index: usize,
     ) {
         let ctx = ui.ctx().clone();
-        let mut open = true;
-        let mut commit = false;
-        let mut cancel = false;
         let column_name = result
             .columns
             .get(column_index)
@@ -89,199 +90,50 @@ impl DbProApp {
             .cloned()
             .unwrap_or(UiCell::Null);
         let kind = cell_inspector::classify_cell(&cell, &data_type);
-        let title = format!("Value inspector · {column_name}");
+        let action = {
+            let mut context = result_grid_inspector_surface_view::ValueInspectorContext {
+                theme: self.theme,
+                row_index,
+                column_index,
+                column_name: &column_name,
+                data_type: &data_type,
+                cell,
+                kind,
+                write_block,
+                writable,
+                mode: &mut self.table.editing.cell_inspector_mode,
+                value: &mut self.table.editing.data_edit_value,
+                error: &mut self.table.editing.data_edit_error,
+            };
+            result_grid_inspector_surface_view::draw(&mut context, &ctx)
+        };
 
-        egui::Window::new(title)
-            .id(egui::Id::new(("advanced-cell-inspector", row_index, column_index)))
-            .open(&mut open)
-            .resizable(true)
-            .default_width(560.0)
-            .default_height(420.0)
-            .show(&ctx, |ui| {
-                ui.label(
-                    RichText::new(format!(
-                        "{data_type} · {} · {}",
-                        if matches!(cell, UiCell::Null) { "NULL" } else { "value" },
-                        write_block.map(|b| b.reason()).unwrap_or(if writable {
-                            "editable via ChangeSet"
-                        } else {
-                            "view only"
-                        })
-                    ))
-                    .small()
-                    .color(self.theme.text_muted),
-                );
-
-                let modes: &[cell_inspector::CellInspectorMode] = match kind {
-                    cell_inspector::CellInspectorKind::Json => &[
-                        cell_inspector::CellInspectorMode::Raw,
-                        cell_inspector::CellInspectorMode::Pretty,
-                        cell_inspector::CellInspectorMode::Tree,
-                    ],
-                    cell_inspector::CellInspectorKind::Bytes => &[
-                        cell_inspector::CellInspectorMode::Raw,
-                        cell_inspector::CellInspectorMode::Hex,
-                        cell_inspector::CellInspectorMode::Base64,
-                    ],
-                    _ => &[
-                        cell_inspector::CellInspectorMode::Raw,
-                        cell_inspector::CellInspectorMode::Pretty,
-                    ],
-                };
-                let mut selected_mode = modes
-                    .iter()
-                    .position(|mode| *mode == self.table.editing.cell_inspector_mode)
-                    .unwrap_or_default();
-                let mode_labels: Vec<&str> = modes.iter().map(|mode| mode.as_label()).collect();
-                ui.horizontal(|ui| {
-                    SegmentedTabs::new(&mut selected_mode, &mode_labels, self.theme).show(ui);
-                    if let Some(mode) = modes.get(selected_mode) {
-                        self.table.editing.cell_inspector_mode = *mode;
-                    }
-                    if Button::new(self.theme)
-                        .text("Copy raw")
-                        .size(ButtonSize::Sm)
-                        .variant(ButtonVariant::Ghost)
-                        .show(ui)
-                        .clicked()
-                    {
-                        ui.ctx().copy_text(self.table.editing.data_edit_value.clone());
-                        self.feedback.runtime_message = "Copied raw value".into();
-                    }
-                    if kind == cell_inspector::CellInspectorKind::Bytes
-                        && Button::new(self.theme)
-                            .text("Export bytes…")
-                            .size(ButtonSize::Sm)
-                            .variant(ButtonVariant::Secondary)
-                            .show(ui)
-                            .clicked()
-                    {
-                        self.export_inspected_bytes();
-                    }
-                });
-
-                ui.add_space(6.0);
-                match self.table.editing.cell_inspector_mode {
-                    cell_inspector::CellInspectorMode::Raw => {
-                        if writable {
-                            let response = ui.add(
-                                TextEdit::multiline(&mut self.table.editing.data_edit_value)
-                                    .desired_width(ui.available_width())
-                                    .desired_rows(16),
-                            );
-                            if response.changed() {
-                                self.table.editing.data_edit_error = None;
-                            }
-                        } else {
-                            ui.add(
-                                TextEdit::multiline(&mut self.table.editing.data_edit_value)
-                                    .desired_width(ui.available_width())
-                                    .desired_rows(16)
-                                    .interactive(false),
-                            );
-                        }
-                    }
-                    cell_inspector::CellInspectorMode::Pretty => {
-                        let pretty = cell_inspector::pretty_json(&self.table.editing.data_edit_value)
-                            .unwrap_or_else(|| self.table.editing.data_edit_value.clone());
-                        ui.add(
-                            TextEdit::multiline(&mut pretty.clone())
-                                .desired_width(ui.available_width())
-                                .desired_rows(16)
-                                .interactive(false),
-                        );
-                        if writable
-                            && Button::new(self.theme)
-                                .text("Use pretty as edit buffer")
-                                .size(ButtonSize::Sm)
-                                .variant(ButtonVariant::Ghost)
-                                .show(ui)
-                                .clicked()
-                        {
-                            self.table.editing.data_edit_value = pretty;
-                            self.table.editing.cell_inspector_mode = cell_inspector::CellInspectorMode::Raw;
-                        }
-                    }
-                    cell_inspector::CellInspectorMode::Tree => {
-                        egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
-                            for line in cell_inspector::json_tree_lines(&self.table.editing.data_edit_value, 400) {
-                                ui.label(RichText::new(line).monospace().small());
-                            }
-                        });
-                    }
-                    cell_inspector::CellInspectorMode::Hex => {
-                        let text = match cell_inspector::decode_bytes_payload(&self.table.editing.data_edit_value) {
-                            Ok(bytes) => {
-                                ui.label(
-                                    RichText::new(cell_inspector::bytes_metadata(&self.table.editing.data_edit_value))
-                                        .small()
-                                        .color(self.theme.text_secondary),
-                                );
-                                cell_inspector::encode_hex(&bytes)
-                            }
-                            Err(err) => format!("(hex unavailable: {err})"),
-                        };
-                        ui.add(
-                            TextEdit::multiline(&mut text.clone())
-                                .desired_width(ui.available_width())
-                                .desired_rows(14)
-                                .interactive(false),
-                        );
-                    }
-                    cell_inspector::CellInspectorMode::Base64 => {
-                        let text = match cell_inspector::decode_bytes_payload(&self.table.editing.data_edit_value) {
-                            Ok(bytes) => {
-                                ui.label(
-                                    RichText::new(cell_inspector::bytes_metadata(&self.table.editing.data_edit_value))
-                                        .small()
-                                        .color(self.theme.text_secondary),
-                                );
-                                cell_inspector::encode_base64(&bytes)
-                            }
-                            Err(err) => format!("(base64 unavailable: {err})"),
-                        };
-                        ui.add(
-                            TextEdit::multiline(&mut text.clone())
-                                .desired_width(ui.available_width())
-                                .desired_rows(10)
-                                .interactive(false),
-                        );
-                    }
-                }
-
-                if let Some(error) = self.table.editing.data_edit_error.as_deref() {
-                    ui.label(RichText::new(error).small().color(self.theme.danger));
-                }
-                ui.horizontal(|ui| {
-                    if writable
-                        && Button::new(self.theme)
-                            .text("Apply to ChangeSet")
-                            .size(ButtonSize::Sm)
-                            .show(ui)
-                            .clicked()
-                    {
-                        commit = true;
-                    }
-                    if Button::new(self.theme)
-                        .text("Close")
-                        .size(ButtonSize::Sm)
-                        .variant(ButtonVariant::Ghost)
-                        .show(ui)
-                        .clicked()
-                    {
-                        cancel = true;
-                    }
-                });
-            });
-
-        if commit {
-            self.submit_data_cell_edit(result, row_index, column_index);
-        } else if cancel || !open || ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
-            self.table.editing.data_editing_cell = None;
-            self.table.editing.expanded_data_editor = None;
-            self.table.editing.data_edit_value.clear();
-            self.table.editing.data_edit_error = None;
+        match action {
+            Some(result_grid_inspector_surface_view::ValueInspectorAction::CopyRaw) => {
+                ctx.copy_text(self.table.editing.data_edit_value.clone());
+                self.feedback.runtime_message = "Copied raw value".into();
+            }
+            Some(result_grid_inspector_surface_view::ValueInspectorAction::ExportBytes) => {
+                self.export_inspected_bytes();
+            }
+            Some(result_grid_inspector_surface_view::ValueInspectorAction::Apply) => {
+                self.submit_data_cell_edit(result, row_index, column_index);
+            }
+            Some(result_grid_inspector_surface_view::ValueInspectorAction::Close) => {
+                self.close_data_inspector();
+            }
+            None if ctx.input(|input| input.key_pressed(egui::Key::Escape)) => {
+                self.close_data_inspector();
+            }
+            None => {}
         }
+    }
+
+    fn close_data_inspector(&mut self) {
+        self.table.editing.data_editing_cell = None;
+        self.table.editing.expanded_data_editor = None;
+        self.table.editing.data_edit_value.clear();
+        self.table.editing.data_edit_error = None;
     }
 
     pub(super) fn open_cell_inspector(&mut self, result: &UiQueryResult, row_index: usize, column_index: usize) {
@@ -362,37 +214,21 @@ impl DbProApp {
         let Some(row) = result.rows.get(row_index) else {
             return;
         };
-        ui.horizontal(|ui| {
-            ui.label(RichText::new(format!("Record · row {row_index}")).strong());
-            if ui.small_button("Close").clicked() {
+        let context = result_grid_record_surface_view::RecordInspectorContext {
+            theme: self.theme,
+            row_index,
+            columns: &result.columns,
+            row,
+        };
+        match result_grid_record_surface_view::draw(&context, ui) {
+            Some(result_grid_record_surface_view::RecordInspectorAction::Close) => {
                 self.table.editing.record_inspector_open = false;
             }
-        });
-        egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
-            for (column_index, column) in result.columns.iter().enumerate() {
-                let cell = row.get(column_index).unwrap_or(&UiCell::Null);
-                ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new(format!("{}:", column.name))
-                            .small()
-                            .strong()
-                            .color(self.theme.text_secondary),
-                    );
-                    let preview = {
-                        let text = cell_inspector::cell_raw_text(cell);
-                        if text.chars().count() > 80 {
-                            format!("{}…", text.chars().take(79).collect::<String>())
-                        } else {
-                            text
-                        }
-                    };
-                    ui.label(RichText::new(preview).small().monospace());
-                    if ui.small_button("Inspect").clicked() {
-                        self.open_cell_inspector(result, row_index, column_index);
-                    }
-                });
+            Some(result_grid_record_surface_view::RecordInspectorAction::Inspect(column_index)) => {
+                self.open_cell_inspector(result, row_index, column_index);
             }
-        });
+            None => {}
+        }
     }
 
     pub(super) fn commit_active_data_edit(&mut self, result: &UiQueryResult) -> bool {
