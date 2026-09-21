@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `7a401686`.
+Source checkpoint: `f1df8f36`.
 
 ## Current change
 
@@ -20,6 +20,28 @@ mutation paths, including SQL prediction requests.
 The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
+
+## Gate evidence at `f1df8f36`
+
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri, 664 UI and all other workspace suites
+  passed, with only environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed with 0 warnings and 0 failures (the working tree
+  was clean after commit, so the scanner reported 0 changed production files).
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-f1df8f36-welcome.png`, logical
+  `1280x800` (PNG framebuffer `2560x1600` on the 2x host), was visually
+  inspected. It shows the native Welcome/Explorer empty state with the New
+  connection entry point. The rebuilt release binary is running in terminal
+  session `50716` for manual verification. Explorer table/schema-object runtime
+  capture remains pending because deterministic capture has no live schema
+  provider.
 
 ## Gate evidence at `7a401686`
 
