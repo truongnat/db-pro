@@ -173,6 +173,9 @@
 - [x] Query Visual Builder framing and editor-stack allocation are owned by
       `query_shell_surface_view`; query root retains editor/search/effect
       adapters only.
+- [x] Settings navigation, section composition and diagnostics presentation
+      are owned by `SettingsSurfaceContext`; settings root retains only
+      persistence, runtime/file effects and typed action application.
 - [x] Architecture boundary check in CI (`scripts/check-ui-architecture.sh`).
 
 ## Gates

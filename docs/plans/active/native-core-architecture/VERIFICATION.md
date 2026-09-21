@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `6e28eea4`.
+Source checkpoint: `dde32725`.
 
 ## Current change
 
@@ -206,6 +206,18 @@ Current release runtime captures at source SHA `6e28eea4`:
   constraints.
 - The 1920x1080 exact acceptance viewport and a stable 1440 Query capture are
   still unavailable on this host; the runtime matrix checklist stays open.
+
+Settings composition follow-up at source SHA `dde32725`: navigation, selected
+section composition, diagnostics card and settings renderer action collection
+now live in `settings_surface_view.rs`. `settings_view.rs` retains state
+hydration/synchronization and applies workspace-session, backup, keybinding,
+diagnostics and runtime effects after the typed action stream returns.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 15 checks, 1 pre-existing `app.rs` size warning and 0
+  failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 678 tests, 0 failed.
+- `git diff --check`: passed.
 
 Runtime evidence from the release capture harness:
 
