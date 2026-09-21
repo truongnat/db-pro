@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `bdf2e363`.
+Source checkpoint: `6bbd6b62`.
 
 ## Current change
 
@@ -8,12 +8,14 @@ The native UI interaction boundary is being migrated in vertical slices.
 Explorer rows, the Agent surface, large Settings sections, table surfaces and
 query execution preparation, Explain transitions, saved-query preparation and
 Schema Workbench mutation planning now collect typed intents/effects in
-feature-owned contexts, and direct multiline channel bypasses are now guarded.
+feature-owned contexts. Agent confirmation planning now owns document targeting,
+patch application and continuation payload preparation outside the app root.
+Direct multiline channel bypasses are guarded.
 The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
 
-## Gate evidence at `bdf2e363`
+## Gate evidence at `6bbd6b62`
 
 - `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
   infrastructure, 32 runtime, 4 Tauri, 654 UI and all other workspace suites
@@ -25,13 +27,18 @@ matrix is not complete.
 - `cargo clippy --workspace --all-targets -- -D warnings`: passed on the checkpoint.
 - `bash scripts/check-ui-architecture.sh`: passed.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
-  passed; the ratchet reports three existing warnings for large root/dialog
-  functions and `app.rs`, plus the pre-existing table mutation clone heuristic.
+  passed; 16 checks passed with 0 warnings for this committed diff.
 - Runtime capture: `/tmp/db-pro-native-core-ddefb967.png`, 1280×800, showed
   the centered New Connection dialog with separated header, divider and
   right-aligned close icon. The latest release binary was then left running
   for manual verification as PID `10200`. That evidence predates this
-  checkpoint; no new screenshot was collected for `f5fc419d`.
+  checkpoint; no new screenshot was collected for `6bbd6b62`.
+
+- `6bbd6b62`: Agent confirmation preparation now returns a typed
+  `PreparedAgentConfirmation` from `agent_confirmation.rs`; `DbProApp` keeps
+  only pending-session lookup, UX error feedback and runtime dispatch. Focused
+  Agent tests and the full workspace gate passed. The freshly rebuilt release
+  binary is running for manual verification in terminal session `94688`.
 
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and
