@@ -38,7 +38,8 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
    `24f8692a`.
 5. Table/data editor state and mutation effects — grid/editor interaction state
    completed in `77a27f0c`; table metadata/request state completed in
-   `0fc757d8`; mutation effects remain.
+   `0fc757d8`; mutation effects and the remaining table surface adapters are
+   now feature-owned in `f5fc419d`.
 6. Agent state and query-editor/schema-explorer state — completed; workspace
    files, diagram, database operations, palette, query execution policy, query
    library, saved tasks, named sessions, overlays, feedback, preferences and
@@ -54,8 +55,9 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
    workspace and runtime reducers remain in progress.
 10. Continue the same intent/reducer boundary through the remaining large
     native surfaces. The Agent workflow/settings/header/confirmation/context
-    slices and all large Settings sections are now explicit; monitoring,
-    security and remaining table/query surfaces still require migration.
+    slices, large Settings sections, table surfaces and query execution
+    preparation are now explicit; Explorer adapters, monitoring/security
+    surfaces and some dialog/root adapters still require migration.
 
 ## Non-goals
 

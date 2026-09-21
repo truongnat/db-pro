@@ -37,6 +37,10 @@
 - [x] Query library, named workspace session and overlay aggregates.
 - [x] Preferences, welcome and shared feedback aggregates.
 - [x] Diagram, workspace files, database operations, palette and query execution policy aggregates.
+- [x] Query execution preparation owns destructive gating, parameter binding,
+      history and document-running transitions behind an explicit context.
+- [x] Query status, table DDL, insert, metadata, relations, mutation-dialog,
+      conflict and data-toolbar surfaces use feature-owned contexts/actions.
 - [x] Database management catch-all split into named feature aggregates and schema comparison state.
 - [x] Feature aggregate fields scoped to the app boundary with an architecture guard.
 - [x] Runtime event dispatch table isolated from feature handlers.
@@ -53,8 +57,8 @@
 - [x] `cargo fmt --all -- --check` (PASS)
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
-- [x] UI test suite through the workspace gate (639 passed at `ddefb967`)
-- [x] `cargo test --workspace --no-fail-fast --quiet` (PASS at `ddefb967`; 0 failed)
+- [x] UI test suite through the workspace gate (647 passed at `f5fc419d`)
+- [x] `cargo test --workspace --no-fail-fast --quiet` (PASS at `f5fc419d`; 0 failed)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [x] `cargo build --release --locked -p db-pro-native --features capture`
 - [x] New Connection modal runtime capture at logical `1280x800` (centered
@@ -63,6 +67,6 @@
       and schema-object rows.
 - [x] Loading Welcome and New Connection error state captures at logical
       `1280x800`.
-- [x] Latest native release binary left running for manual verification at
-      logical `1280x800` (PID `10200`).
+- [x] Latest native release binary rebuilt on `f5fc419d`; runtime launch is
+      recorded below, but no new screenshot was collected for this checkpoint.
 - [ ] Native runtime evidence for affected surfaces.

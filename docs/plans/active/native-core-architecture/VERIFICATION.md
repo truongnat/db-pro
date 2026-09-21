@@ -1,37 +1,40 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `ddefb967`.
+Source checkpoint: `f5fc419d`.
 
 ## Current change
 
 The native UI interaction boundary is being migrated in vertical slices.
-Explorer rows, the Agent surface and the large Settings sections now collect
-typed intents in view-owned contexts; Agent workflow reducers, patch safety,
-result projection, confirmation targeting and run preparation are
-feature-owned. The plan
-remains `IMPLEMENTING` because other large feature surfaces still implement
-rendering directly on the root and the full runtime evidence matrix is not
-complete.
+Explorer rows, the Agent surface, large Settings sections, table surfaces and
+query execution preparation now collect typed intents/effects in feature-owned
+contexts. The plan remains `IMPLEMENTING` because other large feature surfaces
+still implement rendering directly on the root and the full runtime evidence
+matrix is not complete.
 
-## Gate evidence at `ddefb967`
+## Gate evidence at `f5fc419d`
 
-- `cargo fmt --all -- --check`: passed.
-- `cargo check --workspace`: passed.
-- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
 - `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
-  infrastructure, 32 runtime, 4 Tauri, 639 UI and all other workspace suites
+  infrastructure, 32 runtime, 4 Tauri, 647 UI and all other workspace suites
   passed, with only environment-gated tests ignored.
 - `cargo build --release --locked -p db-pro-native`: passed.
 - `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed on the checkpoint.
+- `cargo check --workspace`: passed on the checkpoint.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed on the checkpoint.
 - `bash scripts/check-ui-architecture.sh`: passed.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
-  passed at the checkpoint; the ratchet reported two existing Agent
-  orchestration-size warnings (`submit_typed_agent_prompt` and
-  `agent_confirmation_action`).
+  passed; the ratchet reports three existing warnings for large root/dialog
+  functions and `app.rs`, plus the pre-existing table mutation clone heuristic.
 - Runtime capture: `/tmp/db-pro-native-core-ddefb967.png`, 1280×800, showed
   the centered New Connection dialog with separated header, divider and
   right-aligned close icon. The latest release binary was then left running
-  for manual verification as PID `10200`.
+  for manual verification as PID `10200`. That evidence predates this
+  checkpoint; no new screenshot was collected for `f5fc419d`.
+
+- `f5fc419d`: table/query surface contexts were extracted; query execution
+  preparation now owns destructive gating, parameter binding, query history and
+  document-running transitions, while `DbProApp` remains the command-send
+  boundary. Workspace tests report 647 UI tests passed.
 
 - `40e875fe`: Agent workflow reducer, SQL patch safety and Agent-result
   projection moved out of the root state module.
