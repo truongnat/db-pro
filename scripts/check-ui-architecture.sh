@@ -132,6 +132,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/files_search_view.rs"
   "$repo_root/crates/ui/src/files_tasks_view.rs"
   "$repo_root/crates/ui/src/files_git_view.rs"
+  "$repo_root/crates/ui/src/settings_system_view.rs"
   "$repo_root/crates/ui/src/sidebar_data_view.rs"
   "$repo_root/crates/ui/src/sidebar_chrome_view.rs"
   "$repo_root/crates/ui/src/sidebar_queries_view.rs"

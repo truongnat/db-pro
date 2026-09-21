@@ -69,13 +69,13 @@ impl DbProApp {
                 SettingsSection::General => self.draw_general_settings(ui),
                 SettingsSection::Appearance => self.draw_appearance_settings(ui),
                 SettingsSection::Editor => self.draw_editor_settings(ui),
-                SettingsSection::DataGrid => self.draw_data_grid_settings(ui),
-                SettingsSection::Connections => self.draw_connection_settings(ui),
-                SettingsSection::Ai => self.draw_ai_settings(ui),
+                SettingsSection::DataGrid
+                | SettingsSection::Connections
+                | SettingsSection::Ai
+                | SettingsSection::Security
+                | SettingsSection::Advanced => self.draw_system_settings(ui),
                 SettingsSection::Keybindings => self.draw_keybindings_settings(ui),
                 SettingsSection::Backup => self.draw_backup_section(ui),
-                SettingsSection::Security => self.draw_security_settings(ui),
-                SettingsSection::Advanced => self.draw_advanced_settings(ui),
             });
         });
         ui.add_space(12.0);
@@ -110,68 +110,6 @@ impl DbProApp {
         .draw(ui);
     }
 
-    fn draw_data_grid_settings(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            section_label(ui, "DATA GRID", self.theme);
-            ui.add_space(10.0);
-            ui.horizontal(|ui| {
-                ui.label(RichText::new("Page size").color(self.theme.text_secondary));
-                ui.add(egui::DragValue::new(&mut self.preferences.settings.data_grid.page_size).range(25..=1_000));
-            });
-            ui.checkbox(
-                &mut self.preferences.settings.data_grid.show_row_numbers,
-                "Show row numbers",
-            );
-            ui.checkbox(
-                &mut self.preferences.settings.data_grid.wrap_cell_text,
-                "Wrap cell text",
-            );
-        });
-    }
-
-    fn draw_connection_settings(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            section_label(ui, "CONNECTIONS", self.theme);
-            ui.add_space(10.0);
-            ui.checkbox(
-                &mut self.preferences.settings.connections.auto_connect_last,
-                "Reconnect last connection on startup",
-            );
-            ui.checkbox(
-                &mut self.preferences.settings.connections.default_ssl_prefer,
-                "Prefer TLS for new server connections",
-            );
-            ui.label(
-                RichText::new("Passwords stay in secret storage — never written to settings JSON.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-        });
-    }
-
-    fn draw_ai_settings(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            section_label(ui, "AI PROVIDERS", self.theme);
-            ui.add_space(10.0);
-            ui.checkbox(&mut self.preferences.settings.ai.enabled, "Enable Agent workspace");
-            ui.checkbox(
-                &mut self.preferences.settings.ai.auto_run_read_only,
-                "Allow Agent to auto-run read-only queries",
-            );
-            self.agent.auto_run_read_only = self.preferences.settings.ai.auto_run_read_only;
-            ui.label(
-                RichText::new(format!("Active provider: {}", self.agent.provider_label))
-                    .small()
-                    .color(self.theme.text_secondary),
-            );
-            ui.label(
-                RichText::new("API keys are configured in the Agent panel and stored as secrets.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-        });
-    }
-
     fn draw_keybindings_settings(&mut self, ui: &mut egui::Ui) {
         let actions = SettingsKeybindingsContext {
             theme: self.theme,
@@ -185,39 +123,16 @@ impl DbProApp {
         }
     }
 
-    fn draw_security_settings(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            section_label(ui, "SECURITY", self.theme);
-            ui.add_space(10.0);
-            ui.checkbox(
-                &mut self.preferences.settings.security.redact_secrets_in_logs,
-                "Redact secrets in diagnostics and logs",
-            );
-            ui.checkbox(
-                &mut self.preferences.settings.security.lock_secret_export,
-                "Block secret export by default",
-            );
-        });
-    }
-
-    fn draw_advanced_settings(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            section_label(ui, "ADVANCED", self.theme);
-            ui.add_space(10.0);
-            ui.checkbox(
-                &mut self.preferences.settings.advanced.verbose_runtime_log,
-                "Verbose runtime logging",
-            );
-            ui.checkbox(
-                &mut self.preferences.settings.advanced.experimental_features,
-                "Experimental features",
-            );
-            ui.label(
-                RichText::new(format!("Settings schema version {}", self.preferences.settings.version))
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-        });
+    fn draw_system_settings(&mut self, ui: &mut egui::Ui) {
+        let section = self.preferences.section;
+        let provider_label = self.agent.provider_label.clone();
+        settings_system_view::SettingsSystemContext {
+            theme: self.theme,
+            preferences: &mut self.preferences,
+            agent_auto_run_read_only: &mut self.agent.auto_run_read_only,
+            agent_provider_label: &provider_label,
+        }
+        .draw(ui, section);
     }
 
     fn draw_backup_section(&mut self, ui: &mut egui::Ui) {
