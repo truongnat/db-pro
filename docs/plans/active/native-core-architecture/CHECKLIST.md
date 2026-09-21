@@ -159,6 +159,9 @@
 - [x] Query result-pane shell rendering is owned by an explicit surface
       context; the root retains only snapshot preparation, grid callback,
       typed intent application and feature-specific dialog adapters.
+- [x] Activity rail rendering consumes an immutable context and emits typed
+      navigation intents; workspace mutation remains in the composition-root
+      adapter.
 - [x] Architecture boundary check in CI (`scripts/check-ui-architecture.sh`).
 
 ## Gates

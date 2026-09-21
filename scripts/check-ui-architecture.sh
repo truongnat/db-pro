@@ -79,6 +79,11 @@ if rg -n 'table_data|row_reload' "$repo_root/crates/ui/src/table_state.rs"; then
   echo "UI architecture check failed: TableState must not own table data-query lifecycle." >&2
   exit 1
 fi
+
+if rg -n '&mut WorkspaceFeatureState|WorkspaceFeatureState' "$repo_root/crates/ui/src/activity_bar_view.rs"; then
+  echo "UI architecture check failed: activity_bar_view.rs must emit intents instead of mutating workspace state." >&2
+  exit 1
+fi
 if [[ ! -f "$repo_root/crates/ui/src/table_data_query_state.rs" ]]; then
   echo "UI architecture check failed: missing TableDataQueryState boundary." >&2
   exit 1

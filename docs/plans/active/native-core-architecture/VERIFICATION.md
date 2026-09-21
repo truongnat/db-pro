@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `de775cc8`.
+Source checkpoint: `ecd3575c`.
 
 ## Current change
 
@@ -125,6 +125,18 @@ presentation boundary instead of splitting the same surface across two files.
   clean scan reported 15 checks, 1 pre-existing file-size warning and 0
   failures.
 - `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
+- `git diff --check`: passed.
+
+Activity navigation follow-up at source SHA `ecd3575c`: the activity rail now
+renders from an immutable `ActivityBarContext` and emits typed navigation
+intents for activity selection, Query, Diagram, Schema Compare, Schema
+Workbench, Settings and Agent. `app_lifecycle.rs` is the only place that
+applies those intents to `WorkspaceFeatureState`; the rail no longer mutates
+workspace navigation state while painting.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 16 checks, 0 warnings and 0 failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 678 tests, 0 failed.
 - `git diff --check`: passed.
 
 Runtime evidence from the release capture harness:
