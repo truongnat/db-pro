@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `6bbd6b62`.
+Source checkpoint: `cac0b77e`.
 
 ## Current change
 
@@ -38,7 +38,14 @@ matrix is not complete.
   `PreparedAgentConfirmation` from `agent_confirmation.rs`; `DbProApp` keeps
   only pending-session lookup, UX error feedback and runtime dispatch. Focused
   Agent tests and the full workspace gate passed. The freshly rebuilt release
-  binary is running for manual verification in terminal session `94688`.
+  binary was running for manual verification in terminal session `94688`.
+
+- `cac0b77e`: Agent query-result opening now uses an explicit
+  `AgentResultWorkspaceContext`; query-document result replacement, output-tab
+  selection, grid invalidation and feedback are no longer implemented in the
+  root Agent adapter. The complete workspace gate passed again, and the latest
+  release binary is running for manual verification in terminal session
+  `93643`.
 
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and
