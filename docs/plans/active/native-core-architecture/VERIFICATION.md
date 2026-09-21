@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `bac3bbe7`.
+Source checkpoint: `46a9920b`.
 
 ## Current change
 
@@ -63,6 +63,31 @@ settings/header/composer runtime effects remain root adapters.
 The Security drop-role confirmation now renders through
 `SecurityConfirmationContext` and returns typed confirm/cancel actions. The
 root keeps only the PostgreSQL command dispatch and state transition.
+
+Monitoring presentation now renders through `MonitoringSurfaceContext`, which
+owns the header, error/empty states, health snapshot, sessions and workload
+presentation. It emits typed refresh, session and workload actions; polling,
+snapshot dispatch and auxiliary monitoring surfaces remain at the root effect
+adapter.
+
+## Gate evidence at `46a9920b`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; `main` is aligned with `origin/main` at the
+  source checkpoint before this documentation commit.
+- Runtime launch: the rebuilt release binary from this checkpoint is running
+  in terminal session `97544`. No dedicated monitoring provider-state capture
+  was collected; the runtime matrix remains incomplete.
 
 ## Gate evidence at `bac3bbe7`
 
