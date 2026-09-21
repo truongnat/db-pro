@@ -57,6 +57,9 @@
       contexts; settings/header/composer effects remain root adapters.
 - [x] Security drop-role confirmation separated into an explicit context with
       typed confirm/cancel actions.
+- [x] Security surface composition separated into an explicit context with a
+      unified roles/details/confirmation/RLS action stream; command dispatch
+      and provider effects remain at the root adapter.
 - [x] Monitoring header, snapshot, sessions and workload presentation
       separated into an explicit context with typed refresh/session/workload
       actions; polling and auxiliary runtime effects remain at the root
