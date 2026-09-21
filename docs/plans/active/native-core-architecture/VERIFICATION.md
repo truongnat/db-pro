@@ -2074,19 +2074,14 @@ keeps task policy and execution effects.
 - `bash scripts/check-ui-architecture.sh`: passed.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
   passed with 15 checks and 0 failures; one inherited warning remains for
-  `crates/ui/src/app.rs` at 1008 lines.
+  `crates/ui/src/app.rs` at 1006 lines.
 - `git diff --check`: passed.
 - Current release runtime capture:
-  `/tmp/db-pro-native-core-58ed06ec-new-1280x800.png`, logical `1280x800`.
-  The New Connection dialog is centered with a separated header/divider,
-  right-aligned close control, complete body and separated footer. The
-  capture-feature binary exited cleanly after writing the artifact; the
-  previous manual-verification process was stopped before the rebuild. The
-  capture predates the Agent-only composition change and covers an unaffected
-  modal surface.
-- The Agent composition change has no new visual state requirement beyond the
-  existing Agent panel runtime matrix; this capture remains valid for the
-  modal boundary but does not close the plan's broader runtime-evidence item.
+  `/tmp/db-pro-native-core-6856abdf-agent-new-1280x800.png`, logical
+  `1280x800`, captured from the release binary built after the Agent panel
+  composition change. The New Connection dialog is centered with a separated
+  header/divider, right-aligned close control, complete body and separated
+  footer. The manual-verification release binary is running as PID `24559`.
 
 ## Core boundary checkpoint at `db6013ee`
 
