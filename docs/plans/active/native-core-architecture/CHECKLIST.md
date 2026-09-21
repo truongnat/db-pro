@@ -115,6 +115,9 @@
 - [x] Result-grid value inspector and full-record inspector presentation
       separated into explicit surfaces with typed copy/export/apply/close and
       inspect actions; editor state and effects remain at the root adapter.
+- [x] Result-grid inline cell editor and sidebar shell geometry/chrome
+      separated into explicit surfaces with typed commit/cancel, navigation and
+      resize actions; feature activity renderers remain at the root adapter.
 - [x] Workspace Migrations and Graph tabs separated into explicit renderers
       with typed file-open intents; file navigation remains at the root
       adapter.

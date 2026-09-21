@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `27639023`.
+Source checkpoint: `e6a56fdc`.
 
 ## Current change
 
@@ -64,6 +64,25 @@ tracks both surfaces.
   `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
   infrastructure, 32 runtime, 4 tauri and 677 UI tests passed, with only
   environment-gated tests ignored.
+
+Result-grid and sidebar shell follow-up at source SHA `e6a56fdc`: inline
+boolean/text editing now renders through
+`result_grid_cell_editor_surface_view.rs` and returns typed Commit/Cancel
+actions. Sidebar panel geometry, clipping, chrome and resize hit-testing now
+render through `sidebar_surface_view.rs`; `sidebar_view.rs` retains activity
+selection and applies typed chrome/resize actions. The architecture guard
+tracks both new surfaces.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 16 checks, 0 warnings and 0 failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- Full workspace fmt/check/clippy/test gate at this SHA: passed; 404 core,
+  119 infrastructure, 32 runtime, 4 tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- The rebuilt release binary is running in terminal session `63219` for manual
+  verification.
 
 The Query output dock now has an explicit `QueryOutputDockContext` for resize
 geometry and tab chrome. The root keeps only the pane callback because result,
