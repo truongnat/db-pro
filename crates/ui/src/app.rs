@@ -114,6 +114,8 @@ mod explorer_database_node_view;
 mod explorer_details;
 #[path = "explorer_folders.rs"]
 mod explorer_folders;
+#[path = "explorer_navigation.rs"]
+mod explorer_navigation;
 #[path = "explorer_schema_feedback_view.rs"]
 mod explorer_schema_feedback_view;
 #[path = "explorer_schema_node_view.rs"]

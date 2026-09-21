@@ -70,6 +70,10 @@ pub(super) struct PreparedAgentContinuation {
 }
 
 impl AgentState {
+    pub(super) fn clear_input(&mut self) {
+        self.input.clear();
+    }
+
     pub(super) fn clear_session(&mut self, document_id: &str) {
         if let Some(session) = self.sessions.get_mut(document_id) {
             session.messages.clear();
@@ -191,10 +195,6 @@ impl AgentState {
 }
 
 impl DbProApp {
-    pub(super) fn reset_agent_context(&mut self) {
-        self.agent.input.clear();
-    }
-
     pub(super) fn agent_context(&self) -> AgentContext {
         let connection_name = Some(self.active_connection_name().to_owned());
         let driver = self.active_driver().to_owned();

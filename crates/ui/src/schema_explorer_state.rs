@@ -41,6 +41,19 @@ impl Default for SchemaExplorerState {
 }
 
 impl SchemaExplorerState {
+    pub(crate) fn reset_connection_scope(&mut self) {
+        self.schema = UiSchemaSummary::default();
+        self.schema_symbol_index = SchemaSymbolIndex::default();
+        self.selected_schema = None;
+        self.explorer_search.clear();
+        self.explorer_nav_cache = None;
+        self.schema_error = None;
+        self.schema_request = None;
+        self.selected_table = None;
+        self.selected_schema_object = None;
+        self.schema_object_view = SchemaObjectView::Definition;
+    }
+
     pub(super) fn filter_by_schema<T: Clone>(&self, all: &[T], schema: &str, schema_of: impl Fn(&T) -> &str) -> Vec<T> {
         if self.schema.schemas.is_empty() || schema.is_empty() {
             all.to_vec()

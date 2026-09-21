@@ -108,67 +108,38 @@ impl DbProApp {
 
     /// Clears the connected state after an explicit disconnect.
     pub(crate) fn disconnect_from_connection(&mut self, connection: &UiConnectionSummary) {
-        if self.query.execution.query_in_transaction {
-            self.query.execution.disconnect_txn_guard = true;
-            self.feedback.runtime_message =
-                "Open transaction detected — commit or rollback before disconnecting".to_owned();
-            return;
-        }
-        self.connection.lifecycle.set_connected(false);
-        self.schema.explorer.schema = UiSchemaSummary::default();
-        self.schema.explorer.schema_symbol_index = SchemaSymbolIndex::default();
-        self.schema.explorer.selected_schema = None;
-        self.schema.explorer.selected_table = None;
-        self.schema.explorer.selected_schema_object = None;
-        self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
-        self.table.reset_workspace();
-        self.feedback.runtime_message = format!("Disconnected from {}", connection.name);
+        explorer_navigation::ExplorerConnectionContext::new(
+            &mut self.connection.lifecycle,
+            &mut self.schema.explorer,
+            &mut self.table,
+            &mut self.workspace,
+            &mut self.agent,
+            &mut self.query.execution,
+            &mut self.feedback,
+        )
+        .disconnect(connection);
     }
 
     /// Helper to initiate connection logic.
     pub(crate) fn connect_to_connection(&mut self, connection: &UiConnectionSummary) {
-        if self.connection.lifecycle.active_connection_id() == Some(&connection.id)
+        if self.connection.lifecycle.active_connection_id() == Some(connection.id.as_str())
             && self.connection.lifecycle.is_connected()
         {
             return;
         }
-        if !self.table.mutation.staged_changes.is_empty() {
-            self.workspace.pending_navigation_action =
-                Some(PendingNavigationAction::ChangeConnection(connection.id.clone()));
-            self.table.editing.discard_changes_confirmation = true;
-            self.feedback.runtime_message = "Apply or discard staged changes before changing connection".to_owned();
-            return;
-        }
-        if self.query.execution.query_in_transaction {
-            self.query.execution.disconnect_txn_guard = true;
-            self.feedback.runtime_message =
-                "Commit or rollback the open transaction before changing connection".to_owned();
-            return;
-        }
-        self.workspace.pending_navigation_action = None;
-        self.reset_agent_context();
-        *self.connection.lifecycle.active_connection_id_mut() = Some(connection.id.clone());
-        self.connection
-            .lifecycle
-            .set_pending_connection_id(Some(connection.id.clone()));
-        self.connection.lifecycle.clear_connection_error(&connection.id);
-        self.schema.explorer.selected_schema = None;
-        self.schema.explorer.schema = UiSchemaSummary::default();
-        self.schema.explorer.schema_symbol_index = SchemaSymbolIndex::default();
-        self.schema.explorer.selected_table = None;
-        self.schema.explorer.selected_schema_object = None;
-        self.table.reset_workspace();
-        self.schema.explorer.explorer_search.clear();
         let request_id = self.task_bridge.next_request_id();
-        self.connection.lifecycle.set_connected(false);
-        self.connection.lifecycle.set_pending_request(Some(request_id));
-        self.schema.explorer.schema_request = None;
-        self.schema.explorer.schema_error = None;
-        self.dispatch_command(
-            self.connection
-                .lifecycle
-                .connect_command(request_id, connection.id.clone()),
-        );
-        self.feedback.runtime_message = format!("Connecting to {}…", connection.name);
+        let command = explorer_navigation::ExplorerConnectionContext::new(
+            &mut self.connection.lifecycle,
+            &mut self.schema.explorer,
+            &mut self.table,
+            &mut self.workspace,
+            &mut self.agent,
+            &mut self.query.execution,
+            &mut self.feedback,
+        )
+        .connect(connection, request_id);
+        if let Some(command) = command {
+            self.dispatch_command(command);
+        }
     }
 }
