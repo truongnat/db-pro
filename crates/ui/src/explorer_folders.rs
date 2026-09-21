@@ -258,35 +258,18 @@ impl DbProApp {
         name: &str,
         kind: &str,
     ) {
-        self.schema.explorer.selected_schema_object = Some(selection.clone());
-        self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
-        self.schema.explorer.selected_table = None;
-        self.table.reset_workspace();
-        self.table.state.table_view = TableView::Ddl;
-        self.workspace.active_tab = WorkspaceTab::SchemaObject;
-        self.management.routine.routine_drop_confirm = false;
-        self.management.routine.routine_ddl_preview = None;
-        if let SchemaObjectSelection::Function {
-            name: fn_name,
-            identity_arguments,
-        } = &selection
-        {
-            if let Some(function) = self
-                .schema
-                .explorer
-                .schema
-                .functions
-                .iter()
-                .find(|f| &f.name == fn_name && &f.identity_arguments == identity_arguments)
-                .cloned()
-            {
-                self.management.routine.sync_from(&function);
-            }
-        }
-        self.feedback.runtime_message = if schema.is_empty() {
-            format!("Opened {kind} {name}")
-        } else {
-            format!("Opened {kind} {schema}.{name}")
-        };
+        explorer_navigation::SchemaObjectActivationContext::new(
+            &mut self.schema.explorer,
+            &mut self.table,
+            &mut self.workspace,
+            &mut self.management.routine,
+            &mut self.feedback,
+        )
+        .open(explorer_navigation::SchemaObjectActivation {
+            selection,
+            schema: schema.to_owned(),
+            name: name.to_owned(),
+            kind: kind.to_owned(),
+        });
     }
 }

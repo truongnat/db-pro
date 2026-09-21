@@ -2,7 +2,8 @@
 
 use super::{
     AgentState, ConnectionLifecycleState, FeedbackState, PendingNavigationAction, QueryExecutionPolicyState,
-    SchemaExplorerState, TableEditorState, UiCommand, UiConnectionSummary, WorkspaceShellState,
+    RoutineState, SchemaExplorerState, SchemaObjectSelection, TableEditorState, UiCommand, UiConnectionSummary,
+    WorkspaceShellState,
 };
 use crate::RequestId;
 
@@ -21,6 +22,79 @@ pub(crate) struct TableSelectionContext<'a> {
     table: &'a mut TableEditorState,
     workspace: &'a mut WorkspaceShellState,
     feedback: &'a mut FeedbackState,
+}
+
+pub(crate) struct SchemaObjectActivationContext<'a> {
+    explorer: &'a mut SchemaExplorerState,
+    table: &'a mut TableEditorState,
+    workspace: &'a mut WorkspaceShellState,
+    routine: &'a mut RoutineState,
+    feedback: &'a mut FeedbackState,
+}
+
+pub(crate) struct SchemaObjectActivation {
+    pub(crate) selection: SchemaObjectSelection,
+    pub(crate) schema: String,
+    pub(crate) name: String,
+    pub(crate) kind: String,
+}
+
+impl<'a> SchemaObjectActivationContext<'a> {
+    pub(crate) fn new(
+        explorer: &'a mut SchemaExplorerState,
+        table: &'a mut TableEditorState,
+        workspace: &'a mut WorkspaceShellState,
+        routine: &'a mut RoutineState,
+        feedback: &'a mut FeedbackState,
+    ) -> Self {
+        Self {
+            explorer,
+            table,
+            workspace,
+            routine,
+            feedback,
+        }
+    }
+
+    pub(crate) fn open(&mut self, request: SchemaObjectActivation) {
+        let SchemaObjectActivation {
+            selection,
+            schema,
+            name,
+            kind,
+        } = request;
+        let function = if let SchemaObjectSelection::Function {
+            name: function_name,
+            identity_arguments,
+        } = &selection
+        {
+            self.explorer
+                .schema
+                .functions
+                .iter()
+                .find(|function| &function.name == function_name && &function.identity_arguments == identity_arguments)
+                .cloned()
+        } else {
+            None
+        };
+
+        self.explorer.selected_schema_object = Some(selection);
+        self.explorer.schema_object_view = super::SchemaObjectView::Definition;
+        self.explorer.selected_table = None;
+        self.table.reset_workspace();
+        self.table.state.table_view = super::TableView::Ddl;
+        self.workspace.active_tab = super::WorkspaceTab::SchemaObject;
+        self.routine.routine_drop_confirm = false;
+        self.routine.routine_ddl_preview = None;
+        if let Some(function) = function {
+            self.routine.sync_from(&function);
+        }
+        self.feedback.set_runtime_message(if schema.is_empty() {
+            format!("Opened {kind} {name}")
+        } else {
+            format!("Opened {kind} {schema}.{name}")
+        });
+    }
 }
 
 impl<'a> TableSelectionContext<'a> {
@@ -285,5 +359,46 @@ mod tests {
         assert!(table.editing.data_edit_value.is_empty());
         assert_eq!(table.state.table_view, super::super::TableView::Data);
         assert_eq!(workspace.active_tab, super::super::WorkspaceTab::Table);
+    }
+
+    #[test]
+    fn schema_object_activation_resets_table_surface_and_opens_definition() {
+        let mut schema = SchemaExplorerState {
+            selected_table: Some("users".to_owned()),
+            ..Default::default()
+        };
+        let mut table = TableEditorState::default();
+        table.editing.data_edit_value = "draft".to_owned();
+        let mut workspace = WorkspaceShellState {
+            active_tab: super::super::WorkspaceTab::Table,
+            ..Default::default()
+        };
+        let mut routine = RoutineState {
+            routine_drop_confirm: true,
+            routine_ddl_preview: Some("stale ddl".to_owned()),
+            ..Default::default()
+        };
+        let mut feedback = FeedbackState::default();
+
+        SchemaObjectActivationContext::new(&mut schema, &mut table, &mut workspace, &mut routine, &mut feedback).open(
+            SchemaObjectActivation {
+                selection: SchemaObjectSelection::View("orders_view".to_owned()),
+                schema: "public".to_owned(),
+                name: "orders_view".to_owned(),
+                kind: "View".to_owned(),
+            },
+        );
+
+        assert!(schema.selected_table.is_none());
+        assert!(
+            matches!(schema.selected_schema_object, Some(SchemaObjectSelection::View(name)) if name == "orders_view")
+        );
+        assert_eq!(schema.schema_object_view, super::super::SchemaObjectView::Definition);
+        assert!(table.editing.data_edit_value.is_empty());
+        assert_eq!(table.state.table_view, super::super::TableView::Ddl);
+        assert_eq!(workspace.active_tab, super::super::WorkspaceTab::SchemaObject);
+        assert!(!routine.routine_drop_confirm);
+        assert!(routine.routine_ddl_preview.is_none());
+        assert_eq!(feedback.runtime_message, "Opened View public.orders_view");
     }
 }
