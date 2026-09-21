@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `ba450fe2`.
+Source checkpoint: `de220cb9`.
 
 ## Current change
 
@@ -2054,8 +2054,11 @@ keeps task policy and execution effects.
   to a logical height of `838`. The required normal/loading/error/empty states
   are now captured at exact logical `1280x800`.
 
-## Current core checkpoint at `ba450fe2`
+## Current core checkpoint at `de220cb9`
 
+- Composition-root guard: `de220cb9`; the architecture check now rejects egui
+  painting in `app.rs`, keeping the root limited to aggregate ownership and
+  cross-feature orchestration.
 - Saved Tasks run-policy boundary: `ba450fe2`; destructive confirmation,
   scheduled-policy blocking and run-history recording now belong to
   `SavedTaskState`; the root only dispatches the selected payload and commits
@@ -2093,6 +2096,18 @@ keeps task policy and execution effects.
   boundary. The New Connection dialog is centered with a separated
   header/divider, right-aligned close control, complete body and separated
   footer. The manual-verification release binary is running as PID `32413`.
+- Current native runtime matrix from the same release source:
+  - normal/empty: `/tmp/db-pro-native-core-ba450fe2-normal-1280x800.png`
+  - loading: `/tmp/db-pro-native-core-ba450fe2-loading-1280x800.png`
+  - New Connection error: `/tmp/db-pro-native-core-ba450fe2-error-1280x800.png`
+  - Query shell: `/tmp/db-pro-native-core-ba450fe2-query-1280x800.png`
+  - New Connection at requested `1440x900`:
+    `/tmp/db-pro-native-core-ba450fe2-new-1440x900.png`
+  - New Connection at requested `1920x1080`:
+    `/tmp/db-pro-native-core-ba450fe2-new-1920x1080.png`
+  The two larger captures are host-limited to a logical height of `838`
+  (`2880x1676` and `3840x1676` Retina framebuffers respectively); their
+  centered modal/header/close/footer layout remains visually verified.
 
 ## Core boundary checkpoint at `db6013ee`
 
