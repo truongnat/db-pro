@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `54fbc77b`.
+Source checkpoint: `27639023`.
 
 ## Current change
 
@@ -39,6 +39,25 @@ owns its panel layout and tab rendering through `ShellOutputPanelContext`;
 The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
+
+Result-grid inspector follow-up at source SHA `27639023`: the advanced Value
+Inspector window now renders through `result_grid_inspector_surface_view.rs`
+with a centered anchor, explicit value modes and typed CopyRaw, ExportBytes,
+Apply and Close actions. The full-record inspector now renders through
+`result_grid_record_surface_view.rs` with shared Button components and a typed
+Inspect action. `result_grid_edit.rs` retains only read-model preparation,
+editor-state mutation and effect adapters. The architecture guard explicitly
+tracks both surfaces.
+
+- Focused `cargo check -p db-pro-ui`: passed.
+- Focused `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed before the source commit.
 
 The Query output dock now has an explicit `QueryOutputDockContext` for resize
 geometry and tab chrome. The root keeps only the pane callback because result,

@@ -112,6 +112,9 @@
       context; schema-object routing remains at the root adapter.
 - [x] Saved-task destructive-run confirmation presentation moved into the task
       surface; root retains policy and task execution effects.
+- [x] Result-grid value inspector and full-record inspector presentation
+      separated into explicit surfaces with typed copy/export/apply/close and
+      inspect actions; editor state and effects remain at the root adapter.
 - [x] Workspace Migrations and Graph tabs separated into explicit renderers
       with typed file-open intents; file navigation remains at the root
       adapter.
