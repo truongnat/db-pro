@@ -122,7 +122,7 @@ impl DbProApp {
                     self.query.editor.problems_selected = Some((entry.document_id, entry.diagnostic_index));
                     if entry.document_index == usize::MAX {
                         self.open_workspace_sql_file(entry.document_title);
-                        self.workspace.files_panel_tab = FilesPanelTab::Search;
+                        self.workspace.files.select_panel_tab(FilesPanelTab::Search);
                     } else {
                         self.navigate_to_problem(entry.document_index, entry.diagnostic_index);
                     }

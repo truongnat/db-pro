@@ -22,9 +22,54 @@ pub(crate) struct WorkspaceFilesState {
     pub(super) workspace_refactor_from: String,
     pub(super) workspace_refactor_to: String,
     pub(super) workspace_context_items: Vec<String>,
+    pub(super) panel_tab: FilesPanelTab,
 }
 
 impl WorkspaceFilesState {
+    pub(super) fn panel_tab(&self) -> FilesPanelTab {
+        self.panel_tab
+    }
+
+    pub(super) fn select_panel_tab(&mut self, tab: FilesPanelTab) {
+        self.panel_tab = tab;
+    }
+
+    pub(super) fn select_root(&mut self, index: usize) -> bool {
+        if index >= self.ide_workspace.roots.len() {
+            return false;
+        }
+        self.ide_workspace.active_root = index;
+        true
+    }
+
+    pub(super) fn remove_active_root(&mut self) {
+        self.ide_workspace.remove_active_root();
+    }
+
+    pub(super) fn set_trusted(&mut self, trusted: bool) {
+        self.ide_workspace.set_trusted(trusted);
+    }
+
+    pub(super) fn select_environment(&mut self, index: usize) -> Option<String> {
+        let name = self.ide_workspace.environments.get(index)?.name.clone();
+        self.ide_workspace.set_active_environment(index);
+        Some(name)
+    }
+
+    pub(super) fn set_search_query(&mut self, query: String) {
+        self.workspace_search_query = query;
+    }
+
+    pub(super) fn toggle_directory(&mut self, path: String) {
+        if !self.ide_workspace.expanded.insert(path.clone()) {
+            self.ide_workspace.expanded.remove(&path);
+        }
+    }
+
+    pub(super) fn dismiss_external_change(&mut self) {
+        self.workspace_external_change = None;
+    }
+
     pub(super) fn close(&mut self, shell: &mut WorkspaceShellState, feedback: &mut FeedbackState) {
         self.ide_workspace.close();
         self.workspace_search_hits.clear();
@@ -222,7 +267,7 @@ impl WorkspaceFilesState {
 
 #[cfg(test)]
 mod tests {
-    use super::WorkspaceFilesState;
+    use super::{FilesPanelTab, WorkspaceFilesState};
 
     #[test]
     fn default_workspace_files_state_starts_without_open_roots_or_drafts() {
@@ -233,5 +278,16 @@ mod tests {
         assert!(state.workspace_replace_previews.is_empty());
         assert!(state.workspace_context_items.is_empty());
         assert!(state.git_status.is_none());
+        assert_eq!(state.panel_tab, FilesPanelTab::Tree);
+    }
+
+    #[test]
+    fn panel_selection_and_invalid_root_selection_stay_inside_workspace_files_state() {
+        let mut state = WorkspaceFilesState::default();
+
+        state.select_panel_tab(FilesPanelTab::Search);
+
+        assert_eq!(state.panel_tab(), FilesPanelTab::Search);
+        assert!(!state.select_root(0));
     }
 }

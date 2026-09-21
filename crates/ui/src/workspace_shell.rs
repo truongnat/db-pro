@@ -19,7 +19,6 @@ pub(crate) struct WorkspaceShellState {
     pub(crate) sidebar_open_before_agent: Option<bool>,
     pub(crate) pending_navigation_action: Option<PendingNavigationAction>,
     pub(crate) split_editor_secondary: Option<usize>,
-    pub(crate) files_panel_tab: FilesPanelTab,
 }
 
 impl Default for WorkspaceShellState {
@@ -37,7 +36,6 @@ impl Default for WorkspaceShellState {
             sidebar_open_before_agent: None,
             pending_navigation_action: None,
             split_editor_secondary: None,
-            files_panel_tab: FilesPanelTab::Tree,
         }
     }
 }

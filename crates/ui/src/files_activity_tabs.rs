@@ -106,11 +106,7 @@ impl DbProApp {
                 }
             }
             FilesTreeAction::ToggleDirectory(path) => {
-                if self.workspace.files.ide_workspace.expanded.contains(&path) {
-                    self.workspace.files.ide_workspace.expanded.remove(&path);
-                } else {
-                    self.workspace.files.ide_workspace.expanded.insert(path);
-                }
+                self.workspace.files.toggle_directory(path);
             }
             FilesTreeAction::CreateSql(path) => {
                 let _ = self
@@ -125,8 +121,8 @@ impl DbProApp {
             FilesTreeAction::OpenFile(path) => self.open_workspace_sql_file(path),
             FilesTreeAction::AddContext(path) => self.workspace.files.add_context_item(path),
             FilesTreeAction::FindReferences(stem) => {
-                self.workspace.files.workspace_search_query = stem;
-                self.workspace.files_panel_tab = FilesPanelTab::Search;
+                self.workspace.files.set_search_query(stem);
+                self.workspace.files.select_panel_tab(FilesPanelTab::Search);
                 self.workspace.files.run_search(&mut self.feedback);
             }
         }
@@ -233,7 +229,7 @@ impl DbProApp {
             match action {
                 FilesGitAction::Refresh => self.workspace.files.refresh_git_status(&mut self.feedback),
                 FilesGitAction::ReloadExternalFile(path) => self.reload_workspace_file_from_disk(&path),
-                FilesGitAction::DismissExternalFile => self.workspace.files.workspace_external_change = None,
+                FilesGitAction::DismissExternalFile => self.workspace.files.dismiss_external_change(),
                 FilesGitAction::CommitStaged => self.workspace.files.commit_git_staged(&mut self.feedback),
                 FilesGitAction::Stage(path) => self.workspace.files.stage_git_path(&path, &mut self.feedback),
                 FilesGitAction::Unstage(path) => self.workspace.files.unstage_git_path(&path, &mut self.feedback),

@@ -9,14 +9,14 @@ impl DbProApp {
         let actions = files_surface_view::FilesSurfaceContext {
             theme: self.theme,
             workspace: &self.workspace.files.ide_workspace,
-            selected_tab: self.workspace.files_panel_tab,
+            selected_tab: self.workspace.files.panel_tab(),
         }
         .draw(ui);
         self.apply_files_surface_actions(actions);
         if self.workspace.files.ide_workspace.roots.is_empty() {
             return;
         }
-        match self.workspace.files_panel_tab {
+        match self.workspace.files.panel_tab() {
             FilesPanelTab::Tree => self.draw_files_tree_tab(ui),
             FilesPanelTab::Search => self.draw_files_search_tab(ui),
             FilesPanelTab::Migrations => self.draw_files_migrations_tab(ui),
@@ -37,20 +37,16 @@ impl DbProApp {
                 }
                 files_surface_view::FilesSurfaceAction::OpenRecent(path) => self.open_workspace_folder(path),
                 files_surface_view::FilesSurfaceAction::SelectRoot(index) => {
-                    if index < self.workspace.files.ide_workspace.roots.len() {
-                        self.workspace.files.ide_workspace.active_root = index;
-                    }
+                    self.workspace.files.select_root(index);
                 }
                 files_surface_view::FilesSurfaceAction::RemoveRoot => {
-                    self.workspace.files.ide_workspace.remove_active_root();
+                    self.workspace.files.remove_active_root();
                 }
                 files_surface_view::FilesSurfaceAction::SetTrusted(trusted) => {
-                    self.workspace.files.ide_workspace.set_trusted(trusted);
+                    self.workspace.files.set_trusted(trusted);
                 }
                 files_surface_view::FilesSurfaceAction::SelectEnvironment(index) => {
-                    if let Some(environment) = self.workspace.files.ide_workspace.environments.get(index) {
-                        let name = environment.name.clone();
-                        self.workspace.files.ide_workspace.active_environment = index;
+                    if let Some(name) = self.workspace.files.select_environment(index) {
                         self.feedback.runtime_message = format!("Environment → {name}");
                     }
                 }
@@ -60,7 +56,7 @@ impl DbProApp {
                         .close(&mut self.workspace.shell, &mut self.feedback);
                 }
                 files_surface_view::FilesSurfaceAction::SelectTab(tab) => {
-                    self.workspace.files_panel_tab = tab;
+                    self.workspace.files.select_panel_tab(tab);
                     if tab == FilesPanelTab::Git {
                         self.workspace.files.refresh_git_status(&mut self.feedback);
                     }

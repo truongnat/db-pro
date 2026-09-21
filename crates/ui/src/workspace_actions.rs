@@ -170,7 +170,7 @@ impl DbProApp {
                 if let Some(mtime) = git_workspace::disk_mtime_secs(std::path::Path::new(&path)) {
                     self.workspace.files.workspace_file_mtimes.insert(path.clone(), mtime);
                 }
-                self.workspace.files.workspace_external_change = None;
+                self.workspace.files.dismiss_external_change();
                 self.feedback.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
                 true
             }
@@ -357,7 +357,7 @@ impl DbProApp {
                     .workspace_file_mtimes
                     .insert(path.to_owned(), mtime);
             }
-            self.workspace.files.workspace_external_change = None;
+            self.workspace.files.dismiss_external_change();
             self.feedback.runtime_message = format!("Reloaded {path}");
         }
     }
