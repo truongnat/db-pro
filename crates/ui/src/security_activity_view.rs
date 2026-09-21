@@ -47,32 +47,28 @@ impl DbProApp {
             self.apply_security_role_details_actions(&role, role_actions);
         }
 
-        if let Some(name) = self.management.security.security_drop_confirm.clone() {
-            egui::Window::new("Drop role?")
-                .collapsible(false)
-                .resizable(false)
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .show(ui.ctx(), |ui| {
-                    ui.label(format!("Drop role `{name}`? This cannot be undone."));
-                    ui.horizontal(|ui| {
-                        if danger_button(ui, "Drop role", self.theme).clicked() {
-                            if let Some(connection_id) =
-                                self.connection.lifecycle.active_connection_id().map(str::to_owned)
-                            {
-                                let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(self.management.security.drop_role_command(
-                                    request_id,
-                                    connection_id,
-                                    name,
-                                ));
-                            }
-                            self.management.security.security_drop_confirm = None;
-                        }
-                        if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.management.security.security_drop_confirm = None;
-                        }
-                    });
-                });
+        let confirmation_action = security_confirmation_view::SecurityConfirmationContext {
+            theme: self.theme,
+            drop_role: self.management.security.security_drop_confirm.as_deref(),
+        }
+        .draw(ui.ctx());
+        if let Some(action) = confirmation_action {
+            match action {
+                security_confirmation_view::SecurityConfirmationAction::ConfirmDropRole(name) => {
+                    if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+                        let request_id = self.task_bridge.next_request_id();
+                        self.dispatch_command(self.management.security.drop_role_command(
+                            request_id,
+                            connection_id,
+                            name,
+                        ));
+                    }
+                    self.management.security.security_drop_confirm = None;
+                }
+                security_confirmation_view::SecurityConfirmationAction::CancelDropRole => {
+                    self.management.security.security_drop_confirm = None;
+                }
+            }
         }
 
         let rls_actions = security_rls_view::SecurityRlsContext {

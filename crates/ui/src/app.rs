@@ -552,6 +552,8 @@ mod schema_workbench_surface_view;
 mod schema_workspace_state;
 #[path = "security_activity_view.rs"]
 mod security_activity_view;
+#[path = "security_confirmation_view.rs"]
+mod security_confirmation_view;
 #[path = "security_rls.rs"]
 mod security_rls;
 #[path = "security_rls_view.rs"]

@@ -179,6 +179,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/schema_workbench_mutation.rs"
   "$repo_root/crates/ui/src/schema_workbench_secondary_view.rs"
   "$repo_root/crates/ui/src/schema_workbench_surface_view.rs"
+  "$repo_root/crates/ui/src/security_confirmation_view.rs"
   "$repo_root/crates/ui/src/settings_navigation_view.rs"
   "$repo_root/crates/ui/src/settings_keybindings_view.rs"
   "$repo_root/crates/ui/src/settings_diagnostics_view.rs"
