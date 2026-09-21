@@ -56,8 +56,10 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
    internals or reintroduce raw control paths — completed by
    `scripts/check-ui-architecture.sh` and CI.
 9. Migrate native Explorer rendering in vertical slices: connection/database/
-   schema/table/schema-object row views now emit typed intents; folder,
-   workspace and runtime reducers remain in progress.
+   schema/table/schema-object row views now emit typed intents; schema-object
+   folders, table rows and table details now have explicit view boundaries;
+   connection/database/schema composition and effect reducers remain in
+   progress.
 10. Continue the same intent/reducer boundary through the remaining large
     native surfaces. The Agent workflow/settings/header/confirmation/context
     slices, large Settings sections, table surfaces and query execution

@@ -1,19 +1,40 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `fc3cebf2`.
+Source checkpoint: `bad96b53`.
 
 ## Current change
 
 The native UI interaction boundary is being migrated in vertical slices.
-Explorer rows, the Agent surface, large Settings sections, table surfaces and
-query execution preparation, Explain transitions, saved-query preparation and
-Schema Workbench mutation planning now collect typed intents/effects in
+Explorer rows, schema-object folders, table-folder/table-detail rendering, the
+Agent surface, large Settings sections, table surfaces and query execution
+preparation, Explain transitions, saved-query preparation and Schema Workbench
+mutation planning now collect typed intents/effects in
 feature-owned contexts. Agent confirmation planning now owns document targeting,
 patch application and continuation payload preparation outside the app root.
 Direct multiline channel bypasses are guarded.
 The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
+
+## Gate evidence at `bad96b53`
+
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri, 660 UI and all other workspace suites
+  passed, with only environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed with 0 warnings for this committed diff.
+- Runtime capture: `/tmp/db-pro-native-core-bad96b53-welcome.png`, logical
+  `1280x800`, was visually inspected. It shows the normal native Welcome
+  surface with Explorer empty state and the New connection entry point. The
+  latest release binary from this checkpoint is running in terminal session
+  `37627` for manual verification. Explorer table/schema-object runtime capture
+  remains pending because deterministic capture has no live schema provider.
 
 ## Gate evidence at `6bbd6b62`
 
@@ -96,6 +117,13 @@ matrix is not complete.
   the root only applies those effects. The complete workspace gate passed with
   660 UI tests, and the latest release binary is running for manual
   verification in terminal session `25513`.
+
+- `bad96b53`: schema-scoped tables, table details and Views/Functions/Triggers
+  folder rendering now run through `ExplorerSchemaObjectsView` with an explicit
+  `ExplorerSchemaObjectsModel`; table selection, table-row actions and schema
+  object actions are returned as typed intents. The complete workspace gate
+  passed with 660 UI tests, and the rebuilt release binary is running in
+  terminal session `37627`.
 
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and
