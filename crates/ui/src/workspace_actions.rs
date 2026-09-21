@@ -305,31 +305,7 @@ impl DbProApp {
                 }
                 self.workspace.pending_navigation_action = None;
                 self.schema.explorer.selected_table = None;
-                self.table.state.table_info = None;
-                self.table.state.table_ddl = None;
-                self.table.state.table_info_error = None;
-                self.table.state.table_ddl_error = None;
-                self.table.data_query.result = None;
-                self.table.data_query.total_rows = None;
-                self.table.data_query.request = None;
-                self.table.state.table_info_request = None;
-                self.table.state.table_ddl_request = None;
-                self.table.mutation.table_mutation_request = None;
-                self.table.mutation.staged_changes.clear();
-                self.table.mutation.staged_apply_request = None;
-                self.table.mutation.staged_apply_targets.clear();
-                self.table.mutation.table_mutation_retry_after_reload = false;
-                self.table.mutation.table_mutation_retry_target = None;
-                self.table.mutation.table_mutation_error = None;
-                self.table.data.selected_cell = None;
-                self.table.data.selected_row = None;
-                self.table.data.selected_rows.clear();
-                self.table.data.selection_anchor_row = None;
-                self.table.data.selection_anchor_cell = None;
-                self.table.editing.data_editing_cell = None;
-                self.table.editing.data_edit_error = None;
-                self.table.editing.data_delete_confirmation = false;
-                self.table.editing.discard_changes_confirmation = false;
+                self.table.reset_workspace();
             }
             WorkspaceTab::SchemaObject => {
                 self.schema.explorer.selected_schema_object = None;

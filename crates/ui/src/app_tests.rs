@@ -3991,6 +3991,25 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
             data_query: TableDataQueryState {
                 request: Some(crate::RequestId(3)),
                 result: Some(result()),
+                filters: vec![UiTableDataFilter {
+                    column: "id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    operator: UiTableFilterOperator::Equals,
+                    value: "1".to_owned(),
+                }],
+                sorts: vec![UiTableDataSort {
+                    column: "id".to_owned(),
+                    descending: true,
+                }],
+                ..Default::default()
+            },
+            mutation: TableMutationState {
+                staged_changes: {
+                    let mut changes = ChangeSet::default();
+                    changes.ensure_target("customers");
+                    changes
+                },
+                pending_changes_open: true,
                 ..Default::default()
             },
             ..Default::default()
@@ -4006,6 +4025,10 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
     assert_eq!(app.table.state.table_ddl_request, None);
     assert_eq!(app.table.data_query.request, None);
     assert_eq!(app.table.data_query.result, None);
+    assert!(app.table.data_query.filters.is_empty());
+    assert!(app.table.data_query.sorts.is_empty());
+    assert!(app.table.mutation.staged_changes.is_empty());
+    assert!(!app.table.mutation.pending_changes_open);
 }
 
 #[test]
