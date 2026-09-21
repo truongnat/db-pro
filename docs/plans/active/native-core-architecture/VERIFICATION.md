@@ -1,20 +1,20 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `ef33bb1c`.
+Source checkpoint: `2b711995`.
 
 ## Current change
 
 The native UI interaction boundary is being migrated in vertical slices.
 Explorer rows, the Agent surface, large Settings sections, table surfaces and
-query execution preparation and Explain transitions now collect typed
-intents/effects in feature-owned contexts. The plan remains `IMPLEMENTING` because other large feature surfaces
+query execution preparation, Explain transitions and saved-query preparation
+now collect typed intents/effects in feature-owned contexts. The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
 
-## Gate evidence at `ef33bb1c`
+## Gate evidence at `2b711995`
 
 - `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
-  infrastructure, 32 runtime, 4 Tauri, 649 UI and all other workspace suites
+  infrastructure, 32 runtime, 4 Tauri, 651 UI and all other workspace suites
   passed, with only environment-gated tests ignored.
 - `cargo build --release --locked -p db-pro-native`: passed.
 - `cargo build --release --locked -p db-pro-native --features capture`: passed.
@@ -40,6 +40,10 @@ matrix is not complete.
   document/output transitions moved into `QueryExplainContext`; the root now
   only resolves the connection/capability inputs, allocates the request ID and
   dispatches the prepared command. Workspace tests report 649 UI tests passed.
+
+- `2b711995`: saved-query payload preparation and request tracking moved into
+  `QuerySaveContext`; workspace-backed filesystem saves remain at the filesystem
+  boundary. Workspace tests report 651 UI tests passed.
 
 - `40e875fe`: Agent workflow reducer, SQL patch safety and Agent-result
   projection moved out of the root state module.
