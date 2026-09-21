@@ -22,6 +22,10 @@ impl DbProApp {
             dark_mode: self.preferences.dark_mode,
         }
         .draw(ctx);
+        self.apply_topbar_actions(ctx, actions);
+    }
+
+    fn apply_topbar_actions(&mut self, ctx: &egui::Context, actions: Vec<shell_topbar_view::ShellTopbarAction>) {
         for action in actions {
             match action {
                 shell_topbar_view::ShellTopbarAction::ToggleSidebar => {
@@ -55,99 +59,35 @@ impl DbProApp {
     pub(super) fn draw_statusbar(&mut self, ctx: &egui::Context) {
         let (icon, color, label) = self.statusbar_state();
         let runtime_status = self.runtime_status();
-        TopBottomPanel::bottom("statusbar")
-            .exact_height(28.0)
-            .frame(egui::Frame {
-                fill: self.theme.surface_panel,
-                inner_margin: egui::Margin::symmetric(SPACE_MD, SPACE_XXS),
-                stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-                ..Default::default()
-            })
-            .show(ctx, |ui| {
-                ui.set_min_size(ui.available_size());
-                ui.horizontal_centered(|ui| {
-                    ui.add_space(SPACE_SM);
-                    ui.label(icon_text(icon, "", color));
-                    ui.label(
-                        RichText::new(label)
-                            .font(font_caption())
-                            .color(self.theme.text_secondary),
-                    );
-                    ui.separator();
-                    if self.connection.lifecycle.is_connected() {
-                        ui.label(
-                            RichText::new(self.active_connection_name())
-                                .font(font_caption())
-                                .color(self.theme.text_secondary),
-                        );
-                    }
-                    ui.label(
-                        RichText::new(self.active_driver())
-                            .font(font_caption())
-                            .color(self.theme.text_muted),
-                    );
-                    if let Some(connection) = self.active_connection() {
-                        ui.label(
-                            RichText::new(&connection.database)
-                                .font(font_caption())
-                                .color(self.theme.text_muted),
-                        );
-                        ui.label(
-                            RichText::new(self.active_schema())
-                                .font(font_caption())
-                                .color(self.theme.text_muted),
-                        );
-                    }
-                    if let Some(result) = self
-                        .query
-                        .session
-                        .active_result()
-                        .or(self.table.data_query.result.as_ref())
-                    {
-                        ui.label(
-                            RichText::new(format!("{} ms", result.duration_ms))
-                                .font(font_mono_sm())
-                                .color(self.theme.text_muted),
-                        );
-                    }
-                    if let Some((message, message_color)) = runtime_status {
-                        ui.separator();
-                        ui.add_sized(
-                            [260.0, 18.0],
-                            egui::Label::new(RichText::new(message).font(font_caption()).color(message_color)),
-                        );
-                    }
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if Button::new(self.theme)
-                            .icon(Icon::PanelBottom)
-                            .variant(ButtonVariant::Ghost)
-                            .size(ButtonSize::IconSm)
-                            .tooltip("Toggle output panel")
-                            .show(ui)
-                            .clicked()
-                        {
-                            self.workspace.bottom_panel_open = !self.workspace.bottom_panel_open;
-                        }
-                        if self.shows_editor_status() {
-                            ui.label(RichText::new("UTF-8").font(font_mono_sm()).color(self.theme.text_muted));
-                            ui.label(
-                                RichText::new(format!(
-                                    "Ln {}, Col {}",
-                                    self.query.editor.query_cursor_line, self.query.editor.query_cursor_column
-                                ))
-                                .font(font_mono_sm())
-                                .color(self.theme.text_muted),
-                            );
-                        } else {
-                            ui.label(
-                                RichText::new(self.statusbar_context_label())
-                                    .font(font_caption())
-                                    .color(self.theme.text_muted),
-                            );
-                        }
-                    });
-                });
-            });
+        let database = self.active_connection().map(|connection| connection.database.clone());
+        let schema = self.active_connection().map(|_| self.active_schema().to_owned());
+        let duration_ms = self
+            .query
+            .session
+            .active_result()
+            .or(self.table.data_query.result.as_ref())
+            .map(|result| result.duration_ms);
+        let action = shell_statusbar_view::ShellStatusbarContext {
+            theme: self.theme,
+            icon,
+            icon_color: color,
+            label,
+            runtime_status,
+            connected: self.connection.lifecycle.is_connected(),
+            connection_name: self.active_connection_name(),
+            driver: self.active_driver(),
+            database: database.as_deref(),
+            schema: schema.as_deref(),
+            duration_ms,
+            editor_status: self.shows_editor_status(),
+            cursor_line: self.query.editor.query_cursor_line,
+            cursor_column: self.query.editor.query_cursor_column,
+            context_label: self.statusbar_context_label(),
+        }
+        .draw(ctx);
+        if matches!(action, Some(shell_statusbar_view::ShellStatusbarAction::ToggleOutput)) {
+            self.workspace.bottom_panel_open = !self.workspace.bottom_panel_open;
+        }
     }
 
     pub(super) fn draw_output_panel(&mut self, ctx: &egui::Context) {

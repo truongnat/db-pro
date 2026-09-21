@@ -143,6 +143,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/sidebar_query_shortcuts_view.rs"
   "$repo_root/crates/ui/src/shell_output_panel_view.rs"
   "$repo_root/crates/ui/src/shell_topbar_view.rs"
+  "$repo_root/crates/ui/src/shell_statusbar_view.rs"
   "$repo_root/crates/ui/src/welcome_surface_view.rs"
   "$repo_root/crates/ui/src/explorer_toolbar_view.rs"
   "$repo_root/crates/ui/src/explorer_connection_row_view.rs"
