@@ -345,48 +345,53 @@ impl DbProApp {
         else {
             return;
         };
-        let target_doc_index = agent_confirmation::target_document_index(
-            &self.query.session.documents,
+        let (continuation_approved, prepared) = match agent_confirmation::prepare_confirmation(
+            &mut self.query.session.documents,
             self.query.session.active_document_index,
-            &pending.document_id,
-        );
-        let current_document = self
-            .query
-            .session
-            .documents
-            .get(target_doc_index)
-            .map(agent_context::document_snapshot);
-        let mut applied_patch = None;
-        if approved && pending.kind == db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch {
-            match agent_confirmation::apply_approved_patch(
-                &mut self.query.session.documents,
-                target_doc_index,
-                &pending,
-            ) {
-                Ok(output) => applied_patch = Some(output),
-                Err(agent_confirmation::AgentConfirmationError::PreviewUnavailable) => {
-                    self.feedback.runtime_message = "Agent patch preview is unavailable".to_owned();
-                    return;
-                }
-                Err(agent_confirmation::AgentConfirmationError::DocumentUnavailable) => return,
-                Err(agent_confirmation::AgentConfirmationError::DocumentChanged) => {
-                    self.feedback.runtime_message = "This query changed since the suggestion was created.".to_owned();
-                    self.feedback
-                        .show_error_toast("The query changed since the suggestion was created.");
-                    self.agent_confirmation_action(false);
-                    return;
-                }
-                Err(agent_confirmation::AgentConfirmationError::InvalidRange) => {
-                    self.feedback.runtime_message = "Agent patch range is no longer valid".to_owned();
-                    self.agent_confirmation_action(false);
-                    return;
-                }
+            &pending,
+            approved,
+        ) {
+            Ok(prepared) => (approved, prepared),
+            Err(agent_confirmation::AgentConfirmationError::PreviewUnavailable) => {
+                self.feedback.runtime_message = "Agent patch preview is unavailable".to_owned();
+                return;
             }
-        }
+            Err(agent_confirmation::AgentConfirmationError::DocumentUnavailable) => return,
+            Err(agent_confirmation::AgentConfirmationError::DocumentChanged) => {
+                self.feedback.runtime_message = "This query changed since the suggestion was created.".to_owned();
+                self.feedback
+                    .show_error_toast("The query changed since the suggestion was created.");
+                let Ok(prepared) = agent_confirmation::prepare_confirmation(
+                    &mut self.query.session.documents,
+                    self.query.session.active_document_index,
+                    &pending,
+                    false,
+                ) else {
+                    return;
+                };
+                (false, prepared)
+            }
+            Err(agent_confirmation::AgentConfirmationError::InvalidRange) => {
+                self.feedback.runtime_message = "Agent patch range is no longer valid".to_owned();
+                let Ok(prepared) = agent_confirmation::prepare_confirmation(
+                    &mut self.query.session.documents,
+                    self.query.session.active_document_index,
+                    &pending,
+                    false,
+                ) else {
+                    return;
+                };
+                (false, prepared)
+            }
+        };
         let request_id = self.task_bridge.next_request_id();
-        let continuation =
-            self.agent
-                .prepare_continuation(&pending, request_id, approved, current_document, applied_patch);
+        let continuation = self.agent.prepare_continuation(
+            &pending,
+            request_id,
+            continuation_approved,
+            prepared.current_document,
+            prepared.applied_patch,
+        );
         self.send_command_best_effort(UiCommand::ContinueAgentRun {
             request_id: continuation.request_id,
             run_id: continuation.run_id,
