@@ -82,6 +82,15 @@ matrix is not complete.
   with 660 UI tests, and the latest release binary is running for manual
   verification in terminal session `88237`.
 
+- Runtime capture from the `5f6e7870` release binary at logical `1280x800` was
+  visually inspected:
+  - `/tmp/db-pro-native-core-5f6e7870-new-connection.png`: centered modal,
+    separated header, right-aligned close and visible sticky footer.
+  - `/tmp/db-pro-native-core-5f6e7870-connection-error.png`: error alert is
+    visible, the form body remains scrollable and the footer remains visible.
+  The PNG framebuffer is `2560x1600` because the host uses a 2x display scale.
+  Explorer table/schema-object runtime capture is still pending.
+
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and
   document-running transitions, while `DbProApp` remains the command-send
