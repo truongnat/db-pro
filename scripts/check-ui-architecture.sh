@@ -100,6 +100,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/audit_surface_view.rs"
   "$repo_root/crates/ui/src/event_trigger_surface_view.rs"
   "$repo_root/crates/ui/src/fdw_surface_view.rs"
+  "$repo_root/crates/ui/src/files_surface_view.rs"
   "$repo_root/crates/ui/src/pg_settings_surface_view.rs"
   "$repo_root/crates/ui/src/replication_surface_view.rs"
   "$repo_root/crates/ui/src/monitoring_surface_view.rs"
