@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `5f6e7870`.
+Source checkpoint: `fc3cebf2`.
 
 ## Current change
 
@@ -90,6 +90,12 @@ matrix is not complete.
     visible, the form body remains scrollable and the footer remains visible.
   The PNG framebuffer is `2560x1600` because the host uses a 2x display scale.
   Explorer table/schema-object runtime capture is still pending.
+
+- `fc3cebf2`: Views, Functions and Triggers folders now render through the
+  explicit `SchemaObjectFoldersView` and emit typed open/query/copy actions;
+  the root only applies those effects. The complete workspace gate passed with
+  660 UI tests, and the latest release binary is running for manual
+  verification in terminal session `25513`.
 
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and
