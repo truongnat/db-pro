@@ -7,37 +7,41 @@ impl DbProApp {
     pub(super) fn draw_agent_panel(&mut self, ctx: &egui::Context) {
         let mut submit = false;
         let mut copy_sql = None;
-        let agent_width = self.workspace.agent_width;
-        let response = egui::SidePanel::right("agent_panel")
-            .resizable(true)
-            .default_width(agent_width)
-            .width_range(AGENT_MIN_WIDTH..=AGENT_MAX_WIDTH)
-            .frame(sidebar_frame(self.theme))
-            .show(ctx, |ui| {
-                ui.set_min_size(ui.available_size());
-                self.draw_agent_header(ui, ctx);
-                if self.agent.settings_open {
-                    let mut settings = AgentSettingsContext {
-                        theme: self.theme,
-                        provider_label: &self.agent.provider_label,
-                        api_key_draft: &mut self.agent.api_key_draft,
-                        api_key_show_password: &mut self.agent.api_key_show_password,
-                        configure_request: self.agent.configure_request,
-                        auto_run_read_only: &mut self.agent.auto_run_read_only,
-                    };
-                    let actions = settings.draw(ui);
-                    self.apply_agent_settings_actions(actions);
-                } else {
-                    ui.add_space(6.0);
-                    let context = self.agent_context();
-                    self.draw_agent_context(ui, &context);
-                    ui.add_space(8.0);
-                    submit |= self.draw_agent_context_actions(ui, &context);
-                    submit |= self.draw_agent_thread(ui, &mut copy_sql);
-                    self.draw_agent_composer(ui, &mut submit);
+        let panel_width = agent_surface_view::AgentPanelSurfaceContext {
+            theme: self.theme,
+            default_width: self.workspace.agent_width,
+        }
+        .show(ctx, |ui| {
+            self.draw_agent_header(ui, ctx);
+            if self.agent.settings_open {
+                let mut settings = AgentSettingsContext {
+                    theme: self.theme,
+                    provider_label: &self.agent.provider_label,
+                    api_key_draft: &mut self.agent.api_key_draft,
+                    api_key_show_password: &mut self.agent.api_key_show_password,
+                    configure_request: self.agent.configure_request,
+                    auto_run_read_only: &mut self.agent.auto_run_read_only,
+                };
+                let actions = settings.draw(ui);
+                self.apply_agent_settings_actions(actions);
+            } else {
+                ui.add_space(6.0);
+                let context = self.agent_context();
+                agent_surface_view::AgentContextSurfaceContext {
+                    theme: self.theme,
+                    provider_label: &self.agent.provider_label,
+                    provider_detail: &self.agent.provider_detail,
+                    auto_run_read_only: self.agent.auto_run_read_only,
+                    context: &context,
                 }
-            });
-        self.workspace.set_agent_width(response.response.rect.width());
+                .draw(ui);
+                ui.add_space(8.0);
+                submit |= self.draw_agent_context_actions(ui, &context);
+                submit |= self.draw_agent_thread(ui, &mut copy_sql);
+                self.draw_agent_composer(ui, &mut submit);
+            }
+        });
+        self.workspace.set_agent_width(panel_width);
         if submit {
             self.submit_agent_prompt();
         }
@@ -104,51 +108,6 @@ impl DbProApp {
                 }
             }
         }
-    }
-
-    fn draw_agent_context(&self, ui: &mut egui::Ui, context: &AgentContext) {
-        toolbar_frame(self.theme).show(ui, |ui| {
-            egui::ScrollArea::horizontal()
-                .id_salt("agent-context-chips")
-                .auto_shrink([false, true])
-                .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        if self.agent.provider_label == "Offline draft" {
-                            badge(ui, "Preview", self.theme.surface_active, self.theme.text_secondary);
-                        }
-                        badge(
-                            ui,
-                            &self.agent.provider_label,
-                            self.theme.accent_soft,
-                            self.theme.accent,
-                        );
-                        if self.agent.auto_run_read_only {
-                            badge(ui, "Auto-run Read-only", self.theme.accent_soft, self.theme.accent);
-                        }
-                        ContextChip::new(
-                            ContextChipKind::Connection,
-                            context.connection_name.as_deref().unwrap_or("No connection"),
-                            self.theme,
-                        )
-                        .show(ui);
-                        ContextChip::new(ContextChipKind::Database, &context.driver, self.theme).show(ui);
-                        if let Some(schema) = context.schema.as_deref() {
-                            ContextChip::new(ContextChipKind::Schema, schema, self.theme).show(ui);
-                        }
-                        if let Some(table) = context.selected_table.as_deref() {
-                            ContextChip::new(ContextChipKind::Table, table, self.theme).show(ui);
-                        }
-                        if context.explain_plan.is_some() {
-                            ContextChip::new(ContextChipKind::Editor, "EXPLAIN PLAN", self.theme).show(ui);
-                        }
-                    });
-                });
-            ui.label(
-                RichText::new(&self.agent.provider_detail)
-                    .font(font_caption())
-                    .color(self.theme.text_muted),
-            );
-        });
     }
 
     fn draw_agent_context_actions(&mut self, ui: &mut egui::Ui, context: &AgentContext) -> bool {
