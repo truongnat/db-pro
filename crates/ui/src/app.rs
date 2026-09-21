@@ -254,6 +254,8 @@ mod routine_workbench_surface_view;
 mod saved_task_state;
 #[path = "security_state.rs"]
 mod security_state;
+#[path = "settings_appearance_view.rs"]
+mod settings_appearance_view;
 #[path = "settings_diagnostics_view.rs"]
 mod settings_diagnostics_view;
 #[path = "settings_editor_view.rs"]

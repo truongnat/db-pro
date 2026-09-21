@@ -99,6 +99,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/agent_result_projection.rs"
   "$repo_root/crates/ui/src/schema_explorer_state.rs"
   "$repo_root/crates/ui/src/agent_settings_view.rs"
+  "$repo_root/crates/ui/src/settings_appearance_view.rs"
   "$repo_root/crates/ui/src/agent_workflow_reducer.rs"
   "$repo_root/crates/ui/src/synthetic_data.rs"
   "$repo_root/crates/ui/src/masking.rs"
