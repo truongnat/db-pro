@@ -106,6 +106,34 @@ details, publication creation, DDL preview and drop confirmations. It emits
 typed refresh, preview, create and drop actions; replication command builders
 and provider dispatch remain at the root adapter.
 
+PostgreSQL settings presentation now renders through
+`PgSettingsSurfaceContext`, which owns filtering, setting cards, session-edit
+dialog and preview dialog. It emits typed refresh, edit, reset, apply and
+preview actions; setting validation, command builders and provider dispatch
+remain at the root adapter.
+
+## Gate evidence at `c25886b3`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; source worktree was clean before this docs
+  checkpoint was recorded.
+- Runtime capture: `/tmp/db-pro-native-core-c25886b3.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `26614` for manual verification. pg_settings provider-state and the full
+  runtime matrix remain unproven.
+
 ## Gate evidence at `e984bd73`
 
 - `cargo fmt --all -- --check`: passed.
