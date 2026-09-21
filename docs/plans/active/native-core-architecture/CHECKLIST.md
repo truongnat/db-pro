@@ -189,6 +189,8 @@
       directory expansion, search routing and external-change dismissal are
       owned by `WorkspaceFilesState`; file activity adapters no longer mutate
       those internals directly.
+- [x] Workspace search/replace/refactor inputs cross the renderer boundary as
+      a `WorkspaceSearchDraft` snapshot and typed `UpdateDraft` intent.
 - [x] Settings navigation, section composition and diagnostics presentation
       are owned by `SettingsSurfaceContext`; settings root retains only
       persistence, runtime/file effects and typed action application.

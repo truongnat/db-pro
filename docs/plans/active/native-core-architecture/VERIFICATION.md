@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `05524c33`.
+Source checkpoint: `20d1e190`.
 
 ## Current change
 
@@ -25,6 +25,8 @@ maintenance handlers.
 Workspace-files transitions now follow the same ownership rule: panel
 selection, root/environment/trust changes, directory expansion, search routing
 and external-change dismissal are reduced through `WorkspaceFilesState`.
+Search/replace/refactor inputs use a `WorkspaceSearchDraft` snapshot and a
+typed `UpdateDraft` intent instead of mutable field references from the root.
 Settings Data Grid, Connections, AI, Security, Advanced and Appearance panes
 now render through explicit settings contexts; `settings_view.rs` keeps
 navigation, persistence/runtime adapters and the remaining backup/diagnostics
@@ -2057,8 +2059,11 @@ keeps task policy and execution effects.
   to a logical height of `838`. The required normal/loading/error/empty states
   are now captured at exact logical `1280x800`.
 
-## Current core checkpoint at `05524c33`
+## Current core checkpoint at `20d1e190`
 
+- Workspace search draft boundary: `20d1e190`; `FilesSearchContext` now edits
+  an owned `WorkspaceSearchDraft` and emits `UpdateDraft` before action intents,
+  so Find/Replace/Refactor always run against committed feature state.
 - Workspace-files state boundary: `05524c33`; `WorkspaceFilesState` now owns
   panel selection, root/environment/trust transitions, directory expansion,
   search routing and external-change dismissal. Activity adapters no longer
@@ -2087,9 +2092,9 @@ keeps task policy and execution effects.
 - `cargo fmt --all -- --check`: passed.
 - `cargo check --workspace`: passed.
 - `cargo clippy --workspace --all-targets -- -D warnings`: passed.
-- Current focused UI checks after `05524c33`: `cargo check -p db-pro-ui`,
+- Current focused UI checks after `20d1e190`: `cargo check -p db-pro-ui`,
   `cargo clippy -p db-pro-ui --all-targets -- -D warnings` and
-  `cargo test -p db-pro-ui --lib --quiet` passed; 682 UI tests passed with no
+  `cargo test -p db-pro-ui --lib --quiet` passed; 683 UI tests passed with no
   failures.
 - `cargo test --workspace --no-fail-fast --quiet`: passed; workspace suites
   include 404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34,
@@ -2102,12 +2107,12 @@ keeps task policy and execution effects.
   passed with 16 checks and 0 warnings.
 - `git diff --check`: passed.
 - Current release runtime capture:
-  `/tmp/db-pro-native-core-05524c33-new-1280x800.png`, logical `1280x800`,
-  captured from the release binary rebuilt after the workspace-files state
+  `/tmp/db-pro-native-core-20d1e190-new-1280x800.png`, logical `1280x800`,
+  captured from the release binary rebuilt after the workspace search-draft
   boundary. The New Connection dialog is centered with a separated
   header/divider, right-aligned close control, complete body and separated
-  footer. The manual-verification release binary is running as PID `34652`.
-- Current native runtime matrix from the same release source:
+  footer. The manual-verification release binary is running as PID `35922`.
+- Runtime matrix from the preceding release source `05524c33`:
   - normal/empty: `/tmp/db-pro-native-core-05524c33-normal-1280x800.png`
   - loading: `/tmp/db-pro-native-core-05524c33-loading-1280x800.png`
   - New Connection error: `/tmp/db-pro-native-core-05524c33-error-1280x800.png`
