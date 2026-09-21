@@ -1,5 +1,41 @@
 use super::*;
 
+struct TableTarget {
+    connection_id: String,
+    schema: String,
+    table: String,
+}
+
+fn build_table_info_command(request_id: RequestId, target: TableTarget) -> UiCommand {
+    UiCommand::LoadTableInfo {
+        request_id,
+        connection_id: target.connection_id,
+        schema: target.schema,
+        table: target.table,
+    }
+}
+
+fn build_table_ddl_command(request_id: RequestId, target: TableTarget) -> UiCommand {
+    UiCommand::LoadTableDdl {
+        request_id,
+        connection_id: target.connection_id,
+        schema: target.schema,
+        table: target.table,
+    }
+}
+
+fn build_execute_ddl_command(
+    state: &TableState,
+    request_id: RequestId,
+    connection_id: String,
+) -> Result<UiCommand, String> {
+    Ok(UiCommand::ExecuteDdl {
+        request_id,
+        connection_id,
+        sql: state.ddl_sql()?.to_owned(),
+    })
+}
+
 impl DbProApp {
     pub(crate) fn submit_ddl(&mut self) {
         if !self.can_mutate_active_connection() {
@@ -14,7 +50,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        let command = match self.table.state.execute_ddl_command(request_id, connection.id) {
+        let command = match build_execute_ddl_command(&self.table.state, request_id, connection.id) {
             Ok(command) => command,
             Err(error) => {
                 self.feedback.runtime_message = error;
@@ -90,10 +126,14 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        let command =
-            self.table
-                .state
-                .load_info_command(request_id, connection_id, self.active_schema().to_owned(), table);
+        let command = build_table_info_command(
+            request_id,
+            TableTarget {
+                connection_id,
+                schema: self.active_schema().to_owned(),
+                table,
+            },
+        );
         if self.dispatch_command(command) {
             self.table.state.table_info_request = Some(request_id);
             self.feedback.runtime_message = "Loading table structure…".to_owned();
@@ -108,10 +148,14 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        let command =
-            self.table
-                .state
-                .load_ddl_command(request_id, connection_id, self.active_schema().to_owned(), table);
+        let command = build_table_ddl_command(
+            request_id,
+            TableTarget {
+                connection_id,
+                schema: self.active_schema().to_owned(),
+                table,
+            },
+        );
         if self.dispatch_command(command) {
             self.table.state.table_ddl_request = Some(request_id);
             self.feedback.runtime_message = "Loading table DDL…".to_owned();

@@ -284,6 +284,11 @@ for state_module in "$repo_root"/crates/ui/src/*_state.rs; do
   fi
 done
 
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/table_state.rs"; then
+  echo "UI architecture check failed: TableState must not construct runtime protocol commands." >&2
+  exit 1
+fi
+
 for reducer in \
   "$repo_root/crates/ui/src/agent_events.rs" \
   "$repo_root/crates/ui/src/connection_events.rs" \
