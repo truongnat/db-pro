@@ -198,6 +198,8 @@ mod monitoring_sessions_view;
 mod monitoring_snapshot_view;
 #[path = "monitoring_state.rs"]
 mod monitoring_state;
+#[path = "monitoring_surface_view.rs"]
+mod monitoring_surface_view;
 #[path = "monitoring_workload_view.rs"]
 mod monitoring_workload_view;
 #[path = "navigation_view.rs"]

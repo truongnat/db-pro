@@ -9,19 +9,26 @@ impl DbProApp {
             self.connection.lifecycle.is_connected() && self.connection.lifecycle.active_connection_id().is_some();
         let driver = self.active_driver().to_owned();
         let name = self.active_connection_name().to_owned();
-        let header_actions = monitoring_header_view::MonitoringHeaderContext {
+        let actions = monitoring_surface_view::MonitoringSurfaceContext {
             theme: self.theme,
             connected,
             driver: &driver,
             connection_name: &name,
-            poll: &mut self.management.monitoring.monitoring_poll,
+            state: &mut self.management.monitoring,
         }
         .draw(ui);
-        if header_actions
-            .into_iter()
-            .any(|action| matches!(action, monitoring_header_view::MonitoringHeaderAction::Refresh))
-        {
-            self.request_monitoring_snapshot();
+        for action in actions {
+            match action {
+                monitoring_surface_view::MonitoringSurfaceAction::Refresh => {
+                    self.request_monitoring_snapshot();
+                }
+                monitoring_surface_view::MonitoringSurfaceAction::Sessions(action) => {
+                    self.apply_monitoring_sessions_actions(vec![action]);
+                }
+                monitoring_surface_view::MonitoringSurfaceAction::Workload(action) => {
+                    self.apply_monitoring_workload_actions(vec![action]);
+                }
+            }
         }
 
         if connected && self.management.monitoring.monitoring_poll {
@@ -36,13 +43,9 @@ impl DbProApp {
             }
         }
 
-        ui.add_space(SPACE_MD);
-        if let Some(error) = &self.management.monitoring.monitoring_error {
-            ui.colored_label(self.theme.warning, error);
-            ui.add_space(SPACE_SM);
+        if self.management.monitoring.monitoring_snapshot.is_some() {
+            self.draw_monitor_auxiliary_surfaces(ui);
         }
-
-        self.draw_monitor_snapshot(ui, connected);
 
         let confirmation_actions = monitoring_confirmation_view::MonitoringConfirmationContext {
             theme: self.theme,
@@ -54,62 +57,15 @@ impl DbProApp {
         self.apply_monitoring_confirmation_actions(confirmation_actions);
     }
 
-    fn draw_monitor_snapshot(&mut self, ui: &mut egui::Ui, connected: bool) {
-        if let Some(snapshot) = self.management.monitoring.monitoring_snapshot.clone() {
-            self.draw_monitor_health_and_local(ui, &snapshot);
-            let session_actions = monitoring_sessions_view::MonitoringSessionsContext {
-                theme: self.theme,
-                snapshot: &snapshot,
-                filter_active_only: &mut self.management.monitoring.monitoring_filter_active_only,
-            }
-            .draw(ui);
-            self.apply_monitoring_sessions_actions(session_actions);
-            self.draw_monitor_server_stats(ui, &snapshot);
-            let workload_actions = monitoring_workload_view::MonitoringWorkloadContext {
-                theme: self.theme,
-                workload: snapshot.workload.as_ref(),
-                previous: self.management.monitoring.monitoring_workload_prev.as_ref(),
-                sort: self.management.monitoring.monitoring_stat_sort,
-                filter: &mut self.management.monitoring.monitoring_workload_filter,
-            }
-            .draw(ui);
-            self.apply_monitoring_workload_actions(workload_actions);
-
-            self.draw_audit_activity(ui);
-
-            self.draw_fdw_activity(ui);
-
-            self.draw_replication_activity(ui);
-
-            self.draw_event_trigger_activity(ui);
-
-            self.draw_pg_settings_activity(ui);
-
-            if let Some(action) = maintenance_activity_view::draw_maintenance_activity(ui, self.theme) {
-                self.management.monitoring.monitoring_maintenance_confirm = Some(action);
-            }
-        } else if connected {
-            ui.label(
-                RichText::new("Refresh to load sessions (or wait for auto-refresh).")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
+    fn draw_monitor_auxiliary_surfaces(&mut self, ui: &mut egui::Ui) {
+        self.draw_audit_activity(ui);
+        self.draw_fdw_activity(ui);
+        self.draw_replication_activity(ui);
+        self.draw_event_trigger_activity(ui);
+        self.draw_pg_settings_activity(ui);
+        if let Some(action) = maintenance_activity_view::draw_maintenance_activity(ui, self.theme) {
+            self.management.monitoring.monitoring_maintenance_confirm = Some(action);
         }
-    }
-    fn draw_monitor_health_and_local(
-        &mut self,
-        ui: &mut egui::Ui,
-        snapshot: &db_pro_core::domain::monitoring::MonitoringSnapshot,
-    ) {
-        monitoring_snapshot_view::draw_health_and_local(ui, self.theme, snapshot);
-    }
-
-    fn draw_monitor_server_stats(
-        &mut self,
-        ui: &mut egui::Ui,
-        snapshot: &db_pro_core::domain::monitoring::MonitoringSnapshot,
-    ) {
-        monitoring_snapshot_view::draw_server_stats(ui, self.theme, snapshot);
     }
 
     fn apply_monitoring_confirmation_actions(
