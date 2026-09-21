@@ -1,82 +1,61 @@
 use super::*;
 
+#[path = "security_surface_view.rs"]
+mod security_surface_view;
+
 impl DbProApp {
     pub(super) fn draw_security_activity(&mut self, ui: &mut egui::Ui) {
-        section_label(ui, "SECURITY", self.theme);
-        ui.add_space(SPACE_SM);
         let connected =
             self.connection.lifecycle.is_connected() && self.connection.lifecycle.active_connection_id().is_some();
         let is_pg = self.active_driver().eq_ignore_ascii_case("postgresql")
             || self.active_driver().eq_ignore_ascii_case("postgres");
-
-        if !connected {
-            ui.label(
-                RichText::new("Connect a PostgreSQL database to manage roles and privileges.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-            return;
-        }
-        if !is_pg {
-            ui.label(
-                RichText::new("User/role management is PostgreSQL-only (capability gated).")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-            return;
-        }
-
-        if let Some(error) = &self.management.security.security_error {
-            ui.colored_label(self.theme.warning, error);
-        }
-
-        let role_actions = security_roles_view::SecurityRolesContext {
+        let context = ui.ctx().clone();
+        let actions = security_surface_view::SecuritySurfaceContext {
             theme: self.theme,
             state: &mut self.management.security,
+            connected,
+            is_postgres: is_pg,
         }
-        .draw(ui);
-        self.apply_security_roles_actions(role_actions);
+        .draw(ui, &context);
+        self.apply_security_surface_actions(actions);
+    }
 
-        if let Some(role) = self.management.security.security_selected_role.clone() {
-            let role_actions = security_role_details_view::SecurityRoleDetailsContext {
-                theme: self.theme,
-                state: &mut self.management.security,
-                role: &role,
-            }
-            .draw(ui);
-            self.apply_security_role_details_actions(&role, role_actions);
-        }
-
-        let confirmation_action = security_confirmation_view::SecurityConfirmationContext {
-            theme: self.theme,
-            drop_role: self.management.security.security_drop_confirm.as_deref(),
-        }
-        .draw(ui.ctx());
-        if let Some(action) = confirmation_action {
+    fn apply_security_surface_actions(&mut self, actions: Vec<security_surface_view::SecuritySurfaceAction>) {
+        for action in actions {
             match action {
-                security_confirmation_view::SecurityConfirmationAction::ConfirmDropRole(name) => {
-                    if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-                        let request_id = self.task_bridge.next_request_id();
-                        self.dispatch_command(self.management.security.drop_role_command(
-                            request_id,
-                            connection_id,
-                            name,
-                        ));
-                    }
-                    self.management.security.security_drop_confirm = None;
+                security_surface_view::SecuritySurfaceAction::Roles(action) => {
+                    self.apply_security_roles_actions(vec![action]);
                 }
-                security_confirmation_view::SecurityConfirmationAction::CancelDropRole => {
-                    self.management.security.security_drop_confirm = None;
+                security_surface_view::SecuritySurfaceAction::RoleDetails { role, action } => {
+                    self.apply_security_role_details_actions(&role, vec![action]);
+                }
+                security_surface_view::SecuritySurfaceAction::Confirmation(action) => {
+                    self.apply_security_confirmation_action(action);
+                }
+                security_surface_view::SecuritySurfaceAction::Rls(action) => {
+                    self.apply_security_rls_actions(vec![action]);
                 }
             }
         }
+    }
 
-        let rls_actions = security_rls_view::SecurityRlsContext {
-            theme: self.theme,
-            state: &mut self.management.security,
+    fn apply_security_confirmation_action(&mut self, action: security_confirmation_view::SecurityConfirmationAction) {
+        match action {
+            security_confirmation_view::SecurityConfirmationAction::ConfirmDropRole(name) => {
+                if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
+                    let request_id = self.task_bridge.next_request_id();
+                    self.dispatch_command(
+                        self.management
+                            .security
+                            .drop_role_command(request_id, connection_id, name),
+                    );
+                }
+                self.management.security.security_drop_confirm = None;
+            }
+            security_confirmation_view::SecurityConfirmationAction::CancelDropRole => {
+                self.management.security.security_drop_confirm = None;
+            }
         }
-        .draw(ui);
-        self.apply_security_rls_actions(rls_actions);
     }
 
     fn apply_security_roles_actions(&mut self, actions: Vec<security_roles_view::SecurityRolesAction>) {
