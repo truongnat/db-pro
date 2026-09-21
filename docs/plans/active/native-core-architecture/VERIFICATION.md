@@ -1,16 +1,16 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `4c5b9864` (docs-only follow-up to the fully gated code
-checkpoint `bad96b53`).
+Source checkpoint: `257b7bde`.
 
 ## Current change
 
 The native UI interaction boundary is being migrated in vertical slices.
-Explorer rows, schema-object folders, table-folder/table-detail rendering, the
-Agent surface, large Settings sections, table surfaces and query execution
-preparation, Explain transitions, saved-query preparation and Schema Workbench
-mutation planning now collect typed intents/effects in
-feature-owned contexts. Agent confirmation planning now owns document targeting,
+Explorer connection nodes, database/schema trees, schema-object folders,
+table-folder/table-detail rendering, the Agent surface, large Settings
+sections, table surfaces and query execution preparation, Explain transitions,
+saved-query preparation and Schema Workbench mutation planning now collect
+typed intents/effects in feature-owned contexts. Agent confirmation planning
+now owns document targeting,
 patch application and continuation payload preparation outside the app root.
 Direct multiline channel bypasses are guarded.
 The plan remains `IMPLEMENTING` because other large feature surfaces
@@ -37,12 +37,21 @@ matrix is not complete.
   `37627` for manual verification. Explorer table/schema-object runtime capture
   remains pending because deterministic capture has no live schema provider.
 
-- Runtime capture from the rebuilt schema-tree binary:
-  `/tmp/db-pro-native-core-4c5b9864-welcome.png`, logical `1280x800`, was
-  visually inspected and shows the normal Welcome/Explorer empty state. The
-  binary is running in terminal session `47176`. The binary contains the
-  fully gated `4c5b9864` code tree; the only commit after the gate is this
-  documentation update.
+## Gate evidence at `257b7bde`
+
+- The full workspace gate was run on the source tree committed as `257b7bde`
+  immediately before commit: formatting, workspace check, clippy with
+  `-D warnings`, workspace tests, both native release builds, architecture
+  boundary, clean-code scan and `git diff --check` all passed.
+- Workspace tests included 404 core, 119 infrastructure, 32 runtime, 4 Tauri,
+  660 UI and all other workspace suites, with only environment-gated tests
+  ignored. Clean-code scan reported 15 passes, 1 pre-existing `app.rs` size
+  warning and 0 failures.
+- Runtime capture `/tmp/db-pro-native-core-257b7bde-welcome.png`, logical
+  `1280x800`, was visually inspected. The latest release binary is running in
+  terminal session `47176` for manual verification. Explorer table/schema-object
+  runtime capture remains pending because deterministic capture has no live
+  schema provider.
 
 ## Gate evidence at `6bbd6b62`
 
@@ -138,6 +147,12 @@ matrix is not complete.
   refresh, schema-activation and schema-object intents. This is a docs-only
   follow-up to the fully gated code commit `bad96b53`; the rebuilt release
   binary is running in terminal session `47176`.
+
+- `257b7bde`: the connection row, connecting/failed/disconnected hints and
+  connected schema-tree composition now run through
+  `ExplorerConnectionNodeView`; the root applies only typed connection and
+  schema-tree actions. The full workspace gate passed on this exact source
+  tree, and the release binary is running in terminal session `47176`.
 
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and
