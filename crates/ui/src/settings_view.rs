@@ -1,9 +1,4 @@
 //! Settings activity sidebar panels (#205).
-use super::settings_diagnostics_view::{SettingsDiagnosticsAction, SettingsDiagnosticsContext};
-use super::settings_editor_view::SettingsEditorContext;
-use super::settings_general_view::{SettingsGeneralAction, SettingsGeneralContext};
-use super::settings_keybindings_view::{SettingsKeybindingsAction, SettingsKeybindingsContext};
-use super::settings_navigation_view::{SettingsNavigationAction, SettingsNavigationContext};
 use super::*;
 use crate::editor::PredictionMode;
 
@@ -50,104 +45,78 @@ impl DbProApp {
     }
 
     pub(super) fn draw_settings(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.vertical(|ui| {
-                let actions = SettingsNavigationContext {
-                    theme: self.theme,
-                    selected: self.preferences.section,
-                }
-                .draw(ui);
-                for action in actions {
-                    let SettingsNavigationAction::SelectSection(section) = action;
-                    self.preferences.section = section;
-                }
-            });
-            ui.separator();
-            ui.vertical(|ui| match self.preferences.section {
-                SettingsSection::General => self.draw_general_settings(ui),
-                SettingsSection::Appearance => settings_appearance_view::SettingsAppearanceContext {
-                    theme: &mut self.theme,
-                    preferences: &mut self.preferences,
-                }
-                .draw(ui),
-                SettingsSection::Editor => self.draw_editor_settings(ui),
-                SettingsSection::DataGrid
-                | SettingsSection::Connections
-                | SettingsSection::Ai
-                | SettingsSection::Security
-                | SettingsSection::Advanced => self.draw_system_settings(ui),
-                SettingsSection::Keybindings => self.draw_keybindings_settings(ui),
-                SettingsSection::Backup => self.draw_backup_section(ui),
-            });
-        });
-        ui.add_space(12.0);
-        self.draw_diagnostics_settings(ui);
+        let summary = self.build_diagnostics_summary();
+        let active_driver = self.active_driver().to_owned();
+        let backup_supported = self.supports_backup_restore();
+        let context = ui.ctx().clone();
+        let actions = {
+            let mut context = settings_surface_view::SettingsSurfaceContext {
+                theme: &mut self.theme,
+                selected: self.preferences.section,
+                preferences: &mut self.preferences,
+                query: &mut self.query,
+                sessions: &mut self.workspace.sessions,
+                overlay: &mut self.overlay,
+                agent_auto_run_read_only: &mut self.agent.auto_run_read_only,
+                agent_provider_label: &self.agent.provider_label,
+                active_driver: &active_driver,
+                backup_supported,
+                diagnostics: &summary,
+            };
+            context.draw(ui)
+        };
+        for action in actions {
+            self.apply_settings_surface_action(action, &summary, &context);
+        }
     }
 
-    fn draw_general_settings(&mut self, ui: &mut egui::Ui) {
-        let actions = SettingsGeneralContext {
-            theme: self.theme,
-            preferences: &mut self.preferences,
-            sessions: &mut self.workspace.sessions,
-        }
-        .draw(ui);
-        for action in actions {
-            match action {
-                SettingsGeneralAction::Save => self.save_named_workspace_session(),
-                SettingsGeneralAction::Restore(id) => self.restore_named_workspace_session(&id),
-                SettingsGeneralAction::Duplicate(id) => self.duplicate_named_workspace_session(&id),
-                SettingsGeneralAction::Delete(id) => {
+    fn apply_settings_surface_action(
+        &mut self,
+        action: settings_surface_view::SettingsSurfaceAction,
+        summary: &db_pro_core::domain::diagnostics::DiagnosticsSummary,
+        context: &egui::Context,
+    ) {
+        match action {
+            settings_surface_view::SettingsSurfaceAction::Navigation(action) => {
+                let settings_navigation_view::SettingsNavigationAction::SelectSection(section) = action;
+                self.preferences.section = section;
+            }
+            settings_surface_view::SettingsSurfaceAction::General(action) => match action {
+                settings_general_view::SettingsGeneralAction::Save => self.save_named_workspace_session(),
+                settings_general_view::SettingsGeneralAction::Restore(id) => self.restore_named_workspace_session(&id),
+                settings_general_view::SettingsGeneralAction::Duplicate(id) => {
+                    self.duplicate_named_workspace_session(&id)
+                }
+                settings_general_view::SettingsGeneralAction::Delete(id) => {
                     self.workspace.sessions.remove(&id);
                 }
+            },
+            settings_surface_view::SettingsSurfaceAction::Keybindings(action) => {
+                if matches!(action, settings_keybindings_view::SettingsKeybindingsAction::ResetAll) {
+                    self.feedback.runtime_message = "Keybindings reset to defaults".to_owned();
+                }
             }
+            settings_surface_view::SettingsSurfaceAction::Backup(action) => self.apply_backup_actions(vec![action]),
+            settings_surface_view::SettingsSurfaceAction::Diagnostics(action) => match action {
+                settings_diagnostics_view::SettingsDiagnosticsAction::CopySummary => {
+                    if let Ok(json) = serde_json::to_string_pretty(summary) {
+                        self.feedback.runtime_message = "Diagnostics summary copied (secrets redacted)".to_owned();
+                        context.copy_text(json);
+                    }
+                }
+                settings_diagnostics_view::SettingsDiagnosticsAction::ExportBundle => {
+                    match self.export_support_bundle() {
+                        Ok(path) => {
+                            self.feedback.runtime_message =
+                                format!("Support bundle written to {path} (secrets redacted)");
+                        }
+                        Err(error) => {
+                            self.feedback.runtime_message = format!("Support bundle export failed: {error}");
+                        }
+                    }
+                }
+            },
         }
-    }
-
-    fn draw_editor_settings(&mut self, ui: &mut egui::Ui) {
-        SettingsEditorContext {
-            theme: self.theme,
-            preferences: &mut self.preferences,
-            query: &mut self.query,
-        }
-        .draw(ui);
-    }
-
-    fn draw_keybindings_settings(&mut self, ui: &mut egui::Ui) {
-        let actions = SettingsKeybindingsContext {
-            theme: self.theme,
-            preferences: &mut self.preferences,
-        }
-        .draw(ui);
-        for action in actions {
-            if matches!(action, SettingsKeybindingsAction::ResetAll) {
-                self.feedback.runtime_message = "Keybindings reset to defaults".to_owned();
-            }
-        }
-    }
-
-    fn draw_system_settings(&mut self, ui: &mut egui::Ui) {
-        let section = self.preferences.section;
-        let provider_label = self.agent.provider_label.clone();
-        settings_system_view::SettingsSystemContext {
-            theme: self.theme,
-            preferences: &mut self.preferences,
-            agent_auto_run_read_only: &mut self.agent.auto_run_read_only,
-            agent_provider_label: &provider_label,
-        }
-        .draw(ui, section);
-    }
-
-    fn draw_backup_section(&mut self, ui: &mut egui::Ui) {
-        let active_driver = self.active_driver().to_owned();
-        let supported = self.supports_backup_restore();
-        let actions = settings_backup_view::SettingsBackupContext {
-            theme: self.theme,
-            overlay: &mut self.overlay,
-            active_driver: &active_driver,
-            supported,
-        }
-        .draw(ui);
-        self.apply_backup_actions(actions);
     }
 
     fn apply_backup_actions(&mut self, actions: Vec<settings_backup_view::SettingsBackupAction>) {
@@ -175,33 +144,6 @@ impl DbProApp {
                         self.dispatch_command(self.overlay.restore_command(request_id, connection.id));
                     }
                 }
-            }
-        }
-    }
-
-    fn draw_diagnostics_settings(&mut self, ui: &mut egui::Ui) {
-        let summary = self.build_diagnostics_summary();
-        let actions = SettingsDiagnosticsContext {
-            theme: self.theme,
-            summary: &summary,
-        }
-        .draw(ui);
-        for action in actions {
-            match action {
-                SettingsDiagnosticsAction::CopySummary => {
-                    if let Ok(json) = serde_json::to_string_pretty(&summary) {
-                        ui.ctx().copy_text(json);
-                        self.feedback.runtime_message = "Diagnostics summary copied (secrets redacted)".to_owned();
-                    }
-                }
-                SettingsDiagnosticsAction::ExportBundle => match self.export_support_bundle() {
-                    Ok(path) => {
-                        self.feedback.runtime_message = format!("Support bundle written to {path} (secrets redacted)");
-                    }
-                    Err(error) => {
-                        self.feedback.runtime_message = format!("Support bundle export failed: {error}");
-                    }
-                },
             }
         }
     }

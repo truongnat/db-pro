@@ -276,6 +276,8 @@ mod settings_keybindings_view;
 mod settings_model;
 #[path = "settings_navigation_view.rs"]
 mod settings_navigation_view;
+#[path = "settings_surface_view.rs"]
+mod settings_surface_view;
 #[path = "settings_system_view.rs"]
 mod settings_system_view;
 #[path = "settings_view.rs"]
