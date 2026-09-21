@@ -380,6 +380,8 @@ mod query_save_dialog_surface_view;
 mod query_search_view;
 #[path = "query_session.rs"]
 mod query_session;
+#[path = "query_shell_surface_view.rs"]
+mod query_shell_surface_view;
 #[path = "query_snippets.rs"]
 mod query_snippets;
 #[path = "query_state.rs"]

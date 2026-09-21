@@ -211,6 +211,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/settings_general_view.rs"
   "$repo_root/crates/ui/src/settings_editor_view.rs"
   "$repo_root/crates/ui/src/query_search_view.rs"
+  "$repo_root/crates/ui/src/query_shell_surface_view.rs"
   "$repo_root/crates/ui/src/query_context_view.rs"
   "$repo_root/crates/ui/src/query_context_picker_view.rs"
   "$repo_root/crates/ui/src/query_parameters_view.rs"

@@ -133,22 +133,13 @@ impl DbProApp {
     }
 
     fn draw_visual_query_builder_surface(&mut self, ui: &mut egui::Ui) {
-        if !self.query.editor.visual_builder.open {
-            return;
-        }
-        ui.add_space(SPACE_XS);
-        egui::CollapsingHeader::new("Visual query builder")
-            .default_open(true)
-            .show(ui, |ui| self.draw_visual_query_builder(ui));
-        ui.add_space(SPACE_XS);
+        query_shell_surface_view::draw_visual_builder(ui, self.query.editor.visual_builder.open, |ui| {
+            self.draw_visual_query_builder(ui)
+        });
     }
 
     fn draw_query_editor_stack(&mut self, ui: &mut egui::Ui, editor_height: f32) {
-        ui.allocate_ui_with_layout(
-            egui::vec2(ui.available_width(), editor_height),
-            Layout::top_down(Align::Min),
-            |ui| self.draw_query_editor(ui),
-        );
+        query_shell_surface_view::draw_editor_stack(ui, editor_height, |ui| self.draw_query_editor(ui));
         self.draw_floating_completion_popup(ui.ctx());
         let mut context = query_search_view::QuerySearchContext {
             theme: self.theme,
