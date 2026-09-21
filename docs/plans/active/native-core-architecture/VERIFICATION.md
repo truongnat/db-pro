@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `ba0d3570`.
+Source checkpoint: `4c0ba2a4`.
 
 ## Current change
 
@@ -89,6 +89,33 @@ Audit activity presentation now renders through `AuditSurfaceContext`, which
 owns the filters, page/error/empty presentation and event cards. It emits typed
 refresh, export, selection, bookmark and open-query actions; audit command
 dispatch and cross-feature navigation remain at the root adapter.
+
+Event Trigger presentation now renders through `EventTriggerSurfaceContext`,
+which owns inventory cards, create form, DDL preview and drop confirmation.
+It emits typed refresh, preview, alter, create and drop actions; command
+builders and provider dispatch remain at the root adapter.
+
+## Gate evidence at `4c0ba2a4`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime capture: `/tmp/db-pro-native-core-4c0ba2a4.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `50413` for manual verification. Event Trigger provider-state and the full
+  runtime matrix remain unproven.
 
 ## Gate evidence at `ba0d3570`
 
