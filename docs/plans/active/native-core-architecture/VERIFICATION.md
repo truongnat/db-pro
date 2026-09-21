@@ -109,6 +109,9 @@ separated header, right-aligned close icon and typed footer/body actions.
   `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
   infrastructure, 32 runtime, 4 tauri and 677 UI tests passed, with only
   environment-gated tests ignored.
+- Follow-up guard at SHA `f2f58eb0`: `scripts/check-ui-architecture.sh` now
+  fails on any direct `egui::Window::new` in native UI code, preserving the
+  shared-dialog invariant in future changes.
 
 The Query output dock now has an explicit `QueryOutputDockContext` for resize
 geometry and tab chrome. The root keeps only the pane callback because result,
