@@ -1,169 +1,130 @@
-use super::agent_context_actions_view::{AgentContextAction, AgentContextActionsContext};
-use super::agent_header_view::{AgentHeaderAction, AgentHeaderContext};
-use super::agent_settings_view::{AgentSettingsAction, AgentSettingsContext};
+use super::agent_settings_view::AgentSettingsAction;
+use super::agent_surface_view::{AgentPanelAction, AgentPanelContext};
 use super::*;
 
 impl DbProApp {
     pub(super) fn draw_agent_panel(&mut self, ctx: &egui::Context) {
-        let mut submit = false;
-        let mut copy_sql = None;
-        let panel_width = agent_surface_view::AgentPanelSurfaceContext {
+        let document_id = self
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+            .map(|document| document.id.clone());
+        let (composer_mode, is_generating) = document_id
+            .as_deref()
+            .map(|id| self.agent.sessions.entry(id.to_owned()).or_default())
+            .map(|session| {
+                let composer_mode = match session.mode {
+                    db_pro_core::domain::agent::AgentMode::Ask => AgentMode::Chat,
+                    db_pro_core::domain::agent::AgentMode::Edit => AgentMode::Plan,
+                    db_pro_core::domain::agent::AgentMode::Agent => AgentMode::Code,
+                };
+                (
+                    composer_mode,
+                    session.active_run_id.is_some() || session.request_id.is_some(),
+                )
+            })
+            .unwrap_or((AgentMode::Code, false));
+        let context = self.agent_context();
+        let session = document_id
+            .as_deref()
+            .map(|id| self.agent.sessions.entry(id.to_owned()).or_default());
+
+        let panel = AgentPanelContext {
             theme: self.theme,
             default_width: self.workspace.agent_width,
-        }
-        .show(ctx, |ui| {
-            self.draw_agent_header(ui, ctx);
-            if self.agent.settings_open {
-                let mut settings = AgentSettingsContext {
-                    theme: self.theme,
-                    provider_label: &self.agent.provider_label,
-                    api_key_draft: &mut self.agent.api_key_draft,
-                    api_key_show_password: &mut self.agent.api_key_show_password,
-                    configure_request: self.agent.configure_request,
-                    auto_run_read_only: &mut self.agent.auto_run_read_only,
-                };
-                let actions = settings.draw(ui);
-                self.apply_agent_settings_actions(actions);
-            } else {
-                ui.add_space(6.0);
-                let context = self.agent_context();
-                agent_surface_view::AgentContextSurfaceContext {
-                    theme: self.theme,
-                    provider_label: &self.agent.provider_label,
-                    provider_detail: &self.agent.provider_detail,
-                    auto_run_read_only: self.agent.auto_run_read_only,
-                    context: &context,
-                }
-                .draw(ui);
-                ui.add_space(8.0);
-                submit |= self.draw_agent_context_actions(ui, &context);
-                submit |= self.draw_agent_thread(ui, &mut copy_sql);
-                self.draw_agent_composer(ui, &mut submit);
-            }
-        });
+            document_id: document_id.as_deref(),
+            settings_open: self.agent.settings_open,
+            provider_label: &self.agent.provider_label,
+            provider_detail: &self.agent.provider_detail,
+            api_key_draft: &mut self.agent.api_key_draft,
+            api_key_show_password: &mut self.agent.api_key_show_password,
+            configure_request: self.agent.configure_request,
+            auto_run_read_only: &mut self.agent.auto_run_read_only,
+            context: &context,
+            session,
+            input: &mut self.agent.input,
+            composer_mode,
+            is_generating,
+        };
+        let (panel_width, actions) = panel.draw(ctx);
         self.workspace.set_agent_width(panel_width);
+        self.apply_agent_panel_actions(actions, ctx, document_id.as_deref());
+    }
+
+    fn apply_agent_panel_actions(
+        &mut self,
+        actions: Vec<AgentPanelAction>,
+        ctx: &egui::Context,
+        document_id: Option<&str>,
+    ) {
+        let mut submit = false;
+        for action in actions {
+            match action {
+                AgentPanelAction::Header(action) => match action {
+                    agent_header_view::AgentHeaderAction::ClearConversation => {
+                        if let Some(document_id) = document_id {
+                            self.agent.clear_session(document_id);
+                        }
+                    }
+                    agent_header_view::AgentHeaderAction::Close => self.set_agent_open(false, ctx),
+                    agent_header_view::AgentHeaderAction::ToggleSettings => self.agent.toggle_settings(),
+                },
+                AgentPanelAction::Settings(action) => self.apply_agent_settings_action(action),
+                AgentPanelAction::Context(agent_context_actions_view::AgentContextAction::Submit(prompt)) => {
+                    self.agent.input = prompt.to_owned();
+                    submit = true;
+                }
+                AgentPanelAction::Thread(action) => match action {
+                    agent_thread_surface_view::AgentThreadAction::Submit(prompt) => {
+                        self.agent.input = prompt;
+                        submit = true;
+                    }
+                    agent_thread_surface_view::AgentThreadAction::OpenResult(call_id) => {
+                        self.open_agent_result_in_workspace(&call_id);
+                    }
+                    agent_thread_surface_view::AgentThreadAction::Retry => self.retry_agent_run(),
+                    agent_thread_surface_view::AgentThreadAction::Confirm(approved) => {
+                        self.agent_confirmation_action(approved);
+                    }
+                },
+                AgentPanelAction::Composer(action) => match action {
+                    AgentComposerAction::Submit => submit = true,
+                    AgentComposerAction::Stop => self.cancel_active_agent_run(),
+                    AgentComposerAction::Clear => {}
+                },
+            }
+        }
         if submit {
             self.submit_agent_prompt();
         }
-        if let Some(sql) = copy_sql {
-            ctx.output_mut(|output| output.copied_text = sql);
-            self.feedback.copy_status = "Agent SQL copied".to_owned();
-        }
     }
 
-    fn draw_agent_header(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        let Some(document_id) = self
-            .query
-            .session
-            .documents
-            .get(self.query.session.active_document_index)
-            .map(|document| document.id.clone())
-        else {
-            return;
-        };
-        let (mode, mode_disabled, has_messages) = {
-            let session = self.agent.sessions.entry(document_id.clone()).or_default();
-            let disabled = session.active_run_id.is_some()
-                || session.request_id.is_some()
-                || session.pending_confirmation.is_some();
-            (&mut session.mode, disabled, !session.messages.is_empty())
-        };
-        let actions = {
-            let mut header = AgentHeaderContext {
-                theme: self.theme,
-                mode: Some(mode),
-                mode_disabled,
-                can_clear_conversation: !mode_disabled,
-                has_messages,
-            };
-            header.draw(ui)
-        };
-        for action in actions {
-            match action {
-                AgentHeaderAction::ClearConversation => self.agent.clear_session(&document_id),
-                AgentHeaderAction::Close => self.set_agent_open(false, ctx),
-                AgentHeaderAction::ToggleSettings => self.agent.toggle_settings(),
-            }
-        }
-    }
-
-    fn apply_agent_settings_actions(&mut self, actions: Vec<AgentSettingsAction>) {
-        for action in actions {
-            match action {
-                AgentSettingsAction::Close => {
-                    self.agent.close_settings();
-                }
-                AgentSettingsAction::SaveKey(api_key) => {
-                    let request_id = self.task_bridge.next_request_id();
-                    self.agent.configure_request = Some(request_id);
-                    if !self.dispatch_command(UiCommand::SaveAgentApiKey { request_id, api_key }) {
-                        self.agent.configure_request = None;
-                    }
-                }
-                AgentSettingsAction::ForgetKey => {
-                    let request_id = self.task_bridge.next_request_id();
-                    if self.dispatch_command(UiCommand::ForgetAgentApiKey { request_id }) {
-                        self.agent.configure_request = Some(request_id);
-                    }
-                }
-            }
-        }
-    }
-
-    fn draw_agent_context_actions(&mut self, ui: &mut egui::Ui, context: &AgentContext) -> bool {
-        let actions = AgentContextActionsContext {
-            theme: self.theme,
-            context,
-        }
-        .draw(ui);
-        let Some(AgentContextAction::Submit(prompt)) = actions.into_iter().next() else {
-            return false;
-        };
-        self.agent.input = prompt.to_owned();
-        true
-    }
-
-    fn draw_agent_composer(&mut self, ui: &mut egui::Ui, submit: &mut bool) {
-        let active_mode = self
-            .query
-            .session
-            .documents
-            .get(self.query.session.active_document_index)
-            .and_then(|document| self.agent.sessions.get(&document.id))
-            .map(|session| session.mode);
-        let composer_mode = match active_mode {
-            Some(db_pro_core::domain::agent::AgentMode::Ask) => AgentMode::Chat,
-            Some(db_pro_core::domain::agent::AgentMode::Edit) => AgentMode::Plan,
-            Some(db_pro_core::domain::agent::AgentMode::Agent) => AgentMode::Code,
-            None => AgentMode::Code,
-        };
-        let is_generating = self
-            .query
-            .session
-            .documents
-            .get(self.query.session.active_document_index)
-            .and_then(|document| self.agent.sessions.get(&document.id))
-            .is_some_and(|session| session.active_run_id.is_some() || session.request_id.is_some());
-        let action = AgentComposer::new(
-            &mut self.agent.input,
-            &self.agent.provider_label,
-            composer_mode,
-            self.theme,
-        )
-        .is_generating(is_generating)
-        .show(ui);
-
+    fn apply_agent_settings_action(&mut self, action: AgentSettingsAction) {
         match action {
-            Some(AgentComposerAction::Submit) => *submit = true,
-            Some(AgentComposerAction::Stop) => self.cancel_active_agent_run(),
-            Some(AgentComposerAction::Clear) | None => {}
+            AgentSettingsAction::Close => {
+                self.agent.close_settings();
+            }
+            AgentSettingsAction::SaveKey(api_key) => {
+                let request_id = self.task_bridge.next_request_id();
+                self.agent.configure_request = Some(request_id);
+                if !self.dispatch_command(UiCommand::SaveAgentApiKey { request_id, api_key }) {
+                    self.agent.configure_request = None;
+                }
+            }
+            AgentSettingsAction::ForgetKey => {
+                let request_id = self.task_bridge.next_request_id();
+                if self.dispatch_command(UiCommand::ForgetAgentApiKey { request_id }) {
+                    self.agent.configure_request = Some(request_id);
+                }
+            }
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::agent_settings_view::AI_EGRESS_DISCLOSURE;
+    use super::super::agent_settings_view::{AgentSettingsContext, AI_EGRESS_DISCLOSURE};
     use super::*;
 
     /// Every text run the frame actually painted.

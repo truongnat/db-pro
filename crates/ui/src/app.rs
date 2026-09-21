@@ -46,8 +46,6 @@ mod agent_state;
 mod agent_surface_view;
 #[path = "agent_thread_surface_view.rs"]
 mod agent_thread_surface_view;
-#[path = "agent_thread_view.rs"]
-mod agent_thread_view;
 #[path = "agent_view.rs"]
 mod agent_view;
 #[path = "agent_workflow_reducer.rs"]
