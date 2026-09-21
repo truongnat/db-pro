@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `20d1e190`.
+Source checkpoint: `7c1efb7a`.
 
 ## Current change
 
@@ -27,6 +27,11 @@ selection, root/environment/trust changes, directory expansion, search routing
 and external-change dismissal are reduced through `WorkspaceFilesState`.
 Search/replace/refactor inputs use a `WorkspaceSearchDraft` snapshot and a
 typed `UpdateDraft` intent instead of mutable field references from the root.
+Agent lifecycle state is now isolated from composition-root adapters in
+`agent_actions.rs`; every feature `*_state.rs` module is guarded against
+`DbProApp` dependencies. Dialog, query-document and editor runtime sends now
+cross `RuntimeCommandDispatcher`, with direct best-effort `TaskBridge` sends
+rejected by the architecture guard.
 Settings Data Grid, Connections, AI, Security, Advanced and Appearance panes
 now render through explicit settings contexts; `settings_view.rs` keeps
 navigation, persistence/runtime adapters and the remaining backup/diagnostics
@@ -2059,8 +2064,16 @@ keeps task policy and execution effects.
   to a logical height of `838`. The required normal/loading/error/empty states
   are now captured at exact logical `1280x800`.
 
-## Current core checkpoint at `20d1e190`
+## Current core checkpoint at `7c1efb7a`
 
+- Agent state/adapter boundary: `fdaece8d`; `agent_state.rs` now owns only
+  lifecycle/preparation state, while `agent_actions.rs` owns cross-feature
+  context gathering, runtime dispatch and workspace effects. The guard rejects
+  `DbProApp` references from all feature state modules.
+- Runtime command-port boundary: `7c1efb7a`; connection/query dialogs,
+  query-document lifecycle and query editor surfaces use
+  `RuntimeCommandDispatcher`; formatter cancellation returns an intent to the
+  root, and direct `task_bridge.send_best_effort` bypasses are guarded.
 - Workspace search draft boundary: `20d1e190`; `FilesSearchContext` now edits
   an owned `WorkspaceSearchDraft` and emits `UpdateDraft` before action intents,
   so Find/Replace/Refactor always run against committed feature state.
@@ -2096,6 +2109,15 @@ keeps task policy and execution effects.
   `cargo clippy -p db-pro-ui --all-targets -- -D warnings` and
   `cargo test -p db-pro-ui --lib --quiet` passed; 683 UI tests passed with no
   failures.
+- Current command-port checks after `7c1efb7a`: `cargo check -p db-pro-ui`,
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings`, `cargo test
+  -p db-pro-ui --lib --quiet` and the architecture guard passed; 683 UI tests
+  passed with no failures.
+- Full workspace gate after `7c1efb7a`: `cargo fmt --all -- --check`,
+  `cargo check --workspace`, `cargo clippy --workspace --all-targets --
+  -D warnings` and `cargo test --workspace --no-fail-fast --quiet` passed;
+  404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and
+  683 UI tests passed, with only environment-gated tests ignored.
 - Full workspace gate rerun after `20d1e190`: `cargo fmt --all -- --check`,
   `cargo check --workspace`, `cargo clippy --workspace --all-targets --
   -D warnings` and `cargo test --workspace --no-fail-fast --quiet` passed;
@@ -2112,11 +2134,11 @@ keeps task policy and execution effects.
   passed with 16 checks and 0 warnings.
 - `git diff --check`: passed.
 - Current release runtime capture:
-  `/tmp/db-pro-native-core-20d1e190-new-1280x800.png`, logical `1280x800`,
-  captured from the release binary rebuilt after the workspace search-draft
+  `/tmp/db-pro-native-core-7c1efb7a-new-1280x800.png`, logical `1280x800`,
+  captured from the release binary rebuilt after the runtime command-port
   boundary. The New Connection dialog is centered with a separated
   header/divider, right-aligned close control, complete body and separated
-  footer. The manual-verification release binary is running as PID `35922`.
+  footer. The manual-verification release binary is running as PID `45254`.
 - Runtime matrix from the preceding release source `05524c33`:
   - normal/empty: `/tmp/db-pro-native-core-05524c33-normal-1280x800.png`
   - loading: `/tmp/db-pro-native-core-05524c33-loading-1280x800.png`

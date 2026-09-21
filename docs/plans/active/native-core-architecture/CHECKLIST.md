@@ -191,6 +191,12 @@
       those internals directly.
 - [x] Workspace search/replace/refactor inputs cross the renderer boundary as
       a `WorkspaceSearchDraft` snapshot and typed `UpdateDraft` intent.
+- [x] Agent lifecycle state is isolated from composition-root adapters; runtime
+      command/effect methods live in `agent_actions.rs`, and all feature
+      `*_state.rs` modules are guarded against `DbProApp` dependencies.
+- [x] Runtime command sends from dialogs, query documents and editor surfaces
+      cross the `RuntimeCommandDispatcher` port; direct best-effort
+      `TaskBridge` sends are rejected by the architecture guard.
 - [x] Settings navigation, section composition and diagnostics presentation
       are owned by `SettingsSurfaceContext`; settings root retains only
       persistence, runtime/file effects and typed action application.
