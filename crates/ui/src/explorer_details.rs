@@ -2,11 +2,7 @@
 //! of the Codex / DBeaver navigator tree.
 
 use super::explorer_table_row_view::{TableRowAction, TableRowContext};
-use super::explorer_tree::{
-    column_icon_and_color, draw_category_folder, draw_codex_tree_row, shorten_data_type, CategoryFolder, CodexTreeRow,
-};
 use super::*;
-use lucide_icons::Icon;
 
 struct TableRowActionInput<'a> {
     table: &'a str,
@@ -100,7 +96,7 @@ impl DbProApp {
         // If table is selected and expanded, show nested details (Columns, Foreign keys, Indexes)
         if is_selected && render.is_open {
             if let Some(info) = self.table.state.table_info.clone() {
-                self.draw_table_detail_folders(ui, table, &info);
+                explorer_table_details_view::TableDetailsView::new(&self.theme).draw(ui, table, &info);
             }
         }
     }
@@ -175,145 +171,5 @@ impl DbProApp {
         self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
         self.request_table_info();
         self.request_table_data();
-    }
-
-    /// Nested detail folders shown under a selected, expanded table.
-    fn draw_table_detail_folders(&mut self, ui: &mut egui::Ui, table: &str, info: &UiTableInfo) {
-        self.draw_table_columns_folder(ui, table, info);
-        self.draw_table_foreign_keys_folder(ui, table, info);
-        self.draw_table_indexes_folder(ui, table, info);
-    }
-
-    /// "Columns" folder listing every column with its inferred icon and type.
-    fn draw_table_columns_folder(&mut self, ui: &mut egui::Ui, table: &str, info: &UiTableInfo) {
-        let theme = self.theme;
-        let folder_id = ui.make_persistent_id(("codex_tbl_col_folder", table));
-        draw_category_folder(
-            ui,
-            &theme,
-            CategoryFolder {
-                depth: 5,
-                id: folder_id,
-                icon: Icon::Columns3,
-                icon_color: theme.text_secondary,
-                label: "Columns",
-                count: info.columns.len(),
-                empty_label: None,
-            },
-            |ui| {
-                for column in &info.columns {
-                    let is_fk = info
-                        .foreign_keys
-                        .iter()
-                        .any(|fk| fk.from_columns.contains(&column.name));
-                    let (icon, icon_color) =
-                        column_icon_and_color(&column.data_type, column.is_primary_key, is_fk, &theme);
-                    let short_type = shorten_data_type(&column.data_type);
-                    draw_codex_tree_row(
-                        ui,
-                        &theme,
-                        CodexTreeRow {
-                            depth: 6,
-                            is_expandable: false,
-                            is_expanded: false,
-                            icon,
-                            icon_color,
-                            label: &column.name,
-                            is_selected: false,
-                            is_dimmed: false,
-                            status_dot: None,
-                            badge_text: None,
-                            badge_accent: false,
-                            count_text: None,
-                            detail_text: Some(&short_type),
-                        },
-                    );
-                }
-            },
-        );
-    }
-
-    /// "Foreign keys" folder listing outgoing references.
-    fn draw_table_foreign_keys_folder(&mut self, ui: &mut egui::Ui, table: &str, info: &UiTableInfo) {
-        let theme = self.theme;
-        let folder_id = ui.make_persistent_id(("codex_tbl_fk_folder", table));
-        draw_category_folder(
-            ui,
-            &theme,
-            CategoryFolder {
-                depth: 5,
-                id: folder_id,
-                icon: Icon::ArrowRightLeft,
-                icon_color: theme.text_secondary,
-                label: "Foreign keys",
-                count: info.foreign_keys.len(),
-                empty_label: Some("No foreign keys"),
-            },
-            |ui| {
-                for fk in &info.foreign_keys {
-                    draw_codex_tree_row(
-                        ui,
-                        &theme,
-                        CodexTreeRow {
-                            depth: 6,
-                            is_expandable: false,
-                            is_expanded: false,
-                            icon: Icon::Link,
-                            icon_color: theme.info,
-                            label: &fk.name,
-                            is_selected: false,
-                            is_dimmed: false,
-                            status_dot: None,
-                            badge_text: None,
-                            badge_accent: false,
-                            count_text: None,
-                            detail_text: Some(&fk.to_table),
-                        },
-                    );
-                }
-            },
-        );
-    }
-
-    /// "Indexes" folder listing declared indexes.
-    fn draw_table_indexes_folder(&mut self, ui: &mut egui::Ui, table: &str, info: &UiTableInfo) {
-        let theme = self.theme;
-        let folder_id = ui.make_persistent_id(("codex_tbl_idx_folder", table));
-        draw_category_folder(
-            ui,
-            &theme,
-            CategoryFolder {
-                depth: 5,
-                id: folder_id,
-                icon: Icon::List,
-                icon_color: theme.text_secondary,
-                label: "Indexes",
-                count: info.indexes.len(),
-                empty_label: Some("No indexes"),
-            },
-            |ui| {
-                for index in &info.indexes {
-                    draw_codex_tree_row(
-                        ui,
-                        &theme,
-                        CodexTreeRow {
-                            depth: 6,
-                            is_expandable: false,
-                            is_expanded: false,
-                            icon: Icon::Zap,
-                            icon_color: theme.text_muted,
-                            label: &index.name,
-                            is_selected: false,
-                            is_dimmed: false,
-                            status_dot: None,
-                            badge_text: None,
-                            badge_accent: false,
-                            count_text: None,
-                            detail_text: None,
-                        },
-                    );
-                }
-            },
-        );
     }
 }
