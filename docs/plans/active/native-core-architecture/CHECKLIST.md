@@ -67,6 +67,8 @@
 - [x] Result-grid viewport composition separated into an explicit context with
       a renderer contract for header and virtualized rows; grid state and row
       effects remain at the root adapter.
+- [x] Query output dock/editor height policy separated into a pure layout
+      context with focused geometry tests.
 - [x] Shell Output Panel separated into an explicit context for panel layout,
       tab rendering and close/resize state.
 - [x] Query library, named workspace session and overlay aggregates.

@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `41994db6`.
+Source checkpoint: `e2694c0f`.
 
 ## Current change
 
@@ -79,6 +79,33 @@ Security composition now renders through `SecuritySurfaceContext`, which owns
 the PostgreSQL gating notice, error state and the roles/details/confirmation/RLS
 surface order. It emits one typed action stream while request IDs, command
 dispatch and provider mutations remain in `security_activity_view.rs`.
+
+Query panel geometry now renders through `query_layout_surface_view::calculate`.
+The pure layout context owns dock/editor height policy, including minimized and
+maximized states, while `query_view.rs` only composes the returned layout with
+the editor and output surfaces.
+
+## Gate evidence at `e2694c0f`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime capture: `/tmp/db-pro-native-core-e2694c0f.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `5934` for manual verification. Query provider-state and the full runtime
+  matrix remain unproven.
 
 ## Gate evidence at `41994db6`
 
