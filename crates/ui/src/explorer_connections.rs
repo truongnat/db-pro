@@ -190,29 +190,14 @@ impl DbProApp {
         }
 
         if activate_schema {
-            self.activate_schema(schema);
+            super::schema_explorer_state::SchemaActivationContext::new(
+                &mut self.schema.explorer,
+                &mut self.table,
+                &mut self.workspace,
+                &mut self.feedback,
+            )
+            .activate(schema);
         }
-    }
-
-    /// Activates a schema and clears the workspace state that depended on the old one.
-    pub(crate) fn activate_schema(&mut self, schema: &str) {
-        if self.schema.explorer.selected_schema.as_deref() == Some(schema) {
-            return;
-        }
-        if !self.table.mutation.staged_changes.is_empty() {
-            self.workspace.pending_navigation_action = Some(PendingNavigationAction::ChangeSchema(schema.to_owned()));
-            self.table.editing.discard_changes_confirmation = true;
-            self.feedback.runtime_message = "Apply or discard staged changes before changing schema".to_owned();
-            return;
-        }
-        self.workspace.pending_navigation_action = None;
-        self.schema.explorer.selected_schema = Some(schema.to_owned());
-        self.schema.explorer.selected_table = None;
-        self.schema.explorer.selected_schema_object = None;
-        self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
-        self.table.reset_workspace();
-        self.schema.explorer.explorer_nav_cache = None;
-        self.activate_welcome_tab();
     }
 
     /// Renders the folders for a schema: Tables, Views, Functions, Triggers.

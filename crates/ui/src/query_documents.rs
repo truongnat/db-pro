@@ -393,7 +393,15 @@ impl DbProApp {
     pub(super) fn execute_pending_navigation(&mut self, action: PendingNavigationAction) {
         match action {
             PendingNavigationAction::OpenTable(table) => self.open_table(table),
-            PendingNavigationAction::ChangeSchema(schema) => self.activate_schema(&schema),
+            PendingNavigationAction::ChangeSchema(schema) => {
+                super::schema_explorer_state::SchemaActivationContext::new(
+                    &mut self.schema.explorer,
+                    &mut self.table,
+                    &mut self.workspace,
+                    &mut self.feedback,
+                )
+                .activate(&schema);
+            }
             PendingNavigationAction::ChangeConnection(connection_id) => {
                 let connection = self.connection.catalog.find(&connection_id).cloned();
                 if let Some(connection) = connection {

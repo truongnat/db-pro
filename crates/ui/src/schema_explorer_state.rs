@@ -103,6 +103,51 @@ impl SchemaExplorerState {
     }
 }
 
+pub(crate) struct SchemaActivationContext<'a> {
+    explorer: &'a mut SchemaExplorerState,
+    table: &'a mut super::TableEditorState,
+    workspace: &'a mut super::WorkspaceShellState,
+    feedback: &'a mut super::FeedbackState,
+}
+
+impl<'a> SchemaActivationContext<'a> {
+    pub(crate) fn new(
+        explorer: &'a mut SchemaExplorerState,
+        table: &'a mut super::TableEditorState,
+        workspace: &'a mut super::WorkspaceShellState,
+        feedback: &'a mut super::FeedbackState,
+    ) -> Self {
+        Self {
+            explorer,
+            table,
+            workspace,
+            feedback,
+        }
+    }
+
+    pub(crate) fn activate(&mut self, schema: &str) {
+        if self.explorer.selected_schema.as_deref() == Some(schema) {
+            return;
+        }
+        if !self.table.mutation.staged_changes.is_empty() {
+            self.workspace.pending_navigation_action =
+                Some(super::PendingNavigationAction::ChangeSchema(schema.to_owned()));
+            self.table.editing.discard_changes_confirmation = true;
+            self.feedback
+                .set_runtime_message("Apply or discard staged changes before changing schema");
+            return;
+        }
+        self.workspace.pending_navigation_action = None;
+        self.explorer.selected_schema = Some(schema.to_owned());
+        self.explorer.selected_table = None;
+        self.explorer.selected_schema_object = None;
+        self.explorer.schema_object_view = super::SchemaObjectView::Definition;
+        self.table.reset_workspace();
+        self.explorer.explorer_nav_cache = None;
+        self.workspace.active_tab = super::WorkspaceTab::Welcome;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,5 +175,43 @@ mod tests {
         state.remove_recent_table("orders");
 
         assert_eq!(state.recent_tables, vec!["users"]);
+    }
+
+    #[test]
+    fn schema_activation_resets_table_workspace_and_welcome_surface() {
+        let mut explorer = SchemaExplorerState {
+            selected_schema: Some("public".to_owned()),
+            selected_table: Some("users".to_owned()),
+            selected_schema_object: Some(SchemaObjectSelection::View("active_view".to_owned())),
+            schema_object_view: SchemaObjectView::Data,
+            explorer_nav_cache: Some(ExplorerNavCache {
+                connection_id: "conn-1".to_owned(),
+                schema: "public".to_owned(),
+                search: String::new(),
+                total_count: 1,
+                matching_count: 1,
+                visible: vec!["users".to_owned()],
+            }),
+            ..Default::default()
+        };
+        let mut table = super::TableEditorState::default();
+        table.mutation.pending_changes_open = true;
+        table.editing.data_edit_value = "draft".to_owned();
+        let mut workspace = super::WorkspaceShellState {
+            active_tab: super::WorkspaceTab::Table,
+            ..Default::default()
+        };
+        let mut feedback = super::FeedbackState::default();
+
+        SchemaActivationContext::new(&mut explorer, &mut table, &mut workspace, &mut feedback).activate("analytics");
+
+        assert_eq!(explorer.selected_schema.as_deref(), Some("analytics"));
+        assert!(explorer.selected_table.is_none());
+        assert!(explorer.selected_schema_object.is_none());
+        assert_eq!(explorer.schema_object_view, SchemaObjectView::Definition);
+        assert!(explorer.explorer_nav_cache.is_none());
+        assert!(!table.mutation.pending_changes_open);
+        assert!(table.editing.data_edit_value.is_empty());
+        assert_eq!(workspace.active_tab, super::WorkspaceTab::Welcome);
     }
 }
