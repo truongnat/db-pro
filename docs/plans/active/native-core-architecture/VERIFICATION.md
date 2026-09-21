@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `a7d35fcb`.
+Source checkpoint: `ab4b1254`.
 
 ## Current change
 
@@ -162,6 +162,26 @@ typed backup/restore command actions.
 Saved-query delete confirmation now renders through
 `SidebarQueryLibraryContext` and emits typed confirm/cancel actions. The root
 retains only delete-command dispatch and overlay-state ownership.
+
+Table indexes now render through `TableIndexesContext`, which owns filtering,
+the metadata table, empty/loading states and the centered index-detail dialog.
+The root adapter owns only the table-info snapshot, search/detail state and
+typed select/close transitions.
+
+## Gate evidence at `ab4b1254`
+
+- Focused `cargo fmt --all`, `cargo check -p db-pro-ui` and
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 UI tests passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `79416` for manual verification. Full workspace/provider/runtime evidence
+  remains bounded by the `fa952484` workspace gate.
 
 ## Gate evidence at `a7d35fcb`
 
