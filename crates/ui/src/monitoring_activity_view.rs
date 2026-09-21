@@ -75,9 +75,23 @@ impl DbProApp {
     fn draw_monitor_snapshot(&mut self, ui: &mut egui::Ui, connected: bool) {
         if let Some(snapshot) = self.management.monitoring.monitoring_snapshot.clone() {
             self.draw_monitor_health_and_local(ui, &snapshot);
-            self.draw_monitor_sessions(ui, &snapshot);
+            let session_actions = monitoring_sessions_view::MonitoringSessionsContext {
+                theme: self.theme,
+                snapshot: &snapshot,
+                filter_active_only: &mut self.management.monitoring.monitoring_filter_active_only,
+            }
+            .draw(ui);
+            self.apply_monitoring_sessions_actions(session_actions);
             self.draw_monitor_server_stats(ui, &snapshot);
-            self.draw_monitor_workload(ui, &snapshot);
+            let workload_actions = monitoring_workload_view::MonitoringWorkloadContext {
+                theme: self.theme,
+                workload: snapshot.workload.as_ref(),
+                previous: self.management.monitoring.monitoring_workload_prev.as_ref(),
+                sort: self.management.monitoring.monitoring_stat_sort,
+                filter: &mut self.management.monitoring.monitoring_workload_filter,
+            }
+            .draw(ui);
+            self.apply_monitoring_workload_actions(workload_actions);
 
             self.draw_audit_activity(ui);
 
@@ -106,280 +120,12 @@ impl DbProApp {
         monitoring_snapshot_view::draw_health_and_local(ui, self.theme, snapshot);
     }
 
-    fn draw_monitor_sessions(
-        &mut self,
-        ui: &mut egui::Ui,
-        snapshot: &db_pro_core::domain::monitoring::MonitoringSnapshot,
-    ) {
-        section_label(ui, "SESSIONS", self.theme);
-        ui.add_space(SPACE_SM);
-        ui.checkbox(
-            &mut self.management.monitoring.monitoring_filter_active_only,
-            "Active queries only",
-        );
-        ui.add_space(SPACE_SM);
-
-        let idle_xacts = snapshot.idle_in_transaction_sessions();
-        if !idle_xacts.is_empty() {
-            section_label(ui, "IDLE IN TRANSACTION", self.theme);
-            ui.add_space(SPACE_SM);
-            for session in idle_xacts.into_iter().take(20) {
-                ui.label(
-                    RichText::new(format!(
-                        "pid {} · xact_age={:?} ms · backend_age={:?} ms · {}",
-                        session.backend_id,
-                        session.xact_age_ms,
-                        session.backend_age_ms,
-                        session.username.as_deref().unwrap_or("?")
-                    ))
-                    .small()
-                    .color(self.theme.warning),
-                );
-            }
-            ui.add_space(SPACE_MD);
-        }
-
-        let sessions: Vec<_> = if self.management.monitoring.monitoring_filter_active_only {
-            snapshot.active_queries().into_iter().cloned().collect()
-        } else {
-            snapshot.sessions.clone()
-        };
-
-        if sessions.is_empty() {
-            ui.label(
-                RichText::new(if snapshot.sessions.is_empty() {
-                    snapshot.message.as_str()
-                } else {
-                    "No active queries right now."
-                })
-                .small()
-                .color(self.theme.text_muted),
-            );
-        } else {
-            for session in sessions {
-                card_frame(self.theme).show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            RichText::new(format!("pid {}", session.backend_id))
-                                .strong()
-                                .monospace()
-                                .color(self.theme.text_primary),
-                        );
-                        if session.is_current {
-                            badge(ui, "current", self.theme.surface_active, self.theme.text_secondary);
-                        }
-                        ui.label(
-                            RichText::new(session.state.clone().unwrap_or_else(|| "—".into()))
-                                .small()
-                                .color(self.theme.text_secondary),
-                        );
-                        if let Some(ms) = session.query_duration_ms {
-                            ui.label(
-                                RichText::new(format!("query {ms} ms"))
-                                    .small()
-                                    .color(self.theme.text_muted),
-                            );
-                        }
-                        if let Some(ms) = session.xact_age_ms {
-                            ui.label(
-                                RichText::new(format!("xact {ms} ms"))
-                                    .small()
-                                    .color(self.theme.text_muted),
-                            );
-                        }
-                        if session.idle_in_transaction {
-                            badge(ui, "idle-in-xact", self.theme.warning, self.theme.text_primary);
-                        }
-                    });
-                    ui.label(
-                        RichText::new(format!(
-                            "{} · {} · {}",
-                            session.username.as_deref().unwrap_or("?"),
-                            session.database.as_deref().unwrap_or("?"),
-                            session.application_name.as_deref().unwrap_or("-")
-                        ))
-                        .small()
-                        .color(self.theme.text_secondary),
-                    );
-                    if let Some(query) = &session.query_text {
-                        let short = if query.len() > 120 {
-                            format!("{}…", &query.chars().take(119).collect::<String>())
-                        } else {
-                            query.clone()
-                        };
-                        ui.label(RichText::new(short).monospace().small().color(self.theme.text_primary));
-                        ui.horizontal(|ui| {
-                            if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
-                                self.set_active_query_text(query.clone());
-                                self.workspace.active_tab = WorkspaceTab::Query;
-                                self.workspace.activity = Activity::Explorer;
-                            }
-                            if !session.is_current
-                                && secondary_button_with_icon(ui, Icon::Ban, "Cancel", self.theme).clicked()
-                            {
-                                if let Some(connection_id) =
-                                    self.connection.lifecycle.active_connection_id().map(str::to_owned)
-                                {
-                                    let request_id = self.task_bridge.next_request_id();
-                                    self.dispatch_command(self.management.monitoring.cancel_backend_command(
-                                        request_id,
-                                        connection_id,
-                                        session.backend_id,
-                                    ));
-                                }
-                            }
-                            if !session.is_current && danger_button(ui, "Terminate", self.theme).clicked() {
-                                self.management.monitoring.monitoring_terminate_confirm = Some(session.backend_id);
-                            }
-                        });
-                    }
-                });
-                ui.add_space(SPACE_SM);
-            }
-        }
-    }
-
     fn draw_monitor_server_stats(
         &mut self,
         ui: &mut egui::Ui,
         snapshot: &db_pro_core::domain::monitoring::MonitoringSnapshot,
     ) {
         monitoring_snapshot_view::draw_server_stats(ui, self.theme, snapshot);
-    }
-
-    fn draw_monitor_workload(
-        &mut self,
-        ui: &mut egui::Ui,
-        snapshot: &db_pro_core::domain::monitoring::MonitoringSnapshot,
-    ) {
-        if let Some(workload) = &snapshot.workload {
-            ui.add_space(SPACE_MD);
-            section_label(ui, "TOP QUERIES (pg_stat_statements)", self.theme);
-            ui.add_space(SPACE_SM);
-            if !workload.extension_present {
-                ui.colored_label(self.theme.warning, &workload.message);
-            } else {
-                if let Some(ver) = &workload.extension_version {
-                    ui.label(
-                        RichText::new(format!("extension v{ver} · {}", workload.message))
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                }
-                ui.horizontal_wrapped(|ui| {
-                    use db_pro_core::domain::monitoring::StatStatementSort;
-                    for sort in [
-                        StatStatementSort::TotalTime,
-                        StatStatementSort::MeanTime,
-                        StatStatementSort::Calls,
-                        StatStatementSort::Rows,
-                    ] {
-                        let selected = self.management.monitoring.monitoring_stat_sort == sort;
-                        if ui.selectable_label(selected, sort.as_label()).clicked() {
-                            self.management.monitoring.monitoring_stat_sort = sort;
-                            self.request_monitoring_workload();
-                        }
-                    }
-                    if danger_button(ui, "Reset stats…", self.theme).clicked() {
-                        self.management.monitoring.monitoring_reset_stats_confirm = true;
-                    }
-                });
-                ui.add_space(SPACE_XS);
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new("Filter").small().color(self.theme.text_muted));
-                    ui.text_edit_singleline(&mut self.management.monitoring.monitoring_workload_filter);
-                });
-                let filter = self
-                    .management
-                    .monitoring
-                    .monitoring_workload_filter
-                    .to_ascii_lowercase();
-                let prev_by_id: std::collections::HashMap<Option<i64>, f64> = self
-                    .management
-                    .monitoring
-                    .monitoring_workload_prev
-                    .as_ref()
-                    .map(|prev| prev.statements.iter().map(|s| (s.queryid, s.total_time_ms)).collect())
-                    .unwrap_or_default();
-                let rows: Vec<_> = workload
-                    .statements
-                    .iter()
-                    .filter(|s| {
-                        filter.is_empty()
-                            || s.query.to_ascii_lowercase().contains(&filter)
-                            || s.database
-                                .as_deref()
-                                .unwrap_or("")
-                                .to_ascii_lowercase()
-                                .contains(&filter)
-                            || s.username
-                                .as_deref()
-                                .unwrap_or("")
-                                .to_ascii_lowercase()
-                                .contains(&filter)
-                    })
-                    .take(40)
-                    .collect();
-                if rows.is_empty() {
-                    ui.label(
-                        RichText::new("No statements match the current filter.")
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                }
-                for stmt in rows {
-                    card_frame(self.theme).show(ui, |ui| {
-                        let delta = prev_by_id
-                            .get(&stmt.queryid)
-                            .map(|prev| stmt.total_time_ms - prev)
-                            .filter(|d| d.abs() > 0.01);
-                        ui.horizontal(|ui| {
-                            ui.label(
-                                RichText::new(format!(
-                                    "calls {} · total {:.1} ms · mean {:.1} ms · rows {}",
-                                    stmt.calls, stmt.total_time_ms, stmt.mean_time_ms, stmt.rows
-                                ))
-                                .small()
-                                .strong()
-                                .color(self.theme.text_primary),
-                            );
-                            if let Some(delta) = delta {
-                                ui.label(
-                                    RichText::new(format!("Δ total {delta:+.1} ms"))
-                                        .small()
-                                        .color(self.theme.accent),
-                                );
-                            }
-                        });
-                        ui.label(
-                            RichText::new(format!(
-                                "{} · {} · shared hit/read {}/{} · temp r/w {}/{}",
-                                stmt.username.as_deref().unwrap_or("?"),
-                                stmt.database.as_deref().unwrap_or("?"),
-                                stmt.shared_blks_hit,
-                                stmt.shared_blks_read,
-                                stmt.temp_blks_read,
-                                stmt.temp_blks_written
-                            ))
-                            .small()
-                            .color(self.theme.text_muted),
-                        );
-                        let short = if stmt.query.len() > 160 {
-                            format!("{}…", &stmt.query.chars().take(159).collect::<String>())
-                        } else {
-                            stmt.query.clone()
-                        };
-                        ui.label(RichText::new(short).monospace().small().color(self.theme.text_primary));
-                        if ghost_button_with_icon(ui, Icon::FileCode2, "Open SQL", self.theme).clicked() {
-                            self.set_active_query_text(stmt.query.clone());
-                            self.workspace.active_tab = WorkspaceTab::Query;
-                            self.workspace.activity = Activity::Explorer;
-                        }
-                    });
-                    ui.add_space(SPACE_SM);
-                }
-            }
-        }
     }
 
     fn draw_monitor_confirmations(&mut self, ui: &mut egui::Ui) {
@@ -474,6 +220,55 @@ impl DbProApp {
                     });
                 });
         }
+    }
+
+    fn apply_monitoring_sessions_actions(&mut self, actions: Vec<monitoring_sessions_view::MonitoringSessionsAction>) {
+        for action in actions {
+            match action {
+                monitoring_sessions_view::MonitoringSessionsAction::OpenSql(query) => {
+                    self.set_active_query_text(query);
+                    self.workspace.active_tab = WorkspaceTab::Query;
+                    self.workspace.activity = Activity::Explorer;
+                }
+                monitoring_sessions_view::MonitoringSessionsAction::Cancel(backend_id) => {
+                    self.cancel_monitoring_backend(backend_id);
+                }
+                monitoring_sessions_view::MonitoringSessionsAction::RequestTerminate(backend_id) => {
+                    self.management.monitoring.monitoring_terminate_confirm = Some(backend_id);
+                }
+            }
+        }
+    }
+
+    fn apply_monitoring_workload_actions(&mut self, actions: Vec<monitoring_workload_view::MonitoringWorkloadAction>) {
+        for action in actions {
+            match action {
+                monitoring_workload_view::MonitoringWorkloadAction::SortChanged(sort) => {
+                    self.management.monitoring.monitoring_stat_sort = sort;
+                    self.request_monitoring_workload();
+                }
+                monitoring_workload_view::MonitoringWorkloadAction::ResetStatistics => {
+                    self.management.monitoring.monitoring_reset_stats_confirm = true;
+                }
+                monitoring_workload_view::MonitoringWorkloadAction::OpenSql(query) => {
+                    self.set_active_query_text(query);
+                    self.workspace.active_tab = WorkspaceTab::Query;
+                    self.workspace.activity = Activity::Explorer;
+                }
+            }
+        }
+    }
+
+    fn cancel_monitoring_backend(&mut self, backend_id: i64) {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(
+            self.management
+                .monitoring
+                .cancel_backend_command(request_id, connection_id, backend_id),
+        );
     }
 
     fn request_monitoring_workload(&mut self) {
