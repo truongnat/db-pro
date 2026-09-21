@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `d0952762`.
+Source checkpoint: `e0d8105e`.
 
 ## Current change
 
@@ -49,6 +49,30 @@ to be painted twice.
 The shell topbar now has an explicit `ShellTopbarContext` that renders the
 connection/navigation/search chrome and emits typed intents. Palette, gallery,
 agent, theme and document-navigation effects remain in the root adapter.
+
+The shell statusbar now has an explicit `ShellStatusbarContext` for connection,
+runtime, editor and output-panel chrome. The root only prepares the read model
+and applies the output-panel toggle.
+
+## Gate evidence at `e0d8105e`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the clean post-commit tree; 16 checks passed, 0 warnings and 0
+  failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime launch: the latest release binary is running in terminal session
+  `78351` for manual verification. No dedicated statusbar interaction capture
+  was collected; the runtime matrix remains incomplete.
 
 ## Gate evidence at `d0952762`
 

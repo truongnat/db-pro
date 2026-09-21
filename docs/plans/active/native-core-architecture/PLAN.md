@@ -68,7 +68,7 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
     emit through explicit surface contexts; Query output dock geometry and tab
     chrome now use a dedicated context while pane effects remain at the root;
     shell topbar navigation and chrome now use the same boundary; Explorer
-    adapters,
+    statusbar chrome now uses the same boundary; Explorer adapters,
     monitoring/security surfaces and some dialog/root adapters still require
     migration.
 11. Enforce the runtime command boundary as a two-phase transition: prepare
