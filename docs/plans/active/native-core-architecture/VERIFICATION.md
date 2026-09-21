@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `00a23cec`.
+Source checkpoint: `5f6e7870`.
 
 ## Current change
 
@@ -75,6 +75,12 @@ matrix is not complete.
   adapter. The complete workspace gate passed with 660 UI tests, and the
   latest release binary is running for manual verification in terminal session
   `12401`.
+
+- `5f6e7870`: Table detail folders (Columns, Foreign keys and Indexes) now
+  render through the presentation-only `TableDetailsView`; these folders no
+  longer implement methods on `DbProApp`. The complete workspace gate passed
+  with 660 UI tests, and the latest release binary is running for manual
+  verification in terminal session `88237`.
 
 - `f5fc419d`: table/query surface contexts were extracted; query execution
   preparation now owns destructive gating, parameter binding, query history and
