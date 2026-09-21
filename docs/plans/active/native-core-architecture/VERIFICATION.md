@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `bfa6d0df`.
+Source checkpoint: `1b5a6859`.
 
 ## Current change
 
@@ -136,6 +136,35 @@ Workspace Migrations and Graph tabs now render through the explicit secondary
 tab helpers with `OpenFile` intents. The root adapter remains responsible for
 opening the selected SQL document; the tab renderers no longer implement
 `DbProApp` methods.
+
+Table structure presentation now renders through `TableStructureContext`,
+which owns metrics, column filtering, the columns table, cell-level display
+and the centered column-detail dialog. It emits only typed column-selection and
+close actions; `table_structure_view.rs` remains a small root adapter that
+owns the table snapshot, search state and selected-column navigation.
+
+## Gate evidence at `1b5a6859`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime captures inspected at logical `1280x800`, `1440x900` and `1920x1080`:
+  `/tmp/db-pro-native-core-1b5a6859.png`,
+  `/tmp/db-pro-native-core-1b5a6859-1440x900.png` and
+  `/tmp/db-pro-native-core-1b5a6859-1920x1080.png`. New Connection remains
+  centered with a separated header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `82559` for manual verification. Provider/runtime state and the full
+  affected-surface matrix remain unproven.
 
 ## Gate evidence at `bfa6d0df`
 

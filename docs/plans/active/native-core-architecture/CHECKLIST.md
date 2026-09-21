@@ -91,6 +91,9 @@
 - [x] Visual Query Builder presentation separated into an explicit context
       with explicit query-state/schema/dialect inputs and typed apply/import/
       clear intents; editor/navigation effects remain at the root adapter.
+- [x] Table structure metrics, columns and column-detail presentation
+      separated into an explicit context with typed column-selection/close
+      actions; table state and root navigation remain at the adapter.
 - [x] Workspace Migrations and Graph tabs separated into explicit renderers
       with typed file-open intents; file navigation remains at the root
       adapter.
