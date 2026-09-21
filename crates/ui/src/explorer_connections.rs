@@ -2,7 +2,9 @@
 use super::explorer_connection_row_view::{ConnectionRowAction, ConnectionRowContext};
 use super::explorer_database_node_view::DatabaseNodeContext;
 use super::explorer_schema_node_view::SchemaNodeContext;
-use super::explorer_table_folder_view::TableFolderContext;
+use super::explorer_schema_objects_view::{
+    ExplorerSchemaObjectsAction, ExplorerSchemaObjectsModel, ExplorerSchemaObjectsView,
+};
 use super::explorer_tree::draw_hint_row;
 use super::*;
 
@@ -202,88 +204,38 @@ impl DbProApp {
 
     /// Renders the folders for a schema: Tables, Views, Functions, Triggers.
     pub(super) fn draw_dbeaver_schema_objects(&mut self, ui: &mut egui::Ui, schema: &str) {
-        let search_query = self.schema.explorer.explorer_search.trim().to_ascii_lowercase();
-        // Counts are O(n) but allocate nothing; materialised lists are deferred until a
-        // folder is actually open (see folder bodies below / Tables drawer).
-        let total_tables = self.schema_table_count(schema);
-        self.draw_tables_folder(ui, schema, total_tables, &search_query);
+        let connection_id = self
+            .connection
+            .lifecycle
+            .active_connection_id()
+            .unwrap_or_default()
+            .to_owned();
+        let selected_table = self.schema.explorer.selected_table.clone();
+        let table_info = self.table.state.table_info.clone();
+        let functions_enabled = self.active_capabilities().allows(|c| c.schema.functions);
+        let actions = ExplorerSchemaObjectsView::new(
+            self.theme,
+            &mut self.schema.explorer,
+            ExplorerSchemaObjectsModel {
+                selected_table,
+                table_info,
+                connection_id,
+                functions_enabled,
+            },
+        )
+        .draw(ui, schema);
 
-        let view_count = self
-            .schema
-            .explorer
-            .count_by_schema(&self.schema.explorer.schema.views, schema, |view| &view.schema);
-        self.draw_dbeaver_views_folder_lazy(ui, schema, view_count);
-
-        if self.active_capabilities().allows(|c| c.schema.functions) {
-            let function_count =
-                self.schema
-                    .explorer
-                    .count_by_schema(&self.schema.explorer.schema.functions, schema, |function| {
-                        &function.schema
-                    });
-            self.draw_dbeaver_functions_folder_lazy(ui, schema, function_count);
-        }
-
-        let trigger_count =
-            self.schema
-                .explorer
-                .count_by_schema(&self.schema.explorer.schema.triggers, schema, |trigger| &trigger.schema);
-        self.draw_dbeaver_triggers_folder_lazy(ui, schema, trigger_count);
-    }
-
-    /// Narrows schema-scoped objects to `schema`. When the backend reports no schema
-    /// list (e.g. SQLite) everything belongs to a single flat namespace.
-    /// Tables folder. Unlike the other folders it reflects the active filter in both
-    /// its count badge ("5/10") and its empty state.
-    pub(super) fn draw_tables_folder(
-        &mut self,
-        ui: &mut egui::Ui,
-        schema: &str,
-        total_tables: usize,
-        search_query: &str,
-    ) {
-        let matching_table_count = if search_query.is_empty() {
-            total_tables
-        } else if let Some(cache) = self.schema.explorer.explorer_nav_cache.as_ref().filter(|cache| {
-            cache.schema == schema
-                && cache.search == search_query
-                && cache.connection_id == self.connection.lifecycle.active_connection_id().unwrap_or_default()
-        }) {
-            cache.matching_count
-        } else {
-            self.schema.explorer.matching_table_count(schema, search_query)
-        };
-        let folder = TableFolderContext {
-            theme: self.theme,
-            schema,
-            total_tables,
-            matching_tables: matching_table_count,
-            search_query,
-        };
-        let render = folder.draw_header(ui);
-        if !render.is_open {
-            return;
-        }
-
-        let connection_id = self.connection.lifecycle.active_connection_id().unwrap_or_default();
-        let (_total, _matching, tables) = self.schema.explorer.cached_tables(connection_id, schema, search_query);
-        if tables.is_empty() {
-            folder.draw_empty_state(ui);
-            return;
-        }
-
-        let clip = ui.clip_rect();
-        for table in &tables {
-            let row_top = ui.cursor().min.y;
-            let row_bottom = row_top + EXPLORER_ROW_HEIGHT;
-            if row_bottom < clip.top() || row_top > clip.bottom() {
-                // Keep layout height without painting off-screen rows.
-                folder.draw_offscreen_row_spacer(ui);
-                continue;
+        for action in actions {
+            match action {
+                ExplorerSchemaObjectsAction::SelectTable(table) => self.select_table(&table),
+                ExplorerSchemaObjectsAction::TableRow { table, action } => {
+                    let schema = self.active_schema().to_owned();
+                    self.apply_table_row_action(action, &table, &schema, ui);
+                }
+                ExplorerSchemaObjectsAction::SchemaObject(action) => {
+                    self.apply_schema_object_folder_action(action, ui);
+                }
             }
-            self.draw_dbeaver_table_item(ui, table);
         }
-
-        folder.draw_overflow_hint(ui, tables.len());
     }
 }

@@ -124,6 +124,8 @@ mod explorer_schema_node_view;
 mod explorer_schema_object_folders_view;
 #[path = "explorer_schema_object_row_view.rs"]
 mod explorer_schema_object_row_view;
+#[path = "explorer_schema_objects_view.rs"]
+mod explorer_schema_objects_view;
 #[path = "explorer_table_details_view.rs"]
 mod explorer_table_details_view;
 #[path = "explorer_table_folder_view.rs"]

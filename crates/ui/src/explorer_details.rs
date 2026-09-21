@@ -1,13 +1,8 @@
 //! Table rows and the nested detail folders (Columns / Foreign keys / Indexes)
 //! of the Codex / DBeaver navigator tree.
 
-use super::explorer_table_row_view::{TableRowAction, TableRowContext};
+use super::explorer_table_row_view::TableRowAction;
 use super::*;
-
-struct TableRowActionInput<'a> {
-    table: &'a str,
-    schema: &'a str,
-}
 
 fn build_insert_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> String {
     let columns = info
@@ -72,38 +67,13 @@ fn primary_key_clause(info: Option<&UiTableInfo>) -> String {
 }
 
 impl DbProApp {
-    /// Renders an individual table item in the tree with selection and expandable details.
-    pub(super) fn draw_dbeaver_table_item(&mut self, ui: &mut egui::Ui, table: &str) {
-        let is_selected = self.schema.explorer.selected_table.as_deref() == Some(table);
-        let has_details = is_selected && self.table.state.table_info.is_some();
-        let render = TableRowContext {
-            theme: self.theme,
-            table,
-            is_selected,
-            has_details,
-        }
-        .draw(ui);
-
-        if render.should_select {
-            self.select_table(table);
-        }
-
-        let schema = self.active_schema().to_owned();
-        for action in render.actions {
-            self.apply_table_row_action(action, TableRowActionInput { table, schema: &schema }, ui);
-        }
-
-        // If table is selected and expanded, show nested details (Columns, Foreign keys, Indexes)
-        if is_selected && render.is_open {
-            if let Some(info) = self.table.state.table_info.clone() {
-                explorer_table_details_view::TableDetailsView::new(&self.theme).draw(ui, table, &info);
-            }
-        }
-    }
-
-    fn apply_table_row_action(&mut self, action: TableRowAction, input: TableRowActionInput<'_>, ui: &mut egui::Ui) {
-        let table = input.table;
-        let schema = input.schema;
+    pub(super) fn apply_table_row_action(
+        &mut self,
+        action: TableRowAction,
+        table: &str,
+        schema: &str,
+        ui: &mut egui::Ui,
+    ) {
         match action {
             TableRowAction::OpenData => self.open_table_view(TableView::Data),
             TableRowAction::OpenStructure => self.open_table_view(TableView::Structure),
