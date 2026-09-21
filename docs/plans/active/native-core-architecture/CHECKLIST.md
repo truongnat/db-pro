@@ -48,6 +48,8 @@
       `SchemaWorkbenchState`, with the root limited to orchestration.
 - [x] Closing a Table workspace uses the same feature reset transition as table
       navigation, including filters, sorts, caches and mutation dialogs.
+- [x] Agent and Saved Task command paths use the central dispatch adapter; the
+      architecture guard catches multiline direct channel sends.
 - [x] Query status, table DDL, insert, metadata, relations, mutation-dialog,
       conflict and data-toolbar surfaces use feature-owned contexts/actions.
 - [x] Database management catch-all split into named feature aggregates and schema comparison state.
@@ -66,8 +68,8 @@
 - [x] `cargo fmt --all -- --check` (PASS)
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
-- [x] UI test suite through the workspace gate (654 passed at `1d8647dc`)
-- [x] `cargo test --workspace --no-fail-fast --quiet` (PASS at `1d8647dc`; 0 failed)
+- [x] UI test suite through the workspace gate (654 passed at `d687de8e`)
+- [x] `cargo test --workspace --no-fail-fast --quiet` (PASS at `d687de8e`; 0 failed)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [x] `cargo build --release --locked -p db-pro-native --features capture`
 - [x] New Connection modal runtime capture at logical `1280x800` (centered
@@ -76,6 +78,6 @@
       and schema-object rows.
 - [x] Loading Welcome and New Connection error state captures at logical
       `1280x800`.
-- [x] Latest native release binary rebuilt on `1d8647dc`; runtime launch is
+- [x] Latest native release binary rebuilt on `d687de8e`; runtime launch is
       recorded below, but no new screenshot was collected for this checkpoint.
 - [ ] Native runtime evidence for affected surfaces.

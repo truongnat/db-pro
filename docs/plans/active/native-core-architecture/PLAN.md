@@ -42,7 +42,8 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
     now feature-owned in `f5fc419d`; Explain validation and transitions are
     isolated in `ef33bb1c`; saved-query preparation is isolated in
     `2b711995`; Schema Workbench mutation planning is feature-owned in
-    `1d8647dc`.
+    `1d8647dc`; command dispatch bypasses were closed and guarded in
+    `d687de8e`.
 6. Agent state and query-editor/schema-explorer state — completed; workspace
    files, diagram, database operations, palette, query execution policy, query
    library, saved tasks, named sessions, overlays, feedback, preferences and

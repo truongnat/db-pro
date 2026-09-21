@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `1d8647dc`.
+Source checkpoint: `d687de8e`.
 
 ## Current change
 
@@ -8,11 +8,12 @@ The native UI interaction boundary is being migrated in vertical slices.
 Explorer rows, the Agent surface, large Settings sections, table surfaces and
 query execution preparation, Explain transitions, saved-query preparation and
 Schema Workbench mutation planning now collect typed intents/effects in
-feature-owned contexts. The plan remains `IMPLEMENTING` because other large feature surfaces
+feature-owned contexts, and direct multiline channel bypasses are now guarded.
+The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
 
-## Gate evidence at `1d8647dc`
+## Gate evidence at `d687de8e`
 
 - `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
   infrastructure, 32 runtime, 4 Tauri, 654 UI and all other workspace suites
@@ -55,6 +56,11 @@ matrix is not complete.
   workspace gate reports 654 UI tests passed. Clean scan retains one existing
   large `app.rs` warning and one ownership-conversion clone heuristic in the
   new planner.
+
+- `d687de8e`: Agent API-key and Saved Task backup dispatches now use the central
+  `dispatch_command` adapter. The architecture guard was strengthened to catch
+  multiline direct `TaskBridge::send` calls. Workspace tests report 654 UI tests
+  passed.
 
 - `40e875fe`: Agent workflow reducer, SQL patch safety and Agent-result
   projection moved out of the root state module.
