@@ -73,6 +73,16 @@ and applies the output-panel toggle.
 - Runtime launch: the latest release binary is running in terminal session
   `78351` for manual verification. No dedicated statusbar interaction capture
   was collected; the runtime matrix remains incomplete.
+- Runtime viewport evidence was collected and visually inspected for the
+  native Welcome/shell surface:
+  - `/tmp/db-pro-native-core-e0d8105e-1280x800.png` — exact logical
+    `1280x800` (framebuffer `2560x1600`).
+  - `/tmp/db-pro-native-core-e0d8105e-1440x900.png` — requested width honored;
+    host-constrained logical height was `838` (framebuffer `2880x1676`).
+  - `/tmp/db-pro-native-core-e0d8105e-1920x1080.png` — requested width honored;
+    host-constrained logical height was `838` (framebuffer `3840x1676`).
+  The latter two are useful responsive checks but do not close the exact
+  `1440x900` / `1920x1080` acceptance requirement.
 
 ## Gate evidence at `d0952762`
 
