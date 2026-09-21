@@ -202,18 +202,6 @@ impl DbProApp {
     }
 }
 
-pub(super) fn agent_confirmation_title(
-    kind: db_pro_core::domain::agent_workflow::AgentConfirmationKind,
-) -> &'static str {
-    match kind {
-        db_pro_core::domain::agent_workflow::AgentConfirmationKind::ApplyPatch => "Apply Agent change?",
-        db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunReadOnly => "Run read-only query?",
-        db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunMutation => "Run mutation?",
-        db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunDestructive => "Execute destructive query?",
-        db_pro_core::domain::agent_workflow::AgentConfirmationKind::RunUnknown => "Run unclassified query?",
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::agent_settings_view::AI_EGRESS_DISCLOSURE;

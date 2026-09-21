@@ -42,6 +42,8 @@ mod agent_result_projection;
 mod agent_settings_view;
 #[path = "agent_state.rs"]
 mod agent_state;
+#[path = "agent_thread_surface_view.rs"]
+mod agent_thread_surface_view;
 #[path = "agent_thread_view.rs"]
 mod agent_thread_view;
 #[path = "agent_view.rs"]
