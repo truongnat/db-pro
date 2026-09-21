@@ -2154,7 +2154,7 @@ keeps task policy and execution effects.
   captured from the release binary rebuilt after the query-editor effect
   boundary. The New Connection dialog remains centered with a separated
   header/divider, right-aligned close control, complete body and separated
-  footer. The manual-verification release binary is running as PID `50960`.
+  footer. The manual-verification release binary is running as PID `50920`.
 - Runtime matrix from the preceding release source `05524c33`:
   - normal/empty: `/tmp/db-pro-native-core-05524c33-normal-1280x800.png`
   - loading: `/tmp/db-pro-native-core-05524c33-loading-1280x800.png`
