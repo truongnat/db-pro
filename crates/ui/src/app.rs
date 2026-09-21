@@ -474,6 +474,8 @@ mod visual_query_builder_state;
 mod visual_query_builder_view;
 #[path = "welcome_state.rs"]
 mod welcome_state;
+#[path = "welcome_surface_view.rs"]
+mod welcome_surface_view;
 #[path = "workspace_actions.rs"]
 mod workspace_actions;
 #[path = "workspace_files_state.rs"]
