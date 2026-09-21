@@ -39,6 +39,8 @@
 - [x] Diagram, workspace files, database operations, palette and query execution policy aggregates.
 - [x] Query execution preparation owns destructive gating, parameter binding,
       history and document-running transitions behind an explicit context.
+- [x] Query Explain capability validation, ANALYZE confirmation and request
+      transitions use an explicit feature context.
 - [x] Query status, table DDL, insert, metadata, relations, mutation-dialog,
       conflict and data-toolbar surfaces use feature-owned contexts/actions.
 - [x] Database management catch-all split into named feature aggregates and schema comparison state.
@@ -57,8 +59,8 @@
 - [x] `cargo fmt --all -- --check` (PASS)
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
-- [x] UI test suite through the workspace gate (647 passed at `f5fc419d`)
-- [x] `cargo test --workspace --no-fail-fast --quiet` (PASS at `f5fc419d`; 0 failed)
+- [x] UI test suite through the workspace gate (649 passed at `ef33bb1c`)
+- [x] `cargo test --workspace --no-fail-fast --quiet` (PASS at `ef33bb1c`; 0 failed)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [x] `cargo build --release --locked -p db-pro-native --features capture`
 - [x] New Connection modal runtime capture at logical `1280x800` (centered
@@ -67,6 +69,6 @@
       and schema-object rows.
 - [x] Loading Welcome and New Connection error state captures at logical
       `1280x800`.
-- [x] Latest native release binary rebuilt on `f5fc419d`; runtime launch is
+- [x] Latest native release binary rebuilt on `ef33bb1c`; runtime launch is
       recorded below, but no new screenshot was collected for this checkpoint.
 - [ ] Native runtime evidence for affected surfaces.

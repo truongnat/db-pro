@@ -39,7 +39,8 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
 5. Table/data editor state and mutation effects — grid/editor interaction state
    completed in `77a27f0c`; table metadata/request state completed in
    `0fc757d8`; mutation effects and the remaining table surface adapters are
-   now feature-owned in `f5fc419d`.
+    now feature-owned in `f5fc419d`; Explain validation and transitions are
+    isolated in `ef33bb1c`.
 6. Agent state and query-editor/schema-explorer state — completed; workspace
    files, diagram, database operations, palette, query execution policy, query
    library, saved tasks, named sessions, overlays, feedback, preferences and
