@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `6856abdf`.
+Source checkpoint: `37da51cf`.
 
 ## Current change
 
@@ -2054,8 +2054,16 @@ keeps task policy and execution effects.
   to a logical height of `838`. The required normal/loading/error/empty states
   are now captured at exact logical `1280x800`.
 
-## Current core checkpoint at `6856abdf`
+## Current core checkpoint at `37da51cf`
 
+- Result-grid interaction boundary: `4a5ff3fe`; keyboard selection, staged
+  change commands, paste/F2 editing and navigation now reduce through
+  `ResultGridInteractionContext` typed actions. The root retains clipboard,
+  mutation, edit and navigation effect adapters.
+- Saved Tasks lifecycle boundary: `37da51cf`; draft creation/commit,
+  schedule enable/disable, due-task trigger selection and deletion dirty-state
+  now belong to `SavedTaskState`; `tasks_view.rs` retains runtime dispatch and
+  cross-feature orchestration.
 - Agent panel composition boundary: `6856abdf`; the panel shell now consumes
   one `AgentPanelContext` and emits typed header/settings/context/thread/
   composer actions. `agent_view.rs` retains snapshot preparation and effect
@@ -2067,7 +2075,7 @@ keeps task policy and execution effects.
 - `cargo clippy --workspace --all-targets -- -D warnings`: passed.
 - `cargo test --workspace --no-fail-fast --quiet`: passed; workspace suites
   include 404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34,
-  31 and 678 UI tests with no failures. Environment-gated tests remain
+  31 and 680 UI tests with no failures. Environment-gated tests remain
   ignored.
 - `cargo build --release --locked -p db-pro-native`: passed.
 - `cargo build --release --locked -p db-pro-native --features capture`: passed.
@@ -2077,11 +2085,11 @@ keeps task policy and execution effects.
   `crates/ui/src/app.rs` at 1006 lines.
 - `git diff --check`: passed.
 - Current release runtime capture:
-  `/tmp/db-pro-native-core-6856abdf-agent-new-1280x800.png`, logical
-  `1280x800`, captured from the release binary built after the Agent panel
-  composition change. The New Connection dialog is centered with a separated
+  `/tmp/db-pro-native-core-37da51cf-new-1280x800.png`, logical `1280x800`,
+  captured from the release binary built after the result-grid and Saved Tasks
+  boundaries. The New Connection dialog is centered with a separated
   header/divider, right-aligned close control, complete body and separated
-  footer. The manual-verification release binary is running as PID `24559`.
+  footer. The manual-verification release binary is running as PID `30053`.
 
 ## Core boundary checkpoint at `db6013ee`
 

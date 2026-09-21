@@ -176,6 +176,11 @@
 - [x] Agent panel composition is owned by `AgentPanelContext`; the root retains
       snapshot preparation and typed header/settings/context/thread/composer
       effect adapters.
+- [x] Result-grid keyboard/edit interaction is owned by
+      `ResultGridInteractionContext`; root retains only typed clipboard,
+      mutation, edit and navigation effect adapters.
+- [x] Saved Tasks draft and schedule lifecycle is owned by `SavedTaskState`;
+      task runtime dispatch remains at the composition root.
 - [x] Settings navigation, section composition and diagnostics presentation
       are owned by `SettingsSurfaceContext`; settings root retains only
       persistence, runtime/file effects and typed action application.
