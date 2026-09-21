@@ -120,6 +120,8 @@ mod explorer_navigation;
 mod explorer_schema_feedback_view;
 #[path = "explorer_schema_node_view.rs"]
 mod explorer_schema_node_view;
+#[path = "explorer_schema_object_folders_view.rs"]
+mod explorer_schema_object_folders_view;
 #[path = "explorer_schema_object_row_view.rs"]
 mod explorer_schema_object_row_view;
 #[path = "explorer_table_details_view.rs"]

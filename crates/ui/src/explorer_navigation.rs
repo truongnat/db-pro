@@ -32,6 +32,7 @@ pub(crate) struct SchemaObjectActivationContext<'a> {
     feedback: &'a mut FeedbackState,
 }
 
+#[derive(Clone)]
 pub(crate) struct SchemaObjectActivation {
     pub(crate) selection: SchemaObjectSelection,
     pub(crate) schema: String,
