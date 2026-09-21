@@ -3,7 +3,7 @@ use crate::components::badge::{Badge, BadgeVariant};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::table::{Table, TableColumn};
 use crate::{UiDependencyDirection, UiDependencyKind};
-use egui::{Align, Color32, Layout, RichText};
+use egui::{Color32, RichText};
 use lucide_icons::Icon;
 
 impl DbProApp {
@@ -13,161 +13,19 @@ impl DbProApp {
             ui.label(RichText::new("Table structure is still loading…").color(self.theme.text_muted));
             return;
         };
-
-        card_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width(ui.available_width());
-            ui.horizontal(|ui| {
-                section_label(ui, "FOREIGN KEYS", self.theme);
-                ui.add_space(8.0);
-                input(
-                    ui,
-                    &mut self.table.state.table_metadata_search,
-                    "Filter foreign keys…",
-                    220.0,
-                    self.theme,
-                );
-                if !self.table.state.table_metadata_search.is_empty()
-                    && Button::new(self.theme)
-                        .icon(Icon::X)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .tooltip("Clear filter")
-                        .show(ui)
-                        .clicked()
-                {
-                    self.table.state.table_metadata_search.clear();
+        let actions = table_relations_surface_view::TableRelationsContext {
+            theme: self.theme,
+            info: &info,
+            search: &mut self.table.state.table_metadata_search,
+        }
+        .draw(ui);
+        for action in actions {
+            match action {
+                table_relations_surface_view::TableRelationsAction::OpenTable(table) => {
+                    self.open_table(table);
                 }
-
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(
-                        RichText::new(format!("Total: {} foreign keys", info.foreign_keys.len()))
-                            .font(font_caption())
-                            .color(self.theme.text_muted),
-                    );
-                });
-            });
-            ui.add_space(8.0);
-
-            let filter_lower = self.table.state.table_metadata_search.trim().to_lowercase();
-            let matching_fks: Vec<_> = info
-                .foreign_keys
-                .iter()
-                .filter(|fk| {
-                    if filter_lower.is_empty() {
-                        true
-                    } else {
-                        fk.name.to_lowercase().contains(&filter_lower)
-                            || fk.to_table.to_lowercase().contains(&filter_lower)
-                            || fk.from_columns.iter().any(|c| c.to_lowercase().contains(&filter_lower))
-                    }
-                })
-                .collect();
-
-            if matching_fks.is_empty() {
-                empty_state(
-                    ui,
-                    Icon::ArrowRightLeft,
-                    "No foreign keys found",
-                    "This table has no outgoing foreign keys or none match the search.",
-                    self.theme,
-                );
-                return;
             }
-
-            let cols = [
-                TableColumn::new("Constraint Name").width(220.0),
-                TableColumn::new("Source Columns").width(180.0),
-                TableColumn::new("Target Table").width(200.0),
-                TableColumn::new("Target Columns").width(180.0),
-                TableColumn::new("Action"),
-            ];
-
-            let mut switch_table: Option<String> = None;
-
-            egui::ScrollArea::horizontal()
-                .id_salt("relations-table-scroll")
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    Table::new(&cols, self.theme).row_height(34.0).show(
-                        ui,
-                        matching_fks.len(),
-                        |_| false,
-                        |_| {},
-                        |_| {},
-                        |_| {},
-                        |ui, row_idx, col_idx| {
-                            let relation = matching_fks[row_idx];
-                            match col_idx {
-                                0 => {
-                                    ui.horizontal(|ui| {
-                                        ui.label(icon_text(Icon::ArrowRightLeft, "", self.theme.accent));
-                                        ui.label(RichText::new(&relation.name).strong().color(self.theme.text_primary));
-                                    });
-                                }
-                                1 => {
-                                    ui.label(
-                                        RichText::new(relation.from_columns.join(", "))
-                                            .monospace()
-                                            .color(self.theme.text_secondary),
-                                    );
-                                }
-                                2 => {
-                                    ui.label(
-                                        RichText::new(format!("{}.{}", relation.to_schema, relation.to_table))
-                                            .strong()
-                                            .color(self.theme.text_primary),
-                                    );
-                                }
-                                3 => {
-                                    ui.label(
-                                        RichText::new(relation.to_columns.join(", "))
-                                            .monospace()
-                                            .color(self.theme.text_secondary),
-                                    );
-                                }
-                                4 => {
-                                    ui.horizontal_wrapped(|ui| {
-                                        ui.label(
-                                            RichText::new(format!(
-                                                "UPDATE {} · DELETE {}{}",
-                                                relation.on_update,
-                                                relation.on_delete,
-                                                if relation.deferrable {
-                                                    if relation.initially_deferred {
-                                                        " · DEFERRABLE INITIALLY DEFERRED"
-                                                    } else {
-                                                        " · DEFERRABLE"
-                                                    }
-                                                } else {
-                                                    ""
-                                                }
-                                            ))
-                                            .font(font_caption())
-                                            .color(self.theme.text_muted),
-                                        )
-                                        .on_hover_text(format!("MATCH {}", relation.match_option));
-                                        if Button::new(self.theme)
-                                            .icon(Icon::ExternalLink)
-                                            .variant(ButtonVariant::Ghost)
-                                            .size(ButtonSize::IconSm)
-                                            .tooltip("Open referenced table")
-                                            .show(ui)
-                                            .clicked()
-                                        {
-                                            switch_table = Some(relation.to_table.clone());
-                                        }
-                                    });
-                                }
-                                _ => {}
-                            }
-                        },
-                    );
-                });
-
-            if let Some(target) = switch_table {
-                self.open_table(target);
-            }
-        });
+        }
     }
 
     /// Draw the Constraints tab: categorized constraints (PK, FK, Unique, Check, NOT NULL).

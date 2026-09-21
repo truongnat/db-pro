@@ -516,6 +516,8 @@ mod table_editor_view;
 mod table_insert_row_view;
 #[path = "table_metadata_view.rs"]
 mod table_metadata_view;
+#[path = "table_relations_surface_view.rs"]
+mod table_relations_surface_view;
 #[path = "table_relations_view.rs"]
 mod table_relations_view;
 #[path = "table_structure_view.rs"]
