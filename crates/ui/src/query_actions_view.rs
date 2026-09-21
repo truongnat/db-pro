@@ -119,7 +119,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        let command = match self.query.library.create_folder_command(request_id, connection.id) {
+        let command = match query_save_actions::create_folder_command(&self.query.library, request_id, connection.id) {
             Ok(command) => command,
             Err(error) => {
                 self.feedback.runtime_message = error;

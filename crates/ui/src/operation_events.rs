@@ -3,6 +3,13 @@
 use super::*;
 use crate::RequestId;
 
+fn is_authoritative_connection_completion(operation: &str, pending: bool) -> bool {
+    !matches!(
+        operation,
+        "connection.created" | "connection.updated" | "connection.deleted" | "connection.tested"
+    ) || pending
+}
+
 impl DbProApp {
     pub(super) fn on_operation_progress(&mut self, operation: String, status: String) {
         management_events::on_operation_progress(&mut self.feedback, operation, status);
@@ -186,19 +193,33 @@ impl DbProApp {
     /// Generic completion for connection, table-row and query operations.
     pub(super) fn on_operation_completed(&mut self, request_id: RequestId, operation: String) {
         let pending_connection_request = self.connection.lifecycle.pending_request() == Some(request_id);
-        if matches!(
-            operation.as_str(),
-            "connection.created" | "connection.updated" | "connection.deleted" | "connection.tested"
-        ) && !pending_connection_request
-        {
+        if !is_authoritative_connection_completion(&operation, pending_connection_request) {
             return;
         }
         self.feedback.set_runtime_message(operation.clone());
         if pending_connection_request {
             self.connection.lifecycle.clear_pending_request();
         }
-        if matches!(
-            operation.as_str(),
+        self.apply_security_operation_completion(&operation);
+        self.apply_connection_operation_completion(&operation);
+        self.apply_connection_test_completion(&operation, pending_connection_request);
+        if operation.starts_with("table-row.") || operation == "table-changes.applied" {
+            self.on_table_row_operation_completed(request_id);
+        }
+        if operation == "connection.created" || operation == "connection.updated" {
+            self.close_connection_dialog();
+        }
+        if operation.starts_with("query") || operation.starts_with("query-folder") {
+            self.request_saved_queries_refresh();
+        }
+        if operation == "connection.deleted" {
+            self.clear_deleted_connection();
+        }
+    }
+
+    fn apply_security_operation_completion(&mut self, operation: &str) {
+        if !matches!(
+            operation,
             "create_role"
                 | "drop_role"
                 | "alter_role"
@@ -208,65 +229,66 @@ impl DbProApp {
                 | "grant_privilege"
                 | "revoke_privilege"
         ) {
-            self.management.security.security_drop_confirm = None;
-            self.management.security.security_password.clear();
-            self.request_security_users();
-            if let Some(role) = self.management.security.security_selected_role.clone() {
-                self.request_security_role_details(&role);
-            }
+            return;
         }
-        if matches!(
-            operation.as_str(),
-            "connection.created" | "connection.updated" | "connection.deleted"
-        ) {
+        self.management.security.security_drop_confirm = None;
+        self.management.security.security_password.clear();
+        self.request_security_users();
+        if let Some(role) = self.management.security.security_selected_role.clone() {
+            self.request_security_role_details(&role);
+        }
+    }
+
+    fn apply_connection_operation_completion(&mut self, operation: &str) {
+        if matches!(operation, "connection.created" | "connection.updated" | "connection.deleted") {
             self.connection.lifecycle.clear_connections_requested();
             self.request_connections_once();
         }
-        if operation == "connection.tested" && pending_connection_request {
-            self.connection.dialog.clear_error();
-            self.refresh_connection_diagnostics(true, "Authentication succeeded");
-            if self.connection.dialog.test_draft() == Some(self.connection.dialog.draft()) {
-                self.connection.dialog.set_test_valid(true);
-                self.feedback.set_runtime_message(
-                    self.connection
-                        .dialog
-                        .diagnostics()
-                        .map(|result| result.summary())
-                        .unwrap_or_else(|| "Connection test succeeded".to_owned()),
-                );
-            } else {
-                self.connection.dialog.set_test_valid(false);
-                self.feedback
-                    .set_runtime_message("Connection changed · test again before saving");
-            }
+    }
+
+    fn apply_connection_test_completion(&mut self, operation: &str, pending: bool) {
+        if operation != "connection.tested" || !pending {
+            return;
         }
-        if operation.starts_with("table-row.") || operation == "table-changes.applied" {
-            self.on_table_row_operation_completed(request_id);
+        self.connection.dialog.clear_error();
+        self.refresh_connection_diagnostics(true, "Authentication succeeded");
+        if self.connection.dialog.test_draft() == Some(self.connection.dialog.draft()) {
+            self.connection.dialog.set_test_valid(true);
+            self.feedback.set_runtime_message(
+                self.connection
+                    .dialog
+                    .diagnostics()
+                    .map(|result| result.summary())
+                    .unwrap_or_else(|| "Connection test succeeded".to_owned()),
+            );
+        } else {
+            self.connection.dialog.set_test_valid(false);
+            self.feedback
+                .set_runtime_message("Connection changed · test again before saving");
         }
-        if operation == "connection.created" || operation == "connection.updated" {
-            self.connection
-                .dialog
-                .transition(super::connection::state::ConnectionDialogAction::Close);
-            self.connection.dialog.set_editing_connection_id(None);
+    }
+
+    fn close_connection_dialog(&mut self) {
+        self.connection
+            .dialog
+            .transition(super::connection::state::ConnectionDialogAction::Close);
+        self.connection.dialog.set_editing_connection_id(None);
+    }
+
+    fn clear_deleted_connection(&mut self) {
+        // `pending_connection_id` is the delete target (set by the confirm dialog).
+        let deleted_id = self.connection.lifecycle.take_pending_connection_id();
+        if let Some(ref id) = deleted_id {
+            self.connection.lifecycle.clear_connection_error(id);
         }
-        if operation.starts_with("query") || operation.starts_with("query-folder") {
-            self.request_saved_queries_refresh();
-        }
-        if operation == "connection.deleted" {
-            // `pending_connection_id` is the delete target (set by the confirm dialog).
-            let deleted_id = self.connection.lifecycle.take_pending_connection_id();
-            if let Some(ref id) = deleted_id {
-                self.connection.lifecycle.clear_connection_error(id);
-            }
-            let deleted_was_active = deleted_id
-                .as_ref()
-                .is_some_and(|id| self.connection.lifecycle.active_connection_id() == Some(id.as_str()));
-            // Only tear down the live session when the deleted connection was active.
-            // Deleting a sibling must not force a reconnect / schema reload of the open one.
-            if deleted_was_active {
-                *self.connection.lifecycle.active_connection_id_mut() = None;
-                self.connection.lifecycle.set_connected(false);
-            }
+        let deleted_was_active = deleted_id
+            .as_ref()
+            .is_some_and(|id| self.connection.lifecycle.active_connection_id() == Some(id.as_str()));
+        // Only tear down the live session when the deleted connection was active.
+        // Deleting a sibling must not force a reconnect / schema reload of the open one.
+        if deleted_was_active {
+            *self.connection.lifecycle.active_connection_id_mut() = None;
+            self.connection.lifecycle.set_connected(false);
         }
     }
 
@@ -294,7 +316,7 @@ impl DbProApp {
     fn request_saved_queries_refresh(&mut self) {
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(self.query.library.list_queries_command(request_id, connection_id));
+            self.dispatch_command(query_save_actions::list_queries_command(request_id, connection_id));
         }
     }
 

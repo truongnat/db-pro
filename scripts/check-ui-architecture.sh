@@ -5,6 +5,15 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app_file="$repo_root/crates/ui/src/app.rs"
 events_file="$repo_root/crates/ui/src/events.rs"
 
+if ! rg -q '^include!\("app_modules\.rs"\);$' "$app_file"; then
+  echo "UI architecture check failed: app.rs must include the isolated module topology registry." >&2
+  exit 1
+fi
+if rg -n '^#\[path = ' "$app_file"; then
+  echo "UI architecture check failed: app.rs must not own feature module path declarations." >&2
+  exit 1
+fi
+
 if rg -n 'egui::(CentralPanel|SidePanel|TopBottomPanel|Window::new)|\.show\(.*\|ui\|' "$app_file"; then
   echo "UI architecture check failed: app.rs must remain a composition root without egui painting." >&2
   exit 1
@@ -290,6 +299,10 @@ if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/table_state.rs"; then
 fi
 if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/table_data_query_state.rs"; then
   echo "UI architecture check failed: TableDataQueryState must not construct runtime protocol commands." >&2
+  exit 1
+fi
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/query_library_state.rs"; then
+  echo "UI architecture check failed: QueryLibraryState must not construct runtime protocol commands." >&2
   exit 1
 fi
 

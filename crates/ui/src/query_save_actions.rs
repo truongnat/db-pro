@@ -2,6 +2,58 @@
 
 use super::{FeedbackState, QueryLibraryState, QuerySessionState, RequestId, UiCommand};
 
+pub(super) fn list_queries_command(request_id: RequestId, connection_id: String) -> UiCommand {
+    UiCommand::ListSavedQueries {
+        request_id,
+        connection_id,
+    }
+}
+
+pub(super) fn list_folders_command(request_id: RequestId, connection_id: String) -> UiCommand {
+    UiCommand::ListQueryFolders {
+        request_id,
+        connection_id,
+    }
+}
+
+pub(super) fn create_folder_command(
+    library: &QueryLibraryState,
+    request_id: RequestId,
+    connection_id: String,
+) -> Result<UiCommand, String> {
+    Ok(UiCommand::CreateQueryFolder {
+        request_id,
+        connection_id,
+        name: library.required_folder_name()?,
+    })
+}
+
+pub(super) fn save_query_command(
+    library: &QueryLibraryState,
+    request_id: RequestId,
+    connection_id: String,
+    saved_query_id: Option<String>,
+    name: String,
+    sql: String,
+) -> UiCommand {
+    UiCommand::SaveQuery {
+        request_id,
+        connection_id,
+        saved_query_id,
+        name,
+        sql,
+        folder: library.normalized_folder(),
+    }
+}
+
+pub(super) fn rename_query_command(request_id: RequestId, id: String, name: String) -> UiCommand {
+    UiCommand::RenameSavedQuery { request_id, id, name }
+}
+
+pub(super) fn delete_query_command(request_id: RequestId, id: String) -> UiCommand {
+    UiCommand::DeleteSavedQuery { request_id, id }
+}
+
 pub(crate) struct QuerySaveContext<'a> {
     session: &'a mut QuerySessionState,
     library: &'a QueryLibraryState,
@@ -47,9 +99,7 @@ impl<'a> QuerySaveContext<'a> {
             .documents
             .get(document_index)
             .map_or_else(String::new, |document| document.text().to_owned());
-        let command = self
-            .library
-            .save_query_command(request_id, connection_id, saved_query_id, name, sql);
+        let command = save_query_command(self.library, request_id, connection_id, saved_query_id, name, sql);
         Some(command)
     }
 
