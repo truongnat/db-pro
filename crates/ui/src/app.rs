@@ -560,6 +560,8 @@ mod security_roles_view;
 mod shell_chrome_view;
 #[path = "shell_output_panel_view.rs"]
 mod shell_output_panel_view;
+#[path = "shell_topbar_view.rs"]
+mod shell_topbar_view;
 #[path = "table_ddl_surface_view.rs"]
 mod table_ddl_surface_view;
 #[path = "table_ddl_view.rs"]
