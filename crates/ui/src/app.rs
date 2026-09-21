@@ -462,6 +462,8 @@ mod table_data_query_state;
 mod table_data_sort_view;
 #[path = "table_data_state.rs"]
 mod table_data_state;
+#[path = "table_data_surface_view.rs"]
+mod table_data_surface_view;
 #[path = "table_data_toolbar_surface_view.rs"]
 mod table_data_toolbar_surface_view;
 #[path = "table_data_view.rs"]
@@ -598,6 +600,8 @@ mod table_metadata_view;
 mod table_relations_surface_view;
 #[path = "table_relations_view.rs"]
 mod table_relations_view;
+#[path = "table_scroll_surface_view.rs"]
+mod table_scroll_surface_view;
 #[path = "table_structure_view.rs"]
 mod table_structure_view;
 #[path = "table_view.rs"]

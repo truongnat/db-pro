@@ -30,12 +30,12 @@ impl DbProApp {
         };
 
         self.draw_table_data_unified_toolbar(ui, table_name, &result, can_mutate, &paging);
-        ui.add_space(4.0);
-        let data_width = ui.max_rect().width();
-        grid_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width(data_width.max(0.0));
-            self.draw_result_grid(ui, &result);
-        });
+        table_data_surface_view::draw_grid(
+            &table_data_surface_view::TableDataSurfaceContext { theme: self.theme },
+            ui,
+            &result,
+            |ui, result| self.draw_result_grid(ui, result),
+        );
         self.draw_pending_changes_dialog(ui);
         self.draw_conflict_dialog(ui, &result);
         if self.table.data_query.result.is_none() {
