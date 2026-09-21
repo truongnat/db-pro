@@ -108,6 +108,8 @@
 - [x] Table indexes filter/table/detail presentation separated into an explicit
       context with typed select/close actions; table metadata state remains at
       the root adapter.
+- [x] Schema-object definition card presentation separated into an explicit
+      context; schema-object routing remains at the root adapter.
 - [x] Workspace Migrations and Graph tabs separated into explicit renderers
       with typed file-open intents; file navigation remains at the root
       adapter.
