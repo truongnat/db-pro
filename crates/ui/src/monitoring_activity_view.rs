@@ -9,45 +9,20 @@ impl DbProApp {
             self.connection.lifecycle.is_connected() && self.connection.lifecycle.active_connection_id().is_some();
         let driver = self.active_driver().to_owned();
         let name = self.active_connection_name().to_owned();
-
-        egui::Frame {
-            fill: self.theme.surface_elevated,
-            inner_margin: egui::Margin::same(SPACE_MD),
-            rounding: egui::Rounding::same(RADIUS_MD),
-            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-            ..Default::default()
+        let header_actions = monitoring_header_view::MonitoringHeaderContext {
+            theme: self.theme,
+            connected,
+            driver: &driver,
+            connection_name: &name,
+            poll: &mut self.management.monitoring.monitoring_poll,
         }
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                let (dot, label) = if connected {
-                    (self.theme.success, "Connected")
-                } else {
-                    (self.theme.text_muted, "Disconnected")
-                };
-                status_dot(ui, dot, connected, false, self.theme);
-                ui.label(RichText::new(label).strong().color(self.theme.text_primary));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if connected && secondary_button_with_icon(ui, Icon::RefreshCw, "Refresh", self.theme).clicked() {
-                        self.request_monitoring_snapshot();
-                    }
-                    ui.checkbox(&mut self.management.monitoring.monitoring_poll, "Auto-refresh");
-                });
-            });
-            ui.add_space(SPACE_SM);
-            if connected {
-                ui.label(
-                    RichText::new(format!("{name} · {driver}"))
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
-            } else {
-                ui.label(
-                    RichText::new("Connect from Explorer to monitor sessions.")
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-            }
-        });
+        .draw(ui);
+        if header_actions
+            .into_iter()
+            .any(|action| matches!(action, monitoring_header_view::MonitoringHeaderAction::Refresh))
+        {
+            self.request_monitoring_snapshot();
+        }
 
         if connected && self.management.monitoring.monitoring_poll {
             let due = self

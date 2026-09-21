@@ -172,6 +172,8 @@ mod masking_state;
 mod monitoring_activity_view;
 #[path = "monitoring_confirmation_view.rs"]
 mod monitoring_confirmation_view;
+#[path = "monitoring_header_view.rs"]
+mod monitoring_header_view;
 #[path = "monitoring_sessions_view.rs"]
 mod monitoring_sessions_view;
 #[path = "monitoring_snapshot_view.rs"]
