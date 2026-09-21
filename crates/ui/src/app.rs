@@ -496,6 +496,8 @@ mod schema_workspace_state;
 mod security_activity_view;
 #[path = "security_rls.rs"]
 mod security_rls;
+#[path = "security_rls_view.rs"]
+mod security_rls_view;
 #[path = "security_roles_view.rs"]
 mod security_roles_view;
 #[path = "shell_chrome_view.rs"]

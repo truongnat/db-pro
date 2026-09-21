@@ -299,151 +299,12 @@ impl DbProApp {
                 });
         }
 
-        ui.add_space(SPACE_MD);
-        section_label(ui, "ROW-LEVEL SECURITY", self.theme);
-        ui.add_space(SPACE_SM);
-        ui.label(
-            RichText::new("Policy changes are administrative — preview SQL, then confirm apply.")
-                .small()
-                .color(self.theme.text_muted),
-        );
-        input_full_width(
-            ui,
-            &mut self.management.security.security_rls_schema,
-            "schema",
-            self.theme,
-        );
-        input_full_width(
-            ui,
-            &mut self.management.security.security_rls_table,
-            "table",
-            self.theme,
-        );
-        ui.horizontal(|ui| {
-            if secondary_button_with_icon(ui, Icon::RefreshCw, "Inspect RLS", self.theme).clicked() {
-                self.request_security_rls();
-            }
-            if secondary_button_with_icon(ui, Icon::Shield, "Enable RLS", self.theme).clicked() {
-                self.preview_table_rls(false, true);
-            }
-            if secondary_button_with_icon(ui, Icon::ShieldOff, "Disable RLS", self.theme).clicked() {
-                self.preview_table_rls(false, false);
-            }
-            if secondary_button_with_icon(ui, Icon::Lock, "Force RLS", self.theme).clicked() {
-                self.preview_table_rls(true, true);
-            }
-            if secondary_button_with_icon(ui, Icon::Unlock, "No Force", self.theme).clicked() {
-                self.preview_table_rls(true, false);
-            }
-        });
-        if let Some(state) = self.management.security.security_rls_state.clone() {
-            ui.label(
-                RichText::new(format!(
-                    "{}.{} · enabled={} · forced={} · {} policy(ies)",
-                    state.schema,
-                    state.table,
-                    state.rls_enabled,
-                    state.rls_forced,
-                    state.policies.len()
-                ))
-                .small()
-                .monospace()
-                .color(self.theme.text_secondary),
-            );
-            for policy in state.policies {
-                let roles = if policy.roles.is_empty() {
-                    "PUBLIC".to_owned()
-                } else {
-                    policy.roles.join(", ")
-                };
-                ui.label(
-                    RichText::new(format!(
-                        "{} · {} · {} · roles[{}] · USING({}) · CHECK({})",
-                        policy.name,
-                        policy.command,
-                        if policy.permissive { "PERMISSIVE" } else { "RESTRICTIVE" },
-                        roles,
-                        policy.using_expr.as_deref().unwrap_or("—"),
-                        policy.with_check_expr.as_deref().unwrap_or("—"),
-                    ))
-                    .small()
-                    .monospace()
-                    .color(self.theme.text_secondary),
-                );
-                ui.horizontal(|ui| {
-                    if danger_button(ui, "Drop policy", self.theme).clicked() {
-                        self.preview_drop_rls_policy(&policy.name);
-                    }
-                    if secondary_button_with_icon(ui, Icon::Pencil, "Load for edit", self.theme).clicked() {
-                        self.management.security.security_rls_policy_name = policy.name.clone();
-                        self.management.security.security_rls_command = policy.command.clone();
-                        self.management.security.security_rls_roles = policy.roles.join(", ");
-                        self.management.security.security_rls_using = policy.using_expr.clone().unwrap_or_default();
-                        self.management.security.security_rls_with_check =
-                            policy.with_check_expr.clone().unwrap_or_default();
-                    }
-                });
-            }
+        let rls_actions = security_rls_view::SecurityRlsContext {
+            theme: self.theme,
+            state: &mut self.management.security,
         }
-        ui.add_space(SPACE_SM);
-        section_label(ui, "CREATE / ALTER POLICY", self.theme);
-        input_full_width(
-            ui,
-            &mut self.management.security.security_rls_policy_name,
-            "policy name",
-            self.theme,
-        );
-        input_full_width(
-            ui,
-            &mut self.management.security.security_rls_command,
-            "command (ALL/SELECT/INSERT/UPDATE/DELETE)",
-            self.theme,
-        );
-        input_full_width(
-            ui,
-            &mut self.management.security.security_rls_roles,
-            "roles (comma; empty=PUBLIC)",
-            self.theme,
-        );
-        input_full_width(
-            ui,
-            &mut self.management.security.security_rls_using,
-            "USING expression",
-            self.theme,
-        );
-        input_full_width(
-            ui,
-            &mut self.management.security.security_rls_with_check,
-            "WITH CHECK expression",
-            self.theme,
-        );
-        ui.horizontal(|ui| {
-            if primary_button_with_icon(ui, Icon::Eye, "Preview CREATE", self.theme).clicked() {
-                self.preview_rls_policy(db_pro_core::domain::object_mutation::ObjectAction::Create);
-            }
-            if secondary_button_with_icon(ui, Icon::Pencil, "Preview ALTER", self.theme).clicked() {
-                self.preview_rls_policy(db_pro_core::domain::object_mutation::ObjectAction::Alter);
-            }
-        });
-        if !self.management.security.security_rls_preview_sql.is_empty() {
-            ui.label(
-                RichText::new(&self.management.security.security_rls_preview_sql)
-                    .small()
-                    .monospace()
-                    .color(self.theme.text_primary),
-            );
-            ui.checkbox(
-                &mut self.management.security.security_rls_confirm_apply,
-                "I understand this changes data visibility immediately",
-            );
-            if primary_button_with_icon(ui, Icon::Play, "Apply preview SQL", self.theme).clicked() {
-                if !self.management.security.security_rls_confirm_apply {
-                    self.feedback.runtime_message = "Confirm RLS apply checkbox first".into();
-                } else {
-                    self.apply_security_rls_preview();
-                }
-            }
-        }
+        .draw(ui);
+        self.apply_security_rls_actions(rls_actions);
     }
 
     fn apply_security_roles_actions(&mut self, actions: Vec<security_roles_view::SecurityRolesAction>) {
@@ -566,6 +427,43 @@ impl DbProApp {
                 self.management.security.security_rls_confirm_apply = false;
             }
             Err(error) => self.feedback.runtime_message = error,
+        }
+    }
+
+    fn apply_security_rls_actions(&mut self, actions: Vec<security_rls_view::SecurityRlsAction>) {
+        for action in actions {
+            match action {
+                security_rls_view::SecurityRlsAction::Inspect => self.request_security_rls(),
+                security_rls_view::SecurityRlsAction::PreviewTable { force, enable } => {
+                    self.preview_table_rls(force, enable);
+                }
+                security_rls_view::SecurityRlsAction::DropPolicy(name) => {
+                    self.preview_drop_rls_policy(&name);
+                }
+                security_rls_view::SecurityRlsAction::LoadPolicy {
+                    name,
+                    command,
+                    roles,
+                    using_expression,
+                    with_check,
+                } => {
+                    self.management.security.security_rls_policy_name = name;
+                    self.management.security.security_rls_command = command;
+                    self.management.security.security_rls_roles = roles;
+                    self.management.security.security_rls_using = using_expression;
+                    self.management.security.security_rls_with_check = with_check;
+                }
+                security_rls_view::SecurityRlsAction::PreviewPolicy(action) => {
+                    self.preview_rls_policy(action);
+                }
+                security_rls_view::SecurityRlsAction::ApplyPreview => {
+                    if !self.management.security.security_rls_confirm_apply {
+                        self.feedback.runtime_message = "Confirm RLS apply checkbox first".into();
+                    } else {
+                        self.apply_security_rls_preview();
+                    }
+                }
+            }
         }
     }
 
