@@ -145,6 +145,7 @@ explicit_state_modules=(
   "$repo_root/crates/ui/src/explorer_schema_object_folders_view.rs"
   "$repo_root/crates/ui/src/explorer_schema_objects_view.rs"
   "$repo_root/crates/ui/src/explorer_schema_tree_view.rs"
+  "$repo_root/crates/ui/src/explorer_surface_view.rs"
   "$repo_root/crates/ui/src/explorer_navigation.rs"
   "$repo_root/crates/ui/src/explorer_table_row_view.rs"
   "$repo_root/crates/ui/src/explorer_table_details_view.rs"

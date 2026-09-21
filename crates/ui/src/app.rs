@@ -130,6 +130,8 @@ mod explorer_schema_object_row_view;
 mod explorer_schema_objects_view;
 #[path = "explorer_schema_tree_view.rs"]
 mod explorer_schema_tree_view;
+#[path = "explorer_surface_view.rs"]
+mod explorer_surface_view;
 #[path = "explorer_table_details_view.rs"]
 mod explorer_table_details_view;
 #[path = "explorer_table_folder_view.rs"]
