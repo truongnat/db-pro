@@ -3,7 +3,7 @@ use super::{ConnectionCatalogState, ConnectionLifecycleState};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::dialog::Dialog;
 use crate::tokens::*;
-use crate::{DbProTheme, TaskBridge, UiCommand};
+use crate::{DbProTheme, UiCommand};
 use egui::RichText;
 
 /// Render and reduce the connection deletion confirmation without reaching
@@ -14,7 +14,7 @@ pub(crate) fn draw(
     overlay: &mut OverlayState,
     catalog: &ConnectionCatalogState,
     lifecycle: &mut ConnectionLifecycleState,
-    task_bridge: &mut TaskBridge,
+    command_dispatcher: &mut super::super::command_dispatch::RuntimeCommandDispatcher<'_>,
     feedback: &mut FeedbackState,
 ) {
     let Some(connection_id) = overlay.delete_confirmation_id.clone() else {
@@ -65,12 +65,12 @@ pub(crate) fn draw(
         });
 
     if confirmed {
-        let request_id = task_bridge.next_request_id();
+        let request_id = command_dispatcher.next_request_id();
         let command = UiCommand::DeleteConnection {
             request_id,
             connection_id: connection_id.clone(),
         };
-        if !task_bridge.send_best_effort(command) {
+        if !command_dispatcher.send_best_effort(command) {
             let message = "Runtime worker unavailable";
             feedback.set_runtime_message(message);
             feedback.show_error_toast(message);

@@ -64,6 +64,8 @@ mod audit_state;
 mod cell_inspector;
 #[path = "change_set.rs"]
 mod change_set;
+#[path = "command_dispatch.rs"]
+mod command_dispatch;
 #[path = "component_gallery_agent.rs"]
 mod component_gallery_agent;
 #[path = "component_gallery_feedback.rs"]
@@ -704,10 +706,11 @@ impl DbProApp {
 
     /// Dispatch connection test or save command to the runtime worker.
     pub fn dispatch_connection_command(&mut self, save: bool) {
+        let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
         connection::view::ConnectionDialogView {
             dialog: &mut self.connection.dialog,
             lifecycle: &mut self.connection.lifecycle,
-            task_bridge: &mut self.task_bridge,
+            command_dispatcher: &mut command_dispatcher,
             feedback: &mut self.feedback,
             theme: self.theme,
         }

@@ -8,7 +8,7 @@ use crate::DbProTheme;
 use egui::{FontFamily, FontId, RichText};
 use lucide_icons::Icon;
 
-impl<'a> super::view::ConnectionDialogView<'a> {
+impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
     /// Draw general connection profile fields (Name, Group, Favorite, Environment, Safety).
     pub(crate) fn draw_general_profile_fields(&mut self, ui: &mut egui::Ui) {
         let avail = ui.available_width();

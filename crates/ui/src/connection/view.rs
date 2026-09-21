@@ -7,7 +7,7 @@ use crate::components::dialog::Dialog;
 use crate::components::input::Input;
 use crate::components::interact::radio_info;
 use crate::tokens::*;
-use crate::{DbProTheme, TaskBridge, UiCommand, UiDriver, UiSslMode};
+use crate::{DbProTheme, UiCommand, UiDriver, UiSslMode};
 use egui::{pos2, vec2, Align2, FontFamily, FontId, Frame, Margin, Rect, RichText, Rounding, Stroke};
 use lucide_icons::Icon;
 
@@ -155,17 +155,17 @@ pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &D
     }
 }
 
-pub(crate) struct ConnectionDialogView<'a> {
-    pub(crate) dialog: &'a mut ConnectionDialogState,
-    pub(crate) lifecycle: &'a mut ConnectionLifecycleState,
-    pub(crate) task_bridge: &'a mut TaskBridge,
-    pub(crate) feedback: &'a mut FeedbackState,
+pub(crate) struct ConnectionDialogView<'view, 'bridge> {
+    pub(crate) dialog: &'view mut ConnectionDialogState,
+    pub(crate) lifecycle: &'view mut ConnectionLifecycleState,
+    pub(crate) command_dispatcher: &'view mut super::super::command_dispatch::RuntimeCommandDispatcher<'bridge>,
+    pub(crate) feedback: &'view mut FeedbackState,
     pub(crate) theme: DbProTheme,
 }
 
-impl<'a> ConnectionDialogView<'a> {
+impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
     pub(crate) fn dispatch_command(&mut self, command: UiCommand) -> bool {
-        if self.task_bridge.send_best_effort(command) {
+        if self.command_dispatcher.send_best_effort(command) {
             return true;
         }
         let message = "Runtime worker unavailable";
@@ -202,7 +202,7 @@ impl<'a> ConnectionDialogView<'a> {
             return;
         }
 
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.command_dispatcher.next_request_id();
         let command = super::logic::build_connection_command(
             self.dialog.draft.clone(),
             self.dialog.editing_connection_id.clone(),
@@ -480,7 +480,7 @@ impl<'a> ConnectionDialogView<'a> {
                     .show(ui)
                     .clicked()
                 {
-                    let request_id = self.task_bridge.next_request_id();
+                    let request_id = self.command_dispatcher.next_request_id();
                     self.dispatch_command(UiCommand::PickSqliteFile { request_id });
                 }
             });
@@ -525,13 +525,13 @@ pub(crate) fn draw_connection_dialog(
     theme: DbProTheme,
     dialog: &mut ConnectionDialogState,
     lifecycle: &mut ConnectionLifecycleState,
-    task_bridge: &mut TaskBridge,
+    command_dispatcher: &mut super::super::command_dispatch::RuntimeCommandDispatcher<'_>,
     feedback: &mut FeedbackState,
 ) {
     ConnectionDialogView {
         dialog,
         lifecycle,
-        task_bridge,
+        command_dispatcher,
         feedback,
         theme,
     }

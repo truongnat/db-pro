@@ -231,33 +231,36 @@ impl DbProApp {
 
     fn draw_overlays(&mut self, ctx: &egui::Context) {
         if self.connection.dialog.is_open() {
+            let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
             connection::view::draw_connection_dialog(
                 ctx,
                 self.theme,
                 &mut self.connection.dialog,
                 &mut self.connection.lifecycle,
-                &mut self.task_bridge,
+                &mut command_dispatcher,
                 &mut self.feedback,
             );
         }
         if self.overlay.delete_confirmation_id.is_some() {
+            let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
             connection::delete_dialog::draw(
                 ctx,
                 self.theme,
                 &mut self.overlay,
                 &self.connection.catalog,
                 &mut self.connection.lifecycle,
-                &mut self.task_bridge,
+                &mut command_dispatcher,
                 &mut self.feedback,
             );
         }
         if self.overlay.folder_delete_confirmation.is_some() {
+            let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
             query_folder_delete_dialog::draw(
                 ctx,
                 self.theme,
                 &mut self.overlay,
                 &self.query.library,
-                &mut self.task_bridge,
+                &mut command_dispatcher,
                 &mut self.feedback,
             );
         }

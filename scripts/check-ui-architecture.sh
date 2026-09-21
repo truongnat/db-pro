@@ -68,6 +68,13 @@ if [[ -n "$direct_sends" ]]; then
   exit 1
 fi
 
+direct_best_effort_sends=$(rg --pcre2 -U -n 'task_bridge\s*(?:\n\s*)?\.send_best_effort\(' "$repo_root/crates/ui/src" --glob '*.rs' | rg -v '/app\.rs:' || true)
+if [[ -n "$direct_best_effort_sends" ]]; then
+  echo "$direct_best_effort_sends" >&2
+  echo "UI architecture check failed: feature code bypasses the command dispatch adapter with best-effort sends." >&2
+  exit 1
+fi
+
 direct_windows=$(rg -n 'egui::Window::new' "$repo_root/crates/ui/src" --glob '*.rs' || true)
 if [[ -n "$direct_windows" ]]; then
   echo "$direct_windows" >&2

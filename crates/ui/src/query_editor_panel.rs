@@ -15,6 +15,7 @@ impl DbProApp {
             SqlDialect::SQLite
         };
         let active_schema = self.active_query_schema().to_owned();
+        let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
         let effects = {
             let mut context = query_editor_surface_view::QueryEditorSurfaceContext {
                 theme: self.theme,
@@ -22,7 +23,7 @@ impl DbProApp {
                 query_session: &mut self.query.session,
                 preferences: &self.preferences,
                 schema: &self.schema.explorer,
-                task_bridge: &mut self.task_bridge,
+                command_dispatcher: &mut command_dispatcher,
                 active_schema: &active_schema,
                 dialect,
             };

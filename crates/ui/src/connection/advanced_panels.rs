@@ -12,7 +12,7 @@ use egui::{
 };
 use lucide_icons::Icon;
 
-impl<'a> super::view::ConnectionDialogView<'a> {
+impl<'view, 'bridge> super::view::ConnectionDialogView<'view, 'bridge> {
     /// Panel 1: Cloud Presets & URI Importer
     pub(crate) fn draw_cloud_presets_panel(&mut self, ui: &mut egui::Ui) {
         Frame {
@@ -280,7 +280,7 @@ impl<'a> super::view::ConnectionDialogView<'a> {
                                 .show(ui)
                                 .clicked()
                             {
-                                let request_id = self.task_bridge.next_request_id();
+                                let request_id = self.command_dispatcher.next_request_id();
                                 self.dispatch_command(UiCommand::PickSshPrivateKey { request_id });
                             }
                         });

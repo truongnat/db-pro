@@ -12,18 +12,18 @@ pub(super) struct QueryEditorEffects {
     pub(super) save_query: bool,
 }
 
-pub(super) struct QueryEditorSurfaceContext<'a> {
+pub(super) struct QueryEditorSurfaceContext<'view, 'bridge> {
     pub(super) theme: DbProTheme,
-    pub(super) query_editor: &'a mut QueryEditorState,
-    pub(super) query_session: &'a mut QuerySessionState,
-    pub(super) preferences: &'a PreferencesState,
-    pub(super) schema: &'a SchemaExplorerState,
-    pub(super) task_bridge: &'a mut TaskBridge,
-    pub(super) active_schema: &'a str,
+    pub(super) query_editor: &'view mut QueryEditorState,
+    pub(super) query_session: &'view mut QuerySessionState,
+    pub(super) preferences: &'view PreferencesState,
+    pub(super) schema: &'view SchemaExplorerState,
+    pub(super) command_dispatcher: &'view mut command_dispatch::RuntimeCommandDispatcher<'bridge>,
+    pub(super) active_schema: &'view str,
     pub(super) dialect: SqlDialect,
 }
 
-impl<'a> QueryEditorSurfaceContext<'a> {
+impl<'view, 'bridge> QueryEditorSurfaceContext<'view, 'bridge> {
     pub(super) fn draw_query_editor(&mut self, ui: &mut egui::Ui) -> QueryEditorEffects {
         let editor_width = ui.max_rect().width();
         // Editor owns the allocated region from draw_query — no permanent output reserve.
@@ -81,7 +81,7 @@ impl<'a> QueryEditorSurfaceContext<'a> {
         }
         if cursor_context_changed {
             if let Some(request_id) = doc.pending_prediction_request {
-                self.task_bridge
+                self.command_dispatcher
                     .send_best_effort(UiCommand::CancelSqlPrediction { request_id });
             }
             doc.invalidate_prediction();
@@ -122,7 +122,7 @@ impl<'a> QueryEditorSurfaceContext<'a> {
         if response.wants_format {
             if let Some(request_id) = doc.pending_prediction_request {
                 // Cancellation is best effort; the document version guard remains authoritative.
-                self.task_bridge
+                self.command_dispatcher
                     .send_best_effort(UiCommand::CancelSqlPrediction { request_id });
             }
             format_query_document(doc, dialect);
@@ -193,7 +193,7 @@ impl<'a> QueryEditorSurfaceContext<'a> {
             if doc.prediction.is_none() && !manual && doc.should_dedupe_prediction(fingerprint, Instant::now()) {
                 doc.prediction_requests_deduped = doc.prediction_requests_deduped.saturating_add(1);
             } else if doc.prediction.is_none() {
-                let req_id = self.task_bridge.next_request_id();
+                let req_id = self.command_dispatcher.next_request_id();
                 let replacement_range = prediction_replacement_range(&doc.buffer, anchor, manual);
                 let command = UiCommand::RequestSqlPrediction {
                     request_id: req_id,
@@ -203,7 +203,7 @@ impl<'a> QueryEditorSurfaceContext<'a> {
                     replacement_range,
                     context: ai_context,
                 };
-                if self.task_bridge.send_best_effort(command) {
+                if self.command_dispatcher.send_best_effort(command) {
                     doc.prediction_context_fingerprint = Some(fingerprint);
                     doc.prediction_last_request_fingerprint = Some(fingerprint);
                     doc.prediction_last_request_at = Some(Instant::now());
