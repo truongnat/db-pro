@@ -1,6 +1,10 @@
 use super::*;
 
-pub(super) fn draw_maintenance_activity(ui: &mut egui::Ui, theme: DbProTheme, monitoring: &mut MonitoringState) {
+pub(super) fn draw_maintenance_activity(
+    ui: &mut egui::Ui,
+    theme: DbProTheme,
+) -> Option<db_pro_core::domain::monitoring::MaintenanceAction> {
+    let mut selected = None;
     ui.add_space(SPACE_MD);
     section_label(ui, "MAINTENANCE", theme);
     ui.add_space(SPACE_SM);
@@ -17,8 +21,9 @@ pub(super) fn draw_maintenance_activity(ui: &mut egui::Ui, theme: DbProTheme, mo
             MaintenanceAction::VacuumAnalyze,
         ] {
             if secondary_button(ui, action.as_label(), theme).clicked() {
-                monitoring.monitoring_maintenance_confirm = Some(action);
+                selected = Some(action);
             }
         }
     });
+    selected
 }

@@ -69,7 +69,14 @@ impl DbProApp {
 
         self.draw_monitor_snapshot(ui, connected);
 
-        self.draw_monitor_confirmations(ui);
+        let confirmation_actions = monitoring_confirmation_view::MonitoringConfirmationContext {
+            theme: self.theme,
+            terminate_backend_id: self.management.monitoring.monitoring_terminate_confirm,
+            maintenance_action: self.management.monitoring.monitoring_maintenance_confirm,
+            reset_statistics: self.management.monitoring.monitoring_reset_stats_confirm,
+        }
+        .draw(ui.ctx());
+        self.apply_monitoring_confirmation_actions(confirmation_actions);
     }
 
     fn draw_monitor_snapshot(&mut self, ui: &mut egui::Ui, connected: bool) {
@@ -103,7 +110,9 @@ impl DbProApp {
 
             self.draw_pg_settings_activity(ui);
 
-            maintenance_activity_view::draw_maintenance_activity(ui, self.theme, &mut self.management.monitoring);
+            if let Some(action) = maintenance_activity_view::draw_maintenance_activity(ui, self.theme) {
+                self.management.monitoring.monitoring_maintenance_confirm = Some(action);
+            }
         } else if connected {
             ui.label(
                 RichText::new("Refresh to load sessions (or wait for auto-refresh).")
@@ -128,98 +137,71 @@ impl DbProApp {
         monitoring_snapshot_view::draw_server_stats(ui, self.theme, snapshot);
     }
 
-    fn draw_monitor_confirmations(&mut self, ui: &mut egui::Ui) {
-        if let Some(backend_id) = self.management.monitoring.monitoring_terminate_confirm {
-            egui::Window::new("Terminate session?")
-                .collapsible(false)
-                .resizable(false)
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .show(ui.ctx(), |ui| {
-                    ui.label(format!(
-                        "Terminate PostgreSQL backend pid {backend_id}? This disconnects the client."
-                    ));
-                    ui.horizontal(|ui| {
-                        if danger_button(ui, "Terminate", self.theme).clicked() {
-                            if let Some(connection_id) =
-                                self.connection.lifecycle.active_connection_id().map(str::to_owned)
-                            {
-                                let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(self.management.monitoring.terminate_backend_command(
-                                    request_id,
-                                    connection_id,
-                                    backend_id,
-                                ));
-                            }
-                            self.management.monitoring.monitoring_terminate_confirm = None;
-                        }
-                        if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.management.monitoring.monitoring_terminate_confirm = None;
-                        }
-                    });
-                });
+    fn apply_monitoring_confirmation_actions(
+        &mut self,
+        actions: Vec<monitoring_confirmation_view::MonitoringConfirmationAction>,
+    ) {
+        for action in actions {
+            match action {
+                monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmTerminate(backend_id) => {
+                    self.terminate_monitoring_backend(backend_id);
+                    self.management.monitoring.monitoring_terminate_confirm = None;
+                }
+                monitoring_confirmation_view::MonitoringConfirmationAction::CancelTerminate => {
+                    self.management.monitoring.monitoring_terminate_confirm = None;
+                }
+                monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmMaintenance(action) => {
+                    self.run_monitoring_maintenance(action);
+                    self.management.monitoring.monitoring_maintenance_confirm = None;
+                }
+                monitoring_confirmation_view::MonitoringConfirmationAction::CancelMaintenance => {
+                    self.management.monitoring.monitoring_maintenance_confirm = None;
+                }
+                monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmResetStatistics => {
+                    self.reset_monitoring_statistics();
+                    self.management.monitoring.monitoring_reset_stats_confirm = false;
+                }
+                monitoring_confirmation_view::MonitoringConfirmationAction::CancelResetStatistics => {
+                    self.management.monitoring.monitoring_reset_stats_confirm = false;
+                }
+            }
         }
+    }
 
-        if let Some(action) = self.management.monitoring.monitoring_maintenance_confirm {
-            egui::Window::new("Run maintenance?")
-                .collapsible(false)
-                .resizable(false)
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .show(ui.ctx(), |ui| {
-                    ui.label(format!(
-                        "Run {} on the active database? Long-running VACUUM can take locks.",
-                        action.as_label()
-                    ));
-                    ui.horizontal(|ui| {
-                        if danger_button(ui, action.as_label(), self.theme).clicked() {
-                            if let Some(connection_id) =
-                                self.connection.lifecycle.active_connection_id().map(str::to_owned)
-                            {
-                                let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(self.management.monitoring.maintenance_command(
-                                    request_id,
-                                    connection_id,
-                                    action,
-                                ));
-                            }
-                            self.management.monitoring.monitoring_maintenance_confirm = None;
-                        }
-                        if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.management.monitoring.monitoring_maintenance_confirm = None;
-                        }
-                    });
-                });
-        }
+    fn terminate_monitoring_backend(&mut self, backend_id: i64) {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(self.management.monitoring.terminate_backend_command(
+            request_id,
+            connection_id,
+            backend_id,
+        ));
+    }
 
-        if self.management.monitoring.monitoring_reset_stats_confirm {
-            egui::Window::new("Reset pg_stat_statements?")
-                .collapsible(false)
-                .resizable(false)
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .show(ui.ctx(), |ui| {
-                    ui.label(
-                        "This clears all accumulated statement statistics on the server. \
-                     It is an administrative action and cannot be undone.",
-                    );
-                    ui.horizontal(|ui| {
-                        if danger_button(ui, "Reset statistics", self.theme).clicked() {
-                            if let Some(connection_id) =
-                                self.connection.lifecycle.active_connection_id().map(str::to_owned)
-                            {
-                                let request_id = self.task_bridge.next_request_id();
-                                self.dispatch_command(
-                                    self.management
-                                        .monitoring
-                                        .reset_statements_command(request_id, connection_id),
-                                );
-                            }
-                            self.management.monitoring.monitoring_reset_stats_confirm = false;
-                        }
-                        if secondary_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
-                            self.management.monitoring.monitoring_reset_stats_confirm = false;
-                        }
-                    });
-                });
-        }
+    fn run_monitoring_maintenance(&mut self, action: db_pro_core::domain::monitoring::MaintenanceAction) {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(
+            self.management
+                .monitoring
+                .maintenance_command(request_id, connection_id, action),
+        );
+    }
+
+    fn reset_monitoring_statistics(&mut self) {
+        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+            return;
+        };
+        let request_id = self.task_bridge.next_request_id();
+        self.dispatch_command(
+            self.management
+                .monitoring
+                .reset_statements_command(request_id, connection_id),
+        );
     }
 
     fn apply_monitoring_sessions_actions(&mut self, actions: Vec<monitoring_sessions_view::MonitoringSessionsAction>) {
