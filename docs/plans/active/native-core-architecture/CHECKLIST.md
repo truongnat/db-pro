@@ -152,10 +152,11 @@
 - [x] Agent and table runtime handlers split into feature event modules.
 - [x] Connection, schema and operation reducers split out of `events.rs`.
 - [x] Legacy agent command/event path removed; agent runtime uses one workflow contract.
-- [ ] `DbProApp` reduced to composition root (event pump and cross-feature orchestration only).
-      Explorer rendering is now explicit; remaining work is the root's
-      cross-feature effect adapters and equivalent adapters in other large
-      surfaces.
+- [x] `DbProApp` reduced to composition root (event pump and cross-feature
+      orchestration only); `app.rs` has no egui painting or feature-specific
+      draft/result collection, enforced by the architecture guard. Feature
+      effect adapters remain in their owning view modules; runtime evidence is
+      tracked separately below.
 - [x] Query result-pane shell rendering is owned by an explicit surface
       context; the root retains only snapshot preparation, grid callback,
       typed intent application and feature-specific dialog adapters.

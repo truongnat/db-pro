@@ -5,6 +5,11 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app_file="$repo_root/crates/ui/src/app.rs"
 events_file="$repo_root/crates/ui/src/events.rs"
 
+if rg -n 'egui::(CentralPanel|SidePanel|TopBottomPanel|Window::new)|\.show\(.*\|ui\|' "$app_file"; then
+  echo "UI architecture check failed: app.rs must remain a composition root without egui painting." >&2
+  exit 1
+fi
+
 # DbProApp is deliberately an allowlisted composition root. A new field must
 # be a feature aggregate, an adapter, or shell composition state; otherwise it
 # belongs in the owning feature state module.
