@@ -30,6 +30,55 @@ pub(super) fn query_result(tool_result: &super::agent_workflow_state::AgentUiToo
     })
 }
 
+pub(super) struct AgentResultWorkspaceContext<'a> {
+    session: &'a mut super::QuerySessionState,
+    output: &'a mut super::QueryOutputState,
+    table_data: &'a mut super::TableDataState,
+    feedback: &'a mut super::FeedbackState,
+}
+
+impl<'a> AgentResultWorkspaceContext<'a> {
+    pub(super) fn new(
+        session: &'a mut super::QuerySessionState,
+        output: &'a mut super::QueryOutputState,
+        table_data: &'a mut super::TableDataState,
+        feedback: &'a mut super::FeedbackState,
+    ) -> Self {
+        Self {
+            session,
+            output,
+            table_data,
+            feedback,
+        }
+    }
+
+    pub(super) fn open(
+        &mut self,
+        active_document_index: usize,
+        tool_result: &super::agent_workflow_state::AgentUiToolResult,
+    ) {
+        let Some(document) = self.session.documents.get_mut(active_document_index) else {
+            return;
+        };
+        let Some(ui_result) = query_result(tool_result) else {
+            return;
+        };
+
+        let sample_len = ui_result.rows.len();
+        let total_rows = ui_result.row_count;
+        document.query_result = Some(ui_result.clone());
+        document.query_results = vec![ui_result];
+        document.active_result_index = 0;
+        self.output.active_tab = super::OutputTab::Results;
+        self.table_data.invalidate_grid_projection();
+        self.feedback.runtime_message = if total_rows > sample_len as u64 {
+            format!("Showing {sample_len} sampled rows of {total_rows} total rows.")
+        } else {
+            format!("Opened Agent query result ({total_rows} rows)")
+        };
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::agent_workflow_state::{AgentUiActivityStatus, AgentUiToolResult};

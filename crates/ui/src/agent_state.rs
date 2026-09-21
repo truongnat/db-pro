@@ -402,37 +402,32 @@ impl DbProApp {
     }
 
     pub(super) fn open_agent_result_in_workspace(&mut self, call_id: &str) {
-        let Some(document) = self
+        let Some(document_id) = self
             .query
             .session
             .documents
-            .get_mut(self.query.session.active_document_index)
+            .get(self.query.session.active_document_index)
+            .map(|document| document.id.clone())
         else {
             return;
         };
-        let document_id = document.id.clone();
-        let Some(session) = self.agent.sessions.get(&document_id) else {
+        let Some(tool_result) = self
+            .agent
+            .sessions
+            .get(&document_id)
+            .and_then(|session| session.tool_results.get(call_id))
+            .cloned()
+        else {
             return;
         };
-        let Some(tool_result) = session.tool_results.get(call_id) else {
-            return;
-        };
-        if let Some(ui_result) = agent_result_projection::query_result(tool_result) {
-            let sample_len = ui_result.rows.len();
-            let total_rows = ui_result.row_count;
-            document.query_result = Some(ui_result.clone());
-            document.query_results = vec![ui_result];
-            document.active_result_index = 0;
-            self.query.output.active_tab = OutputTab::Results;
-            // The agent's result replaces the rows behind the grid.
-            self.table.data.invalidate_grid_projection();
-            if total_rows > sample_len as u64 {
-                self.feedback.runtime_message =
-                    format!("Showing {sample_len} sampled rows of {total_rows} total rows.");
-            } else {
-                self.feedback.runtime_message = format!("Opened Agent query result ({total_rows} rows)");
-            }
-        }
+        let active_document_index = self.query.session.active_document_index;
+        agent_result_projection::AgentResultWorkspaceContext::new(
+            &mut self.query.session,
+            &mut self.query.output,
+            &mut self.table.data,
+            &mut self.feedback,
+        )
+        .open(active_document_index, &tool_result);
     }
 
     pub(super) fn retry_agent_run(&mut self) {
