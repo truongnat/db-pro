@@ -21,10 +21,11 @@ impl DbProApp {
                 return;
             }
         };
-        self.dispatch_command(command);
-        self.table.state.ddl_execution_request = Some(request_id);
-        self.table.state.ddl_execute_confirmation = false;
-        self.feedback.runtime_message = "Executing DDL…".to_owned();
+        if self.dispatch_command(command) {
+            self.table.state.ddl_execution_request = Some(request_id);
+            self.table.state.ddl_execute_confirmation = false;
+            self.feedback.runtime_message = "Executing DDL…".to_owned();
+        }
     }
 
     /// Loading / failed placeholder shown while the DDL is not available.
@@ -89,14 +90,14 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.table.state.table_info_request = Some(request_id);
-        self.dispatch_command(self.table.state.load_info_command(
-            request_id,
-            connection_id,
-            self.active_schema().to_owned(),
-            table,
-        ));
-        self.feedback.runtime_message = "Loading table structure…".to_owned();
+        let command =
+            self.table
+                .state
+                .load_info_command(request_id, connection_id, self.active_schema().to_owned(), table);
+        if self.dispatch_command(command) {
+            self.table.state.table_info_request = Some(request_id);
+            self.feedback.runtime_message = "Loading table structure…".to_owned();
+        }
     }
 
     pub(crate) fn request_table_ddl(&mut self) {
@@ -107,14 +108,14 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.table.state.table_ddl_request = Some(request_id);
-        self.dispatch_command(self.table.state.load_ddl_command(
-            request_id,
-            connection_id,
-            self.active_schema().to_owned(),
-            table,
-        ));
-        self.feedback.runtime_message = "Loading table DDL…".to_owned();
+        let command =
+            self.table
+                .state
+                .load_ddl_command(request_id, connection_id, self.active_schema().to_owned(), table);
+        if self.dispatch_command(command) {
+            self.table.state.table_ddl_request = Some(request_id);
+            self.feedback.runtime_message = "Loading table DDL…".to_owned();
+        }
     }
 
     pub(crate) fn request_table_data(&mut self) {
@@ -131,14 +132,14 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.table.data_query.request = Some(request_id);
-        self.dispatch_command(self.table.data_query.load_data_command(
-            request_id,
-            connection_id,
-            self.active_schema().to_owned(),
-            table,
-        ));
-        self.feedback.runtime_message = "Loading table data…".to_owned();
+        let command =
+            self.table
+                .data_query
+                .load_data_command(request_id, connection_id, self.active_schema().to_owned(), table);
+        if self.dispatch_command(command) {
+            self.table.data_query.request = Some(request_id);
+            self.feedback.runtime_message = "Loading table data…".to_owned();
+        }
     }
 
     pub(crate) fn commit_table_filter_draft(&mut self) {

@@ -192,6 +192,10 @@ impl<'a> ExplorerConnectionContext<'a> {
             return None;
         }
 
+        Some(self.lifecycle.connect_command(request_id, connection.id.clone()))
+    }
+
+    pub(crate) fn commit_connect(&mut self, connection: &UiConnectionSummary, request_id: RequestId) {
         self.workspace.pending_navigation_action = None;
         self.agent.clear_input();
         *self.lifecycle.active_connection_id_mut() = Some(connection.id.clone());
@@ -203,8 +207,6 @@ impl<'a> ExplorerConnectionContext<'a> {
         self.lifecycle.set_pending_request(Some(request_id));
         self.feedback
             .set_runtime_message(format!("Connecting to {}…", connection.name));
-
-        Some(self.lifecycle.connect_command(request_id, connection.id.clone()))
     }
 }
 
@@ -298,6 +300,16 @@ mod tests {
         assert!(
             matches!(command, Some(UiCommand::Connect { request_id: RequestId(7), connection_id }) if connection_id == "conn-1")
         );
+        ExplorerConnectionContext::new(
+            &mut lifecycle,
+            &mut schema,
+            &mut table,
+            &mut workspace,
+            &mut agent,
+            &mut execution,
+            &mut feedback,
+        )
+        .commit_connect(&connection, RequestId(7));
         assert_eq!(lifecycle.active_connection_id(), Some("conn-1"));
         assert_eq!(lifecycle.pending_connection_id(), Some("conn-1"));
         assert_eq!(lifecycle.pending_request(), Some(RequestId(7)));

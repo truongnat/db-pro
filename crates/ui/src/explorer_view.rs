@@ -82,7 +82,18 @@ impl DbProApp {
         )
         .connect(connection, request_id);
         if let Some(command) = command {
-            self.dispatch_command(command);
+            if self.dispatch_command(command) {
+                explorer_navigation::ExplorerConnectionContext::new(
+                    &mut self.connection.lifecycle,
+                    &mut self.schema.explorer,
+                    &mut self.table,
+                    &mut self.workspace,
+                    &mut self.agent,
+                    &mut self.query.execution,
+                    &mut self.feedback,
+                )
+                .commit_connect(connection, request_id);
+            }
         }
     }
 }

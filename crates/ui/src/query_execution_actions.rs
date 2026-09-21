@@ -9,9 +9,9 @@ use std::time::Instant;
 
 /// Coordinates query execution policy with the query document/session state.
 ///
-/// This context deliberately stops before the runtime boundary: it prepares a
-/// typed command and applies the local execution transition, while the app shell
-/// remains responsible for sending that command through `TaskBridge`.
+/// This context deliberately separates command preparation from the local
+/// execution transition. The app shell sends the command through `TaskBridge`
+/// and commits the transition only after the runtime boundary accepts it.
 pub(crate) struct QueryExecutionContext<'a> {
     session: &'a mut QuerySessionState,
     editor: &'a mut QueryEditorState,
@@ -75,8 +75,6 @@ impl<'a> QueryExecutionContext<'a> {
         request_id: RequestId,
         connection_id: String,
         sql: String,
-        execution_range: (usize, usize),
-        version: u64,
         all_statements: bool,
     ) -> Option<UiCommand> {
         let discovered = crate::query::discover_sql_parameters(&sql);
@@ -110,14 +108,6 @@ impl<'a> QueryExecutionContext<'a> {
             }
         };
 
-        self.record_query_history(&sql);
-        self.mark_document_running(request_id, &sql, execution_range, version);
-        self.feedback.set_runtime_message(if all_statements {
-            "Sending full script to runtime…"
-        } else {
-            "Sending query to runtime…"
-        });
-
         Some(if all_statements {
             UiCommand::RunQueryMulti {
                 request_id,
@@ -132,6 +122,21 @@ impl<'a> QueryExecutionContext<'a> {
                 params,
             }
         })
+    }
+
+    pub(crate) fn commit_dispatched(&mut self, command: &UiCommand, execution_range: (usize, usize), version: u64) {
+        let (request_id, sql, all_statements) = match command {
+            UiCommand::RunQuery { request_id, sql, .. } => (*request_id, sql.as_str(), false),
+            UiCommand::RunQueryMulti { request_id, sql, .. } => (*request_id, sql.as_str(), true),
+            _ => return,
+        };
+        self.record_query_history(sql);
+        self.mark_document_running(request_id, sql, execution_range, version);
+        self.feedback.set_runtime_message(if all_statements {
+            "Sending full script to runtime…"
+        } else {
+            "Sending query to runtime…"
+        });
     }
 
     fn record_query_history(&mut self, sql: &str) {
@@ -214,11 +219,10 @@ mod tests {
                 RequestId(9),
                 "conn-1".to_owned(),
                 "SELECT * FROM users WHERE id = :id".to_owned(),
-                (0, 36),
-                2,
                 false,
             )
             .expect("query should be prepared");
+        context.commit_dispatched(&command, (0, 36), 2);
 
         assert_eq!(
             command,
@@ -248,14 +252,7 @@ mod tests {
         let mut context = context(&mut session, &mut editor, &mut policy, &mut feedback, "PostgreSQL");
 
         assert!(context
-            .prepare_query_run(
-                RequestId(9),
-                "conn-1".to_owned(),
-                "SELECT :id".to_owned(),
-                (0, 10),
-                1,
-                true
-            )
+            .prepare_query_run(RequestId(9), "conn-1".to_owned(), "SELECT :id".to_owned(), true)
             .is_none());
         assert!(session.active_running_request().is_none());
         assert!(feedback.runtime_message.contains("Parameterized scripts"));

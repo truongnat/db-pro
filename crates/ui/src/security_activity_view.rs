@@ -329,9 +329,10 @@ impl DbProApp {
             .security
             .apply_rls_preview_command(request_id, connection_id)
         {
-            self.dispatch_command(command);
-            self.table.state.ddl_execution_request = Some(request_id);
-            self.feedback.runtime_message = "Applying RLS mutation…".into();
+            if self.dispatch_command(command) {
+                self.table.state.ddl_execution_request = Some(request_id);
+                self.feedback.runtime_message = "Applying RLS mutation…".into();
+            }
         }
     }
 }

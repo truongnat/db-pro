@@ -3828,6 +3828,49 @@ fn failed_schema_request_is_visible_and_retryable() {
 }
 
 #[test]
+fn failed_schema_dispatch_does_not_leave_a_fake_pending_request() {
+    let mut app = DbProApp::default();
+
+    app.request_schema_introspection("conn-1".to_owned(), true);
+
+    assert_eq!(app.schema.explorer.schema_request, None);
+    assert_eq!(
+        app.schema.explorer.schema_error.as_deref(),
+        Some("Runtime worker unavailable")
+    );
+}
+
+#[test]
+fn failed_connection_list_dispatch_does_not_leave_a_fake_pending_request() {
+    let mut app = DbProApp::default();
+
+    app.request_connections_once();
+
+    assert!(!app.connection.lifecycle.connections_request_pending());
+}
+
+#[test]
+fn failed_table_data_dispatch_does_not_leave_a_fake_pending_request() {
+    let mut app = DbProApp::default();
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+    app.schema.explorer.selected_table = Some("users".to_owned());
+
+    app.request_table_data();
+
+    assert_eq!(app.table.data_query.request, None);
+}
+
+#[test]
+fn failed_query_dispatch_does_not_mark_document_running() {
+    let mut app = DbProApp::default();
+
+    app.send_query_run("conn-1".to_owned(), "SELECT 1".to_owned(), (0, 8), 0, false);
+
+    assert_eq!(app.query.session.active_running_request(), None);
+    assert!(app.query.editor.query_history.is_empty());
+}
+
+#[test]
 fn stale_schema_event_cannot_replace_the_selected_connection_schema() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);

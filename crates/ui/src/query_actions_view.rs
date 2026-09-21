@@ -206,8 +206,9 @@ impl DbProApp {
                 return;
             }
         };
-        self.dispatch_command(command);
-        self.feedback.runtime_message = "Creating query folder…".to_owned();
+        if self.dispatch_command(command) {
+            self.feedback.runtime_message = "Creating query folder…".to_owned();
+        }
     }
 
     pub(crate) fn insert_snippet(&mut self, snippet: &str) {

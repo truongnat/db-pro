@@ -210,25 +210,26 @@ impl<'a> ConnectionDialogView<'a> {
             save,
         );
 
-        self.dispatch_command(command);
-        self.lifecycle.set_pending_request(Some(request_id));
-        if save {
-            self.dialog.set_test_valid(false);
-        } else {
-            self.dialog
-                .transition(super::state::ConnectionDialogAction::TestStarted {
-                    draft: self.dialog.draft.clone(),
-                });
-        }
-        self.dialog.clear_error();
-        self.feedback.set_runtime_message(if save {
-            t!("status.saving").to_string()
-        } else {
-            t!("status.testing").to_string()
-        });
+        if self.dispatch_command(command) {
+            self.lifecycle.set_pending_request(Some(request_id));
+            if save {
+                self.dialog.set_test_valid(false);
+            } else {
+                self.dialog
+                    .transition(super::state::ConnectionDialogAction::TestStarted {
+                        draft: self.dialog.draft.clone(),
+                    });
+            }
+            self.dialog.clear_error();
+            self.feedback.set_runtime_message(if save {
+                t!("status.saving").to_string()
+            } else {
+                t!("status.testing").to_string()
+            });
 
-        if !save {
-            super::refresh_connection_diagnostics(self.dialog, false, &t!("status.auth_pending"));
+            if !save {
+                super::refresh_connection_diagnostics(self.dialog, false, &t!("status.auth_pending"));
+            }
         }
     }
 

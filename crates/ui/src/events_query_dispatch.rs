@@ -78,8 +78,9 @@ impl DbProApp {
     }
 
     pub(super) fn cancel_query(&mut self, request_id: crate::RequestId) {
-        self.dispatch_command(UiCommand::CancelQuery { request_id });
-        self.feedback.runtime_message = "Cancelling query…".to_owned();
+        if self.dispatch_command(UiCommand::CancelQuery { request_id }) {
+            self.feedback.runtime_message = "Cancelling query…".to_owned();
+        }
     }
 
     pub(super) fn dispatch_query(&mut self) {
@@ -212,17 +213,16 @@ impl DbProApp {
         all_statements: bool,
     ) {
         let request_id = self.task_bridge.next_request_id();
-        let Some(command) = self.query_execution_context().prepare_query_run(
-            request_id,
-            connection_id,
-            sql,
-            execution_range,
-            version,
-            all_statements,
-        ) else {
+        let Some(command) =
+            self.query_execution_context()
+                .prepare_query_run(request_id, connection_id, sql, all_statements)
+        else {
             return;
         };
-        self.dispatch_command(command);
+        if self.dispatch_command(command.clone()) {
+            self.query_execution_context()
+                .commit_dispatched(&command, execution_range, version);
+        }
     }
 
     fn query_execution_context(&mut self) -> query_execution_actions::QueryExecutionContext<'_> {

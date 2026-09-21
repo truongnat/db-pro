@@ -194,21 +194,23 @@ impl<'a> QueryEditorSurfaceContext<'a> {
                 doc.prediction_requests_deduped = doc.prediction_requests_deduped.saturating_add(1);
             } else if doc.prediction.is_none() {
                 let req_id = self.task_bridge.next_request_id();
-                doc.prediction_context_fingerprint = Some(fingerprint);
-                doc.prediction_last_request_fingerprint = Some(fingerprint);
-                doc.prediction_last_request_at = Some(Instant::now());
-                doc.pending_prediction_request = Some(req_id);
-                doc.prediction_request_started_at = Some(Instant::now());
-                doc.prediction_requests_sent = doc.prediction_requests_sent.saturating_add(1);
                 let replacement_range = prediction_replacement_range(&doc.buffer, anchor, manual);
-                self.task_bridge.send_best_effort(UiCommand::RequestSqlPrediction {
+                let command = UiCommand::RequestSqlPrediction {
                     request_id: req_id,
                     document_id: doc.id.clone(),
                     document_version,
                     anchor,
                     replacement_range,
                     context: ai_context,
-                });
+                };
+                if self.task_bridge.send_best_effort(command) {
+                    doc.prediction_context_fingerprint = Some(fingerprint);
+                    doc.prediction_last_request_fingerprint = Some(fingerprint);
+                    doc.prediction_last_request_at = Some(Instant::now());
+                    doc.pending_prediction_request = Some(req_id);
+                    doc.prediction_request_started_at = Some(Instant::now());
+                    doc.prediction_requests_sent = doc.prediction_requests_sent.saturating_add(1);
+                }
             }
         }
 

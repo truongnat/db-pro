@@ -22,8 +22,9 @@ impl DbProApp {
         let request_id = self.task_bridge.next_request_id();
         match self.schema.compare.build_data_diff_request(request_id, source_id) {
             Ok(command) => {
-                self.dispatch_command(command);
-                self.feedback.runtime_message = "Running key-aware data compare…".into();
+                if self.dispatch_command(command) {
+                    self.feedback.runtime_message = "Running key-aware data compare…".into();
+                }
             }
             Err(error) => self.feedback.runtime_message = error,
         }
@@ -75,8 +76,9 @@ impl DbProApp {
 
     pub(crate) fn request_open_workspace_folder(&mut self) {
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::PickWorkspaceFolder { request_id });
-        self.feedback.runtime_message = "Choose a workspace folder…".to_owned();
+        if self.dispatch_command(UiCommand::PickWorkspaceFolder { request_id }) {
+            self.feedback.runtime_message = "Choose a workspace folder…".to_owned();
+        }
     }
 
     pub(crate) fn open_workspace_folder(&mut self, path: std::path::PathBuf) {

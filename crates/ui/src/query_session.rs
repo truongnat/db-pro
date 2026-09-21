@@ -75,9 +75,10 @@ impl DbProApp {
                 return;
             }
         };
-        self.dispatch_command(command);
-        self.table.state.ddl_execution_request = Some(request_id);
-        self.feedback.runtime_message = "Applying migration plan…".into();
+        if self.dispatch_command(command) {
+            self.table.state.ddl_execution_request = Some(request_id);
+            self.feedback.runtime_message = "Applying migration plan…".into();
+        }
     }
 
     pub(crate) fn handle_transaction_action(&mut self, action: crate::components::TransactionAction) {

@@ -255,16 +255,18 @@ impl DbProApp {
             }
         };
         let request_id = self.task_bridge.next_request_id();
-        self.table.data_query.row_reload_request = Some(request_id);
-        self.table.data_query.row_reload_identity = Some(identity);
-        self.dispatch_command(self.table.data_query.load_row_command(
+        let command = self.table.data_query.load_row_command(
             request_id,
             connection_id,
             self.active_schema().to_owned(),
             table,
             filters,
-        ));
-        self.feedback.runtime_message = "Reloading row from database…".to_owned();
+        );
+        if self.dispatch_command(command) {
+            self.table.data_query.row_reload_request = Some(request_id);
+            self.table.data_query.row_reload_identity = Some(identity);
+            self.feedback.runtime_message = "Reloading row from database…".to_owned();
+        }
     }
 
     pub(crate) fn apply_staged_changes(&mut self) {

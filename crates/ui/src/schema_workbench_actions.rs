@@ -102,8 +102,9 @@ impl DbProApp {
                 return;
             }
         };
-        self.dispatch_command(command);
-        self.table.state.ddl_execution_request = Some(request_id);
-        self.feedback.runtime_message = "Applying schema mutation…".into();
+        if self.dispatch_command(command) {
+            self.table.state.ddl_execution_request = Some(request_id);
+            self.feedback.runtime_message = "Applying schema mutation…".into();
+        }
     }
 }

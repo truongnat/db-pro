@@ -74,12 +74,13 @@ pub(crate) fn draw(
             let message = "Runtime worker unavailable";
             feedback.set_runtime_message(message);
             feedback.show_error_toast(message);
+        } else {
+            // Track the target only after the runtime accepted the command so a
+            // closed worker cannot leave a phantom delete operation pending.
+            lifecycle.set_pending_request(Some(request_id));
+            lifecycle.set_pending_connection_id(Some(connection_id));
+            feedback.set_runtime_message(t!("status.deleting", name = name.as_str()));
         }
-        // Track the target so Failed events report delete failure, not a
-        // spurious "Connection failed" on the active connection.
-        lifecycle.set_pending_request(Some(request_id));
-        lifecycle.set_pending_connection_id(Some(connection_id));
-        feedback.set_runtime_message(t!("status.deleting", name = name.as_str()));
         overlay.delete_confirmation_id = None;
     } else if cancelled || !open {
         overlay.delete_confirmation_id = None;

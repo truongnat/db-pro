@@ -98,8 +98,9 @@ impl DbProApp {
                 }
                 AgentSettingsAction::ForgetKey => {
                     let request_id = self.task_bridge.next_request_id();
-                    self.agent.configure_request = Some(request_id);
-                    self.dispatch_command(UiCommand::ForgetAgentApiKey { request_id });
+                    if self.dispatch_command(UiCommand::ForgetAgentApiKey { request_id }) {
+                        self.agent.configure_request = Some(request_id);
+                    }
                 }
             }
         }
