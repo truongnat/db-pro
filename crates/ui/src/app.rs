@@ -504,6 +504,8 @@ mod schema_workbench;
 mod schema_workbench_actions;
 #[path = "schema_workbench_form.rs"]
 mod schema_workbench_form;
+#[path = "schema_workbench_mutation.rs"]
+mod schema_workbench_mutation;
 #[path = "schema_workbench_secondary_view.rs"]
 mod schema_workbench_secondary_view;
 #[path = "schema_workspace_state.rs"]
