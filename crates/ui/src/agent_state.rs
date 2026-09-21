@@ -392,13 +392,15 @@ impl DbProApp {
             prepared.current_document,
             prepared.applied_patch,
         );
-        self.send_command_best_effort(UiCommand::ContinueAgentRun {
+        if !self.send_command_best_effort(UiCommand::ContinueAgentRun {
             request_id: continuation.request_id,
             run_id: continuation.run_id,
             approved: continuation.approved,
             current_document: continuation.current_document,
             applied_patch: continuation.applied_patch,
-        });
+        }) {
+            self.agent.mark_run_failed(&pending.document_id);
+        }
     }
 
     pub(super) fn open_agent_result_in_workspace(&mut self, call_id: &str) {

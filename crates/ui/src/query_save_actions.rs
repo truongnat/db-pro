@@ -31,11 +31,6 @@ impl<'a> QuerySaveContext<'a> {
             self.feedback.set_runtime_message("Create or select a connection first");
             return None;
         };
-        let document_id = self
-            .session
-            .documents
-            .get(document_index)
-            .map(|document| document.id.clone());
         let name = self
             .session
             .documents
@@ -55,11 +50,19 @@ impl<'a> QuerySaveContext<'a> {
         let command = self
             .library
             .save_query_command(request_id, connection_id, saved_query_id, name, sql);
-        if let Some(document_id) = document_id {
+        Some(command)
+    }
+
+    pub(crate) fn commit_dispatched(&mut self, request_id: RequestId, document_index: usize) {
+        if let Some(document_id) = self
+            .session
+            .documents
+            .get(document_index)
+            .map(|document| document.id.clone())
+        {
             self.session.save_requests.insert(request_id, document_id);
         }
         self.feedback.set_runtime_message("Saving query…");
-        Some(command)
     }
 }
 
@@ -69,16 +72,17 @@ mod tests {
     use crate::query::QueryDocument;
 
     #[test]
-    fn save_preparation_tracks_document_request_and_preserves_query_payload() {
+    fn save_preparation_commits_document_request_after_dispatch() {
         let mut session = QuerySessionState::default();
         session.add_document(QueryDocument::new("doc-1", "Report", "SELECT 1"));
         let library = QueryLibraryState::default();
         let mut feedback = FeedbackState::default();
-        let mut context = QuerySaveContext::new(&mut session, &library, &mut feedback);
-
-        let command = context
-            .prepare_save(RequestId(7), 0, Some("conn-1".to_owned()))
-            .expect("connection should prepare save");
+        let command = {
+            let mut context = QuerySaveContext::new(&mut session, &library, &mut feedback);
+            context
+                .prepare_save(RequestId(7), 0, Some("conn-1".to_owned()))
+                .expect("connection should prepare save")
+        };
 
         assert!(matches!(
             command,
@@ -91,6 +95,10 @@ mod tests {
                 ..
             } if connection_id == "conn-1" && name == "Report" && sql == "SELECT 1"
         ));
+        assert!(session.save_requests.is_empty());
+        assert!(!feedback.runtime_message.contains("Saving"));
+        let mut context = QuerySaveContext::new(&mut session, &library, &mut feedback);
+        context.commit_dispatched(RequestId(7), 0);
         assert_eq!(
             session.save_requests.get(&RequestId(7)).map(String::as_str),
             Some("doc-1")

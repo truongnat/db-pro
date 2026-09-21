@@ -240,8 +240,9 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        self.management.monitoring.monitoring_last_poll = Some(std::time::Instant::now());
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.monitoring.snapshot_command(request_id, connection_id));
+        if self.dispatch_command(self.management.monitoring.snapshot_command(request_id, connection_id)) {
+            self.management.monitoring.monitoring_last_poll = Some(std::time::Instant::now());
+        }
     }
 }

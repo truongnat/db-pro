@@ -262,7 +262,9 @@ impl DbProApp {
         else {
             return;
         };
-        self.dispatch_command(command);
+        if self.dispatch_command(command) {
+            self.query_save_context().commit_dispatched(request_id, document_index);
+        }
     }
 
     fn query_save_context(&mut self) -> query_save_actions::QuerySaveContext<'_> {
