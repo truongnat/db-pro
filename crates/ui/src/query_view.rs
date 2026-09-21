@@ -339,7 +339,9 @@ impl DbProApp {
         use query_status_bar_surface_view::QueryStatusBarAction as Action;
         match action {
             Action::RunControl(action) => match action {
-                query_run_control_view::QueryRunControlAction::Run => self.dispatch_query(),
+                query_run_control_view::QueryRunControlAction::Run => {
+                    self.dispatch_query();
+                }
                 query_run_control_view::QueryRunControlAction::Cancel(request_id) => self.cancel_query(request_id),
                 query_run_control_view::QueryRunControlAction::ReportUnsupportedCancel(reason) => {
                     self.feedback.runtime_message = reason;

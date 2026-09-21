@@ -83,9 +83,9 @@ impl DbProApp {
         }
     }
 
-    pub(super) fn dispatch_query(&mut self) {
+    pub(super) fn dispatch_query(&mut self) -> bool {
         if self.query.session.active_running_request().is_some() {
-            return;
+            return false;
         }
         let Some(connection_id) = self
             .active_query_connection_id()
@@ -93,7 +93,7 @@ impl DbProApp {
             .or_else(|| self.active_connection().map(|connection| connection.id.clone()))
         else {
             self.feedback.runtime_message = "Create or select a connection first".to_owned();
-            return;
+            return false;
         };
         let (sql, execution_range) = self
             .query
@@ -109,13 +109,13 @@ impl DbProApp {
             });
         if sql.trim().is_empty() {
             self.feedback.runtime_message = "Query is empty".to_owned();
-            return;
+            return false;
         }
         let version = self.query.session.active_buffer_version();
         if self.hold_destructive_run(&sql, execution_range, version, false) {
-            return;
+            return false;
         }
-        self.send_query_run(connection_id, sql, execution_range, version, false);
+        self.send_query_run(connection_id, sql, execution_range, version, false)
     }
 
     pub(super) fn dispatch_query_all(&mut self) {
@@ -211,17 +211,20 @@ impl DbProApp {
         execution_range: (usize, usize),
         version: u64,
         all_statements: bool,
-    ) {
+    ) -> bool {
         let request_id = self.task_bridge.next_request_id();
         let Some(command) =
             self.query_execution_context()
                 .prepare_query_run(request_id, connection_id, sql, all_statements)
         else {
-            return;
+            return false;
         };
         if self.dispatch_command(command.clone()) {
             self.query_execution_context()
                 .commit_dispatched(&command, execution_range, version);
+            true
+        } else {
+            false
         }
     }
 

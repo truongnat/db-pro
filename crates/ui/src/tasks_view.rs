@@ -425,8 +425,11 @@ impl DbProApp {
                 // Task-level confirmation already satisfied destructive policy (#206).
                 let version = self.query.session.active_buffer_version();
                 let execution_range = (0, sql.len());
-                self.send_query_run(task.connection_id.clone(), sql.clone(), execution_range, version, false);
-                Ok("Dispatched SQL task to query runtime".to_owned())
+                if self.send_query_run(task.connection_id.clone(), sql.clone(), execution_range, version, false) {
+                    Ok("Dispatched SQL task to query runtime".to_owned())
+                } else {
+                    Err(self.feedback.runtime_message.clone())
+                }
             }
             SavedTaskPayload::Backup {
                 output_path,
@@ -452,10 +455,13 @@ impl DbProApp {
                     *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
                     self.set_active_query_text(format!("SELECT * FROM {table} LIMIT 1000"));
                     self.workspace.active_tab = WorkspaceTab::Query;
-                    self.dispatch_query();
-                    Ok(format!(
-                        "Opened export source for {table} ({fmt}) — use Export on results"
-                    ))
+                    if self.dispatch_query() {
+                        Ok(format!(
+                            "Opened export source for {table} ({fmt}) — use Export on results"
+                        ))
+                    } else {
+                        Err(self.feedback.runtime_message.clone())
+                    }
                 } else {
                     Err("export task needs a table or an active result set".to_owned())
                 }
@@ -472,8 +478,11 @@ impl DbProApp {
                 *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
                 self.set_active_query_text(&sql);
                 self.workspace.active_tab = WorkspaceTab::Query;
-                self.dispatch_query();
-                Ok(format!("Dispatched maintenance: {sql}"))
+                if self.dispatch_query() {
+                    Ok(format!("Dispatched maintenance: {sql}"))
+                } else {
+                    Err(self.feedback.runtime_message.clone())
+                }
             }
         }
     }

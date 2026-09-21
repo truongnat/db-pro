@@ -87,8 +87,9 @@ impl DbProApp {
             self.management.synthetic_data.synthetic_error = Some("Connect to a database before applying seed".into());
             return;
         }
-        self.dispatch_query();
-        self.feedback.runtime_message = "Synthetic seed INSERT dispatched via query runtime".into();
+        if self.dispatch_query() {
+            self.feedback.runtime_message = "Synthetic seed INSERT dispatched via query runtime".into();
+        }
     }
 
     fn transfer_harness_context(&mut self) -> transfer_harness_view::TransferHarnessContext<'_> {
