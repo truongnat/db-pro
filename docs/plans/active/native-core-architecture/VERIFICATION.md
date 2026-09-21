@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `7cffc59c`.
+Source checkpoint: `5cd134db`.
 
 ## Current change
 
@@ -26,9 +26,32 @@ Settings Data Grid, Connections, AI, Security, Advanced and Appearance panes
 now render through explicit settings contexts; `settings_view.rs` keeps
 navigation, persistence/runtime adapters and the remaining backup/diagnostics
 orchestration.
+Backup and Restore settings now render through `SettingsBackupContext` and
+return typed actions; request-id allocation and runtime command dispatch remain
+at the root adapter.
 The plan remains `IMPLEMENTING` because other large feature surfaces
 still implement rendering directly on the root and the full runtime evidence
 matrix is not complete.
+
+## Gate evidence at `5cd134db`
+
+- `cargo check --workspace`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 668 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed on the
+  exact pre-commit source tree.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the exact pre-commit source tree; 15 checks passed, 1 pre-existing
+  `app.rs` size warning was retained by the ratchet, and 0 checks failed.
+- `git diff --check`: passed before commit.
+- Runtime launch: the latest release binary built from this checkpoint is
+  running in terminal session `97958` for manual verification. No dedicated
+  Settings interaction capture was collected in this checkpoint.
 
 ## Gate evidence at `7cffc59c`
 
