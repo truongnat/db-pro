@@ -132,10 +132,7 @@ impl DbProApp {
         let actions = {
             let mut context = FilesSearchContext {
                 theme: self.theme,
-                search_query: &mut self.workspace.files.workspace_search_query,
-                replace_query: &mut self.workspace.files.workspace_replace_query,
-                refactor_from: &mut self.workspace.files.workspace_refactor_from,
-                refactor_to: &mut self.workspace.files.workspace_refactor_to,
+                draft: self.workspace.files.search_draft(),
                 replace_previews: &self.workspace.files.workspace_replace_previews,
                 search_hits: &self.workspace.files.workspace_search_hits,
             };
@@ -143,6 +140,7 @@ impl DbProApp {
         };
         for action in actions {
             match action {
+                FilesSearchAction::UpdateDraft(draft) => self.workspace.files.apply_search_draft(draft),
                 FilesSearchAction::Find => self.workspace.files.run_search(&mut self.feedback),
                 FilesSearchAction::PreviewReplace => self.workspace.files.preview_replace(&mut self.feedback),
                 FilesSearchAction::ReplaceAll => self.workspace.files.apply_replace(&mut self.feedback),
