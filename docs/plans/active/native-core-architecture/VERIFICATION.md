@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `fa952484`.
+Source checkpoint: `532de109`.
 
 ## Current change
 
@@ -153,6 +153,27 @@ bounded page profiling, empty states and the profile grid. The table root only
 routes the result snapshot. Table-structure loading/error placeholder rendering
 also lives in `TableStructureContext`'s surface module rather than in the
 workspace router.
+
+Backup Settings now renders its complete database-files card through
+`SettingsBackupContext`, including provider capability messaging and backup
+tool hints. The root supplies the driver/capability read model and applies the
+typed backup/restore command actions.
+
+## Gate evidence at `532de109`
+
+- Focused `cargo fmt --all`, `cargo check -p db-pro-ui` and
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 UI tests passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `81089` for manual verification. The full workspace gate remains recorded at
+  the immediately preceding checkpoint `fa952484`; provider/runtime state and
+  the full affected-surface matrix remain unproven.
 
 ## Gate evidence at `fa952484`
 

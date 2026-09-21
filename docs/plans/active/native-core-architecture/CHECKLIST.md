@@ -99,6 +99,9 @@
 - [x] Table profile grid, bounded page profiling and structure loading/error
       placeholder presentation separated into explicit surfaces; table routing
       and state remain at the root adapters.
+- [x] Backup Settings card presentation separated into its feature context;
+      provider capability/driver inputs and backup command effects remain at
+      the settings root adapter.
 - [x] Workspace Migrations and Graph tabs separated into explicit renderers
       with typed file-open intents; file navigation remains at the root
       adapter.
