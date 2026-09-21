@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `9756af9e`.
+Source checkpoint: `6e28eea4`.
 
 ## Current change
 
@@ -177,6 +177,35 @@ those generic layout policies.
   failures.
 - `cargo test -p db-pro-ui --quiet`: passed; 678 tests, 0 failed.
 - `git diff --check`: passed.
+
+Latest full regression at source SHA `6e28eea4`:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 678 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- The rebuilt release binary is running in terminal session `31162` for
+  manual verification.
+
+Current release runtime captures at source SHA `6e28eea4`:
+
+- `/tmp/db-pro-native-core-6e28eea4-new-1280x800.png` — centered New
+  Connection modal at logical `1280x800`.
+- `/tmp/db-pro-native-core-6e28eea4-query-1280x800.png` — Query editor shell
+  at logical `1280x800`.
+- `/tmp/db-pro-native-core-6e28eea4-loading-1280x800.png` — loading state.
+- `/tmp/db-pro-native-core-6e28eea4-error-1280x800.png` — validation error
+  state inside the shared dialog.
+- `/tmp/db-pro-native-core-6e28eea4-new-1440x900.png` — New Connection at
+  requested `1440x900`; host framebuffer was `2880x1676` after title-bar
+  constraints.
+- The 1920x1080 exact acceptance viewport and a stable 1440 Query capture are
+  still unavailable on this host; the runtime matrix checklist stays open.
 
 Runtime evidence from the release capture harness:
 
