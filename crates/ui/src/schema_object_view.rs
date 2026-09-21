@@ -58,7 +58,12 @@ impl DbProApp {
             }
             self.draw_table_data(ui, &details.name);
         } else {
-            self.draw_schema_definition(ui, &details.kind, &details.definition);
+            schema_object_surface_view::SchemaDefinitionContext {
+                theme: self.theme,
+                kind: &details.kind,
+                definition: &details.definition,
+            }
+            .draw(ui);
         }
     }
 
@@ -207,14 +212,5 @@ impl DbProApp {
                 }
             }
         }
-    }
-
-    fn draw_schema_definition(&self, ui: &mut egui::Ui, kind: &str, definition: &str) {
-        card_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width(ui.available_width());
-            section_label(ui, format!("{kind} DEFINITION"), self.theme);
-            ui.add_space(SPACE_SM);
-            CodeBlock::new(definition, self.theme).language("sql").show(ui);
-        });
     }
 }
