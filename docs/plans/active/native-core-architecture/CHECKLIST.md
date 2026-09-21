@@ -181,6 +181,9 @@
       mutation, edit and navigation effect adapters.
 - [x] Saved Tasks draft and schedule lifecycle is owned by `SavedTaskState`;
       task runtime dispatch remains at the composition root.
+- [x] Saved Tasks destructive-run policy and run-history recording are owned by
+      `SavedTaskState`; runtime payload dispatch remains at the composition
+      root.
 - [x] Settings navigation, section composition and diagnostics presentation
       are owned by `SettingsSurfaceContext`; settings root retains only
       persistence, runtime/file effects and typed action application.

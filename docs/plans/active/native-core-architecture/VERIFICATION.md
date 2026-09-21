@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `37da51cf`.
+Source checkpoint: `ba450fe2`.
 
 ## Current change
 
@@ -2054,8 +2054,12 @@ keeps task policy and execution effects.
   to a logical height of `838`. The required normal/loading/error/empty states
   are now captured at exact logical `1280x800`.
 
-## Current core checkpoint at `37da51cf`
+## Current core checkpoint at `ba450fe2`
 
+- Saved Tasks run-policy boundary: `ba450fe2`; destructive confirmation,
+  scheduled-policy blocking and run-history recording now belong to
+  `SavedTaskState`; the root only dispatches the selected payload and commits
+  the runtime result.
 - Result-grid interaction boundary: `4a5ff3fe`; keyboard selection, staged
   change commands, paste/F2 editing and navigation now reduce through
   `ResultGridInteractionContext` typed actions. The root retains clipboard,
@@ -2075,21 +2079,20 @@ keeps task policy and execution effects.
 - `cargo clippy --workspace --all-targets -- -D warnings`: passed.
 - `cargo test --workspace --no-fail-fast --quiet`: passed; workspace suites
   include 404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34,
-  31 and 680 UI tests with no failures. Environment-gated tests remain
+  31 and 681 UI tests with no failures. Environment-gated tests remain
   ignored.
 - `cargo build --release --locked -p db-pro-native`: passed.
 - `cargo build --release --locked -p db-pro-native --features capture`: passed.
 - `bash scripts/check-ui-architecture.sh`: passed.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
-  passed with 15 checks and 0 failures; one inherited warning remains for
-  `crates/ui/src/app.rs` at 1006 lines.
+  passed with 16 checks and 0 warnings.
 - `git diff --check`: passed.
 - Current release runtime capture:
-  `/tmp/db-pro-native-core-37da51cf-new-1280x800.png`, logical `1280x800`,
-  captured from the release binary built after the result-grid and Saved Tasks
-  boundaries. The New Connection dialog is centered with a separated
+  `/tmp/db-pro-native-core-ba450fe2-new-1280x800.png`, logical `1280x800`,
+  captured from the release binary built after the Saved Tasks run-policy
+  boundary. The New Connection dialog is centered with a separated
   header/divider, right-aligned close control, complete body and separated
-  footer. The manual-verification release binary is running as PID `30053`.
+  footer. The manual-verification release binary is running as PID `32413`.
 
 ## Core boundary checkpoint at `db6013ee`
 
