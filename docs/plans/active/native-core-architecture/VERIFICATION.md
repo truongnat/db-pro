@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `46a9920b`.
+Source checkpoint: `cc459b8d`.
 
 ## Current change
 
@@ -69,6 +69,33 @@ owns the header, error/empty states, health snapshot, sessions and workload
 presentation. It emits typed refresh, session and workload actions; polling,
 snapshot dispatch and auxiliary monitoring surfaces remain at the root effect
 adapter.
+
+Result-grid viewport composition now renders through
+`ResultGridBodyContext`. The surface owns viewport sizing, horizontal/vertical
+scrolling and virtualized row iteration behind a renderer contract; header
+actions, row selection/editing and mutation effects remain in the root adapter.
+
+## Gate evidence at `cc459b8d`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; `main` was clean and aligned with `origin/main`
+  at the source checkpoint before this documentation commit.
+- Runtime capture: `/tmp/db-pro-native-core-cc459b8d.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `38636` for manual verification. No dedicated result-grid provider-state
+  capture was collected; the runtime matrix remains incomplete.
 
 ## Gate evidence at `46a9920b`
 
