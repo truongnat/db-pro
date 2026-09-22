@@ -1,7 +1,5 @@
 //! State owned by the security administration surface.
 
-use super::{RequestId, UiCommand};
-
 pub(super) struct SecurityState {
     pub(super) security_users: Vec<db_pro_core::domain::user::DatabaseUser>,
     pub(super) security_selected_role: Option<String>,
@@ -61,44 +59,7 @@ impl Default for SecurityState {
 }
 
 impl SecurityState {
-    pub(super) fn list_users_command(&self, request_id: RequestId, connection_id: String) -> UiCommand {
-        UiCommand::ListUsers {
-            request_id,
-            connection_id,
-        }
-    }
-
-    pub(super) fn list_privileges_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        role_name: String,
-    ) -> UiCommand {
-        UiCommand::ListPrivileges {
-            request_id,
-            connection_id,
-            role_name,
-        }
-    }
-
-    pub(super) fn list_memberships_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        member: String,
-    ) -> UiCommand {
-        UiCommand::ListMemberships {
-            request_id,
-            connection_id,
-            member,
-        }
-    }
-
-    pub(super) fn list_table_rls_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-    ) -> Result<UiCommand, String> {
+    pub(super) fn table_rls_target(&self) -> Result<(String, String), String> {
         let schema = self.security_rls_schema.trim();
         if schema.is_empty() {
             return Err("Schema and table are required for RLS inspect".to_owned());
@@ -107,142 +68,21 @@ impl SecurityState {
         if table.is_empty() {
             return Err("Schema and table are required for RLS inspect".to_owned());
         }
-        Ok(UiCommand::ListTableRls {
-            request_id,
-            connection_id,
-            schema: schema.to_owned(),
-            table: table.to_owned(),
-        })
+        Ok((schema.to_owned(), table.to_owned()))
     }
 
-    pub(super) fn create_role_command(&self, request_id: RequestId, connection_id: String, name: String) -> UiCommand {
-        UiCommand::CreateRole {
-            request_id,
-            connection_id,
-            name,
-            login: self.security_new_role_login,
-        }
-    }
-
-    pub(super) fn drop_role_command(&self, request_id: RequestId, connection_id: String, name: String) -> UiCommand {
-        UiCommand::DropRole {
-            request_id,
-            connection_id,
-            name,
-        }
-    }
-
-    pub(super) fn alter_role_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        name: String,
-        attributes: db_pro_core::domain::user::RoleAttributes,
-    ) -> UiCommand {
-        UiCommand::AlterRole {
-            request_id,
-            connection_id,
-            name,
-            attributes,
-        }
-    }
-
-    pub(super) fn update_password_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        name: String,
-        password: String,
-    ) -> UiCommand {
-        UiCommand::UpdateRolePassword {
-            request_id,
-            connection_id,
-            name,
-            password,
-        }
-    }
-
-    pub(super) fn grant_membership_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        role: String,
-        member: String,
-    ) -> UiCommand {
-        UiCommand::GrantMembership {
-            request_id,
-            connection_id,
-            role,
-            member,
-        }
-    }
-
-    pub(super) fn revoke_membership_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        role: String,
-        member: String,
-    ) -> UiCommand {
-        UiCommand::RevokeMembership {
-            request_id,
-            connection_id,
-            role,
-            member,
-        }
-    }
-
-    pub(super) fn grant_privilege_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        role_name: String,
-    ) -> UiCommand {
-        UiCommand::GrantPrivilege {
-            request_id,
-            connection_id,
-            role_name,
-            object_kind: self.security_grant_kind,
-            schema: self.security_grant_schema.trim().to_owned(),
-            object_name: self.security_grant_object.trim().to_owned(),
-            privilege: self.security_grant_privilege.trim().to_owned(),
-        }
-    }
-
-    pub(super) fn revoke_privilege_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        role_name: String,
-        privilege: db_pro_core::domain::user::Privilege,
-    ) -> UiCommand {
-        UiCommand::RevokePrivilege {
-            request_id,
-            connection_id,
-            role_name,
-            object_kind: privilege.object_kind,
-            schema: privilege.schema,
-            object_name: privilege.object_name,
-            privilege: privilege.privilege_type,
-        }
-    }
-
-    pub(super) fn apply_rls_preview_command(&self, request_id: RequestId, connection_id: String) -> Option<UiCommand> {
+    pub(super) fn rls_preview_sql(&self) -> Option<String> {
         let sql = self.security_rls_preview_sql.trim();
         if sql.is_empty() {
             return None;
         }
-        Some(UiCommand::ExecuteDdl {
-            request_id,
-            connection_id,
-            sql: sql.to_owned(),
-        })
+        Some(sql.to_owned())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{RequestId, SecurityState, UiCommand};
+    use super::SecurityState;
 
     #[test]
     fn defaults_keep_security_scope_explicit() {
@@ -258,7 +98,7 @@ mod tests {
         let state = SecurityState::default();
 
         assert_eq!(
-            state.list_table_rls_command(RequestId(1), "source".to_owned()),
+            state.table_rls_target(),
             Err("Schema and table are required for RLS inspect".to_owned())
         );
     }
@@ -267,21 +107,12 @@ mod tests {
     fn empty_rls_preview_cannot_dispatch_ddl() {
         let state = SecurityState::default();
 
-        assert!(state
-            .apply_rls_preview_command(RequestId(2), "source".to_owned())
-            .is_none());
+        assert!(state.rls_preview_sql().is_none());
 
         let state = SecurityState {
             security_rls_preview_sql: " ALTER TABLE users ENABLE ROW LEVEL SECURITY ".to_owned(),
             ..SecurityState::default()
         };
-        assert!(matches!(
-            state.apply_rls_preview_command(RequestId(3), "source".to_owned()),
-            Some(UiCommand::ExecuteDdl {
-                request_id: RequestId(3),
-                connection_id,
-                sql,
-            }) if connection_id == "source" && sql == "ALTER TABLE users ENABLE ROW LEVEL SECURITY"
-        ));
+        assert_eq!(state.rls_preview_sql().as_deref(), Some("ALTER TABLE users ENABLE ROW LEVEL SECURITY"));
     }
 }

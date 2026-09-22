@@ -1,4 +1,5 @@
 use super::*;
+use super::{security_state::SecurityState, RequestId, UiCommand};
 
 #[path = "security_surface_view.rs"]
 mod security_surface_view;
@@ -44,11 +45,10 @@ impl DbProApp {
             security_confirmation_view::SecurityConfirmationAction::ConfirmDropRole(name) => {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                     let request_id = self.task_bridge.next_request_id();
-                    self.dispatch_command(
-                        self.management
-                            .security
-                            .drop_role_command(request_id, connection_id, name),
-                    );
+                    self.dispatch_command(drop_role_command(
+                        security_request(request_id, connection_id),
+                        name,
+                    ));
                 }
                 self.management.security.security_drop_confirm = None;
             }
@@ -76,9 +76,9 @@ impl DbProApp {
                     };
                     self.management.security.security_new_role_login = login;
                     let request_id = self.task_bridge.next_request_id();
-                    self.dispatch_command(self.management.security.create_role_command(
-                        request_id,
-                        connection_id,
+                    self.dispatch_command(create_role_command(
+                        &self.management.security,
+                        security_request(request_id, connection_id),
                         name,
                     ));
                     self.management.security.security_new_role.clear();
@@ -99,43 +99,38 @@ impl DbProApp {
             let request_id = self.task_bridge.next_request_id();
             match action {
                 security_role_details_view::SecurityRoleDetailsAction::AlterRole(attributes) => {
-                    self.dispatch_command(self.management.security.alter_role_command(
-                        request_id,
-                        connection_id,
+                    self.dispatch_command(alter_role_command(
+                        security_request(request_id, connection_id),
                         role.to_owned(),
                         attributes,
                     ));
                 }
                 security_role_details_view::SecurityRoleDetailsAction::UpdatePassword(password) => {
-                    self.dispatch_command(self.management.security.update_password_command(
-                        request_id,
-                        connection_id,
+                    self.dispatch_command(update_password_command(
+                        security_request(request_id, connection_id),
                         role.to_owned(),
                         password,
                     ));
                     self.management.security.security_password.clear();
                 }
                 security_role_details_view::SecurityRoleDetailsAction::RevokeMembership(member_role) => {
-                    self.dispatch_command(self.management.security.revoke_membership_command(
-                        request_id,
-                        connection_id,
+                    self.dispatch_command(revoke_membership_command(
+                        security_request(request_id, connection_id),
                         member_role,
                         role.to_owned(),
                     ));
                 }
                 security_role_details_view::SecurityRoleDetailsAction::GrantMembership(member_role) => {
-                    self.dispatch_command(self.management.security.grant_membership_command(
-                        request_id,
-                        connection_id,
+                    self.dispatch_command(grant_membership_command(
+                        security_request(request_id, connection_id),
                         member_role,
                         role.to_owned(),
                     ));
                     self.management.security.security_membership_role.clear();
                 }
                 security_role_details_view::SecurityRoleDetailsAction::RevokePrivilege(privilege) => {
-                    self.dispatch_command(self.management.security.revoke_privilege_command(
-                        request_id,
-                        connection_id,
+                    self.dispatch_command(revoke_privilege_command(
+                        security_request(request_id, connection_id),
                         role.to_owned(),
                         privilege,
                     ));
@@ -150,9 +145,9 @@ impl DbProApp {
                     self.management.security.security_grant_schema = schema;
                     self.management.security.security_grant_object = object_name;
                     self.management.security.security_grant_privilege = privilege;
-                    self.dispatch_command(self.management.security.grant_privilege_command(
-                        request_id,
-                        connection_id,
+                    self.dispatch_command(grant_privilege_command(
+                        &self.management.security,
+                        security_request(request_id, connection_id),
                         role.to_owned(),
                     ));
                 }
@@ -165,7 +160,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.security.list_users_command(request_id, connection_id));
+        self.dispatch_command(list_users_command(security_request(request_id, connection_id)));
     }
 
     pub(crate) fn request_security_role_details(&mut self, role_name: &str) {
@@ -173,15 +168,13 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.security.list_privileges_command(
-            request_id,
-            connection_id.clone(),
+        self.dispatch_command(list_privileges_command(
+            security_request(request_id, connection_id.clone()),
             role_name.to_owned(),
         ));
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.security.list_memberships_command(
-            request_id,
-            connection_id,
+        self.dispatch_command(list_memberships_command(
+            security_request(request_id, connection_id),
             role_name.to_owned(),
         ));
     }
@@ -191,11 +184,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        match self
-            .management
-            .security
-            .list_table_rls_command(request_id, connection_id)
-        {
+        match list_table_rls_command(&self.management.security, security_request(request_id, connection_id)) {
             Ok(command) => {
                 self.dispatch_command(command);
             }
@@ -299,15 +288,152 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        if let Some(command) = self
-            .management
-            .security
-            .apply_rls_preview_command(request_id, connection_id)
-        {
+        if let Some(command) = apply_rls_preview_command(
+            &self.management.security,
+            security_request(request_id, connection_id),
+        ) {
             if self.dispatch_command(command) {
                 self.table.state.ddl_execution_request = Some(request_id);
                 self.feedback.runtime_message = "Applying RLS mutation…".into();
             }
         }
     }
+}
+
+struct SecurityCommandRequest {
+    request_id: RequestId,
+    connection_id: String,
+}
+
+fn security_request(request_id: RequestId, connection_id: String) -> SecurityCommandRequest {
+    SecurityCommandRequest {
+        request_id,
+        connection_id,
+    }
+}
+
+fn list_users_command(request: SecurityCommandRequest) -> UiCommand {
+    UiCommand::ListUsers {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+    }
+}
+
+fn list_privileges_command(request: SecurityCommandRequest, role_name: String) -> UiCommand {
+    UiCommand::ListPrivileges {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+        role_name,
+    }
+}
+
+fn list_memberships_command(request: SecurityCommandRequest, member: String) -> UiCommand {
+    UiCommand::ListMemberships {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+        member,
+    }
+}
+
+fn list_table_rls_command(state: &SecurityState, request: SecurityCommandRequest) -> Result<UiCommand, String> {
+    let (schema, table) = state.table_rls_target()?;
+    Ok(UiCommand::ListTableRls {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+        schema,
+        table,
+    })
+}
+
+fn create_role_command(state: &SecurityState, request: SecurityCommandRequest, name: String) -> UiCommand {
+    UiCommand::CreateRole {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+        name,
+        login: state.security_new_role_login,
+    }
+}
+
+fn drop_role_command(request: SecurityCommandRequest, name: String) -> UiCommand {
+    UiCommand::DropRole {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+        name,
+    }
+}
+
+fn alter_role_command(
+    request: SecurityCommandRequest,
+    name: String,
+    attributes: db_pro_core::domain::user::RoleAttributes,
+) -> UiCommand {
+    UiCommand::AlterRole {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+        name,
+        attributes,
+    }
+}
+
+fn update_password_command(request: SecurityCommandRequest, name: String, password: String) -> UiCommand {
+    UiCommand::UpdateRolePassword {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+        name,
+        password,
+    }
+}
+
+fn grant_membership_command(request: SecurityCommandRequest, role: String, member: String) -> UiCommand {
+    UiCommand::GrantMembership {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+        role,
+        member,
+    }
+}
+
+fn revoke_membership_command(request: SecurityCommandRequest, role: String, member: String) -> UiCommand {
+    UiCommand::RevokeMembership {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+        role,
+        member,
+    }
+}
+
+fn grant_privilege_command(state: &SecurityState, request: SecurityCommandRequest, role_name: String) -> UiCommand {
+    UiCommand::GrantPrivilege {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+        role_name,
+        object_kind: state.security_grant_kind,
+        schema: state.security_grant_schema.trim().to_owned(),
+        object_name: state.security_grant_object.trim().to_owned(),
+        privilege: state.security_grant_privilege.trim().to_owned(),
+    }
+}
+
+fn revoke_privilege_command(
+    request: SecurityCommandRequest,
+    role_name: String,
+    privilege: db_pro_core::domain::user::Privilege,
+) -> UiCommand {
+    UiCommand::RevokePrivilege {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+        role_name,
+        object_kind: privilege.object_kind,
+        schema: privilege.schema,
+        object_name: privilege.object_name,
+        privilege: privilege.privilege_type,
+    }
+}
+
+fn apply_rls_preview_command(state: &SecurityState, request: SecurityCommandRequest) -> Option<UiCommand> {
+    Some(UiCommand::ExecuteDdl {
+        request_id: request.request_id,
+        connection_id: request.connection_id,
+        sql: state.rls_preview_sql()?,
+    })
 }
