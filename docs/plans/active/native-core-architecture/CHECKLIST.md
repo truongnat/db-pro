@@ -239,7 +239,9 @@
       their root effect adapters and is architecture-guarded.
 - [x] Confirmation and sensitive-form state commits happen only after a
       successful runtime dispatch; failed Security, connection-delete,
-      query-delete and folder-delete dispatches remain retryable.
+      query-delete, folder-delete, monitoring and restore dispatches remain
+      retryable. Connection failure classification uses typed pending
+      operations rather than feedback text.
 - [x] Composition root no longer constructs feature runtime commands directly;
       connection loading and schema introspection use feature adapters, with a
       guard preventing `UiCommand::` from returning to `app.rs`.

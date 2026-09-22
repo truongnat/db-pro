@@ -1533,3 +1533,22 @@ cover injection-shaped identifiers, provider syntax, unsupported operations and
 format validation.
 
 Severity: P1 unsafe SQL / provider-correctness risk, resolved for Saved Tasks.
+
+## F92 — Core state transitions were not atomic with runtime dispatch
+
+Evidence at the pre-fix main state: command-palette connection switching
+mutated the active connection before the runtime accepted the connect command;
+monitoring destructive confirmations were cleared after a failed dispatch; and
+restore confirmation was cleared in the presentation layer before dispatch.
+Connection failure classification also inferred delete operations from the
+localized feedback string instead of typed lifecycle state.
+
+Fix at `4904c81c`: palette switching reuses the guarded Explorer connection
+transition, destructive confirmation state is committed only after a successful
+dispatch, and `PendingConnectionOperation` makes connection failure reduction
+explicit for Connect/Test/Save/Delete. Regression tests cover failed palette
+switch, maintenance dispatch, restore dispatch and typed delete-failure
+classification.
+
+Severity: P1 one-way state-transition and failure-classification risk, resolved
+for the audited connection, monitoring and backup/restore paths.

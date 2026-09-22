@@ -2548,3 +2548,30 @@ keeps task policy and execution effects.
   process is PID `94103` for manual verification.
 - The working tree is clean and `main` is synchronized with `origin/main` at
   the documentation follow-up commit.
+
+### Core failure-transition checkpoint at `4904c81c`
+
+- Command-palette connection switching now reuses the guarded connection
+  transition, so staged-change and failed-dispatch protections apply equally
+  to palette and Explorer entry points.
+- Monitoring maintenance/terminate/reset and Settings restore confirmations
+  remain visible when the runtime worker rejects the command. Connection
+  failure reduction uses `PendingConnectionOperation` instead of parsing
+  feedback text.
+- Focused regressions passed for typed connection failure classification,
+  failed restore dispatch, failed monitoring maintenance dispatch, failed
+  palette connection switching, failed connection request cleanup and
+  connection draft SSL preservation.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 694 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 15 checks, 0 failures and 1 ratchet warning for pre-existing
+  long functions.
+- `git diff --check`: passed.
