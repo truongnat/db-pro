@@ -185,6 +185,9 @@
 - [x] Saved Tasks destructive-run policy and run-history recording are owned by
       `SavedTaskState`; runtime payload dispatch remains at the composition
       root.
+- [x] Saved Tasks export and maintenance SQL is prepared through a provider-aware
+      pure boundary; qualified identifiers are escaped, unsupported provider
+      syntax is rejected, and the architecture guard blocks raw interpolation.
 - [x] Workspace-files panel selection, root/environment/trust transitions,
       directory expansion, search routing and external-change dismissal are
       owned by `WorkspaceFilesState`; file activity adapters no longer mutate

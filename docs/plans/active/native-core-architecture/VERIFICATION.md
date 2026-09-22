@@ -2517,3 +2517,23 @@ keeps task policy and execution effects.
   right-aligned close control, complete body and separated footer.
 - The rebuilt release binary is running for manual verification as native
   process PID `91555`.
+
+### Saved task SQL safety checkpoint at `0cf1ed32`
+
+- `tasks_view.rs` no longer interpolates saved task table/target values into
+  SQL. `saved_task_sql.rs` owns identifier quoting, driver-specific export
+  pagination and maintenance capability gating.
+- Focused `saved_task_sql` tests passed: 4 passed, 0 failed, including
+  injection-shaped identifiers and provider-specific syntax.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 690 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed before the documentation-only follow-up.

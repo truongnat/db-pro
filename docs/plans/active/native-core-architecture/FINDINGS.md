@@ -1514,3 +1514,22 @@ runtime protocol only at the composition boundary. Architecture checks reject
 `UiCommand` from both feature contexts.
 
 Severity: P1 query-core boundary risk, resolved for execution and save flows.
+
+## F91 — Saved task dispatch interpolated untrusted SQL identifiers
+
+Evidence at the pre-fix main state: `tasks_view.rs` built export, `VACUUM` and
+`ANALYZE` statements with `format!(...)` around the saved `table` or `target`
+value. A saved task containing a quote, semicolon or comment could therefore
+change the statement structure; the export path also emitted `LIMIT` for every
+driver and maintenance syntax without a provider capability boundary.
+
+Fix at `0cf1ed32`: `saved_task_sql.rs` is the single pure SQL-preparation
+boundary. It validates the export format, quotes each qualified identifier with
+the provider's delimiter and escapes embedded delimiters, uses `TOP` for SQL
+Server, maps MySQL `ANALYZE TABLE`, and rejects unsupported maintenance
+operations instead of emitting provider-invalid SQL. Architecture checks now
+reject the old interpolation patterns from the task dispatcher. Focused tests
+cover injection-shaped identifiers, provider syntax, unsupported operations and
+format validation.
+
+Severity: P1 unsafe SQL / provider-correctness risk, resolved for Saved Tasks.
