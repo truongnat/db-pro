@@ -232,6 +232,8 @@
       confirmation.
 - [x] Welcome composition and typed action application live with the workspace
       boundary instead of a separate root facade module.
+- [x] Workspace-tab composition and typed action application live with the
+      workspace boundary instead of a separate root facade module.
 - [x] Monitoring state no longer constructs runtime protocol commands;
       snapshot, workload, session-control, maintenance and reset mapping is
       centralized in the monitoring activity adapter and architecture-guarded.

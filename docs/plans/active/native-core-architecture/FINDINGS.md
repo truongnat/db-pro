@@ -1630,3 +1630,16 @@ beside workspace composition in `workspace_view.rs`; the redundant root module
 and facade are removed without changing the Welcome surface contract.
 
 Severity: P2 topology/maintainability risk, resolved.
+
+## F98 — Workspace tab adapter was split from its workspace boundary
+
+Evidence at the pre-fix main state: `workspace_tabs_view.rs` declared a
+separate `impl DbProApp` only to compose the tab surface and apply workspace
+tab actions.
+
+Fix at `ba39ca58`: workspace-tab rendering and action application now live in
+`workspace_view.rs`, beside Welcome and the workspace surface composition. The
+redundant root module is removed without changing tab, query, table or close
+request behavior.
+
+Severity: P2 topology/maintainability risk, resolved.

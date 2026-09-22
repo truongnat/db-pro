@@ -83,7 +83,8 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
     adapters are now migrated to explicit contexts; Security activity is now
     migrated to `SecurityActivityContext` and Monitoring to
     `MonitoringActivityContext`; Welcome composition is co-located with the
-    workspace boundary; the remaining root adapters still require migration.
+    workspace boundary; workspace-tab composition is co-located there as well;
+    the remaining root adapters still require migration.
 11. Enforce the runtime command boundary as a two-phase transition: prepare
     typed command, dispatch through `TaskBridge`, then commit local pending or
     running state only after dispatch succeeds. This is now applied to the
