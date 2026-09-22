@@ -1631,6 +1631,21 @@ and facade are removed without changing the Welcome surface contract.
 
 Severity: P2 topology/maintainability risk, resolved.
 
+## F99 — Transitional Tauri startup failures were converted into panics
+
+Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used
+`expect` for app-data lookup, shared-runtime initialization and the final
+Tauri run, making recoverable boundary failures terminate through panic and
+discarding typed startup context.
+
+Fix at `18a9869b`: setup now propagates app-data/runtime initialization errors
+through the Tauri setup result, while terminal run failure is logged with its
+source error instead of an opaque panic. The `pg_dump` PATH test also avoids a
+test-only unwrap that polluted the full clean-code scan.
+
+Severity: P1 startup error-handling risk, resolved for the transitional Tauri
+adapter.
+
 ## F98 — Workspace tab adapter was split from its workspace boundary
 
 Evidence at the pre-fix main state: `workspace_tabs_view.rs` declared a

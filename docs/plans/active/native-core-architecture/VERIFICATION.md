@@ -166,6 +166,21 @@ presentation boundary instead of splitting the same surface across two files.
 - `git diff --check`: passed.
 - The UI source topology contains 59 `impl DbProApp` declarations.
 
+### Transitional Tauri startup error checkpoint at `18a9869b`
+
+- Tauri app-data lookup and shared runtime initialization now propagate errors
+  through setup; final Tauri run failures are logged with the original error
+  instead of panicking through `expect`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check -p db-pro-tauri`: passed.
+- `cargo clippy -p db-pro-tauri --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-infrastructure --quiet`: passed with no failures;
+  environment-gated tests remain ignored.
+- Full clean-code scan: no unwrap/expect findings outside test code; five
+  baseline warning groups remain for numeric casts, parameter counts, long
+  functions/files and clone count.
+- `git diff --check`: passed.
+
 ### Monitoring activity adapter checkpoint at `be3962ef`
 
 - Monitoring rendering, polling, confirmation transitions and runtime
