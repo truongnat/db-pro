@@ -1724,6 +1724,21 @@ bytes in the public `ExportResult` contract.
 Severity: P1 core application/rendering-boundary maintainability risk,
 resolved for export formatting.
 
+## F108 — Object mutation service mixed plan orchestration with DDL builders
+
+Evidence at the pre-fix main state: `ObjectMutationService` combined
+capability rejection and preview assembly with statement rendering for tables,
+views, indexes, constraints, triggers, namespaces, routines and RLS policies
+in one application module.
+
+Fix in the current checkpoint: `object_mutation_builders.rs` now owns the
+definition/action-to-DDL dispatch and provider-specific statement builders.
+`ObjectMutationService` retains preview orchestration, unsupported capability
+gates, safety classification, effects and fingerprints.
+
+Severity: P1 core mutation-boundary and provider-DDL maintainability risk,
+resolved for object mutation planning.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used

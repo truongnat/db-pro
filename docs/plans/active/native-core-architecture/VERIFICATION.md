@@ -2941,3 +2941,16 @@ keeps task policy and execution effects.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
   passed with 16 checks, 0 warnings and 0 failures.
 - `git diff --check`: passed.
+
+### Object mutation builder boundary checkpoint (pre-commit)
+
+- `ObjectMutationService::plan` now delegates definition/action-to-DDL
+  rendering to `application/object_mutation_builders.rs`; preview policy,
+  safety, effects and fingerprint assembly remain in the service facade.
+- Focused `cargo test -p db-pro-core object_mutation_service --quiet`: passed;
+  7 passed, 0 failed, 397 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
