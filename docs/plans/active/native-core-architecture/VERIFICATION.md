@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `9593c9c9`.
+Source checkpoint: `6f861d3e`.
 
 ## Current change
 
@@ -136,6 +136,28 @@ presentation boundary instead of splitting the same surface across two files.
   failures.
 - `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
 - `git diff --check`: passed.
+
+### Export formatting boundary checkpoint at `6f861d3e`
+
+- `ExportService` now delegates CSV, JSON and XLSX encoding to
+  `application/export_formats.rs`; authorization and provider query execution
+  remain in the service boundary.
+- Focused `cargo test -p db-pro-core export_service --quiet`: passed; 11
+  passed, 0 failed, 393 filtered out.
+- Full workspace gate passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `52378`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
 
 ### Migration planner core checkpoint at `c3209277`
 
