@@ -3084,3 +3084,19 @@ keeps task policy and execution effects.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
   passed with 16 checks, 0 warnings and 0 failures.
 - `git diff --check`: passed.
+
+### Query classification boundary checkpoint (pre-commit)
+
+- `query_classification.rs` now owns SQL statement classification, CTE keyword
+  scanning and leading-comment handling; `QueryService` retains orchestration
+  and imports the scoped classifier.
+- The `QueryService` test module now lives in
+  `application/query_service/tests.rs`, keeping the production facade focused
+  without changing test coverage or public behavior.
+- Focused `cargo test -p db-pro-core query_service --quiet`: passed; 32 passed,
+  0 failed, 372 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.

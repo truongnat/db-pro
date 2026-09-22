@@ -1782,6 +1782,22 @@ only introspection orchestration and delegates the same `SchemaDiff` contract.
 
 Severity: P2 core comparison-boundary and maintainability risk, resolved.
 
+## F112 — Query classification and test topology were coupled to the service facade
+
+Evidence at the pre-fix main state: `query_service.rs` owned the SQL statement
+classification helpers alongside execution orchestration, while its large test
+module was embedded in the same production file. This coupled a pure safety
+classification concern and test topology to the service facade, increasing the
+cost of changing either boundary.
+
+Fix in the current checkpoint: `query_classification.rs` now owns statement
+classification, CTE keyword scanning and leading-comment handling. The stable
+`QueryService` facade imports that classifier, and its tests live in
+`application/query_service/tests.rs`; behavior and visibility remain scoped to
+the application module.
+
+Severity: P2 core classification-boundary and maintainability risk, resolved.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used
