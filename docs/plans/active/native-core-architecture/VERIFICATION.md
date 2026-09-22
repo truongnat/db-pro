@@ -137,6 +137,20 @@ presentation boundary instead of splitting the same surface across two files.
 - `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
 - `git diff --check`: passed.
 
+### Welcome workspace co-location checkpoint at `ae3515ac`
+
+- Welcome rendering and action application now live in `workspace_view.rs`,
+  alongside workspace-tab composition; the redundant `welcome_view.rs` root
+  facade was removed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check -p db-pro-ui`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 695 tests, 0 failed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The UI source topology contains 60 `impl DbProApp` declarations.
+
 ### Monitoring activity adapter checkpoint at `be3962ef`
 
 - Monitoring rendering, polling, confirmation transitions and runtime

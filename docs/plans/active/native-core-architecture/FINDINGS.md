@@ -1618,3 +1618,15 @@ dispatch preserves its confirmation through the existing regression test.
 
 Severity: P1 composition-boundary and retryability risk, resolved for
 Monitoring.
+
+## F97 — Welcome adapter was split from its workspace composition boundary
+
+Evidence at the pre-fix main state: `welcome_view.rs` declared a separate
+`impl DbProApp` only to compose the Welcome surface and apply workspace,
+connection and palette actions.
+
+Fix at `ae3515ac`: Welcome rendering and its typed action application now live
+beside workspace composition in `workspace_view.rs`; the redundant root module
+and facade are removed without changing the Welcome surface contract.
+
+Severity: P2 topology/maintainability risk, resolved.
