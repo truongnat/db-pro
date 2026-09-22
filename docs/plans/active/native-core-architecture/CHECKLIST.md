@@ -200,6 +200,9 @@
 - [x] Request-ID allocation crosses the composition-root port through
       `DbProApp::next_request_id`; direct feature access to
       `TaskBridge::next_request_id` is rejected by the architecture guard.
+- [x] Query execution and saved-query contexts return typed prepared effects;
+      `RunQuery`, `RunQueryMulti` and saved-query protocol mapping are isolated
+      in command adapters and guarded against leaking back into feature state.
 - [x] Query editor rendering returns typed runtime effects; request-id allocation,
       dispatch and prediction-request commit remain in the query composition
       adapter, while the surface owns only editor state transitions.

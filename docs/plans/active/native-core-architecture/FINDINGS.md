@@ -1499,3 +1499,18 @@ The same checkpoint also removes remaining protocol construction from
 requests and leave `UiCommand` construction to root effect adapters.
 
 Severity: P1 lost-user-input / one-way-transition violation, resolved.
+
+## F90 — Query feature contexts depended on runtime protocol enums
+
+Evidence at `51d476da`: `QueryExecutionContext` returned `UiCommand` and
+pattern-matched `RunQuery`/`RunQueryMulti` inside its state commit path.
+`QuerySaveContext` likewise returned `UiCommand::SaveQuery`, so query feature
+preparation and runtime protocol mapping could not be tested or evolved
+independently.
+
+Fix at `6ff9f937`: query execution returns `PreparedQueryRun`, query saving
+returns `PreparedQuerySave`, and dedicated command adapters construct the
+runtime protocol only at the composition boundary. Architecture checks reject
+`UiCommand` from both feature contexts.
+
+Severity: P1 query-core boundary risk, resolved for execution and save flows.
