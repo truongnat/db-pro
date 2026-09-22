@@ -222,6 +222,12 @@
 - [x] Schema-compare state no longer constructs runtime protocol commands;
       snapshot/diff/migration planning remains pure while final command
       construction is centralized in the workspace/query adapters.
+- [x] Connection lifecycle state no longer constructs runtime protocol
+      commands; connection switching is centralized in the connection logic
+      adapter.
+- [x] Composition root no longer constructs feature runtime commands directly;
+      connection loading and schema introspection use feature adapters, with a
+      guard preventing `UiCommand::` from returning to `app.rs`.
 - [x] App module topology is isolated in `app_modules.rs`; `app.rs` contains
       aggregate ownership/orchestration only, and the guard rejects reintroducing
       feature `#[path]` declarations into the composition root.

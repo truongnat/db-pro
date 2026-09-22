@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `5cc14f0c`.
+Source checkpoint: `6ecdfb99`.
 
 ## Current change
 
@@ -2394,3 +2394,32 @@ keeps task policy and execution effects.
   right-aligned close control, complete body and separated footer.
 - The rebuilt release binary is running from this SHA in terminal session
   `31209` (native process PID `76549`) for manual verification.
+
+## Current connection/root command checkpoint at `6ecdfb99`
+
+- Connection lifecycle boundary: `0c4cb176`. Connection lifecycle state no
+  longer constructs `UiCommand`; saved-connection switching is mapped by
+  `connection::logic` and callers use that adapter.
+- Composition-root command boundary: `6ecdfb99`. `app.rs` no longer constructs
+  runtime commands directly for connection loading or schema introspection;
+  those mappings live in feature adapters. The architecture guard rejects
+  `UiCommand::` in `app.rs` and rejects protocol commands in connection
+  lifecycle state.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 684 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-6ecdfb99-new-1280x800.png`,
+  logical `1280x800`, inspected from the rebuilt capture binary. The New
+  Connection dialog remains centered with a separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running from this SHA in terminal session
+  `42789` (native process PID `81098`) for manual verification.
