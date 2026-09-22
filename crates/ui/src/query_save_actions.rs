@@ -1,57 +1,15 @@
 //! State transitions and command preparation for saved query documents.
 
-use super::{FeedbackState, QueryLibraryState, QuerySessionState, RequestId, UiCommand};
+use super::{FeedbackState, QueryLibraryState, QuerySessionState, RequestId};
 
-pub(super) fn list_queries_command(request_id: RequestId, connection_id: String) -> UiCommand {
-    UiCommand::ListSavedQueries {
-        request_id,
-        connection_id,
-    }
-}
-
-pub(super) fn list_folders_command(request_id: RequestId, connection_id: String) -> UiCommand {
-    UiCommand::ListQueryFolders {
-        request_id,
-        connection_id,
-    }
-}
-
-pub(super) fn create_folder_command(
-    library: &QueryLibraryState,
-    request_id: RequestId,
-    connection_id: String,
-) -> Result<UiCommand, String> {
-    Ok(UiCommand::CreateQueryFolder {
-        request_id,
-        connection_id,
-        name: library.required_folder_name()?,
-    })
-}
-
-pub(super) fn save_query_command(
-    library: &QueryLibraryState,
-    request_id: RequestId,
-    connection_id: String,
-    saved_query_id: Option<String>,
-    name: String,
-    sql: String,
-) -> UiCommand {
-    UiCommand::SaveQuery {
-        request_id,
-        connection_id,
-        saved_query_id,
-        name,
-        sql,
-        folder: library.normalized_folder(),
-    }
-}
-
-pub(super) fn rename_query_command(request_id: RequestId, id: String, name: String) -> UiCommand {
-    UiCommand::RenameSavedQuery { request_id, id, name }
-}
-
-pub(super) fn delete_query_command(request_id: RequestId, id: String) -> UiCommand {
-    UiCommand::DeleteSavedQuery { request_id, id }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PreparedQuerySave {
+    pub(crate) request_id: RequestId,
+    pub(crate) connection_id: String,
+    pub(crate) saved_query_id: Option<String>,
+    pub(crate) name: String,
+    pub(crate) sql: String,
+    pub(crate) folder: Option<String>,
 }
 
 pub(crate) struct QuerySaveContext<'a> {
@@ -78,7 +36,7 @@ impl<'a> QuerySaveContext<'a> {
         request_id: RequestId,
         document_index: usize,
         connection_id: Option<String>,
-    ) -> Option<UiCommand> {
+    ) -> Option<PreparedQuerySave> {
         let Some(connection_id) = connection_id else {
             self.feedback.set_runtime_message("Create or select a connection first");
             return None;
@@ -99,8 +57,14 @@ impl<'a> QuerySaveContext<'a> {
             .documents
             .get(document_index)
             .map_or_else(String::new, |document| document.text().to_owned());
-        let command = save_query_command(self.library, request_id, connection_id, saved_query_id, name, sql);
-        Some(command)
+        Some(PreparedQuerySave {
+            request_id,
+            connection_id,
+            saved_query_id,
+            name,
+            sql,
+            folder: self.library.normalized_folder(),
+        })
     }
 
     pub(crate) fn commit_dispatched(&mut self, request_id: RequestId, document_index: usize) {
@@ -127,7 +91,7 @@ mod tests {
         session.add_document(QueryDocument::new("doc-1", "Report", "SELECT 1"));
         let library = QueryLibraryState::default();
         let mut feedback = FeedbackState::default();
-        let command = {
+        let prepared = {
             let mut context = QuerySaveContext::new(&mut session, &library, &mut feedback);
             context
                 .prepare_save(RequestId(7), 0, Some("conn-1".to_owned()))
@@ -135,8 +99,8 @@ mod tests {
         };
 
         assert!(matches!(
-            command,
-            UiCommand::SaveQuery {
+            prepared,
+            PreparedQuerySave {
                 request_id: RequestId(7),
                 connection_id,
                 name,

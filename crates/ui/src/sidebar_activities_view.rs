@@ -174,7 +174,7 @@ impl DbProApp {
             }
             SidebarQueryLibraryAction::ConfirmDelete(id) => {
                 let request_id = self.next_request_id();
-                if self.dispatch_command(query_save_actions::delete_query_command(request_id, id)) {
+                if self.dispatch_command(query_save_commands::delete_query_command(request_id, id)) {
                     self.overlay.delete_confirmation_id = None;
                 }
             }
@@ -194,7 +194,7 @@ impl DbProApp {
         } else {
             self.query.library.query_folder.trim().to_owned()
         };
-        self.dispatch_command(query_save_actions::rename_query_command(
+        self.dispatch_command(query_save_commands::rename_query_command(
             request_id,
             query.id.clone(),
             name,

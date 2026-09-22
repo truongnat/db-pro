@@ -3,9 +3,17 @@
 use super::query_execution_state::{PendingDestructiveRun, PendingDestructiveRunMetadata};
 use super::{
     FeedbackState, QueryEditorState, QueryExecutionPolicyState, QueryExecutionState, QuerySessionState, RequestId,
-    UiCommand,
 };
 use std::time::Instant;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PreparedQueryRun {
+    pub(crate) request_id: RequestId,
+    pub(crate) connection_id: String,
+    pub(crate) sql: String,
+    pub(crate) params: Vec<String>,
+    pub(crate) all_statements: bool,
+}
 
 /// Coordinates query execution policy with the query document/session state.
 ///
@@ -76,7 +84,7 @@ impl<'a> QueryExecutionContext<'a> {
         connection_id: String,
         sql: String,
         all_statements: bool,
-    ) -> Option<UiCommand> {
+    ) -> Option<PreparedQueryRun> {
         let discovered = crate::query::discover_sql_parameters(&sql);
         if all_statements && !discovered.is_empty() {
             self.feedback.set_runtime_message(
@@ -108,31 +116,24 @@ impl<'a> QueryExecutionContext<'a> {
             }
         };
 
-        Some(if all_statements {
-            UiCommand::RunQueryMulti {
-                request_id,
-                connection_id,
-                sql,
-            }
-        } else {
-            UiCommand::RunQuery {
-                request_id,
-                connection_id,
-                sql,
-                params,
-            }
+        Some(PreparedQueryRun {
+            request_id,
+            connection_id,
+            sql,
+            params,
+            all_statements,
         })
     }
 
-    pub(crate) fn commit_dispatched(&mut self, command: &UiCommand, execution_range: (usize, usize), version: u64) {
-        let (request_id, sql, all_statements) = match command {
-            UiCommand::RunQuery { request_id, sql, .. } => (*request_id, sql.as_str(), false),
-            UiCommand::RunQueryMulti { request_id, sql, .. } => (*request_id, sql.as_str(), true),
-            _ => return,
-        };
-        self.record_query_history(sql);
-        self.mark_document_running(request_id, sql, execution_range, version);
-        self.feedback.set_runtime_message(if all_statements {
+    pub(crate) fn commit_dispatched(
+        &mut self,
+        prepared: &PreparedQueryRun,
+        execution_range: (usize, usize),
+        version: u64,
+    ) {
+        self.record_query_history(&prepared.sql);
+        self.mark_document_running(prepared.request_id, &prepared.sql, execution_range, version);
+        self.feedback.set_runtime_message(if prepared.all_statements {
             "Sending full script to runtime…"
         } else {
             "Sending query to runtime…"
@@ -214,7 +215,7 @@ mod tests {
         let mut feedback = FeedbackState::default();
         let mut context = context(&mut session, &mut editor, &mut policy, &mut feedback, "PostgreSQL");
 
-        let command = context
+        let prepared = context
             .prepare_query_run(
                 RequestId(9),
                 "conn-1".to_owned(),
@@ -222,15 +223,16 @@ mod tests {
                 false,
             )
             .expect("query should be prepared");
-        context.commit_dispatched(&command, (0, 36), 2);
+        context.commit_dispatched(&prepared, (0, 36), 2);
 
         assert_eq!(
-            command,
-            UiCommand::RunQuery {
+            prepared,
+            PreparedQueryRun {
                 request_id: RequestId(9),
                 connection_id: "conn-1".to_owned(),
                 sql: "SELECT * FROM users WHERE id = $1".to_owned(),
                 params: vec!["7".to_owned()],
+                all_statements: false,
             }
         );
         assert_eq!(session.active_running_request(), Some(RequestId(9)));

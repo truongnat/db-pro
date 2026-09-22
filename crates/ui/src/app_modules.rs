@@ -222,6 +222,8 @@ mod query_queue_events;
 mod query_result_events;
 #[path = "query_save_actions.rs"]
 mod query_save_actions;
+#[path = "query_save_commands.rs"]
+mod query_save_commands;
 #[path = "query_save_events.rs"]
 mod query_save_events;
 #[path = "replication_activity_view.rs"]

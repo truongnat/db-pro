@@ -243,7 +243,8 @@ impl DbProApp {
         else {
             return false;
         };
-        if self.dispatch_command(command.clone()) {
+        let runtime_command = query_run_command(&command);
+        if self.dispatch_command(runtime_command) {
             self.query_execution_context()
                 .commit_dispatched(&command, execution_range, version);
             true
@@ -261,5 +262,22 @@ impl DbProApp {
             &mut self.feedback,
             driver,
         )
+    }
+}
+
+fn query_run_command(prepared: &query_execution_actions::PreparedQueryRun) -> UiCommand {
+    if prepared.all_statements {
+        UiCommand::RunQueryMulti {
+            request_id: prepared.request_id,
+            connection_id: prepared.connection_id.clone(),
+            sql: prepared.sql.clone(),
+        }
+    } else {
+        UiCommand::RunQuery {
+            request_id: prepared.request_id,
+            connection_id: prepared.connection_id.clone(),
+            sql: prepared.sql.clone(),
+            params: prepared.params.clone(),
+        }
     }
 }

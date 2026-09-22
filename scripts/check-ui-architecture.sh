@@ -324,6 +324,14 @@ if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/explorer_navigation.rs"; then
   echo "UI architecture check failed: explorer navigation state must not construct runtime protocol commands." >&2
   exit 1
 fi
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/query_execution_actions.rs"; then
+  echo "UI architecture check failed: query execution state must not depend on runtime protocol commands." >&2
+  exit 1
+fi
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/query_save_actions.rs"; then
+  echo "UI architecture check failed: query save state must not depend on runtime protocol commands." >&2
+  exit 1
+fi
 for state_module in \
   "$repo_root/crates/ui/src/audit_state.rs" \
   "$repo_root/crates/ui/src/fdw_state.rs" \

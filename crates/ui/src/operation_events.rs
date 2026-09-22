@@ -331,7 +331,7 @@ impl DbProApp {
     fn request_saved_queries_refresh(&mut self) {
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.next_request_id();
-            self.dispatch_command(query_save_actions::list_queries_command(request_id, connection_id));
+            self.dispatch_command(query_save_commands::list_queries_command(request_id, connection_id));
         }
     }
 

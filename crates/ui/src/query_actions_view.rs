@@ -119,7 +119,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.next_request_id();
-        let command = match query_save_actions::create_folder_command(&self.query.library, request_id, connection.id) {
+        let command = match query_save_commands::create_folder_command(&self.query.library, request_id, connection.id) {
             Ok(command) => command,
             Err(error) => {
                 self.feedback.runtime_message = error;
