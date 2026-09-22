@@ -1661,6 +1661,25 @@ unsupported markers remain covered by the core tests.
 
 Severity: P1 core maintainability/provider-policy risk, resolved.
 
+## F101 — Query service owned both batch orchestration and execution details
+
+Evidence at the pre-fix main state: `QueryService::execute_multi` mixed
+connection/policy lookup, statement classification, transactional dispatch,
+sequential dispatch, result conversion, schema-cache invalidation and history
+persistence in one method of roughly 200 lines. The same service boundary was
+therefore responsible for choosing an execution mode and interpreting every
+provider transaction result.
+
+Fix at `c85f219e`: `MultiQueryExecution` now owns transactional validation,
+transaction failure mapping, sequential execution and result assembly in a
+dedicated application module. `QueryService::execute_multi` remains the stable
+orchestration API for lookup, mode selection, cache invalidation and history
+persistence. Existing multi-query routing, transaction-control rejection,
+partial-result and unknown-commit tests remain green.
+
+Severity: P1 core composition and transaction-error maintainability risk,
+resolved for the multi-query boundary.
+
 ## F98 — Workspace tab adapter was split from its workspace boundary
 
 Evidence at the pre-fix main state: `workspace_tabs_view.rs` declared a

@@ -2723,3 +2723,19 @@ keeps task policy and execution effects.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
   passed with 16 checks and 0 warnings.
 - `git diff --check`: passed.
+
+### Multi-query execution boundary checkpoint at `c85f219e`
+
+- `QueryService::execute_multi` now coordinates connection/policy lookup,
+  execution-mode selection, single-statement schema invalidation and history
+  persistence; transactional/sequential execution and transaction-result
+  conversion live in `application/multi_query_execution.rs`.
+- Focused query-service tests passed: 32 passed, 0 failed, 372 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo check -p db-pro-core`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 14 checks, 0 failures and 2 ratchet warnings for the existing
+  `effective_keyword` function and long `query_service.rs` file.
+- `git diff --check`: passed.
+- Full workspace gates and release rebuild remain pending for this checkpoint.
