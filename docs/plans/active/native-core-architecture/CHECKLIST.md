@@ -228,6 +228,12 @@
 - [x] Connection lifecycle state no longer constructs runtime protocol
       commands; connection switching is centralized in the connection logic
       adapter.
+- [x] Schema Workbench and Explorer connection navigation prepare typed
+      requests without constructing `UiCommand`; protocol mapping stays in
+      their root effect adapters and is architecture-guarded.
+- [x] Confirmation and sensitive-form state commits happen only after a
+      successful runtime dispatch; failed Security, connection-delete,
+      query-delete and folder-delete dispatches remain retryable.
 - [x] Composition root no longer constructs feature runtime commands directly;
       connection loading and schema introspection use feature adapters, with a
       guard preventing `UiCommand::` from returning to `app.rs`.

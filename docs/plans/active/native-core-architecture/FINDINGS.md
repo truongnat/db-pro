@@ -1480,3 +1480,22 @@ was also split into focused handlers so the touched module has no new clean
 code warning.
 
 Severity: P1 runtime-boundary incompleteness, resolved.
+
+## F89 — Runtime dispatch failures could erase local confirmation state
+
+Evidence at `f37a0548`: Security password/role drafts and delete
+confirmations were cleared after calling `dispatch_command`, regardless of
+whether the runtime channel accepted the command. The connection-delete and
+query-folder dialogs had the same unconditional clear after a best-effort
+send.
+
+Fix at `e3a8fde0`: local sensitive/confirmation state is cleared only on a
+successful dispatch. Failed dispatches keep the current draft or dialog open
+and surface the runtime error, so the user can retry. The Security path has a
+regression test proving a failed password update preserves its draft.
+
+The same checkpoint also removes remaining protocol construction from
+`SchemaWorkbenchState` and `ExplorerConnectionContext`; both now return typed
+requests and leave `UiCommand` construction to root effect adapters.
+
+Severity: P1 lost-user-input / one-way-transition violation, resolved.

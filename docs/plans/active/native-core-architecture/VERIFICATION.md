@@ -2464,3 +2464,31 @@ keeps task policy and execution effects.
   right-aligned close control, complete body and separated footer.
 - The rebuilt release binary is running for manual verification as native
   process PID `83952`.
+
+### Command-preparation and failure-transition checkpoint at `e3a8fde0`
+
+- `SchemaWorkbenchState` now prepares `SchemaWorkbenchDdlRequest` and
+  `ExplorerConnectionContext` now prepares `ConnectRequest`; neither owns
+  runtime protocol construction. The architecture guard rejects
+  `UiCommand` in both modules.
+- Sensitive Security drafts and connection/query/folder delete confirmations
+  are committed only after the runtime channel accepts the command. A failed
+  Security password dispatch regression test passes and preserves the draft.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 686 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-one-way-transition-1280x800.png`,
+  created from the rebuilt release capture binary and visually inspected. The
+  New Connection dialog remains centered with separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running for manual verification as native
+  process PID `88932`.
