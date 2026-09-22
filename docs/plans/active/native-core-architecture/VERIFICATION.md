@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `48282681`.
+Source checkpoint: `f4c1599d`.
 
 ## Current change
 
@@ -136,6 +136,29 @@ presentation boundary instead of splitting the same surface across two files.
   failures.
 - `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
 - `git diff --check`: passed.
+
+### Monitoring snapshot boundary checkpoint at `f4c1599d`
+
+- `MonitoringService::snapshot` now delegates provider query collection,
+  fallback handling and `MonitoringSnapshot` assembly to
+  `application/monitoring_snapshot.rs`.
+- Focused `cargo test -p db-pro-core monitoring_service --quiet`: passed; 6
+  passed, 0 failed, 398 filtered out.
+- Full workspace gate passed on rerun:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. The first
+  workspace run had one transient diagram timing assertion
+  (`scene_prep_1000_1280x800`); the focused test and full rerun both passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `62196`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
 
 ### Database transfer plan boundary checkpoint at `48282681`
 
