@@ -22,6 +22,7 @@ pub(super) enum SchemaWorkbenchMode {
     Partition,
     Dependencies,
     Docs,
+    History,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,6 +48,16 @@ impl Default for TableDesignerColumn {
             comment: String::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct DdlExecutionHistoryEntry {
+    pub(super) timestamp: String,
+    pub(super) object_kind: String,
+    pub(super) object_name: String,
+    pub(super) sql: String,
+    pub(super) safety: String,
+    pub(super) success: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -93,6 +104,7 @@ pub(super) struct SchemaWorkbenchState {
     pub(super) docs_markdown: String,
     pub(super) docs_format_html: bool,
     pub(super) dependency_filter: String,
+    pub(super) history: Vec<DdlExecutionHistoryEntry>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -168,11 +180,27 @@ impl Default for SchemaWorkbenchState {
             docs_markdown: String::new(),
             docs_format_html: false,
             dependency_filter: String::new(),
+            history: Vec::new(),
         }
     }
 }
 
 impl SchemaWorkbenchState {
+    pub(super) fn record_execution(&mut self, kind: &str, name: &str, sql: &str, safety: &str, success: bool) {
+        let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        self.history.insert(0, DdlExecutionHistoryEntry {
+            timestamp,
+            object_kind: kind.to_owned(),
+            object_name: name.to_owned(),
+            sql: sql.to_owned(),
+            safety: safety.to_owned(),
+            success,
+        });
+        if self.history.len() > 100 {
+            self.history.truncate(100);
+        }
+    }
+
     pub(super) fn prepare_ddl_request(&self, connection_id: String) -> Result<SchemaWorkbenchDdlRequest, String> {
         let sql = self.preview_sql.trim();
         if sql.is_empty() {
@@ -367,6 +395,16 @@ impl DbProApp {
                 }
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
+            schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::OpenSqlAsQuery(sql) => {
+                self.new_query_document();
+                if let Some(doc) = self.query.session.documents.last_mut() {
+                    doc.set_text(sql);
+                }
+                self.workspace.active_tab = WorkspaceTab::Query;
+            }
+            schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::ClearHistory => {
+                self.schema.workbench.history.clear();
+            }
         }
     }
 
@@ -501,7 +539,24 @@ mod tests {
 
     #[test]
     fn parse_columns_with_pk_flag() {
-        let cols = parse_column_defs("public", "t", "id:INTEGER:pk,name:TEXT").unwrap();
-        assert_eq!(cols.len(), 2);
+        let cols = parse_column_defs("public", "t", "id:INTEGER:pk,name:TEXT:nn,note:TEXT").unwrap();
+        assert_eq!(cols.len(), 3);
+        assert_eq!(cols[0].name, "id");
+        assert!(cols[0].is_pk);
+        assert_eq!(cols[1].name, "name");
+        assert!(!cols[1].nullable);
+        assert!(!cols[1].is_pk);
+        assert_eq!(cols[2].name, "note");
+        assert!(cols[2].nullable);
+    }
+
+    #[test]
+    fn execution_history_recording_and_capping() {
+        let mut wb = SchemaWorkbenchState::default();
+        for i in 0..110 {
+            wb.record_execution("Table", &format!("t_{i}"), "CREATE TABLE ...", "Safe", true);
+        }
+        assert_eq!(wb.history.len(), 100);
+        assert_eq!(wb.history[0].object_name, "t_109");
     }
 }

@@ -16,7 +16,11 @@ impl SchemaWorkbenchState {
         if name.is_empty()
             && !matches!(
                 self.mode,
-                SchemaWorkbenchMode::SchemaDb | SchemaWorkbenchMode::Comment | SchemaWorkbenchMode::Dependencies
+                SchemaWorkbenchMode::SchemaDb
+                    | SchemaWorkbenchMode::Comment
+                    | SchemaWorkbenchMode::Dependencies
+                    | SchemaWorkbenchMode::Docs
+                    | SchemaWorkbenchMode::History
             )
         {
             return Err("Object name cannot be empty".to_owned());
@@ -38,6 +42,8 @@ impl SchemaWorkbenchState {
                                     };
                                 } else if driver.to_ascii_lowercase().contains("sqlite") {
                                     data_type = "INTEGER PRIMARY KEY AUTOINCREMENT".into();
+                                } else if driver.to_ascii_lowercase().contains("mysql") {
+                                    data_type = format!("{data_type} AUTO_INCREMENT");
                                 }
                             }
                             ColumnDefinition {
@@ -244,7 +250,7 @@ impl SchemaWorkbenchState {
                 ObjectKind::Partition,
                 Some(self.parent_table.clone()),
             ),
-            SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs => {
+            SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs | SchemaWorkbenchMode::History => {
                 (ObjectDefinition::Empty, ObjectKind::Table, None)
             }
         };

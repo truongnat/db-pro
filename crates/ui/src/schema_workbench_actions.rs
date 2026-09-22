@@ -111,12 +111,17 @@ impl DbProApp {
                 return;
             }
         };
+        let kind = format!("{:?}", self.schema.workbench.mode);
+        let name = self.schema.workbench.name.clone();
+        let safety = self.schema.workbench.preview_safety.clone();
+        let sql = request.sql.clone();
         let command = UiCommand::ExecuteDdl {
             request_id,
             connection_id: request.connection_id,
             sql: request.sql,
         };
         if self.dispatch_command(command) {
+            self.schema.workbench.record_execution(&kind, &name, &sql, &safety, true);
             self.table.state.ddl_execution_request = Some(request_id);
             self.feedback.runtime_message = "Applying schema mutation…".into();
         }

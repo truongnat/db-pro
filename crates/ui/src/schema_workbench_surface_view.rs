@@ -63,6 +63,11 @@ impl SchemaWorkbenchSurfaceContext<'_> {
                             actions.push(SchemaWorkbenchSurfaceAction::Secondary(action));
                         }
                     }
+                    SchemaWorkbenchMode::History => {
+                        if let Some(action) = self.draw_history(ui) {
+                            actions.push(SchemaWorkbenchSurfaceAction::Secondary(action));
+                        }
+                    }
                     _ => self.draw_definition(ui, &mut actions),
                 }
             });
@@ -88,6 +93,18 @@ impl SchemaWorkbenchSurfaceContext<'_> {
             edges: &[],
         };
         schema_workbench_secondary_view::draw_docs_export(&mut context, ui)
+    }
+
+    fn draw_history(
+        &mut self,
+        ui: &mut egui::Ui,
+    ) -> Option<schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction> {
+        let mut context = schema_workbench_secondary_view::SchemaWorkbenchSecondaryContext {
+            theme: self.theme,
+            workbench: self.workbench,
+            edges: &[],
+        };
+        schema_workbench_secondary_view::draw_execution_history(&mut context, ui)
     }
 
     fn draw_definition(&mut self, ui: &mut egui::Ui, actions: &mut Vec<SchemaWorkbenchSurfaceAction>) {
@@ -123,7 +140,7 @@ impl SchemaWorkbenchSurfaceContext<'_> {
     }
 }
 
-fn workbench_modes() -> [(SchemaWorkbenchMode, Icon, &'static str); 14] {
+fn workbench_modes() -> [(SchemaWorkbenchMode, Icon, &'static str); 15] {
     [
         (SchemaWorkbenchMode::Table, Icon::Table2, "Table / columns"),
         (SchemaWorkbenchMode::Column, Icon::Columns3, "Column alter"),
@@ -139,6 +156,7 @@ fn workbench_modes() -> [(SchemaWorkbenchMode, Icon, &'static str); 14] {
         (SchemaWorkbenchMode::Partition, Icon::LayoutGrid, "Partitions"),
         (SchemaWorkbenchMode::Dependencies, Icon::GitBranch, "Dependencies"),
         (SchemaWorkbenchMode::Docs, Icon::FileText, "Docs export"),
+        (SchemaWorkbenchMode::History, Icon::History, "Execution history"),
     ]
 }
 
@@ -151,6 +169,10 @@ mod tests {
         assert_eq!(
             SchemaWorkbenchSurfaceAction::SelectMode(SchemaWorkbenchMode::Docs),
             SchemaWorkbenchSurfaceAction::SelectMode(SchemaWorkbenchMode::Docs)
+        );
+        assert_eq!(
+            SchemaWorkbenchSurfaceAction::SelectMode(SchemaWorkbenchMode::History),
+            SchemaWorkbenchSurfaceAction::SelectMode(SchemaWorkbenchMode::History)
         );
     }
 }
