@@ -601,8 +601,6 @@ mod table_workspace_surface_view;
 mod tests;
 #[path = "transfer_activity_view.rs"]
 mod transfer_activity_view;
-#[path = "welcome_view.rs"]
-mod welcome_view;
 #[path = "workspace_feature_state.rs"]
 mod workspace_feature_state;
 #[path = "workspace_tab_primitives.rs"]
