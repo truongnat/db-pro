@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `6ecdfb99`.
+Source checkpoint: `9593c9c9`.
 
 ## Current change
 
@@ -2883,3 +2883,26 @@ keeps task policy and execution effects.
   passed with 15 checks, 0 failures and only the existing `connection_service.rs`
   long-function ratchet warning for create/delete.
 - `git diff --check`: passed.
+
+### Connection update boundary checkpoint at `9593c9c9`
+
+- `ConnectionService::update` now delegates to
+  `application/connection_update.rs`; `PreparedUpdate` owns the update
+  snapshot, explicit database/SSH secret plans, secret rollback and the
+  persist/disconnect recovery sequence.
+- Focused `cargo test -p db-pro-core connection_service --quiet`: passed; 39
+  passed, 0 failed, 365 filtered out.
+- Full workspace gate passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `49493`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
