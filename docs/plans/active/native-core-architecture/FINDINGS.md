@@ -1754,6 +1754,21 @@ re-exports the stable planning API.
 Severity: P1 core transfer-policy and adapter-boundary maintainability risk,
 resolved for conversion planning.
 
+## F110 — Monitoring snapshot mixed provider queries with service composition
+
+Evidence at the pre-fix main state: `MonitoringService::snapshot` resolved the
+connection and provider port while also collecting sessions, locks, relation
+sizes, server/workload data, provider fallbacks and the user-facing snapshot
+message in one method.
+
+Fix in the current checkpoint: `monitoring_snapshot.rs` now owns the snapshot
+execution/read-model assembly. `MonitoringService` retains the public facade,
+provider selection and command-oriented monitoring operations; existing
+provider fallback and error logging semantics are preserved.
+
+Severity: P1 monitoring provider-boundary and read-model maintainability risk,
+resolved for snapshot assembly.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used

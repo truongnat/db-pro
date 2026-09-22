@@ -3013,3 +3013,16 @@ keeps task policy and execution effects.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
   passed with 16 checks, 0 warnings and 0 failures.
 - `git diff --check`: passed.
+
+### Monitoring snapshot boundary checkpoint (pre-commit)
+
+- `MonitoringService::snapshot` now delegates provider query collection,
+  fallback handling and `MonitoringSnapshot` assembly to
+  `application/monitoring_snapshot.rs`.
+- Focused `cargo test -p db-pro-core monitoring_service --quiet`: passed; 6
+  passed, 0 failed, 398 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
