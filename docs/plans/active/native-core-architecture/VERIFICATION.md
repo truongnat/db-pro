@@ -2840,3 +2840,17 @@ keeps task policy and execution effects.
 - `git diff --check`: passed.
 - The rebuilt normal release binary is running as native process PID `42086`
   with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Schema table projection boundary checkpoint at `93a4e85a`
+
+- `SchemaService::get_table_info` now only loads the introspection snapshot and
+  delegates projection to `application/schema_table_info.rs`; the helper owns
+  table parts, dependency edge construction and stable deduplication.
+- Focused schema-service tests passed: 19 passed, 0 failed, 385 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo check -p db-pro-core`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 failures and 0 warnings.
+- `git diff --check`: passed.
+- Full workspace gates and release rebuild remain pending for this checkpoint.

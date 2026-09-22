@@ -1679,6 +1679,21 @@ PostgreSQL/SQLite output and identifier quoting paths.
 Severity: P1 core provider-boundary and schema-service maintainability risk,
 resolved for schema DDL rendering.
 
+## F105 — Table-info projection mixed cache access with dependency discovery
+
+Evidence at the pre-fix main state: `SchemaService::get_table_info` fetched the
+introspection snapshot and then also projected columns/keys/indexes while
+building and deduplicating FK, view, trigger, function and sequence dependency
+edges in the same service method.
+
+Fix at `93a4e85a`: `schema_table_info.rs` now owns the pure snapshot-to-
+`TableInfo` projection and dependency graph construction. `SchemaService`
+retains cache/connection orchestration and delegates the projection; the
+existing schema-service dependency and table-info tests remain green.
+
+Severity: P1 core introspection-boundary and dependency-graph maintainability
+risk, resolved.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used
