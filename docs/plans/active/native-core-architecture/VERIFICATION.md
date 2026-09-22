@@ -3049,3 +3049,16 @@ keeps task policy and execution effects.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
   passed with 16 checks, 0 warnings and 0 failures.
 - `git diff --check`: passed.
+
+### Schema diff comparator boundary checkpoint (pre-commit)
+
+- `schema_diff_compare.rs` now owns qualified-name formatting, table/index set
+  differences, common-column comparison and typed mismatch lookup;
+  `SchemaService::diff_schemas` remains the introspection adapter.
+- Focused `cargo test -p db-pro-core schema_diff --quiet`: passed; 4 passed,
+  0 failed, 400 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.

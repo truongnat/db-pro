@@ -1769,6 +1769,19 @@ provider fallback and error logging semantics are preserved.
 Severity: P1 monitoring provider-boundary and read-model maintainability risk,
 resolved for snapshot assembly.
 
+## F111 — Schema diff comparator mixed naming, table, column and index concerns
+
+Evidence at the pre-fix main state: `schema_diff.rs` implemented qualified-name
+quoting plus the complete table, common-column/type-mismatch and index diff in
+one 95-line comparator.
+
+Fix in the current checkpoint: `schema_diff_compare.rs` now owns the pure
+comparison boundary with named helpers for qualified sets, table-column
+comparison, type lookup and index/table differences. `SchemaService` keeps
+only introspection orchestration and delegates the same `SchemaDiff` contract.
+
+Severity: P2 core comparison-boundary and maintainability risk, resolved.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used
