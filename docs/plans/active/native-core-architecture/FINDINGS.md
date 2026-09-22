@@ -1694,6 +1694,22 @@ existing schema-service dependency and table-info tests remain green.
 Severity: P1 core introspection-boundary and dependency-graph maintainability
 risk, resolved.
 
+## F106 — Connection update mixed secret lifecycle with persistence and live-session recovery
+
+Evidence at the pre-fix main state: `ConnectionService::update` combined
+configuration validation, database/SSH secret migration, secret rollback,
+repository persistence, active-session disconnect recovery and schema-cache
+invalidation in one application method.
+
+Fix in the current checkpoint: `connection_update.rs` now owns the update use
+case through `PreparedUpdate`, `DatabaseSecretChange` and `SshSecretChange`.
+`ConnectionService` keeps the stable public facade, while the extracted
+boundary makes the secret plan and rollback state explicit without changing the
+repository, connector or secret-store ports.
+
+Severity: P1 core lifecycle-boundary and rollback maintainability risk,
+resolved for connection updates.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used

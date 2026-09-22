@@ -2868,3 +2868,18 @@ keeps task policy and execution effects.
 - `git diff --check`: passed.
 - The rebuilt normal release binary is running as native process PID `45684`
   with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Connection update boundary checkpoint (pre-commit)
+
+- `ConnectionService::update` now delegates to
+  `application/connection_update.rs`; `PreparedUpdate` owns the update
+  snapshot, explicit database/SSH secret plans, secret rollback and the
+  persist/disconnect recovery sequence.
+- Focused `cargo test -p db-pro-core connection_service --quiet`: passed; 39
+  passed, 0 failed, 365 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 15 checks, 0 failures and only the existing `connection_service.rs`
+  long-function ratchet warning for create/delete.
+- `git diff --check`: passed.
