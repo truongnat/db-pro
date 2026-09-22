@@ -175,7 +175,7 @@ impl DbProApp {
         if let Some(connection) = connection {
             *self.connection.lifecycle.active_connection_id_mut() = Some(connection.id.clone());
             self.connection.lifecycle.set_connected(false);
-            let request_id = self.task_bridge.next_request_id();
+            let request_id = self.next_request_id();
             self.connection.lifecycle.set_pending_request(Some(request_id));
             self.dispatch_command(super::connection::logic::build_connect_command(
                 request_id,

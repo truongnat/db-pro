@@ -49,7 +49,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect to a database before executing DDL".to_owned();
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let command = match build_execute_ddl_command(&self.table.state, request_id, connection.id) {
             Ok(command) => command,
             Err(error) => {
@@ -125,7 +125,7 @@ impl DbProApp {
         ) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let command = build_table_info_command(
             request_id,
             TableTarget {
@@ -147,7 +147,7 @@ impl DbProApp {
         ) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let command = build_table_ddl_command(
             request_id,
             TableTarget {
@@ -175,7 +175,7 @@ impl DbProApp {
         let Some(table) = table else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let command = table_data_view::build_load_data_command(
             &self.table.data_query,
             request_id,

@@ -49,7 +49,7 @@ impl DbProApp {
     pub(super) fn on_pg_setting_action_completed(&mut self, action: String, name: String) {
         management_events::on_pg_setting_action_completed(&mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-            let request_id = self.task_bridge.next_request_id();
+            let request_id = self.next_request_id();
             self.dispatch_command(super::pg_settings_activity_view::list_pg_settings_command(
                 request_id,
                 connection_id,
@@ -64,7 +64,7 @@ impl DbProApp {
     pub(super) fn on_fdw_action_completed(&mut self, action: String, name: String) {
         management_events::on_fdw_action_completed(&mut self.management.fdw, &mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-            let request_id = self.task_bridge.next_request_id();
+            let request_id = self.next_request_id();
             self.dispatch_command(super::fdw_activity_view::list_fdw_inventory_command(
                 request_id,
                 connection_id,
@@ -91,7 +91,7 @@ impl DbProApp {
             name,
         );
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-            let request_id = self.task_bridge.next_request_id();
+            let request_id = self.next_request_id();
             self.dispatch_command(super::replication_activity_view::list_replication_inventory_command(
                 request_id,
                 connection_id,
@@ -118,7 +118,7 @@ impl DbProApp {
             name,
         );
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-            let request_id = self.task_bridge.next_request_id();
+            let request_id = self.next_request_id();
             self.dispatch_command(super::event_trigger_activity_view::list_event_triggers_command(
                 request_id,
                 connection_id,
@@ -135,7 +135,7 @@ impl DbProApp {
             succeeded,
         );
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-            let request_id = self.task_bridge.next_request_id();
+            let request_id = self.next_request_id();
             self.dispatch_command(super::monitoring_activity_view::snapshot_command(
                 request_id,
                 connection_id,
@@ -330,7 +330,7 @@ impl DbProApp {
     /// Re-reads saved queries for the active connection.
     fn request_saved_queries_refresh(&mut self) {
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-            let request_id = self.task_bridge.next_request_id();
+            let request_id = self.next_request_id();
             self.dispatch_command(query_save_actions::list_queries_command(request_id, connection_id));
         }
     }

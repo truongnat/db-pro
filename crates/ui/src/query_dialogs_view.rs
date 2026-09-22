@@ -67,7 +67,7 @@ impl DbProApp {
         else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let command = UiCommand::ExplainQuery {
             request_id,
             connection_id: request.connection_id.clone(),
@@ -170,7 +170,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Create or select a connection first".to_owned();
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let Some(command) = self
             .query_save_context()
             .prepare_save(request_id, document_index, Some(connection_id))

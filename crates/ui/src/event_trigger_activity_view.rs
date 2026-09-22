@@ -71,7 +71,7 @@ impl DbProApp {
             self.management.event_trigger.event_trigger_error = Some("Event triggers are PostgreSQL-only".into());
             return;
         }
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(list_event_triggers_command(request_id, connection_id));
     }
 
@@ -79,7 +79,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(create_event_trigger_command(
             &self.management.event_trigger,
             request_id,
@@ -91,7 +91,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(
             drop_event_trigger_command(request_id, connection_id, name.to_owned()),
         );
@@ -101,7 +101,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(alter_event_trigger_command(
             request_id,
             connection_id,

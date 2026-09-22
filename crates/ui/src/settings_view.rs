@@ -126,22 +126,22 @@ impl DbProApp {
         for action in actions {
             match action {
                 SettingsBackupAction::PickBackup => {
-                    let request_id = self.task_bridge.next_request_id();
+                    let request_id = self.next_request_id();
                     self.dispatch_command(pick_backup_command(request_id));
                 }
                 SettingsBackupAction::CreateBackup => {
                     if let Some(connection) = self.active_connection().cloned() {
-                        let request_id = self.task_bridge.next_request_id();
+                        let request_id = self.next_request_id();
                         self.dispatch_command(backup_command(&self.overlay, request_id, connection.id));
                     }
                 }
                 SettingsBackupAction::PickRestore => {
-                    let request_id = self.task_bridge.next_request_id();
+                    let request_id = self.next_request_id();
                     self.dispatch_command(pick_restore_command(request_id));
                 }
                 SettingsBackupAction::ConfirmRestore => {
                     if let Some(connection) = self.active_connection().cloned() {
-                        let request_id = self.task_bridge.next_request_id();
+                        let request_id = self.next_request_id();
                         self.dispatch_command(restore_command(&self.overlay, request_id, connection.id));
                     }
                 }

@@ -94,7 +94,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect to a database before applying DDL".into();
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let command = match self.schema.workbench.apply_ddl_command(request_id, connection.id) {
             Ok(command) => command,
             Err(error) => {

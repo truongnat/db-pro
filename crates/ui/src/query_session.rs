@@ -63,7 +63,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let sql = match self.schema.compare.prepare_migration_sql() {
             Ok(sql) => sql,
             Err(error) => {

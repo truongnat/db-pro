@@ -45,7 +45,7 @@ impl DbProApp {
             self.management.audit.audit_error = Some("Connect a database first".into());
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(audit_events_load_command(
             &self.management.audit,
             request_id,

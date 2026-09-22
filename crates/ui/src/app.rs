@@ -276,6 +276,16 @@ impl DbProApp {
         self.task_bridge.send_best_effort(command)
     }
 
+    /// Allocates request identities at the composition boundary.
+    ///
+    /// Feature adapters may request an identity, but they do not reach into
+    /// the runtime bridge directly. Keeping allocation here makes the
+    /// request lifecycle auditable and prevents feature modules from coupling
+    /// to the channel implementation.
+    pub(crate) fn next_request_id(&mut self) -> RequestId {
+        self.task_bridge.next_request_id()
+    }
+
     // Connection/status: `connection_status.rs`.
 
     // Query session helpers: `query_session.rs`.

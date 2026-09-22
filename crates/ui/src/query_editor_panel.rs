@@ -39,7 +39,7 @@ impl DbProApp {
                     self.dispatch_command(UiCommand::CancelSqlPrediction { request_id });
                 }
                 Action::RequestPrediction(request) => {
-                    let request_id = self.task_bridge.next_request_id();
+                    let request_id = self.next_request_id();
                     let command = UiCommand::RequestSqlPrediction {
                         request_id,
                         document_id: request.document_id.clone(),

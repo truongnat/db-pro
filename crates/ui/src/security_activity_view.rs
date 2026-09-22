@@ -44,7 +44,7 @@ impl DbProApp {
         match action {
             security_confirmation_view::SecurityConfirmationAction::ConfirmDropRole(name) => {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-                    let request_id = self.task_bridge.next_request_id();
+                    let request_id = self.next_request_id();
                     self.dispatch_command(drop_role_command(
                         security_request(request_id, connection_id),
                         name,
@@ -75,7 +75,7 @@ impl DbProApp {
                         continue;
                     };
                     self.management.security.security_new_role_login = login;
-                    let request_id = self.task_bridge.next_request_id();
+                    let request_id = self.next_request_id();
                     self.dispatch_command(create_role_command(
                         &self.management.security,
                         security_request(request_id, connection_id),
@@ -96,7 +96,7 @@ impl DbProApp {
             let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
                 continue;
             };
-            let request_id = self.task_bridge.next_request_id();
+            let request_id = self.next_request_id();
             match action {
                 security_role_details_view::SecurityRoleDetailsAction::AlterRole(attributes) => {
                     self.dispatch_command(alter_role_command(
@@ -159,7 +159,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(list_users_command(security_request(request_id, connection_id)));
     }
 
@@ -167,12 +167,12 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(list_privileges_command(
             security_request(request_id, connection_id.clone()),
             role_name.to_owned(),
         ));
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(list_memberships_command(
             security_request(request_id, connection_id),
             role_name.to_owned(),
@@ -183,7 +183,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         match list_table_rls_command(&self.management.security, security_request(request_id, connection_id)) {
             Ok(command) => {
                 self.dispatch_command(command);
@@ -287,7 +287,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         if let Some(command) = apply_rls_preview_command(
             &self.management.security,
             security_request(request_id, connection_id),

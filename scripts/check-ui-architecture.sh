@@ -88,6 +88,13 @@ if [[ -n "$direct_best_effort_sends" ]]; then
   exit 1
 fi
 
+direct_request_allocations=$(rg -n 'task_bridge\.next_request_id\(\)' "$repo_root/crates/ui/src" --glob '*.rs' | rg -v '/app\.rs:' || true)
+if [[ -n "$direct_request_allocations" ]]; then
+  echo "$direct_request_allocations" >&2
+  echo "UI architecture check failed: feature code must allocate request IDs through the composition-root port." >&2
+  exit 1
+fi
+
 direct_windows=$(rg -n 'egui::Window::new' "$repo_root/crates/ui/src" --glob '*.rs' || true)
 if [[ -n "$direct_windows" ]]; then
   echo "$direct_windows" >&2

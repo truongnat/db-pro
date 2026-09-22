@@ -117,7 +117,7 @@ impl DbProApp {
 
     fn prepare_agent_run(&mut self, prompt: String) -> Result<PreparedAgentRun, AgentPromptPreparationError> {
         let inputs = self.build_agent_run_inputs(&prompt)?;
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let mode = self
             .agent
             .sessions
@@ -211,7 +211,7 @@ impl DbProApp {
             Err(agent_confirmation::AgentConfirmationError::DocumentChanged)
             | Err(agent_confirmation::AgentConfirmationError::InvalidRange) => return,
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let continuation = self.agent.prepare_continuation(
             &pending,
             request_id,
@@ -339,7 +339,7 @@ impl DbProApp {
         else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.send_command_best_effort(UiCommand::CancelAgentRun { request_id, run_id });
     }
 }

@@ -3,48 +3,15 @@ use super::*;
 
 impl DbProApp {
     pub(super) fn handle_shortcuts(&mut self, ctx: &egui::Context) {
-        if self.palette.mode.is_some()
-            || self.connection.dialog.is_open()
-            || self.overlay.delete_confirmation_id.is_some()
-            || self.overlay.folder_delete_confirmation.is_some()
-            || self.table.editing.insert_row_open
-        {
+        if self.shortcuts_blocked() {
             return;
         }
-        if ctx.input(|input| self.shortcut_pressed(input, "query.save_as")) {
-            self.open_save_as_dialog();
-            return;
-        }
-        if ctx.input(|input| self.shortcut_pressed(input, "query.save")) {
-            self.save_query_document_at(self.query.session.active_document_index);
+        if self.handle_document_shortcuts(ctx) {
             return;
         }
         let text_input_has_focus = ctx.wants_keyboard_input();
-        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "palette.commands")) {
-            self.palette.open(PaletteMode::Commands);
+        if self.handle_unfocused_shortcuts(ctx, text_input_has_focus) {
             return;
-        }
-        if !text_input_has_focus
-            && (ctx.input(|i| self.shortcut_pressed(i, "palette.quick_open_alt"))
-                || ctx.input(|i| self.shortcut_pressed(i, "palette.quick_open")))
-        {
-            self.palette.open(PaletteMode::QuickOpen);
-            return;
-        }
-        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "view.toggle_sidebar")) {
-            self.workspace.sidebar_open = !self.workspace.sidebar_open;
-        }
-        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "connection.new")) {
-            self.connection.open_new();
-            return;
-        }
-        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "query.new")) {
-            self.new_query_document();
-            self.workspace.active_tab = WorkspaceTab::Query;
-            return;
-        }
-        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "editor.find")) {
-            self.query.editor.editor_search_open = true;
         }
         if ctx.input(|i| {
             self.shortcut_pressed(i, "query.run")
@@ -56,19 +23,76 @@ impl DbProApp {
             self.dispatch_query();
         }
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            if let Some(request_id) = self.query.session.active_running_request() {
-                if self.query_capabilities().allows(|c| c.query.cancel) {
-                    self.cancel_query(request_id);
-                } else {
-                    self.feedback.runtime_message = "Query cancellation is not supported for this provider".to_owned();
-                }
-            } else if self.query.editor.query_tools_open {
-                self.query.editor.query_tools_open = false;
-            } else if self.query.editor.editor_search_open {
-                self.query.editor.editor_search_open = false;
+            self.handle_escape(ctx);
+        }
+    }
+
+    fn shortcuts_blocked(&self) -> bool {
+        self.palette.mode.is_some()
+            || self.connection.dialog.is_open()
+            || self.overlay.delete_confirmation_id.is_some()
+            || self.overlay.folder_delete_confirmation.is_some()
+            || self.table.editing.insert_row_open
+    }
+
+    fn handle_document_shortcuts(&mut self, ctx: &egui::Context) -> bool {
+        if ctx.input(|input| self.shortcut_pressed(input, "query.save_as")) {
+            self.open_save_as_dialog();
+            return true;
+        }
+        if ctx.input(|input| self.shortcut_pressed(input, "query.save")) {
+            self.save_query_document_at(self.query.session.active_document_index);
+            return true;
+        }
+        false
+    }
+
+    fn handle_unfocused_shortcuts(&mut self, ctx: &egui::Context, text_input_has_focus: bool) -> bool {
+        if text_input_has_focus {
+            return false;
+        }
+        if ctx.input(|i| self.shortcut_pressed(i, "palette.commands")) {
+            self.palette.open(PaletteMode::Commands);
+            return true;
+        }
+        if ctx.input(|i| {
+            self.shortcut_pressed(i, "palette.quick_open_alt")
+                || self.shortcut_pressed(i, "palette.quick_open")
+        }) {
+            self.palette.open(PaletteMode::QuickOpen);
+            return true;
+        }
+        if ctx.input(|i| self.shortcut_pressed(i, "view.toggle_sidebar")) {
+            self.workspace.sidebar_open = !self.workspace.sidebar_open;
+        }
+        if ctx.input(|i| self.shortcut_pressed(i, "connection.new")) {
+            self.connection.open_new();
+            return true;
+        }
+        if ctx.input(|i| self.shortcut_pressed(i, "query.new")) {
+            self.new_query_document();
+            self.workspace.active_tab = WorkspaceTab::Query;
+            return true;
+        }
+        if ctx.input(|i| self.shortcut_pressed(i, "editor.find")) {
+            self.query.editor.editor_search_open = true;
+        }
+        false
+    }
+
+    fn handle_escape(&mut self, ctx: &egui::Context) {
+        if let Some(request_id) = self.query.session.active_running_request() {
+            if self.query_capabilities().allows(|c| c.query.cancel) {
+                self.cancel_query(request_id);
             } else {
-                self.set_agent_open(false, ctx);
+                self.feedback.runtime_message = "Query cancellation is not supported for this provider".to_owned();
             }
+        } else if self.query.editor.query_tools_open {
+            self.query.editor.query_tools_open = false;
+        } else if self.query.editor.editor_search_open {
+            self.query.editor.editor_search_open = false;
+        } else {
+            self.set_agent_open(false, ctx);
         }
     }
 
@@ -212,7 +236,7 @@ impl DbProApp {
         version: u64,
         all_statements: bool,
     ) -> bool {
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let Some(command) =
             self.query_execution_context()
                 .prepare_query_run(request_id, connection_id, sql, all_statements)

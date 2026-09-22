@@ -53,7 +53,7 @@ impl DbProApp {
             self.management.pg_settings.pg_settings_error = Some("pg_settings is PostgreSQL-only".into());
             return;
         }
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(list_pg_settings_command(request_id, connection_id));
     }
 
@@ -61,7 +61,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(set_pg_setting_session_command(
             request_id,
             connection_id,
@@ -74,7 +74,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(reset_pg_setting_session_command(
             request_id,
             connection_id,

@@ -188,7 +188,7 @@ impl DbProApp {
         if output_path.trim().is_empty() {
             return Err("backup output path is required".to_owned());
         }
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         if !self.dispatch_command(UiCommand::Backup {
             request_id,
             connection_id: task.connection_id.clone(),

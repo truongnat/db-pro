@@ -19,7 +19,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect a source database first".into();
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         match self.schema.compare.prepare_data_diff_request() {
             Ok(request) => {
                 let command = UiCommand::DiffTableDataKeyed {
@@ -84,7 +84,7 @@ impl DbProApp {
     }
 
     pub(crate) fn request_open_workspace_folder(&mut self) {
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         if self.dispatch_command(UiCommand::PickWorkspaceFolder { request_id }) {
             self.feedback.runtime_message = "Choose a workspace folder…".to_owned();
         }

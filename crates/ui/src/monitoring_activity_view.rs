@@ -109,7 +109,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(terminate_backend_command(
             request_id,
             connection_id,
@@ -121,7 +121,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(maintenance_command(request_id, connection_id, action));
     }
 
@@ -129,7 +129,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(reset_statements_command(request_id, connection_id));
     }
 
@@ -174,7 +174,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(cancel_backend_command(request_id, connection_id, backend_id));
     }
 
@@ -182,7 +182,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(workload_command(
             &self.management.monitoring,
             request_id,
@@ -194,7 +194,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         if self.dispatch_command(snapshot_command(request_id, connection_id)) {
             self.management.monitoring.monitoring_last_poll = Some(std::time::Instant::now());
         }

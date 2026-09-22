@@ -254,7 +254,7 @@ impl DbProApp {
                 return;
             }
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let command = table_data_view::build_load_row_command(
             request_id,
             table_data_view::TableDataTarget {
@@ -293,7 +293,7 @@ impl DbProApp {
         let Some(plan) = self.table_mutation_context().prepare_apply(&table) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let command = UiCommand::ApplyTableChanges {
             request_id,
             connection_id: connection.id,

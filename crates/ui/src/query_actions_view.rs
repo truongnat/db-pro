@@ -118,7 +118,7 @@ impl DbProApp {
         let Some(connection) = self.active_connection().cloned() else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let command = match query_save_actions::create_folder_command(&self.query.library, request_id, connection.id) {
             Ok(command) => command,
             Err(error) => {

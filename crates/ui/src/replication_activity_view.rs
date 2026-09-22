@@ -68,7 +68,7 @@ impl DbProApp {
                 Some("Logical replication administration is PostgreSQL-only".into());
             return;
         }
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(list_replication_inventory_command(request_id, connection_id));
     }
 
@@ -76,7 +76,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(
             create_publication_command(&self.management.replication, request_id, connection_id),
         );
@@ -86,7 +86,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(drop_publication_command(
             request_id,
             connection_id,
@@ -98,7 +98,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(drop_subscription_command(
             request_id,
             connection_id,

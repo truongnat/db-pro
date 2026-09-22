@@ -70,7 +70,7 @@ impl DbProApp {
         {
             return;
         }
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let command = explorer_navigation::ExplorerConnectionContext::new(
             &mut self.connection.lifecycle,
             &mut self.schema.explorer,

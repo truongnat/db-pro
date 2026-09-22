@@ -173,7 +173,7 @@ impl DbProApp {
                 self.overlay.delete_confirmation_id = Some(id);
             }
             SidebarQueryLibraryAction::ConfirmDelete(id) => {
-                let request_id = self.task_bridge.next_request_id();
+                let request_id = self.next_request_id();
                 self.dispatch_command(query_save_actions::delete_query_command(request_id, id));
                 self.overlay.delete_confirmation_id = None;
             }
@@ -187,7 +187,7 @@ impl DbProApp {
     }
 
     fn rename_saved_query(&mut self, query: &UiSavedQuerySummary) {
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let name = if self.query.library.query_folder.trim().is_empty() {
             format!("{} (renamed)", query.name)
         } else {

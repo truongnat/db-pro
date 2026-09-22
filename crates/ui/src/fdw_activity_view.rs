@@ -54,7 +54,7 @@ impl DbProApp {
             self.management.fdw.fdw_error = Some("FDW administration is PostgreSQL-only".into());
             return;
         }
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(list_fdw_inventory_command(request_id, connection_id));
     }
 
@@ -62,7 +62,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(create_fdw_server_command(
             &self.management.fdw,
             request_id,
@@ -74,7 +74,7 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         self.dispatch_command(
             drop_fdw_server_command(request_id, connection_id, name.to_owned(), cascade),
         );
