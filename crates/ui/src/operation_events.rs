@@ -136,7 +136,10 @@ impl DbProApp {
         );
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(self.management.monitoring.snapshot_command(request_id, connection_id));
+            self.dispatch_command(super::monitoring_activity_view::snapshot_command(
+                request_id,
+                connection_id,
+            ));
         }
     }
 
