@@ -1,6 +1,6 @@
 # DB Pro
 
-A native desktop Database IDE for PostgreSQL and SQLite, built in Rust with an `egui`/`eframe`
+A native desktop Database IDE for PostgreSQL and SQLite, built entirely in Rust with an `egui`/`eframe`
 UI. There is no WebView, no Node runtime, and no web build. The shipped binary is
 `db-pro-native`.
 
@@ -86,16 +86,11 @@ These are planned, not shipped. Do not treat them as current capabilities. Detai
 
 ## UI direction
 
-The product UI is **native Rust (`eframe` + `egui`)** and is the only UI under active
-development:
+The product UI is **100% native Rust (`eframe` + `egui`)**:
 
 - `crates/ui` (`db-pro-ui`) — shell, views, `DbProApp` composition root, feature state, task bridge, theme
 - `crates/native-app` (`db-pro-native`) — the shipped desktop binary
 - `crates/runtime` (`db-pro-runtime`) — bootstrap, services, worker/event bridge
-
-The earlier React 19 / TypeScript / Vite frontend, which ran inside a Tauri 2 system WebView,
-was **archived on 2026-09-11** under [`_archive/frontend/`](_archive/README.md). It is reference
-material for parity comparison only — it is not built, tested, or packaged.
 
 ## Architecture
 
@@ -123,7 +118,7 @@ material for parity comparison only — it is not built, tested, or packaged.
 
 The UI never calls a database driver directly. Every user intent becomes a typed `UiCommand`
 handled off the UI thread by the runtime worker, which replies with `UiEvent`s that the reducer
-applies. See `docs/10-egui-native-migration-plan.md`.
+applies.
 
 | Crate | Path | Responsibility |
 |---|---|---|
@@ -132,9 +127,8 @@ applies. See `docs/10-egui-native-migration-plan.md`.
 | `db-pro-runtime` | `crates/runtime` | Bootstrap, service wiring, worker/event bridge, cancellation |
 | `db-pro-ui` | `crates/ui` | egui shell, views, `DbProApp`, feature state, reducer, theme |
 | `db-pro-native` | `crates/native-app` | The shipped native desktop binary |
-| `db-pro-tauri` | `crates/tauri-app` | **Legacy** transitional Tauri host; scheduled for removal |
 
-**Tech stack:** Rust, `eframe`/`egui`, native GL rendering, `sqlx`/PostgreSQL,
+**Tech stack:** Pure Rust, `eframe`/`egui`, native GL rendering, `sqlx`/PostgreSQL,
 `rusqlite`/SQLite (bundled), `keyring`, AES-GCM/Argon2, Criterion benchmarks; CI on
 macOS/Windows/Linux.
 
@@ -207,11 +201,6 @@ Release archives are produced by `.github/workflows/release.yml` (or locally wit
 `write-checksums.sh`). Installer formats are intentionally not implemented — see
 [`docs/release/0.1.0-packaging.md`](docs/release/0.1.0-packaging.md).
 
-### Legacy Tauri host (not part of the product)
-
-`crates/tauri-app` still exists as a transitional host so the archived React frontend can be run
-for parity comparison. It is not built by CI and is not shipped.
-
 ## Known limitations for 0.1.0
 
 - Runtime smoke of this candidate has not been run to completion; V01-01/02/04/05 runtime
@@ -224,7 +213,7 @@ for parity comparison. It is not built by CI and is not shipped.
   insert workflow: complex column types (JSON/array/UUID) lack complete input widgets (LIM-003).
 - Grid update/delete requires a primary key; no-PK tables are read-only.
 - Advanced schema mutation/DDL execution is limited to a confirmation-gated single-statement
-  editor; richer migration workflows remain deferred.
+  editor; richer migration workflows remain deferred decisions.
 - Users/roles workbench, Monitoring, Import and MCP are not included.
 - The Agent panel **ships as Preview**; production/autonomous Agent execution is excluded.
 - SSH tunnel plumbing is not end-to-end qualified across all platforms.
@@ -271,10 +260,6 @@ crates/                     Rust workspace
   runtime/                  Bootstrap, service wiring, worker/event bridge
   ui/                       Native egui UI: shell, views, state, theme
   native-app/               db-pro-native binary (shipped)
-  tauri-app/                Legacy transitional Tauri host (not shipped)
-_archive/
-  frontend/                 Archived React/Vite UI (reference only)
-  bench/                    Archived React-era ER renderer benchmarks (reference only)
 docs/                       Architecture and release documentation
 plans/                      Implementation plans + current status
 scripts/release/            Release packaging scripts
