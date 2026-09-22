@@ -1663,6 +1663,22 @@ green.
 
 Severity: P1 core safety-boundary and parser maintainability risk, resolved.
 
+## F104 — Schema service mixed introspection with provider DDL rendering
+
+Evidence at the pre-fix main state: `SchemaService` combined cache/connection
+orchestration, table metadata lookup and dependency discovery with roughly 250
+lines of PostgreSQL/SQLite table, index, foreign-key, constraint and trigger
+DDL formatting helpers.
+
+Fix at `4a63295d`: provider-aware DDL rendering now lives in the dedicated
+`application/schema_ddl.rs` module. `SchemaService` retains the public
+introspection and execution boundary and delegates rendering without changing
+the generated DDL contract; the existing schema-service tests cover the
+PostgreSQL/SQLite output and identifier quoting paths.
+
+Severity: P1 core provider-boundary and schema-service maintainability risk,
+resolved for schema DDL rendering.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used
