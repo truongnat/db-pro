@@ -100,6 +100,8 @@ impl ExportDialogContext<'_> {
                 ui.label("Export results");
                 ui.selectable_value(&mut self.overlay.export_format, "CSV".to_owned(), "CSV");
                 ui.selectable_value(&mut self.overlay.export_format, "TSV".to_owned(), "TSV");
+                ui.selectable_value(&mut self.overlay.export_format, "JSON".to_owned(), "JSON");
+                ui.selectable_value(&mut self.overlay.export_format, "MD".to_owned(), "Markdown");
                 ui.selectable_value(&mut self.overlay.export_format, "SQL".to_owned(), "INSERT");
                 ui.selectable_value(&mut self.overlay.export_format, "COPY".to_owned(), "COPY");
                 input(ui, &mut self.overlay.export_path, "output path", 260.0, self.theme);

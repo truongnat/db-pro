@@ -549,4 +549,14 @@ fn sql_insert_and_copy_export_preserve_null_and_quotes() {
     assert!(copy.contains("COPY \"people\""));
     assert!(copy.contains("\\N"));
     assert!(copy.contains("\\."));
+
+    let md = result_grid_export::format_result_markdown(&result);
+    assert!(md.contains("| id | name |"));
+    assert!(md.contains("| 1 | O'Brien |"));
+    assert!(md.contains("| 2 | NULL |"));
+
+    let json = result_grid_export::format_result_json(&result);
+    assert!(json.contains("\"id\": 1"));
+    assert!(json.contains("\"name\": \"O'Brien\""));
+    assert!(json.contains("\"name\": null"));
 }

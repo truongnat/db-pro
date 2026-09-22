@@ -118,6 +118,8 @@ impl DbProApp {
         let output = match self.overlay.export_format.as_str() {
             "SQL" => result_grid_export::format_result_sql_insert(result, "exported_rows"),
             "COPY" => result_grid_export::format_result_copy(result, "exported_rows"),
+            "JSON" => result_grid_export::format_result_json(result),
+            "MD" | "Markdown" => result_grid_export::format_result_markdown(result),
             _ => result_grid_export::format_result_delimited(result, delimiter),
         };
         let exported_rows = result.rows.len();
