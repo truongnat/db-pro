@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `79be8957`.
+Source checkpoint: `14981dbb`.
 
 ## Current change
 
@@ -3133,3 +3133,20 @@ keeps task policy and execution effects.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
   passed with 16 checks, 0 warnings and 0 failures.
 - `git diff --check`: passed.
+
+### SQL builder boundary full release checkpoint at `14981dbb`
+
+- Full workspace gate passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `76853`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
