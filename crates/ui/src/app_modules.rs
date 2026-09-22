@@ -236,6 +236,8 @@ mod routine_state;
 mod routine_workbench_surface_view;
 #[path = "saved_task_state.rs"]
 mod saved_task_state;
+#[path = "saved_task_sql.rs"]
+mod saved_task_sql;
 #[path = "security_state.rs"]
 mod security_state;
 #[path = "settings_appearance_view.rs"]

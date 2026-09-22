@@ -204,9 +204,15 @@ impl DbProApp {
         let Some(table) = table else {
             return Err("export task needs a table or an active result set".to_owned());
         };
-        let fmt = format.to_ascii_lowercase();
+        let fmt = saved_task_sql::validate_export_format(format)?;
+        let connection = self
+            .connection
+            .catalog
+            .find(&task.connection_id)
+            .ok_or_else(|| "saved task connection is not available".to_owned())?;
+        let sql = saved_task_sql::build_export_query(&connection.driver, table)?;
         *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
-        self.set_active_query_text(format!("SELECT * FROM {table} LIMIT 1000"));
+        self.set_active_query_text(&sql);
         self.workspace.active_tab = WorkspaceTab::Query;
         if self.dispatch_query() {
             Ok(format!(
@@ -223,14 +229,12 @@ impl DbProApp {
         operation: &str,
         target: Option<&str>,
     ) -> Result<String, String> {
-        let op = operation.trim().to_ascii_lowercase();
-        let sql = match (op.as_str(), target) {
-            ("vacuum", Some(target)) => format!("VACUUM {target}"),
-            ("vacuum", None) => "VACUUM".to_owned(),
-            ("analyze", Some(target)) => format!("ANALYZE {target}"),
-            ("analyze", None) => "ANALYZE".to_owned(),
-            _ => return Err(format!("unsupported maintenance operation: {operation}")),
-        };
+        let connection = self
+            .connection
+            .catalog
+            .find(&task.connection_id)
+            .ok_or_else(|| "saved task connection is not available".to_owned())?;
+        let sql = saved_task_sql::build_maintenance_query(&connection.driver, operation, target)?;
         *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
         self.set_active_query_text(&sql);
         self.workspace.active_tab = WorkspaceTab::Query;

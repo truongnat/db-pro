@@ -102,6 +102,16 @@ if [[ -n "$direct_windows" ]]; then
   exit 1
 fi
 
+saved_tasks_file="$repo_root/crates/ui/src/tasks_view.rs"
+if rg -n 'SELECT \* FROM \{|VACUUM \{|ANALYZE \{' "$saved_tasks_file"; then
+  echo "UI architecture check failed: saved task SQL must be prepared by the provider-aware SQL boundary." >&2
+  exit 1
+fi
+if ! rg -q 'build_export_query|build_maintenance_query' "$saved_tasks_file"; then
+  echo "UI architecture check failed: saved task dispatch must use the provider-aware SQL boundary." >&2
+  exit 1
+fi
+
 if [[ -e "$repo_root/crates/ui/src/database_operations_state.rs" ]]; then
   echo "UI architecture check failed: database_operations_state.rs catch-all must stay deleted." >&2
   exit 1
