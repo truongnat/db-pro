@@ -2537,3 +2537,14 @@ keeps task policy and execution effects.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
   passed with 16 checks and 0 warnings.
 - `git diff --check`: passed before the documentation-only follow-up.
+
+### Runtime handoff after `0cf1ed32`
+
+- The saved-task SQL slice has no rendering-path change; the existing New
+  Connection capture remains the applicable visual evidence for the native
+  shell and shared dialog surface.
+- `target/release/db-pro-native` was rebuilt with the normal release gate and
+  launched successfully from the code at `0cf1ed32`; the running native
+  process is PID `94103` for manual verification.
+- The working tree is clean and `main` is synchronized with `origin/main` at
+  the documentation follow-up commit.
