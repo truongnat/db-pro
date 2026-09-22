@@ -2825,4 +2825,18 @@ keeps task policy and execution effects.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
   passed with 16 checks, 0 failures and 0 warnings.
 - `git diff --check`: passed.
-- Full workspace gates and release rebuild remain pending for this checkpoint.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- Post-commit clean scan exited 0 with 16 checks and 0 warnings because the
+  working tree had no source diff relative to `main`; the pre-commit scan
+  above is the applicable changed-source result.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `42086`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
