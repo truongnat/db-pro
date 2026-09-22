@@ -1,7 +1,15 @@
 //! UI state for schema comparison, migration planning and cross-connection diff.
 
 use super::schema_compare::{self, UiSchemaDiffResult, UiSchemaSnapshot};
-use super::{FeedbackState, RequestId, UiCommand, UiSchemaSummary};
+use super::{FeedbackState, UiSchemaSummary};
+
+pub(super) struct DataDiffRequest {
+    pub(super) target_id: String,
+    pub(super) schema: String,
+    pub(super) table: String,
+    pub(super) key_columns: Vec<String>,
+    pub(super) sample_limit: Option<u64>,
+}
 
 /// State owned by the schema-comparison workspace and its migration preview.
 pub(super) struct SchemaCompareState {
@@ -80,11 +88,7 @@ impl SchemaCompareState {
         feedback.set_runtime_message("Migration plan ready — review SQL before apply");
     }
 
-    pub(super) fn build_data_diff_request(
-        &self,
-        request_id: RequestId,
-        source_id: String,
-    ) -> Result<UiCommand, String> {
+    pub(super) fn prepare_data_diff_request(&self) -> Result<DataDiffRequest, String> {
         let target_id = self.data_diff_target_id.trim();
         if target_id.is_empty() {
             return Err("Target connection id is required".to_owned());
@@ -103,9 +107,7 @@ impl SchemaCompareState {
         if key_columns.is_empty() {
             return Err("At least one key column is required".to_owned());
         }
-        Ok(UiCommand::DiffTableDataKeyed {
-            request_id,
-            source_id,
+        Ok(DataDiffRequest {
             target_id: target_id.to_owned(),
             schema: self.data_diff_schema.trim().to_owned(),
             table: table.to_owned(),
@@ -114,11 +116,7 @@ impl SchemaCompareState {
         })
     }
 
-    pub(super) fn build_migration_apply_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-    ) -> Result<UiCommand, String> {
+    pub(super) fn prepare_migration_sql(&self) -> Result<String, String> {
         use db_pro_core::application::MigrationPlanner;
 
         let plan = self
@@ -139,18 +137,13 @@ impl SchemaCompareState {
         if sql.trim().is_empty() {
             return Err("No supported SQL operations to apply".to_owned());
         }
-        Ok(UiCommand::ExecuteDdl {
-            request_id,
-            connection_id,
-            sql,
-        })
+        Ok(sql)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::SchemaCompareState;
-    use crate::{RequestId, UiCommand};
 
     #[test]
     fn defaults_are_safe_for_schema_change_operations() {
@@ -169,8 +162,8 @@ mod tests {
         let state = SchemaCompareState::default();
 
         assert_eq!(
-            state.build_data_diff_request(RequestId(1), "source".to_owned()),
-            Err("Target connection id is required".to_owned())
+            state.prepare_data_diff_request().err(),
+            Some("Target connection id is required".to_owned())
         );
     }
 
@@ -184,25 +177,14 @@ mod tests {
             ..Default::default()
         };
 
-        let command = state
-            .build_data_diff_request(RequestId(2), "source".to_owned())
+        let request = state
+            .prepare_data_diff_request()
             .expect("request");
-        assert!(matches!(
-            command,
-            UiCommand::DiffTableDataKeyed {
-                request_id: RequestId(2),
-                source_id,
-                target_id,
-                schema,
-                table,
-                key_columns,
-                sample_limit: Some(1_000),
-            } if source_id == "source"
-                && target_id == "target"
-                && schema == "public"
-                && table == "orders"
-                && key_columns == vec!["id", "tenant_id"]
-        ));
+        assert_eq!(request.target_id, "target");
+        assert_eq!(request.schema, "public");
+        assert_eq!(request.table, "orders");
+        assert_eq!(request.key_columns, vec!["id", "tenant_id"]);
+        assert_eq!(request.sample_limit, Some(1_000));
     }
 
     #[test]
@@ -210,7 +192,7 @@ mod tests {
         let state = SchemaCompareState::default();
 
         assert_eq!(
-            state.build_migration_apply_command(RequestId(3), "source".to_owned()),
+            state.prepare_migration_sql(),
             Err("Plan a migration before applying".to_owned())
         );
     }

@@ -20,8 +20,17 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        match self.schema.compare.build_data_diff_request(request_id, source_id) {
-            Ok(command) => {
+        match self.schema.compare.prepare_data_diff_request() {
+            Ok(request) => {
+                let command = UiCommand::DiffTableDataKeyed {
+                    request_id,
+                    source_id,
+                    target_id: request.target_id,
+                    schema: request.schema,
+                    table: request.table,
+                    key_columns: request.key_columns,
+                    sample_limit: request.sample_limit,
+                };
                 if self.dispatch_command(command) {
                     self.feedback.runtime_message = "Running key-aware data compare…".into();
                 }

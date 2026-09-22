@@ -313,7 +313,8 @@ for state_module in \
   "$repo_root/crates/ui/src/pg_settings_state.rs" \
   "$repo_root/crates/ui/src/monitoring_state.rs" \
   "$repo_root/crates/ui/src/security_state.rs" \
-  "$repo_root/crates/ui/src/overlay_state.rs"; do
+  "$repo_root/crates/ui/src/overlay_state.rs" \
+  "$repo_root/crates/ui/src/schema_compare_state.rs"; do
   if rg -n '\bUiCommand\b' "$state_module"; then
     echo "UI architecture check failed: management read-only state must not construct runtime protocol commands." >&2
     exit 1

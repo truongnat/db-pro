@@ -64,16 +64,17 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        let command = match self
-            .schema
-            .compare
-            .build_migration_apply_command(request_id, connection_id)
-        {
-            Ok(command) => command,
+        let sql = match self.schema.compare.prepare_migration_sql() {
+            Ok(sql) => sql,
             Err(error) => {
                 self.feedback.runtime_message = error;
                 return;
             }
+        };
+        let command = UiCommand::ExecuteDdl {
+            request_id,
+            connection_id,
+            sql,
         };
         if self.dispatch_command(command) {
             self.table.state.ddl_execution_request = Some(request_id);
