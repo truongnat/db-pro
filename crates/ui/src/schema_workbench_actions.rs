@@ -1,17 +1,24 @@
-//! Schema Workbench mutation planning and execution.
+//! Schema Workbench — action handling and mutation dispatch.
 
 use super::schema_workbench::QuoteDialect;
+use super::schema_workbench_form::SchemaWorkbenchFormAction;
 use super::*;
 use db_pro_core::application::ObjectMutationService;
 use db_pro_core::domain::object_mutation::*;
 
 impl DbProApp {
-    pub(crate) fn apply_workbench_form_action(&mut self, action: schema_workbench_form::SchemaWorkbenchFormAction) {
+    pub(crate) fn apply_workbench_form_action(&mut self, action: SchemaWorkbenchFormAction) {
         match action {
-            schema_workbench_form::SchemaWorkbenchFormAction::PlanObject(action) => self.plan_workbench_action(action),
-            schema_workbench_form::SchemaWorkbenchFormAction::PlanDatabase(action) => self.plan_database_action(action),
-            schema_workbench_form::SchemaWorkbenchFormAction::ApplyDdl => self.apply_workbench_ddl(),
-            schema_workbench_form::SchemaWorkbenchFormAction::OpenSql(sql) => {
+            SchemaWorkbenchFormAction::PlanObject(action) => {
+                self.plan_workbench_action(action);
+            }
+            SchemaWorkbenchFormAction::PlanDatabase(action) => {
+                self.plan_database_action(action);
+            }
+            SchemaWorkbenchFormAction::ApplyDdl => {
+                self.apply_workbench_ddl();
+            }
+            SchemaWorkbenchFormAction::OpenSql(sql) => {
                 self.new_query_document();
                 if let Some(doc) = self.query.session.documents.last_mut() {
                     doc.set_text(sql);
@@ -26,7 +33,7 @@ impl DbProApp {
         match self
             .schema
             .workbench
-            .build_mutation_request(action, self.active_query_driver().to_owned())
+            .build_mutation_request(action, self.active_query_driver())
         {
             Ok(request) => self.run_plan(request),
             Err(err) => {
@@ -52,7 +59,9 @@ impl DbProApp {
             }),
             options: MutationOptions {
                 cascade: self.schema.workbench.cascade,
-                ..MutationOptions::default()
+                if_exists: true,
+                if_not_exists: true,
+                dry_run: false,
             },
             driver: self.active_query_driver().to_owned(),
         };

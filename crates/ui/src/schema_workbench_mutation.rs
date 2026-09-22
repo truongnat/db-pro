@@ -1,4 +1,4 @@
-//! Pure mutation-request planning for the schema workbench.
+//! Schema Workbench — mutation payload construction.
 
 use super::schema_workbench::{
     nonempty_opt, parse_column_defs, split_csv, ConstraintKindUi, SchemaWorkbenchMode, SchemaWorkbenchState,
@@ -6,21 +6,21 @@ use super::schema_workbench::{
 use db_pro_core::domain::object_mutation::*;
 
 impl SchemaWorkbenchState {
-    pub(crate) fn build_mutation_request(
+    pub(super) fn build_mutation_request(
         &self,
         action: ObjectAction,
-        driver: String,
+        driver: &str,
     ) -> Result<ObjectMutationRequest, String> {
-        let schema = self.schema.clone();
-        let name = self.name.clone();
-        if name.trim().is_empty() && !matches!(self.mode, SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs)
+        let schema = self.schema.trim().to_owned();
+        let name = self.name.trim().to_owned();
+        if name.is_empty()
+            && !matches!(
+                self.mode,
+                SchemaWorkbenchMode::SchemaDb | SchemaWorkbenchMode::Comment | SchemaWorkbenchMode::Dependencies
+            )
         {
-            return Err("Name is required".into());
+            return Err("Object name cannot be empty".to_owned());
         }
-        let options = MutationOptions {
-            cascade: self.cascade,
-            ..MutationOptions::default()
-        };
 
         let (definition, kind, parent) = match self.mode {
             SchemaWorkbenchMode::Table => {
@@ -29,11 +29,15 @@ impl SchemaWorkbenchState {
                         .iter()
                         .map(|col| {
                             let mut data_type = col.data_type.clone();
-                            if col.auto_increment && driver.eq_ignore_ascii_case("postgres") {
-                                if data_type.eq_ignore_ascii_case("INTEGER") || data_type.eq_ignore_ascii_case("INT") {
-                                    data_type = "SERIAL".into();
-                                } else if data_type.eq_ignore_ascii_case("BIGINT") {
-                                    data_type = "BIGSERIAL".into();
+                            if col.auto_increment {
+                                if driver.to_ascii_lowercase().contains("postgres") {
+                                    data_type = if data_type.to_ascii_uppercase().contains("BIG") {
+                                        "BIGSERIAL".into()
+                                    } else {
+                                        "SERIAL".into()
+                                    };
+                                } else if driver.to_ascii_lowercase().contains("sqlite") {
+                                    data_type = "INTEGER PRIMARY KEY AUTOINCREMENT".into();
                                 }
                             }
                             ColumnDefinition {
@@ -102,8 +106,8 @@ impl SchemaWorkbenchState {
                     name: name.clone(),
                     columns: split_csv(&self.columns_csv),
                     unique: self.unique,
-                    method: None,
-                    predicate: None,
+                    method: nonempty_opt(&self.index_method),
+                    predicate: nonempty_opt(&self.index_predicate),
                 }),
                 ObjectKind::Index,
                 Some(self.parent_table.clone()),
@@ -151,7 +155,7 @@ impl SchemaWorkbenchState {
                             ref_table: self.ref_table.clone(),
                             ref_columns: split_csv(&self.ref_columns_csv),
                             on_delete: nonempty_opt(&self.on_delete),
-                            on_update: None,
+                            on_update: nonempty_opt(&self.on_update),
                         }),
                         ObjectKind::ForeignKey,
                         Some(self.parent_table.clone()),
@@ -174,8 +178,8 @@ impl SchemaWorkbenchState {
                 ObjectDefinition::Sequence(SequenceDefinition {
                     schema: schema.clone(),
                     name: name.clone(),
-                    start: self.start.parse().ok(),
-                    increment: self.increment.parse().ok(),
+                    start: self.start.parse::<i64>().ok(),
+                    increment: self.increment.parse::<i64>().ok(),
                     min_value: None,
                     max_value: None,
                     cache: None,
@@ -215,19 +219,19 @@ impl SchemaWorkbenchState {
             SchemaWorkbenchMode::Comment => (
                 ObjectDefinition::Comment(CommentDefinition {
                     object: ObjectRef {
-                        kind: if self.parent_table.is_empty() {
-                            ObjectKind::Table
+                        kind: ObjectKind::Table,
+                        schema: nonempty_opt(&schema),
+                        name: if self.parent_table.is_empty() {
+                            name.clone()
                         } else {
-                            ObjectKind::Column
+                            self.parent_table.clone()
                         },
-                        schema: Some(schema.clone()),
-                        name: name.clone(),
-                        parent: nonempty_opt(&self.parent_table),
+                        parent: None,
                     },
                     comment: nonempty_opt(&self.comment_text),
                 }),
                 ObjectKind::Comment,
-                nonempty_opt(&self.parent_table),
+                None,
             ),
             SchemaWorkbenchMode::Partition => (
                 ObjectDefinition::Partition(PartitionDefinition {
@@ -240,20 +244,33 @@ impl SchemaWorkbenchState {
                 ObjectKind::Partition,
                 Some(self.parent_table.clone()),
             ),
-            SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs => (ObjectDefinition::Empty, ObjectKind::Table, None),
+            SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs => {
+                (ObjectDefinition::Empty, ObjectKind::Table, None)
+            }
+        };
+
+        let target = if name.is_empty() {
+            None
+        } else {
+            Some(ObjectRef {
+                kind,
+                schema: nonempty_opt(&schema),
+                name,
+                parent,
+            })
         };
 
         Ok(ObjectMutationRequest {
             action,
-            target: Some(ObjectRef {
-                kind,
-                schema: Some(schema),
-                name,
-                parent,
-            }),
+            target,
             definition,
-            options,
-            driver,
+            options: MutationOptions {
+                cascade: self.cascade,
+                if_exists: true,
+                if_not_exists: true,
+                dry_run: false,
+            },
+            driver: driver.to_owned(),
         })
     }
 }

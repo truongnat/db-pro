@@ -12,6 +12,8 @@ use lucide_icons::Icon;
 pub(super) enum SchemaObjectFolderAction {
     Open(SchemaObjectActivation),
     OpenQuery(String),
+    ModifyView(UiViewSummary),
+    DropObject { schema: String, name: String, kind: String },
     CopyName(String),
 }
 
@@ -124,28 +126,46 @@ impl<'a> SchemaObjectFoldersView<'a> {
         } else {
             format!("{}.{}", view.schema, view.name)
         };
-        self.draw_row(
-            ui,
-            SchemaObjectRowContext {
-                theme: self.theme,
-                label: &view.name,
-                icon: Icon::Eye,
-                icon_color: self.theme.success,
-                is_selected,
-                query_label: Some("Select Top 100 (Query)"),
-                query_icon: Icon::Play,
-                open_label: "Open View",
-                open_icon: Icon::Eye,
-                copy_label: "Copy View Name",
-            },
-            SchemaObjectActivation {
-                selection: SchemaObjectSelection::View(view.name.clone()),
-                schema: view.schema.clone(),
-                name: view.name.clone(),
-                kind: "view".to_owned(),
-            },
-            Some(format!("SELECT *\nFROM {from}\nLIMIT 100;")),
-        )
+        let view_clone = view.clone();
+        let schema = view.schema.clone();
+        let name = view.name.clone();
+        let actions = SchemaObjectRowContext {
+            theme: self.theme,
+            label: &view.name,
+            icon: Icon::Eye,
+            icon_color: self.theme.success,
+            is_selected,
+            query_label: Some("Select Top 100 (Query)"),
+            query_icon: Icon::Play,
+            open_label: "Open View",
+            open_icon: Icon::Eye,
+            modify_label: Some("Modify View (Workbench)..."),
+            drop_label: Some("Drop View..."),
+            copy_label: "Copy View Name",
+        }
+        .draw(ui);
+
+        actions
+            .into_iter()
+            .map(|action| match action {
+                SchemaObjectRowAction::Open => SchemaObjectFolderAction::Open(SchemaObjectActivation {
+                    selection: SchemaObjectSelection::View(view.name.clone()),
+                    schema: view.schema.clone(),
+                    name: view.name.clone(),
+                    kind: "view".to_owned(),
+                }),
+                SchemaObjectRowAction::OpenQuery => {
+                    SchemaObjectFolderAction::OpenQuery(format!("SELECT *\nFROM {from}\nLIMIT 100;"))
+                }
+                SchemaObjectRowAction::Modify => SchemaObjectFolderAction::ModifyView(view_clone.clone()),
+                SchemaObjectRowAction::Drop => SchemaObjectFolderAction::DropObject {
+                    schema: schema.clone(),
+                    name: name.clone(),
+                    kind: "VIEW".to_owned(),
+                },
+                SchemaObjectRowAction::CopyName => SchemaObjectFolderAction::CopyName(view.name.clone()),
+            })
+            .collect()
     }
 
     fn draw_function_row(&self, ui: &mut egui::Ui, function: &UiFunctionSummary) -> Vec<SchemaObjectFolderAction> {
@@ -179,6 +199,8 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 query_icon: Icon::Play,
                 open_label: "Open Routine",
                 open_icon: Icon::Code2,
+                modify_label: None,
+                drop_label: None,
                 copy_label: "Copy Routine Name",
             },
             SchemaObjectActivation {
@@ -200,28 +222,43 @@ impl<'a> SchemaObjectFoldersView<'a> {
             Some(SchemaObjectSelection::Trigger(name)) if name == &trigger.name
         );
         let label = format!("{} · {}", trigger.name, trigger.event);
-        self.draw_row(
-            ui,
-            SchemaObjectRowContext {
-                theme: self.theme,
-                label: &label,
-                icon: Icon::Zap,
-                icon_color: self.theme.warning,
-                is_selected,
-                query_label: None,
-                query_icon: Icon::Play,
-                open_label: "View Trigger",
-                open_icon: Icon::Eye,
-                copy_label: "Copy Trigger Name",
-            },
-            SchemaObjectActivation {
-                selection: SchemaObjectSelection::Trigger(trigger.name.clone()),
-                schema: String::new(),
-                name: trigger.name.clone(),
-                kind: "trigger".to_owned(),
-            },
-            None,
-        )
+        let schema = trigger.schema.clone();
+        let name = trigger.name.clone();
+        let actions = SchemaObjectRowContext {
+            theme: self.theme,
+            label: &label,
+            icon: Icon::Zap,
+            icon_color: self.theme.warning,
+            is_selected,
+            query_label: None,
+            query_icon: Icon::Play,
+            open_label: "View Trigger",
+            open_icon: Icon::Eye,
+            modify_label: None,
+            drop_label: Some("Drop Trigger..."),
+            copy_label: "Copy Trigger Name",
+        }
+        .draw(ui);
+
+        actions
+            .into_iter()
+            .filter_map(|action| match action {
+                SchemaObjectRowAction::Open => Some(SchemaObjectFolderAction::Open(SchemaObjectActivation {
+                    selection: SchemaObjectSelection::Trigger(trigger.name.clone()),
+                    schema: String::new(),
+                    name: trigger.name.clone(),
+                    kind: "trigger".to_owned(),
+                })),
+                SchemaObjectRowAction::OpenQuery => None,
+                SchemaObjectRowAction::Modify => None,
+                SchemaObjectRowAction::Drop => Some(SchemaObjectFolderAction::DropObject {
+                    schema: schema.clone(),
+                    name: name.clone(),
+                    kind: "TRIGGER".to_owned(),
+                }),
+                SchemaObjectRowAction::CopyName => Some(SchemaObjectFolderAction::CopyName(trigger.name.clone())),
+            })
+            .collect()
     }
 
     fn draw_row(
@@ -237,6 +274,8 @@ impl<'a> SchemaObjectFoldersView<'a> {
             .filter_map(|action| match action {
                 SchemaObjectRowAction::Open => Some(SchemaObjectFolderAction::Open(activation.clone())),
                 SchemaObjectRowAction::OpenQuery => query.clone().map(SchemaObjectFolderAction::OpenQuery),
+                SchemaObjectRowAction::Modify => None,
+                SchemaObjectRowAction::Drop => None,
                 SchemaObjectRowAction::CopyName => Some(SchemaObjectFolderAction::CopyName(activation.name.clone())),
             })
             .collect()
