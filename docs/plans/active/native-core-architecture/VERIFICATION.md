@@ -137,6 +137,20 @@ presentation boundary instead of splitting the same surface across two files.
 - `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
 - `git diff --check`: passed.
 
+### Migration planner core checkpoint at `c3209277`
+
+- `MigrationPlanner::plan_from_schema_diff` now delegates to a
+  `MigrationPlanBuilder` with explicit create-table, source-column,
+  type-mismatch, index and target-removal phases. Public plan preview,
+  fingerprint and non-destructive SQL behavior remain unchanged.
+- `cargo fmt --all -- --check`: passed.
+- `cargo test -p db-pro-core migration_planner --quiet`: passed; 3 tests,
+  0 failed, 401 filtered out.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
 ### Welcome workspace co-location checkpoint at `ae3515ac`
 
 - Welcome rendering and action application now live in `workspace_view.rs`,

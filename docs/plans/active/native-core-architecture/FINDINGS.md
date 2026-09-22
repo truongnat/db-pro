@@ -1646,6 +1646,21 @@ test-only unwrap that polluted the full clean-code scan.
 Severity: P1 startup error-handling risk, resolved for the transitional Tauri
 adapter.
 
+## F100 — Migration planning mixed all provider phases in one function
+
+Evidence at the pre-fix main state: `MigrationPlanner::plan_from_schema_diff`
+contained the complete create/add/alter/index/drop pipeline in one roughly
+200-line function, while also owning operation IDs, dependency lookup,
+SQLite capability decisions and final plan assembly.
+
+Fix at `c3209277`: `MigrationPlanBuilder` owns sequence allocation and plan
+assembly, with one method per migration phase and a typed pending-operation
+value for construction. Public preview/fingerprint APIs are unchanged;
+operation ordering, dependency IDs, destructive warnings and SQLite
+unsupported markers remain covered by the core tests.
+
+Severity: P1 core maintainability/provider-policy risk, resolved.
+
 ## F98 — Workspace tab adapter was split from its workspace boundary
 
 Evidence at the pre-fix main state: `workspace_tabs_view.rs` declared a
