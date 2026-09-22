@@ -1585,3 +1585,19 @@ regression test covering a failed session-setting dispatch.
 
 Severity: P1 composition-boundary and lost-input risk, resolved for PostgreSQL
 settings.
+
+## F95 — Security activity still used the root as a mutable facade
+
+Evidence at the pre-fix main state: `security_activity_view.rs` implemented
+the role, membership, privilege and RLS activity as `impl DbProApp`, so the
+surface could reach unrelated root state and duplicate dispatch/error policy.
+
+Fix at `277fe5fa`: Security now renders and applies typed activity actions
+through `SecurityActivityContext`, with explicit Security state, table state,
+connection/provider snapshots, feedback and `RuntimeCommandDispatcher`
+dependencies. Root composition and follow-up request adapters construct the
+context; failed password-update dispatch preserves the draft through a
+regression test, and RLS pending execution is committed only after dispatch
+acceptance.
+
+Severity: P1 composition-boundary and lost-input risk, resolved for Security.

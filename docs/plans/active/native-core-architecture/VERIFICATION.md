@@ -137,6 +137,28 @@ presentation boundary instead of splitting the same surface across two files.
 - `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
 - `git diff --check`: passed.
 
+### Security activity adapter checkpoint at `277fe5fa`
+
+- Security role, membership, privilege and RLS activity rendering now uses
+  `SecurityActivityContext`; root composition retains only explicit context
+  construction, typed follow-up requests and cross-feature orchestration.
+- Failed password-update dispatch preserves the current draft, and RLS
+  pending execution is committed only after the runtime dispatcher accepts the
+  command. The focused regression and full UI suite passed.
+- The UI source topology contains 62 `impl DbProApp` declarations.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
 Activity navigation follow-up at source SHA `ecd3575c`: the activity rail now
 renders from an immutable `ActivityBarContext` and emits typed navigation
 intents for activity selection, Query, Diagram, Schema Compare, Schema

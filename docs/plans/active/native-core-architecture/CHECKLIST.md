@@ -225,6 +225,8 @@
       effect applied by the root.
 - [x] PostgreSQL settings activity uses an explicit context; failed SET
       dispatch preserves the edit state until the runtime accepts the command.
+- [x] Security activity uses an explicit context; failed password dispatch
+      preserves the draft and RLS pending execution commits only after dispatch.
 - [x] Monitoring state no longer constructs runtime protocol commands;
       snapshot, workload, session-control, maintenance and reset mapping is
       centralized in the monitoring activity adapter and architecture-guarded.
