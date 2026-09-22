@@ -213,6 +213,9 @@
 - [x] Monitoring state no longer constructs runtime protocol commands;
       snapshot, workload, session-control, maintenance and reset mapping is
       centralized in the monitoring activity adapter and architecture-guarded.
+- [x] Security state no longer constructs runtime protocol commands; role,
+      privilege, membership and RLS mapping is centralized in the security
+      activity adapter and architecture-guarded.
 - [x] App module topology is isolated in `app_modules.rs`; `app.rs` contains
       aggregate ownership/orchestration only, and the guard rejects reintroducing
       feature `#[path]` declarations into the composition root.

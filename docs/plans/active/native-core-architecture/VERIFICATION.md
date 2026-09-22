@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `cfb32462`.
+Source checkpoint: `449dae87`.
 
 ## Current change
 
@@ -2312,3 +2312,30 @@ keeps task policy and execution effects.
   right-aligned close control, complete body and separated footer.
 - The rebuilt release binary is running from this SHA in terminal session
   `25880` (native process PID `67520`) for manual verification.
+
+## Current security protocol checkpoint at `449dae87`
+
+- Security command boundary: `449dae87`. `SecurityState` now owns security
+  read models, form state and pure RLS input normalization only. Role,
+  privilege, membership and RLS `UiCommand` construction lives in
+  `security_activity_view.rs` behind a small request context; the root keeps
+  orchestration and dispatch only.
+- The architecture guard now rejects `UiCommand` in `security_state.rs`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 684 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-449dae87-new-1280x800.png`,
+  logical `1280x800`, inspected from the rebuilt capture binary. The New
+  Connection dialog remains centered with a separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running from this SHA in terminal session
+  `26465` (native process PID `69857`) for manual verification.
