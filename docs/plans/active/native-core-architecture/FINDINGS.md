@@ -1829,6 +1829,34 @@ facade for classification and script safety APIs. Safety tests now live in
 Severity: P1 core safety-policy/classifier coupling and maintainability risk,
 resolved.
 
+## F115 — Capability data model owned provider catalogs and limitation prose
+
+Evidence at the pre-fix main state: `DatabaseCapabilities` combined the
+capability value objects, feature lookup, a large driver-specific limitation
+match and all PostgreSQL/SQLite/MySQL/SQL Server preset literals in one domain
+module.
+
+Fix in the current checkpoint: `capability_presets.rs` owns provider capability
+construction and `capability_limitations.rs` owns driver-specific unavailable
+reasons. `capabilities.rs` remains the stable domain API for the value model
+and delegates provider policy without changing any flags or public methods.
+
+Severity: P1 provider-capability policy coupling and maintainability risk,
+resolved.
+
+## F116 — Agent workflow mixed user-error formatting with state transitions
+
+Evidence at the pre-fix main state: `AgentToolError::format_user_error` held
+several independent label maps and message assembly branches inside the agent
+state-machine module, while its tests were embedded in the same file.
+
+Fix in the current checkpoint: error formatting now delegates to focused query,
+permission and confirmation-label helpers; workflow tests live in
+`domain/agent_workflow/tests.rs`. State transitions, error text and public
+workflow API remain unchanged.
+
+Severity: P2 agent-domain cohesion and maintainability risk, resolved.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used

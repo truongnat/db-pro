@@ -154,6 +154,22 @@ presentation boundary instead of splitting the same surface across two files.
 - The rebuilt normal release binary is running as native process PID `80343`
   with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
 
+### Capability and agent workflow boundary checkpoint (pre-commit)
+
+- Provider capability construction now lives in `domain/capability_presets.rs`;
+  driver-specific limitation reasons live in `domain/capability_limitations.rs`.
+- `AgentToolError` formatting uses focused helpers and agent workflow tests now
+  live in `domain/agent_workflow/tests.rs`.
+- Focused `cargo test -p db-pro-core capabilities --quiet`: passed; 9 passed,
+  0 failed, 395 filtered out.
+- Focused `cargo test -p db-pro-core agent_workflow --quiet`: passed; 10 passed,
+  0 failed, 394 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
 ### Schema diff comparator boundary checkpoint at `f3dc6e36`
 
 - `schema_diff_compare.rs` now owns qualified-name formatting, table/index set
