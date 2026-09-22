@@ -65,7 +65,9 @@ impl<'a> TableMutationExecution<'a> {
             .execute_parameterized_transaction(&handle, &statements)
             .await
             .map_err(|mut failure| {
-                if failure.phase == TransactionFailurePhase::Statement && failure.statement_index < indexed_mutations.len() {
+                if failure.phase == TransactionFailurePhase::Statement
+                    && failure.statement_index < indexed_mutations.len()
+                {
                     failure.statement_index = indexed_mutations[failure.statement_index].0;
                 }
                 failure

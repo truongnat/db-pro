@@ -793,17 +793,15 @@ mod tests {
         // Input mutations: [Insert (orig 0), Delete (orig 1)]
         // Reordered execution statements: [Delete (exec 0), Insert (exec 1)]
         // Mock transaction execution fails during Begin phase with statement_index 0.
-        connector
-            .expect_execute_parameterized_transaction()
-            .returning(|_, _| {
-                Err(TransactionFailure {
-                    phase: TransactionFailurePhase::Begin,
-                    statement_index: 0,
-                    outcome: TransactionFailureOutcome::NotStarted,
-                    results: Vec::new(),
-                    error: DbError::ConnectionFailed("begin failed".into()),
-                })
-            });
+        connector.expect_execute_parameterized_transaction().returning(|_, _| {
+            Err(TransactionFailure {
+                phase: TransactionFailurePhase::Begin,
+                statement_index: 0,
+                outcome: TransactionFailureOutcome::NotStarted,
+                results: Vec::new(),
+                error: DbError::ConnectionFailed("begin failed".into()),
+            })
+        });
 
         let service = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
         let failure = service

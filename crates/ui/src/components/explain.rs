@@ -162,11 +162,8 @@ impl<'a> ExplainPlanTree<'a> {
                             Pos2::new(ui.cursor().min.x, ui.cursor().min.y + 2.0),
                             Vec2::new(badge_galley.size().x + 8.0, 16.0),
                         );
-                        ui.painter().rect_filled(
-                            badge_rect,
-                            Rounding::same(RADIUS_XS),
-                            self.theme.warning_soft(),
-                        );
+                        ui.painter()
+                            .rect_filled(badge_rect, Rounding::same(RADIUS_XS), self.theme.warning_soft());
                         ui.painter().galley(
                             Pos2::new(badge_rect.left() + 4.0, badge_rect.top() + 1.0),
                             badge_galley,
@@ -280,16 +277,10 @@ impl<'a> ExplainPlanTree<'a> {
             let bar_width = 44.0;
             let bar_height = 5.0;
             let (bar_rect, _) = ui.allocate_exact_size(Vec2::new(bar_width, bar_height), egui::Sense::hover());
-            ui.painter().rect_filled(
-                bar_rect,
-                Rounding::same(2.0),
-                self.theme.surface_active,
-            );
+            ui.painter()
+                .rect_filled(bar_rect, Rounding::same(2.0), self.theme.surface_active);
             if pct > 0.01 {
-                let fill_rect = Rect::from_min_size(
-                    bar_rect.min,
-                    Vec2::new(bar_width * pct, bar_height),
-                );
+                let fill_rect = Rect::from_min_size(bar_rect.min, Vec2::new(bar_width * pct, bar_height));
                 let bar_color = if pct > 0.45 || node.is_bottleneck {
                     self.theme.danger
                 } else if pct > 0.20 {
@@ -303,9 +294,9 @@ impl<'a> ExplainPlanTree<'a> {
             // Bottleneck badge
             if node.is_bottleneck {
                 ui.add_space(SPACE_XXS);
-                let badge_galley =
-                    ui.painter()
-                        .layout_no_wrap("Hotspot".to_owned(), font_caption(), self.theme.danger);
+                let badge_galley = ui
+                    .painter()
+                    .layout_no_wrap("Hotspot".to_owned(), font_caption(), self.theme.danger);
                 let badge_rect = Rect::from_min_size(
                     Pos2::new(ui.cursor().min.x, ui.cursor().min.y + 2.0),
                     Vec2::new(badge_galley.size().x + 8.0, 16.0),
@@ -330,12 +321,15 @@ impl<'a> ExplainPlanTree<'a> {
                         } else {
                             format!("{:.1}x rows skew", ratio)
                         };
-                        let badge_galley = ui.painter().layout_no_wrap(skew_text, font_caption(), self.theme.warning);
+                        let badge_galley = ui
+                            .painter()
+                            .layout_no_wrap(skew_text, font_caption(), self.theme.warning);
                         let badge_rect = Rect::from_min_size(
                             Pos2::new(ui.cursor().min.x, ui.cursor().min.y + 2.0),
                             Vec2::new(badge_galley.size().x + 6.0, 16.0),
                         );
-                        ui.painter().rect_filled(badge_rect, Rounding::same(RADIUS_XS), self.theme.warning_soft());
+                        ui.painter()
+                            .rect_filled(badge_rect, Rounding::same(RADIUS_XS), self.theme.warning_soft());
                         ui.painter().galley(
                             Pos2::new(badge_rect.left() + 3.0, badge_rect.top() + 1.0),
                             badge_galley,
@@ -349,9 +343,19 @@ impl<'a> ExplainPlanTree<'a> {
             // Time & rows on right
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let stat_str = if self.has_runtime_stats {
-                    format!("{:.2}ms ({:.0}%) · {} rows", node.actual_time_ms, pct * 100.0, node.rows_actual)
+                    format!(
+                        "{:.2}ms ({:.0}%) · {} rows",
+                        node.actual_time_ms,
+                        pct * 100.0,
+                        node.rows_actual
+                    )
                 } else {
-                    format!("cost {:.1} ({:.0}%) · {} rows", node.cost_estimate, pct * 100.0, node.rows_actual)
+                    format!(
+                        "cost {:.1} ({:.0}%) · {} rows",
+                        node.cost_estimate,
+                        pct * 100.0,
+                        node.rows_actual
+                    )
                 };
                 ui.label(
                     RichText::new(stat_str)
