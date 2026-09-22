@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `63bf2931`.
+Source checkpoint: `5cc14f0c`.
 
 ## Current change
 
@@ -2365,3 +2365,32 @@ keeps task policy and execution effects.
   right-aligned close control, complete body and separated footer.
 - The rebuilt release binary is running from this SHA in terminal session
   `58614` (native process PID `72941`) for manual verification.
+
+## Current schema-compare protocol checkpoint at `5cc14f0c`
+
+- Schema-compare command boundary: `5cc14f0c`. `SchemaCompareState` now owns
+  schema snapshots, diff/migration planning, fingerprint validation and pure
+  request/SQL preparation. `workspace_actions.rs` and `query_session.rs` own
+  the final `UiCommand` construction for keyed data diff and migration apply.
+- The architecture guard now rejects `UiCommand` in `schema_compare_state.rs`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed on the final rerun;
+  404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and
+  684 UI tests passed. Environment-gated tests remain ignored. One preceding
+  full run hit the existing timing threshold in
+  `diagram::tests::scene_prep_1000_1920x1080`; the exact test rerun passed and
+  the subsequent full rerun passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-5cc14f0c-new-1280x800.png`,
+  logical `1280x800`, inspected from the rebuilt capture binary. The New
+  Connection dialog remains centered with a separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running from this SHA in terminal session
+  `31209` (native process PID `76549`) for manual verification.

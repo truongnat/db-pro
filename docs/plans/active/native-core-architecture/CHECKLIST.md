@@ -219,6 +219,9 @@
 - [x] Overlay backup/restore state no longer constructs runtime protocol
       commands; file-picker, backup and restore mapping is centralized in the
       settings adapter and architecture-guarded.
+- [x] Schema-compare state no longer constructs runtime protocol commands;
+      snapshot/diff/migration planning remains pure while final command
+      construction is centralized in the workspace/query adapters.
 - [x] App module topology is isolated in `app_modules.rs`; `app.rs` contains
       aggregate ownership/orchestration only, and the guard rejects reintroducing
       feature `#[path]` declarations into the composition root.
