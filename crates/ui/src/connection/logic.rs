@@ -116,6 +116,11 @@ pub fn build_connect_command(request_id: RequestId, connection_id: String) -> Ui
     }
 }
 
+/// Build the initial saved-connection catalog request.
+pub fn build_list_connections_command(request_id: RequestId) -> UiCommand {
+    UiCommand::ListConnections { request_id }
+}
+
 /// Run network stage probes and produce diagnostics report.
 pub fn probe_draft_diagnostics(
     draft: &UiConnectionDraft,

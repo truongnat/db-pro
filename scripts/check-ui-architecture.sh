@@ -13,6 +13,10 @@ if rg -n '^#\[path = ' "$app_file"; then
   echo "UI architecture check failed: app.rs must not own feature module path declarations." >&2
   exit 1
 fi
+if rg -n 'UiCommand::' "$app_file"; then
+  echo "UI architecture check failed: app.rs must delegate runtime command construction to feature adapters." >&2
+  exit 1
+fi
 
 if rg -n 'egui::(CentralPanel|SidePanel|TopBottomPanel|Window::new)|\.show\(.*\|ui\|' "$app_file"; then
   echo "UI architecture check failed: app.rs must remain a composition root without egui painting." >&2

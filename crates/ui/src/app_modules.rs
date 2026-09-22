@@ -512,6 +512,8 @@ mod saved_tasks_surface_view;
 mod schema_compare;
 #[path = "schema_compare_state.rs"]
 mod schema_compare_state;
+#[path = "schema_actions.rs"]
+mod schema_actions;
 #[path = "schema_compare_view.rs"]
 mod schema_compare_view;
 #[path = "schema_events.rs"]

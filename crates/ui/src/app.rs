@@ -344,7 +344,7 @@ impl DbProApp {
         }
         self.connection.lifecycle.mark_connections_requested();
         let request_id = self.task_bridge.next_request_id();
-        if self.dispatch_command(UiCommand::ListConnections { request_id }) {
+        if self.dispatch_command(connection::logic::build_list_connections_command(request_id)) {
             self.connection.lifecycle.set_connections_request_pending(true);
         }
     }
@@ -375,11 +375,11 @@ impl DbProApp {
 
     fn request_schema_introspection(&mut self, connection_id: String, force_refresh: bool) {
         let request_id = self.task_bridge.next_request_id();
-        if !self.dispatch_command(UiCommand::IntrospectSchema {
+        if !self.dispatch_command(schema_actions::introspect_schema_command(
             request_id,
             connection_id,
             force_refresh,
-        }) {
+        )) {
             self.schema.explorer.schema_request = None;
             self.schema.explorer.schema_error = Some("Runtime worker unavailable".to_owned());
             return;
