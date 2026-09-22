@@ -1,5 +1,6 @@
 //! Settings activity sidebar panels (#205).
 use super::*;
+use super::{overlay_state::OverlayState, RequestId, UiCommand};
 use crate::editor::PredictionMode;
 
 pub(crate) fn apply_settings_state(
@@ -126,22 +127,22 @@ impl DbProApp {
             match action {
                 SettingsBackupAction::PickBackup => {
                     let request_id = self.task_bridge.next_request_id();
-                    self.dispatch_command(self.overlay.pick_backup_command(request_id));
+                    self.dispatch_command(pick_backup_command(request_id));
                 }
                 SettingsBackupAction::CreateBackup => {
                     if let Some(connection) = self.active_connection().cloned() {
                         let request_id = self.task_bridge.next_request_id();
-                        self.dispatch_command(self.overlay.backup_command(request_id, connection.id));
+                        self.dispatch_command(backup_command(&self.overlay, request_id, connection.id));
                     }
                 }
                 SettingsBackupAction::PickRestore => {
                     let request_id = self.task_bridge.next_request_id();
-                    self.dispatch_command(self.overlay.pick_restore_command(request_id));
+                    self.dispatch_command(pick_restore_command(request_id));
                 }
                 SettingsBackupAction::ConfirmRestore => {
                     if let Some(connection) = self.active_connection().cloned() {
                         let request_id = self.task_bridge.next_request_id();
-                        self.dispatch_command(self.overlay.restore_command(request_id, connection.id));
+                        self.dispatch_command(restore_command(&self.overlay, request_id, connection.id));
                     }
                 }
             }
@@ -151,5 +152,56 @@ impl DbProApp {
     fn supports_backup_restore(&self) -> bool {
         self.active_capabilities()
             .allows(|capabilities| capabilities.features.backup)
+    }
+}
+
+fn pick_backup_command(request_id: RequestId) -> UiCommand {
+    UiCommand::PickBackupFile { request_id }
+}
+
+fn backup_command(state: &OverlayState, request_id: RequestId, connection_id: String) -> UiCommand {
+    UiCommand::Backup {
+        request_id,
+        connection_id,
+        output_path: state.backup_output_path.clone(),
+        custom_format: false,
+    }
+}
+
+fn pick_restore_command(request_id: RequestId) -> UiCommand {
+    UiCommand::PickRestoreFile { request_id }
+}
+
+fn restore_command(state: &OverlayState, request_id: RequestId, connection_id: String) -> UiCommand {
+    UiCommand::Restore {
+        request_id,
+        connection_id,
+        input_path: state.restore_input_path.clone(),
+        custom_format: false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{backup_command, restore_command, OverlayState, RequestId, UiCommand};
+
+    #[test]
+    fn backup_and_restore_commands_read_overlay_paths() {
+        let state = OverlayState {
+            backup_output_path: "/tmp/backup.sql".to_owned(),
+            restore_input_path: "/tmp/input.sql".to_owned(),
+            ..OverlayState::default()
+        };
+
+        assert!(matches!(
+            backup_command(&state, RequestId(1), "source".to_owned()),
+            UiCommand::Backup { output_path, connection_id, custom_format: false, .. }
+                if output_path == "/tmp/backup.sql" && connection_id == "source"
+        ));
+        assert!(matches!(
+            restore_command(&state, RequestId(2), "source".to_owned()),
+            UiCommand::Restore { input_path, connection_id, custom_format: false, .. }
+                if input_path == "/tmp/input.sql" && connection_id == "source"
+        ));
     }
 }
