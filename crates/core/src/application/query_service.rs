@@ -6,8 +6,8 @@ use crate::domain::history::{QueryHistory, SavedQuery, SavedQueryFolder};
 use crate::domain::query::{QueryParam, QueryResult};
 use crate::domain::run_config::RunConfig;
 use crate::domain::safety::{
-    classify_statement_safety, has_top_level_sql_keyword, transaction_control_verb, validate_against_policy,
-    ConnectionSafetyPolicy, StatementSafety,
+    classify_statement_safety, has_top_level_sql_keyword, validate_against_policy, ConnectionSafetyPolicy,
+    StatementSafety,
 };
 use crate::ports::{
     ConnectionRepository, DbConnector, IntrospectionCache, QueryHistoryRepository, RunConfigRepository,
@@ -16,6 +16,10 @@ use crate::ports::{
 
 use super::registry::ConnectionRegistry;
 use super::sql_policy::{reject_multi_statement, split_statements};
+use multi_query_execution::MultiQueryExecution;
+
+#[path = "multi_query_execution.rs"]
+mod multi_query_execution;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatementResultKind {
@@ -194,204 +198,49 @@ impl QueryService {
             .registry
             .get(connection_id)
             .ok_or_else(|| DbError::ConnectionFailed(format!("connection {connection_id} is not active")))?;
-
-        // Enforce safety policy for each statement in the script.
         let policy = self.safety_policy_for(connection_id).await?;
-
         let statements = split_statements(sql);
         if statements.is_empty() {
             return Err(DbError::QueryFailed("empty SQL statement".into()));
         }
 
-        let start = std::time::Instant::now();
-        let mut results = Vec::with_capacity(statements.len());
-        let mut result_kinds = Vec::with_capacity(statements.len());
-
-        // Keep query-result routing separate from transaction safety. A data-modifying
-        // CTE can still return rows, so it must be executed as a query while forcing
-        // the whole multi-statement script through the atomic transaction path.
-        let query_statements: Vec<bool> = statements
+        let query_statements = statements
             .iter()
             .map(|statement| matches!(classify_statement(statement), StatementClass::Read))
-            .collect();
+            .collect::<Vec<_>>();
         let has_mutation = statements
             .iter()
             .any(|statement| !matches!(classify_statement_safety(statement), Some(StatementSafety::Read)));
         let has_schema_change = statements
             .iter()
             .any(|statement| matches!(classify_statement_safety(statement), Some(StatementSafety::Ddl)));
+        let execution = MultiQueryExecution {
+            service: self,
+            connection_id,
+            handle: &handle,
+            policy: &policy,
+            statements: &statements,
+            query_statements: &query_statements,
+            has_schema_change,
+            started_at: std::time::Instant::now(),
+        };
 
-        if statements.len() > 1 && has_mutation {
-            for (idx, stmt) in statements.iter().enumerate() {
-                if let Err(msg) = validate_against_policy(stmt, &policy) {
-                    return Ok(MultiQueryResult {
-                        results: Vec::new(),
-                        result_kinds: Vec::new(),
-                        total_duration_ms: start.elapsed().as_millis() as u64,
-                        error: Some((idx, MultiQueryError::message(msg))),
-                    });
-                }
-            }
-
-            // A batch that manages its own transaction cannot be executed atomically here: the
-            // batch is about to run inside one transaction, so a statement that opens or ends a
-            // transaction ends *that* one instead of joining it. The statements after it then run
-            // outside the wrapper, and a later failure rolls back nothing while the envelope still
-            // reports `RolledBack` — the gap the issue measured (#147). Rejecting before dispatch
-            // is the option that fails closed.
-            //
-            // Reached by every batch that carries transaction control: those verbs classify as
-            // `Write` (the classifier's fail-safe default), so they set `has_mutation` and this
-            // branch is taken even when the script is otherwise all reads. A single statement is
-            // deliberately not covered — manual transaction control is out of v0.1 scope (#224) and
-            // a lone statement makes no atomicity claim this dispatch point owns.
-            if let Some((idx, verb)) = statements
-                .iter()
-                .enumerate()
-                .find_map(|(idx, statement)| transaction_control_verb(statement).map(|verb| (idx, verb)))
-            {
-                return Ok(MultiQueryResult {
-                    results: Vec::new(),
-                    result_kinds: Vec::new(),
-                    total_duration_ms: start.elapsed().as_millis() as u64,
-                    error: Some((idx, MultiQueryError::message(transaction_control_rejection(verb)))),
-                });
-            }
-
-            match self
-                .connector
-                .execute_transaction(&handle, &statements, &query_statements)
-                .await
-            {
-                Ok(transaction_results) => {
-                    if has_schema_change {
-                        self.invalidate_schema_cache(connection_id).await;
-                    }
-                    for (idx, transaction_result) in transaction_results.into_iter().enumerate() {
-                        match transaction_result_to_query_result(transaction_result) {
-                            Ok((kind, result)) => {
-                                results.push(result);
-                                result_kinds.push(kind);
-                            }
-                            Err(error) => {
-                                return Ok(MultiQueryResult {
-                                    results,
-                                    result_kinds,
-                                    total_duration_ms: start.elapsed().as_millis() as u64,
-                                    error: Some((idx, MultiQueryError::from(error))),
-                                });
-                            }
-                        }
-                    }
-                }
-                Err(failure) => {
-                    let unknown_commit = failure.outcome == TransactionFailureOutcome::Unknown;
-                    if has_schema_change && unknown_commit {
-                        self.invalidate_schema_cache(connection_id).await;
-                    }
-                    let failure_phase = failure.phase;
-                    let failure_outcome = failure.outcome;
-                    let failure_statement_index = failure.statement_index;
-                    let failure_error = failure.error;
-                    for (idx, transaction_result) in failure.results.into_iter().enumerate() {
-                        match transaction_result_to_query_result(transaction_result) {
-                            Ok((kind, result)) => {
-                                results.push(result);
-                                result_kinds.push(kind);
-                            }
-                            Err(error) => {
-                                return Ok(MultiQueryResult {
-                                    results,
-                                    result_kinds,
-                                    total_duration_ms: start.elapsed().as_millis() as u64,
-                                    error: Some((idx, MultiQueryError::from(error))),
-                                });
-                            }
-                        }
-                    }
-                    return Ok(MultiQueryResult {
-                        results,
-                        result_kinds,
-                        total_duration_ms: start.elapsed().as_millis() as u64,
-                        error: Some((
-                            failure_statement_index,
-                            MultiQueryError {
-                                message: format_transaction_failure(failure_phase, failure_outcome, &failure_error),
-                                ..MultiQueryError::from(failure_error)
-                            },
-                        )),
-                    });
-                }
-            }
+        let mut result = if statements.len() > 1 && has_mutation {
+            execution.execute_transactional().await
         } else {
-            for (idx, stmt) in statements.iter().enumerate() {
-                let stmt_start = std::time::Instant::now();
-
-                // Validate each statement against the safety policy before execution.
-                if let Err(msg) = validate_against_policy(stmt, &policy) {
-                    return Ok(MultiQueryResult {
-                        results,
-                        result_kinds,
-                        total_duration_ms: start.elapsed().as_millis() as u64,
-                        error: Some((idx, MultiQueryError::message(msg))),
-                    });
-                }
-
-                match classify_statement(stmt) {
-                    StatementClass::Read => match self.connector.query(&handle, stmt, &[]).await {
-                        Ok(result) => {
-                            if let Err(e) = result.validate() {
-                                return Ok(MultiQueryResult {
-                                    results,
-                                    result_kinds,
-                                    total_duration_ms: start.elapsed().as_millis() as u64,
-                                    error: Some((idx, MultiQueryError::message(e))),
-                                });
-                            }
-                            results.push(result);
-                            result_kinds.push(StatementResultKind::ResultSet);
-                        }
-                        Err(e) => {
-                            return Ok(MultiQueryResult {
-                                results,
-                                result_kinds,
-                                total_duration_ms: start.elapsed().as_millis() as u64,
-                                error: Some((idx, MultiQueryError::from(e))),
-                            });
-                        }
-                    },
-                    StatementClass::Write => match self.connector.execute(&handle, stmt, &[]).await {
-                        Ok(affected) => {
-                            let elapsed = stmt_start.elapsed().as_millis() as u64;
-                            results.push(QueryResult {
-                                columns: Vec::new(),
-                                rows: Vec::new(),
-                                row_count: affected,
-                                duration_ms: elapsed,
-                            });
-                            result_kinds.push(StatementResultKind::Command);
-                        }
-                        Err(e) => {
-                            return Ok(MultiQueryResult {
-                                results,
-                                result_kinds,
-                                total_duration_ms: start.elapsed().as_millis() as u64,
-                                error: Some((idx, MultiQueryError::from(e))),
-                            });
-                        }
-                    },
-                }
-            }
+            execution.execute_sequential().await
+        };
+        if result.error.is_some() {
+            return Ok(result);
         }
 
         if statements.len() == 1 && has_schema_change {
             self.invalidate_schema_cache(connection_id).await;
         }
+        result.total_duration_ms = execution.elapsed_ms();
 
-        let total_duration_ms = start.elapsed().as_millis() as u64;
-
-        if let Some(first) = results.first() {
-            if let Err(e) = self
+        if let Some(first) = result.results.first() {
+            if let Err(error) = self
                 .history
                 .save(
                     connection_id,
@@ -402,16 +251,11 @@ impl QueryService {
                 )
                 .await
             {
-                tracing::warn!("failed to save query history: {e}");
+                tracing::warn!("failed to save query history: {error}");
             }
         }
 
-        Ok(MultiQueryResult {
-            results,
-            result_kinds,
-            total_duration_ms,
-            error: None,
-        })
+        Ok(result)
     }
 
     pub async fn explain(
