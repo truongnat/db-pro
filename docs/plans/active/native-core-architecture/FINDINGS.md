@@ -1601,3 +1601,20 @@ regression test, and RLS pending execution is committed only after dispatch
 acceptance.
 
 Severity: P1 composition-boundary and lost-input risk, resolved for Security.
+
+## F96 — Monitoring activity still used the root as a mutable facade
+
+Evidence at the pre-fix main state: `monitoring_activity_view.rs` implemented
+the Monitor surface, polling, confirmation transitions, runtime dispatch and
+cross-feature query navigation as `impl DbProApp`, even though the monitoring
+state and command planning were already extracted.
+
+Fix at `be3962ef`: Monitor now uses `MonitoringActivityContext` with explicit
+state, connection/provider snapshots, feedback and `RuntimeCommandDispatcher`
+dependencies. Session/workload query opens return a typed
+`MonitoringActivityEffect`; the root applies only workspace navigation and
+composes the already-isolated auxiliary activities. Failed maintenance
+dispatch preserves its confirmation through the existing regression test.
+
+Severity: P1 composition-boundary and retryability risk, resolved for
+Monitoring.

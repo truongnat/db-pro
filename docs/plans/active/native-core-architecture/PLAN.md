@@ -81,8 +81,9 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
     explicit; native feature dialogs now use the shared Dialog primitive;
     Audit, FDW, Event Trigger, Logical Replication and PostgreSQL settings root
     adapters are now migrated to explicit contexts; Security activity is now
-    also migrated to `SecurityActivityContext`; the remaining root adapters
-    still require migration.
+    migrated to `SecurityActivityContext` and Monitoring to
+    `MonitoringActivityContext`; the remaining root adapters still require
+    migration.
 11. Enforce the runtime command boundary as a two-phase transition: prepare
     typed command, dispatch through `TaskBridge`, then commit local pending or
     running state only after dispatch succeeds. This is now applied to the
