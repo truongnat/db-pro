@@ -1798,6 +1798,22 @@ the application module.
 
 Severity: P2 core classification-boundary and maintainability risk, resolved.
 
+## F113 — SQL builder mixed table reads with row mutation rendering
+
+Evidence at the pre-fix main state: `sql_builder.rs` combined grid read
+queries, filtering/sorting/pagination, primary-key lookup and insert/update/
+delete rendering behind one module, while also owning shared parameter
+conversion.
+
+Fix in the current checkpoint: `sql_builder.rs` remains the compatibility
+facade and shared identifier/placeholder/parameter boundary. Read query
+construction now lives in `sql_builder/read.rs`, and row mutation construction
+now lives in `sql_builder/mutation.rs`. Existing callers keep the same stable
+imports and SQL/parameter behavior.
+
+Severity: P1 core SQL-builder boundary and mutation/read coupling risk,
+resolved.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used

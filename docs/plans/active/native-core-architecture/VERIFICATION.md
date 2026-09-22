@@ -3117,3 +3117,19 @@ keeps task policy and execution effects.
 - `git diff --check`: passed.
 - The rebuilt normal release binary is running as native process PID `73006`
   with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### SQL builder boundary checkpoint (pre-commit)
+
+- `sql_builder.rs` remains the stable facade while read query construction is
+  isolated in `sql_builder/read.rs` and insert/update/delete/PK construction is
+  isolated in `sql_builder/mutation.rs`.
+- Shared identifier qualification, placeholder sequencing and typed parameter
+  conversion remain centralized; existing SQL shape and temporal binding
+  behavior are preserved.
+- Focused `cargo test -p db-pro-core sql_builder --quiet`: passed; 36 passed,
+  0 failed, 368 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
