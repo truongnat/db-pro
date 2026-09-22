@@ -165,13 +165,7 @@ pub(crate) struct ConnectionDialogView<'view, 'bridge> {
 
 impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
     pub(crate) fn dispatch_command(&mut self, command: UiCommand) -> bool {
-        if self.command_dispatcher.send_best_effort(command) {
-            return true;
-        }
-        let message = "Runtime worker unavailable";
-        self.feedback.set_runtime_message(message);
-        self.feedback.show_error_toast(message);
-        false
+        self.command_dispatcher.dispatch(command, self.feedback)
     }
 
     pub(crate) fn apply_cloud_preset(&mut self) {

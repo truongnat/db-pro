@@ -64,13 +64,58 @@ impl DbProApp {
     }
 
     fn draw_monitor_auxiliary_surfaces(&mut self, ui: &mut egui::Ui) {
-        self.draw_audit_activity(ui);
-        self.draw_fdw_activity(ui);
-        self.draw_replication_activity(ui);
-        self.draw_event_trigger_activity(ui);
+        self.draw_audit_surface(ui);
+        let driver = self.active_driver().to_owned();
+        let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
+        fdw_activity_view::FdwActivityContext {
+            theme: self.theme,
+            state: &mut self.management.fdw,
+            connection_id: self.connection.lifecycle.active_connection_id(),
+            driver: &driver,
+            command_dispatcher: &mut command_dispatcher,
+            feedback: &mut self.feedback,
+        }
+        .draw(ui);
+        replication_activity_view::ReplicationActivityContext {
+            theme: self.theme,
+            state: &mut self.management.replication,
+            connection_id: self.connection.lifecycle.active_connection_id(),
+            driver: &driver,
+            command_dispatcher: &mut command_dispatcher,
+            feedback: &mut self.feedback,
+        }
+        .draw(ui);
+        event_trigger_activity_view::EventTriggerActivityContext {
+            theme: self.theme,
+            state: &mut self.management.event_trigger,
+            connection_id: self.connection.lifecycle.active_connection_id(),
+            driver: &driver,
+            command_dispatcher: &mut command_dispatcher,
+            feedback: &mut self.feedback,
+        }
+        .draw(ui);
         self.draw_pg_settings_activity(ui);
         if let Some(action) = maintenance_activity_view::draw_maintenance_activity(ui, self.theme) {
             self.management.monitoring.monitoring_maintenance_confirm = Some(action);
+        }
+    }
+
+    fn draw_audit_surface(&mut self, ui: &mut egui::Ui) {
+        let audit_effect = {
+            let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
+            audit_activity_view::AuditActivityContext {
+                theme: self.theme,
+                state: &mut self.management.audit,
+                connection_id: self.connection.lifecycle.active_connection_id(),
+                command_dispatcher: &mut command_dispatcher,
+                feedback: &mut self.feedback,
+            }
+            .draw(ui)
+        };
+        if let Some(audit_activity_view::AuditActivityEffect::OpenQuery(query)) = audit_effect {
+            self.set_active_query_text(query);
+            self.workspace.active_tab = WorkspaceTab::Query;
+            self.workspace.activity = Activity::Explorer;
         }
     }
 

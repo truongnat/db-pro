@@ -258,13 +258,7 @@ impl DbProApp {
 
     /// Queues a command and exposes a closed runtime boundary to the user.
     pub(crate) fn dispatch_command(&mut self, command: UiCommand) -> bool {
-        if self.send_command_best_effort(command) {
-            return true;
-        }
-        let message = "Runtime worker unavailable";
-        self.feedback.runtime_message = message.to_owned();
-        self.feedback.show_error_toast(message);
-        false
+        command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge).dispatch(command, &mut self.feedback)
     }
 
     /// Sends a cancellation/background command without borrowing the whole app.

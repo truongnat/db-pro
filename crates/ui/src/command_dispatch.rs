@@ -4,7 +4,7 @@
 //! they cannot depend on `TaskBridge` or manufacture request identities on
 //! their own. The composition root still decides when to create the port.
 
-use super::{RequestId, TaskBridge, UiCommand};
+use super::{FeedbackState, RequestId, TaskBridge, UiCommand};
 
 pub(crate) struct RuntimeCommandDispatcher<'a> {
     bridge: &'a mut TaskBridge,
@@ -21,5 +21,15 @@ impl<'a> RuntimeCommandDispatcher<'a> {
 
     pub(crate) fn send_best_effort(&mut self, command: UiCommand) -> bool {
         self.bridge.send_best_effort(command)
+    }
+
+    pub(crate) fn dispatch(&mut self, command: UiCommand, feedback: &mut FeedbackState) -> bool {
+        if self.send_best_effort(command) {
+            return true;
+        }
+        let message = "Runtime worker unavailable";
+        feedback.set_runtime_message(message);
+        feedback.show_error_toast(message);
+        false
     }
 }

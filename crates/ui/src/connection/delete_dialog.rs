@@ -70,11 +70,7 @@ pub(crate) fn draw(
             request_id,
             connection_id: connection_id.clone(),
         };
-        if !command_dispatcher.send_best_effort(command) {
-            let message = "Runtime worker unavailable";
-            feedback.set_runtime_message(message);
-            feedback.show_error_toast(message);
-        } else {
+        if command_dispatcher.dispatch(command, feedback) {
             // Track the target only after the runtime accepted the command so a
             // closed worker cannot leave a phantom delete operation pending.
             lifecycle.set_pending_request(Some(request_id));
