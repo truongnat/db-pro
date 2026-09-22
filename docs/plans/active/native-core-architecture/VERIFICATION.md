@@ -2423,3 +2423,20 @@ keeps task policy and execution effects.
   right-aligned close control, complete body and separated footer.
 - The rebuilt release binary is running from this SHA in terminal session
   `42789` (native process PID `81098`) for manual verification.
+
+### Runtime acceptance matrix from `6ecdfb99`
+
+- Normal/empty: `/tmp/db-pro-native-core-6ecdfb99-normal-1280x800.png`,
+  `/tmp/db-pro-native-core-6ecdfb99-normal-1440x900.png`,
+  `/tmp/db-pro-native-core-6ecdfb99-normal-1920x1080.png`.
+- Loading: `/tmp/db-pro-native-core-6ecdfb99-loading-1280x800.png`,
+  `/tmp/db-pro-native-core-6ecdfb99-loading-1440x900.png`,
+  `/tmp/db-pro-native-core-6ecdfb99-loading-1920x1080.png`.
+- Error: `/tmp/db-pro-native-core-6ecdfb99-error-1280x800.png`,
+  `/tmp/db-pro-native-core-6ecdfb99-error-1440x900.png`,
+  `/tmp/db-pro-native-core-6ecdfb99-error-1920x1080.png`.
+- All nine captures were visually inspected. The 1280×800 logical captures
+  are Retina `2560x1600` framebuffers. The host clamps the larger logical
+  heights to `838`, producing `2880x1676` and `3840x1676` framebuffers; width,
+  responsive composition, modal centering, header divider, close alignment and
+  footer separation remain verified at those sizes.

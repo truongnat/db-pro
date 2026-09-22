@@ -253,4 +253,5 @@
       `1280x800`.
 - [x] Latest native release binary rebuilt on `05524c33`; runtime launch and
       the normal Welcome capture are recorded in `VERIFICATION.md`.
-- [ ] Native runtime evidence for affected surfaces.
+- [x] Native runtime evidence for affected surfaces recorded at the required
+      viewport/state matrix in `VERIFICATION.md`.
