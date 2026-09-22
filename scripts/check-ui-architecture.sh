@@ -320,6 +320,10 @@ for state_module in \
     exit 1
   fi
 done
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/connection/lifecycle.rs"; then
+  echo "UI architecture check failed: connection lifecycle state must not construct runtime protocol commands." >&2
+  exit 1
+fi
 
 for reducer in \
   "$repo_root/crates/ui/src/agent_events.rs" \

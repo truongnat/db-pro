@@ -192,7 +192,10 @@ impl<'a> ExplorerConnectionContext<'a> {
             return None;
         }
 
-        Some(self.lifecycle.connect_command(request_id, connection.id.clone()))
+        Some(super::connection::logic::build_connect_command(
+            request_id,
+            connection.id.clone(),
+        ))
     }
 
     pub(crate) fn commit_connect(&mut self, connection: &UiConnectionSummary, request_id: RequestId) {

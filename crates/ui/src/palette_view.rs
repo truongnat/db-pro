@@ -177,7 +177,10 @@ impl DbProApp {
             self.connection.lifecycle.set_connected(false);
             let request_id = self.task_bridge.next_request_id();
             self.connection.lifecycle.set_pending_request(Some(request_id));
-            self.dispatch_command(self.connection.lifecycle.connect_command(request_id, connection.id));
+            self.dispatch_command(super::connection::logic::build_connect_command(
+                request_id,
+                connection.id,
+            ));
             self.feedback.runtime_message = format!("Connecting to {}…", connection.name);
         }
     }

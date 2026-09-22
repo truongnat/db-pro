@@ -108,6 +108,14 @@ pub fn build_connection_command(
     }
 }
 
+/// Build the runtime command for switching to a saved connection.
+pub fn build_connect_command(request_id: RequestId, connection_id: String) -> UiCommand {
+    UiCommand::Connect {
+        request_id,
+        connection_id,
+    }
+}
+
 /// Run network stage probes and produce diagnostics report.
 pub fn probe_draft_diagnostics(
     draft: &UiConnectionDraft,
@@ -117,4 +125,21 @@ pub fn probe_draft_diagnostics(
     let config = draft_to_domain_config(draft);
     let report = probe_network_stages(&config);
     with_auth_result(report, auth_ok, auth_message)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_connect_command;
+    use crate::{RequestId, UiCommand};
+
+    #[test]
+    fn connect_command_keeps_connection_identity_explicit() {
+        assert!(matches!(
+            build_connect_command(RequestId(7), "conn-1".to_owned()),
+            UiCommand::Connect {
+                request_id: RequestId(7),
+                connection_id,
+            } if connection_id == "conn-1"
+        ));
+    }
 }
