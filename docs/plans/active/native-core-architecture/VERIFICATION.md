@@ -2601,3 +2601,24 @@ keeps task policy and execution effects.
   passed with 15 checks and 0 failures; 1 warning group remains for four
   pre-existing long functions in `connection/view.rs`.
 - `git diff --check`: passed.
+
+### PostgreSQL settings adapter checkpoint at `de5b0a0f`
+
+- PostgreSQL settings now use an explicit activity context instead of
+  `impl DbProApp`; it receives the settings state, provider/connection
+  snapshot, feedback and `RuntimeCommandDispatcher`.
+- Applying SET SESSION clears the edit dialog only after successful dispatch.
+  The failed-dispatch regression passed and preserves `work_mem=64MB` draft
+  state when the runtime worker is unavailable.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.

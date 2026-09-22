@@ -1570,3 +1570,18 @@ UI source files declaring `impl DbProApp` fell from 68 to 64.
 
 Severity: P1 composition-boundary leak, resolved for the audited
 database-management activity adapters.
+
+## F94 — PostgreSQL settings edit state was coupled to root and lost on dispatch failure
+
+Evidence at the pre-fix main state: `pg_settings_activity_view.rs` implemented
+the entire activity as `impl DbProApp`, and applying a session setting cleared
+the edit dialog immediately after attempting dispatch. A closed runtime worker
+could therefore erase the user's pending setting.
+
+Fix at `de5b0a0f`: PostgreSQL settings now use an explicit activity context with
+state, provider/connection snapshots, feedback and the runtime dispatcher.
+The edit state is cleared only when the dispatcher accepts the command, with a
+regression test covering a failed session-setting dispatch.
+
+Severity: P1 composition-boundary and lost-input risk, resolved for PostgreSQL
+settings.

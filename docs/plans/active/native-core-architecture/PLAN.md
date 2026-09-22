@@ -79,9 +79,9 @@ provider behavior stay in `crates/core` and `crates/infrastructure`.
     schema-definition, saved-task confirmation, result-grid value inspector,
     record inspector, inline cell editor and sidebar shell presentation are now
     explicit; native feature dialogs now use the shared Dialog primitive;
-    Audit, FDW, Event Trigger and Logical Replication root adapters are now
-    migrated to explicit contexts; the remaining root adapters still require
-    migration.
+    Audit, FDW, Event Trigger, Logical Replication and PostgreSQL settings root
+    adapters are now migrated to explicit contexts; the remaining root adapters
+    still require migration.
 11. Enforce the runtime command boundary as a two-phase transition: prepare
     typed command, dispatch through `TaskBridge`, then commit local pending or
     running state only after dispatch succeeds. This is now applied to the

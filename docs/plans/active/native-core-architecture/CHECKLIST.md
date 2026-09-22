@@ -223,6 +223,8 @@
       longer implement `DbProApp`; they receive explicit feature state and
       runtime dependencies, and Audit cross-feature navigation is a typed
       effect applied by the root.
+- [x] PostgreSQL settings activity uses an explicit context; failed SET
+      dispatch preserves the edit state until the runtime accepts the command.
 - [x] Monitoring state no longer constructs runtime protocol commands;
       snapshot, workload, session-control, maintenance and reset mapping is
       centralized in the monitoring activity adapter and architecture-guarded.
