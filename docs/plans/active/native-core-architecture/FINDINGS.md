@@ -1739,6 +1739,21 @@ gates, safety classification, effects and fingerprints.
 Severity: P1 core mutation-boundary and provider-DDL maintainability risk,
 resolved for object mutation planning.
 
+## F109 — Database transfer mixed conversion policy with streaming adapters
+
+Evidence at the pre-fix main state: `db_transfer.rs` combined the provider
+conversion matrix, mapping preview/capability gates and row projection with
+the in-memory generator source and transaction/conflict target adapter used by
+the transfer harness.
+
+Fix in the current checkpoint: `db_transfer_plan.rs` now owns conversion
+types, explicit PG/SQLite mapping classification, capability gates and row
+projection. `db_transfer.rs` retains the streaming source/target adapters and
+re-exports the stable planning API.
+
+Severity: P1 core transfer-policy and adapter-boundary maintainability risk,
+resolved for conversion planning.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used

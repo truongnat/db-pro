@@ -2976,3 +2976,17 @@ keeps task policy and execution effects.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
   passed with 16 checks, 0 warnings and 0 failures.
 - `git diff --check`: passed.
+
+### Database transfer plan boundary checkpoint (pre-commit)
+
+- Conversion types, PG/SQLite mapping classification, endpoint capability
+  gates and row projection now live in `application/db_transfer_plan.rs`.
+  `db_transfer.rs` retains generator/target streaming adapters and re-exports
+  the existing planning API.
+- Focused `cargo test -p db-pro-core db_transfer --quiet`: passed; 9 passed,
+  0 failed, 395 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
