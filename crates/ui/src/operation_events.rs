@@ -205,6 +205,38 @@ impl DbProApp {
         }
     }
 
+    fn request_security_users(&mut self) {
+        let connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
+        security_activity_view::request_security_users(
+            connection_id.as_deref(),
+            &mut command_dispatcher,
+            &mut self.feedback,
+        );
+    }
+
+    fn request_security_role_details(&mut self, role_name: &str) {
+        let connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
+        security_activity_view::request_security_role_details(
+            connection_id.as_deref(),
+            role_name,
+            &mut command_dispatcher,
+            &mut self.feedback,
+        );
+    }
+
+    fn request_security_rls(&mut self) {
+        let connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
+        security_activity_view::request_security_rls(
+            &self.management.security,
+            connection_id.as_deref(),
+            &mut command_dispatcher,
+            &mut self.feedback,
+        );
+    }
+
     /// Generic completion for connection, table-row and query operations.
     pub(super) fn on_operation_completed(&mut self, request_id: RequestId, operation: String) {
         let pending_connection_request = self.connection.lifecycle.pending_request() == Some(request_id);

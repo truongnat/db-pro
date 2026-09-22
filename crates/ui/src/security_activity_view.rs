@@ -1,139 +1,148 @@
+use super::command_dispatch::RuntimeCommandDispatcher;
+use super::security_state::SecurityState;
 use super::*;
-use super::{security_state::SecurityState, RequestId, UiCommand};
 
 #[path = "security_surface_view.rs"]
 mod security_surface_view;
 
-impl DbProApp {
-    pub(super) fn draw_security_activity(&mut self, ui: &mut egui::Ui) {
-        let connected =
-            self.connection.lifecycle.is_connected() && self.connection.lifecycle.active_connection_id().is_some();
-        let is_pg = self.active_driver().eq_ignore_ascii_case("postgresql")
-            || self.active_driver().eq_ignore_ascii_case("postgres");
+pub(super) struct SecurityActivityContext<'a, 'bridge> {
+    pub(super) theme: DbProTheme,
+    pub(super) state: &'a mut SecurityState,
+    pub(super) table_state: &'a mut TableState,
+    pub(super) connected: bool,
+    pub(super) is_postgres: bool,
+    pub(super) connection_id: Option<&'a str>,
+    pub(super) command_dispatcher: &'a mut RuntimeCommandDispatcher<'bridge>,
+    pub(super) feedback: &'a mut FeedbackState,
+}
+
+impl SecurityActivityContext<'_, '_> {
+    pub(super) fn draw(&mut self, ui: &mut egui::Ui) {
         let context = ui.ctx().clone();
         let actions = security_surface_view::SecuritySurfaceContext {
             theme: self.theme,
-            state: &mut self.management.security,
-            connected,
-            is_postgres: is_pg,
+            state: self.state,
+            connected: self.connected,
+            is_postgres: self.is_postgres,
         }
         .draw(ui, &context);
-        self.apply_security_surface_actions(actions);
+        self.apply_actions(actions);
     }
 
-    fn apply_security_surface_actions(&mut self, actions: Vec<security_surface_view::SecuritySurfaceAction>) {
+    fn apply_actions(&mut self, actions: Vec<security_surface_view::SecuritySurfaceAction>) {
         for action in actions {
             match action {
                 security_surface_view::SecuritySurfaceAction::Roles(action) => {
-                    self.apply_security_roles_actions(vec![action]);
+                    self.apply_roles_actions(vec![action]);
                 }
                 security_surface_view::SecuritySurfaceAction::RoleDetails { role, action } => {
-                    self.apply_security_role_details_actions(&role, vec![action]);
+                    self.apply_role_details_actions(&role, vec![action]);
                 }
                 security_surface_view::SecuritySurfaceAction::Confirmation(action) => {
-                    self.apply_security_confirmation_action(action);
+                    self.apply_confirmation_action(action);
                 }
                 security_surface_view::SecuritySurfaceAction::Rls(action) => {
-                    self.apply_security_rls_actions(vec![action]);
+                    self.apply_rls_actions(vec![action]);
                 }
             }
         }
     }
 
-    fn apply_security_confirmation_action(&mut self, action: security_confirmation_view::SecurityConfirmationAction) {
+    fn apply_confirmation_action(&mut self, action: security_confirmation_view::SecurityConfirmationAction) {
         match action {
             security_confirmation_view::SecurityConfirmationAction::ConfirmDropRole(name) => {
-                if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
-                    let request_id = self.next_request_id();
-                    if self.dispatch_command(drop_role_command(
-                        security_request(request_id, connection_id),
-                        name,
-                    )) {
-                        self.management.security.security_drop_confirm = None;
-                    }
+                let Some(connection_id) = self.connection_id else {
+                    return;
+                };
+                let request_id = self.command_dispatcher.next_request_id();
+                if self.dispatch(drop_role_command(
+                    security_request(request_id, connection_id.to_owned()),
+                    name,
+                )) {
+                    self.state.security_drop_confirm = None;
                 }
             }
             security_confirmation_view::SecurityConfirmationAction::CancelDropRole => {
-                self.management.security.security_drop_confirm = None;
+                self.state.security_drop_confirm = None;
             }
         }
     }
 
-    fn apply_security_roles_actions(&mut self, actions: Vec<security_roles_view::SecurityRolesAction>) {
+    fn apply_roles_actions(&mut self, actions: Vec<security_roles_view::SecurityRolesAction>) {
         for action in actions {
             match action {
-                security_roles_view::SecurityRolesAction::Refresh => self.request_security_users(),
+                security_roles_view::SecurityRolesAction::Refresh => self.request_users(),
                 security_roles_view::SecurityRolesAction::Select(role_name) => {
-                    self.management.security.security_selected_role = Some(role_name.clone());
-                    self.request_security_role_details(&role_name);
+                    self.state.security_selected_role = Some(role_name.clone());
+                    self.request_role_details(&role_name);
                 }
                 security_roles_view::SecurityRolesAction::RequestDrop(role_name) => {
-                    self.management.security.security_drop_confirm = Some(role_name);
+                    self.state.security_drop_confirm = Some(role_name);
                 }
                 security_roles_view::SecurityRolesAction::Create { name, login } => {
-                    let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned)
-                    else {
+                    let Some(connection_id) = self.connection_id else {
                         continue;
                     };
-                    self.management.security.security_new_role_login = login;
-                    let request_id = self.next_request_id();
-                    if self.dispatch_command(create_role_command(
-                        &self.management.security,
-                        security_request(request_id, connection_id),
+                    self.state.security_new_role_login = login;
+                    let request_id = self.command_dispatcher.next_request_id();
+                    if self.dispatch(create_role_command(
+                        self.state,
+                        security_request(request_id, connection_id.to_owned()),
                         name,
                     )) {
-                        self.management.security.security_new_role.clear();
+                        self.state.security_new_role.clear();
                     }
                 }
             }
         }
     }
 
-    fn apply_security_role_details_actions(
+    fn apply_role_details_actions(
         &mut self,
         role: &str,
         actions: Vec<security_role_details_view::SecurityRoleDetailsAction>,
     ) {
         for action in actions {
-            let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+            let Some(connection_id) = self.connection_id else {
                 continue;
             };
-            let request_id = self.next_request_id();
+            let request_id = self.command_dispatcher.next_request_id();
+            let connection_id = connection_id.to_owned();
             match action {
                 security_role_details_view::SecurityRoleDetailsAction::AlterRole(attributes) => {
-                    self.dispatch_command(alter_role_command(
+                    self.dispatch(alter_role_command(
                         security_request(request_id, connection_id),
                         role.to_owned(),
                         attributes,
                     ));
                 }
                 security_role_details_view::SecurityRoleDetailsAction::UpdatePassword(password) => {
-                    if self.dispatch_command(update_password_command(
+                    if self.dispatch(update_password_command(
                         security_request(request_id, connection_id),
                         role.to_owned(),
                         password,
                     )) {
-                        self.management.security.security_password.clear();
+                        self.state.security_password.clear();
                     }
                 }
                 security_role_details_view::SecurityRoleDetailsAction::RevokeMembership(member_role) => {
-                    self.dispatch_command(revoke_membership_command(
+                    self.dispatch(revoke_membership_command(
                         security_request(request_id, connection_id),
                         member_role,
                         role.to_owned(),
                     ));
                 }
                 security_role_details_view::SecurityRoleDetailsAction::GrantMembership(member_role) => {
-                    if self.dispatch_command(grant_membership_command(
+                    if self.dispatch(grant_membership_command(
                         security_request(request_id, connection_id),
                         member_role,
                         role.to_owned(),
                     )) {
-                        self.management.security.security_membership_role.clear();
+                        self.state.security_membership_role.clear();
                     }
                 }
                 security_role_details_view::SecurityRoleDetailsAction::RevokePrivilege(privilege) => {
-                    self.dispatch_command(revoke_privilege_command(
+                    self.dispatch(revoke_privilege_command(
                         security_request(request_id, connection_id),
                         role.to_owned(),
                         privilege,
@@ -145,12 +154,12 @@ impl DbProApp {
                     object_name,
                     privilege,
                 } => {
-                    self.management.security.security_grant_kind = kind;
-                    self.management.security.security_grant_schema = schema;
-                    self.management.security.security_grant_object = object_name;
-                    self.management.security.security_grant_privilege = privilege;
-                    self.dispatch_command(grant_privilege_command(
-                        &self.management.security,
+                    self.state.security_grant_kind = kind;
+                    self.state.security_grant_schema = schema;
+                    self.state.security_grant_object = object_name;
+                    self.state.security_grant_privilege = privilege;
+                    self.dispatch(grant_privilege_command(
+                        self.state,
                         security_request(request_id, connection_id),
                         role.to_owned(),
                     ));
@@ -159,53 +168,38 @@ impl DbProApp {
         }
     }
 
-    pub(crate) fn request_security_users(&mut self) {
-        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
-            return;
-        };
-        let request_id = self.next_request_id();
-        self.dispatch_command(list_users_command(security_request(request_id, connection_id)));
+    fn request_users(&mut self) {
+        request_security_users(self.connection_id, self.command_dispatcher, self.feedback);
     }
 
-    pub(crate) fn request_security_role_details(&mut self, role_name: &str) {
-        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
-            return;
-        };
-        let request_id = self.next_request_id();
-        self.dispatch_command(list_privileges_command(
-            security_request(request_id, connection_id.clone()),
-            role_name.to_owned(),
-        ));
-        let request_id = self.next_request_id();
-        self.dispatch_command(list_memberships_command(
-            security_request(request_id, connection_id),
-            role_name.to_owned(),
-        ));
+    fn request_role_details(&mut self, role_name: &str) {
+        request_security_role_details(
+            self.connection_id,
+            role_name,
+            self.command_dispatcher,
+            self.feedback,
+        );
     }
 
-    pub(crate) fn request_security_rls(&mut self) {
-        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
-            return;
-        };
-        let request_id = self.next_request_id();
-        match list_table_rls_command(&self.management.security, security_request(request_id, connection_id)) {
-            Ok(command) => {
-                self.dispatch_command(command);
-            }
-            Err(error) => self.feedback.runtime_message = error,
-        }
+    fn request_rls(&mut self) {
+        request_security_rls(
+            self.state,
+            self.connection_id,
+            self.command_dispatcher,
+            self.feedback,
+        );
     }
 
     fn preview_table_rls(&mut self, force: bool, enable: bool) {
         match security_rls::plan_table_rls(security_rls::TableRlsPreviewRequest {
-            schema: &self.management.security.security_rls_schema,
-            table: &self.management.security.security_rls_table,
+            schema: &self.state.security_rls_schema,
+            table: &self.state.security_rls_table,
             force,
             enable,
         }) {
             Ok(sql) => {
-                self.management.security.security_rls_preview_sql = sql;
-                self.management.security.security_rls_confirm_apply = false;
+                self.state.security_rls_preview_sql = sql;
+                self.state.security_rls_confirm_apply = false;
             }
             Err(error) => self.feedback.runtime_message = error,
         }
@@ -214,20 +208,20 @@ impl DbProApp {
     fn preview_rls_policy(&mut self, action: db_pro_core::domain::object_mutation::ObjectAction) {
         match security_rls::plan_policy(security_rls::PolicyPreviewRequest {
             action,
-            schema: &self.management.security.security_rls_schema,
-            table: &self.management.security.security_rls_table,
-            name: &self.management.security.security_rls_policy_name,
-            command: &self.management.security.security_rls_command,
-            roles_csv: &self.management.security.security_rls_roles,
-            using_expr: &self.management.security.security_rls_using,
-            with_check_expr: &self.management.security.security_rls_with_check,
+            schema: &self.state.security_rls_schema,
+            table: &self.state.security_rls_table,
+            name: &self.state.security_rls_policy_name,
+            command: &self.state.security_rls_command,
+            roles_csv: &self.state.security_rls_roles,
+            using_expr: &self.state.security_rls_using,
+            with_check_expr: &self.state.security_rls_with_check,
         }) {
             Ok(sql) => {
-                self.management.security.security_rls_preview_sql = sql;
-                self.management.security.security_rls_confirm_apply = false;
+                self.state.security_rls_preview_sql = sql;
+                self.state.security_rls_confirm_apply = false;
             }
             Err(error) => {
-                self.management.security.security_rls_preview_sql.clear();
+                self.state.security_rls_preview_sql.clear();
                 self.feedback.runtime_message = error;
             }
         }
@@ -235,22 +229,22 @@ impl DbProApp {
 
     fn preview_drop_rls_policy(&mut self, policy_name: &str) {
         match security_rls::plan_drop_policy(
-            &self.management.security.security_rls_schema,
-            &self.management.security.security_rls_table,
+            &self.state.security_rls_schema,
+            &self.state.security_rls_table,
             policy_name,
         ) {
             Ok(sql) => {
-                self.management.security.security_rls_preview_sql = sql;
-                self.management.security.security_rls_confirm_apply = false;
+                self.state.security_rls_preview_sql = sql;
+                self.state.security_rls_confirm_apply = false;
             }
             Err(error) => self.feedback.runtime_message = error,
         }
     }
 
-    fn apply_security_rls_actions(&mut self, actions: Vec<security_rls_view::SecurityRlsAction>) {
+    fn apply_rls_actions(&mut self, actions: Vec<security_rls_view::SecurityRlsAction>) {
         for action in actions {
             match action {
-                security_rls_view::SecurityRlsAction::Inspect => self.request_security_rls(),
+                security_rls_view::SecurityRlsAction::Inspect => self.request_rls(),
                 security_rls_view::SecurityRlsAction::PreviewTable { force, enable } => {
                     self.preview_table_rls(force, enable);
                 }
@@ -264,44 +258,122 @@ impl DbProApp {
                     using_expression,
                     with_check,
                 } => {
-                    self.management.security.security_rls_policy_name = name;
-                    self.management.security.security_rls_command = command;
-                    self.management.security.security_rls_roles = roles;
-                    self.management.security.security_rls_using = using_expression;
-                    self.management.security.security_rls_with_check = with_check;
+                    self.state.security_rls_policy_name = name;
+                    self.state.security_rls_command = command;
+                    self.state.security_rls_roles = roles;
+                    self.state.security_rls_using = using_expression;
+                    self.state.security_rls_with_check = with_check;
                 }
                 security_rls_view::SecurityRlsAction::PreviewPolicy(action) => {
                     self.preview_rls_policy(action);
                 }
                 security_rls_view::SecurityRlsAction::ApplyPreview => {
-                    if !self.management.security.security_rls_confirm_apply {
+                    if !self.state.security_rls_confirm_apply {
                         self.feedback.runtime_message = "Confirm RLS apply checkbox first".into();
                     } else {
-                        self.apply_security_rls_preview();
+                        self.apply_rls_preview();
                     }
                 }
             }
         }
     }
 
-    fn apply_security_rls_preview(&mut self) {
-        if self.table.state.ddl_execution_request.is_some() {
+    fn apply_rls_preview(&mut self) {
+        if self.table_state.ddl_execution_request.is_some() {
             return;
         }
-        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection_id else {
             return;
         };
-        let request_id = self.next_request_id();
+        let request_id = self.command_dispatcher.next_request_id();
         if let Some(command) = apply_rls_preview_command(
-            &self.management.security,
-            security_request(request_id, connection_id),
+            self.state,
+            security_request(request_id, connection_id.to_owned()),
         ) {
-            if self.dispatch_command(command) {
-                self.table.state.ddl_execution_request = Some(request_id);
+            if self.dispatch(command) {
+                self.table_state.ddl_execution_request = Some(request_id);
                 self.feedback.runtime_message = "Applying RLS mutation…".into();
             }
         }
     }
+
+    fn dispatch(&mut self, command: UiCommand) -> bool {
+        self.command_dispatcher.dispatch(command, self.feedback)
+    }
+}
+
+pub(super) fn request_security_users(
+    connection_id: Option<&str>,
+    command_dispatcher: &mut RuntimeCommandDispatcher<'_>,
+    feedback: &mut FeedbackState,
+) {
+    let Some(connection_id) = connection_id else {
+        return;
+    };
+    let request_id = command_dispatcher.next_request_id();
+    dispatch(
+        command_dispatcher,
+        feedback,
+        list_users_command(security_request(request_id, connection_id.to_owned())),
+    );
+}
+
+pub(super) fn request_security_role_details(
+    connection_id: Option<&str>,
+    role_name: &str,
+    command_dispatcher: &mut RuntimeCommandDispatcher<'_>,
+    feedback: &mut FeedbackState,
+) {
+    let Some(connection_id) = connection_id else {
+        return;
+    };
+    let request_id = command_dispatcher.next_request_id();
+    dispatch(
+        command_dispatcher,
+        feedback,
+        list_privileges_command(
+            security_request(request_id, connection_id.to_owned()),
+            role_name.to_owned(),
+        ),
+    );
+    let request_id = command_dispatcher.next_request_id();
+    dispatch(
+        command_dispatcher,
+        feedback,
+        list_memberships_command(
+            security_request(request_id, connection_id.to_owned()),
+            role_name.to_owned(),
+        ),
+    );
+}
+
+pub(super) fn request_security_rls(
+    state: &SecurityState,
+    connection_id: Option<&str>,
+    command_dispatcher: &mut RuntimeCommandDispatcher<'_>,
+    feedback: &mut FeedbackState,
+) {
+    let Some(connection_id) = connection_id else {
+        return;
+    };
+    let request_id = command_dispatcher.next_request_id();
+    match list_table_rls_command(
+        state,
+        security_request(request_id, connection_id.to_owned()),
+    ) {
+        Ok(command) => {
+            dispatch(command_dispatcher, feedback, command);
+        }
+        Err(error) => feedback.runtime_message = error,
+    }
+}
+
+fn dispatch(
+    command_dispatcher: &mut RuntimeCommandDispatcher<'_>,
+    feedback: &mut FeedbackState,
+    command: UiCommand,
+) -> bool {
+    command_dispatcher.dispatch(command, feedback)
 }
 
 struct SecurityCommandRequest {
@@ -444,21 +516,37 @@ fn apply_rls_preview_command(state: &SecurityState, request: SecurityCommandRequ
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{
+        security_role_details_view::SecurityRoleDetailsAction, SecurityActivityContext, SecurityState,
+    };
 
     #[test]
     fn failed_security_dispatch_preserves_password_draft() {
-        let mut app = DbProApp::default();
-        *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
-        app.management.security.security_password = "draft-password".to_owned();
+        let (mut bridge, command_rx, _event_tx) = crate::TaskBridge::with_channels();
+        drop(command_rx);
+        let mut dispatcher = crate::app::command_dispatch::RuntimeCommandDispatcher::new(&mut bridge);
+        let mut state = SecurityState {
+            security_password: "draft-password".to_owned(),
+            ..SecurityState::default()
+        };
+        let mut table_state = crate::app::TableState::default();
+        let mut feedback = crate::app::FeedbackState::default();
 
-        app.apply_security_role_details_actions(
+        SecurityActivityContext {
+            theme: crate::DbProTheme::default(),
+            state: &mut state,
+            table_state: &mut table_state,
+            connected: true,
+            is_postgres: true,
+            connection_id: Some("conn-1"),
+            command_dispatcher: &mut dispatcher,
+            feedback: &mut feedback,
+        }
+        .apply_role_details_actions(
             "app_user",
-            vec![security_role_details_view::SecurityRoleDetailsAction::UpdatePassword(
-                "new-password".to_owned(),
-            )],
+            vec![SecurityRoleDetailsAction::UpdatePassword("new-password".to_owned())],
         );
 
-        assert_eq!(app.management.security.security_password, "draft-password");
+        assert_eq!(state.security_password, "draft-password");
     }
 }

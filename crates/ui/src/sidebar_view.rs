@@ -101,4 +101,22 @@ impl DbProApp {
             Activity::Explorer => unreachable!(),
         }
     }
+
+    fn draw_security_activity(&mut self, ui: &mut egui::Ui) {
+        let connected =
+            self.connection.lifecycle.is_connected() && self.connection.lifecycle.active_connection_id().is_some();
+        let driver = self.active_driver().to_owned();
+        let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
+        security_activity_view::SecurityActivityContext {
+            theme: self.theme,
+            state: &mut self.management.security,
+            table_state: &mut self.table.state,
+            connected,
+            is_postgres: driver.eq_ignore_ascii_case("postgresql") || driver.eq_ignore_ascii_case("postgres"),
+            connection_id: self.connection.lifecycle.active_connection_id(),
+            command_dispatcher: &mut command_dispatcher,
+            feedback: &mut self.feedback,
+        }
+        .draw(ui);
+    }
 }
