@@ -1648,6 +1648,21 @@ green; the duplicated invariant-error text was also corrected.
 Severity: P1 core mutation-boundary and error-contract maintainability risk,
 resolved for table-editor batch mutations.
 
+## F103 — SQL safety policy mixed classification with lexical scanning
+
+Evidence at the pre-fix main state: `domain/safety.rs` combined the public
+connection policy and statement classification API with quote/comment/dollar-
+quote scanning, tokenization, parenthesis matching and data-modifying CTE
+analysis in one large module.
+
+Fix at `49e51e6e`: lexical mechanics now live in `domain/safety_lexer.rs`,
+while the CTE-specific analyzer lives in `domain/safety_cte.rs`. The public
+policy/classification API remains in `safety.rs`; malformed CTE bodies retain
+the fail-closed destructive classification and the existing safety suite stays
+green.
+
+Severity: P1 core safety-boundary and parser maintainability risk, resolved.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used
