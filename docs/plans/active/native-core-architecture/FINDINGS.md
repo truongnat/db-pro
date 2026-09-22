@@ -1552,3 +1552,21 @@ classification.
 
 Severity: P1 one-way state-transition and failure-classification risk, resolved
 for the audited connection, monitoring and backup/restore paths.
+
+## F93 — Database-management adapters still used the root as a mutable facade
+
+Evidence at the pre-fix main state: Audit, FDW, Event Trigger and Logical
+Replication activities rendered typed surfaces but applied those actions from
+`impl DbProApp` modules, allowing each adapter to reach unrelated root fields
+and duplicating runtime-dispatch failure policy.
+
+Fix at `10a87a9e`: those four activities now expose explicit context objects
+with feature state, connection/provider snapshots, `RuntimeCommandDispatcher`
+and feedback as dependencies. Cross-feature Audit navigation is returned as a
+typed `AuditActivityEffect`; only the root applies the workspace/query change.
+The dispatcher now owns the common failed-send transition policy, and the
+connection-delete and query-folder dialogs use the same port. The number of
+UI source files declaring `impl DbProApp` fell from 68 to 64.
+
+Severity: P1 composition-boundary leak, resolved for the audited
+database-management activity adapters.

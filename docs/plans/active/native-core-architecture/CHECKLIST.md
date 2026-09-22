@@ -219,6 +219,10 @@
       commands; audit, FDW, replication, event-trigger and PostgreSQL-settings
       mapping is centralized in activity adapters and guarded by architecture
       checks.
+- [x] Audit, FDW, Event Trigger and Logical Replication activity adapters no
+      longer implement `DbProApp`; they receive explicit feature state and
+      runtime dependencies, and Audit cross-feature navigation is a typed
+      effect applied by the root.
 - [x] Monitoring state no longer constructs runtime protocol commands;
       snapshot, workload, session-control, maintenance and reset mapping is
       centralized in the monitoring activity adapter and architecture-guarded.

@@ -2575,3 +2575,29 @@ keeps task policy and execution effects.
   passed with 15 checks, 0 failures and 1 ratchet warning for pre-existing
   long functions.
 - `git diff --check`: passed.
+
+### Database-management adapter checkpoint at `10a87a9e`
+
+- Audit, FDW, Event Trigger and Logical Replication no longer declare
+  `impl DbProApp`; each uses an explicit context with feature state, provider
+  snapshot, connection identity, feedback and `RuntimeCommandDispatcher`.
+- Audit returns `OpenQuery` as a typed effect and the root alone applies query
+  workspace navigation. Runtime dispatch failure handling is centralized in
+  `RuntimeCommandDispatcher::dispatch`, including connection-delete and
+  query-folder confirmation dialogs.
+- The UI source topology contains 64 `impl DbProApp` declarations, down from
+  68 before this slice; the remaining declarations are tracked as root
+  adapters or pending migration work rather than being treated as complete.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 694 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 15 checks and 0 failures; 1 warning group remains for four
+  pre-existing long functions in `connection/view.rs`.
+- `git diff --check`: passed.
