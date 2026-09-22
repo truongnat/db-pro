@@ -65,7 +65,7 @@ impl<'a> TableMutationExecution<'a> {
             .execute_parameterized_transaction(&handle, &statements)
             .await
             .map_err(|mut failure| {
-                if failure.statement_index < indexed_mutations.len() {
+                if failure.phase == TransactionFailurePhase::Statement && failure.statement_index < indexed_mutations.len() {
                     failure.statement_index = indexed_mutations[failure.statement_index].0;
                 }
                 failure
@@ -148,7 +148,7 @@ impl<'a> TableMutationExecution<'a> {
     fn validation_failure(&self, error: DbError) -> TransactionFailure {
         TransactionFailure {
             phase: TransactionFailurePhase::Validation,
-            statement_index: self.mutations.len(),
+            statement_index: 0,
             outcome: TransactionFailureOutcome::NotStarted,
             results: Vec::new(),
             error,

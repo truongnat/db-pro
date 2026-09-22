@@ -783,6 +783,111 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn apply_mutations_detailed_retains_zero_statement_index_on_begin_failure() {
+        let (conn_id, registry) = setup();
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+
+        // Input mutations: [Insert (orig 0), Delete (orig 1)]
+        // Reordered execution statements: [Delete (exec 0), Insert (exec 1)]
+        // Mock transaction execution fails during Begin phase with statement_index 0.
+        connector
+            .expect_execute_parameterized_transaction()
+            .returning(|_, _| {
+                Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Begin,
+                    statement_index: 0,
+                    outcome: TransactionFailureOutcome::NotStarted,
+                    results: Vec::new(),
+                    error: DbError::ConnectionFailed("begin failed".into()),
+                })
+            });
+
+        let service = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
+        let failure = service
+            .apply_mutations_detailed(
+                &conn_id,
+                "public",
+                "users",
+                &[
+                    TableDataMutation::Insert {
+                        columns: vec!["name".into()],
+                        values: vec![CellValue::Text("new".into())],
+                    },
+                    TableDataMutation::Delete {
+                        pk_columns: vec!["id".into()],
+                        pk_values: vec![CellValue::Int64(1)],
+                    },
+                ],
+            )
+            .await
+            .expect_err("begin failure must return transaction failure");
+
+        // Begin failure must retain statement_index 0, NOT remapping via indexed_mutations[0].0 (which would be 1).
+        assert_eq!(failure.phase, TransactionFailurePhase::Begin);
+        assert_eq!(failure.statement_index, 0);
+        assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+    }
+
+    #[tokio::test]
+    async fn apply_mutations_detailed_retains_zero_statement_index_on_validation_failure() {
+        let (conn_id, registry) = setup();
+        let connector = MockDbConnector::new();
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get_config().returning(|_id| {
+            Ok(Some(crate::domain::connection::ConnectionConfig {
+                name: "test".into(),
+                host: "localhost".into(),
+                port: 5432,
+                database: "testdb".into(),
+                username: "user".into(),
+                driver: crate::domain::connection::DriverType::Postgres,
+                ssl_mode: crate::domain::connection::SslMode::Disable,
+                ssh_tunnel: None,
+                ssh_profile_id: None,
+                ssl_root_cert_path: None,
+                ssl_client_cert_path: None,
+                ssl_client_key_path: None,
+                query_timeout_ms: 30_000,
+                max_rows: 500,
+                color: None,
+                tags: vec![],
+                group: None,
+                favorite: false,
+                environment: Default::default(),
+                readonly: true, // Read-only connection triggers validation failure
+            }))
+        });
+
+        let service = TableDataService::new(Box::new(connector), registry, Box::new(repo));
+        let failure = service
+            .apply_mutations_detailed(
+                &conn_id,
+                "public",
+                "users",
+                &[
+                    TableDataMutation::Insert {
+                        columns: vec!["name".into()],
+                        values: vec![CellValue::Text("new".into())],
+                    },
+                    TableDataMutation::Delete {
+                        pk_columns: vec!["id".into()],
+                        pk_values: vec![CellValue::Int64(1)],
+                    },
+                ],
+            )
+            .await
+            .expect_err("validation failure on read-only connection");
+
+        // Validation failure must report statement_index 0 (reflecting 0 statements executed, not mutations.len()).
+        assert_eq!(failure.phase, TransactionFailurePhase::Validation);
+        assert_eq!(failure.statement_index, 0);
+        assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+    }
+
+    #[tokio::test]
     async fn fetch_rows_connection_not_active() {
         let registry = Arc::new(ConnectionRegistry::new());
         let connector = MockDbConnector::new();
