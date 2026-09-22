@@ -1,4 +1,5 @@
 use super::*;
+use super::{RequestId, UiCommand};
 
 #[path = "pg_settings_surface_view.rs"]
 mod pg_settings_surface_view;
@@ -53,7 +54,7 @@ impl DbProApp {
             return;
         }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.pg_settings.list_command(request_id, connection_id));
+        self.dispatch_command(list_pg_settings_command(request_id, connection_id));
     }
 
     fn set_pg_setting_session(&mut self, name: &str, value: &str) {
@@ -61,7 +62,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.pg_settings.set_session_command(
+        self.dispatch_command(set_pg_setting_session_command(
             request_id,
             connection_id,
             name.to_owned(),
@@ -74,10 +75,39 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.pg_settings.reset_session_command(
+        self.dispatch_command(reset_pg_setting_session_command(
             request_id,
             connection_id,
             name.to_owned(),
         ));
+    }
+}
+
+pub(super) fn list_pg_settings_command(request_id: RequestId, connection_id: String) -> UiCommand {
+    UiCommand::ListPgSettings {
+        request_id,
+        connection_id,
+    }
+}
+
+fn set_pg_setting_session_command(
+    request_id: RequestId,
+    connection_id: String,
+    name: String,
+    value: String,
+) -> UiCommand {
+    UiCommand::SetPgSettingSession {
+        request_id,
+        connection_id,
+        name,
+        value,
+    }
+}
+
+fn reset_pg_setting_session_command(request_id: RequestId, connection_id: String, name: String) -> UiCommand {
+    UiCommand::ResetPgSettingSession {
+        request_id,
+        connection_id,
+        name,
     }
 }

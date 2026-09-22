@@ -1,4 +1,5 @@
 use super::*;
+use super::{event_trigger_state::EventTriggerState, RequestId, UiCommand};
 
 #[path = "event_trigger_surface_view.rs"]
 mod event_trigger_surface_view;
@@ -71,7 +72,7 @@ impl DbProApp {
             return;
         }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.event_trigger.list_command(request_id, connection_id));
+        self.dispatch_command(list_event_triggers_command(request_id, connection_id));
     }
 
     fn create_event_trigger_confirmed(&mut self) {
@@ -79,7 +80,11 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.event_trigger.create_command(request_id, connection_id));
+        self.dispatch_command(create_event_trigger_command(
+            &self.management.event_trigger,
+            request_id,
+            connection_id,
+        ));
     }
 
     fn drop_event_trigger_confirmed(&mut self, name: &str) {
@@ -88,9 +93,7 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         self.dispatch_command(
-            self.management
-                .event_trigger
-                .drop_command(request_id, connection_id, name.to_owned()),
+            drop_event_trigger_command(request_id, connection_id, name.to_owned()),
         );
     }
 
@@ -99,11 +102,58 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.event_trigger.alter_command(
+        self.dispatch_command(alter_event_trigger_command(
             request_id,
             connection_id,
             name.to_owned(),
             mode.to_owned(),
         ));
+    }
+}
+
+pub(super) fn list_event_triggers_command(request_id: RequestId, connection_id: String) -> UiCommand {
+    UiCommand::ListEventTriggers {
+        request_id,
+        connection_id,
+    }
+}
+
+fn create_event_trigger_command(
+    state: &EventTriggerState,
+    request_id: RequestId,
+    connection_id: String,
+) -> UiCommand {
+    UiCommand::CreateEventTrigger {
+        request_id,
+        connection_id,
+        name: state.event_trigger_create_name.clone(),
+        event: state.event_trigger_create_event.clone(),
+        function_ref: state.event_trigger_create_function.clone(),
+        tags_csv: state.event_trigger_create_tags.clone(),
+        confirmed: true,
+    }
+}
+
+fn drop_event_trigger_command(request_id: RequestId, connection_id: String, name: String) -> UiCommand {
+    UiCommand::DropEventTrigger {
+        request_id,
+        connection_id,
+        name,
+        confirmed: true,
+    }
+}
+
+fn alter_event_trigger_command(
+    request_id: RequestId,
+    connection_id: String,
+    name: String,
+    mode: String,
+) -> UiCommand {
+    UiCommand::AlterEventTrigger {
+        request_id,
+        connection_id,
+        name,
+        mode,
+        confirmed: true,
     }
 }

@@ -1,4 +1,5 @@
 use super::*;
+use super::{replication_state::ReplicationState, RequestId, UiCommand};
 
 #[path = "replication_surface_view.rs"]
 mod replication_surface_view;
@@ -68,7 +69,7 @@ impl DbProApp {
             return;
         }
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.replication.list_command(request_id, connection_id));
+        self.dispatch_command(list_replication_inventory_command(request_id, connection_id));
     }
 
     fn create_publication_confirmed(&mut self) {
@@ -77,9 +78,7 @@ impl DbProApp {
         };
         let request_id = self.task_bridge.next_request_id();
         self.dispatch_command(
-            self.management
-                .replication
-                .create_publication_command(request_id, connection_id),
+            create_publication_command(&self.management.replication, request_id, connection_id),
         );
     }
 
@@ -88,7 +87,7 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.replication.drop_publication_command(
+        self.dispatch_command(drop_publication_command(
             request_id,
             connection_id,
             name.to_owned(),
@@ -100,10 +99,48 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.replication.drop_subscription_command(
+        self.dispatch_command(drop_subscription_command(
             request_id,
             connection_id,
             name.to_owned(),
         ));
+    }
+}
+
+pub(super) fn list_replication_inventory_command(request_id: RequestId, connection_id: String) -> UiCommand {
+    UiCommand::ListReplicationInventory {
+        request_id,
+        connection_id,
+    }
+}
+
+fn create_publication_command(
+    state: &ReplicationState,
+    request_id: RequestId,
+    connection_id: String,
+) -> UiCommand {
+    UiCommand::CreatePublicationAll {
+        request_id,
+        connection_id,
+        name: state.replication_create_name.clone(),
+        confirmed: true,
+    }
+}
+
+fn drop_publication_command(request_id: RequestId, connection_id: String, name: String) -> UiCommand {
+    UiCommand::DropPublication {
+        request_id,
+        connection_id,
+        name,
+        confirmed: true,
+    }
+}
+
+fn drop_subscription_command(request_id: RequestId, connection_id: String, name: String) -> UiCommand {
+    UiCommand::DropSubscription {
+        request_id,
+        connection_id,
+        name,
+        confirmed: true,
     }
 }

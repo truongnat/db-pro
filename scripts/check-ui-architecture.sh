@@ -305,6 +305,17 @@ if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/query_library_state.rs"; then
   echo "UI architecture check failed: QueryLibraryState must not construct runtime protocol commands." >&2
   exit 1
 fi
+for state_module in \
+  "$repo_root/crates/ui/src/audit_state.rs" \
+  "$repo_root/crates/ui/src/fdw_state.rs" \
+  "$repo_root/crates/ui/src/replication_state.rs" \
+  "$repo_root/crates/ui/src/event_trigger_state.rs" \
+  "$repo_root/crates/ui/src/pg_settings_state.rs"; do
+  if rg -n '\bUiCommand\b' "$state_module"; then
+    echo "UI architecture check failed: management read-only state must not construct runtime protocol commands." >&2
+    exit 1
+  fi
+done
 
 for reducer in \
   "$repo_root/crates/ui/src/agent_events.rs" \

@@ -1,4 +1,5 @@
 use super::*;
+use super::{audit_state::AuditState, RequestId, UiCommand};
 
 #[path = "audit_surface_view.rs"]
 mod audit_surface_view;
@@ -45,7 +46,11 @@ impl DbProApp {
             return;
         };
         let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.audit.events_load_command(request_id, connection_id));
+        self.dispatch_command(audit_events_load_command(
+            &self.management.audit,
+            request_id,
+            connection_id,
+        ));
     }
 
     fn export_selected_audit_events(&mut self) {
@@ -56,5 +61,14 @@ impl DbProApp {
             }
             Err(error) => self.management.audit.audit_error = Some(error),
         }
+    }
+}
+
+fn audit_events_load_command(state: &AuditState, request_id: RequestId, connection_id: String) -> UiCommand {
+    UiCommand::AuditEventsLoad {
+        request_id,
+        connection_id,
+        filter: state.audit_filter(),
+        limit: Some(100),
     }
 }

@@ -50,7 +50,10 @@ impl DbProApp {
         management_events::on_pg_setting_action_completed(&mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(self.management.pg_settings.list_command(request_id, connection_id));
+            self.dispatch_command(super::pg_settings_activity_view::list_pg_settings_command(
+                request_id,
+                connection_id,
+            ));
         }
     }
 
@@ -62,7 +65,10 @@ impl DbProApp {
         management_events::on_fdw_action_completed(&mut self.management.fdw, &mut self.feedback, action, name);
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(self.management.fdw.list_command(request_id, connection_id));
+            self.dispatch_command(super::fdw_activity_view::list_fdw_inventory_command(
+                request_id,
+                connection_id,
+            ));
         }
     }
 
@@ -86,7 +92,10 @@ impl DbProApp {
         );
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(self.management.replication.list_command(request_id, connection_id));
+            self.dispatch_command(super::replication_activity_view::list_replication_inventory_command(
+                request_id,
+                connection_id,
+            ));
         }
     }
 
@@ -110,7 +119,10 @@ impl DbProApp {
         );
         if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
             let request_id = self.task_bridge.next_request_id();
-            self.dispatch_command(self.management.event_trigger.list_command(request_id, connection_id));
+            self.dispatch_command(super::event_trigger_activity_view::list_event_triggers_command(
+                request_id,
+                connection_id,
+            ));
         }
     }
 
