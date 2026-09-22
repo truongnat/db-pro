@@ -1,6 +1,6 @@
 # Native Core Architecture — Verification
 
-Source checkpoint: `2595eec5`.
+Source checkpoint: `df35c68e`.
 
 ## Current change
 
@@ -2256,3 +2256,32 @@ keeps task policy and execution effects.
   dialog, separated header/divider and right-aligned close control.
 - Release binary from this code SHA is running as PID `56582` for manual
   verification.
+
+## Current management protocol checkpoint at `df35c68e`
+
+- Management read-only state boundary: `df35c68e`. `AuditState`, `FdwState`,
+  `ReplicationState`, `EventTriggerState` and `PgSettingsState` now own only
+  read models and form state; runtime `UiCommand` construction lives in the
+  corresponding activity adapters. `operation_events.rs` uses those same
+  adapters for refresh-after-mutation instead of calling protocol builders on
+  state objects.
+- The architecture guard now rejects `UiCommand` in all five management state
+  modules.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 684 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-df35c68e-new-1280x800-v3.png`,
+  logical `1280x800`, inspected from the rebuilt capture binary. The New
+  Connection dialog remains centered with a separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running from this SHA in terminal session
+  `93742` (native process PID `64315`) for manual verification.

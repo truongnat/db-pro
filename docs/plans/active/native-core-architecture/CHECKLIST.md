@@ -206,6 +206,10 @@
 - [x] Query library read-model/draft state no longer constructs runtime
       protocol commands; saved-query/folder mapping is centralized in the query
       save adapter and all callers use that boundary.
+- [x] Management read-only states no longer construct runtime protocol
+      commands; audit, FDW, replication, event-trigger and PostgreSQL-settings
+      mapping is centralized in activity adapters and guarded by architecture
+      checks.
 - [x] App module topology is isolated in `app_modules.rs`; `app.rs` contains
       aggregate ownership/orchestration only, and the guard rejects reintroducing
       feature `#[path]` declarations into the composition root.
