@@ -4,10 +4,14 @@ use crate::domain::connection::ConnectionId;
 use crate::domain::error::DbError;
 use crate::domain::query::{CellValue, QueryResult};
 use crate::domain::safety::ConnectionSafetyPolicy;
-use crate::ports::{ConnectionRepository, DbConnector, ParameterizedTransactionStatement, TransactionStatementResult};
+use crate::ports::{ConnectionRepository, DbConnector};
 
 use super::registry::ConnectionRegistry;
 use super::sql_builder::{self, SortClause, TableFilter};
+use table_mutation_execution::TableMutationExecution;
+
+#[path = "table_mutation_execution.rs"]
+mod table_mutation_execution;
 
 #[derive(Debug, Clone)]
 pub enum TableDataMutation {
@@ -225,99 +229,9 @@ impl TableDataService {
         table: &str,
         mutations: &[TableDataMutation],
     ) -> Result<u64, crate::ports::TransactionFailure> {
-        let statement_count = mutations.len();
-        let validation_failure = |error: DbError| crate::ports::TransactionFailure {
-            phase: crate::ports::TransactionFailurePhase::Validation,
-            statement_index: statement_count,
-            outcome: crate::ports::TransactionFailureOutcome::NotStarted,
-            results: Vec::new(),
-            error,
-        };
-        if mutations.is_empty() {
-            return Ok(0);
-        }
-        let policy = self
-            .safety_policy_for(connection_id)
+        TableMutationExecution::new(self, connection_id, schema, table, mutations)
+            .execute()
             .await
-            .map_err(validation_failure)?;
-        if policy.read_only {
-            return Err(validation_failure(DbError::QueryFailed(
-                "connection is read-only; cannot apply table changes".into(),
-            )));
-        }
-        let handle = self.resolve_handle(connection_id).map_err(validation_failure)?;
-        let dialect = self.connector.dialect(&handle).map_err(validation_failure)?;
-        let mut indexed_mutations: Vec<(usize, &TableDataMutation)> = mutations.iter().enumerate().collect();
-        indexed_mutations.sort_by_key(|(_, mutation)| match mutation {
-            TableDataMutation::Delete { .. } => 0,
-            TableDataMutation::Update { .. } => 1,
-            TableDataMutation::Insert { .. } => 2,
-        });
-        let statements = indexed_mutations
-            .iter()
-            .map(|(_, mutation)| {
-                let (sql, params) = match mutation {
-                    TableDataMutation::Update {
-                        columns,
-                        values,
-                        pk_columns,
-                        pk_values,
-                    } => sql_builder::build_update(
-                        dialect.as_ref(),
-                        schema,
-                        table,
-                        columns,
-                        values,
-                        pk_columns,
-                        pk_values,
-                    ),
-                    TableDataMutation::Delete { pk_columns, pk_values } => {
-                        sql_builder::build_delete(dialect.as_ref(), schema, table, pk_columns, pk_values)
-                    }
-                    TableDataMutation::Insert { columns, values } => {
-                        sql_builder::build_insert(dialect.as_ref(), schema, table, columns, values)
-                    }
-                }?;
-                Ok(ParameterizedTransactionStatement {
-                    sql,
-                    params,
-                    expect_affected_rows: true,
-                    max_affected_rows: Some(1),
-                })
-            })
-            .collect::<Result<Vec<_>, DbError>>()
-            .map_err(validation_failure)?;
-        let results = self
-            .connector
-            .execute_parameterized_transaction(&handle, &statements)
-            .await
-            .map_err(|mut failure| {
-                if failure.statement_index < indexed_mutations.len() {
-                    failure.statement_index = indexed_mutations[failure.statement_index].0;
-                }
-                failure
-            })?;
-        let mut total = 0_u64;
-        for result in results {
-            match result {
-                TransactionStatementResult::Affected { row_count, .. } => {
-                    total = match total.checked_add(row_count) {
-                        Some(total) => total,
-                        None => {
-                            return Err(validation_failure(DbError::Internal(
-                                "affected row count overflow".into(),
-                            )))
-                        }
-                    };
-                }
-                TransactionStatementResult::Query(_) => {
-                    return Err(validation_failure(DbError::Internal(
-                        "table mutation transaction returned a query result".into(),
-                    )))
-                }
-            }
-        }
-        Ok(total)
     }
 
     fn resolve_handle(
@@ -372,7 +286,7 @@ mod tests {
     use crate::ports::dialect::SqlDialect;
     use crate::ports::{
         MockConnectionRepository, MockDbConnector, TransactionFailure, TransactionFailureOutcome,
-        TransactionFailurePhase,
+        TransactionFailurePhase, TransactionStatementResult,
     };
 
     struct QuestionDialect;
