@@ -2906,3 +2906,16 @@ keeps task policy and execution effects.
 - `git diff --check`: passed.
 - The rebuilt normal release binary is running as native process PID `49493`
   with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Export formatting boundary checkpoint (pre-commit)
+
+- `ExportService` now delegates CSV, JSON and XLSX encoding to
+  `application/export_formats.rs`; authorization and provider query execution
+  remain in the service boundary.
+- Focused `cargo test -p db-pro-core export_service --quiet`: passed; 11
+  passed, 0 failed, 393 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.

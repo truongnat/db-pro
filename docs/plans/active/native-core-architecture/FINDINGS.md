@@ -1710,6 +1710,20 @@ repository, connector or secret-store ports.
 Severity: P1 core lifecycle-boundary and rollback maintainability risk,
 resolved for connection updates.
 
+## F107 — Export service mixed authorized query execution with file encoding
+
+Evidence at the pre-fix main state: `ExportService` owned query safety and
+active-connection lookup together with CSV row writing, JSON value conversion,
+XLSX cell encoding and Excel precision/index guards.
+
+Fix in the current checkpoint: `export_formats.rs` now owns CSV, JSON and XLSX
+rendering from a validated `QueryResult`. `ExportService` retains the
+application boundary for query authorization/execution and only wraps rendered
+bytes in the public `ExportResult` contract.
+
+Severity: P1 core application/rendering-boundary maintainability risk,
+resolved for export formatting.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used
