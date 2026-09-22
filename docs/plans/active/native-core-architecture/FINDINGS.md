@@ -1464,3 +1464,19 @@ and returns typed file-tree actions; the activity root now reduces those
 actions into workspace and query side effects.
 
 Severity: P1 feature-boundary risk, resolved for Files tree activity.
+
+## F88 — Feature adapters allocated runtime request IDs through the channel
+
+Evidence at `6ecdfb99`: feature view and event modules called
+`self.task_bridge.next_request_id()` directly in connection-adjacent,
+management, query, table, agent and workspace paths. Although direct command
+sends were guarded, request identity allocation still coupled feature code to
+the runtime channel implementation and made the command boundary incomplete.
+
+Fix at `5064ac20`: `DbProApp::next_request_id` is the only composition-root
+port used by feature adapters, while the architecture guard rejects direct
+`TaskBridge::next_request_id` calls outside `app.rs`. The shortcut dispatcher
+was also split into focused handlers so the touched module has no new clean
+code warning.
+
+Severity: P1 runtime-boundary incompleteness, resolved.

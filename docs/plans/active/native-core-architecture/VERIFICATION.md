@@ -2440,3 +2440,27 @@ keeps task policy and execution effects.
   heights to `838`, producing `2880x1676` and `3840x1676` framebuffers; width,
   responsive composition, modal centering, header divider, close alignment and
   footer separation remain verified at those sizes.
+
+### Request identity boundary checkpoint at `5064ac20`
+
+- Feature adapters now allocate request identities only through
+  `DbProApp::next_request_id`; direct `TaskBridge::next_request_id` access is
+  architecture-guarded outside `app.rs`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 684 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-request-port-error-1280x800.png`,
+  created from the rebuilt release capture binary and visually inspected. The
+  New Connection dialog remains centered with the separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running for manual verification as native
+  process PID `83952`.

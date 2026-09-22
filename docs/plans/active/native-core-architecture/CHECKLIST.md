@@ -197,6 +197,9 @@
 - [x] Runtime command sends from dialogs, query documents and editor surfaces
       cross the `RuntimeCommandDispatcher` port; direct best-effort
       `TaskBridge` sends are rejected by the architecture guard.
+- [x] Request-ID allocation crosses the composition-root port through
+      `DbProApp::next_request_id`; direct feature access to
+      `TaskBridge::next_request_id` is rejected by the architecture guard.
 - [x] Query editor rendering returns typed runtime effects; request-id allocation,
       dispatch and prediction-request commit remain in the query composition
       adapter, while the surface owns only editor state transitions.
