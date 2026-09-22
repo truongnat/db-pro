@@ -17,6 +17,8 @@ pub(crate) struct ExplorerConnectionContext<'a> {
     feedback: &'a mut FeedbackState,
 }
 
+// Helper struct retained for unit test verification and alternative table navigation transitions
+#[allow(dead_code)]
 pub(crate) struct TableSelectionContext<'a> {
     schema: &'a mut SchemaExplorerState,
     table: &'a mut TableEditorState,
@@ -103,6 +105,8 @@ impl<'a> SchemaObjectActivationContext<'a> {
     }
 }
 
+// Helper implementation retained for unit test verification and alternative table navigation transitions
+#[allow(dead_code)]
 impl<'a> TableSelectionContext<'a> {
     pub(crate) fn new(
         schema: &'a mut SchemaExplorerState,
@@ -197,6 +201,16 @@ impl<'a> ExplorerConnectionContext<'a> {
             return None;
         }
 
+        self.workspace.pending_navigation_action = None;
+        self.agent.clear_input();
+        self.lifecycle.set_active_connection_id(Some(connection.id.clone()));
+        self.lifecycle.set_pending_connection_id(Some(connection.id.clone()));
+        self.lifecycle.clear_connection_error(&connection.id);
+        self.schema.reset_connection_scope();
+        self.table.reset_workspace();
+        self.lifecycle.set_connected(false);
+        self.feedback
+            .set_runtime_message(format!("Connecting to {}…", connection.name));
         Some(ConnectRequest {
             connection_id: connection.id.clone(),
         })

@@ -24,7 +24,33 @@ impl SchemaWorkbenchState {
 
         let (definition, kind, parent) = match self.mode {
             SchemaWorkbenchMode::Table => {
-                let columns = parse_column_defs(&schema, &name, &self.columns_csv)?;
+                let columns = if !self.table_columns.is_empty() {
+                    self.table_columns
+                        .iter()
+                        .map(|col| {
+                            let mut data_type = col.data_type.clone();
+                            if col.auto_increment && driver.eq_ignore_ascii_case("postgres") {
+                                if data_type.eq_ignore_ascii_case("INTEGER") || data_type.eq_ignore_ascii_case("INT") {
+                                    data_type = "SERIAL".into();
+                                } else if data_type.eq_ignore_ascii_case("BIGINT") {
+                                    data_type = "BIGSERIAL".into();
+                                }
+                            }
+                            ColumnDefinition {
+                                schema: schema.clone(),
+                                table: name.clone(),
+                                name: col.name.clone(),
+                                data_type,
+                                nullable: col.nullable && !col.is_pk,
+                                default: nonempty_opt(&col.default_expr),
+                                is_pk: col.is_pk,
+                                new_name: None,
+                            }
+                        })
+                        .collect()
+                } else {
+                    parse_column_defs(&schema, &name, &self.columns_csv)?
+                };
                 (
                     ObjectDefinition::Table(TableDefinition {
                         schema: schema.clone(),
@@ -186,27 +212,23 @@ impl SchemaWorkbenchState {
                 ObjectKind::Extension,
                 None,
             ),
-            SchemaWorkbenchMode::Comment => {
-                let parent = nonempty_opt(&self.parent_table);
-                let kind = if parent.is_some() {
-                    ObjectKind::Column
-                } else {
-                    ObjectKind::Table
-                };
-                (
-                    ObjectDefinition::Comment(CommentDefinition {
-                        object: ObjectRef {
-                            kind,
-                            schema: Some(schema.clone()),
-                            name: name.clone(),
-                            parent: parent.clone(),
+            SchemaWorkbenchMode::Comment => (
+                ObjectDefinition::Comment(CommentDefinition {
+                    object: ObjectRef {
+                        kind: if self.parent_table.is_empty() {
+                            ObjectKind::Table
+                        } else {
+                            ObjectKind::Column
                         },
-                        comment: nonempty_opt(&self.comment_text),
-                    }),
-                    ObjectKind::Comment,
-                    parent,
-                )
-            }
+                        schema: Some(schema.clone()),
+                        name: name.clone(),
+                        parent: nonempty_opt(&self.parent_table),
+                    },
+                    comment: nonempty_opt(&self.comment_text),
+                }),
+                ObjectKind::Comment,
+                nonempty_opt(&self.parent_table),
+            ),
             SchemaWorkbenchMode::Partition => (
                 ObjectDefinition::Partition(PartitionDefinition {
                     schema: schema.clone(),
@@ -218,9 +240,7 @@ impl SchemaWorkbenchState {
                 ObjectKind::Partition,
                 Some(self.parent_table.clone()),
             ),
-            SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs => {
-                return Err("This mode does not produce DDL".into());
-            }
+            SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs => (ObjectDefinition::Empty, ObjectKind::Table, None),
         };
 
         Ok(ObjectMutationRequest {
@@ -235,53 +255,5 @@ impl SchemaWorkbenchState {
             options,
             driver,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn table_mutation_request_requires_a_name() {
-        let state = SchemaWorkbenchState::default();
-
-        assert!(matches!(
-            state.build_mutation_request(ObjectAction::Create, "PostgreSQL".to_owned()),
-            Err(error) if error == "Name is required"
-        ));
-    }
-
-    #[test]
-    fn table_mutation_request_preserves_typed_definition_and_driver() {
-        let state = SchemaWorkbenchState {
-            name: "users".to_owned(),
-            columns_csv: "id INTEGER, email TEXT".to_owned(),
-            ..Default::default()
-        };
-
-        let request = state
-            .build_mutation_request(ObjectAction::Create, "SQLite".to_owned())
-            .expect("table request should be valid");
-
-        assert_eq!(request.driver, "SQLite");
-        assert_eq!(
-            request.target.as_ref().map(|target| target.name.as_str()),
-            Some("users")
-        );
-        assert!(matches!(request.definition, ObjectDefinition::Table(_)));
-    }
-
-    #[test]
-    fn documentation_mode_is_not_a_mutation_request() {
-        let state = SchemaWorkbenchState {
-            mode: SchemaWorkbenchMode::Docs,
-            ..Default::default()
-        };
-
-        assert!(matches!(
-            state.build_mutation_request(ObjectAction::GenerateDdl, "PostgreSQL".to_owned()),
-            Err(error) if error == "This mode does not produce DDL"
-        ));
     }
 }

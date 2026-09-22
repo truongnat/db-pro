@@ -2,7 +2,9 @@
 //! of the Codex / DBeaver navigator tree.
 
 use super::explorer_table_row_view::TableRowAction;
+use super::schema_workbench::SchemaWorkbenchMode;
 use super::*;
+use db_pro_core::domain::object_mutation::ObjectAction;
 
 fn build_insert_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> String {
     let columns = info
@@ -41,29 +43,37 @@ fn build_update_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> 
                 .collect::<Vec<_>>()
                 .join(",\n")
         })
-        .filter(|set_clause| !set_clause.is_empty())
-        .unwrap_or_else(|| "    column1 = 'value1'".to_owned());
-    format!(
-        "UPDATE {schema}.{table}\nSET\n{set_clause}\nWHERE {};",
-        primary_key_clause(info)
-    )
-}
-
-fn build_delete_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> String {
-    format!("DELETE FROM {schema}.{table}\nWHERE {};", primary_key_clause(info))
-}
-
-fn primary_key_clause(info: Option<&UiTableInfo>) -> String {
-    info.and_then(|table_info| table_info.primary_key.as_ref())
-        .map(|columns| {
-            columns
+        .filter(|clause| !clause.is_empty())
+        .unwrap_or_else(|| "    column_name = DEFAULT".to_owned());
+    let where_clause = info
+        .map(|table_info| {
+            table_info
+                .columns
                 .iter()
-                .map(|column| format!("{column} = 1"))
+                .filter(|column| column.is_primary_key)
+                .map(|column| format!("{} = 1", column.name))
                 .collect::<Vec<_>>()
                 .join(" AND ")
         })
         .filter(|clause| !clause.is_empty())
-        .unwrap_or_else(|| "id = 1".to_owned())
+        .unwrap_or_else(|| "id = 1".to_owned());
+    format!("UPDATE {schema}.{table}\nSET\n{set_clause}\nWHERE {where_clause};")
+}
+
+fn build_delete_query(schema: &str, table: &str, info: Option<&UiTableInfo>) -> String {
+    let where_clause = info
+        .map(|table_info| {
+            table_info
+                .columns
+                .iter()
+                .filter(|column| column.is_primary_key)
+                .map(|column| format!("{} = 1", column.name))
+                .collect::<Vec<_>>()
+                .join(" AND ")
+        })
+        .filter(|clause| !clause.is_empty())
+        .unwrap_or_else(|| "id = 1".to_owned());
+    format!("DELETE FROM {schema}.{table}\nWHERE {where_clause};")
 }
 
 impl DbProApp {
@@ -77,6 +87,37 @@ impl DbProApp {
         match action {
             TableRowAction::OpenData => self.open_table_view(TableView::Data),
             TableRowAction::OpenStructure => self.open_table_view(TableView::Structure),
+            TableRowAction::OpenModifyTable => {
+                self.schema.workbench.schema = schema.to_owned();
+                self.schema.workbench.name = table.to_owned();
+                self.schema.workbench.parent_table = table.to_owned();
+                self.schema.workbench.mode = SchemaWorkbenchMode::Table;
+                if let Some(details) = self
+                    .schema
+                    .explorer
+                    .schema
+                    .table_details
+                    .iter()
+                    .find(|t| t.schema == schema && t.name == table)
+                    .cloned()
+                {
+                    self.schema.workbench.load_from_table_details(&details);
+                }
+                self.workspace.activity = Activity::Schema;
+                self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
+                self.workspace.sidebar_open = true;
+            }
+            TableRowAction::DropTable => {
+                self.schema.workbench.schema = schema.to_owned();
+                self.schema.workbench.name = table.to_owned();
+                self.schema.workbench.parent_table = table.to_owned();
+                self.schema.workbench.mode = SchemaWorkbenchMode::Table;
+                self.plan_workbench_action(ObjectAction::Drop);
+                self.schema.workbench.apply_confirmation = true;
+                self.workspace.activity = Activity::Schema;
+                self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
+                self.workspace.sidebar_open = true;
+            }
             TableRowAction::OpenDdl => self.open_table_view(TableView::Ddl),
             TableRowAction::OpenQuery => {
                 self.open_query_document(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"))
@@ -122,24 +163,5 @@ impl DbProApp {
     fn open_query_document(&mut self, query: String) {
         self.set_active_query_text(query);
         self.workspace.active_tab = WorkspaceTab::Query;
-    }
-
-    /// Selects a table and resets the table workspace to a clean slate.
-    pub(crate) fn select_table(&mut self, table: &str) {
-        let connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
-        let schema = self.active_schema().to_owned();
-        let selected = explorer_navigation::TableSelectionContext::new(
-            &mut self.schema.explorer,
-            &mut self.table,
-            &mut self.workspace,
-            &mut self.feedback,
-        )
-        .select(table, connection_id.as_deref(), &schema);
-        if !selected {
-            return;
-        }
-        self.set_active_query_text(format!("SELECT *\nFROM {schema}.{table}\nLIMIT 100;"));
-        self.request_table_info();
-        self.request_table_data();
     }
 }

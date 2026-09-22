@@ -9,6 +9,8 @@ use lucide_icons::Icon;
 pub(crate) enum TableRowAction {
     OpenData,
     OpenStructure,
+    OpenModifyTable,
+    DropTable,
     OpenQuery,
     GenerateInsert,
     GenerateUpdate,
@@ -26,6 +28,8 @@ impl TableRowAction {
             self,
             Self::OpenData
                 | Self::OpenStructure
+                | Self::OpenModifyTable
+                | Self::DropTable
                 | Self::OpenQuery
                 | Self::GenerateInsert
                 | Self::GenerateUpdate
@@ -110,6 +114,8 @@ fn table_context_menu(ui: &mut egui::Ui, response: &egui::Response, theme: DbPro
         };
         menu.add_view_actions(ui);
         ui.separator();
+        menu.add_ddl_workbench_actions(ui);
+        ui.separator();
         menu.add_sql_actions(ui);
         ui.separator();
         menu.add_copy_actions(ui);
@@ -145,6 +151,17 @@ impl TableMenu<'_> {
         );
         self.add_item(
             TableMenuItem::new(TableRowAction::OpenStructure, Icon::Columns3, "View Structure"),
+            ui,
+        );
+    }
+
+    fn add_ddl_workbench_actions(&mut self, ui: &mut egui::Ui) {
+        self.add_item(
+            TableMenuItem::new(TableRowAction::OpenModifyTable, Icon::PenSquare, "Modify Table (Alter)..."),
+            ui,
+        );
+        self.add_item(
+            TableMenuItem::new(TableRowAction::DropTable, Icon::Trash2, "Drop Table..."),
             ui,
         );
     }

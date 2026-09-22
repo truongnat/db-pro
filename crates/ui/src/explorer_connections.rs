@@ -105,7 +105,7 @@ impl DbProApp {
 
     fn apply_schema_objects_action(&mut self, action: ExplorerSchemaObjectsAction, ui: &mut egui::Ui) {
         match action {
-            ExplorerSchemaObjectsAction::SelectTable(table) => self.select_table(&table),
+            ExplorerSchemaObjectsAction::SelectTable(table) => self.open_table(table),
             ExplorerSchemaObjectsAction::TableRow { table, action } => {
                 let schema = self.active_schema().to_owned();
                 self.apply_table_row_action(action, &table, &schema, ui);

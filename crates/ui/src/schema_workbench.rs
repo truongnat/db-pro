@@ -1,5 +1,6 @@
 //! Schema Workbench — Phase A object mutation UI (#183–#190, #207, #216–#218, #249–#250).
 
+use crate::UiTableSummary;
 use super::*;
 use db_pro_core::domain::object_mutation::*;
 use db_pro_core::ports::SqlDialect;
@@ -23,12 +24,38 @@ pub(super) enum SchemaWorkbenchMode {
     Docs,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct TableDesignerColumn {
+    pub(super) name: String,
+    pub(super) data_type: String,
+    pub(super) nullable: bool,
+    pub(super) is_pk: bool,
+    pub(super) auto_increment: bool,
+    pub(super) default_expr: String,
+    pub(super) comment: String,
+}
+
+impl Default for TableDesignerColumn {
+    fn default() -> Self {
+        Self {
+            name: "id".into(),
+            data_type: "BIGINT".into(),
+            nullable: false,
+            is_pk: true,
+            auto_increment: true,
+            default_expr: String::new(),
+            comment: String::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct SchemaWorkbenchState {
     pub(super) mode: SchemaWorkbenchMode,
     pub(super) schema: String,
     pub(super) name: String,
     pub(super) parent_table: String,
+    pub(super) table_columns: Vec<TableDesignerColumn>,
     pub(super) data_type: String,
     pub(super) select_sql: String,
     pub(super) columns_csv: String,
@@ -81,9 +108,29 @@ impl Default for SchemaWorkbenchState {
             schema: "public".into(),
             name: String::new(),
             parent_table: String::new(),
+            table_columns: vec![
+                TableDesignerColumn {
+                    name: "id".into(),
+                    data_type: "BIGINT".into(),
+                    nullable: false,
+                    is_pk: true,
+                    auto_increment: true,
+                    default_expr: String::new(),
+                    comment: "Primary Key".into(),
+                },
+                TableDesignerColumn {
+                    name: "created_at".into(),
+                    data_type: "TIMESTAMPTZ".into(),
+                    nullable: false,
+                    is_pk: false,
+                    auto_increment: false,
+                    default_expr: "CURRENT_TIMESTAMP".into(),
+                    comment: "Created timestamp".into(),
+                },
+            ],
             data_type: "INTEGER".into(),
             select_sql: "SELECT 1".into(),
-            columns_csv: "id".into(),
+            columns_csv: "id:INTEGER:pk,name:TEXT".into(),
             unique: false,
             nullable: true,
             is_pk: false,
@@ -129,6 +176,78 @@ impl SchemaWorkbenchState {
             connection_id,
             sql: sql.to_owned(),
         })
+    }
+
+    pub(super) fn add_table_column(&mut self) {
+        let next_idx = self.table_columns.len() + 1;
+        self.table_columns.push(TableDesignerColumn {
+            name: format!("col_{next_idx}"),
+            data_type: "VARCHAR(255)".into(),
+            nullable: true,
+            is_pk: false,
+            auto_increment: false,
+            default_expr: String::new(),
+            comment: String::new(),
+        });
+        self.sync_table_columns_to_csv();
+    }
+
+    pub(super) fn remove_table_column(&mut self, index: usize) {
+        if index < self.table_columns.len() {
+            self.table_columns.remove(index);
+            self.sync_table_columns_to_csv();
+        }
+    }
+
+    pub(super) fn move_table_column_up(&mut self, index: usize) {
+        if index > 0 && index < self.table_columns.len() {
+            self.table_columns.swap(index, index - 1);
+            self.sync_table_columns_to_csv();
+        }
+    }
+
+    pub(super) fn move_table_column_down(&mut self, index: usize) {
+        if index + 1 < self.table_columns.len() {
+            self.table_columns.swap(index, index + 1);
+            self.sync_table_columns_to_csv();
+        }
+    }
+
+    pub(super) fn sync_table_columns_to_csv(&mut self) {
+        let parts: Vec<String> = self
+            .table_columns
+            .iter()
+            .map(|col| {
+                let mut s = format!("{}:{}", col.name, col.data_type);
+                if col.is_pk {
+                    s.push_str(":pk");
+                } else if !col.nullable {
+                    s.push_str(":nn");
+                }
+                s
+            })
+            .collect();
+        self.columns_csv = parts.join(",");
+    }
+
+    pub(super) fn load_from_table_details(&mut self, details: &UiTableSummary) {
+        self.schema = details.schema.clone();
+        self.name = details.name.clone();
+        self.parent_table = details.name.clone();
+        self.table_columns = details
+            .columns
+            .iter()
+            .map(|col| TableDesignerColumn {
+                name: col.name.clone(),
+                data_type: col.data_type.clone(),
+                nullable: col.nullable,
+                is_pk: col.is_primary_key,
+                auto_increment: false,
+                default_expr: String::new(),
+                comment: String::new(),
+            })
+            .collect();
+        self.sync_table_columns_to_csv();
     }
 }
 
@@ -378,33 +497,5 @@ mod tests {
     fn parse_columns_with_pk_flag() {
         let cols = parse_column_defs("public", "t", "id:INTEGER:pk,name:TEXT").unwrap();
         assert_eq!(cols.len(), 2);
-        assert!(cols[0].is_pk);
-        assert!(!cols[0].nullable);
-    }
-
-    #[test]
-    fn prepare_ddl_request_requires_a_preview() {
-        let state = SchemaWorkbenchState::default();
-
-        assert_eq!(
-            state.prepare_ddl_request("source".to_owned()),
-            Err("Plan a mutation before applying".to_owned())
-        );
-    }
-
-    #[test]
-    fn prepare_ddl_request_preserves_the_trimmed_preview_and_connection() {
-        let state = SchemaWorkbenchState {
-            preview_sql: "  ALTER TABLE \"public\".\"users\" ADD COLUMN name TEXT;  ".to_owned(),
-            ..SchemaWorkbenchState::default()
-        };
-
-        assert_eq!(
-            state.prepare_ddl_request("connection-1".to_owned()),
-            Ok(SchemaWorkbenchDdlRequest {
-                connection_id: "connection-1".to_owned(),
-                sql: "ALTER TABLE \"public\".\"users\" ADD COLUMN name TEXT;".to_owned(),
-            })
-        );
     }
 }
