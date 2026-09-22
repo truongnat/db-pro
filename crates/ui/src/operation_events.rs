@@ -302,7 +302,7 @@ impl DbProApp {
         // Only tear down the live session when the deleted connection was active.
         // Deleting a sibling must not force a reconnect / schema reload of the open one.
         if deleted_was_active {
-            *self.connection.lifecycle.active_connection_id_mut() = None;
+            self.connection.lifecycle.set_active_connection_id(None);
             self.connection.lifecycle.set_connected(false);
         }
     }

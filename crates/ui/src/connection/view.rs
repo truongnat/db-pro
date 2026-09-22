@@ -12,7 +12,7 @@ use egui::{pos2, vec2, Align2, FontFamily, FontId, Frame, Margin, Rect, RichText
 use lucide_icons::Icon;
 
 use super::super::FeedbackState;
-use super::{ConnectionDialogState, ConnectionLifecycleState};
+use super::{ConnectionDialogState, ConnectionLifecycleState, PendingConnectionOperation};
 
 /// In-UI qualification caveat for the SSH tunnel control (#239).
 pub const SSH_QUALIFICATION_HINT: &str =
@@ -212,6 +212,11 @@ impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
 
         if self.dispatch_command(command) {
             self.lifecycle.set_pending_request(Some(request_id));
+            self.lifecycle.set_pending_operation(Some(if save {
+                PendingConnectionOperation::Save
+            } else {
+                PendingConnectionOperation::Test
+            }));
             if save {
                 self.dialog.set_test_valid(false);
             } else {

@@ -142,7 +142,9 @@ impl DbProApp {
                 SettingsBackupAction::ConfirmRestore => {
                     if let Some(connection) = self.active_connection().cloned() {
                         let request_id = self.next_request_id();
-                        self.dispatch_command(restore_command(&self.overlay, request_id, connection.id));
+                        if self.dispatch_command(restore_command(&self.overlay, request_id, connection.id)) {
+                            self.overlay.restore_confirmation = false;
+                        }
                     }
                 }
             }
@@ -183,7 +185,8 @@ fn restore_command(state: &OverlayState, request_id: RequestId, connection_id: S
 
 #[cfg(test)]
 mod tests {
-    use super::{backup_command, restore_command, OverlayState, RequestId, UiCommand};
+    use super::{backup_command, restore_command, DbProApp, OverlayState, RequestId, TaskBridge, UiCommand};
+    use crate::{UiConnectionSummary, UiSslMode};
 
     #[test]
     fn backup_and_restore_commands_read_overlay_paths() {
@@ -203,5 +206,34 @@ mod tests {
             UiCommand::Restore { input_path, connection_id, custom_format: false, .. }
                 if input_path == "/tmp/input.sql" && connection_id == "source"
         ));
+    }
+
+    #[test]
+    fn failed_restore_dispatch_preserves_confirmation() {
+        let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+        drop(command_rx);
+        let mut app = DbProApp::with_task_bridge(bridge);
+        *app.connection.catalog.connections_mut() = vec![UiConnectionSummary {
+            id: "conn-1".to_owned(),
+            name: "Local".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "app".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+            tags: Vec::new(),
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        }];
+        app.connection.lifecycle.set_active_connection_id(Some("conn-1".to_owned()));
+        app.overlay.restore_confirmation = true;
+
+        app.apply_backup_actions(vec![super::settings_backup_view::SettingsBackupAction::ConfirmRestore]);
+
+        assert!(app.overlay.restore_confirmation);
+        assert_eq!(app.feedback.runtime_message, "Runtime worker unavailable");
     }
 }

@@ -205,13 +205,15 @@ impl<'a> ExplorerConnectionContext<'a> {
     pub(crate) fn commit_connect(&mut self, connection: &UiConnectionSummary, request_id: RequestId) {
         self.workspace.pending_navigation_action = None;
         self.agent.clear_input();
-        *self.lifecycle.active_connection_id_mut() = Some(connection.id.clone());
+        self.lifecycle.set_active_connection_id(Some(connection.id.clone()));
         self.lifecycle.set_pending_connection_id(Some(connection.id.clone()));
         self.lifecycle.clear_connection_error(&connection.id);
         self.schema.reset_connection_scope();
         self.table.reset_workspace();
         self.lifecycle.set_connected(false);
         self.lifecycle.set_pending_request(Some(request_id));
+        self.lifecycle
+            .set_pending_operation(Some(super::connection::PendingConnectionOperation::Connect));
         self.feedback
             .set_runtime_message(format!("Connecting to {}…", connection.name));
     }

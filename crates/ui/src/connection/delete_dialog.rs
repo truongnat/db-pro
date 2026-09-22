@@ -1,5 +1,5 @@
 use super::super::{FeedbackState, OverlayState};
-use super::{ConnectionCatalogState, ConnectionLifecycleState};
+use super::{ConnectionCatalogState, ConnectionLifecycleState, PendingConnectionOperation};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::dialog::Dialog;
 use crate::tokens::*;
@@ -78,6 +78,7 @@ pub(crate) fn draw(
             // Track the target only after the runtime accepted the command so a
             // closed worker cannot leave a phantom delete operation pending.
             lifecycle.set_pending_request(Some(request_id));
+            lifecycle.set_pending_operation(Some(PendingConnectionOperation::Delete));
             lifecycle.set_pending_connection_id(Some(connection_id));
             feedback.set_runtime_message(t!("status.deleting", name = name.as_str()));
             overlay.delete_confirmation_id = None;

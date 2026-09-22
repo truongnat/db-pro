@@ -217,15 +217,17 @@ impl WorkspaceSessionContext<'_> {
 
         if let Some(conn_id) = &session.active_connection_id {
             if self.connection.catalog.iter().any(|c| c.id == *conn_id) {
-                *self.connection.lifecycle.active_connection_id_mut() = Some(conn_id.clone());
+                self.connection
+                    .lifecycle
+                    .set_active_connection_id(Some(conn_id.clone()));
             } else {
-                *self.connection.lifecycle.active_connection_id_mut() = None;
+                self.connection.lifecycle.set_active_connection_id(None);
                 notes.push(format!(
                     "Connection `{conn_id}` is missing — left disconnected without crashing"
                 ));
             }
         } else {
-            *self.connection.lifecycle.active_connection_id_mut() = None;
+            self.connection.lifecycle.set_active_connection_id(None);
         }
 
         if !session.open_document_ids.is_empty() {

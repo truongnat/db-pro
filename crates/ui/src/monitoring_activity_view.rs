@@ -81,22 +81,25 @@ impl DbProApp {
         for action in actions {
             match action {
                 monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmTerminate(backend_id) => {
-                    self.terminate_monitoring_backend(backend_id);
-                    self.management.monitoring.monitoring_terminate_confirm = None;
+                    if self.terminate_monitoring_backend(backend_id) {
+                        self.management.monitoring.monitoring_terminate_confirm = None;
+                    }
                 }
                 monitoring_confirmation_view::MonitoringConfirmationAction::CancelTerminate => {
                     self.management.monitoring.monitoring_terminate_confirm = None;
                 }
                 monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmMaintenance(action) => {
-                    self.run_monitoring_maintenance(action);
-                    self.management.monitoring.monitoring_maintenance_confirm = None;
+                    if self.run_monitoring_maintenance(action) {
+                        self.management.monitoring.monitoring_maintenance_confirm = None;
+                    }
                 }
                 monitoring_confirmation_view::MonitoringConfirmationAction::CancelMaintenance => {
                     self.management.monitoring.monitoring_maintenance_confirm = None;
                 }
                 monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmResetStatistics => {
-                    self.reset_monitoring_statistics();
-                    self.management.monitoring.monitoring_reset_stats_confirm = false;
+                    if self.reset_monitoring_statistics() {
+                        self.management.monitoring.monitoring_reset_stats_confirm = false;
+                    }
                 }
                 monitoring_confirmation_view::MonitoringConfirmationAction::CancelResetStatistics => {
                     self.management.monitoring.monitoring_reset_stats_confirm = false;
@@ -105,32 +108,32 @@ impl DbProApp {
         }
     }
 
-    fn terminate_monitoring_backend(&mut self, backend_id: i64) {
+    fn terminate_monitoring_backend(&mut self, backend_id: i64) -> bool {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
-            return;
+            return false;
         };
         let request_id = self.next_request_id();
         self.dispatch_command(terminate_backend_command(
             request_id,
             connection_id,
             backend_id,
-        ));
+        ))
     }
 
-    fn run_monitoring_maintenance(&mut self, action: db_pro_core::domain::monitoring::MaintenanceAction) {
+    fn run_monitoring_maintenance(&mut self, action: db_pro_core::domain::monitoring::MaintenanceAction) -> bool {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
-            return;
+            return false;
         };
         let request_id = self.next_request_id();
-        self.dispatch_command(maintenance_command(request_id, connection_id, action));
+        self.dispatch_command(maintenance_command(request_id, connection_id, action))
     }
 
-    fn reset_monitoring_statistics(&mut self) {
+    fn reset_monitoring_statistics(&mut self) -> bool {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
-            return;
+            return false;
         };
         let request_id = self.next_request_id();
-        self.dispatch_command(reset_statements_command(request_id, connection_id));
+        self.dispatch_command(reset_statements_command(request_id, connection_id))
     }
 
     fn apply_monitoring_sessions_actions(&mut self, actions: Vec<monitoring_sessions_view::MonitoringSessionsAction>) {
@@ -258,7 +261,9 @@ fn reset_statements_command(request_id: RequestId, connection_id: String) -> UiC
 
 #[cfg(test)]
 mod tests {
-    use super::{maintenance_command, workload_command, MonitoringState, RequestId, UiCommand};
+    use super::{
+        maintenance_command, workload_command, MonitoringState, RequestId, UiCommand,
+    };
 
     #[test]
     fn workload_command_uses_state_sort_and_bounded_limit() {
@@ -292,5 +297,23 @@ mod tests {
                 ..
             } if connection_id == "source"
         ));
+    }
+
+    #[test]
+    fn failed_maintenance_dispatch_preserves_confirmation() {
+        let (bridge, command_rx, _event_tx) = crate::TaskBridge::with_channels();
+        drop(command_rx);
+        let mut app = crate::DbProApp::with_task_bridge(bridge);
+        app.connection.lifecycle.set_active_connection_id(Some("conn-1".to_owned()));
+        app.management.monitoring.monitoring_maintenance_confirm =
+            Some(db_pro_core::domain::monitoring::MaintenanceAction::Vacuum);
+
+        app.apply_monitoring_confirmation_actions(vec![
+            crate::app::monitoring_confirmation_view::MonitoringConfirmationAction::ConfirmMaintenance(
+                db_pro_core::domain::monitoring::MaintenanceAction::Vacuum,
+            ),
+        ]);
+
+        assert!(app.management.monitoring.monitoring_maintenance_confirm.is_some());
     }
 }

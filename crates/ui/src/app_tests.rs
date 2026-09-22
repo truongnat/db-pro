@@ -2766,6 +2766,54 @@ fn sql_snippet_insert_is_one_undoable_buffer_edit() {
 }
 
 #[test]
+fn command_palette_connection_switch_preserves_session_when_dispatch_fails() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    drop(command_rx);
+    let mut app = DbProApp::with_task_bridge(bridge);
+    *app.connection.catalog.connections_mut() = vec![
+        UiConnectionSummary {
+            id: "active".to_owned(),
+            name: "Active".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "active".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+            tags: Vec::new(),
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        },
+        UiConnectionSummary {
+            id: "target".to_owned(),
+            name: "Target".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "target".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+            tags: Vec::new(),
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        },
+    ];
+    app.connection.lifecycle.set_active_connection_id(Some("active".to_owned()));
+    app.connection.lifecycle.set_connected(true);
+
+    app.switch_connection_from_palette("target".to_owned());
+
+    assert_eq!(app.connection.lifecycle.active_connection_id(), Some("active"));
+    assert!(app.connection.lifecycle.is_connected());
+    assert!(app.connection.lifecycle.pending_request().is_none());
+    assert_eq!(app.feedback.runtime_message, "Runtime worker unavailable");
+}
+
+#[test]
 fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);

@@ -16,7 +16,7 @@ mod tests;
 use crate::{UiConnectionDraft, UiConnectionSummary, UiDriver};
 
 pub(crate) use catalog::ConnectionCatalogState;
-pub(crate) use lifecycle::ConnectionLifecycleState;
+pub(crate) use lifecycle::{ConnectionLifecycleState, PendingConnectionOperation};
 pub(crate) use state::ConnectionDialogState;
 
 /// Composition boundary for the connection feature.

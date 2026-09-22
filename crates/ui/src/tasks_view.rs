@@ -160,7 +160,9 @@ impl DbProApp {
         if sql.trim().is_empty() {
             return Err("SQL payload is empty".to_owned());
         }
-        *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
+        self.connection
+            .lifecycle
+            .set_active_connection_id(Some(task.connection_id.clone()));
         self.set_active_query_text(sql);
         self.workspace.active_tab = WorkspaceTab::Query;
         // Task-level confirmation already satisfied destructive policy (#206).
@@ -211,7 +213,9 @@ impl DbProApp {
             .find(&task.connection_id)
             .ok_or_else(|| "saved task connection is not available".to_owned())?;
         let sql = saved_task_sql::build_export_query(&connection.driver, table)?;
-        *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
+        self.connection
+            .lifecycle
+            .set_active_connection_id(Some(task.connection_id.clone()));
         self.set_active_query_text(&sql);
         self.workspace.active_tab = WorkspaceTab::Query;
         if self.dispatch_query() {
@@ -235,7 +239,9 @@ impl DbProApp {
             .find(&task.connection_id)
             .ok_or_else(|| "saved task connection is not available".to_owned())?;
         let sql = saved_task_sql::build_maintenance_query(&connection.driver, operation, target)?;
-        *self.connection.lifecycle.active_connection_id_mut() = Some(task.connection_id.clone());
+        self.connection
+            .lifecycle
+            .set_active_connection_id(Some(task.connection_id.clone()));
         self.set_active_query_text(&sql);
         self.workspace.active_tab = WorkspaceTab::Query;
         if self.dispatch_query() {

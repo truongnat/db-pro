@@ -173,15 +173,7 @@ impl DbProApp {
     pub(super) fn switch_connection_from_palette(&mut self, connection_id: String) {
         let connection = self.connection.catalog.find(&connection_id).cloned();
         if let Some(connection) = connection {
-            *self.connection.lifecycle.active_connection_id_mut() = Some(connection.id.clone());
-            self.connection.lifecycle.set_connected(false);
-            let request_id = self.next_request_id();
-            self.connection.lifecycle.set_pending_request(Some(request_id));
-            self.dispatch_command(super::connection::logic::build_connect_command(
-                request_id,
-                connection.id,
-            ));
-            self.feedback.runtime_message = format!("Connecting to {}…", connection.name);
+            self.connect_to_connection(&connection);
         }
     }
 

@@ -102,7 +102,6 @@ impl SettingsBackupContext<'_> {
         ui.colored_label(self.theme.warning, "Overwrite the active database?");
         ui.horizontal(|ui| {
             if danger_button(ui, "Confirm restore", self.theme).clicked() {
-                self.overlay.restore_confirmation = false;
                 actions.push(SettingsBackupAction::ConfirmRestore);
             }
             if ghost_button_with_icon(ui, Icon::X, "Cancel", self.theme).clicked() {
