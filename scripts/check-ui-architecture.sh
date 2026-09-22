@@ -316,6 +316,14 @@ if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/query_library_state.rs"; then
   echo "UI architecture check failed: QueryLibraryState must not construct runtime protocol commands." >&2
   exit 1
 fi
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/schema_workbench.rs"; then
+  echo "UI architecture check failed: SchemaWorkbenchState must not construct runtime protocol commands." >&2
+  exit 1
+fi
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/explorer_navigation.rs"; then
+  echo "UI architecture check failed: explorer navigation state must not construct runtime protocol commands." >&2
+  exit 1
+fi
 for state_module in \
   "$repo_root/crates/ui/src/audit_state.rs" \
   "$repo_root/crates/ui/src/fdw_state.rs" \

@@ -80,8 +80,9 @@ impl DbProApp {
             &mut self.query.execution,
             &mut self.feedback,
         )
-        .connect(connection, request_id);
-        if let Some(command) = command {
+        .connect(connection);
+        if let Some(request) = command {
+            let command = connection::logic::build_connect_command(request_id, request.connection_id);
             if self.dispatch_command(command) {
                 explorer_navigation::ExplorerConnectionContext::new(
                     &mut self.connection.lifecycle,

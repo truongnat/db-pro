@@ -2,7 +2,7 @@
 
 use super::{
     AgentState, ConnectionLifecycleState, FeedbackState, PendingNavigationAction, QueryExecutionPolicyState,
-    RoutineState, SchemaExplorerState, SchemaObjectSelection, TableEditorState, UiCommand, UiConnectionSummary,
+    RoutineState, SchemaExplorerState, SchemaObjectSelection, TableEditorState, UiConnectionSummary,
     WorkspaceShellState,
 };
 use crate::RequestId;
@@ -38,6 +38,11 @@ pub(crate) struct SchemaObjectActivation {
     pub(crate) schema: String,
     pub(crate) name: String,
     pub(crate) kind: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ConnectRequest {
+    pub(crate) connection_id: String,
 }
 
 impl<'a> SchemaObjectActivationContext<'a> {
@@ -173,7 +178,7 @@ impl<'a> ExplorerConnectionContext<'a> {
         true
     }
 
-    pub(crate) fn connect(&mut self, connection: &UiConnectionSummary, request_id: RequestId) -> Option<UiCommand> {
+    pub(crate) fn connect(&mut self, connection: &UiConnectionSummary) -> Option<ConnectRequest> {
         if self.lifecycle.active_connection_id() == Some(connection.id.as_str()) && self.lifecycle.is_connected() {
             return None;
         }
@@ -192,10 +197,9 @@ impl<'a> ExplorerConnectionContext<'a> {
             return None;
         }
 
-        Some(super::connection::logic::build_connect_command(
-            request_id,
-            connection.id.clone(),
-        ))
+        Some(ConnectRequest {
+            connection_id: connection.id.clone(),
+        })
     }
 
     pub(crate) fn commit_connect(&mut self, connection: &UiConnectionSummary, request_id: RequestId) {
@@ -256,7 +260,7 @@ mod tests {
             &mut execution,
             &mut feedback,
         )
-        .connect(&connection, RequestId(1));
+        .connect(&connection);
 
         assert!(command.is_none());
         assert_eq!(
@@ -298,10 +302,13 @@ mod tests {
             &mut execution,
             &mut feedback,
         )
-        .connect(&connection, RequestId(7));
+        .connect(&connection);
 
-        assert!(
-            matches!(command, Some(UiCommand::Connect { request_id: RequestId(7), connection_id }) if connection_id == "conn-1")
+        assert_eq!(
+            command,
+            Some(ConnectRequest {
+                connection_id: "conn-1".to_owned(),
+            })
         );
         ExplorerConnectionContext::new(
             &mut lifecycle,

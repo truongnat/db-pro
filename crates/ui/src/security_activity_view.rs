@@ -45,12 +45,13 @@ impl DbProApp {
             security_confirmation_view::SecurityConfirmationAction::ConfirmDropRole(name) => {
                 if let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) {
                     let request_id = self.next_request_id();
-                    self.dispatch_command(drop_role_command(
+                    if self.dispatch_command(drop_role_command(
                         security_request(request_id, connection_id),
                         name,
-                    ));
+                    )) {
+                        self.management.security.security_drop_confirm = None;
+                    }
                 }
-                self.management.security.security_drop_confirm = None;
             }
             security_confirmation_view::SecurityConfirmationAction::CancelDropRole => {
                 self.management.security.security_drop_confirm = None;
@@ -76,12 +77,13 @@ impl DbProApp {
                     };
                     self.management.security.security_new_role_login = login;
                     let request_id = self.next_request_id();
-                    self.dispatch_command(create_role_command(
+                    if self.dispatch_command(create_role_command(
                         &self.management.security,
                         security_request(request_id, connection_id),
                         name,
-                    ));
-                    self.management.security.security_new_role.clear();
+                    )) {
+                        self.management.security.security_new_role.clear();
+                    }
                 }
             }
         }
@@ -106,12 +108,13 @@ impl DbProApp {
                     ));
                 }
                 security_role_details_view::SecurityRoleDetailsAction::UpdatePassword(password) => {
-                    self.dispatch_command(update_password_command(
+                    if self.dispatch_command(update_password_command(
                         security_request(request_id, connection_id),
                         role.to_owned(),
                         password,
-                    ));
-                    self.management.security.security_password.clear();
+                    )) {
+                        self.management.security.security_password.clear();
+                    }
                 }
                 security_role_details_view::SecurityRoleDetailsAction::RevokeMembership(member_role) => {
                     self.dispatch_command(revoke_membership_command(
@@ -121,12 +124,13 @@ impl DbProApp {
                     ));
                 }
                 security_role_details_view::SecurityRoleDetailsAction::GrantMembership(member_role) => {
-                    self.dispatch_command(grant_membership_command(
+                    if self.dispatch_command(grant_membership_command(
                         security_request(request_id, connection_id),
                         member_role,
                         role.to_owned(),
-                    ));
-                    self.management.security.security_membership_role.clear();
+                    )) {
+                        self.management.security.security_membership_role.clear();
+                    }
                 }
                 security_role_details_view::SecurityRoleDetailsAction::RevokePrivilege(privilege) => {
                     self.dispatch_command(revoke_privilege_command(
@@ -436,4 +440,25 @@ fn apply_rls_preview_command(state: &SecurityState, request: SecurityCommandRequ
         connection_id: request.connection_id,
         sql: state.rls_preview_sql()?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn failed_security_dispatch_preserves_password_draft() {
+        let mut app = DbProApp::default();
+        *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+        app.management.security.security_password = "draft-password".to_owned();
+
+        app.apply_security_role_details_actions(
+            "app_user",
+            vec![security_role_details_view::SecurityRoleDetailsAction::UpdatePassword(
+                "new-password".to_owned(),
+            )],
+        );
+
+        assert_eq!(app.management.security.security_password, "draft-password");
+    }
 }

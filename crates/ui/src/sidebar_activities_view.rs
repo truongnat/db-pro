@@ -174,8 +174,9 @@ impl DbProApp {
             }
             SidebarQueryLibraryAction::ConfirmDelete(id) => {
                 let request_id = self.next_request_id();
-                self.dispatch_command(query_save_actions::delete_query_command(request_id, id));
-                self.overlay.delete_confirmation_id = None;
+                if self.dispatch_command(query_save_actions::delete_query_command(request_id, id)) {
+                    self.overlay.delete_confirmation_id = None;
+                }
             }
             SidebarQueryLibraryAction::CancelDelete => {
                 self.overlay.delete_confirmation_id = None;

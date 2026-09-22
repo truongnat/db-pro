@@ -64,15 +64,16 @@ pub(crate) fn draw(
 
     if confirmed {
         let request_id = command_dispatcher.next_request_id();
-        if !command_dispatcher.send_best_effort(UiCommand::DeleteQueryFolder {
+        if command_dispatcher.send_best_effort(UiCommand::DeleteQueryFolder {
             request_id,
             id: folder_id,
         }) {
+            overlay.folder_delete_confirmation = None;
+        } else {
             let message = "Runtime worker unavailable";
             feedback.set_runtime_message(message);
             feedback.show_error_toast(message);
         }
-        overlay.folder_delete_confirmation = None;
     } else if cancelled || !open {
         overlay.folder_delete_confirmation = None;
     }

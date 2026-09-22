@@ -120,17 +120,22 @@ impl Default for SchemaWorkbenchState {
 }
 
 impl SchemaWorkbenchState {
-    pub(super) fn apply_ddl_command(&self, request_id: RequestId, connection_id: String) -> Result<UiCommand, String> {
+    pub(super) fn prepare_ddl_request(&self, connection_id: String) -> Result<SchemaWorkbenchDdlRequest, String> {
         let sql = self.preview_sql.trim();
         if sql.is_empty() {
             return Err("Plan a mutation before applying".to_owned());
         }
-        Ok(UiCommand::ExecuteDdl {
-            request_id,
+        Ok(SchemaWorkbenchDdlRequest {
             connection_id,
             sql: sql.to_owned(),
         })
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct SchemaWorkbenchDdlRequest {
+    pub(super) connection_id: String,
+    pub(super) sql: String,
 }
 
 pub(super) struct QuoteDialect;
@@ -378,12 +383,28 @@ mod tests {
     }
 
     #[test]
-    fn apply_ddl_command_requires_a_preview() {
+    fn prepare_ddl_request_requires_a_preview() {
         let state = SchemaWorkbenchState::default();
 
         assert_eq!(
-            state.apply_ddl_command(RequestId(1), "source".to_owned()),
+            state.prepare_ddl_request("source".to_owned()),
             Err("Plan a mutation before applying".to_owned())
+        );
+    }
+
+    #[test]
+    fn prepare_ddl_request_preserves_the_trimmed_preview_and_connection() {
+        let state = SchemaWorkbenchState {
+            preview_sql: "  ALTER TABLE \"public\".\"users\" ADD COLUMN name TEXT;  ".to_owned(),
+            ..SchemaWorkbenchState::default()
+        };
+
+        assert_eq!(
+            state.prepare_ddl_request("connection-1".to_owned()),
+            Ok(SchemaWorkbenchDdlRequest {
+                connection_id: "connection-1".to_owned(),
+                sql: "ALTER TABLE \"public\".\"users\" ADD COLUMN name TEXT;".to_owned(),
+            })
         );
     }
 }

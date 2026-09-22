@@ -95,12 +95,17 @@ impl DbProApp {
             return;
         };
         let request_id = self.next_request_id();
-        let command = match self.schema.workbench.apply_ddl_command(request_id, connection.id) {
-            Ok(command) => command,
+        let request = match self.schema.workbench.prepare_ddl_request(connection.id) {
+            Ok(request) => request,
             Err(error) => {
                 self.feedback.runtime_message = error;
                 return;
             }
+        };
+        let command = UiCommand::ExecuteDdl {
+            request_id,
+            connection_id: request.connection_id,
+            sql: request.sql,
         };
         if self.dispatch_command(command) {
             self.table.state.ddl_execution_request = Some(request_id);

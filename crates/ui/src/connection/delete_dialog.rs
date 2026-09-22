@@ -80,8 +80,8 @@ pub(crate) fn draw(
             lifecycle.set_pending_request(Some(request_id));
             lifecycle.set_pending_connection_id(Some(connection_id));
             feedback.set_runtime_message(t!("status.deleting", name = name.as_str()));
+            overlay.delete_confirmation_id = None;
         }
-        overlay.delete_confirmation_id = None;
     } else if cancelled || !open {
         overlay.delete_confirmation_id = None;
     }
