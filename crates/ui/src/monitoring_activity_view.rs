@@ -94,7 +94,15 @@ impl DbProApp {
             feedback: &mut self.feedback,
         }
         .draw(ui);
-        self.draw_pg_settings_activity(ui);
+        pg_settings_activity_view::PgSettingsActivityContext {
+            theme: self.theme,
+            state: &mut self.management.pg_settings,
+            connection_id: self.connection.lifecycle.active_connection_id(),
+            driver: &driver,
+            command_dispatcher: &mut command_dispatcher,
+            feedback: &mut self.feedback,
+        }
+        .draw(ui);
         if let Some(action) = maintenance_activity_view::draw_maintenance_activity(ui, self.theme) {
             self.management.monitoring.monitoring_maintenance_confirm = Some(action);
         }
