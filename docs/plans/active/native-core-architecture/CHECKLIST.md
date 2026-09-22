@@ -203,6 +203,12 @@
 - [x] `TableState` owns table lifecycle and DDL validation without constructing
       `UiCommand`; table runtime protocol mapping remains in the table editor
       effect adapter and is protected by the architecture guard.
+- [x] Query library read-model/draft state no longer constructs runtime
+      protocol commands; saved-query/folder mapping is centralized in the query
+      save adapter and all callers use that boundary.
+- [x] App module topology is isolated in `app_modules.rs`; `app.rs` contains
+      aggregate ownership/orchestration only, and the guard rejects reintroducing
+      feature `#[path]` declarations into the composition root.
 - [x] Settings navigation, section composition and diagnostics presentation
       are owned by `SettingsSurfaceContext`; settings root retains only
       persistence, runtime/file effects and typed action application.
