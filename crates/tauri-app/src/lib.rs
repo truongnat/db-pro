@@ -24,14 +24,14 @@ pub fn run() {
             });
 
             tauri::async_runtime::block_on(async move {
-                let data_dir = handle.path().app_data_dir().expect("failed to get app data dir");
-                let runtime = DbProRuntime::new(&data_dir)
-                    .await
-                    .expect("failed to initialize shared DB Pro runtime");
+                let data_dir = handle.path().app_data_dir()?;
+                let runtime = DbProRuntime::new(&data_dir).await?;
 
                 handle.manage(runtime.clone());
                 handle.manage(ExecutionRegistry::new());
-            });
+
+                Ok::<(), Box<dyn std::error::Error>>(())
+            })?;
 
             Ok(())
         })
@@ -95,5 +95,5 @@ pub fn run() {
             commands::finish_startup,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|error| tracing::error!(%error, "error while running Tauri application"));
 }
