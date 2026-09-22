@@ -2753,3 +2753,19 @@ keeps task policy and execution effects.
 - `git diff --check`: passed.
 - The rebuilt normal release binary is running as native process PID `31706`
   with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Table mutation execution boundary checkpoint at `c297c6dd`
+
+- `TableDataService::apply_mutations_detailed` now delegates to
+  `application/table_mutation_execution.rs`; the helper owns validation,
+  ordered statement planning, transaction dispatch/failure-index remapping and
+  affected-row aggregation.
+- Focused table-data tests passed: 22 passed, 0 failed, 382 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo check -p db-pro-core`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 14 checks, 0 failures and 2 ratchet warnings limited to the
+  existing long test functions and `table_data_service.rs` size.
+- `git diff --check`: passed.
+- Full workspace gates and release rebuild remain pending for this checkpoint.

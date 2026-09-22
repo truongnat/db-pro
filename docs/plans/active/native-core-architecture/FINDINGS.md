@@ -1631,6 +1631,23 @@ and facade are removed without changing the Welcome surface contract.
 
 Severity: P2 topology/maintainability risk, resolved.
 
+## F102 — Table mutation service mixed batch planning with provider execution
+
+Evidence at the pre-fix main state: `TableDataService::apply_mutations_detailed`
+owned read-only policy checks, connection/dialect resolution, delete-update-
+insert ordering, parameterized SQL construction, provider transaction dispatch,
+original-input index remapping and affected-row aggregation in one method.
+
+Fix at `c297c6dd`: `TableMutationExecution` now owns that mutation execution
+boundary. `TableDataService` keeps the public API and delegates the complete
+batch, while the helper separates writable validation, ordered statement
+planning, transaction dispatch/failure remapping and result aggregation. The
+existing atomic-ordering, provider-failure and original-index tests remain
+green; the duplicated invariant-error text was also corrected.
+
+Severity: P1 core mutation-boundary and error-contract maintainability risk,
+resolved for table-editor batch mutations.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used
