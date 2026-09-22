@@ -253,8 +253,8 @@
 - [x] `cargo fmt --all -- --check` (PASS)
 - [x] `cargo check --workspace`
 - [x] `cargo clippy -p db-pro-ui --all-targets -- -D warnings`
-- [x] UI test suite through the workspace gate (654 passed at `bdf2e363`)
-- [x] `cargo test --workspace --no-fail-fast --quiet` (PASS at `bdf2e363`; 0 failed)
+- [x] UI test suite through the workspace gate (686 passed at `6ff9f937`)
+- [x] `cargo test --workspace --no-fail-fast --quiet` (PASS at `6ff9f937`; 0 failed)
 - [x] `cargo build --release --locked -p db-pro-native`
 - [x] `cargo build --release --locked -p db-pro-native --features capture`
 - [x] New Connection modal runtime capture at logical `1280x800` (centered
@@ -263,7 +263,7 @@
       and schema-object rows.
 - [x] Loading Welcome and New Connection error state captures at logical
       `1280x800`.
-- [x] Latest native release binary rebuilt on `05524c33`; runtime launch and
+- [x] Latest native release binary rebuilt on `6ff9f937`; runtime launch and
       the normal Welcome capture are recorded in `VERIFICATION.md`.
 - [x] Native runtime evidence for affected surfaces recorded at the required
       viewport/state matrix in `VERIFICATION.md`.
