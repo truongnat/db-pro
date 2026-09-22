@@ -3150,3 +3150,18 @@ keeps task policy and execution effects.
 - `git diff --check`: passed.
 - The rebuilt normal release binary is running as native process PID `76853`
   with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Safety policy boundary checkpoint (pre-commit)
+
+- `safety_policy.rs` now owns `ConnectionSafetyPolicy` construction/defaulting
+  and `validate_against_policy`; `domain/safety.rs` remains the compatibility
+  facade for classifier/script APIs.
+- Safety tests now live in `domain/safety/tests.rs`, leaving production safety
+  code below the file-size threshold without changing public imports.
+- Focused `cargo test -p db-pro-core safety --quiet`: passed; 47 passed,
+  0 failed, 357 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.

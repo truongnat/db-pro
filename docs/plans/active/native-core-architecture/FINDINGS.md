@@ -1814,6 +1814,21 @@ imports and SQL/parameter behavior.
 Severity: P1 core SQL-builder boundary and mutation/read coupling risk,
 resolved.
 
+## F114 — Safety policy enforcement was coupled to SQL classification
+
+Evidence at the pre-fix main state: `domain/safety.rs` defined the connection
+policy value object, policy constructors/defaulting and policy validation beside
+the SQL classifier, script splitter and lexical helpers. Its test module also
+made the safety domain file exceed the maintainability size threshold.
+
+Fix in the current checkpoint: `safety_policy.rs` owns the backend policy value
+object and validation boundary, while `safety.rs` remains the compatibility
+facade for classification and script safety APIs. Safety tests now live in
+`domain/safety/tests.rs`; public imports and fail-closed behavior are unchanged.
+
+Severity: P1 core safety-policy/classifier coupling and maintainability risk,
+resolved.
+
 ## F99 — Transitional Tauri startup failures were converted into panics
 
 Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used
