@@ -1,8 +1,10 @@
 use super::ide_workspace::{ReplacePreview, SearchHit};
+use super::workspace_files_state::WorkspaceSearchDraft;
 use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum FilesSearchAction {
+    UpdateDraft(WorkspaceSearchDraft),
     Find,
     PreviewReplace,
     ReplaceAll,
@@ -12,33 +14,34 @@ pub(super) enum FilesSearchAction {
 
 pub(super) struct FilesSearchContext<'a> {
     pub(super) theme: DbProTheme,
-    pub(super) search_query: &'a mut String,
-    pub(super) replace_query: &'a mut String,
-    pub(super) refactor_from: &'a mut String,
-    pub(super) refactor_to: &'a mut String,
+    pub(super) draft: WorkspaceSearchDraft,
     pub(super) replace_previews: &'a [ReplacePreview],
     pub(super) search_hits: &'a [SearchHit],
 }
 
 impl FilesSearchContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<FilesSearchAction> {
+        let original_draft = self.draft.clone();
         let mut actions = self.draw_search_controls(ui);
         actions.extend(self.draw_refactor_controls(ui));
         self.draw_replace_previews(ui);
         actions.extend(self.draw_search_hits(ui));
+        if self.draft != original_draft {
+            actions.insert(0, FilesSearchAction::UpdateDraft(self.draft.clone()));
+        }
         actions
     }
 
     fn draw_search_controls(&mut self, ui: &mut egui::Ui) -> Vec<FilesSearchAction> {
         let mut actions = Vec::new();
         ui.add(
-            egui::TextEdit::singleline(self.search_query)
+            egui::TextEdit::singleline(&mut self.draft.search_query)
                 .hint_text("Find in files…")
                 .desired_width(ui.available_width()),
         );
         ui.add_space(4.0);
         ui.add(
-            egui::TextEdit::singleline(self.replace_query)
+            egui::TextEdit::singleline(&mut self.draft.replace_query)
                 .hint_text("Replace with…")
                 .desired_width(ui.available_width()),
         );
@@ -80,12 +83,12 @@ impl FilesSearchContext<'_> {
         ui.add_space(6.0);
         ui.horizontal(|ui| {
             ui.add(
-                egui::TextEdit::singleline(self.refactor_from)
+                egui::TextEdit::singleline(&mut self.draft.refactor_from)
                     .hint_text("Rename from")
                     .desired_width(90.0),
             );
             ui.add(
-                egui::TextEdit::singleline(self.refactor_to)
+                egui::TextEdit::singleline(&mut self.draft.refactor_to)
                     .hint_text("to")
                     .desired_width(90.0),
             );

@@ -38,3 +38,7 @@ pub(super) struct PrepareAgentRunOptions {
 ```
 
 This reduces `prepare_run` to 2 arguments (`&mut self`, `options: PrepareAgentRunOptions`), fully satisfying Clippy and Clean Code function design guidelines.
+
+## Merge resolution (2026-09-23)
+
+`main` already contains the equivalent DTO as `AgentRunPreparation` in `crates/ui/src/agent_state.rs`, used by `agent_actions.rs`. Re-introducing `PrepareAgentRunOptions` would duplicate the type and fight the post-split `DbProApp` adapters. The merge keeps `AgentRunPreparation` and does not restore the pre-split `impl DbProApp` block from this branch.

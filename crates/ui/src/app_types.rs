@@ -339,6 +339,8 @@ pub(crate) struct ColumnProfile {
     pub distinct_rate: f64,
     pub min: Option<String>,
     pub max: Option<String>,
+    pub avg: Option<f64>,
+    pub sum: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

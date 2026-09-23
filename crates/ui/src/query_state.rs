@@ -4,6 +4,7 @@ use super::{QueryDocument, QueryExecutionState};
 use crate::runtime::UiQueryResult;
 use crate::RequestId;
 use std::collections::HashMap;
+use std::time::Instant;
 
 #[derive(Debug, Default)]
 pub(crate) struct QuerySessionState {
@@ -147,6 +148,28 @@ impl QuerySessionState {
         request_id
     }
 
+    pub(crate) fn commit_prediction_request(
+        &mut self,
+        document_id: &str,
+        request_id: RequestId,
+        fingerprint: u64,
+    ) -> bool {
+        let Some(document) = self.documents.iter_mut().find(|document| document.id == document_id) else {
+            return false;
+        };
+        if document.pending_prediction_request.is_some() {
+            return false;
+        }
+        let now = Instant::now();
+        document.prediction_context_fingerprint = Some(fingerprint);
+        document.prediction_last_request_fingerprint = Some(fingerprint);
+        document.prediction_last_request_at = Some(now);
+        document.pending_prediction_request = Some(request_id);
+        document.prediction_request_started_at = Some(now);
+        document.prediction_requests_sent = document.prediction_requests_sent.saturating_add(1);
+        true
+    }
+
     pub(crate) fn add_document(&mut self, document: QueryDocument) -> usize {
         self.documents.push(document);
         self.active_document_index = self.documents.len() - 1;
@@ -276,5 +299,19 @@ mod tests {
         assert_eq!(state.active_schema(), Some("analytics"));
         assert!(!state.set_document_schema(9, None));
         assert!(state.invalidate_prediction(0).is_none());
+    }
+
+    #[test]
+    fn prediction_request_commit_is_idempotent_for_a_document() {
+        let mut state = QuerySessionState::default();
+        state.add_document(QueryDocument::new("query-1", "Query 1", "SELECT 1"));
+
+        assert!(state.commit_prediction_request("query-1", RequestId(7), 42));
+        assert_eq!(state.documents[0].pending_prediction_request, Some(RequestId(7)));
+        assert_eq!(state.documents[0].prediction_context_fingerprint, Some(42));
+        assert_eq!(state.documents[0].prediction_requests_sent, 1);
+        assert!(!state.commit_prediction_request("query-1", RequestId(8), 43));
+        assert_eq!(state.documents[0].pending_prediction_request, Some(RequestId(7)));
+        assert_eq!(state.documents[0].prediction_requests_sent, 1);
     }
 }

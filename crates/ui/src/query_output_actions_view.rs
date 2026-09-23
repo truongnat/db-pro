@@ -72,21 +72,6 @@ pub(super) fn draw_explain_pane(
                     ui.label(RichText::new(plan_json).monospace().color(context.theme.text_secondary));
                 });
             } else if let Some(plan) = db_pro_core::domain::explain_plan::parse_postgres_explain_str(plan_json) {
-                let mode = if plan.has_runtime_stats {
-                    "Runtime (EXPLAIN ANALYZE)"
-                } else {
-                    "Estimate-only (EXPLAIN)"
-                };
-                ui.label(
-                    RichText::new(mode)
-                        .small()
-                        .strong()
-                        .color(if plan.has_runtime_stats {
-                            context.theme.warning
-                        } else {
-                            context.theme.text_muted
-                        }),
-                );
                 if !plan.findings.is_empty() {
                     ui.add_space(4.0);
                     for finding in plan.findings.iter().take(8) {
@@ -100,8 +85,11 @@ pub(super) fn draw_explain_pane(
                 }
                 ui.add_space(6.0);
                 let tree = crate::components::explain::PlanNode::from_query_plan(&plan.root);
-                egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
-                    ExplainPlanTree::new(&tree, plan.display_total_ms() as f32, context.theme).show(ui);
+                egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
+                    ExplainPlanTree::new(&tree, plan.display_total_ms() as f32, context.theme)
+                        .has_runtime_stats(plan.has_runtime_stats)
+                        .planning_time(plan.planning_time_ms.map(|t| t as f32))
+                        .show(ui);
                 });
             } else {
                 ui.label(
@@ -118,7 +106,7 @@ pub(super) fn draw_explain_pane(
                 ui,
                 Icon::ChartNoAxesCombined,
                 "No query plan yet",
-                "Run Explain for an estimate, or Explain ANALYZE for measured runtime (executes the query).",
+                "Execute EXPLAIN or EXPLAIN ANALYZE from the toolbar or query actions to see costs, plan nodes, and advisor findings.",
                 context.theme,
             );
         }
@@ -135,77 +123,115 @@ pub(super) fn draw_history_pane(
     card_frame(context.theme).show(ui, |ui| {
         ui.set_min_width(output_width.max(0.0));
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Search").small().color(context.theme.text_muted));
-            ui.add_sized(
-                [220.0, 24.0],
-                egui::TextEdit::singleline(&mut context.editor.query_history_search)
-                    .hint_text("SQL, connection, schema"),
-            );
-            if compact_button(ui, "Clear History", context.theme).clicked() {
-                context.editor.query_history_entries.clear();
-                context.feedback.runtime_message = "Query history cleared".to_owned();
+            ui.label(RichText::new("Recent Executions").font(font_subheading()).strong());
+            ui.add_space(SPACE_MD);
+            let search_edit = egui::TextEdit::singleline(&mut context.editor.query_history_search)
+                .hint_text("Filter history…")
+                .desired_width(180.0);
+            ui.add(search_edit);
+            if !context.editor.query_history_search.is_empty()
+                && compact_button(ui, "Clear", context.theme).clicked()
+            {
+                context.editor.query_history_search.clear();
             }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(
+                    RichText::new(format!("{} total", context.editor.query_history_entries.len()))
+                        .small()
+                        .color(context.theme.text_muted),
+                );
+            });
         });
+        ui.add_space(SPACE_SM);
+        let filter_lower = context.editor.query_history_search.trim().to_lowercase();
+        let filtered_entries: Vec<_> = context
+            .editor
+            .query_history_entries
+            .iter()
+            .rev()
+            .filter(|e| filter_lower.is_empty() || e.sql.to_lowercase().contains(&filter_lower))
+            .take(50)
+            .collect();
+
         if context.editor.query_history_entries.is_empty() {
             empty_state(
                 ui,
                 Icon::History,
-                "No query history yet",
-                "Executed queries will appear here.",
+                "No query history",
+                "Executed queries will appear here with timing, status, and one-click replay into editor.",
+                context.theme,
+            );
+        } else if filtered_entries.is_empty() {
+            empty_state(
+                ui,
+                Icon::Search,
+                "No matching queries",
+                "Try a different search keyword to find past query executions.",
                 context.theme,
             );
         } else {
-            let search = context.editor.query_history_search.trim().to_lowercase();
-            let entries = context
-                .editor
-                .query_history_entries
-                .iter()
-                .rev()
-                .filter(|entry| {
-                    search.is_empty()
-                        || entry.sql.to_lowercase().contains(&search)
-                        || entry
-                            .connection_id
-                            .as_deref()
-                            .is_some_and(|connection| connection.to_lowercase().contains(&search))
-                        || entry
-                            .schema
-                            .as_deref()
-                            .is_some_and(|schema| schema.to_lowercase().contains(&search))
-                })
-                .take(20)
-                .cloned()
-                .collect::<Vec<_>>();
-            for entry in entries {
-                ui.horizontal_wrapped(|ui| {
-                    let status = match entry.status {
-                        UiQueryHistoryStatus::Success => "OK",
-                        UiQueryHistoryStatus::Failed => "Failed",
-                        UiQueryHistoryStatus::Cancelled => "Cancelled",
-                    };
-                    ui.label(RichText::new(status).small().color(context.theme.text_muted));
-                    ui.label(
-                        RichText::new(format!("{} ms", entry.duration_ms))
-                            .small()
-                            .color(context.theme.text_muted),
-                    );
-                    ui.label(
-                        RichText::new(entry.sql.lines().next().unwrap_or("query"))
-                            .monospace()
-                            .small()
-                            .color(context.theme.text_secondary),
-                    );
-                    if compact_button(ui, "Open", context.theme).clicked() {
-                        action = Some(QueryOutputAction::OpenHistory(Box::new(entry.clone()), false));
-                    }
-                    if compact_button(ui, "Copy SQL", context.theme).clicked() {
-                        ui.output_mut(|output| output.copied_text = entry.sql.clone());
-                    }
-                    if compact_button(ui, "Run Again", context.theme).clicked() {
-                        action = Some(QueryOutputAction::OpenHistory(Box::new(entry.clone()), true));
-                    }
-                });
-            }
+            egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
+                for entry in filtered_entries {
+                    egui::Frame::none()
+                        .fill(context.theme.surface_panel)
+                        .stroke(egui::Stroke::new(1.0, context.theme.border_subtle))
+                        .rounding(egui::Rounding::same(4.0))
+                        .inner_margin(egui::Margin::same(8.0))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                let status_color = if entry.status == UiQueryHistoryStatus::Failed {
+                                    context.theme.danger
+                                } else {
+                                    context.theme.success
+                                };
+                                ui.label(
+                                    RichText::new(if entry.status == UiQueryHistoryStatus::Failed { "✕ FAIL" } else { "✓ OK" })
+                                        .small()
+                                        .strong()
+                                        .color(status_color),
+                                );
+                                ui.label(
+                                    RichText::new(format!("{}ms", entry.duration_ms))
+                                        .small()
+                                        .monospace()
+                                        .color(context.theme.text_secondary),
+                                );
+                                let rows_display = entry.row_count.or(entry.affected_rows);
+                                if let Some(rows) = rows_display {
+                                    ui.label(
+                                        RichText::new(format!("{rows} rows"))
+                                            .small()
+                                            .color(context.theme.text_muted),
+                                    );
+                                }
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                    if Button::new(context.theme)
+                                        .text("Replay")
+                                        .size(ButtonSize::Sm)
+                                        .variant(ButtonVariant::Ghost)
+                                        .icon(Icon::RotateCw)
+                                        .show(ui)
+                                        .clicked()
+                                    {
+                                        action = Some(QueryOutputAction::OpenHistory(
+                                            Box::new(entry.clone()),
+                                            true,
+                                        ));
+                                    }
+                                });
+                            });
+                            ui.add_space(2.0);
+                            let preview: String = entry.sql.lines().take(2).collect::<Vec<_>>().join(" ");
+                            let truncated = if preview.len() > 120 {
+                                format!("{}…", &preview[..117])
+                            } else {
+                                preview
+                            };
+                            ui.label(RichText::new(truncated).monospace().small().color(context.theme.text_primary));
+                        });
+                    ui.add_space(4.0);
+                }
+            });
         }
     });
     action

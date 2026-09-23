@@ -1,5 +1,8 @@
 use super::*;
 
+#[path = "table_profile_surface_view.rs"]
+mod table_profile_surface_view;
+
 impl DbProApp {
     pub(super) fn draw_table_workspace(&mut self, ui: &mut egui::Ui) {
         let Some(table_name) = self.schema.explorer.selected_table.clone() else {
@@ -86,10 +89,7 @@ impl DbProApp {
         id: &'static str,
         draw: impl FnOnce(&mut Self, &mut egui::Ui),
     ) {
-        egui::ScrollArea::vertical()
-            .id_salt(id)
-            .auto_shrink([false, false])
-            .show(ui, |ui| draw(self, ui));
+        table_scroll_surface_view::draw(ui, id, |ui| draw(self, ui));
     }
 
     fn apply_table_workspace_surface_action(
@@ -128,148 +128,8 @@ impl DbProApp {
         }
     }
 
-    /// Bounded column profiling over the currently loaded page of rows (#227).
+    /// Adapts the table profile state into the presentation surface.
     pub(super) fn draw_column_profile_pane(&self, ui: &mut egui::Ui, result: Option<&UiQueryResult>) {
-        let Some(result) = result else {
-            empty_state(
-                ui,
-                Icon::ChartColumn,
-                "No rows loaded",
-                "Open the Data tab or wait for the current page to load, then return to Profile.",
-                self.theme,
-            );
-            return;
-        };
-        if result.columns.is_empty() {
-            empty_state(
-                ui,
-                Icon::ChartColumn,
-                "No columns",
-                "This result has no columns to profile.",
-                self.theme,
-            );
-            return;
-        }
-
-        let profiles = Self::profile_result_columns(result);
-        ui.label(
-            RichText::new(format!(
-                "Profiling {} loaded row(s) · not a full-table scan",
-                result.rows.len()
-            ))
-            .small()
-            .color(self.theme.text_muted),
-        );
-        ui.add_space(8.0);
-        self.draw_profile_grid(ui, &profiles);
-    }
-
-    fn draw_profile_grid(&self, ui: &mut egui::Ui, profiles: &[ColumnProfile]) {
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            egui::Grid::new("column_profile_grid")
-                .num_columns(6)
-                .striped(true)
-                .show(ui, |ui| {
-                    ui.label(RichText::new("Column").strong());
-                    ui.label(RichText::new("Type").strong());
-                    ui.label(RichText::new("Nulls").strong());
-                    ui.label(RichText::new("Distinct").strong());
-                    ui.label(RichText::new("Min").strong());
-                    ui.label(RichText::new("Max").strong());
-                    ui.end_row();
-                    for profile in profiles {
-                        ui.label(&profile.name);
-                        ui.label(&profile.data_type);
-                        ui.label(format!("{} ({:.0}%)", profile.null_count, profile.null_rate * 100.0));
-                        ui.label(format!(
-                            "{} ({:.0}%)",
-                            profile.distinct_count,
-                            profile.distinct_rate * 100.0
-                        ));
-                        ui.label(profile.min.as_deref().unwrap_or("—"));
-                        ui.label(profile.max.as_deref().unwrap_or("—"));
-                        ui.end_row();
-                    }
-                });
-        });
-    }
-
-    pub(crate) fn profile_result_columns(result: &UiQueryResult) -> Vec<ColumnProfile> {
-        let row_count = result.rows.len().max(1) as f64;
-        result
-            .columns
-            .iter()
-            .enumerate()
-            .map(|(col_idx, column)| {
-                let mut null_count = 0usize;
-                let mut values = Vec::new();
-                for row in &result.rows {
-                    match row.get(col_idx) {
-                        None | Some(UiCell::Null) => null_count += 1,
-                        Some(cell) => values.push(Self::cell_profile_text(cell)),
-                    }
-                }
-                let distinct = values.iter().cloned().collect::<std::collections::BTreeSet<_>>();
-                let min = values.iter().min().cloned();
-                let max = values.iter().max().cloned();
-                ColumnProfile {
-                    name: column.name.clone(),
-                    data_type: column.data_type.clone(),
-                    null_count,
-                    null_rate: null_count as f64 / row_count,
-                    distinct_count: distinct.len(),
-                    distinct_rate: distinct.len() as f64 / row_count,
-                    min,
-                    max,
-                }
-            })
-            .collect()
-    }
-
-    fn cell_profile_text(cell: &UiCell) -> String {
-        match cell {
-            UiCell::Null => String::new(),
-            UiCell::Boolean(b) => b.to_string(),
-            UiCell::Number(n) | UiCell::Text(n) | UiCell::Json(n) | UiCell::Bytes(n) => n.clone(),
-        }
-    }
-
-    /// Loading / failure placeholder shown while the column metadata is in flight.
-    pub(super) fn draw_table_structure_placeholder(&self, ui: &mut egui::Ui) {
-        grid_frame(self.theme).show(ui, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.add_space(28.0);
-                let failed = self.table.state.table_info_error.as_deref();
-                ui.label(icon_text(
-                    if failed.is_some() {
-                        Icon::TriangleAlert
-                    } else {
-                        Icon::LoaderCircle
-                    },
-                    "",
-                    if failed.is_some() {
-                        self.theme.warning
-                    } else {
-                        self.theme.accent
-                    },
-                ));
-                ui.add_space(8.0);
-                ui.label(
-                    RichText::new(if failed.is_some() {
-                        "Table structure could not be loaded"
-                    } else {
-                        "Loading table structure…"
-                    })
-                    .strong()
-                    .color(self.theme.text_primary),
-                );
-                ui.label(
-                    RichText::new(failed.unwrap_or("Columns, keys and indexes will appear here."))
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
-                ui.add_space(28.0);
-            });
-        });
+        table_profile_surface_view::draw_profile_pane(self.theme, result, ui);
     }
 }

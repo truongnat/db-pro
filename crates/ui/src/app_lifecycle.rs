@@ -174,13 +174,14 @@ impl DbProApp {
             self.draw_output_panel(ctx);
         }
         self.draw_statusbar(ctx);
-        if let Some(action) = activity_bar_view::draw_activity_bar(ctx, self.theme, &mut self.workspace) {
-            match action {
-                activity_bar_view::ActivityBarAction::OpenSchemaWorkbench => self.open_schema_workbench(),
-                activity_bar_view::ActivityBarAction::ToggleAgent => {
-                    self.set_agent_open(!self.workspace.agent_open, ctx)
-                }
-            }
+        let activity_context = activity_bar_view::ActivityBarContext {
+            theme: self.theme,
+            activity: self.workspace.activity,
+            active_tab: self.workspace.active_tab,
+            agent_open: self.workspace.agent_open,
+        };
+        if let Some(action) = activity_bar_view::draw_activity_bar(ctx, &activity_context) {
+            self.apply_activity_bar_action(action, ctx);
         }
 
         if self.workspace.sidebar_open {
@@ -191,57 +192,75 @@ impl DbProApp {
             self.draw_agent_panel(ctx);
         }
 
-        egui::CentralPanel::default()
-            .frame(egui::Frame {
-                // Flush to the sidebar splitter; match `SHELL_SPLIT_INSET` / sidebar
-                // `pad_right` so the body lines up with the navigator across the divider.
-                fill: self.theme.surface_panel,
-                inner_margin: egui::Margin {
-                    left: SHELL_SPLIT_INSET,
-                    right: SHELL_SPLIT_INSET,
-                    top: 0.0,
-                    bottom: 0.0,
-                },
-                outer_margin: egui::Margin::ZERO,
-                stroke: egui::Stroke::NONE,
-                ..Default::default()
-            })
-            .show(ctx, |ui| {
-                ui.set_min_size(ui.available_size());
-                ui.spacing_mut().item_spacing = egui::Vec2::ZERO;
-                self.draw_workspace(ui);
-            });
+        shell_frame_view::draw_central_panel(ctx, &shell_frame_view::ShellFrameContext { theme: self.theme }, |ui| {
+            self.draw_workspace(ui)
+        });
+    }
+
+    fn apply_activity_bar_action(&mut self, action: activity_bar_view::ActivityBarAction, ctx: &egui::Context) {
+        use activity_bar_view::ActivityBarAction as Action;
+
+        match action {
+            Action::SelectActivity(activity) => {
+                self.workspace.activity = activity;
+                self.workspace.sidebar_open = true;
+            }
+            Action::OpenQuery => {
+                self.workspace.activity = Activity::Queries;
+                self.workspace.active_tab = WorkspaceTab::Query;
+                self.workspace.sidebar_open = true;
+            }
+            Action::OpenDiagram => {
+                self.workspace.activity = Activity::Diagram;
+                self.workspace.active_tab = WorkspaceTab::Diagram;
+                self.workspace.sidebar_open = true;
+            }
+            Action::OpenSchemaCompare => {
+                self.workspace.activity = Activity::Compare;
+                self.workspace.active_tab = WorkspaceTab::SchemaCompare;
+                self.workspace.sidebar_open = true;
+            }
+            Action::OpenSchemaWorkbench => self.open_schema_workbench(),
+            Action::OpenSettings => {
+                self.workspace.activity = Activity::Settings;
+                self.workspace.sidebar_open = true;
+            }
+            Action::ToggleAgent => self.set_agent_open(!self.workspace.agent_open, ctx),
+        }
     }
 
     fn draw_overlays(&mut self, ctx: &egui::Context) {
         if self.connection.dialog.is_open() {
+            let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
             connection::view::draw_connection_dialog(
                 ctx,
                 self.theme,
                 &mut self.connection.dialog,
                 &mut self.connection.lifecycle,
-                &mut self.task_bridge,
+                &mut command_dispatcher,
                 &mut self.feedback,
             );
         }
         if self.overlay.delete_confirmation_id.is_some() {
+            let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
             connection::delete_dialog::draw(
                 ctx,
                 self.theme,
                 &mut self.overlay,
                 &self.connection.catalog,
                 &mut self.connection.lifecycle,
-                &mut self.task_bridge,
+                &mut command_dispatcher,
                 &mut self.feedback,
             );
         }
         if self.overlay.folder_delete_confirmation.is_some() {
+            let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge);
             query_folder_delete_dialog::draw(
                 ctx,
                 self.theme,
                 &mut self.overlay,
                 &self.query.library,
-                &mut self.task_bridge,
+                &mut command_dispatcher,
                 &mut self.feedback,
             );
         }

@@ -6,20 +6,20 @@ use super::*;
 /// The lifecycle owns query-tab state and coordinates only the stateful side
 /// effects that are part of closing/opening a document. App-level commands
 /// such as executing a query remain at the composition root.
-pub(crate) struct QueryDocumentContext<'a> {
-    pub(super) query_session: &'a mut QuerySessionState,
-    pub(super) query_editor: &'a mut QueryEditorState,
-    pub(super) workspace: &'a mut WorkspaceFeatureState,
-    pub(super) agent: &'a mut AgentState,
-    pub(super) query_output: &'a mut QueryOutputState,
-    pub(super) schema_explorer: &'a mut SchemaExplorerState,
-    pub(super) task_bridge: &'a mut TaskBridge,
-    pub(super) feedback: &'a mut FeedbackState,
+pub(crate) struct QueryDocumentContext<'state, 'bridge> {
+    pub(super) query_session: &'state mut QuerySessionState,
+    pub(super) query_editor: &'state mut QueryEditorState,
+    pub(super) workspace: &'state mut WorkspaceFeatureState,
+    pub(super) agent: &'state mut AgentState,
+    pub(super) query_output: &'state mut QueryOutputState,
+    pub(super) schema_explorer: &'state mut SchemaExplorerState,
+    pub(super) command_dispatcher: command_dispatch::RuntimeCommandDispatcher<'bridge>,
+    pub(super) feedback: &'state mut FeedbackState,
     active_connection_id: Option<String>,
     active_schema: String,
 }
 
-impl QueryDocumentContext<'_> {
+impl QueryDocumentContext<'_, '_> {
     pub(crate) fn new_document(&mut self, scratch: bool) {
         let (document_id, index) = self.next_document_identity();
         let prefix = if scratch { "Scratch" } else { "Query" };
@@ -253,7 +253,7 @@ impl QueryDocumentContext<'_> {
         let request_id = self.query_session.invalidate_prediction(index);
         if let Some(request_id) = request_id {
             let _ = self
-                .task_bridge
+                .command_dispatcher
                 .send_best_effort(UiCommand::CancelSqlPrediction { request_id });
         }
     }
@@ -268,9 +268,9 @@ impl QueryDocumentContext<'_> {
             self.agent.sessions.remove(document_id);
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.command_dispatcher.next_request_id();
         let _ = self
-            .task_bridge
+            .command_dispatcher
             .send_best_effort(UiCommand::CancelAgentRun { request_id, run_id });
         self.agent.sessions.remove(document_id);
     }
@@ -289,7 +289,7 @@ impl QueryDocumentContext<'_> {
 }
 
 impl DbProApp {
-    fn query_document_context(&mut self) -> QueryDocumentContext<'_> {
+    fn query_document_context(&mut self) -> QueryDocumentContext<'_, '_> {
         let active_connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
         let active_schema = self.active_schema().to_owned();
         QueryDocumentContext {
@@ -299,7 +299,7 @@ impl DbProApp {
             agent: &mut self.agent,
             query_output: &mut self.query.output,
             schema_explorer: &mut self.schema.explorer,
-            task_bridge: &mut self.task_bridge,
+            command_dispatcher: command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge),
             feedback: &mut self.feedback,
             active_connection_id,
             active_schema,
@@ -393,7 +393,15 @@ impl DbProApp {
     pub(super) fn execute_pending_navigation(&mut self, action: PendingNavigationAction) {
         match action {
             PendingNavigationAction::OpenTable(table) => self.open_table(table),
-            PendingNavigationAction::ChangeSchema(schema) => self.activate_schema(&schema),
+            PendingNavigationAction::ChangeSchema(schema) => {
+                super::schema_explorer_state::SchemaActivationContext::new(
+                    &mut self.schema.explorer,
+                    &mut self.table,
+                    &mut self.workspace,
+                    &mut self.feedback,
+                )
+                .activate(&schema);
+            }
             PendingNavigationAction::ChangeConnection(connection_id) => {
                 let connection = self.connection.catalog.find(&connection_id).cloned();
                 if let Some(connection) = connection {
@@ -427,7 +435,7 @@ mod tests {
             agent: &mut agent,
             query_output: &mut query_output,
             schema_explorer: &mut schema_explorer,
-            task_bridge: &mut task_bridge,
+            command_dispatcher: command_dispatch::RuntimeCommandDispatcher::new(&mut task_bridge),
             feedback: &mut feedback,
             active_connection_id: Some("connection-1".to_owned()),
             active_schema: "analytics".to_owned(),
@@ -465,7 +473,7 @@ mod tests {
             agent: &mut agent,
             query_output: &mut query_output,
             schema_explorer: &mut schema_explorer,
-            task_bridge: &mut task_bridge,
+            command_dispatcher: command_dispatch::RuntimeCommandDispatcher::new(&mut task_bridge),
             feedback: &mut feedback,
             active_connection_id: None,
             active_schema: "public".to_owned(),

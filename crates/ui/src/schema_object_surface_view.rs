@@ -18,6 +18,23 @@ pub(super) struct SchemaObjectSurfaceContext<'a> {
     pub(super) active_view: SchemaObjectView,
 }
 
+pub(super) struct SchemaDefinitionContext<'a> {
+    pub(super) theme: DbProTheme,
+    pub(super) kind: &'a str,
+    pub(super) definition: &'a str,
+}
+
+impl SchemaDefinitionContext<'_> {
+    pub(super) fn draw(&self, ui: &mut egui::Ui) {
+        card_frame(self.theme).show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+            section_label(ui, format!("{} DEFINITION", self.kind), self.theme);
+            ui.add_space(SPACE_SM);
+            CodeBlock::new(self.definition, self.theme).language("sql").show(ui);
+        });
+    }
+}
+
 impl SchemaObjectSurfaceContext<'_> {
     pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<SchemaObjectSurfaceAction> {
         let mut actions = Vec::new();

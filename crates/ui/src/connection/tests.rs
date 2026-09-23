@@ -1,3 +1,4 @@
+use super::super::command_dispatch;
 use super::logic::*;
 use super::mapper::*;
 use super::view::*;
@@ -18,12 +19,13 @@ fn rendered_texts(app: &mut DbProApp) -> Vec<String> {
 
     let ctx = egui::Context::default();
     DbProTheme::install_fonts(&ctx);
+    let mut command_dispatcher = command_dispatch::RuntimeCommandDispatcher::new(&mut app.task_bridge);
     let output = ctx.run(Default::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
             ConnectionDialogView {
                 dialog: &mut app.connection.dialog,
                 lifecycle: &mut app.connection.lifecycle,
-                task_bridge: &mut app.task_bridge,
+                command_dispatcher: &mut command_dispatcher,
                 feedback: &mut app.feedback,
                 theme: app.theme,
             }

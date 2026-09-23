@@ -1,57 +1,60 @@
 //! Queries / Data / Problems / History sidebar activities.
 use super::sidebar_data_view::{SidebarDataAction, SidebarDataContext};
 use super::sidebar_problems_view::{SidebarProblemsAction, SidebarProblemsContext};
-use super::sidebar_queries_view::{SidebarQueriesAction, SidebarQueriesContext};
-use super::sidebar_query_library_view::{SidebarQueryLibraryAction, SidebarQueryLibraryContext};
-use super::sidebar_query_shortcuts_view::{SidebarQueryShortcutAction, SidebarQueryShortcutsContext};
+use super::sidebar_queries_surface_view::{SidebarQueriesSurfaceAction, SidebarQueriesSurfaceContext};
+use super::sidebar_query_library_view::SidebarQueryLibraryAction;
 use super::*;
-use egui::RichText;
 
 impl DbProApp {
     pub(super) fn draw_queries(&mut self, ui: &mut egui::Ui) {
         let actions = {
-            let context = SidebarQueriesContext {
+            let context = SidebarQueriesSurfaceContext {
                 theme: self.theme,
                 documents: &self.query.session.documents,
                 active_tab: self.workspace.active_tab,
                 active_document_index: self.query.session.active_document_index,
+                saved_queries: &self.query.library.saved_queries,
+                query_folders: &self.query.library.query_folders,
+                history: &self.query.editor.query_history,
+                delete_confirmation_id: self.overlay.delete_confirmation_id.as_deref(),
             };
             context.draw(ui)
         };
         for action in actions {
             match action {
-                SidebarQueriesAction::NewQuery => self.new_query_document(),
-                SidebarQueriesAction::NewScratch => self.new_scratch_query_document(),
-                SidebarQueriesAction::Select(index) => {
-                    self.switch_query_document(index);
-                    self.workspace.active_tab = WorkspaceTab::Query;
-                }
-                SidebarQueriesAction::Duplicate(index) => self.duplicate_query_document(index),
-                SidebarQueriesAction::Rename(index) => self.rename_query_document_inline(index),
-                SidebarQueriesAction::Close(index) => self.request_close_query_document(index),
+                SidebarQueriesSurfaceAction::OpenQuery(action) => self.apply_sidebar_query_action(action),
+                SidebarQueriesSurfaceAction::Library(action) => self.apply_sidebar_query_library_action(ui, action),
+                SidebarQueriesSurfaceAction::Shortcut(action) => self.apply_sidebar_query_shortcut_action(action),
             }
         }
+    }
 
-        ui.add_space(14.0);
-        section_label(ui, "SAVED QUERIES", self.theme);
-        ui.add_space(6.0);
-        self.draw_saved_queries_section(ui);
+    fn apply_sidebar_query_action(&mut self, action: sidebar_queries_view::SidebarQueriesAction) {
+        match action {
+            sidebar_queries_view::SidebarQueriesAction::NewQuery => self.new_query_document(),
+            sidebar_queries_view::SidebarQueriesAction::NewScratch => self.new_scratch_query_document(),
+            sidebar_queries_view::SidebarQueriesAction::Select(index) => {
+                self.switch_query_document(index);
+                self.workspace.active_tab = WorkspaceTab::Query;
+            }
+            sidebar_queries_view::SidebarQueriesAction::Duplicate(index) => self.duplicate_query_document(index),
+            sidebar_queries_view::SidebarQueriesAction::Rename(index) => self.rename_query_document_inline(index),
+            sidebar_queries_view::SidebarQueriesAction::Close(index) => self.request_close_query_document(index),
+        }
+    }
 
-        ui.add_space(14.0);
-        section_label(ui, "HISTORY", self.theme);
-        ui.add_space(6.0);
-        self.draw_local_history_section(ui);
-
-        ui.add_space(14.0);
-        let shortcut_actions = SidebarQueryShortcutsContext { theme: self.theme }.draw(ui);
-        for action in shortcut_actions {
-            match action {
-                SidebarQueryShortcutAction::InsertSnippet(snippet) => {
-                    self.insert_snippet(&snippet);
-                    self.workspace.active_tab = WorkspaceTab::Query;
-                    self.workspace.activity = Activity::Queries;
-                }
-                SidebarQueryShortcutAction::NewScratch => self.new_scratch_query_document(),
+    fn apply_sidebar_query_shortcut_action(
+        &mut self,
+        action: sidebar_query_shortcuts_view::SidebarQueryShortcutAction,
+    ) {
+        match action {
+            sidebar_query_shortcuts_view::SidebarQueryShortcutAction::InsertSnippet(snippet) => {
+                self.insert_snippet(&snippet);
+                self.workspace.active_tab = WorkspaceTab::Query;
+                self.workspace.activity = Activity::Queries;
+            }
+            sidebar_query_shortcuts_view::SidebarQueryShortcutAction::NewScratch => {
+                self.new_scratch_query_document();
             }
         }
     }
@@ -119,7 +122,7 @@ impl DbProApp {
                     self.query.editor.problems_selected = Some((entry.document_id, entry.diagnostic_index));
                     if entry.document_index == usize::MAX {
                         self.open_workspace_sql_file(entry.document_title);
-                        self.workspace.files_panel_tab = FilesPanelTab::Search;
+                        self.workspace.files.select_panel_tab(FilesPanelTab::Search);
                     } else {
                         self.navigate_to_problem(entry.document_index, entry.diagnostic_index);
                     }
@@ -135,38 +138,23 @@ impl DbProApp {
     }
 
     pub(super) fn draw_history(&mut self, ui: &mut egui::Ui) {
-        ui.label(
-            RichText::new("Saved queries")
-                .small()
-                .strong()
-                .color(self.theme.text_muted),
-        );
-        self.draw_saved_queries_section(ui);
-        ui.separator();
-        ui.label(
-            RichText::new("Local history")
-                .small()
-                .strong()
-                .color(self.theme.text_muted),
-        );
-        self.draw_local_history_section(ui);
-    }
-
-    /// Saved queries, grouped by folder, plus the pending-delete confirmation.
-    fn draw_saved_queries_section(&mut self, ui: &mut egui::Ui) {
-        let actions = {
-            let context = SidebarQueryLibraryContext {
-                theme: self.theme,
-                saved_queries: &self.query.library.saved_queries,
-                query_folders: &self.query.library.query_folders,
-                history: &self.query.editor.query_history,
-            };
-            context.draw_saved_queries(ui)
+        let context = SidebarQueriesSurfaceContext {
+            theme: self.theme,
+            documents: &self.query.session.documents,
+            active_tab: self.workspace.active_tab,
+            active_document_index: self.query.session.active_document_index,
+            saved_queries: &self.query.library.saved_queries,
+            query_folders: &self.query.library.query_folders,
+            history: &self.query.editor.query_history,
+            delete_confirmation_id: self.overlay.delete_confirmation_id.as_deref(),
         };
-        for action in actions {
-            self.apply_sidebar_query_library_action(ui, action);
+        for action in context.draw_history(ui) {
+            match action {
+                SidebarQueriesSurfaceAction::Library(action) => self.apply_sidebar_query_library_action(ui, action),
+                SidebarQueriesSurfaceAction::OpenQuery(action) => self.apply_sidebar_query_action(action),
+                SidebarQueriesSurfaceAction::Shortcut(action) => self.apply_sidebar_query_shortcut_action(action),
+            }
         }
-        self.draw_delete_saved_query_confirmation(ui);
     }
 
     fn apply_sidebar_query_library_action(&mut self, ui: &mut egui::Ui, action: SidebarQueryLibraryAction) {
@@ -184,6 +172,15 @@ impl DbProApp {
             SidebarQueryLibraryAction::RequestDelete(id) => {
                 self.overlay.delete_confirmation_id = Some(id);
             }
+            SidebarQueryLibraryAction::ConfirmDelete(id) => {
+                let request_id = self.next_request_id();
+                if self.dispatch_command(query_save_commands::delete_query_command(request_id, id)) {
+                    self.overlay.delete_confirmation_id = None;
+                }
+            }
+            SidebarQueryLibraryAction::CancelDelete => {
+                self.overlay.delete_confirmation_id = None;
+            }
             SidebarQueryLibraryAction::RequestDeleteFolder(id) => {
                 self.overlay.folder_delete_confirmation = id;
             }
@@ -191,48 +188,16 @@ impl DbProApp {
     }
 
     fn rename_saved_query(&mut self, query: &UiSavedQuerySummary) {
-        let request_id = self.task_bridge.next_request_id();
+        let request_id = self.next_request_id();
         let name = if self.query.library.query_folder.trim().is_empty() {
             format!("{} (renamed)", query.name)
         } else {
             self.query.library.query_folder.trim().to_owned()
         };
-        self.dispatch_command(
-            self.query
-                .library
-                .rename_query_command(request_id, query.id.clone(), name),
-        );
-    }
-
-    fn draw_delete_saved_query_confirmation(&mut self, ui: &mut egui::Ui) {
-        let Some(id) = self.overlay.delete_confirmation_id.clone() else {
-            return;
-        };
-        ui.colored_label(self.theme.warning, "Delete this saved query?");
-        ui.horizontal(|ui| {
-            if compact_button(ui, "Confirm delete", self.theme).clicked() {
-                let request_id = self.task_bridge.next_request_id();
-                self.dispatch_command(self.query.library.delete_query_command(request_id, id));
-                self.overlay.delete_confirmation_id = None;
-            }
-            if compact_button(ui, "Cancel", self.theme).clicked() {
-                self.overlay.delete_confirmation_id = None;
-            }
-        });
-    }
-
-    fn draw_local_history_section(&mut self, ui: &mut egui::Ui) {
-        let actions = {
-            let context = SidebarQueryLibraryContext {
-                theme: self.theme,
-                saved_queries: &self.query.library.saved_queries,
-                query_folders: &self.query.library.query_folders,
-                history: &self.query.editor.query_history,
-            };
-            context.draw_local_history(ui)
-        };
-        for action in actions {
-            self.apply_sidebar_query_library_action(ui, action);
-        }
+        self.dispatch_command(query_save_commands::rename_query_command(
+            request_id,
+            query.id.clone(),
+            name,
+        ));
     }
 }

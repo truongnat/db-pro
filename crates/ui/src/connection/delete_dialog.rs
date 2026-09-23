@@ -1,9 +1,9 @@
 use super::super::{FeedbackState, OverlayState};
-use super::{ConnectionCatalogState, ConnectionLifecycleState};
+use super::{ConnectionCatalogState, ConnectionLifecycleState, PendingConnectionOperation};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::dialog::Dialog;
 use crate::tokens::*;
-use crate::{DbProTheme, TaskBridge, UiCommand};
+use crate::{DbProTheme, UiCommand};
 use egui::RichText;
 
 /// Render and reduce the connection deletion confirmation without reaching
@@ -14,7 +14,7 @@ pub(crate) fn draw(
     overlay: &mut OverlayState,
     catalog: &ConnectionCatalogState,
     lifecycle: &mut ConnectionLifecycleState,
-    task_bridge: &mut TaskBridge,
+    command_dispatcher: &mut super::super::command_dispatch::RuntimeCommandDispatcher<'_>,
     feedback: &mut FeedbackState,
 ) {
     let Some(connection_id) = overlay.delete_confirmation_id.clone() else {
@@ -65,22 +65,20 @@ pub(crate) fn draw(
         });
 
     if confirmed {
-        let request_id = task_bridge.next_request_id();
+        let request_id = command_dispatcher.next_request_id();
         let command = UiCommand::DeleteConnection {
             request_id,
             connection_id: connection_id.clone(),
         };
-        if !task_bridge.send_best_effort(command) {
-            let message = "Runtime worker unavailable";
-            feedback.set_runtime_message(message);
-            feedback.show_error_toast(message);
+        if command_dispatcher.dispatch(command, feedback) {
+            // Track the target only after the runtime accepted the command so a
+            // closed worker cannot leave a phantom delete operation pending.
+            lifecycle.set_pending_request(Some(request_id));
+            lifecycle.set_pending_operation(Some(PendingConnectionOperation::Delete));
+            lifecycle.set_pending_connection_id(Some(connection_id));
+            feedback.set_runtime_message(t!("status.deleting", name = name.as_str()));
+            overlay.delete_confirmation_id = None;
         }
-        // Track the target so Failed events report delete failure, not a
-        // spurious "Connection failed" on the active connection.
-        lifecycle.set_pending_request(Some(request_id));
-        lifecycle.set_pending_connection_id(Some(connection_id));
-        feedback.set_runtime_message(t!("status.deleting", name = name.as_str()));
-        overlay.delete_confirmation_id = None;
     } else if cancelled || !open {
         overlay.delete_confirmation_id = None;
     }

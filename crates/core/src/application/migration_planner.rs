@@ -3,7 +3,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use crate::domain::cross_connection::SchemaDiff;
+use crate::domain::cross_connection::{SchemaDiff, TableColumnDiff};
 use crate::domain::migration::{MigrationOpKind, MigrationOperation, MigrationPlan, MigrationRisk};
 
 pub struct MigrationPlanner;
@@ -13,204 +13,7 @@ impl MigrationPlanner {
     ///
     /// Destructive operations are included and flagged; callers must never auto-apply them.
     pub fn plan_from_schema_diff(diff: &SchemaDiff, driver: &str) -> MigrationPlan {
-        let is_sqlite = driver.to_ascii_lowercase().contains("sqlite");
-        let mut operations = Vec::new();
-        let mut warnings = Vec::new();
-        let mut seq = 0u32;
-
-        // 1. Create tables present only in source (desired).
-        for qualified in &diff.tables_only_in_source {
-            let (schema, table) = split_qualified(qualified);
-            seq += 1;
-            let id = format!("op-{seq:04}");
-            operations.push(MigrationOperation {
-                id: id.clone(),
-                kind: MigrationOpKind::CreateTable,
-                schema: schema.clone(),
-                object: table.clone(),
-                sql: format!(
-                    "CREATE TABLE {} (id INTEGER PRIMARY KEY /* placeholder — expand from introspection */)",
-                    qualify(&schema, &table)
-                ),
-                risk: MigrationRisk::Mutating,
-                dependencies: Vec::new(),
-                provider_supported: true,
-                unsupported_reason: None,
-            });
-            warnings.push(format!(
-                "{id}: CREATE TABLE for {qualified} uses a placeholder body; expand columns from source introspection before apply"
-            ));
-        }
-
-        // 2. Add columns present only in source.
-        for col_diff in &diff.column_diffs {
-            for column in &col_diff.columns_only_in_source {
-                seq += 1;
-                let id = format!("op-{seq:04}");
-                let table_id = operations
-                    .iter()
-                    .find(|op| {
-                        op.kind == MigrationOpKind::CreateTable
-                            && op.schema == col_diff.schema
-                            && op.object == col_diff.table
-                    })
-                    .map(|op| op.id.clone());
-                operations.push(MigrationOperation {
-                    id,
-                    kind: MigrationOpKind::AddColumn,
-                    schema: col_diff.schema.clone(),
-                    object: format!("{}.{}", col_diff.table, column),
-                    sql: format!(
-                        "ALTER TABLE {} ADD COLUMN {} TEXT /* type from source */",
-                        qualify(&col_diff.schema, &col_diff.table),
-                        quote_ident(column)
-                    ),
-                    risk: MigrationRisk::Mutating,
-                    dependencies: table_id.into_iter().collect(),
-                    provider_supported: true,
-                    unsupported_reason: None,
-                });
-            }
-        }
-
-        // 3. Type mismatches — mutating; SQLite often unsupported without rebuild.
-        for col_diff in &diff.column_diffs {
-            for mismatch in &col_diff.type_mismatches {
-                seq += 1;
-                let id = format!("op-{seq:04}");
-                let (supported, reason) = if is_sqlite {
-                    (
-                        false,
-                        Some("SQLite cannot ALTER COLUMN type in-place; requires table rebuild strategy".into()),
-                    )
-                } else {
-                    (true, None)
-                };
-                operations.push(MigrationOperation {
-                    id,
-                    kind: MigrationOpKind::AlterColumnType,
-                    schema: col_diff.schema.clone(),
-                    object: format!("{}.{}", col_diff.table, mismatch.column),
-                    sql: format!(
-                        "ALTER TABLE {} ALTER COLUMN {} TYPE {}",
-                        qualify(&col_diff.schema, &col_diff.table),
-                        quote_ident(&mismatch.column),
-                        mismatch.source_type
-                    ),
-                    risk: MigrationRisk::Mutating,
-                    dependencies: Vec::new(),
-                    provider_supported: supported,
-                    unsupported_reason: reason,
-                });
-            }
-        }
-
-        // 4. Create indexes present only in source.
-        for qualified in &diff.indexes_only_in_source {
-            let (schema, name) = split_qualified(qualified);
-            seq += 1;
-            operations.push(MigrationOperation {
-                id: format!("op-{seq:04}"),
-                kind: MigrationOpKind::CreateIndex,
-                schema: schema.clone(),
-                object: name.clone(),
-                sql: format!(
-                    "CREATE INDEX {} ON {} (/* columns from source */)",
-                    qualify(&schema, &name),
-                    qualify(&schema, &name)
-                ),
-                risk: MigrationRisk::Mutating,
-                dependencies: Vec::new(),
-                provider_supported: true,
-                unsupported_reason: None,
-            });
-            warnings.push(format!(
-                "op-{seq:04}: CREATE INDEX for {qualified} needs column list from source introspection"
-            ));
-        }
-
-        // 5. Drop indexes present only in target (before drop column/table).
-        for qualified in &diff.indexes_only_in_target {
-            let (schema, name) = split_qualified(qualified);
-            seq += 1;
-            operations.push(MigrationOperation {
-                id: format!("op-{seq:04}"),
-                kind: MigrationOpKind::DropIndex,
-                schema: schema.clone(),
-                object: name.clone(),
-                sql: if is_sqlite {
-                    format!("DROP INDEX IF EXISTS {}", quote_ident(&name))
-                } else {
-                    format!("DROP INDEX IF EXISTS {}", qualify(&schema, &name))
-                },
-                risk: MigrationRisk::Destructive,
-                dependencies: Vec::new(),
-                provider_supported: true,
-                unsupported_reason: None,
-            });
-        }
-
-        // 6. Drop columns present only in target.
-        for col_diff in &diff.column_diffs {
-            for column in &col_diff.columns_only_in_target {
-                seq += 1;
-                let (supported, reason) = if is_sqlite {
-                    (
-                        false,
-                        Some("SQLite DROP COLUMN support varies; verify runtime capability".into()),
-                    )
-                } else {
-                    (true, None)
-                };
-                operations.push(MigrationOperation {
-                    id: format!("op-{seq:04}"),
-                    kind: MigrationOpKind::DropColumn,
-                    schema: col_diff.schema.clone(),
-                    object: format!("{}.{}", col_diff.table, column),
-                    sql: format!(
-                        "ALTER TABLE {} DROP COLUMN {}",
-                        qualify(&col_diff.schema, &col_diff.table),
-                        quote_ident(column)
-                    ),
-                    risk: MigrationRisk::Destructive,
-                    dependencies: Vec::new(),
-                    provider_supported: supported,
-                    unsupported_reason: reason,
-                });
-            }
-        }
-
-        // 7. Drop tables present only in target.
-        for qualified in &diff.tables_only_in_target {
-            let (schema, table) = split_qualified(qualified);
-            seq += 1;
-            operations.push(MigrationOperation {
-                id: format!("op-{seq:04}"),
-                kind: MigrationOpKind::DropTable,
-                schema: schema.clone(),
-                object: table.clone(),
-                sql: format!("DROP TABLE IF EXISTS {}", qualify(&schema, &table)),
-                risk: MigrationRisk::Destructive,
-                dependencies: Vec::new(),
-                provider_supported: true,
-                unsupported_reason: None,
-            });
-        }
-
-        let has_destructive = operations.iter().any(|op| op.risk == MigrationRisk::Destructive);
-        if has_destructive {
-            warnings
-                .push("Plan contains destructive operations — never auto-apply; require explicit confirmation".into());
-        }
-
-        let fingerprint = fingerprint_ops(&operations);
-        MigrationPlan {
-            driver: driver.to_owned(),
-            operations,
-            fingerprint,
-            warnings,
-            has_destructive,
-        }
+        MigrationPlanBuilder::new(driver).build(diff)
     }
 
     /// SQL preview for non-unsupported operations, joined with semicolons.
@@ -248,6 +51,256 @@ impl MigrationPlanner {
     }
 }
 
+struct MigrationPlanBuilder {
+    driver: String,
+    is_sqlite: bool,
+    operations: Vec<MigrationOperation>,
+    warnings: Vec<String>,
+    next_sequence: u32,
+}
+
+struct PendingMigrationOperation {
+    kind: MigrationOpKind,
+    schema: String,
+    object: String,
+    sql: String,
+    risk: MigrationRisk,
+    dependencies: Vec<String>,
+    provider_supported: bool,
+    unsupported_reason: Option<String>,
+}
+
+impl MigrationPlanBuilder {
+    fn new(driver: &str) -> Self {
+        Self {
+            driver: driver.to_owned(),
+            is_sqlite: driver.to_ascii_lowercase().contains("sqlite"),
+            operations: Vec::new(),
+            warnings: Vec::new(),
+            next_sequence: 0,
+        }
+    }
+
+    fn build(mut self, diff: &SchemaDiff) -> MigrationPlan {
+        self.add_source_tables(diff);
+        self.add_source_columns(diff);
+        self.add_type_mismatches(diff);
+        self.add_source_indexes(diff);
+        self.add_target_indexes_to_drop(diff);
+        self.add_target_columns_to_drop(diff);
+        self.add_target_tables_to_drop(diff);
+
+        let has_destructive = self
+            .operations
+            .iter()
+            .any(|operation| operation.risk == MigrationRisk::Destructive);
+        if has_destructive {
+            self.warnings
+                .push("Plan contains destructive operations — never auto-apply; require explicit confirmation".into());
+        }
+
+        let fingerprint = fingerprint_ops(&self.operations);
+        MigrationPlan {
+            driver: self.driver,
+            operations: self.operations,
+            fingerprint,
+            warnings: self.warnings,
+            has_destructive,
+        }
+    }
+
+    fn add_source_tables(&mut self, diff: &SchemaDiff) {
+        for qualified in &diff.tables_only_in_source {
+            let (schema, table) = split_qualified(qualified);
+            let id = self.add_operation(PendingMigrationOperation {
+                kind: MigrationOpKind::CreateTable,
+                schema: schema.clone(),
+                object: table.clone(),
+                sql: format!(
+                    "CREATE TABLE {} (id INTEGER PRIMARY KEY /* placeholder — expand from introspection */)",
+                    qualify(&schema, &table)
+                ),
+                risk: MigrationRisk::Mutating,
+                dependencies: Vec::new(),
+                provider_supported: true,
+                unsupported_reason: None,
+            });
+            self.warnings.push(format!(
+                "{id}: CREATE TABLE for {qualified} uses a placeholder body; expand columns from source introspection before apply"
+            ));
+        }
+    }
+
+    fn add_source_columns(&mut self, diff: &SchemaDiff) {
+        for column_diff in &diff.column_diffs {
+            for column in &column_diff.columns_only_in_source {
+                let table_id = self.created_table_id(column_diff);
+                self.add_operation(PendingMigrationOperation {
+                    kind: MigrationOpKind::AddColumn,
+                    schema: column_diff.schema.clone(),
+                    object: format!("{}.{}", column_diff.table, column),
+                    sql: format!(
+                        "ALTER TABLE {} ADD COLUMN {} TEXT /* type from source */",
+                        qualify(&column_diff.schema, &column_diff.table),
+                        quote_ident(column)
+                    ),
+                    risk: MigrationRisk::Mutating,
+                    dependencies: table_id.into_iter().collect(),
+                    provider_supported: true,
+                    unsupported_reason: None,
+                });
+            }
+        }
+    }
+
+    fn created_table_id(&self, column_diff: &TableColumnDiff) -> Option<String> {
+        self.operations
+            .iter()
+            .find(|operation| {
+                operation.kind == MigrationOpKind::CreateTable
+                    && operation.schema == column_diff.schema
+                    && operation.object == column_diff.table
+            })
+            .map(|operation| operation.id.clone())
+    }
+
+    fn add_type_mismatches(&mut self, diff: &SchemaDiff) {
+        for column_diff in &diff.column_diffs {
+            for mismatch in &column_diff.type_mismatches {
+                let (provider_supported, unsupported_reason) = if self.is_sqlite {
+                    (
+                        false,
+                        Some("SQLite cannot ALTER COLUMN type in-place; requires table rebuild strategy".into()),
+                    )
+                } else {
+                    (true, None)
+                };
+                self.add_operation(PendingMigrationOperation {
+                    kind: MigrationOpKind::AlterColumnType,
+                    schema: column_diff.schema.clone(),
+                    object: format!("{}.{}", column_diff.table, mismatch.column),
+                    sql: format!(
+                        "ALTER TABLE {} ALTER COLUMN {} TYPE {}",
+                        qualify(&column_diff.schema, &column_diff.table),
+                        quote_ident(&mismatch.column),
+                        mismatch.source_type
+                    ),
+                    risk: MigrationRisk::Mutating,
+                    dependencies: Vec::new(),
+                    provider_supported,
+                    unsupported_reason,
+                });
+            }
+        }
+    }
+
+    fn add_source_indexes(&mut self, diff: &SchemaDiff) {
+        for qualified in &diff.indexes_only_in_source {
+            let (schema, name) = split_qualified(qualified);
+            let id = self.add_operation(PendingMigrationOperation {
+                kind: MigrationOpKind::CreateIndex,
+                schema: schema.clone(),
+                object: name.clone(),
+                sql: format!(
+                    "CREATE INDEX {} ON {} (/* columns from source */)",
+                    qualify(&schema, &name),
+                    qualify(&schema, &name)
+                ),
+                risk: MigrationRisk::Mutating,
+                dependencies: Vec::new(),
+                provider_supported: true,
+                unsupported_reason: None,
+            });
+            self.warnings.push(format!(
+                "{id}: CREATE INDEX for {qualified} needs column list from source introspection"
+            ));
+        }
+    }
+
+    fn add_target_indexes_to_drop(&mut self, diff: &SchemaDiff) {
+        for qualified in &diff.indexes_only_in_target {
+            let (schema, name) = split_qualified(qualified);
+            let sql = if self.is_sqlite {
+                format!("DROP INDEX IF EXISTS {}", quote_ident(&name))
+            } else {
+                format!("DROP INDEX IF EXISTS {}", qualify(&schema, &name))
+            };
+            self.add_operation(PendingMigrationOperation {
+                kind: MigrationOpKind::DropIndex,
+                schema,
+                object: name,
+                sql,
+                risk: MigrationRisk::Destructive,
+                dependencies: Vec::new(),
+                provider_supported: true,
+                unsupported_reason: None,
+            });
+        }
+    }
+
+    fn add_target_columns_to_drop(&mut self, diff: &SchemaDiff) {
+        for column_diff in &diff.column_diffs {
+            for column in &column_diff.columns_only_in_target {
+                let (provider_supported, unsupported_reason) = if self.is_sqlite {
+                    (
+                        false,
+                        Some("SQLite DROP COLUMN support varies; verify runtime capability".into()),
+                    )
+                } else {
+                    (true, None)
+                };
+                self.add_operation(PendingMigrationOperation {
+                    kind: MigrationOpKind::DropColumn,
+                    schema: column_diff.schema.clone(),
+                    object: format!("{}.{}", column_diff.table, column),
+                    sql: format!(
+                        "ALTER TABLE {} DROP COLUMN {}",
+                        qualify(&column_diff.schema, &column_diff.table),
+                        quote_ident(column)
+                    ),
+                    risk: MigrationRisk::Destructive,
+                    dependencies: Vec::new(),
+                    provider_supported,
+                    unsupported_reason,
+                });
+            }
+        }
+    }
+
+    fn add_target_tables_to_drop(&mut self, diff: &SchemaDiff) {
+        for qualified in &diff.tables_only_in_target {
+            let (schema, table) = split_qualified(qualified);
+            self.add_operation(PendingMigrationOperation {
+                kind: MigrationOpKind::DropTable,
+                schema: schema.clone(),
+                object: table.clone(),
+                sql: format!("DROP TABLE IF EXISTS {}", qualify(&schema, &table)),
+                risk: MigrationRisk::Destructive,
+                dependencies: Vec::new(),
+                provider_supported: true,
+                unsupported_reason: None,
+            });
+        }
+    }
+
+    fn add_operation(&mut self, pending: PendingMigrationOperation) -> String {
+        self.next_sequence += 1;
+        let id = format!("op-{:04}", self.next_sequence);
+        self.operations.push(MigrationOperation {
+            id: id.clone(),
+            kind: pending.kind,
+            schema: pending.schema,
+            object: pending.object,
+            sql: pending.sql,
+            risk: pending.risk,
+            dependencies: pending.dependencies,
+            provider_supported: pending.provider_supported,
+            unsupported_reason: pending.unsupported_reason,
+        });
+        id
+    }
+}
+
 fn split_qualified(qualified: &str) -> (String, String) {
     if let Some((schema, name)) = qualified.split_once('.') {
         (unquote(schema), unquote(name))
@@ -274,10 +327,10 @@ fn qualify(schema: &str, name: &str) -> String {
 
 fn fingerprint_ops(operations: &[MigrationOperation]) -> String {
     let mut hasher = DefaultHasher::new();
-    for op in operations {
-        op.id.hash(&mut hasher);
-        op.sql.hash(&mut hasher);
-        op.risk.hash(&mut hasher);
+    for operation in operations {
+        operation.id.hash(&mut hasher);
+        operation.sql.hash(&mut hasher);
+        operation.risk.hash(&mut hasher);
     }
     format!("{:016x}", hasher.finish())
 }

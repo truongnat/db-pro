@@ -4,10 +4,14 @@ use crate::domain::connection::ConnectionId;
 use crate::domain::error::DbError;
 use crate::domain::query::{CellValue, QueryResult};
 use crate::domain::safety::ConnectionSafetyPolicy;
-use crate::ports::{ConnectionRepository, DbConnector, ParameterizedTransactionStatement, TransactionStatementResult};
+use crate::ports::{ConnectionRepository, DbConnector};
 
 use super::registry::ConnectionRegistry;
 use super::sql_builder::{self, SortClause, TableFilter};
+use table_mutation_execution::TableMutationExecution;
+
+#[path = "table_mutation_execution.rs"]
+mod table_mutation_execution;
 
 #[derive(Debug, Clone)]
 pub enum TableDataMutation {
@@ -225,99 +229,9 @@ impl TableDataService {
         table: &str,
         mutations: &[TableDataMutation],
     ) -> Result<u64, crate::ports::TransactionFailure> {
-        let statement_count = mutations.len();
-        let validation_failure = |error: DbError| crate::ports::TransactionFailure {
-            phase: crate::ports::TransactionFailurePhase::Validation,
-            statement_index: statement_count,
-            outcome: crate::ports::TransactionFailureOutcome::NotStarted,
-            results: Vec::new(),
-            error,
-        };
-        if mutations.is_empty() {
-            return Ok(0);
-        }
-        let policy = self
-            .safety_policy_for(connection_id)
+        TableMutationExecution::new(self, connection_id, schema, table, mutations)
+            .execute()
             .await
-            .map_err(validation_failure)?;
-        if policy.read_only {
-            return Err(validation_failure(DbError::QueryFailed(
-                "connection is read-only; cannot apply table changes".into(),
-            )));
-        }
-        let handle = self.resolve_handle(connection_id).map_err(validation_failure)?;
-        let dialect = self.connector.dialect(&handle).map_err(validation_failure)?;
-        let mut indexed_mutations: Vec<(usize, &TableDataMutation)> = mutations.iter().enumerate().collect();
-        indexed_mutations.sort_by_key(|(_, mutation)| match mutation {
-            TableDataMutation::Delete { .. } => 0,
-            TableDataMutation::Update { .. } => 1,
-            TableDataMutation::Insert { .. } => 2,
-        });
-        let statements = indexed_mutations
-            .iter()
-            .map(|(_, mutation)| {
-                let (sql, params) = match mutation {
-                    TableDataMutation::Update {
-                        columns,
-                        values,
-                        pk_columns,
-                        pk_values,
-                    } => sql_builder::build_update(
-                        dialect.as_ref(),
-                        schema,
-                        table,
-                        columns,
-                        values,
-                        pk_columns,
-                        pk_values,
-                    ),
-                    TableDataMutation::Delete { pk_columns, pk_values } => {
-                        sql_builder::build_delete(dialect.as_ref(), schema, table, pk_columns, pk_values)
-                    }
-                    TableDataMutation::Insert { columns, values } => {
-                        sql_builder::build_insert(dialect.as_ref(), schema, table, columns, values)
-                    }
-                }?;
-                Ok(ParameterizedTransactionStatement {
-                    sql,
-                    params,
-                    expect_affected_rows: true,
-                    max_affected_rows: Some(1),
-                })
-            })
-            .collect::<Result<Vec<_>, DbError>>()
-            .map_err(validation_failure)?;
-        let results = self
-            .connector
-            .execute_parameterized_transaction(&handle, &statements)
-            .await
-            .map_err(|mut failure| {
-                if failure.statement_index < indexed_mutations.len() {
-                    failure.statement_index = indexed_mutations[failure.statement_index].0;
-                }
-                failure
-            })?;
-        let mut total = 0_u64;
-        for result in results {
-            match result {
-                TransactionStatementResult::Affected { row_count, .. } => {
-                    total = match total.checked_add(row_count) {
-                        Some(total) => total,
-                        None => {
-                            return Err(validation_failure(DbError::Internal(
-                                "affected row count overflow".into(),
-                            )))
-                        }
-                    };
-                }
-                TransactionStatementResult::Query(_) => {
-                    return Err(validation_failure(DbError::Internal(
-                        "table mutation transaction returned a query result".into(),
-                    )))
-                }
-            }
-        }
-        Ok(total)
     }
 
     fn resolve_handle(
@@ -372,7 +286,7 @@ mod tests {
     use crate::ports::dialect::SqlDialect;
     use crate::ports::{
         MockConnectionRepository, MockDbConnector, TransactionFailure, TransactionFailureOutcome,
-        TransactionFailurePhase,
+        TransactionFailurePhase, TransactionStatementResult,
     };
 
     struct QuestionDialect;
@@ -866,6 +780,180 @@ mod tests {
         // Statement index 1 in reordered execution corresponds to Insert, which was input index 0.
         assert_eq!(failure.statement_index, 0);
         assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
+    }
+
+    #[tokio::test]
+    async fn apply_mutations_detailed_maps_statement_index_complex_reordering() {
+        let (conn_id, registry) = setup();
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+
+        // Input mutations:
+        // idx 0: Insert 1
+        // idx 1: Update 1
+        // idx 2: Delete 1
+        // idx 3: Insert 2
+        // Reordered execution:
+        // exec 0: Delete 1 (orig idx 2)
+        // exec 1: Update 1 (orig idx 1)
+        // exec 2: Insert 1 (orig idx 0)
+        // exec 3: Insert 2 (orig idx 3)
+        // Let exec 0 (Delete 1) fail, which corresponds to original input index 2.
+        connector
+            .expect_execute_parameterized_transaction()
+            .returning(|_, statements| {
+                assert_eq!(statements.len(), 4);
+                assert!(statements[0].sql.starts_with("DELETE FROM"));
+                assert!(statements[1].sql.starts_with("UPDATE"));
+                assert!(statements[2].sql.starts_with("INSERT INTO"));
+                assert!(statements[3].sql.starts_with("INSERT INTO"));
+                Err(TransactionFailure {
+                    phase: TransactionFailurePhase::Statement,
+                    statement_index: 0, // exec index 0 (Delete 1)
+                    outcome: TransactionFailureOutcome::RolledBack,
+                    results: Vec::new(),
+                    error: DbError::Conflict("row lock failure".into()),
+                })
+            });
+
+        let service = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
+        let failure = service
+            .apply_mutations_detailed(
+                &conn_id,
+                "public",
+                "users",
+                &[
+                    TableDataMutation::Insert {
+                        columns: vec!["name".into()],
+                        values: vec![CellValue::Text("insert 1".into())],
+                    },
+                    TableDataMutation::Update {
+                        columns: vec!["name".into()],
+                        values: vec![CellValue::Text("update 1".into())],
+                        pk_columns: vec!["id".into()],
+                        pk_values: vec![CellValue::Int64(10)],
+                    },
+                    TableDataMutation::Delete {
+                        pk_columns: vec!["id".into()],
+                        pk_values: vec![CellValue::Int64(20)],
+                    },
+                    TableDataMutation::Insert {
+                        columns: vec!["name".into()],
+                        values: vec![CellValue::Text("insert 2".into())],
+                    },
+                ],
+            )
+            .await
+            .expect_err("failing transaction must map statement_index back to original input position");
+
+        // Exec index 0 corresponds to Delete 1, which was original input index 2.
+        assert_eq!(failure.statement_index, 2);
+        assert_eq!(failure.outcome, TransactionFailureOutcome::RolledBack);
+    }
+
+    #[tokio::test]
+    async fn apply_mutations_detailed_retains_zero_statement_index_on_begin_failure() {
+        let (conn_id, registry) = setup();
+        let mut connector = MockDbConnector::new();
+        connector
+            .expect_dialect()
+            .returning(|_| Ok(Box::new(QuestionDialect) as Box<dyn SqlDialect>));
+
+        // Input mutations: [Insert (orig 0), Delete (orig 1)]
+        // Reordered execution statements: [Delete (exec 0), Insert (exec 1)]
+        // Mock transaction execution fails during Begin phase with statement_index 0.
+        connector.expect_execute_parameterized_transaction().returning(|_, _| {
+            Err(TransactionFailure {
+                phase: TransactionFailurePhase::Begin,
+                statement_index: 0,
+                outcome: TransactionFailureOutcome::NotStarted,
+                results: Vec::new(),
+                error: DbError::ConnectionFailed("begin failed".into()),
+            })
+        });
+
+        let service = TableDataService::new(Box::new(connector), registry, Box::new(mock_connections()));
+        let failure = service
+            .apply_mutations_detailed(
+                &conn_id,
+                "public",
+                "users",
+                &[
+                    TableDataMutation::Insert {
+                        columns: vec!["name".into()],
+                        values: vec![CellValue::Text("new".into())],
+                    },
+                    TableDataMutation::Delete {
+                        pk_columns: vec!["id".into()],
+                        pk_values: vec![CellValue::Int64(1)],
+                    },
+                ],
+            )
+            .await
+            .expect_err("begin failure must return transaction failure");
+
+        // Begin failure must retain statement_index 0, NOT remapping via indexed_mutations[0].0 (which would be 1).
+        assert_eq!(failure.phase, TransactionFailurePhase::Begin);
+        assert_eq!(failure.statement_index, 0);
+        assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+    }
+
+    #[tokio::test]
+    async fn apply_mutations_detailed_retains_zero_statement_index_on_validation_failure() {
+        let (conn_id, registry) = setup();
+        let connector = MockDbConnector::new();
+        let mut repo = MockConnectionRepository::new();
+        repo.expect_get_config().returning(|_id| {
+            Ok(Some(crate::domain::connection::ConnectionConfig {
+                name: "test".into(),
+                host: "localhost".into(),
+                port: 5432,
+                database: "testdb".into(),
+                username: "user".into(),
+                driver: crate::domain::connection::DriverType::Postgres,
+                ssl_mode: crate::domain::connection::SslMode::Disable,
+                ssh_tunnel: None,
+                ssh_profile_id: None,
+                ssl_root_cert_path: None,
+                ssl_client_cert_path: None,
+                ssl_client_key_path: None,
+                query_timeout_ms: 30_000,
+                max_rows: 500,
+                color: None,
+                tags: vec![],
+                group: None,
+                favorite: false,
+                environment: Default::default(),
+                readonly: true, // Read-only connection triggers validation failure
+            }))
+        });
+
+        let service = TableDataService::new(Box::new(connector), registry, Box::new(repo));
+        let failure = service
+            .apply_mutations_detailed(
+                &conn_id,
+                "public",
+                "users",
+                &[
+                    TableDataMutation::Insert {
+                        columns: vec!["name".into()],
+                        values: vec![CellValue::Text("new".into())],
+                    },
+                    TableDataMutation::Delete {
+                        pk_columns: vec!["id".into()],
+                        pk_values: vec![CellValue::Int64(1)],
+                    },
+                ],
+            )
+            .await
+            .expect_err("validation failure on read-only connection");
+
+        // Validation failure must report statement_index 0 (reflecting 0 statements executed, not mutations.len()).
+        assert_eq!(failure.phase, TransactionFailurePhase::Validation);
+        assert_eq!(failure.statement_index, 0);
+        assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
     }
 
     #[tokio::test]

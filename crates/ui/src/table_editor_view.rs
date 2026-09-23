@@ -1,16 +1,40 @@
 use super::*;
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use egui::FontId;
-use lucide_icons::Icon;
 
-/// Whether the table editor executes DDL itself.
-///
-/// It does not: v0.1 ships schema/DDL *inspection* from the table editor and DDL
-/// *execution* through the query editor (`docs/release/known-limitations.md`, "DDL via
-/// query editor"). The confirmation card and `submit_ddl` stay compiled behind this
-/// flag so the capability can be enabled by a deliberate change (with its own
-/// qualification) instead of by a stray click.
-const DDL_APPLY_ENABLED: bool = false;
+struct TableTarget {
+    connection_id: String,
+    schema: String,
+    table: String,
+}
+
+fn build_table_info_command(request_id: RequestId, target: TableTarget) -> UiCommand {
+    UiCommand::LoadTableInfo {
+        request_id,
+        connection_id: target.connection_id,
+        schema: target.schema,
+        table: target.table,
+    }
+}
+
+fn build_table_ddl_command(request_id: RequestId, target: TableTarget) -> UiCommand {
+    UiCommand::LoadTableDdl {
+        request_id,
+        connection_id: target.connection_id,
+        schema: target.schema,
+        table: target.table,
+    }
+}
+
+fn build_execute_ddl_command(
+    state: &TableState,
+    request_id: RequestId,
+    connection_id: String,
+) -> Result<UiCommand, String> {
+    Ok(UiCommand::ExecuteDdl {
+        request_id,
+        connection_id,
+        sql: state.ddl_sql()?.to_owned(),
+    })
+}
 
 impl DbProApp {
     pub(crate) fn submit_ddl(&mut self) {
@@ -25,118 +49,50 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect to a database before executing DDL".to_owned();
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
-        let command = match self.table.state.execute_ddl_command(request_id, connection.id) {
+        let request_id = self.next_request_id();
+        let command = match build_execute_ddl_command(&self.table.state, request_id, connection.id) {
             Ok(command) => command,
             Err(error) => {
                 self.feedback.runtime_message = error;
                 return;
             }
         };
-        self.dispatch_command(command);
-        self.table.state.ddl_execution_request = Some(request_id);
-        self.table.state.ddl_execute_confirmation = false;
-        self.feedback.runtime_message = "Executing DDL…".to_owned();
+        if self.dispatch_command(command) {
+            self.table.state.ddl_execution_request = Some(request_id);
+            self.table.state.ddl_execute_confirmation = false;
+            self.feedback.runtime_message = "Executing DDL…".to_owned();
+        }
     }
 
     /// Loading / failed placeholder shown while the DDL is not available.
     pub(super) fn draw_table_ddl_placeholder(&mut self, ui: &mut egui::Ui, table_name: &str) {
-        grid_frame(self.theme).show(ui, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.add_space(28.0);
-                let failed = self.table.state.table_ddl_error.as_deref();
-                ui.label(icon_text(
-                    if failed.is_some() {
-                        Icon::TriangleAlert
-                    } else {
-                        Icon::Code2
-                    },
-                    "",
-                    if failed.is_some() {
-                        self.theme.warning
-                    } else {
-                        self.theme.accent
-                    },
-                ));
-                ui.add_space(8.0);
-                ui.label(
-                    RichText::new(if failed.is_some() {
-                        format!("DDL for {table_name} could not be loaded")
-                    } else {
-                        format!("Loading DDL for {table_name}…")
-                    })
-                    .strong()
-                    .color(self.theme.text_primary),
-                );
-                if let Some(error) = failed {
-                    ui.label(RichText::new(error).small().color(self.theme.text_secondary));
-                }
-                ui.add_space(28.0);
-            });
-        });
+        table_ddl_surface_view::draw_placeholder(
+            &table_ddl_surface_view::DdlPlaceholderContext {
+                theme: self.theme,
+                table_name,
+                error: self.table.state.table_ddl_error.as_deref(),
+            },
+            ui,
+        );
     }
 
     /// Editable CREATE SCRIPT card. Returns true when "Apply DDL" was pressed.
     pub(super) fn draw_ddl_script_card(&mut self, ui: &mut egui::Ui, writable: bool, ddl: &mut String) -> bool {
-        let mut request_execution = false;
-        card_frame(self.theme).show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                section_label(ui, "CREATE SCRIPT", self.theme);
-                ui.label(
-                    RichText::new(if writable {
-                        "Editable preview · execute DDL in the query editor (Open in Query)"
-                    } else {
-                        "Read-only preview"
-                    })
-                    .small()
-                    .color(self.theme.text_muted),
-                );
-                // DDL execution from the table editor is not enabled in v0.1: the shipped
-                // path is the query editor (`docs/release/known-limitations.md`). The
-                // control stays visible and says why rather than looking live and doing
-                // nothing — pressing it used to store the buffer back and stop there.
-                if writable
-                    && self.table.state.ddl_execution_request.is_none()
-                    && Button::new(self.theme)
-                        .icon(Icon::Play)
-                        .text("Apply DDL")
-                        .variant(ButtonVariant::Default)
-                        .size(ButtonSize::Sm)
-                        .enabled(DDL_APPLY_ENABLED)
-                        .tooltip(if DDL_APPLY_ENABLED {
-                            "Execute the DDL script"
-                        } else {
-                            "Not enabled in v0.1 — run DDL with Open in Query"
-                        })
-                        .show(ui)
-                        .clicked()
-                {
-                    request_execution = true;
-                }
-            });
-            ui.add_space(8.0);
-            if let Some(error) = self.table.state.table_ddl_error.as_deref() {
-                ui.label(
-                    RichText::new(format!("DDL execution failed · {error}"))
-                        .small()
-                        .color(self.theme.danger),
-                );
-                ui.add_space(6.0);
+        let mut context = table_ddl_surface_view::DdlScriptContext {
+            theme: self.theme,
+            writable,
+            executing: self.table.state.ddl_execution_request.is_some(),
+            error: self.table.state.table_ddl_error.as_deref(),
+            ddl,
+        };
+        match table_ddl_surface_view::draw_script_card(&mut context, ui) {
+            Some(table_ddl_surface_view::DdlScriptAction::Apply) => true,
+            Some(table_ddl_surface_view::DdlScriptAction::Changed) => {
+                self.table.state.table_ddl_error = None;
+                false
             }
-            editor_frame(self.theme).show(ui, |ui| {
-                let response = ui.add(
-                    TextEdit::multiline(&mut *ddl)
-                        .font(FontId::monospace(13.0))
-                        .desired_width(ui.available_width())
-                        .desired_rows(18)
-                        .interactive(writable),
-                );
-                if response.changed() {
-                    self.table.state.table_ddl_error = None;
-                }
-            });
-        });
-        request_execution
+            None => false,
+        }
     }
 
     /// Confirmation gate shown before the DDL is executed against the database.
@@ -169,15 +125,19 @@ impl DbProApp {
         ) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
-        self.table.state.table_info_request = Some(request_id);
-        self.dispatch_command(self.table.state.load_info_command(
+        let request_id = self.next_request_id();
+        let command = build_table_info_command(
             request_id,
-            connection_id,
-            self.active_schema().to_owned(),
-            table,
-        ));
-        self.feedback.runtime_message = "Loading table structure…".to_owned();
+            TableTarget {
+                connection_id,
+                schema: self.active_schema().to_owned(),
+                table,
+            },
+        );
+        if self.dispatch_command(command) {
+            self.table.state.table_info_request = Some(request_id);
+            self.feedback.runtime_message = "Loading table structure…".to_owned();
+        }
     }
 
     pub(crate) fn request_table_ddl(&mut self) {
@@ -187,15 +147,19 @@ impl DbProApp {
         ) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
-        self.table.state.table_ddl_request = Some(request_id);
-        self.dispatch_command(self.table.state.load_ddl_command(
+        let request_id = self.next_request_id();
+        let command = build_table_ddl_command(
             request_id,
-            connection_id,
-            self.active_schema().to_owned(),
-            table,
-        ));
-        self.feedback.runtime_message = "Loading table DDL…".to_owned();
+            TableTarget {
+                connection_id,
+                schema: self.active_schema().to_owned(),
+                table,
+            },
+        );
+        if self.dispatch_command(command) {
+            self.table.state.table_ddl_request = Some(request_id);
+            self.feedback.runtime_message = "Loading table DDL…".to_owned();
+        }
     }
 
     pub(crate) fn request_table_data(&mut self) {
@@ -211,15 +175,20 @@ impl DbProApp {
         let Some(table) = table else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
-        self.table.data_query.request = Some(request_id);
-        self.dispatch_command(self.table.data_query.load_data_command(
+        let request_id = self.next_request_id();
+        let command = table_data_view::build_load_data_command(
+            &self.table.data_query,
             request_id,
-            connection_id,
-            self.active_schema().to_owned(),
-            table,
-        ));
-        self.feedback.runtime_message = "Loading table data…".to_owned();
+            table_data_view::TableDataTarget {
+                connection_id,
+                schema: self.active_schema().to_owned(),
+                table,
+            },
+        );
+        if self.dispatch_command(command) {
+            self.table.data_query.request = Some(request_id);
+            self.feedback.runtime_message = "Loading table data…".to_owned();
+        }
     }
 
     pub(crate) fn commit_table_filter_draft(&mut self) {
@@ -227,61 +196,18 @@ impl DbProApp {
             self.feedback.runtime_message = "Apply or discard staged changes before changing filters".to_owned();
             return;
         }
-        let column = self.table.data_query.filter_column.trim();
-        if column.is_empty() {
-            return;
-        }
-        let is_null_operator = matches!(
-            self.table.data_query.filter_operator,
-            UiTableFilterOperator::IsNull | UiTableFilterOperator::IsNotNull
-        );
-        let data_type = self
+        match self
             .table
-            .state
-            .table_info
-            .as_ref()
-            .and_then(|info| info.columns.iter().find(|item| item.name == column))
-            .map(|item| item.data_type.clone())
-            .unwrap_or_else(|| "text".to_owned());
-        if !TableDataQueryState::filter_operator_supported(&data_type, &self.table.data_query.filter_operator) {
-            self.feedback.runtime_message = format!("That filter operator is not supported for {data_type}");
-            return;
-        }
-        if !is_null_operator
-            && self.table.data_query.filter_value.is_empty()
-            && !table_editor_values::is_text_type(&data_type.to_ascii_lowercase())
+            .data_query
+            .commit_filter_draft(self.table.state.table_info.as_ref())
         {
-            self.feedback.runtime_message = "Enter a filter value first".to_owned();
-            return;
-        }
-        if !is_null_operator {
-            if let Err(error) = table_editor_values::parse_update_value(&self.table.data_query.filter_value, &data_type)
-            {
-                self.feedback.runtime_message = format!("Invalid filter for {column}: {error}");
-                return;
+            Ok(true) => {
+                self.table.data_query.offset = 0;
+                self.request_table_data();
             }
+            Ok(false) => {}
+            Err(error) => self.feedback.runtime_message = error,
         }
-        let filter = UiTableDataFilter {
-            column: column.to_owned(),
-            data_type,
-            operator: self.table.data_query.filter_operator.clone(),
-            value: if is_null_operator {
-                String::new()
-            } else {
-                self.table.data_query.filter_value.clone()
-            },
-        };
-        if let Some(index) = self.table.data_query.filter_editing.take() {
-            if let Some(existing) = self.table.data_query.filters.get_mut(index) {
-                *existing = filter;
-            } else {
-                self.table.data_query.filters.push(filter);
-            }
-        } else {
-            self.table.data_query.filters.push(filter);
-        }
-        self.table.data_query.offset = 0;
-        self.request_table_data();
     }
 
     pub(crate) fn remove_table_filter(&mut self, index: usize) {
@@ -289,13 +215,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Apply or discard staged changes before changing filters".to_owned();
             return;
         }
-        if index < self.table.data_query.filters.len() {
-            self.table.data_query.filters.remove(index);
-            self.table.data_query.filter_editing = match self.table.data_query.filter_editing {
-                Some(editing) if editing == index => None,
-                Some(editing) if editing > index => Some(editing - 1),
-                other => other,
-            };
+        if self.table.data_query.remove_filter(index) {
             self.table.data_query.offset = 0;
             self.request_table_data();
         }
@@ -306,8 +226,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Apply or discard staged changes before changing filters".to_owned();
             return;
         }
-        self.table.data_query.filters.clear();
-        self.table.data_query.filter_editing = None;
+        self.table.data_query.clear_filters();
         self.table.data_query.offset = 0;
         self.request_table_data();
     }

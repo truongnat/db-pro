@@ -2,16 +2,6 @@ use super::*;
 #[cfg(test)]
 use crate::RequestId;
 
-/// A statement (or script) the classifier rates `Destructive`, held until the user
-/// confirms the exact text the prompt displayed.
-#[derive(Debug, Clone)]
-pub(crate) struct PendingDestructiveRun {
-    pub(crate) sql: String,
-    pub(crate) execution_range: (usize, usize),
-    pub(crate) version: u64,
-    pub(crate) all_statements: bool,
-}
-
 pub(super) struct QueryHistoryRecord {
     pub(super) sql: String,
     pub(super) connection_id: Option<String>,

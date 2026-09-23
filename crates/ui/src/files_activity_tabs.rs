@@ -4,8 +4,9 @@ use super::files_search_view::{FilesSearchAction, FilesSearchContext};
 use super::files_tasks_view::{FilesTasksAction, FilesTasksContext};
 use super::files_tree_view::{FilesTreeAction, FilesTreeContext};
 use super::*;
-use egui::RichText;
-use lucide_icons::Icon;
+
+#[path = "files_secondary_tabs_view.rs"]
+mod files_secondary_tabs_view;
 
 impl DbProApp {
     /// Quiet agent-context strip: icon actions instead of a wrapped button soup.
@@ -105,11 +106,7 @@ impl DbProApp {
                 }
             }
             FilesTreeAction::ToggleDirectory(path) => {
-                if self.workspace.files.ide_workspace.expanded.contains(&path) {
-                    self.workspace.files.ide_workspace.expanded.remove(&path);
-                } else {
-                    self.workspace.files.ide_workspace.expanded.insert(path);
-                }
+                self.workspace.files.toggle_directory(path);
             }
             FilesTreeAction::CreateSql(path) => {
                 let _ = self
@@ -124,8 +121,8 @@ impl DbProApp {
             FilesTreeAction::OpenFile(path) => self.open_workspace_sql_file(path),
             FilesTreeAction::AddContext(path) => self.workspace.files.add_context_item(path),
             FilesTreeAction::FindReferences(stem) => {
-                self.workspace.files.workspace_search_query = stem;
-                self.workspace.files_panel_tab = FilesPanelTab::Search;
+                self.workspace.files.set_search_query(stem);
+                self.workspace.files.select_panel_tab(FilesPanelTab::Search);
                 self.workspace.files.run_search(&mut self.feedback);
             }
         }
@@ -135,10 +132,7 @@ impl DbProApp {
         let actions = {
             let mut context = FilesSearchContext {
                 theme: self.theme,
-                search_query: &mut self.workspace.files.workspace_search_query,
-                replace_query: &mut self.workspace.files.workspace_replace_query,
-                refactor_from: &mut self.workspace.files.workspace_refactor_from,
-                refactor_to: &mut self.workspace.files.workspace_refactor_to,
+                draft: self.workspace.files.search_draft(),
                 replace_previews: &self.workspace.files.workspace_replace_previews,
                 search_hits: &self.workspace.files.workspace_search_hits,
             };
@@ -146,6 +140,7 @@ impl DbProApp {
         };
         for action in actions {
             match action {
+                FilesSearchAction::UpdateDraft(draft) => self.workspace.files.apply_search_draft(draft),
                 FilesSearchAction::Find => self.workspace.files.run_search(&mut self.feedback),
                 FilesSearchAction::PreviewReplace => self.workspace.files.preview_replace(&mut self.feedback),
                 FilesSearchAction::ReplaceAll => self.workspace.files.apply_replace(&mut self.feedback),
@@ -157,22 +152,9 @@ impl DbProApp {
 
     pub(super) fn draw_files_migrations_tab(&mut self, ui: &mut egui::Ui) {
         let migrations = self.workspace.files.ide_workspace.detect_migrations();
-        if migrations.is_empty() {
-            ui.label(
-                RichText::new("No migration SQL detected under migrations/ paths.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-            return;
-        }
-        for entry in migrations {
-            let label = format!("{} · {:?}", entry.version, entry.status);
-            if sidebar_item(ui, Icon::FileCode2, &label, false, self.theme)
-                .on_hover_text(&entry.relative_path)
-                .clicked()
-            {
-                self.open_workspace_sql_file(entry.relative_path);
-            }
+        for action in files_secondary_tabs_view::draw_migrations(ui, self.theme, &migrations) {
+            let files_secondary_tabs_view::FilesSecondaryTabAction::OpenFile(path) = action;
+            self.open_workspace_sql_file(path);
         }
     }
 
@@ -212,21 +194,9 @@ impl DbProApp {
 
     pub(super) fn draw_files_graph_tab(&mut self, ui: &mut egui::Ui) {
         let edges = self.workspace.files.ide_workspace.dependency_edges();
-        if edges.is_empty() {
-            ui.label(
-                RichText::new("No FROM/JOIN object references found yet.")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-            return;
-        }
-        for edge in edges.into_iter().take(60) {
-            ui.label(
-                RichText::new(format!("{} → {}", edge.from_file, edge.object_name))
-                    .small()
-                    .monospace()
-                    .color(self.theme.text_secondary),
-            );
+        for action in files_secondary_tabs_view::draw_graph(ui, self.theme, &edges) {
+            let files_secondary_tabs_view::FilesSecondaryTabAction::OpenFile(path) = action;
+            self.open_workspace_sql_file(path);
         }
     }
 
@@ -257,7 +227,7 @@ impl DbProApp {
             match action {
                 FilesGitAction::Refresh => self.workspace.files.refresh_git_status(&mut self.feedback),
                 FilesGitAction::ReloadExternalFile(path) => self.reload_workspace_file_from_disk(&path),
-                FilesGitAction::DismissExternalFile => self.workspace.files.workspace_external_change = None,
+                FilesGitAction::DismissExternalFile => self.workspace.files.dismiss_external_change(),
                 FilesGitAction::CommitStaged => self.workspace.files.commit_git_staged(&mut self.feedback),
                 FilesGitAction::Stage(path) => self.workspace.files.stage_git_path(&path, &mut self.feedback),
                 FilesGitAction::Unstage(path) => self.workspace.files.unstage_git_path(&path, &mut self.feedback),

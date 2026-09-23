@@ -7,15 +7,9 @@ use sqlparser::dialect::{GenericDialect, PostgreSqlDialect, SQLiteDialect};
 use sqlparser::parser::Parser;
 use std::time::{Duration, Instant};
 
-pub(super) fn format_active_query(
-    query: &mut QueryFeatureState,
-    task_bridge: &TaskBridge,
-    capabilities: CapabilityLookup,
-) {
+pub(super) fn format_active_query(query: &mut QueryFeatureState, capabilities: CapabilityLookup) -> Option<RequestId> {
     let doc_index = query.session.active_document_index;
-    if let Some(request_id) = query.session.invalidate_prediction(doc_index) {
-        let _ = task_bridge.send_best_effort(UiCommand::CancelSqlPrediction { request_id });
-    }
+    let cancelled_prediction = query.session.invalidate_prediction(doc_index);
     let dialect = if capabilities.allows(|caps| caps.query.numbered_parameters) {
         SqlDialect::Postgres
     } else {
@@ -24,6 +18,7 @@ pub(super) fn format_active_query(
     if let Some(doc) = query.session.documents.get_mut(doc_index) {
         format_query_document(doc, dialect);
     }
+    cancelled_prediction
 }
 
 #[cfg(test)]

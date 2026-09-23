@@ -1,6 +1,6 @@
 //! Pagination controls for the table-data surface.
 
-use super::table_data_view::TableDataPaging;
+use super::table_data_toolbar_surface_view::TableDataPaging;
 use super::*;
 
 pub(super) struct TableDataPaginationContext<'a> {

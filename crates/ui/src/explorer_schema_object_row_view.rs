@@ -9,6 +9,8 @@ use lucide_icons::Icon;
 pub(crate) enum SchemaObjectRowAction {
     Open,
     OpenQuery,
+    Modify,
+    Drop,
     CopyName,
 }
 
@@ -22,6 +24,8 @@ pub(crate) struct SchemaObjectRowContext<'a> {
     pub(crate) query_icon: Icon,
     pub(crate) open_label: &'a str,
     pub(crate) open_icon: Icon,
+    pub(crate) modify_label: Option<&'a str>,
+    pub(crate) drop_label: Option<&'a str>,
     pub(crate) copy_label: &'a str,
 }
 
@@ -84,6 +88,24 @@ impl SchemaObjectRowContext<'_> {
                     SchemaObjectRowAction::Open,
                     self.open_icon,
                     self.open_label,
+                );
+            }
+            if let Some(modify_label) = self.modify_label {
+                menu.add_item(
+                    ui,
+                    close_menu,
+                    SchemaObjectRowAction::Modify,
+                    Icon::Pencil,
+                    modify_label,
+                );
+            }
+            if let Some(drop_label) = self.drop_label {
+                menu.add_item(
+                    ui,
+                    close_menu,
+                    SchemaObjectRowAction::Drop,
+                    Icon::Trash2,
+                    drop_label,
                 );
             }
             menu.add_item(

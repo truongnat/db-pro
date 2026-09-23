@@ -2766,6 +2766,54 @@ fn sql_snippet_insert_is_one_undoable_buffer_edit() {
 }
 
 #[test]
+fn command_palette_connection_switch_preserves_session_when_dispatch_fails() {
+    let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
+    drop(command_rx);
+    let mut app = DbProApp::with_task_bridge(bridge);
+    *app.connection.catalog.connections_mut() = vec![
+        UiConnectionSummary {
+            id: "active".to_owned(),
+            name: "Active".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "active".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+            tags: Vec::new(),
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        },
+        UiConnectionSummary {
+            id: "target".to_owned(),
+            name: "Target".to_owned(),
+            host: "localhost".to_owned(),
+            port: 5432,
+            database: "target".to_owned(),
+            username: "postgres".to_owned(),
+            driver: "PostgreSQL".to_owned(),
+            ssl_mode: UiSslMode::Disable,
+            readonly: false,
+            tags: Vec::new(),
+            group: None,
+            favorite: false,
+            environment: "Development".to_owned(),
+        },
+    ];
+    app.connection.lifecycle.set_active_connection_id(Some("active".to_owned()));
+    app.connection.lifecycle.set_connected(true);
+
+    app.switch_connection_from_palette("target".to_owned());
+
+    assert_eq!(app.connection.lifecycle.active_connection_id(), Some("active"));
+    assert!(app.connection.lifecycle.is_connected());
+    assert!(app.connection.lifecycle.pending_request().is_none());
+    assert_eq!(app.feedback.runtime_message, "Runtime worker unavailable");
+}
+
+#[test]
 fn command_palette_refresh_schema_bypasses_the_metadata_cache() {
     let (bridge, command_rx, _event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
@@ -3828,6 +3876,49 @@ fn failed_schema_request_is_visible_and_retryable() {
 }
 
 #[test]
+fn failed_schema_dispatch_does_not_leave_a_fake_pending_request() {
+    let mut app = DbProApp::default();
+
+    app.request_schema_introspection("conn-1".to_owned(), true);
+
+    assert_eq!(app.schema.explorer.schema_request, None);
+    assert_eq!(
+        app.schema.explorer.schema_error.as_deref(),
+        Some("Runtime worker unavailable")
+    );
+}
+
+#[test]
+fn failed_connection_list_dispatch_does_not_leave_a_fake_pending_request() {
+    let mut app = DbProApp::default();
+
+    app.request_connections_once();
+
+    assert!(!app.connection.lifecycle.connections_request_pending());
+}
+
+#[test]
+fn failed_table_data_dispatch_does_not_leave_a_fake_pending_request() {
+    let mut app = DbProApp::default();
+    *app.connection.lifecycle.active_connection_id_mut() = Some("conn-1".to_owned());
+    app.schema.explorer.selected_table = Some("users".to_owned());
+
+    app.request_table_data();
+
+    assert_eq!(app.table.data_query.request, None);
+}
+
+#[test]
+fn failed_query_dispatch_does_not_mark_document_running() {
+    let mut app = DbProApp::default();
+
+    app.send_query_run("conn-1".to_owned(), "SELECT 1".to_owned(), (0, 8), 0, false);
+
+    assert_eq!(app.query.session.active_running_request(), None);
+    assert!(app.query.editor.query_history.is_empty());
+}
+
+#[test]
 fn stale_schema_event_cannot_replace_the_selected_connection_schema() {
     let (bridge, _command_rx, event_tx) = TaskBridge::with_channels();
     let mut app = DbProApp::with_task_bridge(bridge);
@@ -3991,6 +4082,25 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
             data_query: TableDataQueryState {
                 request: Some(crate::RequestId(3)),
                 result: Some(result()),
+                filters: vec![UiTableDataFilter {
+                    column: "id".to_owned(),
+                    data_type: "integer".to_owned(),
+                    operator: UiTableFilterOperator::Equals,
+                    value: "1".to_owned(),
+                }],
+                sorts: vec![UiTableDataSort {
+                    column: "id".to_owned(),
+                    descending: true,
+                }],
+                ..Default::default()
+            },
+            mutation: TableMutationState {
+                staged_changes: {
+                    let mut changes = ChangeSet::default();
+                    changes.ensure_target("customers");
+                    changes
+                },
+                pending_changes_open: true,
                 ..Default::default()
             },
             ..Default::default()
@@ -4006,6 +4116,10 @@ fn closing_workspace_tab_clears_its_resource_and_requests() {
     assert_eq!(app.table.state.table_ddl_request, None);
     assert_eq!(app.table.data_query.request, None);
     assert_eq!(app.table.data_query.result, None);
+    assert!(app.table.data_query.filters.is_empty());
+    assert!(app.table.data_query.sorts.is_empty());
+    assert!(app.table.mutation.staged_changes.is_empty());
+    assert!(!app.table.mutation.pending_changes_open);
 }
 
 #[test]
@@ -6103,11 +6217,10 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
     let pending = app
         .query
         .execution
-        .pending_destructive_run
-        .as_ref()
+        .pending_destructive_run()
         .expect("the statement must be held for confirmation");
-    assert_eq!(pending.sql, "DROP TABLE users");
-    assert!(!pending.all_statements);
+    assert_eq!(pending.sql(), "DROP TABLE users");
+    assert!(!pending.all_statements());
     assert!(app.feedback.runtime_message.contains("held for confirmation"));
 
     app.confirm_pending_destructive_run();
@@ -6116,7 +6229,7 @@ fn destructive_statement_is_held_until_it_is_confirmed() {
         panic!("expected RunQuery command");
     };
     assert_eq!(sql, "DROP TABLE users");
-    assert!(app.query.execution.pending_destructive_run.is_none());
+    assert!(app.query.execution.pending_destructive_run().is_none());
 }
 
 #[test]
@@ -6143,14 +6256,14 @@ fn cancelling_a_held_destructive_statement_sends_nothing() {
     app.set_active_query_text("TRUNCATE users");
 
     app.dispatch_query();
-    assert!(app.query.execution.pending_destructive_run.is_some());
+    assert!(app.query.execution.pending_destructive_run().is_some());
     app.cancel_pending_destructive_run();
 
     assert!(
         command_rx.try_recv().is_err(),
         "a cancelled statement must never be dispatched"
     );
-    assert!(app.query.execution.pending_destructive_run.is_none());
+    assert!(app.query.execution.pending_destructive_run().is_none());
     assert!(app.feedback.runtime_message.contains("cancelled"));
 }
 
@@ -6190,7 +6303,7 @@ fn reads_writes_and_plain_ddl_dispatch_without_a_prompt() {
         app.dispatch_query();
 
         assert!(
-            app.query.execution.pending_destructive_run.is_none(),
+            app.query.execution.pending_destructive_run().is_none(),
             "{sql} must not be gated"
         );
         let UiCommand::RunQuery { sql: dispatched, .. } = command_rx
@@ -6234,11 +6347,10 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
     let pending = app
         .query
         .execution
-        .pending_destructive_run
-        .as_ref()
+        .pending_destructive_run()
         .expect("script must be held");
     assert!(
-        pending.all_statements,
+        pending.all_statements(),
         "a run-all must be dispatched as a script on confirm"
     );
 
@@ -6252,7 +6364,7 @@ fn a_script_whose_worst_statement_is_destructive_is_held() {
     app.set_active_query_text("SELECT 1;\nSELECT 2;");
     app.query.session.documents[0].execution_state = QueryExecutionState::Idle;
     app.dispatch_query_all();
-    assert!(app.query.execution.pending_destructive_run.is_none());
+    assert!(app.query.execution.pending_destructive_run().is_none());
     assert!(
         command_rx.try_recv().is_ok(),
         "a read-only script must dispatch immediately"

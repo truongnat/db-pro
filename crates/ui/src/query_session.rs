@@ -63,21 +63,23 @@ impl DbProApp {
         let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
-        let command = match self
-            .schema
-            .compare
-            .build_migration_apply_command(request_id, connection_id)
-        {
-            Ok(command) => command,
+        let request_id = self.next_request_id();
+        let sql = match self.schema.compare.prepare_migration_sql() {
+            Ok(sql) => sql,
             Err(error) => {
                 self.feedback.runtime_message = error;
                 return;
             }
         };
-        self.dispatch_command(command);
-        self.table.state.ddl_execution_request = Some(request_id);
-        self.feedback.runtime_message = "Applying migration plan…".into();
+        let command = UiCommand::ExecuteDdl {
+            request_id,
+            connection_id,
+            sql,
+        };
+        if self.dispatch_command(command) {
+            self.table.state.ddl_execution_request = Some(request_id);
+            self.feedback.runtime_message = "Applying migration plan…".into();
+        }
     }
 
     pub(crate) fn handle_transaction_action(&mut self, action: crate::components::TransactionAction) {

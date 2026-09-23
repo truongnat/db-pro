@@ -1464,3 +1464,457 @@ and returns typed file-tree actions; the activity root now reduces those
 actions into workspace and query side effects.
 
 Severity: P1 feature-boundary risk, resolved for Files tree activity.
+
+## F88 — Feature adapters allocated runtime request IDs through the channel
+
+Evidence at `6ecdfb99`: feature view and event modules called
+`self.task_bridge.next_request_id()` directly in connection-adjacent,
+management, query, table, agent and workspace paths. Although direct command
+sends were guarded, request identity allocation still coupled feature code to
+the runtime channel implementation and made the command boundary incomplete.
+
+Fix at `5064ac20`: `DbProApp::next_request_id` is the only composition-root
+port used by feature adapters, while the architecture guard rejects direct
+`TaskBridge::next_request_id` calls outside `app.rs`. The shortcut dispatcher
+was also split into focused handlers so the touched module has no new clean
+code warning.
+
+Severity: P1 runtime-boundary incompleteness, resolved.
+
+## F89 — Runtime dispatch failures could erase local confirmation state
+
+Evidence at `f37a0548`: Security password/role drafts and delete
+confirmations were cleared after calling `dispatch_command`, regardless of
+whether the runtime channel accepted the command. The connection-delete and
+query-folder dialogs had the same unconditional clear after a best-effort
+send.
+
+Fix at `e3a8fde0`: local sensitive/confirmation state is cleared only on a
+successful dispatch. Failed dispatches keep the current draft or dialog open
+and surface the runtime error, so the user can retry. The Security path has a
+regression test proving a failed password update preserves its draft.
+
+The same checkpoint also removes remaining protocol construction from
+`SchemaWorkbenchState` and `ExplorerConnectionContext`; both now return typed
+requests and leave `UiCommand` construction to root effect adapters.
+
+Severity: P1 lost-user-input / one-way-transition violation, resolved.
+
+## F90 — Query feature contexts depended on runtime protocol enums
+
+Evidence at `51d476da`: `QueryExecutionContext` returned `UiCommand` and
+pattern-matched `RunQuery`/`RunQueryMulti` inside its state commit path.
+`QuerySaveContext` likewise returned `UiCommand::SaveQuery`, so query feature
+preparation and runtime protocol mapping could not be tested or evolved
+independently.
+
+Fix at `6ff9f937`: query execution returns `PreparedQueryRun`, query saving
+returns `PreparedQuerySave`, and dedicated command adapters construct the
+runtime protocol only at the composition boundary. Architecture checks reject
+`UiCommand` from both feature contexts.
+
+Severity: P1 query-core boundary risk, resolved for execution and save flows.
+
+## F91 — Saved task dispatch interpolated untrusted SQL identifiers
+
+Evidence at the pre-fix main state: `tasks_view.rs` built export, `VACUUM` and
+`ANALYZE` statements with `format!(...)` around the saved `table` or `target`
+value. A saved task containing a quote, semicolon or comment could therefore
+change the statement structure; the export path also emitted `LIMIT` for every
+driver and maintenance syntax without a provider capability boundary.
+
+Fix at `0cf1ed32`: `saved_task_sql.rs` is the single pure SQL-preparation
+boundary. It validates the export format, quotes each qualified identifier with
+the provider's delimiter and escapes embedded delimiters, uses `TOP` for SQL
+Server, maps MySQL `ANALYZE TABLE`, and rejects unsupported maintenance
+operations instead of emitting provider-invalid SQL. Architecture checks now
+reject the old interpolation patterns from the task dispatcher. Focused tests
+cover injection-shaped identifiers, provider syntax, unsupported operations and
+format validation.
+
+Severity: P1 unsafe SQL / provider-correctness risk, resolved for Saved Tasks.
+
+## F92 — Core state transitions were not atomic with runtime dispatch
+
+Evidence at the pre-fix main state: command-palette connection switching
+mutated the active connection before the runtime accepted the connect command;
+monitoring destructive confirmations were cleared after a failed dispatch; and
+restore confirmation was cleared in the presentation layer before dispatch.
+Connection failure classification also inferred delete operations from the
+localized feedback string instead of typed lifecycle state.
+
+Fix at `4904c81c`: palette switching reuses the guarded Explorer connection
+transition, destructive confirmation state is committed only after a successful
+dispatch, and `PendingConnectionOperation` makes connection failure reduction
+explicit for Connect/Test/Save/Delete. Regression tests cover failed palette
+switch, maintenance dispatch, restore dispatch and typed delete-failure
+classification.
+
+Severity: P1 one-way state-transition and failure-classification risk, resolved
+for the audited connection, monitoring and backup/restore paths.
+
+## F93 — Database-management adapters still used the root as a mutable facade
+
+Evidence at the pre-fix main state: Audit, FDW, Event Trigger and Logical
+Replication activities rendered typed surfaces but applied those actions from
+`impl DbProApp` modules, allowing each adapter to reach unrelated root fields
+and duplicating runtime-dispatch failure policy.
+
+Fix at `10a87a9e`: those four activities now expose explicit context objects
+with feature state, connection/provider snapshots, `RuntimeCommandDispatcher`
+and feedback as dependencies. Cross-feature Audit navigation is returned as a
+typed `AuditActivityEffect`; only the root applies the workspace/query change.
+The dispatcher now owns the common failed-send transition policy, and the
+connection-delete and query-folder dialogs use the same port. The number of
+UI source files declaring `impl DbProApp` fell from 68 to 64.
+
+Severity: P1 composition-boundary leak, resolved for the audited
+database-management activity adapters.
+
+## F94 — PostgreSQL settings edit state was coupled to root and lost on dispatch failure
+
+Evidence at the pre-fix main state: `pg_settings_activity_view.rs` implemented
+the entire activity as `impl DbProApp`, and applying a session setting cleared
+the edit dialog immediately after attempting dispatch. A closed runtime worker
+could therefore erase the user's pending setting.
+
+Fix at `de5b0a0f`: PostgreSQL settings now use an explicit activity context with
+state, provider/connection snapshots, feedback and the runtime dispatcher.
+The edit state is cleared only when the dispatcher accepts the command, with a
+regression test covering a failed session-setting dispatch.
+
+Severity: P1 composition-boundary and lost-input risk, resolved for PostgreSQL
+settings.
+
+## F95 — Security activity still used the root as a mutable facade
+
+Evidence at the pre-fix main state: `security_activity_view.rs` implemented
+the role, membership, privilege and RLS activity as `impl DbProApp`, so the
+surface could reach unrelated root state and duplicate dispatch/error policy.
+
+Fix at `277fe5fa`: Security now renders and applies typed activity actions
+through `SecurityActivityContext`, with explicit Security state, table state,
+connection/provider snapshots, feedback and `RuntimeCommandDispatcher`
+dependencies. Root composition and follow-up request adapters construct the
+context; failed password-update dispatch preserves the draft through a
+regression test, and RLS pending execution is committed only after dispatch
+acceptance.
+
+Severity: P1 composition-boundary and lost-input risk, resolved for Security.
+
+## F96 — Monitoring activity still used the root as a mutable facade
+
+Evidence at the pre-fix main state: `monitoring_activity_view.rs` implemented
+the Monitor surface, polling, confirmation transitions, runtime dispatch and
+cross-feature query navigation as `impl DbProApp`, even though the monitoring
+state and command planning were already extracted.
+
+Fix at `be3962ef`: Monitor now uses `MonitoringActivityContext` with explicit
+state, connection/provider snapshots, feedback and `RuntimeCommandDispatcher`
+dependencies. Session/workload query opens return a typed
+`MonitoringActivityEffect`; the root applies only workspace navigation and
+composes the already-isolated auxiliary activities. Failed maintenance
+dispatch preserves its confirmation through the existing regression test.
+
+Severity: P1 composition-boundary and retryability risk, resolved for
+Monitoring.
+
+## F97 — Welcome adapter was split from its workspace composition boundary
+
+Evidence at the pre-fix main state: `welcome_view.rs` declared a separate
+`impl DbProApp` only to compose the Welcome surface and apply workspace,
+connection and palette actions.
+
+Fix at `ae3515ac`: Welcome rendering and its typed action application now live
+beside workspace composition in `workspace_view.rs`; the redundant root module
+and facade are removed without changing the Welcome surface contract.
+
+Severity: P2 topology/maintainability risk, resolved.
+
+## F102 — Table mutation service mixed batch planning with provider execution
+
+Evidence at the pre-fix main state: `TableDataService::apply_mutations_detailed`
+owned read-only policy checks, connection/dialect resolution, delete-update-
+insert ordering, parameterized SQL construction, provider transaction dispatch,
+original-input index remapping and affected-row aggregation in one method.
+
+Fix at `c297c6dd`: `TableMutationExecution` now owns that mutation execution
+boundary. `TableDataService` keeps the public API and delegates the complete
+batch, while the helper separates writable validation, ordered statement
+planning, transaction dispatch/failure remapping and result aggregation. The
+existing atomic-ordering, provider-failure and original-index tests remain
+green; the duplicated invariant-error text was also corrected.
+
+Severity: P1 core mutation-boundary and error-contract maintainability risk,
+resolved for table-editor batch mutations.
+
+## F103 — SQL safety policy mixed classification with lexical scanning
+
+Evidence at the pre-fix main state: `domain/safety.rs` combined the public
+connection policy and statement classification API with quote/comment/dollar-
+quote scanning, tokenization, parenthesis matching and data-modifying CTE
+analysis in one large module.
+
+Fix at `49e51e6e`: lexical mechanics now live in `domain/safety_lexer.rs`,
+while the CTE-specific analyzer lives in `domain/safety_cte.rs`. The public
+policy/classification API remains in `safety.rs`; malformed CTE bodies retain
+the fail-closed destructive classification and the existing safety suite stays
+green.
+
+Severity: P1 core safety-boundary and parser maintainability risk, resolved.
+
+## F104 — Schema service mixed introspection with provider DDL rendering
+
+Evidence at the pre-fix main state: `SchemaService` combined cache/connection
+orchestration, table metadata lookup and dependency discovery with roughly 250
+lines of PostgreSQL/SQLite table, index, foreign-key, constraint and trigger
+DDL formatting helpers.
+
+Fix at `4a63295d`: provider-aware DDL rendering now lives in the dedicated
+`application/schema_ddl.rs` module. `SchemaService` retains the public
+introspection and execution boundary and delegates rendering without changing
+the generated DDL contract; the existing schema-service tests cover the
+PostgreSQL/SQLite output and identifier quoting paths.
+
+Severity: P1 core provider-boundary and schema-service maintainability risk,
+resolved for schema DDL rendering.
+
+## F105 — Table-info projection mixed cache access with dependency discovery
+
+Evidence at the pre-fix main state: `SchemaService::get_table_info` fetched the
+introspection snapshot and then also projected columns/keys/indexes while
+building and deduplicating FK, view, trigger, function and sequence dependency
+edges in the same service method.
+
+Fix at `93a4e85a`: `schema_table_info.rs` now owns the pure snapshot-to-
+`TableInfo` projection and dependency graph construction. `SchemaService`
+retains cache/connection orchestration and delegates the projection; the
+existing schema-service dependency and table-info tests remain green.
+
+Severity: P1 core introspection-boundary and dependency-graph maintainability
+risk, resolved.
+
+## F106 — Connection update mixed secret lifecycle with persistence and live-session recovery
+
+Evidence at the pre-fix main state: `ConnectionService::update` combined
+configuration validation, database/SSH secret migration, secret rollback,
+repository persistence, active-session disconnect recovery and schema-cache
+invalidation in one application method.
+
+Fix in the current checkpoint: `connection_update.rs` now owns the update use
+case through `PreparedUpdate`, `DatabaseSecretChange` and `SshSecretChange`.
+`ConnectionService` keeps the stable public facade, while the extracted
+boundary makes the secret plan and rollback state explicit without changing the
+repository, connector or secret-store ports.
+
+Severity: P1 core lifecycle-boundary and rollback maintainability risk,
+resolved for connection updates.
+
+## F107 — Export service mixed authorized query execution with file encoding
+
+Evidence at the pre-fix main state: `ExportService` owned query safety and
+active-connection lookup together with CSV row writing, JSON value conversion,
+XLSX cell encoding and Excel precision/index guards.
+
+Fix in the current checkpoint: `export_formats.rs` now owns CSV, JSON and XLSX
+rendering from a validated `QueryResult`. `ExportService` retains the
+application boundary for query authorization/execution and only wraps rendered
+bytes in the public `ExportResult` contract.
+
+Severity: P1 core application/rendering-boundary maintainability risk,
+resolved for export formatting.
+
+## F108 — Object mutation service mixed plan orchestration with DDL builders
+
+Evidence at the pre-fix main state: `ObjectMutationService` combined
+capability rejection and preview assembly with statement rendering for tables,
+views, indexes, constraints, triggers, namespaces, routines and RLS policies
+in one application module.
+
+Fix in the current checkpoint: `object_mutation_builders.rs` now owns the
+definition/action-to-DDL dispatch and provider-specific statement builders.
+`ObjectMutationService` retains preview orchestration, unsupported capability
+gates, safety classification, effects and fingerprints.
+
+Severity: P1 core mutation-boundary and provider-DDL maintainability risk,
+resolved for object mutation planning.
+
+## F109 — Database transfer mixed conversion policy with streaming adapters
+
+Evidence at the pre-fix main state: `db_transfer.rs` combined the provider
+conversion matrix, mapping preview/capability gates and row projection with
+the in-memory generator source and transaction/conflict target adapter used by
+the transfer harness.
+
+Fix in the current checkpoint: `db_transfer_plan.rs` now owns conversion
+types, explicit PG/SQLite mapping classification, capability gates and row
+projection. `db_transfer.rs` retains the streaming source/target adapters and
+re-exports the stable planning API.
+
+Severity: P1 core transfer-policy and adapter-boundary maintainability risk,
+resolved for conversion planning.
+
+## F110 — Monitoring snapshot mixed provider queries with service composition
+
+Evidence at the pre-fix main state: `MonitoringService::snapshot` resolved the
+connection and provider port while also collecting sessions, locks, relation
+sizes, server/workload data, provider fallbacks and the user-facing snapshot
+message in one method.
+
+Fix in the current checkpoint: `monitoring_snapshot.rs` now owns the snapshot
+execution/read-model assembly. `MonitoringService` retains the public facade,
+provider selection and command-oriented monitoring operations; existing
+provider fallback and error logging semantics are preserved.
+
+Severity: P1 monitoring provider-boundary and read-model maintainability risk,
+resolved for snapshot assembly.
+
+## F111 — Schema diff comparator mixed naming, table, column and index concerns
+
+Evidence at the pre-fix main state: `schema_diff.rs` implemented qualified-name
+quoting plus the complete table, common-column/type-mismatch and index diff in
+one 95-line comparator.
+
+Fix in the current checkpoint: `schema_diff_compare.rs` now owns the pure
+comparison boundary with named helpers for qualified sets, table-column
+comparison, type lookup and index/table differences. `SchemaService` keeps
+only introspection orchestration and delegates the same `SchemaDiff` contract.
+
+Severity: P2 core comparison-boundary and maintainability risk, resolved.
+
+## F112 — Query classification and test topology were coupled to the service facade
+
+Evidence at the pre-fix main state: `query_service.rs` owned the SQL statement
+classification helpers alongside execution orchestration, while its large test
+module was embedded in the same production file. This coupled a pure safety
+classification concern and test topology to the service facade, increasing the
+cost of changing either boundary.
+
+Fix in the current checkpoint: `query_classification.rs` now owns statement
+classification, CTE keyword scanning and leading-comment handling. The stable
+`QueryService` facade imports that classifier, and its tests live in
+`application/query_service/tests.rs`; behavior and visibility remain scoped to
+the application module.
+
+Severity: P2 core classification-boundary and maintainability risk, resolved.
+
+## F113 — SQL builder mixed table reads with row mutation rendering
+
+Evidence at the pre-fix main state: `sql_builder.rs` combined grid read
+queries, filtering/sorting/pagination, primary-key lookup and insert/update/
+delete rendering behind one module, while also owning shared parameter
+conversion.
+
+Fix in the current checkpoint: `sql_builder.rs` remains the compatibility
+facade and shared identifier/placeholder/parameter boundary. Read query
+construction now lives in `sql_builder/read.rs`, and row mutation construction
+now lives in `sql_builder/mutation.rs`. Existing callers keep the same stable
+imports and SQL/parameter behavior.
+
+Severity: P1 core SQL-builder boundary and mutation/read coupling risk,
+resolved.
+
+## F114 — Safety policy enforcement was coupled to SQL classification
+
+Evidence at the pre-fix main state: `domain/safety.rs` defined the connection
+policy value object, policy constructors/defaulting and policy validation beside
+the SQL classifier, script splitter and lexical helpers. Its test module also
+made the safety domain file exceed the maintainability size threshold.
+
+Fix in the current checkpoint: `safety_policy.rs` owns the backend policy value
+object and validation boundary, while `safety.rs` remains the compatibility
+facade for classification and script safety APIs. Safety tests now live in
+`domain/safety/tests.rs`; public imports and fail-closed behavior are unchanged.
+
+Severity: P1 core safety-policy/classifier coupling and maintainability risk,
+resolved.
+
+## F115 — Capability data model owned provider catalogs and limitation prose
+
+Evidence at the pre-fix main state: `DatabaseCapabilities` combined the
+capability value objects, feature lookup, a large driver-specific limitation
+match and all PostgreSQL/SQLite/MySQL/SQL Server preset literals in one domain
+module.
+
+Fix in the current checkpoint: `capability_presets.rs` owns provider capability
+construction and `capability_limitations.rs` owns driver-specific unavailable
+reasons. `capabilities.rs` remains the stable domain API for the value model
+and delegates provider policy without changing any flags or public methods.
+
+Severity: P1 provider-capability policy coupling and maintainability risk,
+resolved.
+
+## F116 — Agent workflow mixed user-error formatting with state transitions
+
+Evidence at the pre-fix main state: `AgentToolError::format_user_error` held
+several independent label maps and message assembly branches inside the agent
+state-machine module, while its tests were embedded in the same file.
+
+Fix in the current checkpoint: error formatting now delegates to focused query,
+permission and confirmation-label helpers; workflow tests live in
+`domain/agent_workflow/tests.rs`. State transitions, error text and public
+workflow API remain unchanged.
+
+Severity: P2 agent-domain cohesion and maintainability risk, resolved.
+
+## F99 — Transitional Tauri startup failures were converted into panics
+
+Evidence at the pre-fix main state: `crates/tauri-app/src/lib.rs` used
+`expect` for app-data lookup, shared-runtime initialization and the final
+Tauri run, making recoverable boundary failures terminate through panic and
+discarding typed startup context.
+
+Fix at `18a9869b`: setup now propagates app-data/runtime initialization errors
+through the Tauri setup result, while terminal run failure is logged with its
+source error instead of an opaque panic. The `pg_dump` PATH test also avoids a
+test-only unwrap that polluted the full clean-code scan.
+
+Severity: P1 startup error-handling risk, resolved for the transitional Tauri
+adapter.
+
+## F100 — Migration planning mixed all provider phases in one function
+
+Evidence at the pre-fix main state: `MigrationPlanner::plan_from_schema_diff`
+contained the complete create/add/alter/index/drop pipeline in one roughly
+200-line function, while also owning operation IDs, dependency lookup,
+SQLite capability decisions and final plan assembly.
+
+Fix at `c3209277`: `MigrationPlanBuilder` owns sequence allocation and plan
+assembly, with one method per migration phase and a typed pending-operation
+value for construction. Public preview/fingerprint APIs are unchanged;
+operation ordering, dependency IDs, destructive warnings and SQLite
+unsupported markers remain covered by the core tests.
+
+Severity: P1 core maintainability/provider-policy risk, resolved.
+
+## F101 — Query service owned both batch orchestration and execution details
+
+Evidence at the pre-fix main state: `QueryService::execute_multi` mixed
+connection/policy lookup, statement classification, transactional dispatch,
+sequential dispatch, result conversion, schema-cache invalidation and history
+persistence in one method of roughly 200 lines. The same service boundary was
+therefore responsible for choosing an execution mode and interpreting every
+provider transaction result.
+
+Fix at `c85f219e`: `MultiQueryExecution` now owns transactional validation,
+transaction failure mapping, sequential execution and result assembly in a
+dedicated application module. `QueryService::execute_multi` remains the stable
+orchestration API for lookup, mode selection, cache invalidation and history
+persistence. Existing multi-query routing, transaction-control rejection,
+partial-result and unknown-commit tests remain green.
+
+Severity: P1 core composition and transaction-error maintainability risk,
+resolved for the multi-query boundary.
+
+## F98 — Workspace tab adapter was split from its workspace boundary
+
+Evidence at the pre-fix main state: `workspace_tabs_view.rs` declared a
+separate `impl DbProApp` only to compose the tab surface and apply workspace
+tab actions.
+
+Fix at `ba39ca58`: workspace-tab rendering and action application now live in
+`workspace_view.rs`, beside Welcome and the workspace surface composition. The
+redundant root module is removed without changing tab, query, table or close
+request behavior.
+
+Severity: P2 topology/maintainability risk, resolved.

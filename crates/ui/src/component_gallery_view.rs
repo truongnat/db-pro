@@ -85,6 +85,14 @@ pub struct ComponentGalleryState {
     pub activity_bar_selected: ActivityBarItemKind,
     pub db_card_status: ConnectionStatus,
     pub sql_editor_status: Option<String>,
+    pub date_picker_val: Option<SimpleDate>,
+    pub toggle_single: bool,
+    pub toggle_group_val: usize,
+    pub accordion_open: Option<String>,
+    pub collapsible_open: bool,
+    pub radio_group_val: usize,
+    pub alert_dialog_open: bool,
+    pub command_query: String,
 }
 
 impl Default for ComponentGalleryState {
@@ -191,6 +199,14 @@ impl Default for ComponentGalleryState {
             activity_bar_selected: ActivityBarItemKind::Explorer,
             db_card_status: ConnectionStatus::Connected,
             sql_editor_status: None,
+            date_picker_val: Some(SimpleDate::new(2026, 9, 23)),
+            toggle_single: true,
+            toggle_group_val: 1,
+            accordion_open: Some("acc-1".to_string()),
+            collapsible_open: true,
+            radio_group_val: 1,
+            alert_dialog_open: false,
+            command_query: String::new(),
         }
     }
 }

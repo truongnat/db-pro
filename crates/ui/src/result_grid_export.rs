@@ -110,6 +110,56 @@ pub(super) fn format_result_copy(result: &UiQueryResult, table: &str) -> String 
     output
 }
 
+pub(super) fn format_result_markdown(result: &UiQueryResult) -> String {
+    if result.columns.is_empty() {
+        return String::new();
+    }
+    let mut output = String::new();
+    output.push('|');
+    for col in &result.columns {
+        output.push_str(&format!(" {} |", col.name.replace('|', "\\|")));
+    }
+    output.push('\n');
+    output.push('|');
+    for _ in &result.columns {
+        output.push_str(" --- |");
+    }
+    output.push('\n');
+    for row in &result.rows {
+        output.push('|');
+        for cell in row {
+            let text = match cell {
+                UiCell::Null => "NULL".to_owned(),
+                UiCell::Boolean(v) => v.to_string(),
+                UiCell::Number(v) | UiCell::Text(v) | UiCell::Json(v) | UiCell::Bytes(v) => {
+                    v.replace('|', "\\|").replace('\n', " ")
+                }
+            };
+            output.push_str(&format!(" {text} |"));
+        }
+        output.push('\n');
+    }
+    output
+}
+
+pub(super) fn format_result_json(result: &UiQueryResult) -> String {
+    let array: Vec<serde_json::Map<String, serde_json::Value>> = result
+        .rows
+        .iter()
+        .map(|row| {
+            let mut obj = serde_json::Map::new();
+            for (col_idx, cell) in row.iter().enumerate() {
+                if let Some(col) = result.columns.get(col_idx) {
+                    obj.insert(col.name.clone(), cell_to_json_value(cell));
+                }
+            }
+            obj
+        })
+        .collect();
+
+    serde_json::to_string_pretty(&array).unwrap_or_else(|_| "[]".to_owned())
+}
+
 pub(super) fn format_cell_sql_literal(cell: &UiCell) -> String {
     match cell {
         UiCell::Null => "NULL".into(),

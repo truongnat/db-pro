@@ -1,4 +1,4 @@
-use crate::{RequestId, UiCommand, UiQueryFolderSummary, UiSavedQuerySummary};
+use crate::{UiQueryFolderSummary, UiSavedQuerySummary};
 
 /// UI-owned state for the saved-query library and its editor drafts.
 #[derive(Debug, Default)]
@@ -9,66 +9,20 @@ pub(crate) struct QueryLibraryState {
 }
 
 impl QueryLibraryState {
-    pub(super) fn list_queries_command(&self, request_id: RequestId, connection_id: String) -> UiCommand {
-        UiCommand::ListSavedQueries {
-            request_id,
-            connection_id,
-        }
-    }
-
-    pub(super) fn list_folders_command(&self, request_id: RequestId, connection_id: String) -> UiCommand {
-        UiCommand::ListQueryFolders {
-            request_id,
-            connection_id,
-        }
-    }
-
-    pub(super) fn create_folder_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-    ) -> Result<UiCommand, String> {
+    pub(super) fn normalized_folder(&self) -> Option<String> {
         let name = self.query_folder.trim();
-        if name.is_empty() {
-            return Err("Folder name is required".to_owned());
-        }
-        Ok(UiCommand::CreateQueryFolder {
-            request_id,
-            connection_id,
-            name: name.to_owned(),
-        })
+        (!name.is_empty()).then(|| name.to_owned())
     }
 
-    pub(super) fn save_query_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        saved_query_id: Option<String>,
-        name: String,
-        sql: String,
-    ) -> UiCommand {
-        UiCommand::SaveQuery {
-            request_id,
-            connection_id,
-            saved_query_id,
-            name,
-            sql,
-            folder: (!self.query_folder.trim().is_empty()).then(|| self.query_folder.trim().to_owned()),
-        }
-    }
-
-    pub(super) fn rename_query_command(&self, request_id: RequestId, id: String, name: String) -> UiCommand {
-        UiCommand::RenameSavedQuery { request_id, id, name }
-    }
-
-    pub(super) fn delete_query_command(&self, request_id: RequestId, id: String) -> UiCommand {
-        UiCommand::DeleteSavedQuery { request_id, id }
+    pub(super) fn required_folder_name(&self) -> Result<String, String> {
+        self.normalized_folder()
+            .ok_or_else(|| "Folder name is required".to_owned())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{QueryLibraryState, RequestId, UiCommand};
+    use super::QueryLibraryState;
 
     #[test]
     fn default_library_has_no_remote_items_or_draft_folder() {
@@ -80,45 +34,19 @@ mod tests {
     }
 
     #[test]
-    fn refresh_commands_keep_query_library_effects_explicit() {
+    fn folder_draft_normalization_stays_in_library_state() {
         let state = QueryLibraryState::default();
-
-        assert!(matches!(
-            state.list_queries_command(RequestId(1), "source".to_owned()),
-            UiCommand::ListSavedQueries {
-                request_id: RequestId(1),
-                connection_id,
-            } if connection_id == "source"
-        ));
-        assert!(matches!(
-            state.list_folders_command(RequestId(2), "source".to_owned()),
-            UiCommand::ListQueryFolders {
-                request_id: RequestId(2),
-                connection_id,
-            } if connection_id == "source"
-        ));
+        assert_eq!(state.normalized_folder(), None);
+        assert_eq!(state.required_folder_name(), Err("Folder name is required".to_owned()));
     }
 
     #[test]
-    fn save_command_normalizes_optional_folder_and_create_requires_name() {
+    fn folder_draft_trims_whitespace() {
         let state = QueryLibraryState {
             query_folder: " reports ".to_owned(),
             ..QueryLibraryState::default()
         };
-        assert!(matches!(
-            state.save_query_command(
-                RequestId(3),
-                "source".to_owned(),
-                Some("saved-1".to_owned()),
-                "Query".to_owned(),
-                "select 1".to_owned(),
-            ),
-            UiCommand::SaveQuery { folder: Some(folder), .. } if folder == "reports"
-        ));
-
-        assert_eq!(
-            QueryLibraryState::default().create_folder_command(RequestId(4), "source".to_owned()),
-            Err("Folder name is required".to_owned())
-        );
+        assert_eq!(state.normalized_folder().as_deref(), Some("reports"));
+        assert_eq!(state.required_folder_name().unwrap(), "reports");
     }
 }

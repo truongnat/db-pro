@@ -1,9 +1,0 @@
-{
-  "identifier": "default",
-  "description": "Default capabilities for DB Pro",
-  "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "dialog:allow-open"
-  ]
-}

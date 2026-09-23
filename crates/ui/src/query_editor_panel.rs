@@ -22,19 +22,50 @@ impl DbProApp {
                 query_session: &mut self.query.session,
                 preferences: &self.preferences,
                 schema: &self.schema.explorer,
-                task_bridge: &mut self.task_bridge,
                 active_schema: &active_schema,
                 dialect,
             };
             context.draw_query_editor(ui)
         };
-        if effects.dispatch_statement {
-            self.dispatch_query();
-        } else if effects.dispatch_all {
-            self.dispatch_query_all();
-        }
-        if effects.save_query {
-            self.save_query_document();
+        self.apply_query_editor_effects(effects);
+    }
+
+    fn apply_query_editor_effects(&mut self, effects: query_editor_surface_view::QueryEditorEffects) {
+        use query_editor_surface_view::QueryEditorAction as Action;
+
+        for action in effects.actions {
+            match action {
+                Action::CancelPrediction { request_id } => {
+                    self.dispatch_command(UiCommand::CancelSqlPrediction { request_id });
+                }
+                Action::RequestPrediction(request) => {
+                    let request_id = self.next_request_id();
+                    let command = UiCommand::RequestSqlPrediction {
+                        request_id,
+                        document_id: request.document_id.clone(),
+                        document_version: request.document_version,
+                        anchor: request.anchor,
+                        replacement_range: request.replacement_range,
+                        context: request.context,
+                    };
+                    if self.dispatch_command(command) {
+                        self.query.session.commit_prediction_request(
+                            &request.document_id,
+                            request_id,
+                            request.fingerprint,
+                        );
+                    }
+                }
+                Action::DispatchStatement => {
+                    self.dispatch_query();
+                }
+                Action::DispatchAll => {
+                    self.dispatch_query_all();
+                }
+                Action::SaveQuery => {
+                    self.save_query_document();
+                }
+            }
         }
     }
 

@@ -1,51 +1,17 @@
 //! Keyboard shortcuts and query dispatch / destructive-run gate.
-use super::events::PendingDestructiveRun;
 use super::*;
 
 impl DbProApp {
     pub(super) fn handle_shortcuts(&mut self, ctx: &egui::Context) {
-        if self.palette.mode.is_some()
-            || self.connection.dialog.is_open()
-            || self.overlay.delete_confirmation_id.is_some()
-            || self.overlay.folder_delete_confirmation.is_some()
-            || self.table.editing.insert_row_open
-        {
+        if self.shortcuts_blocked() {
             return;
         }
-        if ctx.input(|input| self.shortcut_pressed(input, "query.save_as")) {
-            self.open_save_as_dialog();
-            return;
-        }
-        if ctx.input(|input| self.shortcut_pressed(input, "query.save")) {
-            self.save_query_document_at(self.query.session.active_document_index);
+        if self.handle_document_shortcuts(ctx) {
             return;
         }
         let text_input_has_focus = ctx.wants_keyboard_input();
-        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "palette.commands")) {
-            self.palette.open(PaletteMode::Commands);
+        if self.handle_unfocused_shortcuts(ctx, text_input_has_focus) {
             return;
-        }
-        if !text_input_has_focus
-            && (ctx.input(|i| self.shortcut_pressed(i, "palette.quick_open_alt"))
-                || ctx.input(|i| self.shortcut_pressed(i, "palette.quick_open")))
-        {
-            self.palette.open(PaletteMode::QuickOpen);
-            return;
-        }
-        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "view.toggle_sidebar")) {
-            self.workspace.sidebar_open = !self.workspace.sidebar_open;
-        }
-        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "connection.new")) {
-            self.connection.open_new();
-            return;
-        }
-        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "query.new")) {
-            self.new_query_document();
-            self.workspace.active_tab = WorkspaceTab::Query;
-            return;
-        }
-        if !text_input_has_focus && ctx.input(|i| self.shortcut_pressed(i, "editor.find")) {
-            self.query.editor.editor_search_open = true;
         }
         if ctx.input(|i| {
             self.shortcut_pressed(i, "query.run")
@@ -57,19 +23,76 @@ impl DbProApp {
             self.dispatch_query();
         }
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            if let Some(request_id) = self.query.session.active_running_request() {
-                if self.query_capabilities().allows(|c| c.query.cancel) {
-                    self.cancel_query(request_id);
-                } else {
-                    self.feedback.runtime_message = "Query cancellation is not supported for this provider".to_owned();
-                }
-            } else if self.query.editor.query_tools_open {
-                self.query.editor.query_tools_open = false;
-            } else if self.query.editor.editor_search_open {
-                self.query.editor.editor_search_open = false;
+            self.handle_escape(ctx);
+        }
+    }
+
+    fn shortcuts_blocked(&self) -> bool {
+        self.palette.mode.is_some()
+            || self.connection.dialog.is_open()
+            || self.overlay.delete_confirmation_id.is_some()
+            || self.overlay.folder_delete_confirmation.is_some()
+            || self.table.editing.insert_row_open
+    }
+
+    fn handle_document_shortcuts(&mut self, ctx: &egui::Context) -> bool {
+        if ctx.input(|input| self.shortcut_pressed(input, "query.save_as")) {
+            self.open_save_as_dialog();
+            return true;
+        }
+        if ctx.input(|input| self.shortcut_pressed(input, "query.save")) {
+            self.save_query_document_at(self.query.session.active_document_index);
+            return true;
+        }
+        false
+    }
+
+    fn handle_unfocused_shortcuts(&mut self, ctx: &egui::Context, text_input_has_focus: bool) -> bool {
+        if text_input_has_focus {
+            return false;
+        }
+        if ctx.input(|i| self.shortcut_pressed(i, "palette.commands")) {
+            self.palette.open(PaletteMode::Commands);
+            return true;
+        }
+        if ctx.input(|i| {
+            self.shortcut_pressed(i, "palette.quick_open_alt")
+                || self.shortcut_pressed(i, "palette.quick_open")
+        }) {
+            self.palette.open(PaletteMode::QuickOpen);
+            return true;
+        }
+        if ctx.input(|i| self.shortcut_pressed(i, "view.toggle_sidebar")) {
+            self.workspace.sidebar_open = !self.workspace.sidebar_open;
+        }
+        if ctx.input(|i| self.shortcut_pressed(i, "connection.new")) {
+            self.connection.open_new();
+            return true;
+        }
+        if ctx.input(|i| self.shortcut_pressed(i, "query.new")) {
+            self.new_query_document();
+            self.workspace.active_tab = WorkspaceTab::Query;
+            return true;
+        }
+        if ctx.input(|i| self.shortcut_pressed(i, "editor.find")) {
+            self.query.editor.editor_search_open = true;
+        }
+        false
+    }
+
+    fn handle_escape(&mut self, ctx: &egui::Context) {
+        if let Some(request_id) = self.query.session.active_running_request() {
+            if self.query_capabilities().allows(|c| c.query.cancel) {
+                self.cancel_query(request_id);
             } else {
-                self.set_agent_open(false, ctx);
+                self.feedback.runtime_message = "Query cancellation is not supported for this provider".to_owned();
             }
+        } else if self.query.editor.query_tools_open {
+            self.query.editor.query_tools_open = false;
+        } else if self.query.editor.editor_search_open {
+            self.query.editor.editor_search_open = false;
+        } else {
+            self.set_agent_open(false, ctx);
         }
     }
 
@@ -79,13 +102,14 @@ impl DbProApp {
     }
 
     pub(super) fn cancel_query(&mut self, request_id: crate::RequestId) {
-        self.dispatch_command(UiCommand::CancelQuery { request_id });
-        self.feedback.runtime_message = "Cancelling query…".to_owned();
+        if self.dispatch_command(UiCommand::CancelQuery { request_id }) {
+            self.feedback.runtime_message = "Cancelling query…".to_owned();
+        }
     }
 
-    pub(super) fn dispatch_query(&mut self) {
+    pub(super) fn dispatch_query(&mut self) -> bool {
         if self.query.session.active_running_request().is_some() {
-            return;
+            return false;
         }
         let Some(connection_id) = self
             .active_query_connection_id()
@@ -93,7 +117,7 @@ impl DbProApp {
             .or_else(|| self.active_connection().map(|connection| connection.id.clone()))
         else {
             self.feedback.runtime_message = "Create or select a connection first".to_owned();
-            return;
+            return false;
         };
         let (sql, execution_range) = self
             .query
@@ -109,13 +133,13 @@ impl DbProApp {
             });
         if sql.trim().is_empty() {
             self.feedback.runtime_message = "Query is empty".to_owned();
-            return;
+            return false;
         }
         let version = self.query.session.active_buffer_version();
         if self.hold_destructive_run(&sql, execution_range, version, false) {
-            return;
+            return false;
         }
-        self.send_query_run(connection_id, sql, execution_range, version, false);
+        self.send_query_run(connection_id, sql, execution_range, version, false)
     }
 
     pub(super) fn dispatch_query_all(&mut self) {
@@ -171,27 +195,15 @@ impl DbProApp {
         version: u64,
         all_statements: bool,
     ) -> bool {
-        if db_pro_core::domain::safety::classify_script_safety(sql)
-            != Some(db_pro_core::domain::safety::StatementSafety::Destructive)
-        {
-            return false;
-        }
-        self.query.execution.pending_destructive_run = Some(PendingDestructiveRun {
-            sql: sql.to_owned(),
-            execution_range,
-            version,
-            all_statements,
-        });
-        self.feedback.runtime_message =
-            "Destructive statement held for confirmation — nothing was sent to the database".to_owned();
-        true
+        self.query_execution_context()
+            .hold_destructive_run(sql, execution_range, version, all_statements)
     }
 
     /// Send the statement the user confirmed. The text and the buffer version are the ones
     /// the prompt displayed, so a confirmation can never execute something the user did
     /// not see.
     pub(super) fn confirm_pending_destructive_run(&mut self) {
-        let Some(pending) = self.query.execution.pending_destructive_run.take() else {
+        let Some(pending) = self.query_execution_context().take_pending_destructive_run() else {
             return;
         };
         let Some(connection_id) = self
@@ -204,19 +216,16 @@ impl DbProApp {
         };
         self.send_query_run(
             connection_id,
-            pending.sql,
-            pending.execution_range,
-            pending.version,
-            pending.all_statements,
+            pending.sql().to_owned(),
+            pending.execution_range(),
+            pending.version(),
+            pending.all_statements(),
         );
     }
 
     /// Drop a held destructive statement without executing it.
     pub(super) fn cancel_pending_destructive_run(&mut self) {
-        if self.query.execution.pending_destructive_run.take().is_some() {
-            self.feedback.runtime_message =
-                "Destructive statement cancelled — nothing was sent to the database".to_owned();
-        }
+        self.query_execution_context().cancel_pending_destructive_run();
     }
 
     pub(crate) fn send_query_run(
@@ -226,81 +235,49 @@ impl DbProApp {
         execution_range: (usize, usize),
         version: u64,
         all_statements: bool,
-    ) {
-        let discovered = crate::query::discover_sql_parameters(&sql);
-        if all_statements && !discovered.is_empty() {
-            self.feedback.runtime_message =
-                "Parameterized scripts are not supported yet — run a single statement with bindings".to_owned();
-            return;
+    ) -> bool {
+        let request_id = self.next_request_id();
+        let Some(command) =
+            self.query_execution_context()
+                .prepare_query_run(request_id, connection_id, sql, all_statements)
+        else {
+            return false;
+        };
+        let runtime_command = query_run_command(&command);
+        if self.dispatch_command(runtime_command) {
+            self.query_execution_context()
+                .commit_dispatched(&command, execution_range, version);
+            true
+        } else {
+            false
         }
+    }
 
-        let style = if self.active_driver().eq_ignore_ascii_case("postgresql")
-            || self.active_driver().eq_ignore_ascii_case("postgres")
-        {
-            crate::query::PlaceholderStyle::NumberedDollar
-        } else {
-            crate::query::PlaceholderStyle::QuestionMark
-        };
-        let values = self
-            .query
-            .session
-            .documents
-            .get(self.query.session.active_document_index)
-            .map(|doc| doc.parameter_values.clone())
-            .unwrap_or_default();
-        let (sql, params) = if discovered.is_empty() {
-            (sql, Vec::new())
-        } else {
-            match crate::query::prepare_bound_sql(&sql, &values, style) {
-                Ok(prepared) => (prepared.sql, prepared.values),
-                Err(missing) => {
-                    self.feedback.runtime_message = format!("Fill parameter {missing} before running");
-                    return;
-                }
-            }
-        };
+    fn query_execution_context(&mut self) -> query_execution_actions::QueryExecutionContext<'_> {
+        let driver = self.active_driver().to_owned();
+        query_execution_actions::QueryExecutionContext::new(
+            &mut self.query.session,
+            &mut self.query.editor,
+            &mut self.query.execution,
+            &mut self.feedback,
+            driver,
+        )
+    }
+}
 
-        if !self.query.editor.query_history.iter().any(|query| query == &sql) {
-            self.query.editor.query_history.push(sql.clone());
-            if self.query.editor.query_history.len() > 20 {
-                self.query.editor.query_history.remove(0);
-            }
+fn query_run_command(prepared: &query_execution_actions::PreparedQueryRun) -> UiCommand {
+    if prepared.all_statements {
+        UiCommand::RunQueryMulti {
+            request_id: prepared.request_id,
+            connection_id: prepared.connection_id.clone(),
+            sql: prepared.sql.clone(),
         }
-        let request_id = self.task_bridge.next_request_id();
-        if let Some(doc) = self
-            .query
-            .session
-            .documents
-            .get_mut(self.query.session.active_document_index)
-        {
-            doc.execution_state = QueryExecutionState::Running(request_id);
-            doc.execution_started_at = Some(Instant::now());
-            doc.execution_started_wall_time = Some(chrono::Utc::now().to_rfc3339());
-            doc.executing_range = Some(execution_range);
-            doc.executing_sql = Some(sql.clone());
-            doc.executing_version = Some(version);
-            doc.last_executed_range = Some(execution_range);
-            doc.execution_diagnostic = None;
-            self.query.session.document_requests.insert(request_id, doc.id.clone());
+    } else {
+        UiCommand::RunQuery {
+            request_id: prepared.request_id,
+            connection_id: prepared.connection_id.clone(),
+            sql: prepared.sql.clone(),
+            params: prepared.params.clone(),
         }
-        self.feedback.runtime_message = if all_statements {
-            "Sending full script to runtime…".to_owned()
-        } else {
-            "Sending query to runtime…".to_owned()
-        };
-        self.dispatch_command(if all_statements {
-            UiCommand::RunQueryMulti {
-                request_id,
-                connection_id,
-                sql,
-            }
-        } else {
-            UiCommand::RunQuery {
-                request_id,
-                connection_id,
-                sql,
-                params,
-            }
-        });
     }
 }

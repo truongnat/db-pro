@@ -1,14 +1,20 @@
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::domain::connection::ConnectionId;
 use crate::domain::error::DbError;
-use crate::domain::query::{CellValue, QueryResult};
+use crate::domain::query::QueryResult;
 use crate::domain::safety::{validate_against_policy, ConnectionSafetyPolicy};
 use crate::ports::{ConnectionRepository, DbConnector};
 
 use super::registry::ConnectionRegistry;
 use super::sql_policy::reject_multi_statement;
+use export_formats::{render_csv, render_excel, render_json};
+
+#[cfg(test)]
+use export_formats::{excel_column_index, excel_integer_is_exact, excel_row_index, MAX_EXACT_EXCEL_INTEGER};
+
+#[path = "export_formats.rs"]
+mod export_formats;
 
 #[derive(Debug)]
 pub struct ExportResult {
@@ -64,24 +70,7 @@ impl ExportService {
 
     pub async fn export_csv(&self, connection_id: &ConnectionId, sql: &str) -> Result<ExportResult, DbError> {
         let result = self.execute_for_export(connection_id, sql).await?;
-        let mut writer = csv::Writer::from_writer(Vec::new());
-
-        let headers: Vec<&str> = result.columns.iter().map(|c| c.name.as_str()).collect();
-        writer
-            .write_record(&headers)
-            .map_err(|e| DbError::Internal(format!("csv header write failed: {e}")))?;
-
-        for row in &result.rows {
-            let fields: Vec<String> = row.0.iter().map(cell_to_csv_string).collect();
-            let refs: Vec<&str> = fields.iter().map(|s| s.as_str()).collect();
-            writer
-                .write_record(&refs)
-                .map_err(|e| DbError::Internal(format!("csv row write failed: {e}")))?;
-        }
-
-        let content = writer
-            .into_inner()
-            .map_err(|e| DbError::Internal(format!("csv flush failed: {e}")))?;
+        let content = render_csv(&result)?;
 
         let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
         Ok(ExportResult {
@@ -94,22 +83,7 @@ impl ExportService {
 
     pub async fn export_json(&self, connection_id: &ConnectionId, sql: &str) -> Result<ExportResult, DbError> {
         let result = self.execute_for_export(connection_id, sql).await?;
-        validate_json_column_names(&result)?;
-
-        let rows: Vec<serde_json::Map<String, serde_json::Value>> = result
-            .rows
-            .iter()
-            .map(|row| {
-                let mut map = serde_json::Map::new();
-                for (col, cell) in result.columns.iter().zip(row.0.iter()) {
-                    map.insert(col.name.clone(), cell_to_json(cell)?);
-                }
-                Ok(map)
-            })
-            .collect::<Result<_, DbError>>()?;
-
-        let content = serde_json::to_vec_pretty(&rows)
-            .map_err(|e| DbError::Internal(format!("json serialization failed: {e}")))?;
+        let content = render_json(&result)?;
 
         let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
         Ok(ExportResult {
@@ -122,29 +96,7 @@ impl ExportService {
 
     pub async fn export_excel(&self, connection_id: &ConnectionId, sql: &str) -> Result<ExportResult, DbError> {
         let result = self.execute_for_export(connection_id, sql).await?;
-        let mut workbook = rust_xlsxwriter::Workbook::new();
-        let worksheet = workbook.add_worksheet();
-
-        let header_format = rust_xlsxwriter::Format::new().set_bold();
-
-        for (col_idx, col) in result.columns.iter().enumerate() {
-            let col_idx = excel_column_index(col_idx)?;
-            worksheet
-                .write_string_with_format(0, col_idx, &col.name, &header_format)
-                .map_err(|e| DbError::Internal(format!("excel header write failed: {e}")))?;
-        }
-
-        for (row_idx, row) in result.rows.iter().enumerate() {
-            let row_idx = excel_row_index(row_idx)?;
-            for (col_idx, cell) in row.0.iter().enumerate() {
-                let col_idx = excel_column_index(col_idx)?;
-                write_excel_cell(worksheet, row_idx, col_idx, cell)?;
-            }
-        }
-
-        let content = workbook
-            .save_to_buffer()
-            .map_err(|e| DbError::Internal(format!("excel save failed: {e}")))?;
+        let content = render_excel(&result)?;
 
         let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
         Ok(ExportResult {
@@ -156,140 +108,11 @@ impl ExportService {
     }
 }
 
-fn excel_column_index(index: usize) -> Result<u16, DbError> {
-    u16::try_from(index).map_err(|_| DbError::Validation("Excel export has too many columns".into()))
-}
-
-fn excel_row_index(index: usize) -> Result<u32, DbError> {
-    index
-        .checked_add(1)
-        .and_then(|index| u32::try_from(index).ok())
-        .ok_or_else(|| DbError::Validation("Excel export has too many rows".into()))
-}
-
-fn validate_json_column_names(result: &QueryResult) -> Result<(), DbError> {
-    let mut names = HashSet::with_capacity(result.columns.len());
-    for column in &result.columns {
-        if !names.insert(column.name.as_str()) {
-            return Err(DbError::Validation(format!(
-                "JSON export requires unique column names; duplicate column: {}",
-                column.name
-            )));
-        }
-    }
-    Ok(())
-}
-
-const MAX_EXACT_EXCEL_INTEGER: i64 = 1_i64 << 53;
-
-fn excel_integer_is_exact(value: i64) -> bool {
-    (-MAX_EXACT_EXCEL_INTEGER..=MAX_EXACT_EXCEL_INTEGER).contains(&value)
-}
-
-fn cell_to_csv_string(cell: &CellValue) -> String {
-    match cell {
-        CellValue::Null => String::new(),
-        CellValue::Bool(b) => b.to_string(),
-        CellValue::Int64(i) => i.to_string(),
-        CellValue::Float64(f) => f.to_string(),
-        CellValue::Decimal(s) => s.clone(),
-        CellValue::Text(s) => s.clone(),
-        CellValue::Bytes(_) => "[binary]".into(),
-        CellValue::Uuid(s) => s.clone(),
-        CellValue::DateTime(s) => s.clone(),
-        CellValue::Timestamp(s) => s.clone(),
-        CellValue::TimestampTz(s) => s.clone(),
-        CellValue::TimeTz(s) => s.clone(),
-        CellValue::Date(s) => s.clone(),
-        CellValue::Time(s) => s.clone(),
-        CellValue::Interval(s) => s.clone(),
-        CellValue::Inet(s) => s.clone(),
-        CellValue::Json(v) => v.to_string(),
-    }
-}
-
-fn cell_to_json(cell: &CellValue) -> Result<serde_json::Value, DbError> {
-    match cell {
-        CellValue::Null => Ok(serde_json::Value::Null),
-        CellValue::Bool(b) => Ok(serde_json::Value::Bool(*b)),
-        CellValue::Int64(i) => Ok(serde_json::Value::Number((*i).into())),
-        CellValue::Float64(f) => serde_json::Number::from_f64(*f)
-            .map(serde_json::Value::Number)
-            .ok_or_else(|| DbError::Validation("JSON export cannot represent a non-finite float".into())),
-        // Keep decimal text exact instead of converting through f64.
-        CellValue::Decimal(s) => Ok(serde_json::Value::String(s.clone())),
-        CellValue::Text(s) => Ok(serde_json::Value::String(s.clone())),
-        CellValue::Bytes(b) => Ok(serde_json::Value::String(format!("[{} bytes]", b.len()))),
-        CellValue::Uuid(s) => Ok(serde_json::Value::String(s.clone())),
-        CellValue::DateTime(s) => Ok(serde_json::Value::String(s.clone())),
-        CellValue::Timestamp(s) | CellValue::TimestampTz(s) | CellValue::TimeTz(s) => {
-            Ok(serde_json::Value::String(s.clone()))
-        }
-        CellValue::Date(s) => Ok(serde_json::Value::String(s.clone())),
-        CellValue::Time(s) => Ok(serde_json::Value::String(s.clone())),
-        CellValue::Interval(s) => Ok(serde_json::Value::String(s.clone())),
-        CellValue::Inet(s) => Ok(serde_json::Value::String(s.clone())),
-        CellValue::Json(v) => Ok(v.clone()),
-    }
-}
-
-fn write_excel_cell(
-    worksheet: &mut rust_xlsxwriter::Worksheet,
-    row: u32,
-    col: u16,
-    cell: &CellValue,
-) -> Result<(), DbError> {
-    match cell {
-        CellValue::Null => Ok(()),
-        CellValue::Bool(b) => worksheet
-            .write_boolean(row, col, *b)
-            .map(|_| ())
-            .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
-        CellValue::Int64(i) if excel_integer_is_exact(*i) => worksheet
-            .write_number(row, col, *i as f64)
-            .map(|_| ())
-            .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
-        CellValue::Int64(i) => worksheet
-            .write_string(row, col, i.to_string())
-            .map(|_| ())
-            .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
-        CellValue::Float64(f) => worksheet
-            .write_number(row, col, *f)
-            .map(|_| ())
-            .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
-        CellValue::Decimal(s) => worksheet
-            .write_string(row, col, s)
-            .map(|_| ())
-            .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
-        CellValue::Text(s)
-        | CellValue::Uuid(s)
-        | CellValue::DateTime(s)
-        | CellValue::Timestamp(s)
-        | CellValue::TimestampTz(s)
-        | CellValue::TimeTz(s) => worksheet
-            .write_string(row, col, s)
-            .map(|_| ())
-            .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
-        CellValue::Date(s) | CellValue::Time(s) | CellValue::Interval(s) | CellValue::Inet(s) => worksheet
-            .write_string(row, col, s)
-            .map(|_| ())
-            .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
-        CellValue::Bytes(b) => worksheet
-            .write_string(row, col, format!("[{} bytes]", b.len()))
-            .map(|_| ())
-            .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
-        CellValue::Json(v) => worksheet
-            .write_string(row, col, v.to_string())
-            .map(|_| ())
-            .map_err(|e| DbError::Internal(format!("excel write failed: {e}"))),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::domain::connection::{ConnectionConfig, ConnectionHandle, DriverType, SslMode};
-    use crate::domain::query::{ColumnMeta, Row};
+    use crate::domain::query::{CellValue, ColumnMeta, Row};
     use crate::ports::{MockConnectionRepository, MockDbConnector};
 
     fn sample_result() -> QueryResult {

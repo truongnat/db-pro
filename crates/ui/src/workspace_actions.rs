@@ -19,11 +19,21 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect a source database first".into();
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
-        match self.schema.compare.build_data_diff_request(request_id, source_id) {
-            Ok(command) => {
-                self.dispatch_command(command);
-                self.feedback.runtime_message = "Running key-aware data compare…".into();
+        let request_id = self.next_request_id();
+        match self.schema.compare.prepare_data_diff_request() {
+            Ok(request) => {
+                let command = UiCommand::DiffTableDataKeyed {
+                    request_id,
+                    source_id,
+                    target_id: request.target_id,
+                    schema: request.schema,
+                    table: request.table,
+                    key_columns: request.key_columns,
+                    sample_limit: request.sample_limit,
+                };
+                if self.dispatch_command(command) {
+                    self.feedback.runtime_message = "Running key-aware data compare…".into();
+                }
             }
             Err(error) => self.feedback.runtime_message = error,
         }
@@ -74,9 +84,10 @@ impl DbProApp {
     }
 
     pub(crate) fn request_open_workspace_folder(&mut self) {
-        let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::PickWorkspaceFolder { request_id });
-        self.feedback.runtime_message = "Choose a workspace folder…".to_owned();
+        let request_id = self.next_request_id();
+        if self.dispatch_command(UiCommand::PickWorkspaceFolder { request_id }) {
+            self.feedback.runtime_message = "Choose a workspace folder…".to_owned();
+        }
     }
 
     pub(crate) fn open_workspace_folder(&mut self, path: std::path::PathBuf) {
@@ -168,7 +179,7 @@ impl DbProApp {
                 if let Some(mtime) = git_workspace::disk_mtime_secs(std::path::Path::new(&path)) {
                     self.workspace.files.workspace_file_mtimes.insert(path.clone(), mtime);
                 }
-                self.workspace.files.workspace_external_change = None;
+                self.workspace.files.dismiss_external_change();
                 self.feedback.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
                 true
             }
@@ -305,31 +316,7 @@ impl DbProApp {
                 }
                 self.workspace.pending_navigation_action = None;
                 self.schema.explorer.selected_table = None;
-                self.table.state.table_info = None;
-                self.table.state.table_ddl = None;
-                self.table.state.table_info_error = None;
-                self.table.state.table_ddl_error = None;
-                self.table.data_query.result = None;
-                self.table.data_query.total_rows = None;
-                self.table.data_query.request = None;
-                self.table.state.table_info_request = None;
-                self.table.state.table_ddl_request = None;
-                self.table.mutation.table_mutation_request = None;
-                self.table.mutation.staged_changes.clear();
-                self.table.mutation.staged_apply_request = None;
-                self.table.mutation.staged_apply_targets.clear();
-                self.table.mutation.table_mutation_retry_after_reload = false;
-                self.table.mutation.table_mutation_retry_target = None;
-                self.table.mutation.table_mutation_error = None;
-                self.table.data.selected_cell = None;
-                self.table.data.selected_row = None;
-                self.table.data.selected_rows.clear();
-                self.table.data.selection_anchor_row = None;
-                self.table.data.selection_anchor_cell = None;
-                self.table.editing.data_editing_cell = None;
-                self.table.editing.data_edit_error = None;
-                self.table.editing.data_delete_confirmation = false;
-                self.table.editing.discard_changes_confirmation = false;
+                self.table.reset_workspace();
             }
             WorkspaceTab::SchemaObject => {
                 self.schema.explorer.selected_schema_object = None;
@@ -379,7 +366,7 @@ impl DbProApp {
                     .workspace_file_mtimes
                     .insert(path.to_owned(), mtime);
             }
-            self.workspace.files.workspace_external_change = None;
+            self.workspace.files.dismiss_external_change();
             self.feedback.runtime_message = format!("Reloaded {path}");
         }
     }

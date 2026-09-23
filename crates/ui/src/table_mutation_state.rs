@@ -1,5 +1,44 @@
 use super::*;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct StagedApplyFailureTransition {
+    has_target: bool,
+    mutation_failure: MutationFailure,
+    display_message: String,
+    is_conflict: bool,
+    reload_identity: Option<RowIdentity>,
+}
+
+impl StagedApplyFailureTransition {
+    pub(crate) fn has_target(&self) -> bool {
+        self.has_target
+    }
+
+    pub(crate) fn target(&self) -> Option<&MutationTarget> {
+        self.mutation_failure.target.as_ref()
+    }
+
+    pub(crate) fn is_conflict(&self) -> bool {
+        self.is_conflict
+    }
+
+    pub(crate) fn reload_identity(&self) -> Option<&RowIdentity> {
+        self.reload_identity.as_ref()
+    }
+
+    pub(crate) fn is_rolled_back(&self) -> bool {
+        self.mutation_failure.rolled_back
+    }
+
+    pub(crate) fn statement_index(&self) -> usize {
+        self.mutation_failure.statement_index
+    }
+
+    pub(crate) fn display_message(&self) -> &str {
+        &self.display_message
+    }
+}
+
 /// Owns the local table-edit transaction and its asynchronous apply lifecycle.
 #[derive(Debug)]
 pub(crate) struct TableMutationState {
@@ -31,6 +70,38 @@ impl Default for TableMutationState {
 }
 
 impl TableMutationState {
+    pub(crate) fn reset_apply_lifecycle(&mut self) {
+        self.staged_apply_request = None;
+        self.table_mutation_request = None;
+        self.table_mutation_retry_after_reload = false;
+        self.table_mutation_retry_target = None;
+    }
+
+    pub(crate) fn record_apply_failure(
+        &mut self,
+        failure: super::table_mutation_actions::StagedApplyFailure<'_>,
+    ) -> StagedApplyFailureTransition {
+        let target = self.staged_apply_targets.get(failure.statement_index).cloned();
+        let normalized_code = normalize_failure_code(failure.code);
+        let display_message = failure_message(normalized_code, failure.message);
+        let reload_identity = conflict_identity(normalized_code, target.as_ref());
+        let mutation_failure = MutationFailure {
+            statement_index: failure.statement_index,
+            target: target.clone(),
+            code: normalized_code.to_owned(),
+            message: display_message.clone(),
+            rolled_back: failure.rolled_back,
+        };
+        self.table_mutation_error = Some(mutation_failure.clone());
+        StagedApplyFailureTransition {
+            has_target: target.is_some(),
+            mutation_failure,
+            display_message,
+            is_conflict: normalized_code == "CONFLICT",
+            reload_identity,
+        }
+    }
+
     pub(crate) fn row_reload_filters(
         info: &UiTableInfo,
         identity: &RowIdentity,
@@ -58,19 +129,7 @@ impl TableMutationState {
 
     pub(crate) fn build_apply_plan(&mut self) -> TableApplyPlan {
         let retry_target = self.table_mutation_retry_target.take();
-        let mut changes = Vec::new();
-        let mut targets = Vec::new();
-        let mut deletes = Vec::new();
-        let mut inserts = Vec::new();
-        let mut updates = Vec::<(
-            RowIdentity,
-            Option<usize>,
-            Vec<String>,
-            Vec<String>,
-            Vec<UiCell>,
-            Vec<usize>,
-        )>::new();
-
+        let mut builder = ApplyPlanBuilder::default();
         for change in self.staged_changes.iter() {
             if retry_target
                 .as_ref()
@@ -78,79 +137,9 @@ impl TableMutationState {
             {
                 continue;
             }
-            match change {
-                StagedChange::Update {
-                    identity,
-                    current_row_index,
-                    column_index,
-                    column,
-                    data_type,
-                    value,
-                    ..
-                } => {
-                    if let Some(entry) = updates.iter_mut().find(|entry| entry.0 == *identity) {
-                        entry.2.push(column.clone());
-                        entry.3.push(data_type.clone());
-                        entry.4.push(value.clone());
-                        entry.5.push(*column_index);
-                    } else {
-                        updates.push((
-                            identity.clone(),
-                            *current_row_index,
-                            vec![column.clone()],
-                            vec![data_type.clone()],
-                            vec![value.clone()],
-                            vec![*column_index],
-                        ));
-                    }
-                }
-                StagedChange::Delete {
-                    identity,
-                    current_row_index,
-                } => deletes.push((
-                    UiTableMutation::Delete {
-                        pk_columns: identity.original_pk_columns.clone(),
-                        pk_values: identity.original_pk_values.clone(),
-                    },
-                    MutationTarget::Delete {
-                        identity: identity.clone(),
-                        current_row_index: *current_row_index,
-                    },
-                )),
-                StagedChange::Insert { columns, values, .. } => inserts.push((
-                    UiTableMutation::Insert {
-                        columns: columns.clone(),
-                        values: values.clone(),
-                    },
-                    MutationTarget::Insert,
-                )),
-            }
+            builder.add_change(change);
         }
-
-        for (change, target) in deletes {
-            changes.push(change);
-            targets.push(target);
-        }
-        for (identity, current_row_index, columns, data_types, values, column_indexes) in updates {
-            changes.push(UiTableMutation::Update {
-                columns,
-                data_types,
-                values,
-                pk_columns: identity.original_pk_columns.clone(),
-                pk_values: identity.original_pk_values.clone(),
-            });
-            targets.push(MutationTarget::Update {
-                identity,
-                current_row_index,
-                columns: column_indexes,
-            });
-        }
-        for (change, target) in inserts {
-            changes.push(change);
-            targets.push(target);
-        }
-
-        TableApplyPlan { changes, targets }
+        builder.finish()
     }
 
     pub(crate) fn mutation_error_for_identity(&self, identity: &RowIdentity) -> bool {
@@ -204,10 +193,151 @@ impl TableMutationState {
     }
 }
 
+#[derive(Default)]
+struct ApplyPlanBuilder {
+    deletes: Vec<(UiTableMutation, MutationTarget)>,
+    updates: Vec<PendingUpdate>,
+    inserts: Vec<(UiTableMutation, MutationTarget)>,
+}
+
+struct PendingUpdate {
+    identity: RowIdentity,
+    current_row_index: Option<usize>,
+    columns: Vec<String>,
+    data_types: Vec<String>,
+    values: Vec<UiCell>,
+    column_indexes: Vec<usize>,
+}
+
+impl ApplyPlanBuilder {
+    fn add_change(&mut self, change: &StagedChange) {
+        match change {
+            StagedChange::Update {
+                identity,
+                current_row_index,
+                column_index,
+                column,
+                data_type,
+                value,
+                ..
+            } => self.add_update(identity, *current_row_index, *column_index, column, data_type, value),
+            StagedChange::Delete {
+                identity,
+                current_row_index,
+            } => self.deletes.push((
+                UiTableMutation::Delete {
+                    pk_columns: identity.original_pk_columns.clone(),
+                    pk_values: identity.original_pk_values.clone(),
+                },
+                MutationTarget::Delete {
+                    identity: identity.clone(),
+                    current_row_index: *current_row_index,
+                },
+            )),
+            StagedChange::Insert { columns, values, .. } => self.inserts.push((
+                UiTableMutation::Insert {
+                    columns: columns.clone(),
+                    values: values.clone(),
+                },
+                MutationTarget::Insert,
+            )),
+        }
+    }
+
+    fn add_update(
+        &mut self,
+        identity: &RowIdentity,
+        current_row_index: Option<usize>,
+        column_index: usize,
+        column: &str,
+        data_type: &str,
+        value: &UiCell,
+    ) {
+        if let Some(entry) = self.updates.iter_mut().find(|entry| entry.identity == *identity) {
+            entry.columns.push(column.to_owned());
+            entry.data_types.push(data_type.to_owned());
+            entry.values.push(value.clone());
+            entry.column_indexes.push(column_index);
+            return;
+        }
+        self.updates.push(PendingUpdate {
+            identity: identity.clone(),
+            current_row_index,
+            columns: vec![column.to_owned()],
+            data_types: vec![data_type.to_owned()],
+            values: vec![value.clone()],
+            column_indexes: vec![column_index],
+        });
+    }
+
+    fn finish(self) -> TableApplyPlan {
+        let mut plan = TableApplyPlan::default();
+        for (change, target) in self.deletes {
+            plan.push(change, target);
+        }
+        for update in self.updates {
+            let target = MutationTarget::Update {
+                identity: update.identity.clone(),
+                current_row_index: update.current_row_index,
+                columns: update.column_indexes,
+            };
+            let change = UiTableMutation::Update {
+                columns: update.columns,
+                data_types: update.data_types,
+                values: update.values,
+                pk_columns: update.identity.original_pk_columns,
+                pk_values: update.identity.original_pk_values,
+            };
+            plan.push(change, target);
+        }
+        for (change, target) in self.inserts {
+            plan.push(change, target);
+        }
+        plan
+    }
+}
+
+fn normalize_failure_code(code: &str) -> &str {
+    match code {
+        "CONSTRAINT_VIOLATION" => "CONSTRAINT_VIOLATION",
+        "VALIDATION_ERROR" => "VALIDATION_ERROR",
+        "CONFLICT" => "CONFLICT",
+        "INTERNAL_ERROR" => "INTERNAL",
+        _ => "INTERNAL",
+    }
+}
+
+fn failure_message(code: &str, message: &str) -> String {
+    if code == "CONFLICT" {
+        format!("This row changed or was deleted in the database. Database: {message}")
+    } else {
+        message.to_owned()
+    }
+}
+
+fn conflict_identity(code: &str, target: Option<&MutationTarget>) -> Option<RowIdentity> {
+    if code != "CONFLICT" {
+        return None;
+    }
+    match target {
+        Some(MutationTarget::Update { identity, .. }) | Some(MutationTarget::Delete { identity, .. }) => {
+            Some(identity.clone())
+        }
+        Some(MutationTarget::Insert) | None => None,
+    }
+}
+
 #[derive(Debug, Default, PartialEq)]
 pub(crate) struct TableApplyPlan {
     pub(super) changes: Vec<UiTableMutation>,
     pub(super) targets: Vec<MutationTarget>,
+}
+
+impl TableApplyPlan {
+    fn push(&mut self, change: UiTableMutation, target: MutationTarget) {
+        self.changes.push(change);
+        self.targets.push(target);
+    }
 }
 
 fn change_matches_target(change: &StagedChange, target: &MutationTarget) -> bool {

@@ -10,7 +10,7 @@ pub(crate) fn draw(
     theme: DbProTheme,
     overlay: &mut OverlayState,
     query_library: &QueryLibraryState,
-    task_bridge: &mut TaskBridge,
+    command_dispatcher: &mut command_dispatch::RuntimeCommandDispatcher<'_>,
     feedback: &mut FeedbackState,
 ) {
     let Some(folder_id) = overlay.folder_delete_confirmation.clone() else {
@@ -63,16 +63,13 @@ pub(crate) fn draw(
         });
 
     if confirmed {
-        let request_id = task_bridge.next_request_id();
-        if !task_bridge.send_best_effort(UiCommand::DeleteQueryFolder {
+        let request_id = command_dispatcher.next_request_id();
+        if command_dispatcher.dispatch(UiCommand::DeleteQueryFolder {
             request_id,
             id: folder_id,
-        }) {
-            let message = "Runtime worker unavailable";
-            feedback.set_runtime_message(message);
-            feedback.show_error_toast(message);
+        }, feedback) {
+            overlay.folder_delete_confirmation = None;
         }
-        overlay.folder_delete_confirmation = None;
     } else if cancelled || !open {
         overlay.folder_delete_confirmation = None;
     }

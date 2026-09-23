@@ -1,177 +1,172 @@
+use super::command_dispatch::RuntimeCommandDispatcher;
+use super::event_trigger_state::EventTriggerState;
 use super::*;
 
-impl DbProApp {
-    pub(super) fn draw_event_trigger_activity(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(SPACE_MD);
-        section_label(ui, "EVENT TRIGGERS", self.theme);
-        ui.add_space(SPACE_SM);
-        ui.label(
-            RichText::new(
-                "PostgreSQL-only · database-level DDL hooks · not table/row triggers · create requires existing function",
-            )
-            .small()
-            .color(self.theme.text_muted),
-        );
-        if secondary_button_with_icon(ui, Icon::RefreshCw, "Load event triggers", self.theme).clicked() {
-            self.request_event_triggers();
-        }
-        if let Some(error) = &self.management.event_trigger.event_trigger_error {
-            ui.colored_label(self.theme.danger, error);
-        }
-        if let Some(inv) = self.management.event_trigger.event_trigger_inventory.clone() {
-            ui.label(RichText::new(&inv.message).small().color(self.theme.text_secondary));
-            for trig in inv.triggers.iter().take(50) {
-                card_frame(self.theme).show(ui, |ui| {
-                    ui.label(
-                        RichText::new(format!(
-                            "{} · on {} · {} · fn={}",
-                            trig.name, trig.event, trig.enabled_label, trig.function_signature
-                        ))
-                        .strong()
-                        .monospace(),
-                    );
-                    if !trig.tags.is_empty() {
-                        ui.label(
-                            RichText::new(format!("tags: {}", trig.tags.join(", ")))
-                                .small()
-                                .color(self.theme.text_muted),
-                        );
-                    }
-                    ui.horizontal(|ui| {
-                        if ghost_button_with_icon(ui, Icon::FileCode2, "Preview DROP", self.theme).clicked() {
-                            // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Drop
-                            self.management.event_trigger.event_trigger_ddl_preview =
-                                db_pro_core::domain::event_trigger::preview_drop_event_trigger(&trig.name).ok();
-                        }
-                        if ghost_button(ui, "Disable", self.theme).clicked() {
-                            self.alter_event_trigger_confirmed(&trig.name, "disable");
-                        }
-                        if ghost_button(ui, "Enable", self.theme).clicked() {
-                            self.alter_event_trigger_confirmed(&trig.name, "enable");
-                        }
-                        if danger_button(ui, "Drop…", self.theme).clicked() {
-                            self.management.event_trigger.event_trigger_drop_confirm = Some(trig.name.clone());
-                        }
-                    });
-                });
-                ui.add_space(SPACE_XS);
-            }
-        }
+#[path = "event_trigger_surface_view.rs"]
+mod event_trigger_surface_view;
 
-        ui.add_space(SPACE_SM);
-        ui.label(RichText::new("Create event trigger").small().strong());
-        ui.horizontal(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.management.event_trigger.event_trigger_create_name)
-                    .hint_text("name"),
-            );
-            ui.add(
-                egui::TextEdit::singleline(&mut self.management.event_trigger.event_trigger_create_event)
-                    .hint_text("event"),
-            );
-        });
-        ui.horizontal(|ui| {
-            ui.add(
-                egui::TextEdit::singleline(&mut self.management.event_trigger.event_trigger_create_function)
-                    .hint_text("schema.func()"),
-            );
-            ui.add(
-                egui::TextEdit::singleline(&mut self.management.event_trigger.event_trigger_create_tags)
-                    .hint_text("tags CSV optional"),
-            );
-        });
-        ui.horizontal(|ui| {
-            if ghost_button_with_icon(ui, Icon::FileCode2, "Preview CREATE", self.theme).clicked() {
-                // allow: preview is best-effort — preview generation error (name validation) only hides preview without blocking Create
-                self.management.event_trigger.event_trigger_ddl_preview =
-                    db_pro_core::domain::event_trigger::preview_create_event_trigger(
-                        &self.management.event_trigger.event_trigger_create_name,
-                        &self.management.event_trigger.event_trigger_create_event,
-                        &self.management.event_trigger.event_trigger_create_function,
-                        &self.management.event_trigger.event_trigger_create_tags,
-                    )
-                    .ok();
-            }
-            if secondary_button(ui, "Create (confirm)", self.theme).clicked() {
-                self.create_event_trigger_confirmed();
-            }
-        });
+pub(super) struct EventTriggerActivityContext<'a, 'bridge> {
+    pub(super) theme: DbProTheme,
+    pub(super) state: &'a mut EventTriggerState,
+    pub(super) connection_id: Option<&'a str>,
+    pub(super) driver: &'a str,
+    pub(super) command_dispatcher: &'a mut RuntimeCommandDispatcher<'bridge>,
+    pub(super) feedback: &'a mut FeedbackState,
+}
 
-        if let Some(preview) = self.management.event_trigger.event_trigger_ddl_preview.clone() {
-            egui::Window::new("Event trigger DDL preview")
-                .collapsible(false)
-                .resizable(true)
-                .default_width(520.0)
-                .show(ui.ctx(), |ui| {
-                    ui.label(RichText::new(preview).monospace());
-                    if secondary_button(ui, "Close", self.theme).clicked() {
-                        self.management.event_trigger.event_trigger_ddl_preview = None;
-                    }
-                });
+impl EventTriggerActivityContext<'_, '_> {
+    pub(super) fn draw(&mut self, ui: &mut egui::Ui) {
+        let actions = event_trigger_surface_view::EventTriggerSurfaceContext {
+            theme: self.theme,
+            state: self.state,
         }
-        if let Some(name) = self.management.event_trigger.event_trigger_drop_confirm.clone() {
-            egui::Window::new("Drop event trigger?")
-                .collapsible(false)
-                .resizable(false)
-                .show(ui.ctx(), |ui| {
-                    ui.label(format!(
-                        "Drop event trigger `{name}`? This changes global DDL hook behavior."
-                    ));
-                    ui.horizontal(|ui| {
-                        if danger_button(ui, "Drop", self.theme).clicked() {
-                            self.drop_event_trigger_confirmed(&name);
-                        }
-                        if secondary_button(ui, "Cancel", self.theme).clicked() {
-                            self.management.event_trigger.event_trigger_drop_confirm = None;
-                        }
-                    });
-                });
+        .draw(ui);
+        self.apply_actions(actions);
+    }
+
+    fn apply_actions(&mut self, actions: Vec<event_trigger_surface_view::EventTriggerSurfaceAction>) {
+        for action in actions {
+            match action {
+                event_trigger_surface_view::EventTriggerSurfaceAction::Refresh => self.request_event_triggers(),
+                event_trigger_surface_view::EventTriggerSurfaceAction::PreviewDrop(name) => {
+                    self.state.event_trigger_ddl_preview =
+                        db_pro_core::domain::event_trigger::preview_drop_event_trigger(&name).ok();
+                }
+                event_trigger_surface_view::EventTriggerSurfaceAction::Alter { name, mode } => {
+                    self.alter_event_trigger_confirmed(&name, &mode);
+                }
+                event_trigger_surface_view::EventTriggerSurfaceAction::RequestDrop(name) => {
+                    self.state.event_trigger_drop_confirm = Some(name);
+                }
+                event_trigger_surface_view::EventTriggerSurfaceAction::PreviewCreate {
+                    name,
+                    event,
+                    function_ref,
+                    tags_csv,
+                } => {
+                    self.state.event_trigger_ddl_preview =
+                        db_pro_core::domain::event_trigger::preview_create_event_trigger(
+                            &name,
+                            &event,
+                            &function_ref,
+                            &tags_csv,
+                        )
+                        .ok();
+                }
+                event_trigger_surface_view::EventTriggerSurfaceAction::Create => {
+                    self.create_event_trigger_confirmed();
+                }
+                event_trigger_surface_view::EventTriggerSurfaceAction::ClosePreview => {
+                    self.state.event_trigger_ddl_preview = None;
+                }
+                event_trigger_surface_view::EventTriggerSurfaceAction::ConfirmDrop(name) => {
+                    self.drop_event_trigger_confirmed(&name);
+                }
+                event_trigger_surface_view::EventTriggerSurfaceAction::CancelDrop => {
+                    self.state.event_trigger_drop_confirm = None;
+                }
+            }
         }
     }
 
     fn request_event_triggers(&mut self) {
-        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
-            self.management.event_trigger.event_trigger_error = Some("Connect a PostgreSQL database first".into());
+        let Some(connection_id) = self.connection_id else {
+            self.state.event_trigger_error = Some("Connect a PostgreSQL database first".into());
             return;
         };
-        if !self.active_driver().to_ascii_lowercase().contains("postgres") {
-            self.management.event_trigger.event_trigger_error = Some("Event triggers are PostgreSQL-only".into());
+        if !self.driver.to_ascii_lowercase().contains("postgres") {
+            self.state.event_trigger_error = Some("Event triggers are PostgreSQL-only".into());
             return;
         }
-        let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.event_trigger.list_command(request_id, connection_id));
+        let request_id = self.command_dispatcher.next_request_id();
+        self.dispatch(list_event_triggers_command(request_id, connection_id.to_owned()));
     }
 
     fn create_event_trigger_confirmed(&mut self) {
-        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection_id else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.event_trigger.create_command(request_id, connection_id));
+        let request_id = self.command_dispatcher.next_request_id();
+        self.dispatch(create_event_trigger_command(
+            self.state,
+            request_id,
+            connection_id.to_owned(),
+        ));
     }
 
     fn drop_event_trigger_confirmed(&mut self, name: &str) {
-        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection_id else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(
-            self.management
-                .event_trigger
-                .drop_command(request_id, connection_id, name.to_owned()),
-        );
+        let request_id = self.command_dispatcher.next_request_id();
+        self.dispatch(drop_event_trigger_command(
+            request_id,
+            connection_id.to_owned(),
+            name.to_owned(),
+        ));
     }
 
     fn alter_event_trigger_confirmed(&mut self, name: &str, mode: &str) {
-        let Some(connection_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+        let Some(connection_id) = self.connection_id else {
             return;
         };
-        let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(self.management.event_trigger.alter_command(
+        let request_id = self.command_dispatcher.next_request_id();
+        self.dispatch(alter_event_trigger_command(
             request_id,
-            connection_id,
+            connection_id.to_owned(),
             name.to_owned(),
             mode.to_owned(),
         ));
+    }
+
+    fn dispatch(&mut self, command: UiCommand) -> bool {
+        self.command_dispatcher.dispatch(command, self.feedback)
+    }
+}
+
+pub(super) fn list_event_triggers_command(request_id: RequestId, connection_id: String) -> UiCommand {
+    UiCommand::ListEventTriggers {
+        request_id,
+        connection_id,
+    }
+}
+
+fn create_event_trigger_command(
+    state: &EventTriggerState,
+    request_id: RequestId,
+    connection_id: String,
+) -> UiCommand {
+    UiCommand::CreateEventTrigger {
+        request_id,
+        connection_id,
+        name: state.event_trigger_create_name.clone(),
+        event: state.event_trigger_create_event.clone(),
+        function_ref: state.event_trigger_create_function.clone(),
+        tags_csv: state.event_trigger_create_tags.clone(),
+        confirmed: true,
+    }
+}
+
+fn drop_event_trigger_command(request_id: RequestId, connection_id: String, name: String) -> UiCommand {
+    UiCommand::DropEventTrigger {
+        request_id,
+        connection_id,
+        name,
+        confirmed: true,
+    }
+}
+
+fn alter_event_trigger_command(
+    request_id: RequestId,
+    connection_id: String,
+    name: String,
+    mode: String,
+) -> UiCommand {
+    UiCommand::AlterEventTrigger {
+        request_id,
+        connection_id,
+        name,
+        mode,
+        confirmed: true,
     }
 }

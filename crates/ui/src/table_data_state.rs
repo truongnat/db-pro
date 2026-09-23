@@ -448,6 +448,14 @@ impl TableDataState {
         self.selected_cell = Some((last_row, last_column));
     }
 
+    pub(crate) fn clear_selection(&mut self) {
+        self.selected_cell = None;
+        self.selected_row = None;
+        self.selected_rows.clear();
+        self.selection_anchor_row = None;
+        self.selection_anchor_cell = None;
+    }
+
     pub(crate) fn selected_row_indexes(&self) -> Vec<usize> {
         if self.selected_rows.is_empty() {
             self.selected_row.into_iter().collect()

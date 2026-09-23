@@ -1,7 +1,5 @@
 //! State and effect planning for the audit surface.
 
-use super::{RequestId, UiCommand};
-
 #[derive(Default)]
 pub(super) struct AuditState {
     pub(super) audit_page: Option<db_pro_core::domain::audit::AuditPage>,
@@ -16,18 +14,13 @@ pub(super) struct AuditState {
 }
 
 impl AuditState {
-    pub(super) fn events_load_command(&self, request_id: RequestId, connection_id: String) -> UiCommand {
-        UiCommand::AuditEventsLoad {
-            request_id,
-            connection_id,
-            filter: db_pro_core::domain::audit::AuditFilter {
-                text: self.audit_filter_text.clone(),
-                database: self.audit_filter_database.clone(),
-                username: self.audit_filter_username.clone(),
-                severity: self.audit_filter_severity.clone(),
-                command_tag: String::new(),
-            },
-            limit: Some(100),
+    pub(super) fn audit_filter(&self) -> db_pro_core::domain::audit::AuditFilter {
+        db_pro_core::domain::audit::AuditFilter {
+            text: self.audit_filter_text.clone(),
+            database: self.audit_filter_database.clone(),
+            username: self.audit_filter_username.clone(),
+            severity: self.audit_filter_severity.clone(),
+            command_tag: String::new(),
         }
     }
 
@@ -53,10 +46,10 @@ impl AuditState {
 
 #[cfg(test)]
 mod tests {
-    use super::{AuditState, RequestId, UiCommand};
+    use super::AuditState;
 
     #[test]
-    fn audit_load_command_preserves_filter_scope_and_limit() {
+    fn audit_filter_preserves_filter_scope() {
         let state = AuditState {
             audit_filter_text: "alter".to_owned(),
             audit_filter_database: "app".to_owned(),
@@ -65,19 +58,12 @@ mod tests {
             ..AuditState::default()
         };
 
-        assert!(matches!(
-            state.events_load_command(RequestId(4), "source".to_owned()),
-            UiCommand::AuditEventsLoad {
-                request_id: RequestId(4),
-                connection_id,
-                filter,
-                limit: Some(100),
-            } if connection_id == "source"
-                && filter.text == "alter"
-                && filter.database == "app"
-                && filter.username == "alice"
-                && filter.severity == "warning"
-        ));
+        let filter = state.audit_filter();
+        assert_eq!(filter.text, "alter");
+        assert_eq!(filter.database, "app");
+        assert_eq!(filter.username, "alice");
+        assert_eq!(filter.severity, "warning");
+        assert!(filter.command_tag.is_empty());
     }
 
     #[test]

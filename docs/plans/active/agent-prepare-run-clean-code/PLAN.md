@@ -24,3 +24,6 @@ error: this function has too many arguments (8/7)
 2. Refactor `AgentState::prepare_run` signature to take `&mut self` and `options: PrepareAgentRunOptions`.
 3. Update `submit_typed_agent_prompt` and unit tests in `crates/ui/src/agent_state.rs`.
 4. Run `cargo clippy` and `cargo test`.
+
+## Merge resolution (2026-09-23)
+`main` independently landed the same clippy fix as `AgentRunPreparation` (same fields as `PrepareAgentRunOptions`), plus `prepare_continuation` and the `AgentState` / `DbProApp` split into `agent_actions.rs`. Conflict resolution keeps `main`'s DTO and call sites and drops the duplicate `PrepareAgentRunOptions` name.

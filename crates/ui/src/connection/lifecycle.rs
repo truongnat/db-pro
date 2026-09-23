@@ -1,5 +1,13 @@
-use crate::{RequestId, UiCommand};
+use crate::RequestId;
 use std::collections::{HashMap, HashSet};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PendingConnectionOperation {
+    Connect,
+    Test,
+    Save,
+    Delete,
+}
 
 /// Connection lifecycle state owned by the connection feature.
 ///
@@ -28,6 +36,10 @@ pub(crate) struct ConnectionLifecycleState {
     #[cfg(not(test))]
     pending_request: Option<RequestId>,
     #[cfg(test)]
+    pub(in crate::app) pending_operation: Option<PendingConnectionOperation>,
+    #[cfg(not(test))]
+    pending_operation: Option<PendingConnectionOperation>,
+    #[cfg(test)]
     pub(in crate::app) errors: HashMap<String, String>,
     #[cfg(not(test))]
     errors: HashMap<String, String>,
@@ -46,18 +58,16 @@ pub(crate) struct ConnectionLifecycleState {
 }
 
 impl ConnectionLifecycleState {
-    pub(crate) fn connect_command(&self, request_id: RequestId, connection_id: String) -> UiCommand {
-        UiCommand::Connect {
-            request_id,
-            connection_id,
-        }
-    }
-
     pub(crate) fn active_connection_id(&self) -> Option<&str> {
         self.active_connection_id.as_deref()
     }
 
-    pub(crate) fn active_connection_id_mut(&mut self) -> &mut Option<String> {
+    pub(crate) fn set_active_connection_id(&mut self, connection_id: Option<String>) {
+        self.active_connection_id = connection_id;
+    }
+
+    #[cfg(test)]
+    pub(in crate::app) fn active_connection_id_mut(&mut self) -> &mut Option<String> {
         &mut self.active_connection_id
     }
 
@@ -102,6 +112,7 @@ impl ConnectionLifecycleState {
 
     pub(crate) fn clear_pending_request(&mut self) {
         self.pending_request = None;
+        self.pending_operation = None;
     }
 
     pub(crate) fn pending_request(&self) -> Option<RequestId> {
@@ -110,6 +121,14 @@ impl ConnectionLifecycleState {
 
     pub(crate) fn set_pending_request(&mut self, request_id: Option<RequestId>) {
         self.pending_request = request_id;
+    }
+
+    pub(crate) fn pending_operation(&self) -> Option<PendingConnectionOperation> {
+        self.pending_operation
+    }
+
+    pub(crate) fn set_pending_operation(&mut self, operation: Option<PendingConnectionOperation>) {
+        self.pending_operation = operation;
     }
 
     pub(crate) fn pending_connection_id(&self) -> Option<&str> {
@@ -172,16 +191,4 @@ mod tests {
         assert_eq!(state.fallback_name, "Local PostgreSQL");
     }
 
-    #[test]
-    fn connect_command_keeps_connection_identity_explicit() {
-        let state = ConnectionLifecycleState::default();
-
-        assert!(matches!(
-            state.connect_command(RequestId(7), "conn-1".to_owned()),
-            UiCommand::Connect {
-                request_id: RequestId(7),
-                connection_id,
-            } if connection_id == "conn-1"
-        ));
-    }
 }

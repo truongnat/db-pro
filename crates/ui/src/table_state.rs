@@ -46,41 +46,7 @@ impl Default for TableState {
 }
 
 impl TableState {
-    pub(super) fn load_info_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        schema: String,
-        table: String,
-    ) -> UiCommand {
-        UiCommand::LoadTableInfo {
-            request_id,
-            connection_id,
-            schema,
-            table,
-        }
-    }
-
-    pub(super) fn load_ddl_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-        schema: String,
-        table: String,
-    ) -> UiCommand {
-        UiCommand::LoadTableDdl {
-            request_id,
-            connection_id,
-            schema,
-            table,
-        }
-    }
-
-    pub(super) fn execute_ddl_command(
-        &self,
-        request_id: RequestId,
-        connection_id: String,
-    ) -> Result<UiCommand, String> {
+    pub(super) fn ddl_sql(&self) -> Result<&str, String> {
         let sql = self
             .table_ddl
             .as_deref()
@@ -89,11 +55,7 @@ impl TableState {
         if sql.is_empty() {
             return Err("DDL cannot be empty".to_owned());
         }
-        Ok(UiCommand::ExecuteDdl {
-            request_id,
-            connection_id,
-            sql: sql.to_owned(),
-        })
+        Ok(sql)
     }
 
     pub(crate) fn has_primary_key(&self) -> bool {
@@ -135,7 +97,7 @@ mod tests {
         let state = TableState::default();
 
         assert_eq!(
-            state.execute_ddl_command(RequestId(1), "source".to_owned()),
+            state.ddl_sql(),
             Err("Load the table DDL before executing it".to_owned())
         );
     }

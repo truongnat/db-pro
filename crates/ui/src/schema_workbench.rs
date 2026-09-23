@@ -1,9 +1,9 @@
 //! Schema Workbench — Phase A object mutation UI (#183–#190, #207, #216–#218, #249–#250).
 
+use crate::UiTableSummary;
 use super::*;
 use db_pro_core::domain::object_mutation::*;
 use db_pro_core::ports::SqlDialect;
-use egui::RichText;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(super) enum SchemaWorkbenchMode {
@@ -22,6 +22,42 @@ pub(super) enum SchemaWorkbenchMode {
     Partition,
     Dependencies,
     Docs,
+    History,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct TableDesignerColumn {
+    pub(super) name: String,
+    pub(super) data_type: String,
+    pub(super) nullable: bool,
+    pub(super) is_pk: bool,
+    pub(super) auto_increment: bool,
+    pub(super) default_expr: String,
+    pub(super) comment: String,
+}
+
+impl Default for TableDesignerColumn {
+    fn default() -> Self {
+        Self {
+            name: "id".into(),
+            data_type: "BIGINT".into(),
+            nullable: false,
+            is_pk: true,
+            auto_increment: true,
+            default_expr: String::new(),
+            comment: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct DdlExecutionHistoryEntry {
+    pub(super) timestamp: String,
+    pub(super) object_kind: String,
+    pub(super) object_name: String,
+    pub(super) sql: String,
+    pub(super) safety: String,
+    pub(super) success: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +66,7 @@ pub(super) struct SchemaWorkbenchState {
     pub(super) schema: String,
     pub(super) name: String,
     pub(super) parent_table: String,
+    pub(super) table_columns: Vec<TableDesignerColumn>,
     pub(super) data_type: String,
     pub(super) select_sql: String,
     pub(super) columns_csv: String,
@@ -39,12 +76,15 @@ pub(super) struct SchemaWorkbenchState {
     pub(super) default_expr: String,
     pub(super) new_name: String,
     pub(super) materialized: bool,
+    pub(super) index_method: String,
+    pub(super) index_predicate: String,
     pub(super) constraint_kind: ConstraintKindUi,
     pub(super) expression: String,
     pub(super) ref_schema: String,
     pub(super) ref_table: String,
     pub(super) ref_columns_csv: String,
     pub(super) on_delete: String,
+    pub(super) on_update: String,
     pub(super) timing: String,
     pub(super) event: String,
     pub(super) body: String,
@@ -64,6 +104,7 @@ pub(super) struct SchemaWorkbenchState {
     pub(super) docs_markdown: String,
     pub(super) docs_format_html: bool,
     pub(super) dependency_filter: String,
+    pub(super) history: Vec<DdlExecutionHistoryEntry>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -82,21 +123,44 @@ impl Default for SchemaWorkbenchState {
             schema: "public".into(),
             name: String::new(),
             parent_table: String::new(),
+            table_columns: vec![
+                TableDesignerColumn {
+                    name: "id".into(),
+                    data_type: "BIGINT".into(),
+                    nullable: false,
+                    is_pk: true,
+                    auto_increment: true,
+                    default_expr: String::new(),
+                    comment: "Primary Key".into(),
+                },
+                TableDesignerColumn {
+                    name: "created_at".into(),
+                    data_type: "TIMESTAMPTZ".into(),
+                    nullable: false,
+                    is_pk: false,
+                    auto_increment: false,
+                    default_expr: "CURRENT_TIMESTAMP".into(),
+                    comment: "Created timestamp".into(),
+                },
+            ],
             data_type: "INTEGER".into(),
             select_sql: "SELECT 1".into(),
-            columns_csv: "id".into(),
+            columns_csv: "id:INTEGER:pk,name:TEXT".into(),
             unique: false,
             nullable: true,
             is_pk: false,
             default_expr: String::new(),
             new_name: String::new(),
             materialized: false,
+            index_method: "BTREE".into(),
+            index_predicate: String::new(),
             constraint_kind: ConstraintKindUi::PrimaryKey,
             expression: "id > 0".into(),
             ref_schema: "public".into(),
             ref_table: String::new(),
             ref_columns_csv: "id".into(),
             on_delete: "NO ACTION".into(),
+            on_update: "NO ACTION".into(),
             timing: "BEFORE".into(),
             event: "INSERT".into(),
             body: "FOR EACH ROW EXECUTE FUNCTION noop()".into(),
@@ -116,22 +180,115 @@ impl Default for SchemaWorkbenchState {
             docs_markdown: String::new(),
             docs_format_html: false,
             dependency_filter: String::new(),
+            history: Vec::new(),
         }
     }
 }
 
 impl SchemaWorkbenchState {
-    pub(super) fn apply_ddl_command(&self, request_id: RequestId, connection_id: String) -> Result<UiCommand, String> {
+    pub(super) fn record_execution(&mut self, kind: &str, name: &str, sql: &str, safety: &str, success: bool) {
+        let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        self.history.insert(0, DdlExecutionHistoryEntry {
+            timestamp,
+            object_kind: kind.to_owned(),
+            object_name: name.to_owned(),
+            sql: sql.to_owned(),
+            safety: safety.to_owned(),
+            success,
+        });
+        if self.history.len() > 100 {
+            self.history.truncate(100);
+        }
+    }
+
+    pub(super) fn prepare_ddl_request(&self, connection_id: String) -> Result<SchemaWorkbenchDdlRequest, String> {
         let sql = self.preview_sql.trim();
         if sql.is_empty() {
             return Err("Plan a mutation before applying".to_owned());
         }
-        Ok(UiCommand::ExecuteDdl {
-            request_id,
+        Ok(SchemaWorkbenchDdlRequest {
             connection_id,
             sql: sql.to_owned(),
         })
     }
+
+    pub(super) fn add_table_column(&mut self) {
+        let next_idx = self.table_columns.len() + 1;
+        self.table_columns.push(TableDesignerColumn {
+            name: format!("col_{next_idx}"),
+            data_type: "VARCHAR(255)".into(),
+            nullable: true,
+            is_pk: false,
+            auto_increment: false,
+            default_expr: String::new(),
+            comment: String::new(),
+        });
+        self.sync_table_columns_to_csv();
+    }
+
+    pub(super) fn remove_table_column(&mut self, index: usize) {
+        if index < self.table_columns.len() {
+            self.table_columns.remove(index);
+            self.sync_table_columns_to_csv();
+        }
+    }
+
+    pub(super) fn move_table_column_up(&mut self, index: usize) {
+        if index > 0 && index < self.table_columns.len() {
+            self.table_columns.swap(index, index - 1);
+            self.sync_table_columns_to_csv();
+        }
+    }
+
+    pub(super) fn move_table_column_down(&mut self, index: usize) {
+        if index + 1 < self.table_columns.len() {
+            self.table_columns.swap(index, index + 1);
+            self.sync_table_columns_to_csv();
+        }
+    }
+
+    pub(super) fn sync_table_columns_to_csv(&mut self) {
+        let parts: Vec<String> = self
+            .table_columns
+            .iter()
+            .map(|col| {
+                let mut s = format!("{}:{}", col.name, col.data_type);
+                if col.is_pk {
+                    s.push_str(":pk");
+                } else if !col.nullable {
+                    s.push_str(":nn");
+                }
+                s
+            })
+            .collect();
+        self.columns_csv = parts.join(",");
+    }
+
+    pub(super) fn load_from_table_details(&mut self, details: &UiTableSummary) {
+        self.schema = details.schema.clone();
+        self.name = details.name.clone();
+        self.parent_table = details.name.clone();
+        self.table_columns = details
+            .columns
+            .iter()
+            .map(|col| TableDesignerColumn {
+                name: col.name.clone(),
+                data_type: col.data_type.clone(),
+                nullable: col.nullable,
+                is_pk: col.is_primary_key,
+                auto_increment: false,
+                default_expr: String::new(),
+                comment: String::new(),
+            })
+            .collect();
+        self.sync_table_columns_to_csv();
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct SchemaWorkbenchDdlRequest {
+    pub(super) connection_id: String,
+    pub(super) sql: String,
 }
 
 pub(super) struct QuoteDialect;
@@ -160,136 +317,70 @@ impl DbProApp {
     }
 
     pub(super) fn draw_schema_workbench_sidebar(&mut self, ui: &mut egui::Ui) {
-        section_label(ui, "SCHEMA WORKBENCH", self.theme);
-        ui.add_space(6.0);
-        ui.label(
-            RichText::new("Plan → preview → apply typed object mutations")
-                .small()
-                .color(self.theme.text_muted),
-        );
-        ui.add_space(10.0);
-        for (mode, icon, label) in [
-            (SchemaWorkbenchMode::Table, Icon::Table2, "Table / columns"),
-            (SchemaWorkbenchMode::Column, Icon::Columns3, "Column alter"),
-            (SchemaWorkbenchMode::View, Icon::Eye, "Views"),
-            (SchemaWorkbenchMode::Index, Icon::ListTree, "Indexes"),
-            (SchemaWorkbenchMode::Constraint, Icon::Link, "Constraints"),
-            (SchemaWorkbenchMode::Trigger, Icon::Zap, "Triggers"),
-            (SchemaWorkbenchMode::Sequence, Icon::Hash, "Sequences"),
-            (SchemaWorkbenchMode::Type, Icon::Shapes, "Types / enums"),
-            (SchemaWorkbenchMode::SchemaDb, Icon::Database, "Schema / database"),
-            (SchemaWorkbenchMode::Extension, Icon::Puzzle, "Extensions"),
-            (SchemaWorkbenchMode::Comment, Icon::MessageSquareText, "Comments"),
-            (SchemaWorkbenchMode::Partition, Icon::LayoutGrid, "Partitions"),
-            (SchemaWorkbenchMode::Dependencies, Icon::GitBranch, "Dependencies"),
-            (SchemaWorkbenchMode::Docs, Icon::FileText, "Docs export"),
-        ] {
-            let selected = self.schema.workbench.mode == mode;
-            if sidebar_item(ui, icon, label, selected, self.theme).clicked() {
-                self.schema.workbench.mode = mode;
-                self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
-            }
-            ui.add_space(2.0);
+        let driver = self.active_query_driver().to_owned();
+        let action = {
+            let mut context = schema_workbench_surface_view::SchemaWorkbenchSurfaceContext {
+                theme: self.theme,
+                workbench: &mut self.schema.workbench,
+                can_mutate: false,
+                driver: &driver,
+                edges: &[],
+            };
+            context.draw_sidebar(ui)
+        };
+        if let Some(schema_workbench_surface_view::SchemaWorkbenchSurfaceAction::SelectMode(mode)) = action {
+            self.schema.workbench.mode = mode;
+            self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
         }
     }
 
     pub(super) fn draw_schema_workbench(&mut self, ui: &mut egui::Ui) {
-        ui.set_min_width(ui.available_width());
-        egui::ScrollArea::vertical()
-            .id_salt("schema_workbench_scroll")
-            .show(ui, |ui| {
-                ui.set_min_width(ui.available_width());
-                ui.add_space(SPACE_SM);
-                ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new("Schema Workbench")
-                            .font(font_subheading())
-                            .strong()
-                            .color(self.theme.text_primary),
-                    );
-                    badge(
-                        ui,
-                        self.active_query_driver(),
-                        self.theme.accent_soft,
-                        self.theme.accent,
-                    );
-                });
-                ui.add_space(SPACE_MD);
-
-                match self.schema.workbench.mode {
-                    SchemaWorkbenchMode::Dependencies => self.draw_dependency_navigator(ui),
-                    SchemaWorkbenchMode::Docs => self.draw_docs_export(ui),
-                    _ => {
-                        // Cap form width so fields don't stretch across ultrawide canvases.
-                        let form_width = ui.available_width().min(720.0);
-                        ui.allocate_ui_with_layout(
-                            egui::vec2(form_width, ui.available_height()),
-                            egui::Layout::top_down(egui::Align::Min),
-                            |ui| {
-                                card_frame(self.theme).show(ui, |ui| {
-                                    ui.set_min_width(form_width - 8.0);
-                                    section_label(ui, "DEFINITION", self.theme);
-                                    ui.add_space(SPACE_SM);
-                                    let action = {
-                                        let can_mutate = self.can_mutate_active_connection();
-                                        let mut context = schema_workbench_form::SchemaWorkbenchFormContext {
-                                            theme: self.theme,
-                                            workbench: &mut self.schema.workbench,
-                                            can_mutate,
-                                        };
-                                        schema_workbench_form::draw_workbench_form(&mut context, ui)
-                                    };
-                                    if let Some(action) = action {
-                                        self.apply_workbench_form_action(action);
-                                    }
-                                });
-                                ui.add_space(SPACE_MD);
-                                let action = {
-                                    let can_mutate = self.can_mutate_active_connection();
-                                    let mut context = schema_workbench_form::SchemaWorkbenchFormContext {
-                                        theme: self.theme,
-                                        workbench: &mut self.schema.workbench,
-                                        can_mutate,
-                                    };
-                                    schema_workbench_form::draw_workbench_preview(&mut context, ui)
-                                };
-                                if let Some(action) = action {
-                                    self.apply_workbench_form_action(action);
-                                }
-                            },
-                        );
-                    }
-                }
-            });
-    }
-
-    // Form + preview: `schema_workbench_form.rs`.
-
-    fn draw_dependency_navigator(&mut self, ui: &mut egui::Ui) {
         let edges = self.collect_ui_dependency_edges();
-        let mut context = schema_workbench_secondary_view::SchemaWorkbenchSecondaryContext {
-            theme: self.theme,
-            workbench: &mut self.schema.workbench,
-            edges: &edges,
-        };
-        schema_workbench_secondary_view::draw_dependency_navigator(&mut context, ui);
-    }
-
-    fn draw_docs_export(&mut self, ui: &mut egui::Ui) {
-        let action = {
-            let mut context = schema_workbench_secondary_view::SchemaWorkbenchSecondaryContext {
+        let driver = self.active_query_driver().to_owned();
+        let actions = {
+            let can_mutate = self.can_mutate_active_connection();
+            let mut context = schema_workbench_surface_view::SchemaWorkbenchSurfaceContext {
                 theme: self.theme,
                 workbench: &mut self.schema.workbench,
-                edges: &[],
+                can_mutate,
+                driver: &driver,
+                edges: &edges,
             };
-            schema_workbench_secondary_view::draw_docs_export(&mut context, ui)
+            context.draw_main(ui)
         };
+        for action in actions {
+            self.apply_schema_workbench_surface_action(action);
+        }
+    }
+
+    fn apply_schema_workbench_surface_action(
+        &mut self,
+        action: schema_workbench_surface_view::SchemaWorkbenchSurfaceAction,
+    ) {
         match action {
-            Some(schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::GenerateMarkdown) => {
+            schema_workbench_surface_view::SchemaWorkbenchSurfaceAction::SelectMode(mode) => {
+                self.schema.workbench.mode = mode;
+                self.workspace.active_tab = WorkspaceTab::SchemaWorkbench;
+            }
+            schema_workbench_surface_view::SchemaWorkbenchSurfaceAction::Form(action) => {
+                self.apply_workbench_form_action(action);
+            }
+            schema_workbench_surface_view::SchemaWorkbenchSurfaceAction::Secondary(action) => {
+                self.apply_schema_workbench_secondary_action(action);
+            }
+        }
+    }
+
+    fn apply_schema_workbench_secondary_action(
+        &mut self,
+        action: schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction,
+    ) {
+        match action {
+            schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::GenerateMarkdown => {
                 self.schema.workbench.docs_format_html = false;
                 self.schema.workbench.docs_markdown = self.export_schema_docs_markdown();
             }
-            Some(schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::GenerateHtml) => {
+            schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::GenerateHtml => {
                 self.schema.workbench.docs_format_html = true;
                 let md = self.export_schema_docs_markdown();
                 self.schema.workbench.docs_markdown = format!(
@@ -297,14 +388,23 @@ impl DbProApp {
                     md.replace('&', "&amp;").replace('<', "&lt;")
                 );
             }
-            Some(schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::OpenDocsAsQuery(body)) => {
+            schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::OpenDocsAsQuery(body) => {
                 self.new_query_document();
                 if let Some(doc) = self.query.session.documents.last_mut() {
                     doc.set_text(format!("-- Schema docs export\n/*\n{body}\n*/"));
                 }
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
-            None => {}
+            schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::OpenSqlAsQuery(sql) => {
+                self.new_query_document();
+                if let Some(doc) = self.query.session.documents.last_mut() {
+                    doc.set_text(sql);
+                }
+                self.workspace.active_tab = WorkspaceTab::Query;
+            }
+            schema_workbench_secondary_view::SchemaWorkbenchSecondaryAction::ClearHistory => {
+                self.schema.workbench.history.clear();
+            }
         }
     }
 
@@ -439,19 +539,24 @@ mod tests {
 
     #[test]
     fn parse_columns_with_pk_flag() {
-        let cols = parse_column_defs("public", "t", "id:INTEGER:pk,name:TEXT").unwrap();
-        assert_eq!(cols.len(), 2);
+        let cols = parse_column_defs("public", "t", "id:INTEGER:pk,name:TEXT:nn,note:TEXT").unwrap();
+        assert_eq!(cols.len(), 3);
+        assert_eq!(cols[0].name, "id");
         assert!(cols[0].is_pk);
-        assert!(!cols[0].nullable);
+        assert_eq!(cols[1].name, "name");
+        assert!(!cols[1].nullable);
+        assert!(!cols[1].is_pk);
+        assert_eq!(cols[2].name, "note");
+        assert!(cols[2].nullable);
     }
 
     #[test]
-    fn apply_ddl_command_requires_a_preview() {
-        let state = SchemaWorkbenchState::default();
-
-        assert_eq!(
-            state.apply_ddl_command(RequestId(1), "source".to_owned()),
-            Err("Plan a mutation before applying".to_owned())
-        );
+    fn execution_history_recording_and_capping() {
+        let mut wb = SchemaWorkbenchState::default();
+        for i in 0..110 {
+            wb.record_execution("Table", &format!("t_{i}"), "CREATE TABLE ...", "Safe", true);
+        }
+        assert_eq!(wb.history.len(), 100);
+        assert_eq!(wb.history[0].object_name, "t_109");
     }
 }

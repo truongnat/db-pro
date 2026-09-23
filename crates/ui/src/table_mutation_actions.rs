@@ -96,88 +96,8 @@ impl DbProApp {
         row_index: usize,
         column_index: usize,
     ) -> bool {
-        let Some(info) = self.table.state.table_info.clone() else {
-            self.feedback.runtime_message = "Table structure is still loading".to_owned();
-            return false;
-        };
-        let Some(column) = result.columns.get(column_index).map(|column| column.name.clone()) else {
-            self.table.editing.data_editing_cell = None;
-            return false;
-        };
-        let Some(column_info) = info.columns.iter().find(|item| item.name == column) else {
-            self.feedback.runtime_message = "The selected column is not present in the table metadata".to_owned();
-            self.table.editing.data_editing_cell = None;
-            return false;
-        };
-        if let Some(block) = ColumnWritePolicy::read(column_info).write_block() {
-            let error = block.reason().to_owned();
-            self.table.editing.data_edit_error = Some(error.clone());
-            self.feedback.runtime_message = format!("{}: {error}", column_info.name);
-            return false;
-        }
-        let value = match table_editor_values::parse_update_value(
-            &self.table.editing.data_edit_value,
-            &column_info.data_type,
-        ) {
-            Ok(value) => value,
-            Err(error) => {
-                self.feedback.runtime_message = format!("{}: {error}", column_info.name);
-                self.table.editing.data_edit_error = Some(error);
-                return false;
-            }
-        };
-        if matches!(value, UiCell::Null) && !column_info.nullable {
-            let error = format!("{} is NOT NULL; enter a value instead", column_info.name);
-            self.feedback.runtime_message = error.clone();
-            self.table.editing.data_edit_error = Some(error);
-            return false;
-        }
-        let identity = match TableDataState::row_identity(result, &info, row_index) {
-            Ok(identity) => identity,
-            Err(error) => {
-                self.feedback.runtime_message = error;
-                self.table.editing.data_edit_error = Some(self.feedback.runtime_message.clone());
-                return false;
-            }
-        };
-        let original = result
-            .rows
-            .get(row_index)
-            .and_then(|row| row.get(column_index))
-            .cloned()
-            .ok_or_else(|| "The selected cell is no longer available".to_owned());
-        let Ok(original) = original else {
-            self.table.editing.data_editing_cell = None;
-            self.feedback.runtime_message = "The selected cell is no longer available".to_owned();
-            self.table.editing.data_edit_error = Some(self.feedback.runtime_message.clone());
-            return false;
-        };
-        if let Some(table) = self.schema.explorer.selected_table.as_deref() {
-            self.table.mutation.staged_changes.ensure_target(table);
-        }
-        self.table.mutation.staged_changes.stage_update(StagedChange::Update {
-            identity,
-            current_row_index: Some(row_index),
-            column_index,
-            column,
-            data_type: column_info.data_type.clone(),
-            original,
-            value,
-        });
-        self.table.mutation.table_mutation_error = None;
-        self.table.mutation.staged_apply_targets.clear();
-        self.table.editing.data_editing_cell = None;
-        self.table.editing.expanded_data_editor = None;
-        self.table.editing.data_edit_error = None;
-        let counts = self.table.mutation.staged_changes.counts();
-        self.feedback.runtime_message = format!(
-            "Staged edit · {} pending (+{} ~{} -{})",
-            counts.total(),
-            counts.inserts,
-            counts.updates,
-            counts.deletes
-        );
-        true
+        self.table_mutation_context()
+            .stage_data_cell_edit(result, row_index, column_index)
     }
 
     pub(crate) fn request_delete_selected_data_rows(&mut self, result: &UiQueryResult) {
@@ -193,55 +113,7 @@ impl DbProApp {
             self.feedback.runtime_message = "Connect with write access to delete rows".to_owned();
             return;
         }
-        let row_indexes: Vec<usize> = if self.table.data.selected_rows.is_empty() {
-            self.table.data.selected_row.into_iter().collect()
-        } else {
-            self.table.data.selected_rows.iter().copied().collect()
-        };
-        if row_indexes.is_empty() {
-            self.feedback.runtime_message = "Select a row before deleting".to_owned();
-            return;
-        }
-        let Some(info) = self.table.state.table_info.clone() else {
-            self.feedback.runtime_message = "Table structure is still loading".to_owned();
-            return;
-        };
-        if let Some(table) = self.schema.explorer.selected_table.as_deref() {
-            self.table.mutation.staged_changes.ensure_target(table);
-        }
-        self.table.editing.data_editing_cell = None;
-        self.table.editing.expanded_data_editor = None;
-        self.table.editing.data_edit_value.clear();
-        self.table.editing.data_edit_error = None;
-        self.table.editing.data_delete_confirmation = false;
-        for row_index in row_indexes {
-            if self.staged_row_deleted(result, row_index) {
-                continue;
-            }
-            let identity = match TableDataState::row_identity(result, &info, row_index) {
-                Ok(identity) => identity,
-                Err(error) => {
-                    self.feedback.runtime_message = error;
-                    return;
-                }
-            };
-            self.table.mutation.staged_changes.stage_delete(StagedChange::Delete {
-                identity,
-                current_row_index: Some(row_index),
-            });
-        }
-        self.table.mutation.table_mutation_error = None;
-        self.table.mutation.staged_apply_targets.clear();
-        self.feedback.runtime_message = format!(
-            "{} row(s) marked for deletion · {} staged change(s)",
-            self.table
-                .mutation
-                .staged_changes
-                .iter()
-                .filter(|change| matches!(change, StagedChange::Delete { .. }))
-                .count(),
-            self.table.mutation.staged_changes.counts().total()
-        );
+        self.table_mutation_context().stage_delete_selected_rows(result);
     }
 
     pub(crate) fn staged_cell_value(
@@ -285,7 +157,7 @@ impl DbProApp {
         }
     }
 
-    fn table_mutation_context(&mut self) -> table_editor_context::TableMutationContext<'_> {
+    pub(crate) fn table_mutation_context(&mut self) -> table_editor_context::TableMutationContext<'_> {
         table_editor_context::TableMutationContext::new(
             &mut self.table.state,
             &mut self.table.data_query,
@@ -293,6 +165,7 @@ impl DbProApp {
             &mut self.table.editing,
             &mut self.table.mutation,
             &mut self.feedback,
+            self.schema.explorer.selected_table.as_deref(),
         )
     }
 
@@ -381,17 +254,21 @@ impl DbProApp {
                 return;
             }
         };
-        let request_id = self.task_bridge.next_request_id();
-        self.table.data_query.row_reload_request = Some(request_id);
-        self.table.data_query.row_reload_identity = Some(identity);
-        self.dispatch_command(self.table.data_query.load_row_command(
+        let request_id = self.next_request_id();
+        let command = table_data_view::build_load_row_command(
             request_id,
-            connection_id,
-            self.active_schema().to_owned(),
-            table,
+            table_data_view::TableDataTarget {
+                connection_id,
+                schema: self.active_schema().to_owned(),
+                table,
+            },
             filters,
-        ));
-        self.feedback.runtime_message = "Reloading row from database…".to_owned();
+        );
+        if self.dispatch_command(command) {
+            self.table.data_query.row_reload_request = Some(request_id);
+            self.table.data_query.row_reload_identity = Some(identity);
+            self.feedback.runtime_message = "Reloading row from database…".to_owned();
+        }
     }
 
     pub(crate) fn apply_staged_changes(&mut self) {
@@ -413,19 +290,10 @@ impl DbProApp {
             self.feedback.runtime_message = "Select a table before applying changes".to_owned();
             return;
         };
-        if let Some(target) = self.table.mutation.staged_changes.target_table() {
-            if target != table {
-                self.feedback.runtime_message = format!("Staged changes belong to table `{target}`, not `{table}`");
-                return;
-            }
-        }
-        let plan = self.table.mutation.build_apply_plan();
-        if plan.changes.is_empty() {
-            self.table.mutation.table_mutation_retry_after_reload = false;
-            self.feedback.runtime_message = "The related staged change is no longer available".to_owned();
+        let Some(plan) = self.table_mutation_context().prepare_apply(&table) else {
             return;
-        }
-        let request_id = self.task_bridge.next_request_id();
+        };
+        let request_id = self.next_request_id();
         let command = UiCommand::ApplyTableChanges {
             request_id,
             connection_id: connection.id,
@@ -473,118 +341,33 @@ impl DbProApp {
     }
 
     pub(crate) fn staged_apply_failed(&mut self, failure: StagedApplyFailure<'_>) {
-        let StagedApplyFailure {
-            statement_index,
-            code,
-            message,
-            rolled_back,
-        } = failure;
         self.workspace.pending_navigation_action = None;
-        self.table.mutation.staged_apply_request = None;
-        self.table.mutation.table_mutation_request = None;
-        self.table.mutation.table_mutation_retry_after_reload = false;
-        self.table.mutation.table_mutation_retry_target = None;
-        let target = self.table.mutation.staged_apply_targets.get(statement_index).cloned();
-        let has_target = target.is_some();
-        if let Some(target) = target.as_ref() {
-            match target {
-                MutationTarget::Update {
-                    identity,
-                    current_row_index,
-                    columns,
-                } => {
-                    let row_index = self.current_row_index_for_identity(identity, *current_row_index);
-                    self.table.data.selected_row = row_index;
-                    self.table.data.selected_rows.clear();
-                    if let Some(row_index) = row_index {
-                        self.table.data.selected_rows.insert(row_index);
-                        if let Some(column_index) = columns.first().copied() {
-                            self.table.data.selected_cell = Some((row_index, column_index));
-                            self.table.data.selection_anchor_cell = Some((row_index, column_index));
-                        }
-                    }
-                }
-                MutationTarget::Delete {
-                    identity,
-                    current_row_index,
-                } => {
-                    let row_index = self.current_row_index_for_identity(identity, *current_row_index);
-                    self.table.data.selected_row = row_index;
-                    self.table.data.selected_rows.clear();
-                    if let Some(row_index) = row_index {
-                        self.table.data.selected_rows.insert(row_index);
-                    }
-                    self.table.data.selected_cell = None;
-                    self.table.data.selection_anchor_cell = None;
-                }
-                MutationTarget::Insert => {}
-            }
+        self.table.mutation.reset_apply_lifecycle();
+        let transition = self.table.mutation.record_apply_failure(failure);
+        if let Some(target) = transition.target() {
+            self.table_mutation_context().select_failed_target(target);
         }
-        let normalized_code = match code {
-            "INTERNAL_ERROR" => "INTERNAL",
-            "CONSTRAINT_VIOLATION" => "CONSTRAINT_VIOLATION",
-            "VALIDATION_ERROR" => "VALIDATION_ERROR",
-            "CONFLICT" => "CONFLICT",
-            _ => "INTERNAL",
-        };
-        let display_message = if normalized_code == "CONFLICT" {
-            format!("This row changed or was deleted in the database. Database: {message}")
-        } else {
-            message.to_owned()
-        };
-        let mutation_failure = MutationFailure {
-            statement_index,
-            target: target.clone(),
-            code: normalized_code.to_owned(),
-            message: display_message.clone(),
-            rolled_back,
-        };
-        self.table.mutation.table_mutation_error = Some(mutation_failure);
-        if normalized_code == "CONFLICT" {
+        if transition.is_conflict() {
             self.table.mutation.conflict_dialog_open = true;
-            if let Some(MutationTarget::Update { identity, .. } | MutationTarget::Delete { identity, .. }) =
-                target.as_ref()
-            {
+            if let Some(identity) = transition.reload_identity() {
                 self.request_table_row_reload(identity.clone());
             }
         }
-        let outcome = if rolled_back {
+        let outcome = if transition.is_rolled_back() {
             "transaction rolled back"
         } else {
             "transaction outcome is unknown"
         };
-        let formatted = if has_target {
+        let formatted = if transition.has_target() {
             format!(
-                "Staged change #{} failed · {outcome} · {display_message}",
-                statement_index.saturating_add(1)
+                "Staged change #{} failed · {outcome} · {}",
+                transition.statement_index().saturating_add(1),
+                transition.display_message()
             )
         } else {
-            format!("Staged changes failed · {outcome} · {display_message}")
+            format!("Staged changes failed · {outcome} · {}", transition.display_message())
         };
         self.feedback.runtime_message = formatted.clone();
         self.feedback.show_error_toast(formatted);
-    }
-
-    pub(crate) fn current_row_index_for_identity(
-        &self,
-        identity: &RowIdentity,
-        fallback: Option<usize>,
-    ) -> Option<usize> {
-        self.table
-            .data_query
-            .result
-            .as_ref()
-            .and_then(|result| {
-                result.rows.iter().enumerate().find_map(|(row_index, _)| {
-                    (self
-                        .table
-                        .data
-                        .row_identity_for_result(result, self.table.state.table_info.as_ref(), row_index)
-                        .as_ref()
-                        == Some(identity))
-                    .then_some(row_index)
-                })
-            })
-            .or(fallback)
     }
 }
