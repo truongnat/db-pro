@@ -7,6 +7,11 @@ use super::*;
 
 const RESIZE_GRIP_HEIGHT: f32 = 4.0;
 
+/// Height reserved for the output tab strip. An unconstrained `right_to_left`
+/// tab row expands to fill the dock's whole available height, so the strip must
+/// be bounded here; the result pane then receives the remaining dock budget.
+const DOCK_TAB_STRIP_HEIGHT: f32 = 34.0;
+
 pub(super) struct QueryOutputDockContext<'a> {
     pub(super) theme: DbProTheme,
     pub(super) workspace: &'a mut WorkspaceFeatureState,
@@ -17,10 +22,15 @@ pub(super) struct QueryOutputDockContext<'a> {
 
 impl QueryOutputDockContext<'_> {
     pub(super) fn draw_chrome(&mut self, ui: &mut egui::Ui, dock_height: f32) -> f32 {
+        // The chrome (resize grip + tab strip) must consume only its own height so the
+        // caller can allocate the remaining dock budget to the result pane. The tab row
+        // is bounded to `DOCK_TAB_STRIP_HEIGHT` because an unconstrained `right_to_left`
+        // row grows to fill the whole dock height, which previously pushed the pane below
+        // the visible clip and left the grid blank.
+        let chrome_top = ui.cursor().top();
         self.draw_resize_grip(ui);
-        let body_height = Self::body_height(dock_height);
         ui.allocate_ui_with_layout(
-            egui::vec2(ui.available_width(), body_height),
+            egui::vec2(ui.available_width(), DOCK_TAB_STRIP_HEIGHT),
             Layout::top_down(Align::Min),
             |ui| {
                 let mut tabs_context = query_output_tabs_view::QueryOutputTabsContext {
@@ -33,11 +43,12 @@ impl QueryOutputDockContext<'_> {
                 query_output_tabs_view::draw_output_tabs(&mut tabs_context, ui, true);
             },
         );
-        body_height
+        let chrome_height = ui.cursor().top() - chrome_top;
+        Self::body_height(dock_height, chrome_height)
     }
 
-    fn body_height(dock_height: f32) -> f32 {
-        (dock_height - RESIZE_GRIP_HEIGHT).max(OUTPUT_MIN_HEIGHT - RESIZE_GRIP_HEIGHT)
+    fn body_height(dock_height: f32, chrome_height: f32) -> f32 {
+        (dock_height - chrome_height).max(0.0)
     }
 
     fn draw_resize_grip(&mut self, ui: &mut egui::Ui) {
@@ -68,10 +79,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dock_body_preserves_the_minimum_content_height() {
-        assert_eq!(
-            QueryOutputDockContext::body_height(0.0),
-            OUTPUT_MIN_HEIGHT - RESIZE_GRIP_HEIGHT
-        );
+    fn dock_body_is_the_dock_height_minus_measured_chrome() {
+        // Body fills whatever the chrome (grip + tab strip) leaves of the dock budget.
+        assert_eq!(QueryOutputDockContext::body_height(180.0, 34.0), 146.0);
+        // A chrome taller than the dock never yields a negative allocation.
+        assert_eq!(QueryOutputDockContext::body_height(20.0, 34.0), 0.0);
     }
 }
