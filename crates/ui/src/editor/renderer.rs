@@ -1004,7 +1004,15 @@ impl<'a> SqlEditor<'a> {
         ui.ctx().data_mut(|d| d.insert_temp(editor_id.with("scroll"), scroll));
 
         // Minimal scrollbar thumbs & overview ruler (diagnostic marks on vertical track).
-        paint_editor_scrollbars(ui, viewport, scroll, max_scroll, self.diagnostics, self.buffer, self.theme);
+        paint_editor_scrollbars(
+            ui,
+            viewport,
+            scroll,
+            max_scroll,
+            self.diagnostics,
+            self.buffer,
+            self.theme,
+        );
 
         response
     }
@@ -1289,10 +1297,7 @@ fn paint_editor_scrollbars(
         let (diag_line, _) = buffer.offset_to_line_col(diag.range.0);
         let frac = (diag_line as f32 / line_count as f32).clamp(0.0, 1.0);
         let mark_y = viewport.min.y + PAD + frac * (track_h - 3.0);
-        let mark_rect = Rect::from_min_size(
-            Pos2::new(track_x - 1.0, mark_y),
-            Vec2::new(THICK + 2.0, 3.0),
-        );
+        let mark_rect = Rect::from_min_size(Pos2::new(track_x - 1.0, mark_y), Vec2::new(THICK + 2.0, 3.0));
         let mark_color = match diag.severity {
             DiagnosticSeverity::Error => theme.danger,
             DiagnosticSeverity::Warning => theme.warning,
@@ -1305,10 +1310,7 @@ fn paint_editor_scrollbars(
         let thumb_h = ((viewport.height() / (viewport.height() + max_scroll.y)) * track_h).clamp(16.0, track_h);
         let t = (scroll.y / max_scroll.y).clamp(0.0, 1.0);
         let thumb_y = viewport.min.y + PAD + t * (track_h - thumb_h);
-        let thumb = Rect::from_min_size(
-            Pos2::new(track_x, thumb_y),
-            Vec2::new(THICK, thumb_h),
-        );
+        let thumb = Rect::from_min_size(Pos2::new(track_x, thumb_y), Vec2::new(THICK, thumb_h));
         painter.rect_filled(
             thumb,
             Rounding::same(THICK * 0.5),

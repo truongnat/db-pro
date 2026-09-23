@@ -2,8 +2,7 @@ use crate::components::animation::pulse_alpha;
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::DbProTheme;
 use egui::{
-    Align2, FontFamily, FontId, Frame, Margin, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui,
-    Vec2,
+    Align2, FontFamily, FontId, Frame, Margin, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2,
 };
 use lucide_icons::Icon;
 
@@ -128,10 +127,7 @@ impl<'a> Avatar<'a> {
                 AvatarSize::Md => 4.5,
                 AvatarSize::Lg => 5.5,
             };
-            let dot_center = Pos2::new(
-                rect.right() - dot_radius * 0.7,
-                rect.bottom() - dot_radius * 0.7,
-            );
+            let dot_center = Pos2::new(rect.right() - dot_radius * 0.7, rect.bottom() - dot_radius * 0.7);
 
             let dot_color = match status {
                 AvatarStatus::Online => self.theme.success,
@@ -141,11 +137,8 @@ impl<'a> Avatar<'a> {
             };
 
             // White/surface border ring
-            ui.painter().circle_filled(
-                dot_center,
-                dot_radius + 1.5,
-                self.theme.surface_panel,
-            );
+            ui.painter()
+                .circle_filled(dot_center, dot_radius + 1.5, self.theme.surface_panel);
             ui.painter().circle_filled(dot_center, dot_radius, dot_color);
         }
 

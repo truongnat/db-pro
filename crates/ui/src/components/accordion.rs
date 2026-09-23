@@ -1,8 +1,6 @@
 use crate::components::animation::hover_t;
 use crate::DbProTheme;
-use egui::{
-    Align2, Color32, FontFamily, FontId, Pos2, Rounding, Sense, Stroke, Ui, Vec2,
-};
+use egui::{Align2, Color32, FontFamily, FontId, Pos2, Rounding, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 use std::collections::BTreeSet;
 
@@ -146,11 +144,9 @@ impl Accordion {
 
         // Badge if present
         if let Some(badge) = item.badge {
-            let badge_galley = ui.painter().layout_no_wrap(
-                badge.to_string(),
-                FontId::proportional(11.0),
-                self.theme.text_muted,
-            );
+            let badge_galley =
+                ui.painter()
+                    .layout_no_wrap(badge.to_string(), FontId::proportional(11.0), self.theme.text_muted);
             let badge_w = badge_galley.size().x + 12.0;
             let badge_rect = egui::Rect::from_center_size(
                 Pos2::new(rect.right() - 36.0 - badge_w * 0.5, center_y),

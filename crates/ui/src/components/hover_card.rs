@@ -50,7 +50,9 @@ impl<'a> HoverCard<'a> {
         let mut leave_start = ui.data(|d| d.get_temp::<f64>(id.with("leave_start")));
         let was_open = ui.data(|d| d.get_temp::<bool>(id.with("is_open"))).unwrap_or(false);
 
-        let card_hovered = ui.data(|d| d.get_temp::<bool>(id.with("card_hovered"))).unwrap_or(false);
+        let card_hovered = ui
+            .data(|d| d.get_temp::<bool>(id.with("card_hovered")))
+            .unwrap_or(false);
         let is_any_hovered = trigger_resp.hovered() || card_hovered;
 
         if is_any_hovered {
@@ -89,10 +91,7 @@ impl<'a> HoverCard<'a> {
             // Position below trigger rect with slight margin
             let trigger_rect = trigger_resp.rect;
             let screen_rect = ui.ctx().screen_rect();
-            let mut pos = Pos2::new(
-                trigger_rect.left(),
-                trigger_rect.bottom() + 6.0,
-            );
+            let mut pos = Pos2::new(trigger_rect.left(), trigger_rect.bottom() + 6.0);
 
             // Clamp inside screen bounds
             if pos.x + self.width > screen_rect.right() - 10.0 {

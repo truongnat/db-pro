@@ -60,11 +60,9 @@ impl<'a> Separator<'a> {
                 let center_y = rect.center().y;
 
                 if let Some(lbl) = self.label {
-                    let galley = ui.painter().layout_no_wrap(
-                        lbl.to_string(),
-                        FontId::proportional(11.0),
-                        self.theme.text_muted,
-                    );
+                    let galley =
+                        ui.painter()
+                            .layout_no_wrap(lbl.to_string(), FontId::proportional(11.0), self.theme.text_muted);
                     let text_w = galley.size().x;
                     let text_pad = 8.0;
                     let line_w = ((avail_w - text_w - text_pad * 2.0) * 0.5).max(4.0);
@@ -96,10 +94,7 @@ impl<'a> Separator<'a> {
                     );
                 } else {
                     ui.painter().line_segment(
-                        [
-                            Pos2::new(rect.left(), center_y),
-                            Pos2::new(rect.right(), center_y),
-                        ],
+                        [Pos2::new(rect.left(), center_y), Pos2::new(rect.right(), center_y)],
                         Stroke::new(self.thickness, self.theme.border_subtle),
                     );
                 }

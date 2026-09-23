@@ -1,8 +1,6 @@
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::DbProTheme;
-use egui::{
-    Color32, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2,
-};
+use egui::{Color32, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 use std::borrow::Cow;
@@ -180,11 +178,7 @@ pub struct AlertDialog<'a> {
 }
 
 impl<'a> AlertDialog<'a> {
-    pub fn new(
-        title: impl Into<Cow<'a, str>>,
-        description: impl Into<Cow<'a, str>>,
-        theme: DbProTheme,
-    ) -> Self {
+    pub fn new(title: impl Into<Cow<'a, str>>, description: impl Into<Cow<'a, str>>, theme: DbProTheme) -> Self {
         Self {
             title: title.into(),
             description: description.into(),
@@ -225,11 +219,8 @@ impl<'a> AlertDialog<'a> {
             .fixed_pos(screen_rect.min)
             .show(ctx, |ui| {
                 let (_, response) = ui.allocate_exact_size(screen_rect.size(), Sense::click());
-                ui.painter().rect_filled(
-                    screen_rect,
-                    Rounding::ZERO,
-                    Color32::from_black_alpha(140),
-                );
+                ui.painter()
+                    .rect_filled(screen_rect, Rounding::ZERO, Color32::from_black_alpha(140));
                 if response.clicked() {
                     *open = false;
                     action = Some(AlertDialogAction::Cancel);

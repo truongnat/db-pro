@@ -1,8 +1,8 @@
 use crate::components::animation::hover_t;
 use crate::DbProTheme;
 use egui::{
-    Align2, Color32, FontFamily, FontId, Frame, Margin, Order, Pos2, Response, RichText, Rounding, Sense, Stroke,
-    Ui, Vec2,
+    Align2, Color32, FontFamily, FontId, Frame, Margin, Order, Pos2, Response, RichText, Rounding, Sense, Stroke, Ui,
+    Vec2,
 };
 use lucide_icons::Icon;
 
@@ -88,8 +88,18 @@ pub fn day_of_week(year: i32, month: u32, day: u32) -> u32 {
 }
 
 const MONTH_NAMES: [&str; 12] = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
 ];
 
 const WEEKDAY_NAMES: [&str; 7] = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -242,8 +252,7 @@ impl<'a> Calendar<'a> {
                             ui.spacing_mut().item_spacing = Vec2::new(pad, pad);
                             for col in 0..7 {
                                 let idx = row * 7 + col;
-                                let (cell_rect, resp) =
-                                    ui.allocate_exact_size(Vec2::splat(cell_size), Sense::click());
+                                let (cell_rect, resp) = ui.allocate_exact_size(Vec2::splat(cell_size), Sense::click());
 
                                 if idx < first_dow {
                                     // Day from previous month
@@ -266,18 +275,12 @@ impl<'a> Calendar<'a> {
                                     let this_date = SimpleDate::new(*self.view_year, *self.view_month, day_num);
                                     let is_selected = *self.selected == Some(this_date);
 
-                                    let hover = hover_t(
-                                        ui.ctx(),
-                                        resp.id.with("day_hover"),
-                                        resp.hovered() && !is_selected,
-                                    );
+                                    let hover =
+                                        hover_t(ui.ctx(), resp.id.with("day_hover"), resp.hovered() && !is_selected);
 
                                     if is_selected {
-                                        ui.painter().rect_filled(
-                                            cell_rect,
-                                            Rounding::same(6.0),
-                                            self.theme.accent,
-                                        );
+                                        ui.painter()
+                                            .rect_filled(cell_rect, Rounding::same(6.0), self.theme.accent);
                                     } else if hover > 0.001 {
                                         ui.painter().rect_filled(
                                             cell_rect,
@@ -411,7 +414,11 @@ impl<'a> DatePicker<'a> {
             Align2::LEFT_CENTER,
             char::from(Icon::Calendar).to_string(),
             FontId::new(14.0, FontFamily::Name("lucide".into())),
-            if self.date.is_some() { self.theme.accent } else { self.theme.text_secondary },
+            if self.date.is_some() {
+                self.theme.accent
+            } else {
+                self.theme.text_secondary
+            },
         );
 
         // Date text
