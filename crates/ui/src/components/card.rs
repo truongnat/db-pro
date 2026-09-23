@@ -1,5 +1,5 @@
 use crate::DbProTheme;
-use egui::{FontFamily, FontId, Frame, Margin, RichText, Rounding, Stroke, Ui};
+use egui::{FontFamily, FontId, Frame, Margin, Pos2, RichText, Rounding, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 pub struct Card {
@@ -55,6 +55,30 @@ pub fn card_header<'a>(
         }
     });
     ui.add_space(10.0);
+}
+
+pub fn card_content<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
+    ui.vertical(|ui| add_contents(ui)).inner
+}
+
+pub fn card_footer<R>(ui: &mut Ui, theme: DbProTheme, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
+    ui.add_space(12.0);
+    let avail_w = ui.available_width();
+    let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(avail_w, 1.0), egui::Sense::hover());
+    ui.painter().line_segment(
+        [
+            Pos2::new(sep_rect.left(), sep_rect.center().y),
+            Pos2::new(sep_rect.right(), sep_rect.center().y),
+        ],
+        Stroke::new(1.0, theme.border_subtle),
+    );
+    ui.add_space(10.0);
+
+    ui.horizontal(|ui| {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| add_contents(ui))
+            .inner
+    })
+    .inner
 }
 
 #[derive(Debug, Clone, PartialEq)]

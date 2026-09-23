@@ -8,6 +8,7 @@ pub struct Checkbox<'a> {
     pub(crate) label: &'a str,
     pub(crate) description: Option<&'a str>,
     pub(crate) enabled: bool,
+    pub(crate) focusable: bool,
     pub(crate) theme: DbProTheme,
 }
 
@@ -18,6 +19,7 @@ impl<'a> Checkbox<'a> {
             label,
             description: None,
             enabled: true,
+            focusable: true,
             theme,
         }
     }
@@ -29,6 +31,11 @@ impl<'a> Checkbox<'a> {
 
     pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
+        self
+    }
+
+    pub fn focusable(mut self, focusable: bool) -> Self {
+        self.focusable = focusable;
         self
     }
 
@@ -52,7 +59,12 @@ impl<'a> Checkbox<'a> {
             );
             let row_width = (size + spacing + text_galley.size().x).max(size + spacing + 60.0);
 
-            let (rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
+            let sense = Sense {
+                click: true,
+                drag: false,
+                focusable: self.focusable,
+            };
+            let (rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), sense);
             response.widget_info(|| checkbox_info(self.enabled, *self.checked, self.label));
 
             if self.enabled && response.clicked() {

@@ -20,7 +20,7 @@ impl TabTrackerAnimation {
         let x = track_origin_x + rel_x;
 
         if (rel_x - target_rel_x).abs() > 0.5 || (w - target.width()).abs() > 0.5 {
-            ctx.request_repaint();
+            ctx.request_repaint_after(std::time::Duration::from_millis(16));
         }
         (x, w)
     }

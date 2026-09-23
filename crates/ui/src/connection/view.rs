@@ -5,10 +5,14 @@ use crate::components::alert::{Alert, AlertVariant};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::dialog::Dialog;
 use crate::components::input::Input;
+use crate::components::interact::radio_info;
 use crate::tokens::*;
-use crate::{DbProApp, DbProTheme, UiCommand, UiDriver, UiSslMode};
+use crate::{DbProTheme, UiCommand, UiDriver, UiSslMode};
 use egui::{pos2, vec2, Align2, FontFamily, FontId, Frame, Margin, Rect, RichText, Rounding, Stroke};
 use lucide_icons::Icon;
+
+use super::super::FeedbackState;
+use super::{ConnectionDialogState, ConnectionLifecycleState, PendingConnectionOperation};
 
 /// In-UI qualification caveat for the SSH tunnel control (#239).
 pub const SSH_QUALIFICATION_HINT: &str =
@@ -36,6 +40,7 @@ pub struct DriverCardProps<'a> {
 
 pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &DbProTheme) -> egui::Response {
     let (rect, resp) = ui.allocate_exact_size(vec2(props.width, 52.0), egui::Sense::click());
+    resp.widget_info(|| radio_info(!props.is_disabled, props.is_selected, props.name));
     let is_hovered = resp.hovered() && !props.is_disabled;
     let painter = ui.painter();
 
@@ -150,16 +155,92 @@ pub fn draw_driver_card(ui: &mut egui::Ui, props: DriverCardProps<'_>, theme: &D
     }
 }
 
-impl DbProApp {
-    pub(crate) fn draw_connection_dialog(&mut self, ctx: &egui::Context) {
-        let mut open = self.connection_dialog_open;
-        let draft_before = self.connection_draft.clone();
-        let title = if self.editing_connection_id.is_some() {
+pub(crate) struct ConnectionDialogView<'view, 'bridge> {
+    pub(crate) dialog: &'view mut ConnectionDialogState,
+    pub(crate) lifecycle: &'view mut ConnectionLifecycleState,
+    pub(crate) command_dispatcher: &'view mut super::super::command_dispatch::RuntimeCommandDispatcher<'bridge>,
+    pub(crate) feedback: &'view mut FeedbackState,
+    pub(crate) theme: DbProTheme,
+}
+
+impl<'view, 'bridge> ConnectionDialogView<'view, 'bridge> {
+    pub(crate) fn dispatch_command(&mut self, command: UiCommand) -> bool {
+        self.command_dispatcher.dispatch(command, self.feedback)
+    }
+
+    pub(crate) fn apply_cloud_preset(&mut self) {
+        if let Err(err) = super::apply_cloud_preset(self.dialog) {
+            self.dialog.set_error(err);
+        }
+    }
+
+    pub(crate) fn save_draft_as_ssh_profile(&mut self) {
+        match super::save_draft_as_ssh_profile(self.dialog) {
+            Ok(id) => {
+                self.dialog.draft.ssh_profile_id = id;
+                self.feedback
+                    .set_runtime_message("SSH profile saved — reusable by other connections");
+            }
+            Err(err) => self.feedback.set_runtime_message(err),
+        }
+    }
+
+    pub(crate) fn apply_ssh_profile(&mut self, profile_id: &str) {
+        super::apply_ssh_profile(self.dialog, profile_id);
+    }
+
+    pub(crate) fn dispatch_connection_command(&mut self, save: bool) {
+        if let Err(err) = super::logic::validate_connection_draft(&self.dialog.draft) {
+            self.feedback.show_error_toast(err.clone());
+            self.dialog.set_error(err);
+            return;
+        }
+
+        let request_id = self.command_dispatcher.next_request_id();
+        let command = super::logic::build_connection_command(
+            self.dialog.draft.clone(),
+            self.dialog.editing_connection_id.clone(),
+            request_id,
+            save,
+        );
+
+        if self.dispatch_command(command) {
+            self.lifecycle.set_pending_request(Some(request_id));
+            self.lifecycle.set_pending_operation(Some(if save {
+                PendingConnectionOperation::Save
+            } else {
+                PendingConnectionOperation::Test
+            }));
+            if save {
+                self.dialog.set_test_valid(false);
+            } else {
+                self.dialog
+                    .transition(super::state::ConnectionDialogAction::TestStarted {
+                        draft: self.dialog.draft.clone(),
+                    });
+            }
+            self.dialog.clear_error();
+            self.feedback.set_runtime_message(if save {
+                t!("status.saving").to_string()
+            } else {
+                t!("status.testing").to_string()
+            });
+
+            if !save {
+                super::refresh_connection_diagnostics(self.dialog, false, &t!("status.auth_pending"));
+            }
+        }
+    }
+
+    pub(crate) fn draw(&mut self, ctx: &egui::Context) {
+        let mut open = self.dialog.open;
+        let draft_before = self.dialog.draft.clone();
+        let title = if self.dialog.editing_connection_id.is_some() {
             t!("connection.edit_connection")
         } else {
             t!("connection.new_connection")
         };
-        let desc = if self.editing_connection_id.is_some() {
+        let desc = if self.dialog.editing_connection_id.is_some() {
             t!("connection.edit_desc")
         } else {
             t!("connection.new_desc")
@@ -176,18 +257,20 @@ impl DbProApp {
                     self.draw_connection_footer(ui);
                 });
             });
-        self.connection_dialog_open = open && self.connection_dialog_open;
-        if self.connection_draft != draft_before {
-            self.connection_test_valid = false;
-            self.connection_error.clear();
-            self.runtime_message = t!("status.connection_changed").to_string();
+        self.dialog.open = open && self.dialog.open;
+        if self.dialog.draft != draft_before {
+            self.dialog
+                .transition(super::state::ConnectionDialogAction::DraftChanged);
+            self.feedback.set_runtime_message(t!("status.connection_changed"));
         }
-        if !self.connection_dialog_open {
-            self.pending_connection_request = None;
+        if !self.dialog.open {
+            self.lifecycle.clear_pending_request();
         }
     }
 
     pub(crate) fn draw_connection_form(&mut self, ui: &mut egui::Ui) {
+        self.draw_connection_feedback(ui);
+
         // ── 1. Database Engine Selection Cards (Grid: 4 cols) ─────────
         ui.horizontal(|ui| {
             ui.label(
@@ -211,7 +294,7 @@ impl DbProApp {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = gap;
             for spec in DRIVER_CARD_SPECS {
-                let is_selected = self.connection_draft.driver == spec.driver;
+                let is_selected = self.dialog.draft.driver == spec.driver;
                 if draw_driver_card(
                     ui,
                     DriverCardProps {
@@ -227,7 +310,11 @@ impl DbProApp {
                 )
                 .clicked()
                 {
-                    select_driver(&mut self.connection_draft, spec.driver);
+                    let driver_changed = self.dialog.draft.driver != spec.driver;
+                    select_driver(&mut self.dialog.draft, spec.driver);
+                    if driver_changed {
+                        self.dialog.focus_name_on_open = true;
+                    }
                 }
             }
         });
@@ -235,24 +322,25 @@ impl DbProApp {
         ui.add_space(SPACE_MD);
 
         // ── 2. Engine-specific Fields ─────────────────────────────────
-        match self.connection_draft.driver {
+        match self.dialog.draft.driver {
             UiDriver::Postgres | UiDriver::Mysql | UiDriver::SqlServer => self.draw_postgres_connection_fields(ui),
             UiDriver::Sqlite => self.draw_sqlite_connection_fields(ui),
         }
+    }
 
-        // ── 3. Feedback Alerts ─────────────────────────────────────────
-        if !self.connection_error.is_empty() {
+    fn draw_connection_feedback(&self, ui: &mut egui::Ui) {
+        if !self.dialog.error.is_empty() {
             ui.add_space(SPACE_XS);
-            Alert::new(t!("alerts.config_error"), &self.connection_error, self.theme)
+            Alert::new(t!("alerts.config_error"), &self.dialog.error, self.theme)
                 .variant(AlertVariant::Destructive)
                 .show(ui);
-        } else if self.connection_test_valid {
+        } else if self.dialog.test_valid {
             ui.add_space(SPACE_XS);
             Alert::new(t!("alerts.verified"), t!("alerts.verified_desc"), self.theme)
                 .variant(AlertVariant::Success)
                 .show(ui);
         }
-        if let Some(report) = &self.connection_diagnostics {
+        if let Some(report) = &self.dialog.diagnostics {
             ui.add_space(SPACE_XS);
             for stage in &report.stages {
                 let mark = if stage.ok { "OK" } else { "FAIL" };
@@ -273,7 +361,7 @@ impl DbProApp {
 
     pub(crate) fn draw_connection_footer(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            let is_testing = self.pending_connection_request.is_some();
+            let is_testing = self.lifecycle.pending_request().is_some();
             let test_btn = Button::new(self.theme)
                 .text(t!("connection.test_connection"))
                 .variant(ButtonVariant::Secondary)
@@ -292,7 +380,7 @@ impl DbProApp {
                         .font(font_caption())
                         .color(self.theme.text_muted),
                 );
-            } else if self.connection_test_valid {
+            } else if self.dialog.test_valid {
                 ui.add_space(SPACE_XS);
                 ui.label(
                     RichText::new(char::from(Icon::Check).to_string())
@@ -307,7 +395,7 @@ impl DbProApp {
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let save_label = if self.editing_connection_id.is_some() {
+                let save_label = if self.dialog.editing_connection_id.is_some() {
                     t!("connection.update_connection")
                 } else {
                     t!("connection.save_connection")
@@ -329,7 +417,7 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    self.connection_dialog_open = false;
+                    self.dialog.transition(super::state::ConnectionDialogAction::Close);
                 }
             });
         });
@@ -371,8 +459,9 @@ impl DbProApp {
             ui.vertical(|ui| {
                 ui.set_width(input_w);
                 ui.set_max_width(input_w);
-                Input::new(&mut self.connection_draft.database, "/path/to/database.db", self.theme)
+                Input::new(&mut self.dialog.draft.database, "/path/to/database.db", self.theme)
                     .label(t!("connection.database_file_path"))
+                    .id_salt(focus_id::SQLITE_DATABASE_FILE)
                     .width(input_w)
                     .leading_icon(Icon::FolderArchive)
                     .clearable(true)
@@ -390,7 +479,7 @@ impl DbProApp {
                     .show(ui)
                     .clicked()
                 {
-                    let request_id = self.task_bridge.next_request_id();
+                    let request_id = self.command_dispatcher.next_request_id();
                     self.dispatch_command(UiCommand::PickSqliteFile { request_id });
                 }
             });
@@ -428,4 +517,22 @@ impl DbProApp {
             t!("connection.tags_placeholder_sqlite").as_ref(),
         );
     }
+}
+
+pub(crate) fn draw_connection_dialog(
+    ctx: &egui::Context,
+    theme: DbProTheme,
+    dialog: &mut ConnectionDialogState,
+    lifecycle: &mut ConnectionLifecycleState,
+    command_dispatcher: &mut super::super::command_dispatch::RuntimeCommandDispatcher<'_>,
+    feedback: &mut FeedbackState,
+) {
+    ConnectionDialogView {
+        dialog,
+        lifecycle,
+        command_dispatcher,
+        feedback,
+        theme,
+    }
+    .draw(ctx);
 }

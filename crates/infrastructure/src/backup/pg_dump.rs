@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn ensure_tool_available_finds_common_unix_binary() {
         // `sh` is present on unix CI images; proves the PATH search path works.
-        PgDumpEngine::ensure_tool_available("sh").unwrap();
+        assert!(PgDumpEngine::ensure_tool_available("sh").is_ok());
     }
 
     /// #244 (E-2) asks for the argv shape to be asserted without a live server. This pins the

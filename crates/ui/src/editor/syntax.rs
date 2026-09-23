@@ -59,14 +59,19 @@ impl CachedSqlTokens {
         &self.tokens
     }
 
+    pub fn token_at(&self, offset: usize) -> Option<&SyntaxToken> {
+        let index = self.tokens.partition_point(|token| token.range.1 <= offset);
+        self.tokens
+            .get(index)
+            .filter(|token| offset >= token.range.0 && offset < token.range.1)
+    }
+
     pub fn is_in_string_or_comment(&self, offset: usize) -> bool {
-        self.tokens.iter().any(|token| {
-            offset >= token.range.0
-                && offset < token.range.1
-                && matches!(
-                    token.kind,
-                    SyntaxTokenKind::String | SyntaxTokenKind::DollarQuote | SyntaxTokenKind::Comment
-                )
+        self.token_at(offset).is_some_and(|token| {
+            matches!(
+                token.kind,
+                SyntaxTokenKind::String | SyntaxTokenKind::DollarQuote | SyntaxTokenKind::Comment
+            )
         })
     }
 

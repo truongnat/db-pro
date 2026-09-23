@@ -4,9 +4,10 @@ use super::config::{
     UNDERLINE_BASELINE_HEIGHT, UNDERLINE_HOVER_INSET_Y, UNDERLINE_HOVER_RADIUS, UNDERLINE_ITEM_GAP,
     UNDERLINE_ITEM_HEIGHT, UNDERLINE_LABEL_PAD_X,
 };
-use super::layout::{apply_selection, track_id, TabHit};
+use super::layout::{apply_keyboard_selection, apply_selection, track_id, TabHit};
 use super::style::{TabItemStyle, TabKind};
 use super::track::TabTrackerAnimation;
+use crate::components::interact::radio_info;
 use crate::DbProTheme;
 use egui::{Align2, CursorIcon, Pos2, Rect, Rounding, Sense, Ui, Vec2};
 
@@ -27,6 +28,7 @@ impl<'a> UnderlineTabs<'a> {
 
         let mut tab_rects = Vec::with_capacity(self.tabs.len());
         let mut clicked_idx = None;
+        let mut focused_idx = None;
         // Keep the horizontal response so baseline/indicator share the row bounds.
         let row = ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::new(UNDERLINE_ITEM_GAP, 0.0);
@@ -36,9 +38,13 @@ impl<'a> UnderlineTabs<'a> {
                 if hit.clicked {
                     clicked_idx = Some(idx);
                 }
+                if hit.focused {
+                    focused_idx = Some(idx);
+                }
             }
         });
         apply_selection(self.selected, clicked_idx);
+        apply_keyboard_selection(ui, self.selected, focused_idx, self.tabs.len());
 
         self.paint_baseline(ui, row.response.rect);
 
@@ -59,6 +65,10 @@ impl<'a> UnderlineTabs<'a> {
         let item_width = text_width + UNDERLINE_LABEL_PAD_X;
         let (rect, resp) = ui.allocate_exact_size(Vec2::new(item_width, UNDERLINE_ITEM_HEIGHT), Sense::click());
         let resp = resp.on_hover_cursor(CursorIcon::PointingHand);
+        if resp.clicked() {
+            ui.memory_mut(|memory| memory.request_focus(resp.id));
+        }
+        resp.widget_info(|| radio_info(true, is_active, tab_name));
 
         if resp.hovered() && !is_active {
             ui.painter().rect_filled(
@@ -80,6 +90,7 @@ impl<'a> UnderlineTabs<'a> {
         TabHit {
             rect,
             clicked: resp.clicked(),
+            focused: resp.has_focus(),
         }
     }
 

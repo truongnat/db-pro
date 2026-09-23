@@ -85,6 +85,14 @@ pub struct ComponentGalleryState {
     pub activity_bar_selected: ActivityBarItemKind,
     pub db_card_status: ConnectionStatus,
     pub sql_editor_status: Option<String>,
+    pub date_picker_val: Option<SimpleDate>,
+    pub toggle_single: bool,
+    pub toggle_group_val: usize,
+    pub accordion_open: Option<String>,
+    pub collapsible_open: bool,
+    pub radio_group_val: usize,
+    pub alert_dialog_open: bool,
+    pub command_query: String,
 }
 
 impl Default for ComponentGalleryState {
@@ -191,6 +199,14 @@ impl Default for ComponentGalleryState {
             activity_bar_selected: ActivityBarItemKind::Explorer,
             db_card_status: ConnectionStatus::Connected,
             sql_editor_status: None,
+            date_picker_val: Some(SimpleDate::new(2026, 9, 23)),
+            toggle_single: true,
+            toggle_group_val: 1,
+            accordion_open: Some("acc-1".to_string()),
+            collapsible_open: true,
+            radio_group_val: 1,
+            alert_dialog_open: false,
+            command_query: String::new(),
         }
     }
 }
@@ -247,7 +263,7 @@ impl DbProApp {
                         ui.add_space(8.0);
 
                         // Live Light / Dark theme toggle
-                        let is_dark = self.dark_mode;
+                        let is_dark = self.preferences.dark_mode;
                         let theme_icon = if is_dark { Icon::Sun } else { Icon::Moon };
                         let theme_label = if is_dark { "Light Mode" } else { "Dark Mode" };
                         if Button::new(theme)
@@ -258,7 +274,7 @@ impl DbProApp {
                             .show(ui)
                             .clicked()
                         {
-                            self.dark_mode = !self.dark_mode;
+                            self.preferences.dark_mode = !self.preferences.dark_mode;
                         }
                     });
                 });

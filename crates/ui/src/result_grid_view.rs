@@ -1,92 +1,9 @@
+pub use super::result_grid_projection::GridSelectionLookup;
 use super::*;
 use crate::GridProjectionKey;
-use egui::{Align2, Pos2, Rounding, Stroke, Vec2};
-use std::collections::{HashMap, HashSet};
 
-/// Coordinate lookup for the current visible grid slice.
-///
-/// Selection is rendered once per visible cell, so resolving coordinates must
-/// not scan the filtered row list and reordered column list for every cell.
-pub struct GridSelectionLookup {
-    pub row_positions: HashMap<usize, usize>,
-    pub column_positions: HashMap<usize, usize>,
-}
-
-impl GridSelectionLookup {
-    /// Build a lookup from the filtered row projection and the visual column order.
-    ///
-    /// This is the measured per-frame cost: two `HashMap`s, one entry per filtered row index
-    /// and one per column. `GridSelectionCache` memoizes the result so a frame that changes neither
-    /// the projection nor the column order reuses it instead of rebuilding.
-    pub fn new(indexes: &[usize], order: &[usize]) -> Self {
-        Self {
-            row_positions: indexes
-                .iter()
-                .enumerate()
-                .map(|(position, &row)| (row, position))
-                .collect(),
-            column_positions: order
-                .iter()
-                .enumerate()
-                .map(|(position, &column)| (column, position))
-                .collect(),
-        }
-    }
-}
-
-/// One-entry memo for [`GridSelectionLookup`].
-///
-/// `draw_grid_body` built a `GridSelectionLookup` on every frame before this cache — two `HashMap`s,
-/// one entry per filtered row index and one per column — even though the lookup only changes when
-/// the projection or the column order changes. With the projection cached, this per-frame
-/// map build dominated the steady-state frame cost of a large result: ~36.5 ms of a
-/// ~40 ms frame at 200k rows × 4 columns in debug.
-///
-/// The cache is keyed on `(GridProjectionKey, column_order)` and follows the same take/restore
-/// idiom as [`GridProjectionCache`]: the lookup is moved out for the frame and handed back, so a
-/// sorted large result reuses it until one of its inputs really changes.
-#[derive(Default)]
-pub struct GridSelectionCache {
-    key: Option<(GridProjectionKey, Vec<usize>)>,
-    lookup: Option<GridSelectionLookup>,
-    rebuilds: u64,
-}
-
-impl GridSelectionCache {
-    /// Take the selection lookup for `(projection_key, order)`, reusing the cached entry when the
-    /// key matches. Returns `None` on a miss — the caller must rebuild and [`Self::restore`] it.
-    pub fn take(&mut self, projection_key: &GridProjectionKey, order: &[usize]) -> Option<GridSelectionLookup> {
-        let hit = self
-            .key
-            .as_ref()
-            .map(|(key, cached_order)| key == projection_key && cached_order.as_slice() == order)
-            .unwrap_or(false);
-        if hit {
-            self.key = None;
-            return self.lookup.take();
-        }
-        self.key = None;
-        self.lookup = None;
-        self.rebuilds = self.rebuilds.saturating_add(1);
-        None
-    }
-
-    /// Store a selection lookup the caller got from [`Self::take`] so the next frame can reuse it.
-    pub fn restore(&mut self, projection_key: GridProjectionKey, order: Vec<usize>, lookup: GridSelectionLookup) {
-        if self.key.is_some() {
-            return;
-        }
-        self.key = Some((projection_key, order));
-        self.lookup = Some(lookup);
-    }
-
-    /// Number of selection lookups built by this cache. Asserted by tests to pin the
-    /// "no per-frame rebuild" property.
-    #[cfg(test)]
-    fn rebuilds(&self) -> u64 {
-        self.rebuilds
-    }
-}
+#[path = "result_grid_body_view.rs"]
+mod result_grid_body_view;
 
 /// Per-cell render context for the result grid.
 pub(crate) struct GridCell<'a> {
@@ -114,6 +31,15 @@ pub(crate) struct GridRows<'a> {
     pub(crate) selection_lookup: &'a GridSelectionLookup,
 }
 
+struct GridInteractionApplicationContext<'a> {
+    ui: &'a mut egui::Ui,
+    result: &'a UiQueryResult,
+    indexes: &'a [usize],
+    order: &'a [usize],
+    editable: bool,
+    selection_lookup: &'a GridSelectionLookup,
+}
+
 impl DbProApp {
     pub(super) fn draw_result_grid(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
         if result.columns.is_empty() {
@@ -129,195 +55,129 @@ impl DbProApp {
             return;
         }
 
-        let order = self.column_order_for_columns(&result.columns);
-        let editable =
-            self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data && self.can_edit_table_rows();
-        // The projection is memoized across frames: sorting a 200k-row result on a timestamp-shaped
-        // column costs seconds per invocation in debug, so rebuilding it in the draw path is what
-        // made a sorted large result unusable (crates/ui/src/result_grid.rs, `GridProjectionCache`).
-        let projection_key = self.grid_projection_key(result);
-        let indexes = self.grid_projection_cache.take(projection_key.clone(), result);
-        // The selection lookup is memoized on the same inputs: `draw_grid_body` used to
-        // build a `GridSelectionLookup` — two `HashMap`s, one entry per filtered row index — on
-        // every frame, which measured ~36.5 ms of a ~40 ms frame at 200k rows. Reuse it while the
-        // projection and column order are unchanged.
+        let is_table_data =
+            self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data;
+        let editable = is_table_data && self.can_edit_table_rows();
+        let (projection_key, indexes, order, selection_lookup) = self.prepare_grid_cache(result, is_table_data);
+
+        self.handle_grid_keyboard(ui, result, &indexes, &order, editable, &selection_lookup);
+
+        if !is_table_data {
+            self.draw_result_grid_toolbar(ui, result, &indexes, editable);
+        }
+        self.draw_record_inspector_panel(ui, result);
+
+        let row_offset = if is_table_data { self.table.data_query.offset } else { 0 };
+        let grid_width = ui.available_width().max(0.0);
+        let widths = self.table.data.column_widths(result.columns.len(), grid_width);
+        self.draw_grid_body(
+            ui,
+            result_grid_body_view::ResultGridBodyContext {
+                result,
+                indexes: &indexes,
+                widths: &widths,
+                order: &order,
+                editable,
+                row_offset,
+                selection_lookup: &selection_lookup,
+            },
+        );
+
+        self.restore_grid_cache(projection_key, indexes, order, selection_lookup);
+    }
+
+    fn draw_result_grid_toolbar(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        indexes: &[usize],
+        editable: bool,
+    ) {
+        let action = {
+            let mut context = result_grid_toolbar_view::ResultGridToolbarContext {
+                theme: self.theme,
+                data: &mut self.table.data,
+                editing: &mut self.table.editing,
+                feedback: &self.feedback,
+                editable,
+                matching_rows: indexes.len(),
+            };
+            result_grid_toolbar_view::draw_toolbar(&mut context, ui)
+        };
+        if let Some(action) = action {
+            match action {
+                result_grid_toolbar_view::ResultGridToolbarAction::CopySelectedCell => {
+                    self.copy_selected_cell(ui, result);
+                }
+                result_grid_toolbar_view::ResultGridToolbarAction::CopySelectedRow => {
+                    self.copy_selected_row(ui, result);
+                }
+                result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleCsv => {
+                    self.copy_all_as_csv(ui, result, indexes);
+                }
+                result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleJson => {
+                    self.copy_all_as_json(ui, result, indexes);
+                }
+                result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleMarkdown => {
+                    self.copy_all_as_markdown(ui, result, indexes);
+                }
+                result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleInsert => {
+                    self.copy_all_as_insert(ui, result, indexes);
+                }
+                result_grid_toolbar_view::ResultGridToolbarAction::InspectSelectedCell {
+                    row_index,
+                    column_index,
+                } => self.open_cell_inspector(result, row_index, column_index),
+            }
+        }
+    }
+
+    fn prepare_grid_cache(
+        &mut self,
+        result: &UiQueryResult,
+        is_table_data: bool,
+    ) -> (GridProjectionKey, Vec<usize>, Vec<usize>, GridSelectionLookup) {
+        let order = self.table.data.column_order_for_columns(&result.columns);
+        let projection_key = self.table.data.projection_key(result);
+        let indexes = self
+            .table
+            .data
+            .grid_projection_cache
+            .take(projection_key.clone(), result);
         let selection_lookup = self
+            .table
+            .data
             .grid_selection_cache
             .take(&projection_key, &order)
             .unwrap_or_else(|| GridSelectionLookup::new(&indexes, &order));
 
-        if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
-            self.rebuild_row_identity_cache(result, &indexes);
+        if is_table_data {
+            self.table
+                .data
+                .rebuild_row_identity_cache(result, self.table.state.table_info.as_ref());
         } else {
-            self.grid_row_identity_cache.clear();
-            self.grid_row_identity_cache_ready = false;
+            self.table.data.grid_row_identity_cache.clear();
+            self.table.data.grid_row_identity_cache_ready = false;
         }
 
-        self.handle_grid_keyboard(ui, result, &indexes, &order, editable, &selection_lookup);
+        (projection_key, indexes, order, selection_lookup)
+    }
 
-        let is_table_data = self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data;
-        if !is_table_data {
-            self.draw_grid_toolbar(ui, result, editable, indexes.len(), &indexes);
-        }
-        self.draw_record_inspector_panel(ui, result);
-
-        let row_offset = if is_table_data { self.table_data_offset } else { 0 };
-        self.draw_grid_body(ui, result, &indexes, &order, editable, row_offset, &selection_lookup);
-
-        self.grid_projection_cache.restore(projection_key.clone(), indexes);
-        // Restore the selection lookup in all cases — take() always moves it out, and it must
-        // be handed back so the next frame can reuse it.
-        self.grid_selection_cache
+    fn restore_grid_cache(
+        &mut self,
+        projection_key: GridProjectionKey,
+        indexes: Vec<usize>,
+        order: Vec<usize>,
+        selection_lookup: GridSelectionLookup,
+    ) {
+        self.table
+            .data
+            .grid_projection_cache
+            .restore(projection_key.clone(), indexes);
+        self.table
+            .data
+            .grid_selection_cache
             .restore(projection_key, order, selection_lookup);
-    }
-
-    /// Retrieve or initialize column visual ordering.
-    pub(crate) fn column_order_for_columns(&mut self, columns: &[crate::UiColumn]) -> Vec<usize> {
-        let count = columns.len();
-        self.grid_layout_column_names = columns.iter().map(|column| column.name.clone()).collect();
-
-        if let Some(mut persisted) = self.grid_pending_named_layout.take() {
-            let indexes_by_name: HashMap<&str, usize> = columns
-                .iter()
-                .enumerate()
-                .map(|(index, column)| (column.name.as_str(), index))
-                .collect();
-            persisted.sort_by_key(|column| column.order);
-            let mut seen_names = HashSet::with_capacity(persisted.len());
-            let mut seen_indices = HashSet::with_capacity(count);
-            let mut order = Vec::with_capacity(count);
-            let mut widths = vec![180.0; count];
-            let mut hidden = BTreeSet::new();
-
-            for entry in persisted {
-                let Some(&index) = indexes_by_name.get(entry.column_name.as_str()) else {
-                    continue;
-                };
-                if !seen_names.insert(entry.column_name) {
-                    continue;
-                }
-                seen_indices.insert(index);
-                order.push(index);
-                widths[index] = entry.width.clamp(60.0, 1000.0);
-                if entry.hidden {
-                    hidden.insert(index);
-                }
-            }
-            for index in 0..count {
-                if seen_indices.insert(index) {
-                    order.push(index);
-                }
-            }
-            self.grid_column_order = order;
-            self.grid_column_widths = widths;
-            self.grid_hidden_columns = hidden;
-            self.grid_columns_user_resized = true;
-        } else if self.grid_legacy_layout_pending {
-            // Index-based layouts cannot be safely migrated across a schema
-            // shape change. Keep the old layout only when it exactly matches
-            // the current schema; otherwise start from a safe default.
-            let widths_match = self.grid_column_widths.is_empty() || self.grid_column_widths.len() == count;
-            if self.grid_column_order.len() != count || !widths_match {
-                self.grid_column_order.clear();
-                self.grid_column_widths.clear();
-                self.grid_hidden_columns.clear();
-                self.grid_columns_user_resized = false;
-            }
-            self.grid_legacy_layout_pending = false;
-        }
-
-        self.column_order(count)
-    }
-
-    pub(crate) fn column_order(&mut self, count: usize) -> Vec<usize> {
-        self.grid_hidden_columns.retain(|&column| column < count);
-        let mut normalized_order = Vec::with_capacity(count);
-        let mut seen = HashSet::with_capacity(count);
-        for column in self.grid_column_order.iter().copied() {
-            if column < count && seen.insert(column) {
-                normalized_order.push(column);
-            }
-        }
-        for column in 0..count {
-            if seen.insert(column) {
-                normalized_order.push(column);
-            }
-        }
-        if normalized_order != self.grid_column_order {
-            self.grid_column_order = normalized_order;
-        }
-        if !self.grid_column_widths.is_empty() {
-            self.grid_column_widths.resize(count, 180.0);
-            self.grid_column_widths
-                .iter_mut()
-                .for_each(|width| *width = width.clamp(60.0, 1000.0));
-        }
-        self.grid_column_order
-            .iter()
-            .copied()
-            .filter(|column| !self.grid_hidden_columns.contains(column))
-            .collect()
-    }
-
-    /// Reorder a column visually from one position to another.
-    pub(crate) fn move_column(&mut self, from_visual_idx: usize, to_visual_idx: usize, count: usize) {
-        let visible_order = self.column_order(count);
-        if from_visual_idx < visible_order.len()
-            && to_visual_idx < visible_order.len()
-            && from_visual_idx != to_visual_idx
-        {
-            let from_column = visible_order[from_visual_idx];
-            let to_column = visible_order[to_visual_idx];
-            let from = self
-                .grid_column_order
-                .iter()
-                .position(|column| *column == from_column)
-                .unwrap_or(from_visual_idx);
-            let to = self
-                .grid_column_order
-                .iter()
-                .position(|column| *column == to_column)
-                .unwrap_or(to_visual_idx);
-            let column = self.grid_column_order.remove(from);
-            self.grid_column_order.insert(to, column);
-        }
-    }
-
-    pub(crate) fn hide_column(&mut self, column_index: usize, visible_count: usize) {
-        if visible_count <= 1 {
-            return;
-        }
-        self.grid_hidden_columns.insert(column_index);
-    }
-
-    pub(crate) fn show_all_columns(&mut self) {
-        self.grid_hidden_columns.clear();
-    }
-
-    pub(crate) fn reset_grid_layout(&mut self, count: usize) {
-        self.grid_column_order = (0..count).collect();
-        self.grid_hidden_columns.clear();
-        self.grid_column_widths.clear();
-        self.grid_columns_user_resized = false;
-    }
-
-    pub(crate) fn auto_size_column(&mut self, result: &UiQueryResult, indexes: &[usize], column_index: usize) {
-        if column_index >= result.columns.len() {
-            return;
-        }
-        if self.grid_column_widths.len() < result.columns.len() {
-            self.grid_column_widths.resize(result.columns.len(), 180.0);
-        }
-        let column = &result.columns[column_index];
-        let content_width = indexes
-            .iter()
-            .take(100)
-            .filter_map(|row_index| result.rows.get(*row_index).and_then(|row| row.get(column_index)))
-            .map(crate::cell_text)
-            .map(|value| value.chars().count() as f32 * 7.0 + 24.0)
-            .fold(column.name.chars().count() as f32 * 7.0 + 42.0, f32::max);
-        self.grid_column_widths[column_index] = content_width.clamp(60.0, 520.0);
-        self.grid_columns_user_resized = true;
     }
 
     pub(crate) fn set_table_or_grid_sort(
@@ -326,69 +186,36 @@ impl DbProApp {
         column_index: usize,
         descending: Option<bool>,
     ) {
-        if self.active_tab == WorkspaceTab::Table && self.table_view == TableView::Data {
-            if !self.staged_changes.is_empty() {
-                self.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
+        if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
+            if !self.table.mutation.staged_changes.is_empty() {
+                self.feedback.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
                 return;
             }
-            self.table_data_sorts = descending
-                .and_then(|_| {
-                    result.columns.get(column_index).map(|column| UiTableDataSort {
-                        column: column.name.clone(),
-                        descending: descending.unwrap_or(false),
-                    })
-                })
-                .into_iter()
-                .collect();
-            self.grid_sort_column = None;
-            self.grid_sort_desc = false;
+            let column = result.columns.get(column_index).map(|column| column.name.clone());
+            self.table.data_query.set_sort(column, descending);
+            self.table.data.grid_sort_column = None;
+            self.table.data.grid_sort_desc = false;
             self.reload_table_data_from_start();
         } else {
-            self.grid_sort_column = descending.map(|_| column_index);
-            self.grid_sort_desc = descending.unwrap_or(false);
+            self.table.data.grid_sort_column = descending.map(|_| column_index);
+            self.table.data.grid_sort_desc = descending.unwrap_or(false);
         }
     }
 
     /// Cycle a table-data sort clause. Shift-click keeps other clauses and
     /// makes the clicked column the next priority; plain click selects one
-    /// clause and cycles ASC -> DESC -> none.
+    /// clause and cycles ASC -> DESC -> none.\
     pub(crate) fn cycle_table_data_sort(&mut self, result: &UiQueryResult, column_index: usize, additive: bool) {
-        if !self.staged_changes.is_empty() {
-            self.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
+        if !self.table.mutation.staged_changes.is_empty() {
+            self.feedback.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
             return;
         }
         let Some(column) = result.columns.get(column_index).map(|column| column.name.clone()) else {
             return;
         };
-        if additive {
-            if let Some(index) = self.table_data_sorts.iter().position(|sort| sort.column == column) {
-                if self.table_data_sorts[index].descending {
-                    self.table_data_sorts.remove(index);
-                } else {
-                    self.table_data_sorts[index].descending = true;
-                }
-            } else {
-                self.table_data_sorts.push(UiTableDataSort {
-                    column,
-                    descending: false,
-                });
-            }
-        } else if self.table_data_sorts.len() == 1
-            && self.table_data_sorts.first().map(|sort| sort.column.as_str()) == Some(column.as_str())
-        {
-            if self.table_data_sorts[0].descending {
-                self.table_data_sorts.clear();
-            } else {
-                self.table_data_sorts[0].descending = true;
-            }
-        } else {
-            self.table_data_sorts = vec![UiTableDataSort {
-                column,
-                descending: false,
-            }];
-        }
-        self.grid_sort_column = None;
-        self.grid_sort_desc = false;
+        self.table.data_query.cycle_sort(column, additive);
+        self.table.data.grid_sort_column = None;
+        self.table.data.grid_sort_desc = false;
         self.reload_table_data_from_start();
     }
 
@@ -402,93 +229,104 @@ impl DbProApp {
         editable: bool,
         selection_lookup: &GridSelectionLookup,
     ) {
-        let modifier = Self::primary_modifier_pressed_ui(ui);
-        let shift = ui.input(|i| i.modifiers.shift);
+        let actions = {
+            let mut context = result_grid_interaction_surface_view::ResultGridInteractionContext {
+                result,
+                indexes,
+                order,
+                editable,
+                table_state: &self.table.state,
+                table_data: &mut self.table.data,
+                table_editing: &mut self.table.editing,
+                table_mutation: &self.table.mutation,
+                feedback: &mut self.feedback,
+            };
+            context.handle_keyboard(ui, self.connection.dialog.is_open())
+        };
+        self.apply_grid_interaction_actions(
+            GridInteractionApplicationContext {
+                ui,
+                result,
+                indexes,
+                order,
+                editable,
+                selection_lookup,
+            },
+            actions,
+        );
+    }
 
-        if !ui.ctx().wants_keyboard_input()
-            && ui.input(|input| input.key_pressed(egui::Key::A) && Self::primary_modifier_pressed(input))
-        {
-            self.select_all_visible_cells(indexes, order);
-            return;
-        }
+    fn apply_grid_interaction_actions(
+        &mut self,
+        context: GridInteractionApplicationContext<'_>,
+        actions: Vec<result_grid_interaction_surface_view::ResultGridInteractionAction>,
+    ) {
+        use result_grid_interaction_surface_view::ResultGridInteractionAction as Action;
 
-        if !ui.ctx().wants_keyboard_input() && ui.input(|input| input.key_pressed(egui::Key::Escape)) {
-            self.selected_cell = None;
-            self.selected_row = None;
-            self.selected_rows.clear();
-            self.selection_anchor_row = None;
-            self.selection_anchor_cell = None;
-            self.copy_status.clear();
-            return;
-        }
-
-        if !ui.ctx().wants_keyboard_input() && !self.connection_dialog_open {
-            if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier && shift {
-                self.copy_selected_rows(ui, result);
-            } else if ui.input(|i| i.key_pressed(egui::Key::C)) && modifier {
-                self.copy_selected_cell(ui, result);
-            }
-
-            if ui.input(|input| input.key_pressed(egui::Key::S) && Self::primary_modifier_pressed(input)) {
-                self.apply_staged_changes();
-            }
-            if ui.input(|input| input.key_pressed(egui::Key::Z) && Self::primary_modifier_pressed(input)) {
-                if self.staged_changes.counts().total() > 1 {
-                    self.discard_changes_confirmation = true;
-                } else {
-                    self.discard_staged_changes();
+        for action in actions {
+            match action {
+                Action::CopySelectedRows => self.copy_selected_rows(context.ui, context.result),
+                Action::CopySelectedCell => self.copy_selected_cell(context.ui, context.result),
+                Action::ApplyStagedChanges => self.apply_staged_changes(),
+                Action::DiscardStagedChanges => self.discard_staged_changes(),
+                Action::DeleteSelectedRows => self.request_delete_selected_data_rows(context.result),
+                Action::SubmitCellEdit {
+                    row_index,
+                    column_index,
+                } => {
+                    self.submit_data_cell_edit(context.result, row_index, column_index);
                 }
+                Action::BeginCellEdit {
+                    row_index,
+                    column_index,
+                } => {
+                    if let Some(cell) = context
+                        .result
+                        .rows
+                        .get(row_index)
+                        .and_then(|row| row.get(column_index))
+                        .cloned()
+                    {
+                        self.begin_data_cell_edit(context.result, row_index, column_index, &cell);
+                    }
+                }
+                Action::CommitEditAndNavigate => {
+                    if self.commit_active_data_edit(context.result) {
+                        self.navigate_grid(
+                            context.ui,
+                            context.indexes,
+                            context.order,
+                            context.editable,
+                            context.selection_lookup,
+                        );
+                    }
+                    return;
+                }
+                Action::Navigate => self.navigate_grid(
+                    context.ui,
+                    context.indexes,
+                    context.order,
+                    context.editable,
+                    context.selection_lookup,
+                ),
             }
-            if editable
-                && self.data_editing_cell.is_none()
-                && ui.input(|input| input.key_pressed(egui::Key::Delete) || input.key_pressed(egui::Key::Backspace))
-            {
-                self.request_delete_selected_data_rows(result);
-            }
-        }
-        let pasted = ui.input(|input| {
-            input.events.iter().find_map(|event| match event {
-                egui::Event::Paste(text) => Some(text.clone()),
-                _ => None,
-            })
-        });
-        if editable {
-            self.handle_grid_edit_input(ui, result, pasted);
-        }
-        if self.data_editing_cell.is_some() && ui.input(|input| input.key_pressed(egui::Key::Tab)) {
-            self.handle_grid_navigation(ui, indexes, order, editable, result, selection_lookup);
-            return;
-        }
-        if !ui.ctx().wants_keyboard_input() {
-            self.handle_grid_navigation(ui, indexes, order, editable, result, selection_lookup);
         }
     }
 
-    pub(crate) fn primary_modifier_pressed_ui(ui: &egui::Ui) -> bool {
-        ui.input(Self::primary_modifier_pressed)
-    }
-
-    /// Paste-into-cell and Enter/F2-to-edit while the grid is editable.
-    pub(crate) fn handle_grid_edit_input(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, pasted: Option<String>) {
-        if let (Some((row_index, column_index)), Some(text)) = (self.selected_cell, pasted) {
-            if let Some(block) = self.blocked_write_for_cell(result, column_index) {
-                self.copy_status = block.reason().to_owned();
-                return;
-            }
-            self.data_editing_cell = Some((row_index, column_index));
-            self.data_edit_value = text;
-            self.submit_data_cell_edit(result, row_index, column_index);
-        }
-        if self.data_editing_cell.is_none()
-            && self.selected_cell.is_some()
-            && ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::F2))
-        {
-            if let Some((row_index, column_index)) = self.selected_cell {
-                if let Some(cell) = result.rows.get(row_index).and_then(|row| row.get(column_index)) {
-                    self.begin_data_cell_edit(result, row_index, column_index, cell);
-                }
-            }
-        }
+    fn navigate_grid(
+        &mut self,
+        ui: &mut egui::Ui,
+        indexes: &[usize],
+        order: &[usize],
+        editable: bool,
+        selection_lookup: &GridSelectionLookup,
+    ) {
+        let mut context = result_grid_selection::GridNavigationContext {
+            data: &mut self.table.data,
+            editing: &mut self.table.editing,
+            feedback: &mut self.feedback,
+        };
+        result_grid_selection::handle_grid_navigation(ui, indexes, order, editable, selection_lookup, &mut context);
     }
 
     /// The write policy for the column behind a grid cell, if it is blocked.
@@ -498,183 +336,13 @@ impl DbProApp {
         column_index: usize,
     ) -> Option<ColumnWriteBlock> {
         let column = result.columns.get(column_index)?;
-        self.column_write_block(&column.name)
-    }
-
-    pub(crate) fn draw_grid_toolbar(
-        &mut self,
-        ui: &mut egui::Ui,
-        result: &UiQueryResult,
-        editable: bool,
-        matching_rows: usize,
-        indexes: &[usize],
-    ) {
-        toolbar_frame(self.theme).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                input(ui, &mut self.grid_filter, "Filter visible rows…", 200.0, self.theme);
-                if !self.grid_filter.is_empty()
-                    && Button::new(self.theme)
-                        .icon(Icon::X)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .tooltip("Clear filter")
-                        .show(ui)
-                        .clicked()
-                {
-                    self.grid_filter.clear();
-                }
-
-                crate::components::badge::Badge::new(format!("{matching_rows} rows"), self.theme)
-                    .variant(crate::components::badge::BadgeVariant::Secondary)
-                    .compact(true)
-                    .show(ui);
-
-                ui.separator();
-
-                if Button::new(self.theme)
-                    .text("Copy Cell")
-                    .icon(Icon::Copy)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .tooltip(format!(
-                        "Copy selected cell value ({modifier}C)",
-                        modifier = Self::primary_modifier_label()
-                    ))
-                    .show(ui)
-                    .clicked()
-                {
-                    self.copy_selected_cell(ui, result);
-                }
-                if Button::new(self.theme)
-                    .text("Copy Row")
-                    .icon(Icon::Table2)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .tooltip(format!(
-                        "Copy entire selected row as tab-separated text ({modifier}Shift+C)",
-                        modifier = Self::primary_modifier_label()
-                    ))
-                    .show(ui)
-                    .clicked()
-                {
-                    self.copy_selected_row(ui, result);
-                }
-                if Button::new(self.theme)
-                    .text("CSV")
-                    .icon(Icon::FileSpreadsheet)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .tooltip("Copy visible rows as CSV")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.copy_all_as_csv(ui, result, indexes);
-                }
-                if Button::new(self.theme)
-                    .text("JSON")
-                    .icon(Icon::Braces)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .tooltip("Copy visible rows as JSON array")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.copy_all_as_json(ui, result, indexes);
-                }
-                if Button::new(self.theme)
-                    .text("Record")
-                    .icon(Icon::PanelRight)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .tooltip("Toggle record / value inspector panel")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.record_inspector_open = !self.record_inspector_open;
-                }
-                if let Some((row_index, column_index)) = self.selected_cell {
-                    if Button::new(self.theme)
-                        .text("Inspect")
-                        .icon(Icon::ScanSearch)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::Sm)
-                        .tooltip("Open advanced value inspector for the selected cell")
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.open_cell_inspector(result, row_index, column_index);
-                    }
-                }
-
-                if !self.copy_status.is_empty() {
-                    crate::components::badge::Badge::new(&self.copy_status, self.theme)
-                        .variant(crate::components::badge::BadgeVariant::Success)
-                        .compact(true)
-                        .show(ui);
-                }
-
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(
-                        RichText::new(if editable {
-                            "Double-click / Enter to edit · Right-click for actions · Drag divider to resize"
-                        } else {
-                            "Click cell to select · Right-click for actions · Drag divider to resize"
-                        })
-                        .font(font_caption())
-                        .color(self.theme.text_muted),
-                    );
-                });
-            });
-        });
-        ui.add_space(4.0);
+        self.table.state.column_write_block(&column.name)
     }
 
     /// Scrollable grid: continuous spreadsheet header plus visible slice of rows.
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn draw_grid_body(
-        &mut self,
-        ui: &mut egui::Ui,
-        result: &UiQueryResult,
-        indexes: &[usize],
-        order: &[usize],
-        editable: bool,
-        row_offset: u64,
-        selection_lookup: &GridSelectionLookup,
-    ) {
-        let grid_height = ui.available_height().max(180.0);
-        let grid_width = ui.available_width().max(0.0);
-        let widths = self.column_widths(result.columns.len(), grid_width);
-
-        ui.allocate_ui_with_layout(
-            egui::vec2(grid_width, grid_height),
-            Layout::top_down(Align::Min),
-            |ui| {
-                ui.spacing_mut().item_spacing = Vec2::ZERO;
-                egui::ScrollArea::horizontal().show(ui, |ui| {
-                    ui.spacing_mut().item_spacing = Vec2::ZERO;
-                    let content_width = GRID_ROW_NUMBER_WIDTH + widths.iter().sum::<f32>();
-                    ui.set_min_width(content_width);
-                    self.draw_grid_header(ui, result, indexes, &widths, order);
-                    let rows = GridRows {
-                        indexes,
-                        widths: &widths,
-                        order,
-                        editable,
-                        row_offset,
-                        selection_lookup,
-                    };
-                    let row_height = 28.0;
-                    egui::ScrollArea::vertical()
-                        .max_height((grid_height - 34.0).max(140.0))
-                        .show_rows(ui, row_height, indexes.len(), |ui, range| {
-                            ui.spacing_mut().item_spacing = Vec2::ZERO;
-                            for position in range {
-                                self.draw_grid_row(ui, result, &rows, position);
-                            }
-                        });
-                });
-            },
-        );
+    fn draw_grid_body(&mut self, ui: &mut egui::Ui, context: result_grid_body_view::ResultGridBodyContext<'_>) {
+        let mut renderer = GridBodyRenderer { app: self };
+        result_grid_body_view::draw_body(ui, context, &mut renderer);
     }
 
     /// One grid row: the row-number gutter plus every visible cell with continuous borders.
@@ -687,122 +355,92 @@ impl DbProApp {
     ) {
         let row_index = rows.indexes[position];
         let row = &result.rows[row_index];
-        let row_selected = self.selected_rows.contains(&row_index);
+        let row_selected = self.table.data.selected_rows.contains(&row_index);
         let row_dirty = self.staged_row_deleted(result, row_index)
             || (0..result.columns.len())
                 .any(|column_index| self.staged_cell_value(result, row_index, column_index).is_some());
-        let row_mutation_error = self.mutation_error_for_row(result, row_index);
-
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing = Vec2::ZERO;
-            let row_number = crate::displayed_row_number(rows.row_offset, row_index);
-            let (gutter_rect, gutter_resp) =
-                ui.allocate_exact_size(egui::vec2(GRID_ROW_NUMBER_WIDTH, 28.0), Sense::click());
-
-            let gutter_fill = if row_selected {
-                self.theme.accent.linear_multiply(0.18)
-            } else if gutter_resp.hovered() {
-                self.theme.surface_hover.linear_multiply(0.5)
-            } else {
-                self.theme.surface_panel.linear_multiply(0.5)
-            };
-            ui.painter().rect_filled(gutter_rect, Rounding::ZERO, gutter_fill);
-            ui.painter().hline(
-                gutter_rect.x_range(),
-                gutter_rect.bottom(),
-                Stroke::new(1.0, self.theme.border_subtle.linear_multiply(0.4)),
-            );
-            ui.painter().vline(
-                gutter_rect.right(),
-                gutter_rect.y_range(),
-                Stroke::new(1.0, self.theme.border_subtle.linear_multiply(0.4)),
-            );
-            ui.painter().text(
-                Pos2::new(gutter_rect.right() - 8.0, gutter_rect.center().y),
-                Align2::RIGHT_CENTER,
-                row_number.to_string(),
-                FontId::monospace(11.0),
-                if row_selected {
-                    self.theme.accent
-                } else {
-                    self.theme.text_muted
-                },
-            );
-
-            if gutter_resp.clicked() {
-                if self.data_editing_cell.is_some() && !self.commit_active_data_edit(result) {
-                    return;
-                }
-                self.selected_cell = None;
-                let modifiers = ui.input(|input| input.modifiers);
-                self.select_visible_row(
-                    rows.indexes,
-                    &rows.selection_lookup.row_positions,
-                    position,
-                    modifiers.shift,
-                    modifiers.command || modifiers.ctrl,
-                );
-                self.selection_anchor_cell = None;
-                self.data_editing_cell = None;
-                self.data_edit_value.clear();
-                self.copy_status.clear();
-            }
-
-            for &column_index in rows.order {
-                let cell = row.get(column_index).unwrap_or(&UiCell::Null);
-                let width = rows.widths.get(column_index).copied().unwrap_or(180.0);
-                self.draw_grid_cell(
-                    ui,
-                    result,
-                    GridCell {
-                        visible_indexes: rows.indexes,
-                        selection_lookup: rows.selection_lookup,
-                        row_index,
-                        column_index,
-                        display_position: position,
-                        row_selected,
-                        row_dirty,
-                        row_mutation_error,
-                        cell_mutation_error: self.mutation_error_for_cell(result, row_index, column_index),
-                        editable: rows.editable,
-                        width,
-                        cell,
-                    },
-                );
-            }
-        });
-    }
-
-    /// One grid cell: crisp background, grid borders, active cell highlight, and formatted value.
-    pub(super) fn column_widths(&mut self, count: usize, available_width: f32) -> Vec<f32> {
-        if self.grid_column_widths.len() != count {
-            self.grid_column_widths = vec![180.0; count];
-            self.grid_columns_user_resized = false;
-        }
-        let mut widths = self.grid_column_widths.clone();
-        if count > 0 && !self.grid_columns_user_resized {
-            let usable_width = (available_width - GRID_ROW_NUMBER_WIDTH - 4.0 * count as f32).max(0.0);
-            let default_width = (usable_width / count as f32).clamp(180.0, 520.0);
-            widths.fill(default_width);
-        }
-        widths
-    }
-
-    pub(crate) fn cell_label(cell: &crate::UiCell) -> String {
-        match cell {
-            crate::UiCell::Null => "NULL".to_owned(),
-            crate::UiCell::Boolean(value) => value.to_string(),
-            crate::UiCell::Number(value) => value.clone(),
-            crate::UiCell::Text(value) => value.clone(),
-            crate::UiCell::Json(value) => serde_json::from_str::<serde_json::Value>(value)
-                .ok()
-                .and_then(|json| serde_json::to_string_pretty(&json).ok())
-                .unwrap_or_else(|| value.clone()),
-            crate::UiCell::Bytes(value) => value.clone(),
-        }
+        let row_identity =
+            self.table
+                .data
+                .row_identity_for_result(result, self.table.state.table_info.as_ref(), row_index);
+        let row_mutation_error = row_identity
+            .as_ref()
+            .is_some_and(|identity| self.table.mutation.mutation_error_for_identity(identity));
+        let cell_mutation_errors = (0..result.columns.len())
+            .map(|column_index| {
+                row_identity
+                    .as_ref()
+                    .is_some_and(|identity| self.table.mutation.mutation_error_for_cell(identity, column_index))
+            })
+            .collect::<Vec<_>>();
+        let theme = self.theme;
+        let mut renderer = GridRowRenderer { app: self, result };
+        result_grid_row_view::draw_row(
+            ui,
+            result_grid_row_view::GridRowSurfaceContext {
+                row,
+                rows,
+                row_index,
+                display_position: position,
+                row_selected,
+                row_dirty,
+                row_mutation_error,
+                cell_mutation_errors: &cell_mutation_errors,
+                theme,
+            },
+            &mut renderer,
+        );
     }
 }
 
-#[cfg(test)]
-#[path = "result_grid_view_tests.rs"]
-mod tests;
+struct GridRowRenderer<'a> {
+    app: &'a mut DbProApp,
+    result: &'a UiQueryResult,
+}
+
+struct GridBodyRenderer<'a> {
+    app: &'a mut DbProApp,
+}
+
+impl result_grid_body_view::ResultGridBodyRenderer for GridBodyRenderer<'_> {
+    fn draw_header(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        indexes: &[usize],
+        widths: &[f32],
+        order: &[usize],
+    ) {
+        self.app.draw_grid_header(ui, result, indexes, widths, order);
+    }
+
+    fn draw_row(&mut self, ui: &mut egui::Ui, input: result_grid_body_view::ResultGridRowInput<'_>) {
+        self.app.draw_grid_row(ui, input.result, input.rows, input.position);
+    }
+}
+
+impl result_grid_row_view::GridRowSurfaceRenderer for GridRowRenderer<'_> {
+    fn on_gutter_click(&mut self, ui: &mut egui::Ui, rows: &GridRows<'_>, position: usize) -> bool {
+        if self.app.table.editing.data_editing_cell.is_some() && !self.app.commit_active_data_edit(self.result) {
+            return false;
+        }
+        self.app.table.data.selected_cell = None;
+        let modifiers = ui.input(|input| input.modifiers);
+        self.app.table.data.select_visible_row(
+            rows.indexes,
+            &rows.selection_lookup.row_positions,
+            position,
+            modifiers.shift,
+            modifiers.command || modifiers.ctrl,
+        );
+        self.app.table.data.selection_anchor_cell = None;
+        self.app.table.editing.data_editing_cell = None;
+        self.app.table.editing.data_edit_value.clear();
+        self.app.feedback.copy_status.clear();
+        true
+    }
+
+    fn draw_cell(&mut self, ui: &mut egui::Ui, cell: GridCell<'_>) {
+        self.app.draw_grid_cell(ui, self.result, cell);
+    }
+}

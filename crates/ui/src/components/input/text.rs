@@ -1,10 +1,10 @@
-use egui::{Button, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
+use egui::{FontFamily, FontId, Frame, Id, Margin, Response, RichText, Rounding, Sense, Stroke, TextEdit, Ui, Vec2};
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
 use super::config::INPUT_ROUNDING;
 use super::layout::{paint_field_chrome, resolve_field_width};
-use crate::components::interact::text_input_info;
+use crate::components::interact::{button_info, text_input_info};
 use crate::DbProTheme;
 
 pub struct Input<'a> {
@@ -16,6 +16,8 @@ pub struct Input<'a> {
     leading_icon: Option<Icon>,
     clearable: bool,
     width: Option<f32>,
+    id_salt: Option<Id>,
+    auto_focus: bool,
     enabled: bool,
     theme: DbProTheme,
 }
@@ -31,6 +33,8 @@ impl<'a> Input<'a> {
             leading_icon: None,
             clearable: false,
             width: None,
+            id_salt: None,
+            auto_focus: false,
             enabled: true,
             theme,
         }
@@ -68,6 +72,16 @@ impl<'a> Input<'a> {
 
     pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
+        self
+    }
+
+    pub fn id_salt(mut self, id_salt: impl std::hash::Hash) -> Self {
+        self.id_salt = Some(Id::new(id_salt));
+        self
+    }
+
+    pub fn auto_focus(mut self, auto_focus: bool) -> Self {
+        self.auto_focus = auto_focus;
         self
     }
 
@@ -127,9 +141,13 @@ impl<'a> Input<'a> {
                     let has_text = !self.value.is_empty();
                     let extra_width = if self.clearable && has_text { 24.0 } else { 0.0 };
                     let edit_w = (ui.available_width() - extra_width).max(40.0);
+                    let mut text_edit = TextEdit::singleline(self.value);
+                    if let Some(id_salt) = self.id_salt {
+                        text_edit = text_edit.id_salt(id_salt);
+                    }
                     let edit_response = ui.add_enabled(
                         self.enabled,
-                        TextEdit::singleline(self.value)
+                        text_edit
                             .hint_text(RichText::new(self.placeholder.as_ref()).color(self.theme.text_muted))
                             .desired_width(edit_w)
                             .margin(Margin::ZERO)
@@ -141,22 +159,27 @@ impl<'a> Input<'a> {
                             }),
                     );
 
-                    if self.clearable
-                        && has_text
-                        && self.enabled
-                        && ui
-                            .add(
-                                Button::new(
-                                    RichText::new(char::from(Icon::X).to_string())
-                                        .font(FontId::new(12.0, FontFamily::Name("lucide".into())))
-                                        .color(self.theme.text_muted),
-                                )
-                                .frame(false),
-                            )
-                            .on_hover_text("Clear")
-                            .clicked()
-                    {
-                        self.value.clear();
+                    if self.clearable && has_text && self.enabled {
+                        let (clear_rect, clear_response) = ui.allocate_at_least(
+                            Vec2::new(24.0, ui.spacing().interact_size.y),
+                            Sense {
+                                click: true,
+                                drag: false,
+                                focusable: false,
+                            },
+                        );
+                        let clear_response = clear_response.on_hover_text("Clear");
+                        clear_response.widget_info(|| button_info(true, "Clear"));
+                        ui.painter().text(
+                            clear_rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            char::from(Icon::X).to_string(),
+                            FontId::new(12.0, FontFamily::Name("lucide".into())),
+                            self.theme.text_muted,
+                        );
+                        if clear_response.clicked() {
+                            self.value.clear();
+                        }
                     }
 
                     edit_response
@@ -165,6 +188,9 @@ impl<'a> Input<'a> {
             });
 
             let edit_response = frame_output.inner;
+            if self.auto_focus {
+                edit_response.request_focus();
+            }
             let frame_rect = frame_output.response.rect;
             let info_label = self.label.as_deref().unwrap_or(self.placeholder.as_ref());
             edit_response.widget_info(|| text_input_info(self.enabled, info_label));

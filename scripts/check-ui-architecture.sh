@@ -1,0 +1,419 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+app_file="$repo_root/crates/ui/src/app.rs"
+events_file="$repo_root/crates/ui/src/events.rs"
+
+if ! rg -q '^include!\("app_modules\.rs"\);$' "$app_file"; then
+  echo "UI architecture check failed: app.rs must include the isolated module topology registry." >&2
+  exit 1
+fi
+if rg -n '^#\[path = ' "$app_file"; then
+  echo "UI architecture check failed: app.rs must not own feature module path declarations." >&2
+  exit 1
+fi
+if rg -n 'UiCommand::' "$app_file"; then
+  echo "UI architecture check failed: app.rs must delegate runtime command construction to feature adapters." >&2
+  exit 1
+fi
+
+if rg -n 'egui::(CentralPanel|SidePanel|TopBottomPanel|Window::new)|\.show\(.*\|ui\|' "$app_file"; then
+  echo "UI architecture check failed: app.rs must remain a composition root without egui painting." >&2
+  exit 1
+fi
+
+# DbProApp is deliberately an allowlisted composition root. A new field must
+# be a feature aggregate, an adapter, or shell composition state; otherwise it
+# belongs in the owning feature state module.
+expected_fields=$(cat <<'EOF'
+agent
+connection
+feedback
+gallery_state
+initial_frames_count
+overlay
+palette
+preferences
+management
+query
+saved_tasks
+schema
+table
+task_bridge
+theme
+welcome
+workspace
+EOF
+)
+
+actual_fields=$(awk '
+  /^pub struct DbProApp \{/ { inside=1; next }
+  inside && /^}/ { exit }
+  inside { print }
+' "$app_file" | grep -E '^[[:space:]]*(pub\([^)]*\)[[:space:]]+|pub[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*:' | sed -E 's/^[[:space:]]*(pub\([^)]*\)[[:space:]]+|pub[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*):.*/\2/' | sed '/^$/d' | sort)
+
+if ! diff -u <(printf '%s\n' "$expected_fields" | sed '/^$/d' | sort) <(printf '%s\n' "$actual_fields"); then
+  echo "UI architecture check failed: DbProApp fields changed outside the allowlist." >&2
+  exit 1
+fi
+
+if rg -n 'fn on_[A-Za-z0-9_]+\(' "$events_file"; then
+  echo "UI architecture check failed: feature event handlers leaked back into events.rs." >&2
+  exit 1
+fi
+
+router_file="$repo_root/crates/ui/src/event_router.rs"
+if rg --pcre2 -n 'self\.(?!on_[A-Za-z0-9_]+\(|apply_runtime_event\()' "$router_file"; then
+  echo "UI architecture check failed: event_router.rs contains direct state/orchestration access." >&2
+  exit 1
+fi
+
+if ! rg -q 'drain_events\(crate::runtime::MAX_RUNTIME_EVENTS_PER_FRAME\)' "$repo_root/crates/ui/src/events.rs"; then
+  echo "UI architecture check failed: runtime events are not drained with the per-frame bound." >&2
+  exit 1
+fi
+
+direct_sends=$(rg --pcre2 -U -n 'task_bridge\s*(?:\n\s*)?\.send\(' "$repo_root/crates/ui/src" --glob '*.rs' | rg -v '/app\.rs:' || true)
+if [[ -n "$direct_sends" ]]; then
+  echo "$direct_sends" >&2
+  echo "UI architecture check failed: feature code bypasses the command dispatch adapter." >&2
+  exit 1
+fi
+
+direct_best_effort_sends=$(rg --pcre2 -U -n 'task_bridge\s*(?:\n\s*)?\.send_best_effort\(' "$repo_root/crates/ui/src" --glob '*.rs' | rg -v '/app\.rs:' || true)
+if [[ -n "$direct_best_effort_sends" ]]; then
+  echo "$direct_best_effort_sends" >&2
+  echo "UI architecture check failed: feature code bypasses the command dispatch adapter with best-effort sends." >&2
+  exit 1
+fi
+
+direct_request_allocations=$(rg -n 'task_bridge\.next_request_id\(\)' "$repo_root/crates/ui/src" --glob '*.rs' | rg -v '/app\.rs:' || true)
+if [[ -n "$direct_request_allocations" ]]; then
+  echo "$direct_request_allocations" >&2
+  echo "UI architecture check failed: feature code must allocate request IDs through the composition-root port." >&2
+  exit 1
+fi
+
+direct_windows=$(rg -n 'egui::Window::new' "$repo_root/crates/ui/src" --glob '*.rs' || true)
+if [[ -n "$direct_windows" ]]; then
+  echo "$direct_windows" >&2
+  echo "UI architecture check failed: feature dialogs must use components::dialog::Dialog." >&2
+  exit 1
+fi
+
+saved_tasks_file="$repo_root/crates/ui/src/tasks_view.rs"
+if rg -n 'SELECT \* FROM \{|VACUUM \{|ANALYZE \{' "$saved_tasks_file"; then
+  echo "UI architecture check failed: saved task SQL must be prepared by the provider-aware SQL boundary." >&2
+  exit 1
+fi
+if ! rg -q 'build_export_query|build_maintenance_query' "$saved_tasks_file"; then
+  echo "UI architecture check failed: saved task dispatch must use the provider-aware SQL boundary." >&2
+  exit 1
+fi
+
+if [[ -e "$repo_root/crates/ui/src/database_operations_state.rs" ]]; then
+  echo "UI architecture check failed: database_operations_state.rs catch-all must stay deleted." >&2
+  exit 1
+fi
+
+if rg -n 'table_data|row_reload' "$repo_root/crates/ui/src/table_state.rs"; then
+  echo "UI architecture check failed: TableState must not own table data-query lifecycle." >&2
+  exit 1
+fi
+
+if rg -n '&mut WorkspaceFeatureState|WorkspaceFeatureState' "$repo_root/crates/ui/src/activity_bar_view.rs"; then
+  echo "UI architecture check failed: activity_bar_view.rs must emit intents instead of mutating workspace state." >&2
+  exit 1
+fi
+if [[ ! -f "$repo_root/crates/ui/src/table_data_query_state.rs" ]]; then
+  echo "UI architecture check failed: missing TableDataQueryState boundary." >&2
+  exit 1
+fi
+
+explicit_state_modules=(
+  "$repo_root/crates/ui/src/activity_bar_view.rs"
+  "$repo_root/crates/ui/src/workspace_session.rs"
+  "$repo_root/crates/ui/src/connection/view.rs"
+  "$repo_root/crates/ui/src/connection/form_fields.rs"
+  "$repo_root/crates/ui/src/connection/advanced_panels.rs"
+  "$repo_root/crates/ui/src/connection_status.rs"
+  "$repo_root/crates/ui/src/connection_events.rs"
+  "$repo_root/crates/ui/src/table_editor_context.rs"
+  "$repo_root/crates/ui/src/table_data_state.rs"
+  "$repo_root/crates/ui/src/table_data_surface_view.rs"
+  "$repo_root/crates/ui/src/table_data_query_state.rs"
+  "$repo_root/crates/ui/src/table_editing_state.rs"
+  "$repo_root/crates/ui/src/table_editor_values.rs"
+  "$repo_root/crates/ui/src/visual_query_builder_state.rs"
+  "$repo_root/crates/ui/src/visual_query_builder_surface_view.rs"
+  "$repo_root/crates/ui/src/agent_context.rs"
+  "$repo_root/crates/ui/src/agent_confirmation.rs"
+  "$repo_root/crates/ui/src/agent_context_actions_view.rs"
+  "$repo_root/crates/ui/src/agent_header_view.rs"
+  "$repo_root/crates/ui/src/agent_surface_view.rs"
+  "$repo_root/crates/ui/src/agent_thread_surface_view.rs"
+  "$repo_root/crates/ui/src/audit_surface_view.rs"
+  "$repo_root/crates/ui/src/event_trigger_surface_view.rs"
+  "$repo_root/crates/ui/src/fdw_surface_view.rs"
+  "$repo_root/crates/ui/src/files_surface_view.rs"
+  "$repo_root/crates/ui/src/files_secondary_tabs_view.rs"
+  "$repo_root/crates/ui/src/pg_settings_surface_view.rs"
+  "$repo_root/crates/ui/src/replication_surface_view.rs"
+  "$repo_root/crates/ui/src/monitoring_surface_view.rs"
+  "$repo_root/crates/ui/src/agent_patch.rs"
+  "$repo_root/crates/ui/src/agent_result_projection.rs"
+  "$repo_root/crates/ui/src/schema_explorer_state.rs"
+  "$repo_root/crates/ui/src/agent_settings_view.rs"
+  "$repo_root/crates/ui/src/settings_appearance_view.rs"
+  "$repo_root/crates/ui/src/settings_backup_view.rs"
+  "$repo_root/crates/ui/src/agent_workflow_reducer.rs"
+  "$repo_root/crates/ui/src/synthetic_data.rs"
+  "$repo_root/crates/ui/src/masking.rs"
+  "$repo_root/crates/ui/src/security_rls.rs"
+  "$repo_root/crates/ui/src/monitoring_state.rs"
+  "$repo_root/crates/ui/src/monitoring_snapshot_view.rs"
+  "$repo_root/crates/ui/src/audit_state.rs"
+  "$repo_root/crates/ui/src/routine_state.rs"
+  "$repo_root/crates/ui/src/transfer_state.rs"
+  "$repo_root/crates/ui/src/transfer_harness_view.rs"
+  "$repo_root/crates/ui/src/transfer_activity_surface_view.rs"
+  "$repo_root/crates/ui/src/saved_tasks_surface_view.rs"
+  "$repo_root/crates/ui/src/synthetic_data_state.rs"
+  "$repo_root/crates/ui/src/masking_state.rs"
+  "$repo_root/crates/ui/src/pg_settings_state.rs"
+  "$repo_root/crates/ui/src/fdw_state.rs"
+  "$repo_root/crates/ui/src/replication_state.rs"
+  "$repo_root/crates/ui/src/event_trigger_state.rs"
+  "$repo_root/crates/ui/src/security_state.rs"
+  "$repo_root/crates/ui/src/database_management_state.rs"
+  "$repo_root/crates/ui/src/schema_workspace_state.rs"
+  "$repo_root/crates/ui/src/diagram_view.rs"
+  "$repo_root/crates/ui/src/diagram_canvas_view.rs"
+  "$repo_root/crates/ui/src/diagram_design_actions.rs"
+  "$repo_root/crates/ui/src/diagram_design_panel_view.rs"
+  "$repo_root/crates/ui/src/palette_catalog.rs"
+ "$repo_root/crates/ui/src/palette_search_view.rs"
+  "$repo_root/crates/ui/src/palette_surface_view.rs"
+  "$repo_root/crates/ui/src/files_agent_context_view.rs"
+  "$repo_root/crates/ui/src/files_tree_view.rs"
+  "$repo_root/crates/ui/src/files_search_view.rs"
+  "$repo_root/crates/ui/src/files_tasks_view.rs"
+  "$repo_root/crates/ui/src/files_git_view.rs"
+  "$repo_root/crates/ui/src/settings_system_view.rs"
+  "$repo_root/crates/ui/src/settings_surface_view.rs"
+  "$repo_root/crates/ui/src/sidebar_data_view.rs"
+  "$repo_root/crates/ui/src/sidebar_chrome_view.rs"
+  "$repo_root/crates/ui/src/sidebar_surface_view.rs"
+  "$repo_root/crates/ui/src/sidebar_queries_view.rs"
+  "$repo_root/crates/ui/src/sidebar_problems_view.rs"
+  "$repo_root/crates/ui/src/sidebar_query_library_view.rs"
+  "$repo_root/crates/ui/src/sidebar_query_shortcuts_view.rs"
+  "$repo_root/crates/ui/src/shell_frame_view.rs"
+  "$repo_root/crates/ui/src/shell_output_panel_view.rs"
+  "$repo_root/crates/ui/src/shell_topbar_view.rs"
+  "$repo_root/crates/ui/src/shell_statusbar_view.rs"
+  "$repo_root/crates/ui/src/welcome_surface_view.rs"
+  "$repo_root/crates/ui/src/explorer_toolbar_view.rs"
+  "$repo_root/crates/ui/src/explorer_connection_row_view.rs"
+  "$repo_root/crates/ui/src/explorer_connection_node_view.rs"
+  "$repo_root/crates/ui/src/explorer_database_node_view.rs"
+  "$repo_root/crates/ui/src/explorer_schema_feedback_view.rs"
+  "$repo_root/crates/ui/src/query_dialog_surface_view.rs"
+  "$repo_root/crates/ui/src/query_save_dialog_surface_view.rs"
+  "$repo_root/crates/ui/src/query_transaction_surface_view.rs"
+  "$repo_root/crates/ui/src/explorer_schema_node_view.rs"
+  "$repo_root/crates/ui/src/explorer_schema_object_row_view.rs"
+  "$repo_root/crates/ui/src/explorer_schema_object_folders_view.rs"
+  "$repo_root/crates/ui/src/explorer_schema_objects_view.rs"
+  "$repo_root/crates/ui/src/explorer_schema_tree_view.rs"
+  "$repo_root/crates/ui/src/explorer_surface_view.rs"
+  "$repo_root/crates/ui/src/explorer_navigation.rs"
+  "$repo_root/crates/ui/src/explorer_table_row_view.rs"
+  "$repo_root/crates/ui/src/explorer_table_details_view.rs"
+  "$repo_root/crates/ui/src/explorer_table_folder_view.rs"
+  "$repo_root/crates/ui/src/table_workspace_surface_view.rs"
+  "$repo_root/crates/ui/src/query_snippets.rs"
+  "$repo_root/crates/ui/src/query_diagnostics_view.rs"
+  "$repo_root/crates/ui/src/navigation_view.rs"
+  "$repo_root/crates/ui/src/maintenance_activity_view.rs"
+  "$repo_root/crates/ui/src/result_grid_export.rs"
+  "$repo_root/crates/ui/src/result_grid_selection.rs"
+  "$repo_root/crates/ui/src/schema_compare_view.rs"
+  "$repo_root/crates/ui/src/schema_object_surface_view.rs"
+  "$repo_root/crates/ui/src/schema_object_resolver.rs"
+  "$repo_root/crates/ui/src/schema_workbench_form.rs"
+  "$repo_root/crates/ui/src/schema_workbench_mutation.rs"
+  "$repo_root/crates/ui/src/schema_workbench_secondary_view.rs"
+  "$repo_root/crates/ui/src/schema_workbench_surface_view.rs"
+  "$repo_root/crates/ui/src/security_confirmation_view.rs"
+  "$repo_root/crates/ui/src/security_surface_view.rs"
+  "$repo_root/crates/ui/src/settings_navigation_view.rs"
+  "$repo_root/crates/ui/src/settings_keybindings_view.rs"
+  "$repo_root/crates/ui/src/settings_diagnostics_view.rs"
+  "$repo_root/crates/ui/src/settings_general_view.rs"
+  "$repo_root/crates/ui/src/settings_editor_view.rs"
+  "$repo_root/crates/ui/src/query_search_view.rs"
+  "$repo_root/crates/ui/src/query_shell_surface_view.rs"
+  "$repo_root/crates/ui/src/query_context_view.rs"
+  "$repo_root/crates/ui/src/query_context_picker_view.rs"
+  "$repo_root/crates/ui/src/query_parameters_view.rs"
+  "$repo_root/crates/ui/src/query_completion_popup_view.rs"
+  "$repo_root/crates/ui/src/query_editor_surface_view.rs"
+  "$repo_root/crates/ui/src/query_actions_surface_view.rs"
+  "$repo_root/crates/ui/src/query_snippets_surface_view.rs"
+  "$repo_root/crates/ui/src/query_run_control_view.rs"
+  "$repo_root/crates/ui/src/query_explain_actions.rs"
+  "$repo_root/crates/ui/src/query_save_actions.rs"
+  "$repo_root/crates/ui/src/query_output_tabs_view.rs"
+  "$repo_root/crates/ui/src/query_output_dock_surface_view.rs"
+  "$repo_root/crates/ui/src/query_output_panes_view.rs"
+  "$repo_root/crates/ui/src/query_output_actions_view.rs"
+  "$repo_root/crates/ui/src/query_layout_surface_view.rs"
+  "$repo_root/crates/ui/src/query_results_surface_view.rs"
+  "$repo_root/crates/ui/src/result_grid_toolbar_view.rs"
+  "$repo_root/crates/ui/src/result_grid_body_view.rs"
+  "$repo_root/crates/ui/src/result_grid_header_menu_view.rs"
+  "$repo_root/crates/ui/src/result_grid_header_content_view.rs"
+  "$repo_root/crates/ui/src/result_grid_header_surface_view.rs"
+  "$repo_root/crates/ui/src/result_grid_interaction_surface_view.rs"
+  "$repo_root/crates/ui/src/result_grid_keyboard_view.rs"
+  "$repo_root/crates/ui/src/result_grid_row_gutter_view.rs"
+  "$repo_root/crates/ui/src/result_grid_row_view.rs"
+  "$repo_root/crates/ui/src/result_grid_cell_menu_view.rs"
+  "$repo_root/crates/ui/src/result_grid_cell_surface_view.rs"
+  "$repo_root/crates/ui/src/result_grid_cell_editor_surface_view.rs"
+  "$repo_root/crates/ui/src/result_grid_inspector_surface_view.rs"
+  "$repo_root/crates/ui/src/result_grid_record_surface_view.rs"
+  "$repo_root/crates/ui/src/workspace_tabs_surface_view.rs"
+  "$repo_root/crates/ui/src/result_grid_projection.rs"
+  "$repo_root/crates/ui/src/table_data_placeholder_view.rs"
+  "$repo_root/crates/ui/src/table_structure_surface_view.rs"
+  "$repo_root/crates/ui/src/table_scroll_surface_view.rs"
+  "$repo_root/crates/ui/src/table_indexes_surface_view.rs"
+  "$repo_root/crates/ui/src/table_relations_surface_view.rs"
+  "$repo_root/crates/ui/src/table_metadata_surface_view.rs"
+  "$repo_root/crates/ui/src/table_profile_surface_view.rs"
+  "$repo_root/crates/ui/src/table_data_pagination_view.rs"
+  "$repo_root/crates/ui/src/table_data_filter_view.rs"
+  "$repo_root/crates/ui/src/table_data_sort_view.rs"
+  "$repo_root/crates/ui/src/table_data_mutation_toolbar_view.rs"
+)
+for module in "${explicit_state_modules[@]}"; do
+  if rg -n '^impl DbProApp|\bDbProApp\b' "$module"; then
+    echo "UI architecture check failed: explicit-state feature helpers must depend on state/context, not DbProApp." >&2
+    exit 1
+  fi
+done
+
+for state_module in "$repo_root"/crates/ui/src/*_state.rs; do
+  [[ "$state_module" == "$repo_root/crates/ui/src/app_state.rs" ]] && continue
+  if rg -n '^impl DbProApp|\bDbProApp\b' "$state_module"; then
+    echo "UI architecture check failed: feature state modules must not depend on DbProApp." >&2
+    exit 1
+  fi
+done
+
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/table_state.rs"; then
+  echo "UI architecture check failed: TableState must not construct runtime protocol commands." >&2
+  exit 1
+fi
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/table_data_query_state.rs"; then
+  echo "UI architecture check failed: TableDataQueryState must not construct runtime protocol commands." >&2
+  exit 1
+fi
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/query_library_state.rs"; then
+  echo "UI architecture check failed: QueryLibraryState must not construct runtime protocol commands." >&2
+  exit 1
+fi
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/schema_workbench.rs"; then
+  echo "UI architecture check failed: SchemaWorkbenchState must not construct runtime protocol commands." >&2
+  exit 1
+fi
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/explorer_navigation.rs"; then
+  echo "UI architecture check failed: explorer navigation state must not construct runtime protocol commands." >&2
+  exit 1
+fi
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/query_execution_actions.rs"; then
+  echo "UI architecture check failed: query execution state must not depend on runtime protocol commands." >&2
+  exit 1
+fi
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/query_save_actions.rs"; then
+  echo "UI architecture check failed: query save state must not depend on runtime protocol commands." >&2
+  exit 1
+fi
+for state_module in \
+  "$repo_root/crates/ui/src/audit_state.rs" \
+  "$repo_root/crates/ui/src/fdw_state.rs" \
+  "$repo_root/crates/ui/src/replication_state.rs" \
+  "$repo_root/crates/ui/src/event_trigger_state.rs" \
+  "$repo_root/crates/ui/src/pg_settings_state.rs" \
+  "$repo_root/crates/ui/src/monitoring_state.rs" \
+  "$repo_root/crates/ui/src/security_state.rs" \
+  "$repo_root/crates/ui/src/overlay_state.rs" \
+  "$repo_root/crates/ui/src/schema_compare_state.rs"; do
+  if rg -n '\bUiCommand\b' "$state_module"; then
+    echo "UI architecture check failed: management read-only state must not construct runtime protocol commands." >&2
+    exit 1
+  fi
+done
+if rg -n '\bUiCommand\b' "$repo_root/crates/ui/src/connection/lifecycle.rs"; then
+  echo "UI architecture check failed: connection lifecycle state must not construct runtime protocol commands." >&2
+  exit 1
+fi
+
+for reducer in \
+  "$repo_root/crates/ui/src/agent_events.rs" \
+  "$repo_root/crates/ui/src/connection_events.rs" \
+  "$repo_root/crates/ui/src/ddl_events.rs" \
+  "$repo_root/crates/ui/src/file_picker_events.rs" \
+  "$repo_root/crates/ui/src/management_events.rs" \
+  "$repo_root/crates/ui/src/schema_events.rs" \
+  "$repo_root/crates/ui/src/table_events.rs" \
+  "$repo_root/crates/ui/src/query_library_events.rs" \
+  "$repo_root/crates/ui/src/query_prediction_events.rs" \
+  "$repo_root/crates/ui/src/query_save_events.rs" \
+  "$repo_root/crates/ui/src/query_history_events.rs" \
+  "$repo_root/crates/ui/src/query_queue_events.rs" \
+  "$repo_root/crates/ui/src/query_execution_events.rs" \
+  "$repo_root/crates/ui/src/query_result_events.rs" \
+  "$repo_root/crates/ui/src/query_multi_result_events.rs" \
+  "$repo_root/crates/ui/src/query_failure_events.rs"; do
+  if rg -n '^impl DbProApp|\bDbProApp\b' "$reducer"; then
+    echo "UI architecture check failed: feature event reducers must depend on explicit state, not DbProApp." >&2
+    exit 1
+  fi
+done
+if rg -n 'database_operations|DatabaseOperationsState' "$repo_root/crates/ui/src" --glob '*.rs'; then
+  echo "UI architecture check failed: database-management state must use feature-owned aggregates." >&2
+  exit 1
+fi
+
+state_field_leaks=$(rg -n '^\s*pub(\(crate\))? [A-Za-z_][A-Za-z0-9_]*:' \
+  "$repo_root/crates/ui/src"/*_state.rs \
+  "$repo_root/crates/ui/src/schema_workbench.rs" \
+  "$repo_root/crates/ui/src/connection/state.rs" \
+  "$repo_root/crates/ui/src/connection/lifecycle.rs" \
+  "$repo_root/crates/ui/src/connection/catalog.rs" || true)
+if [[ -n "$state_field_leaks" ]]; then
+  echo "$state_field_leaks" >&2
+  echo "UI architecture check failed: feature state fields must stay inside the app boundary." >&2
+  exit 1
+fi
+
+connection_dialog_boundary_leaks=$(rg -n 'pub\(in crate::app\)' \
+  "$repo_root/crates/ui/src/connection/state.rs" || true)
+if [[ -n "$connection_dialog_boundary_leaks" ]]; then
+  echo "$connection_dialog_boundary_leaks" >&2
+  echo "UI architecture check failed: connection dialog state must not expose app-wide fields." >&2
+  exit 1
+fi
+
+for module in event_router agent_events connection_events ddl_events file_picker_events management_events operation_events schema_events table_events query_library_events query_prediction_events query_save_events query_history_events query_queue_events query_execution_events query_result_events query_multi_result_events; do
+  test -f "$repo_root/crates/ui/src/${module}.rs" || {
+    echo "UI architecture check failed: missing event module ${module}.rs." >&2
+    exit 1
+  }
+done
+
+echo "UI architecture boundary: PASS"

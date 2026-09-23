@@ -224,7 +224,7 @@ fn worker_coalesces_rapid_requests() {
 fn stale_request_id_rejected_by_integration_check() {
     let latest_request: u64 = 3;
     let stale_request: u64 = 1;
-    // The diagram_view.rs check: res.request_id == self.diagram_latest_layout_request
+    // The diagram_view.rs check: res.request_id == self.diagram.latest_layout_request
     assert_ne!(stale_request, latest_request);
 }
 
@@ -232,7 +232,7 @@ fn stale_request_id_rejected_by_integration_check() {
 fn stale_version_rejected_by_integration_check() {
     let diagram_schema_version: u64 = 5;
     let stale_version: u64 = 3;
-    // The diagram_view.rs check: res.graph_version == self.diagram_schema_version
+    // The diagram_view.rs check: res.graph_version == self.diagram.schema_version
     assert_ne!(stale_version, diagram_schema_version);
 }
 

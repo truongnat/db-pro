@@ -2,7 +2,7 @@ use egui::Ui;
 
 pub struct DialogFrame<'a> {
     pub ui: &'a mut Ui,
-    pub max_content_height: f32,
+    pub max_body_height: f32,
     pub inner_width: f32,
 }
 
@@ -10,7 +10,7 @@ impl<'a> DialogFrame<'a> {
     /// Renders the scrollable body of the dialog.
     pub fn body<R>(&mut self, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
         let inner_w = self.inner_width;
-        let max_h = self.max_content_height;
+        let max_h = self.max_body_height;
         egui::ScrollArea::vertical()
             .max_width(inner_w)
             .max_height(max_h)

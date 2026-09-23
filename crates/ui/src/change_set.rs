@@ -7,7 +7,7 @@ pub(crate) struct RowIdentity {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub(super) enum StagedChange {
+pub(crate) enum StagedChange {
     Update {
         identity: RowIdentity,
         current_row_index: Option<usize>,
@@ -29,7 +29,7 @@ pub(super) enum StagedChange {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum MutationTarget {
+pub(crate) enum MutationTarget {
     Update {
         identity: RowIdentity,
         current_row_index: Option<usize>,
@@ -43,7 +43,7 @@ pub(super) enum MutationTarget {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct MutationFailure {
+pub(crate) struct MutationFailure {
     pub statement_index: usize,
     pub target: Option<MutationTarget>,
     pub code: String,
@@ -52,7 +52,7 @@ pub(super) struct MutationFailure {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(super) struct ChangeCounts {
+pub(crate) struct ChangeCounts {
     pub inserts: usize,
     pub updates: usize,
     pub deletes: usize,
@@ -65,7 +65,7 @@ impl ChangeCounts {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
-pub(super) struct ChangeSet {
+pub(crate) struct ChangeSet {
     target_table: Option<String>,
     entries: Vec<StagedChange>,
 }

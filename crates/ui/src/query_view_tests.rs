@@ -47,12 +47,12 @@ mod egress_tests {
     }
 
     #[test]
-    fn prediction_default_stays_eager_with_the_note_visible() {
-        // #242 item 3: the decision is "keep Eager", so the note is the disclosure that makes the
-        // default an informed one. If the default ever changes, this test fails on purpose.
+    fn prediction_default_is_off_with_the_note_visible() {
+        // Idle Query must stay predictable: AI suggestions require explicit opt-in,
+        // while the egress note still discloses the AI path when prediction runs.
         let app = DbProApp::default();
 
-        assert_eq!(app.prediction_mode, PredictionMode::Eager);
+        assert_eq!(app.preferences.prediction_mode, PredictionMode::Off);
         assert!(AI_PREDICTION_EGRESS_NOTE.contains("configured AI provider"));
     }
 }
@@ -152,9 +152,12 @@ mod export_tests {
         let inode_before = std::fs::metadata(&path).expect("metadata").ino();
 
         let mut app = DbProApp {
-            export_open: true,
-            export_path: path.to_string_lossy().into_owned(),
-            export_format: "CSV".to_owned(),
+            overlay: OverlayState {
+                export_open: true,
+                export_path: path.to_string_lossy().into_owned(),
+                export_format: "CSV".to_owned(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         let result = UiQueryResult {
@@ -188,9 +191,12 @@ mod export_tests {
         let path = dir.join("out.csv");
         std::fs::write(&path, "previous export\n").expect("seed existing file");
         let mut app = DbProApp {
-            export_open: true,
-            export_path: path.to_string_lossy().into_owned(),
-            export_format: "CSV".to_owned(),
+            overlay: OverlayState {
+                export_open: true,
+                export_path: path.to_string_lossy().into_owned(),
+                export_format: "CSV".to_owned(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         let result = UiQueryResult {
@@ -206,8 +212,11 @@ mod export_tests {
 
         app.export_result(&result);
 
-        assert!(app.export_overwrite_pending, "the first click must ask, not overwrite");
-        assert!(app.export_open, "the dialog stays open for the confirmation");
+        assert!(
+            app.overlay.export_overwrite_pending,
+            "the first click must ask, not overwrite"
+        );
+        assert!(app.overlay.export_open, "the dialog stays open for the confirmation");
         assert_eq!(
             std::fs::read_to_string(&path).expect("read"),
             "previous export\n",
@@ -216,8 +225,8 @@ mod export_tests {
 
         app.export_result_confirming_overwrite(&result);
 
-        assert!(!app.export_overwrite_pending);
-        assert!(!app.export_open);
+        assert!(!app.overlay.export_overwrite_pending);
+        assert!(!app.overlay.export_open);
         assert_eq!(std::fs::read_to_string(&path).expect("read"), "id\n1\n");
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -227,9 +236,12 @@ mod export_tests {
         let dir = temp_dir("capped");
         let path = dir.join("out.csv");
         let mut app = DbProApp {
-            export_open: true,
-            export_path: path.to_string_lossy().into_owned(),
-            export_format: "CSV".to_owned(),
+            overlay: OverlayState {
+                export_open: true,
+                export_path: path.to_string_lossy().into_owned(),
+                export_format: "CSV".to_owned(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         let result = UiQueryResult {
@@ -246,9 +258,10 @@ mod export_tests {
         app.export_result(&result);
 
         assert!(
-            app.runtime_message.contains("Exported 1 rows") && app.runtime_message.contains("500 rows matched"),
+            app.feedback.runtime_message.contains("Exported 1 rows")
+                && app.feedback.runtime_message.contains("500 rows matched"),
             "a capped export must not read as a complete one: {}",
-            app.runtime_message
+            app.feedback.runtime_message
         );
         let _ = std::fs::remove_dir_all(&dir);
     }

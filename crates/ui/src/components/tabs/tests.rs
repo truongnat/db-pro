@@ -17,6 +17,98 @@ fn segmented_tabs_select_on_click() {
 }
 
 #[test]
+fn segmented_tabs_select_on_pointer_click() {
+    let theme = DbProTheme::light();
+    let ctx = egui::Context::default();
+    DbProTheme::install_fonts(&ctx);
+    let mut selected = 0;
+    let click_position = egui::pos2(120.0, 20.0);
+
+    let _ = ctx.run(Default::default(), |ctx| {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            SegmentedTabs::new(
+                &mut selected,
+                &["Development", "Staging", "Production", "Custom"],
+                theme,
+            )
+            .show(ui);
+        });
+    });
+    let _ = ctx.run(
+        egui::RawInput {
+            events: vec![
+                egui::Event::PointerMoved(click_position),
+                egui::Event::PointerButton {
+                    pos: click_position,
+                    button: egui::PointerButton::Primary,
+                    pressed: true,
+                    modifiers: egui::Modifiers::default(),
+                },
+            ],
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                SegmentedTabs::new(
+                    &mut selected,
+                    &["Development", "Staging", "Production", "Custom"],
+                    theme,
+                )
+                .show(ui);
+            });
+        },
+    );
+    let _ = ctx.run(
+        egui::RawInput {
+            events: vec![egui::Event::PointerButton {
+                pos: click_position,
+                button: egui::PointerButton::Primary,
+                pressed: false,
+                modifiers: egui::Modifiers::default(),
+            }],
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                SegmentedTabs::new(
+                    &mut selected,
+                    &["Development", "Staging", "Production", "Custom"],
+                    theme,
+                )
+                .show(ui);
+            });
+        },
+    );
+
+    assert_eq!(selected, 1);
+
+    let _ = ctx.run(
+        egui::RawInput {
+            events: vec![egui::Event::Key {
+                key: egui::Key::ArrowRight,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::default(),
+            }],
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                SegmentedTabs::new(
+                    &mut selected,
+                    &["Development", "Staging", "Production", "Custom"],
+                    theme,
+                )
+                .show(ui);
+            });
+        },
+    );
+
+    assert_eq!(selected, 2);
+}
+
+#[test]
 fn underline_tabs_render_without_panic() {
     let theme = DbProTheme::light();
     let ctx = egui::Context::default();

@@ -1,238 +1,491 @@
 //! Query document tab lifecycle (new / close / duplicate / history open).
 use super::*;
 
-impl DbProApp {
-    pub(crate) fn new_query_document(&mut self) {
-        let (document_id, index) = self.next_query_document_identity();
-        let mut doc = QueryDocument::new(document_id, format!("Query {index}"), String::new());
-        doc.connection_id = self.active_connection_id.clone();
-        doc.schema = Some(self.active_schema().to_owned());
-        self.query_documents.push(doc);
-        self.active_query_document = self.query_documents.len() - 1;
-        self.reset_query_cursor();
-        self.activity = Activity::Queries;
-        self.sidebar_open = true;
-        self.active_tab = WorkspaceTab::Query;
-    }
+/// Explicit dependencies for query-document lifecycle transitions.
+///
+/// The lifecycle owns query-tab state and coordinates only the stateful side
+/// effects that are part of closing/opening a document. App-level commands
+/// such as executing a query remain at the composition root.
+pub(crate) struct QueryDocumentContext<'state, 'bridge> {
+    pub(super) query_session: &'state mut QuerySessionState,
+    pub(super) query_editor: &'state mut QueryEditorState,
+    pub(super) workspace: &'state mut WorkspaceFeatureState,
+    pub(super) agent: &'state mut AgentState,
+    pub(super) query_output: &'state mut QueryOutputState,
+    pub(super) schema_explorer: &'state mut SchemaExplorerState,
+    pub(super) command_dispatcher: command_dispatch::RuntimeCommandDispatcher<'bridge>,
+    pub(super) feedback: &'state mut FeedbackState,
+    active_connection_id: Option<String>,
+    active_schema: String,
+}
 
-    /// Disposable scratch tab for throwaway SQL (#211).
-    pub(crate) fn new_scratch_query_document(&mut self) {
-        let (document_id, index) = self.next_query_document_identity();
-        let mut doc = QueryDocument::new(document_id, format!("Scratch {index}"), String::new());
-        doc.connection_id = self.active_connection_id.clone();
-        doc.schema = Some(self.active_schema().to_owned());
-        self.query_documents.push(doc);
-        self.active_query_document = self.query_documents.len() - 1;
-        self.reset_query_cursor();
-        self.activity = Activity::Queries;
-        self.sidebar_open = true;
-        self.active_tab = WorkspaceTab::Query;
-        self.runtime_message = "Opened scratch SQL tab".to_owned();
-    }
-
-    /// Cycle a simple numbered rename for the open query tab (#211).
-    pub(crate) fn rename_query_document_inline(&mut self, index: usize) {
-        let Some(doc) = self.query_documents.get_mut(index) else {
-            return;
-        };
-        if doc.title.starts_with("Scratch ") {
-            let n = doc.title.trim_start_matches("Scratch ").parse::<u32>().unwrap_or(1);
-            doc.title = format!("Scratch {}", n + 1);
-        } else if let Some(rest) = doc.title.strip_prefix("Query ") {
-            let n = rest.parse::<u32>().unwrap_or(1);
-            doc.title = format!("Query {}", n + 1);
-        } else {
-            doc.title = format!("{} (renamed)", doc.title);
+impl QueryDocumentContext<'_, '_> {
+    pub(crate) fn new_document(&mut self, scratch: bool) {
+        let (document_id, index) = self.next_document_identity();
+        let prefix = if scratch { "Scratch" } else { "Query" };
+        let mut document = QueryDocument::new(document_id, format!("{prefix} {index}"), String::new());
+        document.connection_id = self.active_connection_id.clone();
+        document.schema = Some(self.active_schema.clone());
+        self.query_session.add_document(document);
+        self.activate_query_surface();
+        if scratch {
+            self.feedback.set_runtime_message("Opened scratch SQL tab");
         }
-        self.runtime_message = format!("Renamed tab to {}", doc.title);
     }
 
-    pub(crate) fn open_history_entry(&mut self, entry: &UiQueryHistoryEntry, run: bool) {
-        let (document_id, document_number) = self.next_query_document_identity();
+    pub(crate) fn open_history_entry(&mut self, entry: &UiQueryHistoryEntry) {
+        let (document_id, document_number) = self.next_document_identity();
         let mut document = QueryDocument::new(document_id, format!("History {document_number}"), entry.sql.clone());
         document.connection_id = entry.connection_id.clone();
         document.schema = entry.schema.clone();
-        self.query_documents.push(document);
-        self.active_query_document = self.query_documents.len() - 1;
-        self.activity = Activity::Queries;
-        self.active_tab = WorkspaceTab::Query;
-        self.reset_query_cursor();
-        if run {
-            self.dispatch_query();
-        }
+        self.query_session.add_document(document);
+        self.activate_query_surface();
     }
 
-    pub(crate) fn close_query_document(&mut self, index: usize) {
-        if index >= self.query_documents.len() {
+    pub(crate) fn rename_document_inline(&mut self, index: usize) {
+        let Some(document) = self.query_session.documents.get_mut(index) else {
             return;
-        }
-
-        self.cancel_prediction_for_document(index);
-        let closed_id = self.query_documents[index].id.clone();
-        let closed_title = self.query_documents[index].title.clone();
-        if let Some(run_id) = self
-            .agent_sessions
-            .get(&closed_id)
-            .and_then(|session| session.active_run_id)
-        {
-            let request_id = self.task_bridge.next_request_id();
-            let _ = self.task_bridge.send(UiCommand::CancelAgentRun { request_id, run_id });
-        }
-        self.agent_sessions.remove(&closed_id);
-        self.query_documents.remove(index);
-        self.query_output_tabs.remove(&closed_id);
-
-        if self.query_documents.is_empty() {
-            self.active_query_document = 0;
-            self.reset_query_cursor();
-            if self.active_tab == WorkspaceTab::Query {
-                self.activate_fallback_workspace_tab();
-            }
-            self.runtime_message = format!("Closed {closed_title}");
-            return;
-        }
-
-        if self.active_query_document > index {
-            self.active_query_document -= 1;
-        } else if self.active_query_document == index {
-            self.active_query_document = self.active_query_document.min(self.query_documents.len() - 1);
-        }
-        let doc = &self.query_documents[self.active_query_document];
-        self.query_cursor_line = doc.cursor.line + 1;
-        self.query_cursor_column = doc.cursor.col + 1;
-        if !doc.selection.is_empty() {
-            let (start, end) = doc.selection.normalized();
-            self.selected_query = doc.buffer.slice(start, end).to_owned();
+        };
+        if document.title.starts_with("Scratch ") {
+            let number = document
+                .title
+                .trim_start_matches("Scratch ")
+                .parse::<u32>()
+                .unwrap_or(1);
+            document.title = format!("Scratch {}", number + 1);
+        } else if let Some(rest) = document.title.strip_prefix("Query ") {
+            let number = rest.parse::<u32>().unwrap_or(1);
+            document.title = format!("Query {}", number + 1);
         } else {
-            self.selected_query.clear();
+            document.title = format!("{} (renamed)", document.title);
         }
-        self.runtime_message = format!("Closed {}", self.query_documents[self.active_query_document].title);
+        self.feedback
+            .set_runtime_message(format!("Renamed tab to {}", document.title));
     }
 
-    pub(super) fn next_query_document_identity(&self) -> (String, usize) {
-        let mut number = self.query_documents.len().saturating_add(1);
+    pub(crate) fn switch_document(&mut self, index: usize) {
+        if index == self.query_session.active_document_index || !self.query_session.select_document(index) {
+            return;
+        }
+        self.sync_active_cursor_and_selection();
+        let title = self
+            .query_session
+            .active_document()
+            .map(|document| document.title.clone())
+            .unwrap_or_default();
+        self.feedback.set_runtime_message(format!("Opened {title}"));
+    }
+
+    pub(crate) fn set_active_text(&mut self, text: impl Into<String>) {
+        let index = self.query_session.active_document_index;
+        self.cancel_prediction(index);
+        self.query_session.set_active_text(text);
+    }
+
+    pub(crate) fn append_active_text(&mut self, text: &str) {
+        let index = self.query_session.active_document_index;
+        self.cancel_prediction(index);
+        self.query_session.append_active_text(text);
+    }
+
+    pub(crate) fn set_document_connection(&mut self, index: usize, connection_id: Option<String>) {
+        self.cancel_prediction(index);
+        self.query_session.set_document_connection(index, connection_id);
+    }
+
+    pub(crate) fn set_document_schema(&mut self, index: usize, schema: Option<String>) {
+        self.cancel_prediction(index);
+        self.query_session.set_document_schema(index, schema);
+    }
+
+    pub(crate) fn cancel_prediction_for_document(&mut self, index: usize) {
+        self.cancel_prediction(index);
+    }
+
+    pub(crate) fn close_document(&mut self, index: usize) {
+        if index >= self.query_session.documents.len() {
+            return;
+        }
+
+        self.cancel_prediction(index);
+        let closed = self.query_session.documents[index].clone();
+        self.cancel_agent_run(&closed.id);
+        self.query_session.remove_document(index);
+        self.query_output.tabs_by_document.remove(&closed.id);
+
+        if self.query_session.documents.is_empty() {
+            self.query_session.active_document_index = 0;
+            self.reset_cursor();
+            if self.workspace.active_tab == WorkspaceTab::Query {
+                self.activate_fallback_surface();
+            }
+            self.feedback.set_runtime_message(format!("Closed {}", closed.title));
+            return;
+        }
+
+        self.sync_active_cursor_and_selection();
+        let active_title = self
+            .query_session
+            .active_document()
+            .map(|document| document.title.as_str())
+            .unwrap_or(closed.title.as_str());
+        self.feedback.set_runtime_message(format!("Closed {active_title}"));
+    }
+
+    pub(crate) fn request_close_document(&mut self, index: usize) {
+        if self
+            .query_session
+            .documents
+            .get(index)
+            .is_some_and(QueryDocument::is_dirty)
+        {
+            self.query_session.pending_dirty_close = Some(index);
+        } else {
+            self.close_document(index);
+        }
+    }
+
+    pub(crate) fn duplicate_document(&mut self, index: usize) {
+        let Some(source) = self.query_session.documents.get(index).cloned() else {
+            return;
+        };
+        let (document_id, _) = self.next_document_identity();
+        let mut document = QueryDocument::new(document_id, format!("{} (Copy)", source.title), source.text());
+        document.connection_id = source.connection_id.or_else(|| self.active_connection_id.clone());
+        document.schema = source.schema.or_else(|| Some(self.active_schema.clone()));
+        self.query_session.add_document(document);
+        self.query_editor.query_focus_editor_on_open = true;
+        self.workspace.active_tab = WorkspaceTab::Query;
+        self.feedback
+            .set_runtime_message(format!("Duplicated {}", source.title));
+    }
+
+    pub(crate) fn close_other_documents(&mut self, keep_index: usize) {
+        if keep_index >= self.query_session.documents.len() {
+            return;
+        }
+        for index in 0..self.query_session.documents.len() {
+            if index != keep_index {
+                self.cancel_prediction(index);
+            }
+        }
+        self.query_session.keep_document(keep_index);
+        self.feedback.set_runtime_message("Closed other queries");
+    }
+
+    pub(crate) fn close_documents_to_right(&mut self, index: usize) {
+        if index >= self.query_session.documents.len() {
+            return;
+        }
+        for query_index in index + 1..self.query_session.documents.len() {
+            self.cancel_prediction(query_index);
+        }
+        self.query_session.close_documents_to_right(index);
+        self.feedback.set_runtime_message("Closed queries to the right");
+    }
+
+    pub(crate) fn close_all_tabs(&mut self) {
+        for index in 0..self.query_session.documents.len() {
+            self.cancel_prediction(index);
+        }
+        self.workspace.welcome_open = true;
+        self.query_session
+            .replace_with_document(QueryDocument::new("query-1", "Query 1", String::new()));
+        self.schema_explorer.selected_table = None;
+        self.schema_explorer.selected_schema_object = None;
+        self.workspace.active_tab = WorkspaceTab::Welcome;
+        self.feedback.set_runtime_message("Closed all tabs");
+    }
+
+    pub(crate) fn close_welcome_tab(&mut self) {
+        self.workspace.welcome_open = false;
+        if self.workspace.active_tab == WorkspaceTab::Welcome {
+            self.activate_fallback_surface();
+        }
+        self.feedback.set_runtime_message("Closed Welcome");
+    }
+
+    pub(crate) fn activate_welcome_tab(&mut self) {
+        self.workspace.welcome_open = true;
+        self.workspace.active_tab = WorkspaceTab::Welcome;
+    }
+
+    fn next_document_identity(&self) -> (String, usize) {
+        let mut number = self.query_session.documents.len().saturating_add(1);
         loop {
             let id = format!("query-{number}");
-            if !self.query_documents.iter().any(|document| document.id == id) {
+            if !self.query_session.documents.iter().any(|document| document.id == id) {
                 return (id, number);
             }
             number = number.saturating_add(1);
         }
     }
 
-    pub(crate) fn request_close_query_document(&mut self, index: usize) {
-        if self.query_documents.get(index).is_some_and(QueryDocument::is_dirty) {
-            self.pending_dirty_close = Some(index);
+    fn activate_query_surface(&mut self) {
+        self.query_editor.query_focus_editor_on_open = true;
+        self.reset_cursor();
+        self.workspace.activity = Activity::Queries;
+        self.workspace.sidebar_open = true;
+        self.workspace.active_tab = WorkspaceTab::Query;
+    }
+
+    pub(crate) fn reset_cursor(&mut self) {
+        self.query_editor.query_cursor_line = 1;
+        self.query_editor.query_cursor_column = 1;
+    }
+
+    fn sync_active_cursor_and_selection(&mut self) {
+        let Some(document) = self.query_session.active_document() else {
+            self.reset_cursor();
+            return;
+        };
+        self.query_editor.query_cursor_line = document.cursor.line + 1;
+        self.query_editor.query_cursor_column = document.cursor.col + 1;
+        if !document.selection.is_empty() {
+            let (start, end) = document.selection.normalized();
+            self.query_session.selected_text = document.buffer.slice(start, end).to_owned();
         } else {
-            self.close_query_document(index);
+            self.query_session.selected_text.clear();
         }
     }
 
-    pub(super) fn reset_query_cursor(&mut self) {
-        self.query_cursor_line = 1;
-        self.query_cursor_column = 1;
+    fn cancel_prediction(&mut self, index: usize) {
+        let request_id = self.query_session.invalidate_prediction(index);
+        if let Some(request_id) = request_id {
+            let _ = self
+                .command_dispatcher
+                .send_best_effort(UiCommand::CancelSqlPrediction { request_id });
+        }
     }
 
-    pub(crate) fn duplicate_query_document(&mut self, index: usize) {
-        if index >= self.query_documents.len() {
+    fn cancel_agent_run(&mut self, document_id: &str) {
+        let Some(run_id) = self
+            .agent
+            .sessions
+            .get(document_id)
+            .and_then(|session| session.active_run_id)
+        else {
+            self.agent.sessions.remove(document_id);
             return;
-        }
-        let src = &self.query_documents[index];
-        let title = format!("{} (Copy)", src.title);
-        let content = src.text().to_owned();
-        let (document_id, _) = self.next_query_document_identity();
-        let mut new_doc = QueryDocument::new(document_id, title, content);
-        new_doc.connection_id = src.connection_id.clone().or_else(|| self.active_connection_id.clone());
-        new_doc.schema = src.schema.clone().or_else(|| Some(self.active_schema().to_owned()));
-        self.query_documents.push(new_doc);
-        self.active_query_document = self.query_documents.len() - 1;
-        self.active_tab = WorkspaceTab::Query;
-        self.runtime_message = format!("Duplicated {}", self.query_documents[index].title);
+        };
+        let request_id = self.command_dispatcher.next_request_id();
+        let _ = self
+            .command_dispatcher
+            .send_best_effort(UiCommand::CancelAgentRun { request_id, run_id });
+        self.agent.sessions.remove(document_id);
     }
 
-    pub(crate) fn close_other_query_documents(&mut self, keep_index: usize) {
-        if keep_index >= self.query_documents.len() {
-            return;
-        }
-        for index in 0..self.query_documents.len() {
-            if index != keep_index {
-                self.cancel_prediction_for_document(index);
-            }
-        }
-        let kept = self.query_documents[keep_index].clone();
-        self.query_documents = vec![kept];
-        self.active_query_document = 0;
-        self.runtime_message = "Closed other queries".to_owned();
-    }
-
-    pub(crate) fn close_query_documents_to_right(&mut self, index: usize) {
-        if index >= self.query_documents.len() {
-            return;
-        }
-        for query_index in index + 1..self.query_documents.len() {
-            self.cancel_prediction_for_document(query_index);
-        }
-        self.query_documents.truncate(index + 1);
-        if self.active_query_document > index {
-            self.active_query_document = index;
-        }
-        self.runtime_message = "Closed queries to the right".to_owned();
-    }
-
-    pub(crate) fn close_all_tabs(&mut self) {
-        for index in 0..self.query_documents.len() {
-            self.cancel_prediction_for_document(index);
-        }
-        self.welcome_open = true;
-        self.query_documents = vec![QueryDocument::new("query-1", "Query 1", String::new())];
-        self.active_query_document = 0;
-        self.selected_table = None;
-        self.selected_schema_object = None;
-        self.active_tab = WorkspaceTab::Welcome;
-        self.runtime_message = "Closed all tabs".to_owned();
-    }
-
-    pub(crate) fn close_welcome_tab(&mut self) {
-        self.welcome_open = false;
-        if self.active_tab == WorkspaceTab::Welcome {
-            self.activate_fallback_workspace_tab();
-        }
-        self.runtime_message = "Closed Welcome".to_owned();
-    }
-
-    pub(crate) fn activate_welcome_tab(&mut self) {
-        self.welcome_open = true;
-        self.active_tab = WorkspaceTab::Welcome;
-    }
-
-    pub(super) fn activate_fallback_workspace_tab(&mut self) {
-        if !self.query_documents.is_empty() {
-            self.active_tab = WorkspaceTab::Query;
-        } else if self.selected_table.is_some() {
-            self.active_tab = WorkspaceTab::Table;
-        } else if self.selected_schema_object.is_some() {
-            self.active_tab = WorkspaceTab::SchemaObject;
+    fn activate_fallback_surface(&mut self) {
+        if !self.query_session.documents.is_empty() {
+            self.workspace.active_tab = WorkspaceTab::Query;
+        } else if self.schema_explorer.selected_table.is_some() {
+            self.workspace.active_tab = WorkspaceTab::Table;
+        } else if self.schema_explorer.selected_schema_object.is_some() {
+            self.workspace.active_tab = WorkspaceTab::SchemaObject;
         } else {
             self.activate_welcome_tab();
         }
     }
+}
 
-    pub(crate) fn execute_pending_navigation(&mut self, action: PendingNavigationAction) {
+impl DbProApp {
+    fn query_document_context(&mut self) -> QueryDocumentContext<'_, '_> {
+        let active_connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        let active_schema = self.active_schema().to_owned();
+        QueryDocumentContext {
+            query_session: &mut self.query.session,
+            query_editor: &mut self.query.editor,
+            workspace: &mut self.workspace,
+            agent: &mut self.agent,
+            query_output: &mut self.query.output,
+            schema_explorer: &mut self.schema.explorer,
+            command_dispatcher: command_dispatch::RuntimeCommandDispatcher::new(&mut self.task_bridge),
+            feedback: &mut self.feedback,
+            active_connection_id,
+            active_schema,
+        }
+    }
+
+    pub(crate) fn new_query_document(&mut self) {
+        self.query_document_context().new_document(false);
+    }
+
+    /// Disposable scratch tab for throwaway SQL (#211).
+    pub(crate) fn new_scratch_query_document(&mut self) {
+        self.query_document_context().new_document(true);
+    }
+
+    /// Cycle a simple numbered rename for the open query tab (#211).
+    pub(crate) fn rename_query_document_inline(&mut self, index: usize) {
+        self.query_document_context().rename_document_inline(index);
+    }
+
+    pub(crate) fn switch_query_document(&mut self, index: usize) {
+        self.query_document_context().switch_document(index);
+    }
+
+    pub(crate) fn set_active_query_text(&mut self, text: impl Into<String>) {
+        self.query_document_context().set_active_text(text);
+    }
+
+    pub(crate) fn append_to_active_query(&mut self, text: &str) {
+        self.query_document_context().append_active_text(text);
+    }
+
+    pub(crate) fn set_document_connection(&mut self, index: usize, connection_id: Option<String>) {
+        self.query_document_context()
+            .set_document_connection(index, connection_id);
+    }
+
+    pub(crate) fn set_document_schema(&mut self, index: usize, schema: Option<String>) {
+        self.query_document_context().set_document_schema(index, schema);
+    }
+
+    pub(crate) fn cancel_prediction_for_document(&mut self, index: usize) {
+        self.query_document_context().cancel_prediction_for_document(index);
+    }
+
+    pub(crate) fn open_history_entry(&mut self, entry: &UiQueryHistoryEntry, run: bool) {
+        {
+            self.query_document_context().open_history_entry(entry);
+        }
+        if run {
+            self.dispatch_query();
+        }
+    }
+
+    pub(crate) fn close_query_document(&mut self, index: usize) {
+        self.query_document_context().close_document(index);
+    }
+
+    pub(crate) fn request_close_query_document(&mut self, index: usize) {
+        self.query_document_context().request_close_document(index);
+    }
+
+    pub(crate) fn duplicate_query_document(&mut self, index: usize) {
+        self.query_document_context().duplicate_document(index);
+    }
+
+    pub(crate) fn close_other_query_documents(&mut self, keep_index: usize) {
+        self.query_document_context().close_other_documents(keep_index);
+    }
+
+    pub(crate) fn close_query_documents_to_right(&mut self, index: usize) {
+        self.query_document_context().close_documents_to_right(index);
+    }
+
+    pub(crate) fn close_all_tabs(&mut self) {
+        self.query_document_context().close_all_tabs();
+    }
+
+    pub(crate) fn close_welcome_tab(&mut self) {
+        self.query_document_context().close_welcome_tab();
+    }
+
+    pub(crate) fn activate_welcome_tab(&mut self) {
+        self.query_document_context().activate_welcome_tab();
+    }
+
+    pub(super) fn reset_query_cursor(&mut self) {
+        self.query_document_context().reset_cursor();
+    }
+
+    pub(super) fn execute_pending_navigation(&mut self, action: PendingNavigationAction) {
         match action {
-            PendingNavigationAction::OpenTable(table) => {
-                self.open_table(table);
-            }
+            PendingNavigationAction::OpenTable(table) => self.open_table(table),
             PendingNavigationAction::ChangeSchema(schema) => {
-                self.activate_schema(&schema);
+                super::schema_explorer_state::SchemaActivationContext::new(
+                    &mut self.schema.explorer,
+                    &mut self.table,
+                    &mut self.workspace,
+                    &mut self.feedback,
+                )
+                .activate(&schema);
             }
             PendingNavigationAction::ChangeConnection(connection_id) => {
-                if let Some(conn) = self.connections.iter().find(|c| c.id == connection_id).cloned() {
-                    self.connect_to_connection(&conn);
+                let connection = self.connection.catalog.find(&connection_id).cloned();
+                if let Some(connection) = connection {
+                    self.connect_to_connection(&connection);
                 }
             }
-            PendingNavigationAction::CloseWorkspace(tab) => {
-                self.request_close_workspace_tab(tab);
-            }
+            PendingNavigationAction::CloseWorkspace(tab) => self.request_close_workspace_tab(tab),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_document_context_binds_explicit_connection_and_schema() {
+        let mut query_session = QuerySessionState::default();
+        let mut query_editor = QueryEditorState::default();
+        let mut workspace = WorkspaceFeatureState::default();
+        let mut agent = AgentState::default();
+        let mut query_output = QueryOutputState::default();
+        let mut schema_explorer = SchemaExplorerState::default();
+        let mut task_bridge = TaskBridge::default();
+        let mut feedback = FeedbackState::default();
+
+        QueryDocumentContext {
+            query_session: &mut query_session,
+            query_editor: &mut query_editor,
+            workspace: &mut workspace,
+            agent: &mut agent,
+            query_output: &mut query_output,
+            schema_explorer: &mut schema_explorer,
+            command_dispatcher: command_dispatch::RuntimeCommandDispatcher::new(&mut task_bridge),
+            feedback: &mut feedback,
+            active_connection_id: Some("connection-1".to_owned()),
+            active_schema: "analytics".to_owned(),
+        }
+        .new_document(false);
+
+        let document = query_session.active_document().expect("new document");
+        assert_eq!(document.connection_id.as_deref(), Some("connection-1"));
+        assert_eq!(document.schema.as_deref(), Some("analytics"));
+        assert_eq!(workspace.active_tab, WorkspaceTab::Query);
+        assert!(query_editor.query_focus_editor_on_open);
+    }
+
+    #[test]
+    fn closing_document_context_removes_document_owned_output_state() {
+        let mut query_session = QuerySessionState::default();
+        query_session.add_document(QueryDocument::new("query-1", "Query 1", "select 1"));
+        query_session.add_document(QueryDocument::new("query-2", "Query 2", "select 2"));
+        query_session.select_document(0);
+        let mut query_editor = QueryEditorState::default();
+        let mut workspace = WorkspaceFeatureState::default();
+        let mut agent = AgentState::default();
+        let mut query_output = QueryOutputState::default();
+        query_output
+            .tabs_by_document
+            .insert("query-1".to_owned(), OutputTab::Messages);
+        let mut schema_explorer = SchemaExplorerState::default();
+        let mut task_bridge = TaskBridge::default();
+        let mut feedback = FeedbackState::default();
+
+        QueryDocumentContext {
+            query_session: &mut query_session,
+            query_editor: &mut query_editor,
+            workspace: &mut workspace,
+            agent: &mut agent,
+            query_output: &mut query_output,
+            schema_explorer: &mut schema_explorer,
+            command_dispatcher: command_dispatch::RuntimeCommandDispatcher::new(&mut task_bridge),
+            feedback: &mut feedback,
+            active_connection_id: None,
+            active_schema: "public".to_owned(),
+        }
+        .close_document(0);
+
+        assert_eq!(query_session.documents.len(), 1);
+        assert_eq!(
+            query_session.active_document().map(|doc| doc.id.as_str()),
+            Some("query-2")
+        );
+        assert!(!query_output.tabs_by_document.contains_key("query-1"));
+        assert_eq!(workspace.active_tab, WorkspaceTab::Welcome);
     }
 }

@@ -2,118 +2,140 @@
 use super::*;
 
 impl DbProApp {
+    pub(crate) fn apply_schema_compare_action(&mut self, action: schema_compare_view::SchemaCompareAction) {
+        match action {
+            schema_compare_view::SchemaCompareAction::OpenWorkspace => {
+                self.workspace.activity = Activity::Compare;
+                self.workspace.active_tab = WorkspaceTab::SchemaCompare;
+                self.workspace.sidebar_open = true;
+            }
+            schema_compare_view::SchemaCompareAction::RequestDataDiff => self.request_data_diff_keyed(),
+            schema_compare_view::SchemaCompareAction::ApplyMigration => self.apply_migration_preview(),
+        }
+    }
+
+    pub(crate) fn request_data_diff_keyed(&mut self) {
+        let Some(source_id) = self.connection.lifecycle.active_connection_id().map(str::to_owned) else {
+            self.feedback.runtime_message = "Connect a source database first".into();
+            return;
+        };
+        let request_id = self.next_request_id();
+        match self.schema.compare.prepare_data_diff_request() {
+            Ok(request) => {
+                let command = UiCommand::DiffTableDataKeyed {
+                    request_id,
+                    source_id,
+                    target_id: request.target_id,
+                    schema: request.schema,
+                    table: request.table,
+                    key_columns: request.key_columns,
+                    sample_limit: request.sample_limit,
+                };
+                if self.dispatch_command(command) {
+                    self.feedback.runtime_message = "Running key-aware data compare…".into();
+                }
+            }
+            Err(error) => self.feedback.runtime_message = error,
+        }
+    }
+
+    pub(crate) fn apply_diagram_action(&mut self, action: diagram_view::DiagramAction) {
+        match action {
+            diagram_view::DiagramAction::OpenTable(table) => self.open_table(table),
+            diagram_view::DiagramAction::ExecuteQuery(sql) => {
+                self.set_active_query_text(sql);
+                self.workspace.active_tab = WorkspaceTab::Query;
+                self.dispatch_query();
+                self.feedback.runtime_message = "Design Mode mutation plan applied via query runtime".into();
+            }
+        }
+    }
+
     pub(crate) fn open_table(&mut self, table: String) {
-        if self.selected_table.as_deref() == Some(&table) {
-            self.active_tab = WorkspaceTab::Table;
-            self.record_recent_table(&table);
+        if self.schema.explorer.selected_table.as_deref() == Some(&table) {
+            self.workspace.active_tab = WorkspaceTab::Table;
+            self.schema.explorer.record_recent_table(&table);
             return;
         }
-        if !self.staged_changes.is_empty() {
-            self.pending_navigation_action = Some(PendingNavigationAction::OpenTable(table));
-            self.discard_changes_confirmation = true;
-            self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
+        if !self.table.mutation.staged_changes.is_empty() {
+            self.workspace.pending_navigation_action = Some(PendingNavigationAction::OpenTable(table));
+            self.table.editing.discard_changes_confirmation = true;
+            self.feedback.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
             return;
         }
-        self.pending_navigation_action = None;
-        self.persist_current_grid_layout();
-        self.record_recent_table(&table);
-        self.selected_table = Some(table);
-        self.restore_grid_layout_for_active_table();
+        self.workspace.pending_navigation_action = None;
+        let scope = TableDataState::layout_scope(
+            self.connection.lifecycle.active_connection_id(),
+            self.active_schema(),
+            self.schema.explorer.selected_table.as_deref(),
+        );
+        self.table.data.persist_layout(scope);
+        self.schema.explorer.record_recent_table(&table);
+        self.schema.explorer.selected_table = Some(table);
+        let scope = TableDataState::layout_scope(
+            self.connection.lifecycle.active_connection_id(),
+            self.active_schema(),
+            self.schema.explorer.selected_table.as_deref(),
+        );
+        self.table.data.restore_layout(scope);
         self.request_table_info();
         self.request_table_data();
-        self.active_tab = WorkspaceTab::Table;
-    }
-
-    /// Push `table` to the front of the MRU recent list (#212).
-    pub(crate) fn record_recent_table(&mut self, table: &str) {
-        if table.is_empty() {
-            return;
-        }
-        self.recent_tables.retain(|item| item != table);
-        self.recent_tables.insert(0, table.to_owned());
-        if self.recent_tables.len() > RECENT_TABLES_MAX {
-            self.recent_tables.truncate(RECENT_TABLES_MAX);
-        }
-    }
-
-    pub(crate) fn remove_recent_table(&mut self, table: &str) {
-        self.recent_tables.retain(|item| item != table);
+        self.workspace.active_tab = WorkspaceTab::Table;
     }
 
     pub(crate) fn request_open_workspace_folder(&mut self) {
-        let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::PickWorkspaceFolder { request_id });
-        self.runtime_message = "Choose a workspace folder…".to_owned();
-    }
-
-    pub(crate) fn open_workspace_folder(&mut self, path: std::path::PathBuf) {
-        let result = if self.ide_workspace.roots.is_empty() {
-            self.ide_workspace.open_root(path)
-        } else {
-            self.ide_workspace.add_root(path)
-        };
-        match result {
-            Ok(()) => {
-                self.activity = Activity::Files;
-                self.sidebar_open = true;
-                self.workspace_search_hits.clear();
-                self.ide_workspace.scan_diagnostics();
-                self.runtime_message = format!(
-                    "Opened workspace {} · {} files · {} roots",
-                    self.ide_workspace.root_label(),
-                    self.ide_workspace.index().len(),
-                    self.ide_workspace.roots.len()
-                );
-            }
-            Err(error) => {
-                self.runtime_message = format!("Failed to open workspace: {error}");
-            }
+        let request_id = self.next_request_id();
+        if self.dispatch_command(UiCommand::PickWorkspaceFolder { request_id }) {
+            self.feedback.runtime_message = "Choose a workspace folder…".to_owned();
         }
     }
 
-    pub(crate) fn close_workspace_folder(&mut self) {
-        self.ide_workspace.close();
-        self.workspace_search_hits.clear();
-        self.workspace_replace_previews.clear();
-        self.workspace_context_items.clear();
-        self.split_editor_secondary = None;
-        self.runtime_message = "Workspace closed".to_owned();
-    }
-
-    pub(crate) fn refresh_workspace_folder(&mut self) {
-        match self.ide_workspace.refresh() {
+    pub(crate) fn open_workspace_folder(&mut self, path: std::path::PathBuf) {
+        let result = if self.workspace.files.ide_workspace.roots.is_empty() {
+            self.workspace.files.ide_workspace.open_root(path)
+        } else {
+            self.workspace.files.ide_workspace.add_root(path)
+        };
+        match result {
             Ok(()) => {
-                self.ide_workspace.scan_diagnostics();
-                self.runtime_message = format!(
-                    "Workspace refreshed · {} files indexed",
-                    self.ide_workspace.index().len()
+                self.workspace.activity = Activity::Files;
+                self.workspace.sidebar_open = true;
+                self.workspace.files.workspace_search_hits.clear();
+                self.workspace.files.ide_workspace.scan_diagnostics();
+                self.feedback.runtime_message = format!(
+                    "Opened workspace {} · {} files · {} roots",
+                    self.workspace.files.ide_workspace.root_label(),
+                    self.workspace.files.ide_workspace.index().len(),
+                    self.workspace.files.ide_workspace.roots.len()
                 );
             }
             Err(error) => {
-                self.runtime_message = format!("Workspace refresh failed: {error}");
+                self.feedback.runtime_message = format!("Failed to open workspace: {error}");
             }
         }
     }
 
     pub(crate) fn open_workspace_sql_file(&mut self, relative_path: String) {
-        let Some(absolute) = self.ide_workspace.absolute_for_relative(&relative_path) else {
-            self.runtime_message = "Open a workspace folder first".to_owned();
+        let Some(absolute) = self.workspace.files.ide_workspace.absolute_for_relative(&relative_path) else {
+            self.feedback.runtime_message = "Open a workspace folder first".to_owned();
             return;
         };
         let absolute_str = absolute.to_string_lossy().into_owned();
         if let Some(index) = self
-            .query_documents
+            .query
+            .session
+            .documents
             .iter()
             .position(|doc| doc.file_path.as_deref() == Some(absolute_str.as_str()))
         {
             self.switch_query_document(index);
-            self.active_tab = WorkspaceTab::Query;
+            self.workspace.active_tab = WorkspaceTab::Query;
             return;
         }
         let content = match std::fs::read_to_string(&absolute) {
             Ok(text) => text,
             Err(error) => {
-                self.runtime_message = format!("Failed to read {}: {error}", absolute.display());
+                self.feedback.runtime_message = format!("Failed to read {}: {error}", absolute.display());
                 return;
             }
         };
@@ -124,22 +146,27 @@ impl DbProApp {
         let id = format!("file-{absolute_str}");
         let mut doc = QueryDocument::new(id, title, content);
         doc.file_path = Some(absolute_str.clone());
-        doc.connection_id = self.active_connection_id.clone();
+        doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
         doc.schema = Some(self.active_schema().to_owned());
         doc.mark_saved();
         if let Some(mtime) = git_workspace::disk_mtime_secs(&absolute) {
-            self.workspace_file_mtimes.insert(absolute_str, mtime);
+            self.workspace.files.workspace_file_mtimes.insert(absolute_str, mtime);
         }
-        self.query_documents.push(doc);
-        self.active_query_document = self.query_documents.len() - 1;
-        self.activity = Activity::Queries;
-        self.active_tab = WorkspaceTab::Query;
+        self.query.session.documents.push(doc);
+        self.query.session.active_document_index = self.query.session.documents.len() - 1;
+        self.workspace.activity = Activity::Queries;
+        self.workspace.active_tab = WorkspaceTab::Query;
         self.reset_query_cursor();
-        self.runtime_message = format!("Opened {relative_path}");
+        self.feedback.runtime_message = format!("Opened {relative_path}");
     }
 
     pub(crate) fn save_active_workspace_file(&mut self) -> bool {
-        let Some(doc) = self.query_documents.get_mut(self.active_query_document) else {
+        let Some(doc) = self
+            .query
+            .session
+            .documents
+            .get_mut(self.query.session.active_document_index)
+        else {
             return false;
         };
         let Some(path) = doc.file_path.clone() else {
@@ -150,325 +177,197 @@ impl DbProApp {
             Ok(()) => {
                 doc.mark_saved();
                 if let Some(mtime) = git_workspace::disk_mtime_secs(std::path::Path::new(&path)) {
-                    self.workspace_file_mtimes.insert(path.clone(), mtime);
+                    self.workspace.files.workspace_file_mtimes.insert(path.clone(), mtime);
                 }
-                self.workspace_external_change = None;
-                self.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
+                self.workspace.files.dismiss_external_change();
+                self.feedback.runtime_message = format!("Saved {}", std::path::Path::new(&path).display());
                 true
             }
             Err(error) => {
-                self.runtime_message = format!("Save failed: {error}");
+                self.feedback.runtime_message = format!("Save failed: {error}");
                 false
             }
         }
     }
 
-    pub(crate) fn run_workspace_search(&mut self) {
-        if self.ide_workspace.roots.is_empty() {
-            self.workspace_search_hits.clear();
-            self.runtime_message = "Open a workspace folder before searching".to_owned();
-            return;
-        }
-        self.workspace_search_hits = self.ide_workspace.search(&self.workspace_search_query, 100);
-        self.runtime_message = format!("{} matches", self.workspace_search_hits.len());
-    }
-
-    pub(crate) fn preview_workspace_replace(&mut self) {
-        self.workspace_replace_previews = self
-            .ide_workspace
-            .preview_replace(&self.workspace_search_query, &self.workspace_replace_query);
-        self.runtime_message = format!("{} files would change", self.workspace_replace_previews.len());
-    }
-
-    pub(crate) fn apply_workspace_replace(&mut self) {
-        match self
-            .ide_workspace
-            .apply_replace(&self.workspace_search_query, &self.workspace_replace_query)
-        {
-            Ok(count) => {
-                self.preview_workspace_replace();
-                self.run_workspace_search();
-                self.runtime_message = format!("Replaced {count} occurrence(s)");
-            }
-            Err(error) => self.runtime_message = error,
-        }
-    }
-
-    pub(crate) fn add_workspace_context_item(&mut self, item: String) {
-        if !self.workspace_context_items.iter().any(|existing| existing == &item) {
-            self.workspace_context_items.push(item);
-        }
-    }
-
-    pub(crate) fn clear_workspace_context_items(&mut self) {
-        self.workspace_context_items.clear();
-    }
-
-    pub(crate) fn export_live_schema_snapshot(&mut self) {
-        let mut sql = String::from("-- DB Pro schema snapshot\n");
-        for table in &self.schema.table_details {
-            sql.push_str(&format!(
-                "-- table {}.{} ({} columns)\n",
-                table.schema,
-                table.name,
-                table.columns.len()
-            ));
-        }
-        match self.ide_workspace.export_schema_snapshot(&sql) {
-            Ok(path) => self.runtime_message = format!("Wrote schema snapshot {}", path.display()),
-            Err(error) => self.runtime_message = error,
-        }
-    }
-
-    pub(crate) fn run_workspace_task(&mut self) {
-        let command = self.workspace_task_command.clone();
-        match self.ide_workspace.run_task(&command) {
-            Ok(result) => {
-                self.runtime_message = format!("Task exit {:?} · {}ms", result.exit_code, result.duration_ms);
-            }
-            Err(error) => self.runtime_message = error,
-        }
-    }
-
-    pub(crate) fn apply_workspace_refactor(&mut self) {
-        let from = self.workspace_refactor_from.clone();
-        let to = self.workspace_refactor_to.clone();
-        match self.ide_workspace.rename_symbol_across_sql(&from, &to) {
-            Ok(count) => self.runtime_message = format!("Refactored {count} occurrence(s)"),
-            Err(error) => self.runtime_message = error,
-        }
-    }
-
     pub(crate) fn toggle_split_editor(&mut self) {
-        if self.split_editor_secondary.is_some() {
-            self.split_editor_secondary = None;
-            self.runtime_message = "Split editor closed".to_owned();
+        if self.workspace.split_editor_secondary.is_some() {
+            self.workspace.split_editor_secondary = None;
+            self.feedback.runtime_message = "Split editor closed".to_owned();
             return;
         }
-        if self.query_documents.len() < 2 {
-            self.runtime_message = "Open a second document before splitting".to_owned();
+        if self.query.session.documents.len() < 2 {
+            self.feedback.runtime_message = "Open a second document before splitting".to_owned();
             return;
         }
-        let secondary = if self.active_query_document + 1 < self.query_documents.len() {
-            self.active_query_document + 1
+        let secondary = if self.query.session.active_document_index + 1 < self.query.session.documents.len() {
+            self.query.session.active_document_index + 1
         } else {
             0
         };
-        self.split_editor_secondary = Some(secondary);
-        self.runtime_message = "Split editor enabled".to_owned();
+        self.workspace.split_editor_secondary = Some(secondary);
+        self.feedback.runtime_message = "Split editor enabled".to_owned();
     }
 
-    pub(crate) fn refresh_schema_drift_watch(&mut self) {
-        let names: Vec<String> = self
-            .schema
-            .table_details
-            .iter()
-            .map(|table| format!("{}.{}", table.schema, table.name))
-            .collect();
-        let fingerprint = ide_workspace::fingerprint_schema_names(&names);
-        self.ide_workspace.update_schema_fingerprint(fingerprint);
-        if let Some(message) = self.ide_workspace.schema_drift_message.clone() {
-            self.runtime_message = message;
+    /// Capture/evidence helper: keep the initial connection request pending so
+    /// the Welcome surface can be documented in its loading state.
+    pub fn prepare_loading_for_capture(&mut self) {
+        self.connection.lifecycle.mark_connections_requested();
+        self.connection.lifecycle.set_connections_request_pending(true);
+        self.feedback.runtime_message = "Loading connections…".to_owned();
+    }
+
+    /// Capture/evidence helper: open the connection editor with a deterministic
+    /// validation error, without requiring a live database.
+    pub fn open_connection_error_for_capture(&mut self) {
+        self.connection.open_new();
+        self.connection
+            .dialog
+            .set_error("Connection test failed: authentication rejected by the server.");
+        self.feedback.runtime_message = "Connection test failed".to_owned();
+    }
+
+    /// Capture/evidence helper: open the new-connection dialog in its normal state.
+    pub fn open_new_connection_for_capture(&mut self) {
+        self.connection.open_new();
+    }
+
+    /// Capture/evidence helper: open the Edit Connection dialog with a test draft so
+    /// the password input + eye toggle can be documented (the affected surface for the
+    /// input click-steal fix) without needing a real saved connection.
+    pub fn open_edit_connection_for_capture(&mut self) {
+        self.connection
+            .dialog
+            .set_editing_connection_id(Some("capture-test".to_owned()));
+        self.connection.dialog.set_draft(UiConnectionDraft {
+            name: "Test Connection".to_owned(),
+            host: "localhost".to_owned(),
+            port: "5432".to_owned(),
+            database: "testdb".to_owned(),
+            username: "testuser".to_owned(),
+            password: "testpassword123".to_owned(),
+            driver: crate::UiDriver::Postgres,
+            ssl_mode: crate::UiSslMode::Disable,
+            readonly: false,
+            group: String::new(),
+            tags: String::new(),
+            favorite: false,
+            environment: "Development".to_owned(),
+            ssh_tunnel_enabled: false,
+            ssh_host: String::new(),
+            ssh_port: "22".to_owned(),
+            ssh_user: String::new(),
+            ssh_private_key: String::new(),
+            ssh_profile_id: String::new(),
+            ssl_root_cert_path: String::new(),
+            ssl_client_cert_path: String::new(),
+            ssl_client_key_path: String::new(),
+            cloud_preset: String::new(),
+            auth_kind: "password".to_owned(),
+            cloud_snippet: String::new(),
+            cloud_guidance: String::new(),
+        });
+        self.connection.dialog.clear_error();
+        self.connection.dialog.clear_test();
+        self.connection.lifecycle.clear_pending_request();
+        self.connection.dialog.set_focus_name_on_open(true);
+        self.connection.dialog.set_open(true);
+    }
+
+    /// Capture/evidence helper: open a fresh untitled Query buffer (UI05 editor-first shots).
+    pub fn open_query_workspace_for_capture(&mut self) {
+        self.preferences.dark_mode = true;
+        self.theme = DbProTheme::dark();
+        self.new_query_document();
+        if let Some(doc) = self
+            .query
+            .session
+            .documents
+            .get_mut(self.query.session.active_document_index)
+        {
+            doc.set_text("SELECT u.id, u.email\nFROM users u\nWHERE u.active = true;\n");
+            doc.dirty = false;
         }
+        self.workspace.bottom_panel_open = false;
+        self.query.editor.query_output_dock_maximized = false;
+        self.query.editor.query_params_panel_open = false;
+        self.query.editor.visual_builder.open = false;
+        self.query.editor.editor_search_open = false;
+        self.query.editor.snippets_open = false;
+        self.query.execution.query_txn_bar_open = false;
     }
 
-    pub(super) fn open_palette(&mut self, mode: PaletteMode) {
-        self.palette_mode = Some(mode);
-        self.palette_query.clear();
-        self.palette_scope = SearchScope::All;
-        self.palette_selected = 0;
-        self.palette_focus_requested = true;
-        self.search_index.invalidate();
-    }
-
-    pub fn open_new_connection(&mut self) {
-        self.editing_connection_id = None;
-        self.connection_draft = UiConnectionDraft::default();
-        self.connection_error.clear();
-        self.connection_test_valid = false;
-        self.connection_test_draft = None;
-        self.pending_connection_request = None;
-        self.connection_dialog_open = true;
+    /// Capture helper: same as query workspace but force light theme.
+    pub fn open_query_workspace_for_capture_light(&mut self) {
+        self.open_query_workspace_for_capture();
+        self.preferences.dark_mode = false;
+        self.theme = DbProTheme::light();
     }
 
     pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
         match tab {
             WorkspaceTab::Table => {
-                if !self.staged_changes.is_empty() {
-                    self.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
-                    self.discard_changes_confirmation = true;
-                    self.runtime_message = "Apply or discard staged changes before closing the table".to_owned();
+                if !self.table.mutation.staged_changes.is_empty() {
+                    self.workspace.pending_navigation_action = Some(PendingNavigationAction::CloseWorkspace(tab));
+                    self.table.editing.discard_changes_confirmation = true;
+                    self.feedback.runtime_message =
+                        "Apply or discard staged changes before closing the table".to_owned();
                     return;
                 }
-                self.pending_navigation_action = None;
-                self.selected_table = None;
-                self.table_info = None;
-                self.table_ddl = None;
-                self.table_info_error = None;
-                self.table_ddl_error = None;
-                self.table_data_result = None;
-                self.table_data_total_rows = None;
-                self.table_data_request = None;
-                self.table_info_request = None;
-                self.table_ddl_request = None;
-                self.table_mutation_request = None;
-                self.staged_changes.clear();
-                self.staged_apply_request = None;
-                self.staged_apply_targets.clear();
-                self.table_mutation_retry_after_reload = false;
-                self.table_mutation_retry_target = None;
-                self.table_mutation_error = None;
-                self.selected_cell = None;
-                self.selected_row = None;
-                self.selected_rows.clear();
-                self.selection_anchor_row = None;
-                self.selection_anchor_cell = None;
-                self.data_editing_cell = None;
-                self.data_edit_error = None;
-                self.data_delete_confirmation = false;
-                self.discard_changes_confirmation = false;
+                self.workspace.pending_navigation_action = None;
+                self.schema.explorer.selected_table = None;
+                self.table.reset_workspace();
             }
             WorkspaceTab::SchemaObject => {
-                self.selected_schema_object = None;
-                self.schema_object_view = SchemaObjectView::Definition;
-                self.table_data_result = None;
-                self.table_data_total_rows = None;
-                self.table_data_request = None;
+                self.schema.explorer.selected_schema_object = None;
+                self.schema.explorer.schema_object_view = SchemaObjectView::Definition;
+                self.table.data_query.result = None;
+                self.table.data_query.total_rows = None;
+                self.table.data_query.request = None;
             }
             WorkspaceTab::Diagram => {
-                self.diagram_search.clear();
-                self.diagram_show_all = false;
-                self.diagram_pan = egui::Vec2::ZERO;
-                self.diagram_pan_origin = None;
+                self.schema.diagram.search.clear();
+                self.schema.diagram.show_all = false;
+                self.schema.diagram.pan = egui::Vec2::ZERO;
+                self.schema.diagram.pan_origin = None;
             }
             WorkspaceTab::SchemaWorkbench => {
-                self.schema_workbench.apply_confirmation = false;
+                self.schema.workbench.apply_confirmation = false;
             }
             WorkspaceTab::SchemaCompare => {
-                self.schema_diff = None;
+                self.schema.compare.schema_diff = None;
             }
             WorkspaceTab::ComponentGallery => {}
             WorkspaceTab::Welcome | WorkspaceTab::Query => return,
         }
-        if self.active_tab == tab {
+        if self.workspace.active_tab == tab {
             self.activate_welcome_tab();
         }
-        self.runtime_message = "Workspace closed".to_owned();
-    }
-
-    pub(crate) fn refresh_git_status(&mut self) {
-        let Some(root) = self.ide_workspace.primary_path().map(std::path::PathBuf::from) else {
-            self.git_status = None;
-            self.git_last_error = Some("Open a workspace folder first".into());
-            return;
-        };
-        let status = git_workspace::probe_git_status(&root);
-        self.git_last_error = if status.available {
-            None
-        } else {
-            Some(status.message.clone())
-        };
-        self.git_status = Some(status);
-        self.runtime_message = "Git status refreshed".into();
-    }
-
-    pub(crate) fn stage_git_path(&mut self, relative: &str) {
-        let Some(root) = self.ide_workspace.primary_path() else {
-            return;
-        };
-        match git_workspace::stage_path(root, relative) {
-            Ok(()) => {
-                self.git_last_error = None;
-                self.refresh_git_status();
-            }
-            Err(err) => self.git_last_error = Some(err),
-        }
-    }
-
-    pub(crate) fn unstage_git_path(&mut self, relative: &str) {
-        let Some(root) = self.ide_workspace.primary_path() else {
-            return;
-        };
-        match git_workspace::unstage_path(root, relative) {
-            Ok(()) => {
-                self.git_last_error = None;
-                self.refresh_git_status();
-            }
-            Err(err) => self.git_last_error = Some(err),
-        }
-    }
-
-    pub(crate) fn diff_git_path(&mut self, relative: &str) {
-        let Some(root) = self.ide_workspace.primary_path() else {
-            return;
-        };
-        match git_workspace::diff_against_head(root, relative) {
-            Ok(diff) => {
-                self.git_diff = Some(diff);
-                self.git_last_error = None;
-            }
-            Err(err) => self.git_last_error = Some(err),
-        }
-    }
-
-    pub(crate) fn commit_git_staged(&mut self) {
-        let Some(root) = self.ide_workspace.primary_path() else {
-            return;
-        };
-        match git_workspace::commit_paths(root, &self.git_commit_message) {
-            Ok(out) => {
-                self.git_commit_message.clear();
-                self.git_last_error = None;
-                self.runtime_message = out.lines().next().unwrap_or("Committed").to_owned();
-                self.refresh_git_status();
-            }
-            Err(err) => self.git_last_error = Some(err),
-        }
-    }
-
-    pub(crate) fn check_external_file_changes(&mut self) {
-        let docs: Vec<(String, String, bool)> = self
-            .query_documents
-            .iter()
-            .filter_map(|doc| {
-                let path = doc.file_path.clone()?;
-                Some((path, doc.text().to_owned(), doc.dirty))
-            })
-            .collect();
-        for (path, buffer, dirty) in docs {
-            let path_buf = std::path::PathBuf::from(&path);
-            let Some(mtime) = git_workspace::disk_mtime_secs(&path_buf) else {
-                continue;
-            };
-            let known = self.workspace_file_mtimes.get(&path).copied();
-            if known == Some(mtime) {
-                continue;
-            }
-            if dirty && git_workspace::disk_diverged_from_buffer(&path_buf, &buffer) {
-                self.workspace_external_change = Some(path);
-            } else if !dirty {
-                self.workspace_file_mtimes.insert(path, mtime);
-            }
-        }
+        self.feedback.runtime_message = "Workspace closed".to_owned();
     }
 
     pub(crate) fn reload_workspace_file_from_disk(&mut self, path: &str) {
         let Ok(content) = std::fs::read_to_string(path) else {
-            self.runtime_message = format!("Could not reload {path}");
+            self.feedback.runtime_message = format!("Could not reload {path}");
             return;
         };
         if let Some(doc) = self
-            .query_documents
+            .query
+            .session
+            .documents
             .iter_mut()
             .find(|doc| doc.file_path.as_deref() == Some(path))
         {
             doc.buffer.set_text(content);
             doc.mark_saved();
             if let Some(mtime) = git_workspace::disk_mtime_secs(std::path::Path::new(path)) {
-                self.workspace_file_mtimes.insert(path.to_owned(), mtime);
+                self.workspace
+                    .files
+                    .workspace_file_mtimes
+                    .insert(path.to_owned(), mtime);
             }
-            self.workspace_external_change = None;
-            self.runtime_message = format!("Reloaded {path}");
+            self.workspace.files.dismiss_external_change();
+            self.feedback.runtime_message = format!("Reloaded {path}");
         }
     }
 }

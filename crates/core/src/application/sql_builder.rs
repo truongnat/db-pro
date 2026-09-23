@@ -1,6 +1,13 @@
-use crate::domain::error::DbError;
 use crate::domain::query::{CellValue, QueryParam};
 use crate::ports::SqlDialect;
+
+pub use mutation::{build_delete, build_insert, build_select_by_pk, build_update};
+pub use read::{build_count, build_select};
+
+#[path = "sql_builder/mutation.rs"]
+mod mutation;
+#[path = "sql_builder/read.rs"]
+mod read;
 
 #[derive(Debug, Clone)]
 pub struct TableFilter {
@@ -62,287 +69,34 @@ pub fn qualify(dialect: &dyn SqlDialect, schema: &str, table: &str) -> String {
     }
 }
 
-pub fn build_select(
-    dialect: &dyn SqlDialect,
-    schema: &str,
-    table: &str,
-    filters: &[TableFilter],
-    sorts: &[SortClause],
-    limit: u64,
-    offset: u64,
-) -> Result<(String, Vec<QueryParam>), DbError> {
-    if dialect.pagination_requires_order_by() && sorts.is_empty() {
-        return Err(DbError::Validation("pagination requires an ORDER BY clause".into()));
-    }
-    let limit = i64::try_from(limit).map_err(|_| DbError::Validation("limit exceeds database integer range".into()))?;
-    let offset =
-        i64::try_from(offset).map_err(|_| DbError::Validation("offset exceeds database integer range".into()))?;
-    let (where_clause, params) = build_where(dialect, filters);
-    let order_clause = build_order(dialect, sorts);
-    let mut pw = PlaceholderWriter::new(dialect);
-    pw.counter = params.len();
-    let limit_ph = pw.next();
-    let offset_ph = pw.next();
-
-    let pagination = dialect.pagination_clause(&limit_ph, &offset_ph);
-    let target = qualify(dialect, schema, table);
-
-    let sql = format!("SELECT * FROM {target}{}{}{pagination}", where_clause, order_clause,);
-
-    let mut all_params = params;
-    all_params.push(QueryParam::Int64(limit));
-    all_params.push(QueryParam::Int64(offset));
-
-    Ok((sql, all_params))
-}
-
-pub fn build_count(
-    dialect: &dyn SqlDialect,
-    schema: &str,
-    table: &str,
-    filters: &[TableFilter],
-) -> (String, Vec<QueryParam>) {
-    let (where_clause, params) = build_where(dialect, filters);
-    let target = qualify(dialect, schema, table);
-
-    let sql = format!("SELECT COUNT(*) FROM {target}{}", where_clause,);
-
-    (sql, params)
-}
-
-pub fn build_insert(
-    dialect: &dyn SqlDialect,
-    schema: &str,
-    table: &str,
-    columns: &[String],
-    values: &[CellValue],
-) -> Result<(String, Vec<QueryParam>), DbError> {
-    if columns.len() != values.len() {
-        return Err(DbError::Validation(format!(
-            "column count ({}) does not match value count ({})",
-            columns.len(),
-            values.len()
-        )));
-    }
-    if columns.is_empty() {
-        return Err(DbError::Validation("insert requires at least one column".into()));
-    }
-    let cols = columns
-        .iter()
-        .map(|c| dialect.quote_identifier(c))
-        .collect::<Vec<_>>()
-        .join(", ");
-    let mut pw = PlaceholderWriter::new(dialect);
-    let placeholders = values.iter().map(|_| pw.next()).collect::<Vec<_>>().join(", ");
-    let target = qualify(dialect, schema, table);
-
-    let sql = format!("INSERT INTO {target} ({}) VALUES ({})", cols, placeholders,);
-
-    let params = values.iter().map(cell_to_param).collect();
-    Ok((sql, params))
-}
-
-pub fn build_update(
-    dialect: &dyn SqlDialect,
-    schema: &str,
-    table: &str,
-    columns: &[String],
-    values: &[CellValue],
-    pk_columns: &[String],
-    pk_values: &[CellValue],
-) -> Result<(String, Vec<QueryParam>), DbError> {
-    if columns.len() != values.len() {
-        return Err(DbError::Validation(format!(
-            "column count ({}) does not match value count ({})",
-            columns.len(),
-            values.len()
-        )));
-    }
-    if columns.is_empty() {
-        return Err(DbError::Validation("update requires at least one column".into()));
-    }
-    if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
-        return Err(DbError::Validation(format!(
-            "pk column count ({}) does not match pk value count ({})",
-            pk_columns.len(),
-            pk_values.len()
-        )));
-    }
-    let mut pw = PlaceholderWriter::new(dialect);
-    let set_parts: Vec<String> = columns
-        .iter()
-        .map(|c| format!("{} = {}", dialect.quote_identifier(c), pw.next()))
-        .collect();
-    let pk_where: Vec<String> = pk_columns
-        .iter()
-        .map(|c| format!("{} = {}", dialect.quote_identifier(c), pw.next()))
-        .collect();
-
-    let target = qualify(dialect, schema, table);
-
-    let sql = format!(
-        "UPDATE {target} SET {} WHERE {}",
-        set_parts.join(", "),
-        pk_where.join(" AND "),
-    );
-
-    let mut params: Vec<QueryParam> = values.iter().map(cell_to_param).collect();
-    params.extend(pk_values.iter().map(cell_to_param));
-    Ok((sql, params))
-}
-
-pub fn build_delete(
-    dialect: &dyn SqlDialect,
-    schema: &str,
-    table: &str,
-    pk_columns: &[String],
-    pk_values: &[CellValue],
-) -> Result<(String, Vec<QueryParam>), DbError> {
-    if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
-        return Err(DbError::Validation(format!(
-            "pk column count ({}) does not match pk value count ({})",
-            pk_columns.len(),
-            pk_values.len()
-        )));
-    }
-    let mut pw = PlaceholderWriter::new(dialect);
-    let pk_where: Vec<String> = pk_columns
-        .iter()
-        .map(|c| format!("{} = {}", dialect.quote_identifier(c), pw.next()))
-        .collect();
-
-    let target = qualify(dialect, schema, table);
-
-    let sql = format!("DELETE FROM {target} WHERE {}", pk_where.join(" AND "),);
-
-    let params = pk_values.iter().map(cell_to_param).collect();
-    Ok((sql, params))
-}
-
-pub fn build_select_by_pk(
-    dialect: &dyn SqlDialect,
-    schema: &str,
-    table: &str,
-    pk_columns: &[String],
-    pk_values: &[CellValue],
-) -> Result<(String, Vec<QueryParam>), DbError> {
-    if pk_columns.is_empty() || pk_columns.len() != pk_values.len() {
-        return Err(DbError::Validation(format!(
-            "pk column count ({}) does not match pk value count ({})",
-            pk_columns.len(),
-            pk_values.len()
-        )));
-    }
-    let mut pw = PlaceholderWriter::new(dialect);
-    let pk_where: Vec<String> = pk_columns
-        .iter()
-        .map(|c| format!("{} = {}", dialect.quote_identifier(c), pw.next()))
-        .collect();
-
-    let target = qualify(dialect, schema, table);
-    let sql = format!("SELECT * FROM {target} WHERE {} LIMIT 1", pk_where.join(" AND "));
-    let params = pk_values.iter().map(cell_to_param).collect();
-    Ok((sql, params))
-}
-
-fn build_where(dialect: &dyn SqlDialect, filters: &[TableFilter]) -> (String, Vec<QueryParam>) {
-    if filters.is_empty() {
-        return (String::new(), Vec::new());
-    }
-
-    let mut conditions = Vec::with_capacity(filters.len());
-    let mut params = Vec::new();
-    let mut pw = PlaceholderWriter::new(dialect);
-
-    for f in filters {
-        let col = dialect.quote_identifier(&f.column);
-        match f.op {
-            FilterOp::IsNull => conditions.push(format!("{col} IS NULL")),
-            FilterOp::IsNotNull => conditions.push(format!("{col} IS NOT NULL")),
-            FilterOp::Eq => {
-                conditions.push(format!("{col} = {}", pw.next()));
-                params.push(cell_to_param(&f.value));
-            }
-            FilterOp::Neq => {
-                conditions.push(format!("{col} != {}", pw.next()));
-                params.push(cell_to_param(&f.value));
-            }
-            FilterOp::Lt => {
-                conditions.push(format!("{col} < {}", pw.next()));
-                params.push(cell_to_param(&f.value));
-            }
-            FilterOp::Lte => {
-                conditions.push(format!("{col} <= {}", pw.next()));
-                params.push(cell_to_param(&f.value));
-            }
-            FilterOp::Gt => {
-                conditions.push(format!("{col} > {}", pw.next()));
-                params.push(cell_to_param(&f.value));
-            }
-            FilterOp::Gte => {
-                conditions.push(format!("{col} >= {}", pw.next()));
-                params.push(cell_to_param(&f.value));
-            }
-            FilterOp::Like => {
-                conditions.push(format!("CAST({col} AS TEXT) LIKE {}", pw.next()));
-                params.push(cell_to_param(&f.value));
-            }
-        }
-    }
-
-    (format!(" WHERE {}", conditions.join(" AND ")), params)
-}
-
-fn build_order(dialect: &dyn SqlDialect, sorts: &[SortClause]) -> String {
-    if sorts.is_empty() {
-        return String::new();
-    }
-
-    let parts: Vec<String> = sorts
-        .iter()
-        .map(|s| {
-            let dir = match s.direction {
-                SortDir::Asc => "ASC",
-                SortDir::Desc => "DESC",
-            };
-            format!("{} {dir}", dialect.quote_identifier(&s.column))
-        })
-        .collect();
-
-    format!(" ORDER BY {}", parts.join(", "))
-}
-
 fn cell_to_param(cell: &CellValue) -> QueryParam {
     match cell {
         CellValue::Null => QueryParam::Null,
-        CellValue::Bool(v) => QueryParam::Bool(*v),
-        CellValue::Int64(v) => QueryParam::Int64(*v),
-        CellValue::Float64(v) => QueryParam::Float64(*v),
-        CellValue::Decimal(v) => QueryParam::Decimal(v.clone()),
-        CellValue::Text(v) => QueryParam::Text(v.clone()),
-        CellValue::Bytes(v) => QueryParam::Bytes(v.clone()),
-        CellValue::Uuid(v) => QueryParam::Uuid(v.clone()),
-        CellValue::DateTime(v) => QueryParam::DateTime(v.clone()),
-        // The dedicated temporal variants bind through the same shape-aware
-        // parsers as the legacy ones: a `TIMESTAMP` still carries no marker, so it
-        // still takes the naive branch, and a `TIMETZ` keeps its own offset through
-        // the time-with-offset branch. Nothing is ever bound as TEXT.
-        CellValue::Timestamp(v) => QueryParam::DateTime(v.clone()),
-        CellValue::TimestampTz(v) => QueryParam::DateTime(v.clone()),
-        CellValue::TimeTz(v) => QueryParam::Time(v.clone()),
-        // PostgreSQL binds date-only values as NaiveDate through DateTime;
-        // sending a date as TEXT can fail DATE comparisons and mutations.
-        CellValue::Date(v) => QueryParam::DateTime(v.clone()),
-        CellValue::Time(v) => QueryParam::Time(v.clone()),
-        CellValue::Interval(v) => QueryParam::Interval(v.clone()),
-        CellValue::Inet(v) => QueryParam::Inet(v.clone()),
-        CellValue::Json(v) => QueryParam::Json(v.clone()),
+        CellValue::Bool(value) => QueryParam::Bool(*value),
+        CellValue::Int64(value) => QueryParam::Int64(*value),
+        CellValue::Float64(value) => QueryParam::Float64(*value),
+        CellValue::Decimal(value) => QueryParam::Decimal(value.clone()),
+        CellValue::Text(value) => QueryParam::Text(value.clone()),
+        CellValue::Bytes(value) => QueryParam::Bytes(value.clone()),
+        CellValue::Uuid(value) => QueryParam::Uuid(value.clone()),
+        CellValue::DateTime(value) => QueryParam::DateTime(value.clone()),
+        // Dedicated temporal values retain the same shape-aware binding semantics
+        // as the original builder: no precision-sensitive value is coerced to text.
+        CellValue::Timestamp(value) => QueryParam::DateTime(value.clone()),
+        CellValue::TimestampTz(value) => QueryParam::DateTime(value.clone()),
+        CellValue::TimeTz(value) => QueryParam::Time(value.clone()),
+        CellValue::Date(value) => QueryParam::DateTime(value.clone()),
+        CellValue::Time(value) => QueryParam::Time(value.clone()),
+        CellValue::Interval(value) => QueryParam::Interval(value.clone()),
+        CellValue::Inet(value) => QueryParam::Inet(value.clone()),
+        CellValue::Json(value) => QueryParam::Json(value.clone()),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::error::DbError;
 
     struct QuestionDialect;
     impl SqlDialect for QuestionDialect {

@@ -1,0 +1,3200 @@
+# Native Core Architecture — Verification
+
+Source checkpoint: `357ca2dc`.
+
+## Current change
+
+The native UI interaction boundary is being migrated in vertical slices.
+Explorer surface composition, connection nodes, database/schema trees,
+schema-object folders, table-folder/table-detail rendering, the Agent surface,
+large Settings sections, table surfaces and query execution preparation,
+Explain transitions, saved-query preparation and Schema Workbench mutation
+planning now collect typed intents/effects in feature-owned contexts. Agent
+confirmation planning now owns document targeting,
+patch application and continuation payload preparation outside the app root.
+Direct multiline channel bypasses are guarded.
+Runtime-bound request transitions now use a prepare → dispatch → commit shape:
+failed dispatches do not leave fake loading, pending, connecting, deleting or
+query-running state behind. This applies to connection/schema/table/query and
+mutation paths, including SQL prediction requests.
+Saved Tasks now follows the same surface boundary: `saved_tasks_surface_view.rs`
+owns egui rendering and emits typed actions, while `tasks_view.rs` keeps only
+draft persistence, scheduler policy, runtime dispatch and the root action
+adapter. Per-payload dispatch is split into focused SQL, backup, export and
+maintenance handlers.
+Workspace-files transitions now follow the same ownership rule: panel
+selection, root/environment/trust changes, directory expansion, search routing
+and external-change dismissal are reduced through `WorkspaceFilesState`.
+Search/replace/refactor inputs use a `WorkspaceSearchDraft` snapshot and a
+typed `UpdateDraft` intent instead of mutable field references from the root.
+Agent lifecycle state is now isolated from composition-root adapters in
+`agent_actions.rs`; every feature `*_state.rs` module is guarded against
+`DbProApp` dependencies. Dialog, query-document and editor runtime sends now
+cross `RuntimeCommandDispatcher`, with direct best-effort `TaskBridge` sends
+rejected by the architecture guard.
+Settings Data Grid, Connections, AI, Security, Advanced and Appearance panes
+now render through explicit settings contexts; `settings_view.rs` keeps
+navigation, persistence/runtime adapters and the remaining backup/diagnostics
+orchestration.
+Backup and Restore settings now render through `SettingsBackupContext` and
+return typed actions; request-id allocation and runtime command dispatch remain
+at the root adapter.
+The Welcome surface now renders through `WelcomeSurfaceContext`; it owns the
+responsive start page, connection rows and presentation intent collection,
+while `welcome_view.rs` only applies the typed root actions.
+Query destructive/export/save-as/dirty-close dialogs now render through
+explicit dialog contexts and return typed actions. The shell Output Panel now
+owns its panel layout and tab rendering through `ShellOutputPanelContext`;
+`DbProApp` retains only result selection, persistence and runtime adapters.
+The plan remains `IMPLEMENTING` because other large feature surfaces
+still implement rendering directly on the root and the full runtime evidence
+matrix is not complete.
+
+Result-grid inspector follow-up at source SHA `27639023`: the advanced Value
+Inspector window now renders through `result_grid_inspector_surface_view.rs`
+with a centered anchor, explicit value modes and typed CopyRaw, ExportBytes,
+Apply and Close actions. The full-record inspector now renders through
+`result_grid_record_surface_view.rs` with shared Button components and a typed
+Inspect action. `result_grid_edit.rs` retains only read-model preparation,
+editor-state mutation and effect adapters. The architecture guard explicitly
+tracks both surfaces.
+
+- Focused `cargo check -p db-pro-ui`: passed.
+- Focused `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed before the source commit.
+- Full workspace regression after the source and documentation commits passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+
+Result-grid and sidebar shell follow-up at source SHA `e6a56fdc`: inline
+boolean/text editing now renders through
+`result_grid_cell_editor_surface_view.rs` and returns typed Commit/Cancel
+actions. Sidebar panel geometry, clipping, chrome and resize hit-testing now
+render through `sidebar_surface_view.rs`; `sidebar_view.rs` retains activity
+selection and applies typed chrome/resize actions. The architecture guard
+tracks both new surfaces.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 16 checks, 0 warnings and 0 failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- Full workspace fmt/check/clippy/test gate at this SHA: passed; 404 core,
+  119 infrastructure, 32 runtime, 4 tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- The rebuilt release binary is running in terminal session `63219` for manual
+  verification.
+
+Shared-dialog follow-up at source SHA `7dec13d3`: all feature-level direct
+`egui::Window::new` calls were migrated to the common `Dialog` primitive,
+including monitoring, event triggers, FDW, PostgreSQL settings, replication,
+query save/dirty-close, schema workbench confirmation, security, table indexes,
+table structure, pending changes, row conflicts and the result-cell inspector.
+Each migrated surface now gets the shared centered card, dim backdrop,
+separated header, right-aligned close icon and typed footer/body actions.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 16 checks, 0 warnings and 0 failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `rg -n 'egui::Window::new' crates/ui/src -g '*.rs'`: no feature-level
+  direct Window construction remains; the implementation is centralized in
+  `components/dialog/modal.rs`.
+- The rebuilt release binary is running in terminal session `34197` for manual
+  verification.
+
+- Full workspace regression at source SHA `7dec13d3` passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- Follow-up guard at SHA `f2f58eb0`: `scripts/check-ui-architecture.sh` now
+  fails on any direct `egui::Window::new` in native UI code, preserving the
+  shared-dialog invariant in future changes.
+
+Result-pane shell follow-up at source SHA `de775cc8`: the result selector,
+row-count/export header, empty state and grid-frame presentation now live in
+`query_results_surface_view.rs`. `query_output_view.rs` keeps the output-tab
+router, typed action application and feature-specific export/destructive
+dialogs; the result-grid renderer remains injected as a callback. The old
+header-only `query_results_pane_view.rs` was removed so the shell has one
+presentation boundary instead of splitting the same surface across two files.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 15 checks, 1 pre-existing file-size warning and 0
+  failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 tests, 0 failed.
+- `git diff --check`: passed.
+
+### Safety policy boundary full release checkpoint at `357ca2dc`
+
+- Full workspace gate passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `80343`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Capability and agent workflow boundary checkpoint (pre-commit)
+
+- Provider capability construction now lives in `domain/capability_presets.rs`;
+  driver-specific limitation reasons live in `domain/capability_limitations.rs`.
+- `AgentToolError` formatting uses focused helpers and agent workflow tests now
+  live in `domain/agent_workflow/tests.rs`.
+- Focused `cargo test -p db-pro-core capabilities --quiet`: passed; 9 passed,
+  0 failed, 395 filtered out.
+- Focused `cargo test -p db-pro-core agent_workflow --quiet`: passed; 10 passed,
+  0 failed, 394 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
+### Schema diff comparator boundary checkpoint at `f3dc6e36`
+
+- `schema_diff_compare.rs` now owns qualified-name formatting, table/index set
+  differences, common-column comparison and typed mismatch lookup;
+  `SchemaService::diff_schemas` remains the introspection adapter.
+- Focused `cargo test -p db-pro-core schema_diff --quiet`: passed; 4 passed,
+  0 failed, 400 filtered out.
+- Full workspace gate passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `68194`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Monitoring snapshot boundary checkpoint at `f4c1599d`
+
+- `MonitoringService::snapshot` now delegates provider query collection,
+  fallback handling and `MonitoringSnapshot` assembly to
+  `application/monitoring_snapshot.rs`.
+- Focused `cargo test -p db-pro-core monitoring_service --quiet`: passed; 6
+  passed, 0 failed, 398 filtered out.
+- Full workspace gate passed on rerun:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. The first
+  workspace run had one transient diagram timing assertion
+  (`scene_prep_1000_1280x800`); the focused test and full rerun both passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `62196`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Database transfer plan boundary checkpoint at `48282681`
+
+- Conversion types, PG/SQLite mapping classification, endpoint capability
+  gates and row projection now live in `application/db_transfer_plan.rs`.
+  `db_transfer.rs` retains generator/target streaming adapters and re-exports
+  the existing planning API.
+- Focused `cargo test -p db-pro-core db_transfer --quiet`: passed; 9 passed,
+  0 failed, 395 filtered out.
+- Full workspace gate passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `58742`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Object mutation builder boundary checkpoint at `9db1fa80`
+
+- `ObjectMutationService::plan` now delegates definition/action-to-DDL
+  rendering to `application/object_mutation_builders.rs`; preview policy,
+  safety, effects and fingerprint assembly remain in the service facade.
+- Focused `cargo test -p db-pro-core object_mutation_service --quiet`: passed;
+  7 passed, 0 failed, 397 filtered out.
+- Full workspace gate passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `55383`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Export formatting boundary checkpoint at `6f861d3e`
+
+- `ExportService` now delegates CSV, JSON and XLSX encoding to
+  `application/export_formats.rs`; authorization and provider query execution
+  remain in the service boundary.
+- Focused `cargo test -p db-pro-core export_service --quiet`: passed; 11
+  passed, 0 failed, 393 filtered out.
+- Full workspace gate passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `52378`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Migration planner core checkpoint at `c3209277`
+
+- `MigrationPlanner::plan_from_schema_diff` now delegates to a
+  `MigrationPlanBuilder` with explicit create-table, source-column,
+  type-mismatch, index and target-removal phases. Public plan preview,
+  fingerprint and non-destructive SQL behavior remain unchanged.
+- `cargo fmt --all -- --check`: passed.
+- `cargo test -p db-pro-core migration_planner --quiet`: passed; 3 tests,
+  0 failed, 401 filtered out.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
+### Welcome workspace co-location checkpoint at `ae3515ac`
+
+- Welcome rendering and action application now live in `workspace_view.rs`,
+  alongside workspace-tab composition; the redundant `welcome_view.rs` root
+  facade was removed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check -p db-pro-ui`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 695 tests, 0 failed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The UI source topology contains 60 `impl DbProApp` declarations.
+
+### Workspace tab co-location checkpoint at `ba39ca58`
+
+- Workspace-tab rendering and typed action application now live in
+  `workspace_view.rs`; the redundant `workspace_tabs_view.rs` root facade was
+  removed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check -p db-pro-ui`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 695 tests, 0 failed.
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The UI source topology contains 59 `impl DbProApp` declarations.
+
+### Transitional Tauri startup error checkpoint at `18a9869b`
+
+- Tauri app-data lookup and shared runtime initialization now propagate errors
+  through setup; final Tauri run failures are logged with the original error
+  instead of panicking through `expect`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check -p db-pro-tauri`: passed.
+- `cargo clippy -p db-pro-tauri --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-infrastructure --quiet`: passed with no failures;
+  environment-gated tests remain ignored.
+- Full clean-code scan: no unwrap/expect findings outside test code; five
+  baseline warning groups remain for numeric casts, parameter counts, long
+  functions/files and clone count.
+- `git diff --check`: passed.
+
+### Monitoring activity adapter checkpoint at `be3962ef`
+
+- Monitoring rendering, polling, confirmation transitions and runtime
+  dispatch now use `MonitoringActivityContext`; the root applies only typed
+  `OpenQuery` effects and composes auxiliary activity contexts.
+- Failed maintenance dispatch preserves the confirmation state through the
+  monitoring regression test. The UI source topology contains 61
+  `impl DbProApp` declarations.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
+### Security activity adapter checkpoint at `277fe5fa`
+
+- Security role, membership, privilege and RLS activity rendering now uses
+  `SecurityActivityContext`; root composition retains only explicit context
+  construction, typed follow-up requests and cross-feature orchestration.
+- Failed password-update dispatch preserves the current draft, and RLS
+  pending execution is committed only after the runtime dispatcher accepts the
+  command. The focused regression and full UI suite passed.
+- The UI source topology contains 62 `impl DbProApp` declarations.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
+Activity navigation follow-up at source SHA `ecd3575c`: the activity rail now
+renders from an immutable `ActivityBarContext` and emits typed navigation
+intents for activity selection, Query, Diagram, Schema Compare, Schema
+Workbench, Settings and Agent. `app_lifecycle.rs` is the only place that
+applies those intents to `WorkspaceFeatureState`; the rail no longer mutates
+workspace navigation state while painting.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 16 checks, 0 warnings and 0 failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 678 tests, 0 failed.
+- `git diff --check`: passed.
+
+Shell/sidebar composition follow-up at source SHA `bb76bff4`: central-panel
+geometry moved to `shell_frame_view.rs` and is rendered through an immutable
+`ShellFrameContext`; `app_lifecycle.rs` now retains only shell sequencing and
+workspace composition. Queries and History sidebar section layout moved to
+`SidebarQueriesSurfaceContext`, which composes the existing open-query,
+saved-query, history and shortcut renderers and emits one typed action stream.
+The root no longer paints those section headers or coordinates their renderer
+calls directly.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 15 checks, 1 pre-existing `app.rs` size warning and 0
+  failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 678 tests, 0 failed.
+- `git diff --check`: passed.
+
+Table layout follow-up at source SHA `ebbd7a68`: table-data grid framing and
+metadata-pane scroll policy now live in `table_data_surface_view.rs` and
+`table_scroll_surface_view.rs`. `table_data_view.rs` and `table_view.rs` keep
+request, selection, mutation and typed action application, but no longer own
+the grid-frame or scroll-area geometry.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 15 checks, 1 pre-existing `app.rs` size warning and 0
+  failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 678 tests, 0 failed.
+- `git diff --check`: passed.
+
+Query shell layout follow-up at source SHA `9756af9e`: Visual Query Builder
+collapsing-panel framing and editor-stack allocation now live in
+`query_shell_surface_view.rs`. `query_view.rs` retains the editor/search
+contexts, query state preparation and effect adapters, but no longer owns
+those generic layout policies.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 15 checks, 1 pre-existing `app.rs` size warning and 0
+  failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 678 tests, 0 failed.
+- `git diff --check`: passed.
+
+Latest full regression at source SHA `6e28eea4`:
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 678 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- The rebuilt release binary is running in terminal session `31162` for
+  manual verification.
+
+Current release runtime captures at source SHA `6e28eea4`:
+
+- `/tmp/db-pro-native-core-6e28eea4-new-1280x800.png` — centered New
+  Connection modal at logical `1280x800`.
+- `/tmp/db-pro-native-core-6e28eea4-query-1280x800.png` — Query editor shell
+  at logical `1280x800`.
+- `/tmp/db-pro-native-core-6e28eea4-loading-1280x800.png` — loading state.
+- `/tmp/db-pro-native-core-6e28eea4-error-1280x800.png` — validation error
+  state inside the shared dialog.
+- `/tmp/db-pro-native-core-6e28eea4-new-1440x900.png` — New Connection at
+  requested `1440x900`; host framebuffer was `2880x1676` after title-bar
+  constraints.
+- The 1920x1080 exact acceptance viewport and a stable 1440 Query capture are
+  still unavailable on this host; the runtime matrix checklist stays open.
+
+Settings composition follow-up at source SHA `dde32725`: navigation, selected
+section composition, diagnostics card and settings renderer action collection
+now live in `settings_surface_view.rs`. `settings_view.rs` retains state
+hydration/synchronization and applies workspace-session, backup, keybinding,
+diagnostics and runtime effects after the typed action stream returns.
+
+- Focused UI check, clippy, architecture guard and clean-code scan: passed;
+  clean scan reported 15 checks, 1 pre-existing `app.rs` size warning and 0
+  failures.
+- `cargo test -p db-pro-ui --quiet`: passed; 678 tests, 0 failed.
+- `git diff --check`: passed.
+
+Runtime evidence from the release capture harness:
+
+- At the preceding UI source SHA `7dec13d3`,
+  `/tmp/db-pro-native-core-6e67350e-new-connection.png` documents the New
+  Connection modal at logical `1280x800`: centered card, dim backdrop,
+  separated header, right-aligned close icon, error-free empty form and sticky
+  footer. The matching `/tmp/db-pro-native-core-6e67350e-loading.png` and
+  `/tmp/db-pro-native-core-6e67350e-error.png` document loading and validation
+  error states at the same viewport; the error banner stays inside the shared
+  dialog and the modal remains centered.
+- At current source SHA `de775cc8`,
+  `/tmp/db-pro-native-core-de775cc8-new-1280x800.png` and
+  `/tmp/db-pro-native-core-de775cc8-query-1280x800.png` cover the New
+  Connection and Query editor shells at logical `1280x800`.
+- Additional release captures at the requested `1440x900` logical setting are
+  available as `/tmp/db-pro-native-core-de775cc8-new-1440x900.png` and
+  `/tmp/db-pro-native-core-de775cc8-query-1440x900.png`; the host produced
+  `2880x1676` framebuffer PNGs after title-bar constraints, and the centered
+  dialog/query shell rendered correctly.
+- The PNG framebuffer for the `1280x800` captures is `2560x1600` because the
+  host is Retina-scaled. These captures are temporary local evidence under
+  `/tmp`, not repository assets. The `1920x1080` run did not produce a stable
+  framebuffer on this host and remains a documented environment limitation;
+  the runtime matrix checklist therefore stays open rather than claiming
+  complete viewport coverage.
+
+The Query output dock now has an explicit `QueryOutputDockContext` for resize
+geometry and tab chrome. The root keeps only the pane callback because result,
+chart, message, explain and history panes dispatch query-specific effects.
+This also removes a duplicate output-tab render call that caused the tab strip
+to be painted twice.
+
+The shell topbar now has an explicit `ShellTopbarContext` that renders the
+connection/navigation/search chrome and emits typed intents. Palette, gallery,
+agent, theme and document-navigation effects remain in the root adapter.
+
+The shell statusbar now has an explicit `ShellStatusbarContext` for connection,
+runtime, editor and output-panel chrome. The root only prepares the read model
+and applies the output-panel toggle.
+
+The Agent thread now renders through an immutable
+`AgentThreadSurfaceContext` and emits typed submit, result, retry and
+confirmation actions. Agent panel shell geometry and context-chip presentation
+now use `AgentPanelSurfaceContext` and `AgentContextSurfaceContext`; Agent
+settings/header/composer runtime effects remain root adapters.
+
+The Security drop-role confirmation now renders through
+`SecurityConfirmationContext` and returns typed confirm/cancel actions. The
+root keeps only the PostgreSQL command dispatch and state transition.
+
+Monitoring presentation now renders through `MonitoringSurfaceContext`, which
+owns the header, error/empty states, health snapshot, sessions and workload
+presentation. It emits typed refresh, session and workload actions; polling,
+snapshot dispatch and auxiliary monitoring surfaces remain at the root effect
+adapter.
+
+Result-grid viewport composition now renders through
+`ResultGridBodyContext`. The surface owns viewport sizing, horizontal/vertical
+scrolling and virtualized row iteration behind a renderer contract; header
+actions, row selection/editing and mutation effects remain in the root adapter.
+
+Security composition now renders through `SecuritySurfaceContext`, which owns
+the PostgreSQL gating notice, error state and the roles/details/confirmation/RLS
+surface order. It emits one typed action stream while request IDs, command
+dispatch and provider mutations remain in `security_activity_view.rs`.
+
+Query panel geometry now renders through `query_layout_surface_view::calculate`.
+The pure layout context owns dock/editor height policy, including minimized and
+maximized states, while `query_view.rs` only composes the returned layout with
+the editor and output surfaces.
+
+Audit activity presentation now renders through `AuditSurfaceContext`, which
+owns the filters, page/error/empty presentation and event cards. It emits typed
+refresh, export, selection, bookmark and open-query actions; audit command
+dispatch and cross-feature navigation remain at the root adapter.
+
+Event Trigger presentation now renders through `EventTriggerSurfaceContext`,
+which owns inventory cards, create form, DDL preview and drop confirmation.
+It emits typed refresh, preview, alter, create and drop actions; command
+builders and provider dispatch remain at the root adapter.
+
+FDW presentation now renders through `FdwSurfaceContext`, which owns inventory
+cards, redacted options, create form, DDL preview and drop confirmation. It
+emits typed refresh, preview, create and drop actions; FDW command builders and
+provider dispatch remain at the root adapter.
+
+Logical Replication presentation now renders through
+`ReplicationSurfaceContext`, which owns inventory cards, redacted subscription
+details, publication creation, DDL preview and drop confirmations. It emits
+typed refresh, preview, create and drop actions; replication command builders
+and provider dispatch remain at the root adapter.
+
+PostgreSQL settings presentation now renders through
+`PgSettingsSurfaceContext`, which owns filtering, setting cards, session-edit
+dialog and preview dialog. It emits typed refresh, edit, reset, apply and
+preview actions; setting validation, command builders and provider dispatch
+remain at the root adapter.
+
+Workspace-files shell presentation now renders through `FilesSurfaceContext`,
+which owns the workspace header, empty/recent state, root selector, trust and
+environment controls, and panel-tab selector. It emits typed folder, root,
+trust, environment, close and tab actions; filesystem operations, feedback,
+folder-picker orchestration and tab feature effects remain at the root adapter.
+
+Query actions menu presentation now renders through
+`QueryActionsSurfaceContext`, which owns the anchored menu, run/save/explain
+entries, editor controls, prediction disclosure/modes, snippets and folder
+input. It emits typed actions; query dispatch, prediction scheduling,
+filesystem/runtime effects and cross-feature Agent navigation remain at the
+root adapter.
+
+Visual Query Builder presentation now renders through
+`VisualQueryBuilderContext`, which owns the SELECT form, table/view picker,
+joins, columns, predicates, ordering, limits and generated SQL preview. It
+receives explicit builder state/schema/dialect inputs and emits only
+apply/import/clear intents; editor document changes and feedback remain at the
+root adapter.
+
+Workspace Migrations and Graph tabs now render through the explicit secondary
+tab helpers with `OpenFile` intents. The root adapter remains responsible for
+opening the selected SQL document; the tab renderers no longer implement
+`DbProApp` methods.
+
+Table structure presentation now renders through `TableStructureContext`,
+which owns metrics, column filtering, the columns table, cell-level display
+and the centered column-detail dialog. It emits only typed column-selection and
+close actions; `table_structure_view.rs` remains a small root adapter that
+owns the table snapshot, search state and selected-column navigation.
+
+Query snippets now render through `QuerySnippetsContext` and emit an insertion
+intent; document mutation and panel state remain at the query root adapter.
+The unused legacy inline completion and diagnostics renderers were removed,
+along with their dead completion state field.
+
+Table Profile now renders through `table_profile_surface_view.rs`, which owns
+bounded page profiling, empty states and the profile grid. The table root only
+routes the result snapshot. Table-structure loading/error placeholder rendering
+also lives in `TableStructureContext`'s surface module rather than in the
+workspace router.
+
+Backup Settings now renders its complete database-files card through
+`SettingsBackupContext`, including provider capability messaging and backup
+tool hints. The root supplies the driver/capability read model and applies the
+typed backup/restore command actions.
+
+Saved-query delete confirmation now renders through
+`SidebarQueryLibraryContext` and emits typed confirm/cancel actions. The root
+retains only delete-command dispatch and overlay-state ownership.
+
+Table indexes now render through `TableIndexesContext`, which owns filtering,
+the metadata table, empty/loading states and the centered index-detail dialog.
+The root adapter owns only the table-info snapshot, search/detail state and
+typed select/close transitions.
+
+Schema-object Definition now renders through `SchemaDefinitionContext`; the
+schema-object root only routes the selected object, data view and routine
+effects.
+
+Saved-task destructive-run confirmation now renders inside
+`SavedTasksSurfaceContext`. The sidebar no longer paints task-specific
+checkbox/button controls; it only composes the task activity while the root
+keeps task policy and execution effects.
+
+## Gate evidence at `54fbc77b`
+
+- Focused `cargo fmt --all`, `cargo check -p db-pro-ui` and
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 UI tests passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `81108` for manual verification. Full workspace/provider/runtime evidence
+  remains bounded by the `fa952484` workspace gate.
+
+## Gate evidence at `5c15f3f8`
+
+- Focused `cargo fmt --all`, `cargo check -p db-pro-ui` and
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 UI tests passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `27899` for manual verification. Full workspace/provider/runtime evidence
+  remains bounded by the `fa952484` workspace gate.
+
+## Gate evidence at `ab4b1254`
+
+- Focused `cargo fmt --all`, `cargo check -p db-pro-ui` and
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 UI tests passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `79416` for manual verification. Full workspace/provider/runtime evidence
+  remains bounded by the `fa952484` workspace gate.
+
+## Gate evidence at `a7d35fcb`
+
+- Focused `cargo fmt --all`, `cargo check -p db-pro-ui` and
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 UI tests passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `25821` for manual verification. Full workspace/provider/runtime evidence
+  remains bounded by the `fa952484` workspace gate and is not a claim that
+  every native surface has been manually traversed.
+
+## Gate evidence at `532de109`
+
+- Focused `cargo fmt --all`, `cargo check -p db-pro-ui` and
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: passed.
+- `cargo test -p db-pro-ui --quiet`: passed; 677 UI tests passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `81089` for manual verification. The full workspace gate remains recorded at
+  the immediately preceding checkpoint `fa952484`; provider/runtime state and
+  the full affected-surface matrix remain unproven.
+
+## Gate evidence at `fa952484`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `32807` for manual verification. The previously inspected New Connection
+  captures at 1280x800, 1440x900 and 1920x1080 remain valid for the unchanged
+  modal surface; provider/runtime state and the full affected-surface matrix
+  remain unproven.
+
+## Gate evidence at `1b5a6859`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- Runtime captures inspected at logical `1280x800`, `1440x900` and `1920x1080`:
+  `/tmp/db-pro-native-core-1b5a6859.png`,
+  `/tmp/db-pro-native-core-1b5a6859-1440x900.png` and
+  `/tmp/db-pro-native-core-1b5a6859-1920x1080.png`. New Connection remains
+  centered with a separated header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `82559` for manual verification. Provider/runtime state and the full
+  affected-surface matrix remain unproven.
+
+## Gate evidence at `bfa6d0df`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; source worktree was clean before this docs
+  checkpoint was recorded.
+- Runtime capture: `/tmp/db-pro-native-core-bfa6d0df.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `54226` for manual verification. Workspace secondary-tab provider/runtime
+  state and the full affected-surface matrix remain unproven.
+
+## Gate evidence at `e91385f8`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; source worktree was clean before this docs
+  checkpoint was recorded.
+- Runtime capture: `/tmp/db-pro-native-core-e91385f8.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `20599` for manual verification. Visual-builder provider/runtime state and
+  the full affected-surface matrix remain unproven.
+
+## Gate evidence at `facc2ae0`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- Query-specific `cargo test -p db-pro-ui query_view_tests --no-fail-fast
+  --quiet`: passed; 8 tests passed.
+- `git diff --check`: passed; source worktree was clean before this docs
+  checkpoint was recorded.
+- Runtime capture: `/tmp/db-pro-native-core-facc2ae0.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `20419` for manual verification. Query provider/runtime state and the full
+  affected-surface matrix remain unproven.
+
+## Gate evidence at `a9134f4b`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; source worktree was clean before this docs
+  checkpoint was recorded.
+- Runtime capture: `/tmp/db-pro-native-core-a9134f4b.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `53325` for manual verification. Workspace-files provider/runtime state and
+  the full affected-surface matrix remain unproven.
+
+## Gate evidence at `c25886b3`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; source worktree was clean before this docs
+  checkpoint was recorded.
+- Runtime capture: `/tmp/db-pro-native-core-c25886b3.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `26614` for manual verification. pg_settings provider-state and the full
+  runtime matrix remain unproven.
+
+## Gate evidence at `e984bd73`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed for the source checkpoint; documentation changes
+  are recorded after the code commit.
+- Runtime capture: `/tmp/db-pro-native-core-e984bd73.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `59914` for manual verification. Replication provider-state and the full
+  runtime matrix remain unproven.
+
+## Gate evidence at `8d5c1c7c`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- Runtime capture: `/tmp/db-pro-native-core-8d5c1c7c.png`, logical `1280x800`.
+  The inspected New Connection surface remained centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary ran in terminal session `78453`.
+  FDW provider-state and the full runtime matrix remained unproven.
+
+## Gate evidence at `4c0ba2a4`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime capture: `/tmp/db-pro-native-core-4c0ba2a4.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `50413` for manual verification. Event Trigger provider-state and the full
+  runtime matrix remain unproven.
+
+## Gate evidence at `ba0d3570`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime capture: `/tmp/db-pro-native-core-ba0d3570.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `23025` for manual verification. Audit provider-state and the full runtime
+  matrix remain unproven.
+
+## Gate evidence at `e2694c0f`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 677 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime capture: `/tmp/db-pro-native-core-e2694c0f.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `5934` for manual verification. Query provider-state and the full runtime
+  matrix remain unproven.
+
+## Gate evidence at `41994db6`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; `main` was clean and aligned with `origin/main`
+  at the source checkpoint before this documentation commit.
+- Runtime capture: `/tmp/db-pro-native-core-41994db6.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `13484` for manual verification. No dedicated Security provider-state
+  capture was collected; the runtime matrix remains incomplete.
+
+## Gate evidence at `cc459b8d`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; `main` was clean and aligned with `origin/main`
+  at the source checkpoint before this documentation commit.
+- Runtime capture: `/tmp/db-pro-native-core-cc459b8d.png`, logical `1280x800`.
+  The inspected New Connection surface remains centered with a separated
+  header/divider and right-aligned close control.
+- Runtime launch: the rebuilt release binary is running in terminal session
+  `38636` for manual verification. No dedicated result-grid provider-state
+  capture was collected; the runtime matrix remains incomplete.
+
+## Gate evidence at `46a9920b`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed, 0 warnings and 0 failures.
+- `git diff --check`: passed; `main` is aligned with `origin/main` at the
+  source checkpoint before this documentation commit.
+- Runtime launch: the rebuilt release binary from this checkpoint is running
+  in terminal session `97544`. No dedicated monitoring provider-state capture
+  was collected; the runtime matrix remains incomplete.
+
+## Gate evidence at `bac3bbe7`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the clean post-commit tree; 16 checks passed, 0 warnings and 0
+  failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime launch: the latest release binary is running in terminal session
+  `50398`. No dedicated Security interaction capture was collected; the
+  runtime matrix remains incomplete.
+
+## Gate evidence at `3cd32bf2`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the exact pre-commit source tree; 16 checks passed, 0 warnings and
+  0 failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime launch: the latest release binary is running in terminal session
+  `64169`. No dedicated Agent interaction capture was collected; the runtime
+  matrix remains incomplete.
+
+## Gate evidence at `e0d8105e`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the clean post-commit tree; 16 checks passed, 0 warnings and 0
+  failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime launch: the latest release binary is running in terminal session
+  `78351` for manual verification. No dedicated statusbar interaction capture
+  was collected; the runtime matrix remains incomplete.
+- Runtime viewport evidence was collected and visually inspected for the
+  native Welcome/shell surface:
+  - `/tmp/db-pro-native-core-e0d8105e-1280x800.png` — exact logical
+    `1280x800` (framebuffer `2560x1600`).
+  - `/tmp/db-pro-native-core-e0d8105e-1440x900.png` — requested width honored;
+    host-constrained logical height was `838` (framebuffer `2880x1676`).
+  - `/tmp/db-pro-native-core-e0d8105e-1920x1080.png` — requested width honored;
+    host-constrained logical height was `838` (framebuffer `3840x1676`).
+  The latter two are useful responsive checks but do not close the exact
+  `1440x900` / `1920x1080` acceptance requirement.
+
+## Gate evidence at `d0952762`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check -p db-pro-ui`: passed.
+- `cargo test -p db-pro-ui --no-fail-fast --quiet`: passed; 675 UI tests.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the exact pre-commit tree; 14 checks passed, 2 inherited function
+  size warnings and 0 failures.
+- `git diff --check`: passed before commit.
+- Release rebuild after the commit: both normal and `capture` native builds
+  passed. The rebuilt binary is running in terminal session `99120` for manual
+  verification. No dedicated topbar interaction capture was collected.
+
+## Gate evidence at `ebaed39c`
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 675 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the clean post-commit tree; 16 checks passed, 0 warnings and 0
+  failures.
+- `git diff --check`: passed; worktree clean and `main` is aligned with
+  `origin/main`.
+- Runtime launch: the release binary built from this checkpoint is running in
+  terminal session `31444` for manual verification. A dedicated interaction
+  capture for the Query output dock is still pending; launch evidence alone
+  does not satisfy the full runtime surface matrix.
+
+## Gate evidence at `b0b3d095`
+
+- `cargo check --workspace`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 672 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed on the
+  exact pre-commit source tree.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the exact pre-commit source tree; 14 checks passed, 2 inherited
+  `shell_chrome_view.rs` function-size warnings and 1 pre-existing `app.rs`
+  size warning were retained by the ratchet, and 0 checks failed.
+- `git diff --check`: passed before commit.
+- Runtime launch: the latest release binary built from this checkpoint is
+  running in terminal session `19628` for manual verification. No dedicated
+  Output Panel/dialog interaction capture was collected in this checkpoint.
+
+## Gate evidence at `a919e870`
+
+- `cargo check --workspace`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 669 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed on the
+  exact pre-commit source tree.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the exact pre-commit source tree; 15 checks passed, 1 pre-existing
+  `app.rs` size warning was retained by the ratchet, and 0 checks failed.
+- `git diff --check`: passed before commit.
+- Runtime launch: the latest release binary built from this checkpoint is
+  running in terminal session `90661` for manual verification. No dedicated
+  Welcome interaction capture was collected in this checkpoint.
+
+## Gate evidence at `5cd134db`
+
+- `cargo check --workspace`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 668 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed on the
+  exact pre-commit source tree.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the exact pre-commit source tree; 15 checks passed, 1 pre-existing
+  `app.rs` size warning was retained by the ratchet, and 0 checks failed.
+- `git diff --check`: passed before commit.
+- Runtime launch: the latest release binary built from this checkpoint is
+  running in terminal session `97958` for manual verification. No dedicated
+  Settings interaction capture was collected in this checkpoint.
+
+## Gate evidence at `7cffc59c`
+
+- `cargo check --workspace`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 668 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on each exact pre-commit source tree for the Settings slices; 15
+  checks passed, 1 pre-existing `app.rs` size warning was retained by the
+  ratchet, and 0 checks failed.
+- `git diff --check`: passed before each commit.
+- Runtime launch: the latest release binary built from this checkpoint is
+  running in terminal session `38792` for manual verification. No dedicated
+  Settings interaction capture was collected in this checkpoint.
+
+## Gate evidence at `56973275`
+
+- `cargo check --workspace`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri and 667 UI tests passed, with only
+  environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed on the exact pre-commit source tree; 15 checks passed, 1 pre-existing
+  `app.rs` size warning was retained by the ratchet, and 0 checks failed.
+- `git diff --check`: passed before commit.
+- Runtime launch: the release binary built from this checkpoint is running in
+  terminal session `43954` for manual verification. No deterministic Saved
+  Tasks interaction capture was collected in this checkpoint.
+
+## Gate evidence at `f1df8f36`
+
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri, 664 UI and all other workspace suites
+  passed, with only environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed with 0 warnings and 0 failures (the working tree
+  was clean after commit, so the scanner reported 0 changed production files).
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-f1df8f36-welcome.png`, logical
+  `1280x800` (PNG framebuffer `2560x1600` on the 2x host), was visually
+  inspected. It shows the native Welcome/Explorer empty state with the New
+  connection entry point. The rebuilt release binary is running in terminal
+  session `50716` for manual verification. Explorer table/schema-object runtime
+  capture remains pending because deterministic capture has no live schema
+  provider.
+
+## Gate evidence at `7a401686`
+
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri, 664 UI and all other workspace suites
+  passed, with only environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 14 checks passed, with the existing 9 function-size and `app.rs`
+  size warnings retained by ratchet and 0 failures.
+- `git diff --check`: passed before commit.
+- Runtime capture: `/tmp/db-pro-native-core-7a401686-welcome.png`, logical
+  `1280x800` (PNG framebuffer `2560x1600` on the 2x host), was visually
+  inspected. It shows the native Welcome/Explorer empty state with the New
+  connection entry point. The rebuilt release binary is running in terminal
+  session `68483` for manual verification. Explorer table/schema-object runtime
+  capture remains pending because deterministic capture has no live schema
+  provider.
+
+## Gate evidence at `bad96b53`
+
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri, 660 UI and all other workspace suites
+  passed, with only environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed with 0 warnings for this committed diff.
+- Runtime capture: `/tmp/db-pro-native-core-bad96b53-welcome.png`, logical
+  `1280x800`, was visually inspected. It shows the normal native Welcome
+  surface with Explorer empty state and the New connection entry point. The
+  latest release binary from this checkpoint is running in terminal session
+  `37627` for manual verification. Explorer table/schema-object runtime capture
+  remains pending because deterministic capture has no live schema provider.
+
+## Gate evidence at `257b7bde`
+
+- The full workspace gate was run on the source tree committed as `257b7bde`
+  immediately before commit: formatting, workspace check, clippy with
+  `-D warnings`, workspace tests, both native release builds, architecture
+  boundary, clean-code scan and `git diff --check` all passed.
+- Workspace tests included 404 core, 119 infrastructure, 32 runtime, 4 Tauri,
+  660 UI and all other workspace suites, with only environment-gated tests
+  ignored. Clean-code scan reported 15 passes, 1 pre-existing `app.rs` size
+  warning and 0 failures.
+- Runtime capture `/tmp/db-pro-native-core-257b7bde-welcome.png`, logical
+  `1280x800`, was visually inspected. The latest release binary is running in
+  terminal session `47176` for manual verification. Explorer table/schema-object
+  runtime capture remains pending because deterministic capture has no live
+  schema provider.
+
+## Gate evidence at `b0debd01`
+
+- The full workspace gate was run on the source tree committed as `b0debd01`
+  immediately before commit: formatting, workspace check, clippy with
+  `-D warnings`, workspace tests, both native release builds, architecture
+  boundary, clean-code scan and `git diff --check` all passed.
+- Workspace tests included 404 core, 119 infrastructure, 32 runtime, 4 Tauri,
+  660 UI and all other workspace suites, with only environment-gated tests
+  ignored. Clean-code scan reported 15 passes, 1 pre-existing `app.rs` size
+  warning and 0 failures.
+- Runtime capture `/tmp/db-pro-native-core-b0debd01-welcome.png`, logical
+  `1280x800`, was visually inspected. The latest release binary is running in
+  terminal session `38176` for manual verification. Explorer table/schema-object
+  runtime capture remains pending because deterministic capture has no live
+  schema provider.
+
+## Gate evidence at `6bbd6b62`
+
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 Tauri, 654 UI and all other workspace suites
+  passed, with only environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `cargo fmt --all -- --check`: passed on the checkpoint.
+- `cargo check --workspace`: passed on the checkpoint.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed on the checkpoint.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed; 16 checks passed with 0 warnings for this committed diff.
+- Runtime capture: `/tmp/db-pro-native-core-ddefb967.png`, 1280×800, showed
+  the centered New Connection dialog with separated header, divider and
+  right-aligned close icon. The latest release binary was then left running
+  for manual verification as PID `10200`. That evidence predates this
+  checkpoint; no new screenshot was collected for `6bbd6b62`.
+
+- `6bbd6b62`: Agent confirmation preparation now returns a typed
+  `PreparedAgentConfirmation` from `agent_confirmation.rs`; `DbProApp` keeps
+  only pending-session lookup, UX error feedback and runtime dispatch. Focused
+  Agent tests and the full workspace gate passed. The freshly rebuilt release
+  binary was running for manual verification in terminal session `94688`.
+
+- `cac0b77e`: Agent query-result opening now uses an explicit
+  `AgentResultWorkspaceContext`; query-document result replacement, output-tab
+  selection, grid invalidation and feedback are no longer implemented in the
+  root Agent adapter. The complete workspace gate passed again, and the latest
+  release binary is running for manual verification in terminal session
+  `93643`.
+
+- `d7dda78f`: Schema activation now uses `SchemaActivationContext`; staged
+  change blocking, schema/table/object selection reset, table workspace reset,
+  navigation-cache invalidation and Welcome activation are owned by the schema
+  feature context. The full workspace gate passed again with 655 UI tests, and
+  the latest release binary is running for manual verification in terminal
+  session `84390`.
+
+- `1d1d92ab`: Explorer connection connect/disconnect transitions now use an
+  explicit `ExplorerConnectionContext`. Transaction/staged-change guards,
+  connection-scoped schema/table/Agent resets and lifecycle request state are
+  feature-owned; `DbProApp` retains only request allocation and command
+  dispatch. The complete workspace gate passed with 657 UI tests, and the
+  latest release binary is running for manual verification in terminal session
+  `18507`.
+
+- `b6949238`: Table selection now uses `TableSelectionContext`; staged-change
+  blocking, layout persistence/restore, selected table/object reset, table-view
+  activation and recent-table state are feature-owned. The root retains only
+  query text generation and metadata/data request dispatch. The complete
+  workspace gate passed with 659 UI tests, and the latest release binary is
+  running for manual verification in terminal session `47888`.
+
+- `00a23cec`: Schema-object activation now uses `SchemaObjectActivationContext`
+  with a typed `SchemaObjectActivation` request; table reset, DDL surface
+  selection, routine preview cleanup/sync and feedback stay outside the root
+  adapter. The complete workspace gate passed with 660 UI tests, and the
+  latest release binary is running for manual verification in terminal session
+  `12401`.
+
+- `5f6e7870`: Table detail folders (Columns, Foreign keys and Indexes) now
+  render through the presentation-only `TableDetailsView`; these folders no
+  longer implement methods on `DbProApp`. The complete workspace gate passed
+  with 660 UI tests, and the latest release binary is running for manual
+  verification in terminal session `88237`.
+
+- Runtime capture from the `5f6e7870` release binary at logical `1280x800` was
+  visually inspected:
+  - `/tmp/db-pro-native-core-5f6e7870-new-connection.png`: centered modal,
+    separated header, right-aligned close and visible sticky footer.
+  - `/tmp/db-pro-native-core-5f6e7870-connection-error.png`: error alert is
+    visible, the form body remains scrollable and the footer remains visible.
+  The PNG framebuffer is `2560x1600` because the host uses a 2x display scale.
+  Explorer table/schema-object runtime capture is still pending.
+
+- `fc3cebf2`: Views, Functions and Triggers folders now render through the
+  explicit `SchemaObjectFoldersView` and emit typed open/query/copy actions;
+  the root only applies those effects. The complete workspace gate passed with
+  660 UI tests, and the latest release binary is running for manual
+  verification in terminal session `25513`.
+
+- `bad96b53`: schema-scoped tables, table details and Views/Functions/Triggers
+  folder rendering now run through `ExplorerSchemaObjectsView` with an explicit
+  `ExplorerSchemaObjectsModel`; table selection, table-row actions and schema
+  object actions are returned as typed intents. The complete workspace gate
+  passed with 660 UI tests, and the rebuilt release binary is running in
+  terminal session `37627`.
+
+- `4c5b9864`: connected database/schema tree rendering now runs through
+  `ExplorerSchemaTreeView`; the root assembles its read model and applies only
+  refresh, schema-activation and schema-object intents. This is a docs-only
+  follow-up to the fully gated code commit `bad96b53`; the rebuilt release
+  binary is running in terminal session `47176`.
+
+- `257b7bde`: the connection row, connecting/failed/disconnected hints and
+  connected schema-tree composition now run through
+  `ExplorerConnectionNodeView`; the root applies only typed connection and
+  schema-tree actions. The full workspace gate passed on this exact source
+  tree, and the release binary is running in terminal session `47176`.
+
+- `b0debd01`: the Explorer toolbar, empty state, scroll container and
+  connection-node composition now run through `ExplorerSurfaceContext`; the
+  root only assembles the read model and applies typed surface actions. The
+  full workspace gate passed on this exact source tree, and the release binary
+  is running in terminal session `38176`.
+
+- `f5fc419d`: table/query surface contexts were extracted; query execution
+  preparation now owns destructive gating, parameter binding, query history and
+  document-running transitions, while `DbProApp` remains the command-send
+  boundary. Workspace tests report 647 UI tests passed.
+
+- `ef33bb1c`: Explain capability validation, ANALYZE confirmation and
+  document/output transitions moved into `QueryExplainContext`; the root now
+  only resolves the connection/capability inputs, allocates the request ID and
+  dispatches the prepared command. Workspace tests report 649 UI tests passed.
+
+- `2b711995`: saved-query payload preparation and request tracking moved into
+  `QuerySaveContext`; workspace-backed filesystem saves remain at the filesystem
+  boundary. Workspace tests report 651 UI tests passed.
+
+- `cae4a9c2`: closing a Table workspace now delegates to the canonical table
+  reset transition, preventing filters, sorts, row caches and mutation dialogs
+  from leaking into the next table session.
+
+- `1d8647dc`: Schema Workbench mutation-request planning moved into
+  `SchemaWorkbenchState`; the root now only resolves driver/orchestration. The
+  workspace gate reports 654 UI tests passed. Clean scan retains one existing
+  large `app.rs` warning and one ownership-conversion clone heuristic in the
+  new planner.
+
+- `d687de8e`: Agent API-key and Saved Task backup dispatches now use the central
+  `dispatch_command` adapter. The architecture guard was strengthened to catch
+  multiline direct `TaskBridge::send` calls. Workspace tests report 654 UI tests
+  passed.
+
+- `bdf2e363`: Explorer schema changes, disconnects and schema-object activation
+  now use the canonical table workspace reset, clearing stale metadata, query
+  filters/sorts, caches and mutation dialogs together. Workspace tests report
+  654 UI tests passed.
+
+- `40e875fe`: Agent workflow reducer, SQL patch safety and Agent-result
+  projection moved out of the root state module.
+- `90b72fae`: Agent run preparation became an explicit state transition and
+  unused legacy conversation state was removed.
+- `8720c788`: Agent API-key settings now emit typed intents; command dispatch
+  remains in the composition-root adapter.
+- `40666229`: Agent header mode/clear/close/settings interactions now emit
+  typed intents; session reset is owned by `AgentState`.
+- `68fcb73a`: Agent confirmation target selection, patch application and
+  pending-to-running continuation are feature-owned.
+- `15321ca5`: Agent context quick actions now emit typed submit intents.
+- `bcc9aa2e`: clippy-driven `AgentRunPreparation` DTO and settings condition
+  cleanup; full workspace gates were rerun on this source state.
+- `2a31d9d1`: Keybindings settings rendering/edit/reset now lives in a
+  state-owned context and emits a reset intent.
+- `350d0e8b`: Diagnostics settings rendering emits copy/export intents while
+  serialization and filesystem I/O remain in the root adapter.
+- `3f8a5fe1`: General settings and named-workspace-session controls emit
+  typed save/restore/duplicate/delete intents.
+- `ddefb967`: Editor settings rendering now consumes Preferences and Query
+  feature state directly; full workspace gates and release/runtime evidence
+  were rerun on this source state.
+
+- `761db9ed`: connection-row painting and context menu now return a typed
+  `ConnectionRowAction`; lifecycle/workspace/clipboard/dialog effects remain
+  in the root reducer adapter.
+- `0d290db7`: table rows now return typed `TableRowAction` intents, while SQL
+  preview generation and table workspace transitions stay in the reducer.
+- `e9405d82`: schema-node expansion and schema activation intent are isolated
+  from staged-change/workspace reset logic.
+- `a02b8f4e`: connected database-node expansion is isolated in its own view
+  context.
+- `242b918a`: View/Function/Trigger rows share a typed schema-object row
+  context for open/query/copy intents; schema-object activation remains in the
+  root adapter.
+
+- Connection dialog state aggregate added under `crates/ui/src/connection/state.rs`.
+- Connection dialog view, form, advanced panels, events and workspace actions
+  now address the aggregate instead of individual `DbProApp` fields.
+- Connection lifecycle state now owns active/pending/error/request state.
+- `ConnectionCatalogState` now owns the saved-connection read model and its
+  replacement/lookup operations.
+- `WorkspaceShellState` now owns shell navigation, panel visibility/geometry,
+  welcome lifecycle and pending navigation state; panel resize values are
+  clamped through state setters.
+- `QuerySessionState` now owns query documents, active selection, selected text,
+  save/close request tracking and Save As lifecycle.
+- Query-document lifecycle transitions now run through an explicit
+  `QueryDocumentContext`; opening, duplication, closing and fallback-tab
+  behavior receive their feature aggregates directly, while query execution
+  remains a composition-root command decision.
+- Query-document switching now uses the same context, so active cursor and
+  selected-text synchronization is kept beside the document transition.
+- Active query text edits, document connection/schema binding and prediction
+  cancellation now use the same context; the root retains only cross-aggregate
+  result-grid invalidation and command-level orchestration.
+- Query connection/schema/capability resolution now uses a read-only
+  `QueryConnectionContext` over the query session, connection catalog/lifecycle
+  and schema explorer instead of embedding the lookup algorithm in the root.
+- Table-editor value generation and typed parsing now live in the pure
+  `table_editor_values.rs` module; UUID, numeric/decimal, JSON, temporal and
+  binary validation no longer depends on `DbProApp`.
+- Table mutation capability checks, staged-value lookup/revert and discard
+  transitions now use `TableMutationContext`; the root keeps only reload and
+  runtime-command orchestration.
+- Staged-change transaction planning and retry-target filtering now live in
+  `TableMutationState::build_apply_plan`; `apply_staged_changes` only performs
+  boundary validation, command dispatch and request lifecycle updates.
+- Primary-key row-reload filter construction now lives in
+  `TableMutationState::row_reload_filters`, with composite-key metadata
+  coverage in the state tests.
+- Insert and duplicate-row mapping now live in pure functions in
+  `table_editor_values.rs`; identity/generated-column handling, required-field
+  validation and typed parsing are covered by focused tests.
+- Synthetic-data plan construction now lives in `synthetic_data.rs`; table
+  lookup, numeric input validation, inferred generators and bounded FK seed
+  pools are covered by focused tests. The native capture adapter also rejects
+  framebuffer dimensions that cannot be represented by PNG dimensions instead
+  of truncating them.
+- Masking preview construction now lives in `masking.rs`; requested-column
+  parsing, stable fallback headers, sample rows and mask-rule output are covered
+  by focused tests.
+- PostgreSQL RLS/table-policy preview planning now lives in `security_rls.rs`
+  with a shared quote dialect and explicit request structs; missing identity,
+  role parsing and generated SQL are covered by focused tests.
+- Schema compare keyed data-diff request validation and effect construction now
+  live in `SchemaCompareState`; tests cover required target/table/key fields and
+  normalized schema/key payloads.
+- `456dc9c7`: Schema Compare rendering now consumes `SchemaCompareViewContext` and returns
+  explicit `SchemaCompareAction` intents; the view no longer implements methods
+  on `DbProApp`, and the architecture guard freezes that boundary.
+- `43a43503`: Query search rendering now consumes `QuerySearchContext`; overlay
+  close, match navigation and selection updates stay inside the query feature
+  context, with no `DbProApp` dependency in the search module.
+- `fe7c554f`: Query output tab chrome now consumes `QueryOutputTabsContext`;
+  document-specific tab selection and dock controls are isolated in a guarded
+  module without `DbProApp`.
+- `9fab05c8`: Query chart and message panes now consume
+  `QueryOutputPanesContext`; chart configuration and message presentation no
+  longer depend on the composition root.
+- `5d42d5e9`: Query explain/history panes now consume
+  `QueryOutputActionsContext` and return explicit actions; only the root
+  applies runtime/document orchestration.
+- Monitoring state and snapshot/workload/session-control command planning now
+  live in `monitoring_state.rs`; tests cover bounded workload requests and
+  explicit confirmation flags for destructive commands.
+- The architecture guard now freezes `monitoring_state.rs` as an explicit-state
+  module that may not depend on the composition-root type.
+- Audit filter construction and selected/bookmarked export planning now live in
+  `audit_state.rs`; tests cover bounded load effects and export preconditions.
+- The architecture guard now freezes `audit_state.rs` as an explicit-state
+  module that may not depend on the composition-root type.
+- The former `database_feature_states.rs` catch-all was removed; each remaining
+  database-management aggregate now has an explicit state module and the guard
+  checks those modules for composition-root dependencies.
+- PostgreSQL settings, FDW, logical replication and event-trigger command
+  payload construction now lives in the owning state modules; focused FDW
+  coverage checks copied form values and explicit confirmation.
+- Security role, membership, privilege and RLS-inspection command construction
+  now lives in `SecurityState`; focused coverage checks the RLS boundary's
+  required schema/table invariant.
+- RLS preview application now also builds its `ExecuteDdl` effect in
+  `SecurityState`, with coverage proving empty preview SQL cannot dispatch.
+- Saved-query and query-folder refresh effects now build in `QueryLibraryState`,
+  with focused coverage for both command identities.
+- Table metadata and DDL effects now build in `TableState`; table-data request
+  effects build in `TableDataQueryState`, keeping paging/filter/sort and row
+  reload lifecycle out of metadata state. Focused coverage verifies empty DDL
+  is rejected at the state boundary.
+- Migration apply and schema-workbench DDL effects now build in their owning
+  aggregates; focused coverage verifies both apply paths reject missing plans.
+- Query-folder creation and saved-query save/rename/delete effects now build in
+  `QueryLibraryState`; focused coverage checks folder normalization and the
+  empty-folder precondition.
+- Backup/restore and file-picker effects now build in `OverlayState`; focused
+  coverage checks both path-bearing effects and their connection identity.
+- Palette and explorer connection switching now use the lifecycle-owned
+  `Connect` effect builder; focused coverage checks request and connection
+  identity preservation.
+- The architecture guard now freezes `table_editor_context.rs` and
+  `table_editor_values.rs` as explicit-state modules that may not depend on
+  the composition-root type.
+- `VisualQueryBuilderState` now owns visual-builder form inputs, the
+  `VisualQueryModel`, validation errors, SQL preview and state transitions for
+  table/join/column/filter/order/import operations; the view retains only egui
+  rendering plus active-document and feedback adapters.
+- The architecture guard also freezes `visual_query_builder_state.rs` as an
+  explicit-state module that may not depend on the composition-root type.
+- `QueryOutputState` now owns the active output tab and per-document output-tab
+  overrides.
+- `TableDataState` now owns grid projection/layout, filtering/sorting,
+  selection, cell editor, inspector and insert-row interaction state.
+- `TableState` now owns table metadata, table view, introspection/DDL requests,
+  metadata searches and details. `TableDataQueryState` owns paged data,
+  filters, sorts, data requests and row reload state.
+- `TableMutationState` now owns staged changes, mutation requests, retries and
+  conflict/apply state.
+- `AgentState` now owns provider settings, composer input and agent sessions;
+  the saved-task scheduler remains in `DbProApp`.
+- `SchemaExplorerState` now owns schema loading, selection, navigation cache,
+  pinned/recent tables and schema-object view state.
+- `QueryEditorState` now owns editor overlays, visual-builder drafts,
+  diagnostics caches, problem filters and query history.
+- `WorkspaceFilesState`, `DiagramState`, named database-management aggregates
+  from `database_feature_states.rs`, `SchemaCompareState`,
+  `PaletteState`, `QueryExecutionPolicyState`, `QueryLibraryState`,
+  `SavedTaskState`, `WorkspaceSessionState`, `OverlayState`, `FeedbackState`,
+  `PreferencesState` and `WelcomeState` now own their feature state.
+- `ConnectionLifecycleState` now also owns connection status and fallback name;
+  `SchemaExplorerState` owns persisted explorer pane heights.
+- Connection dialog fields are private to the `connection` feature module, and
+  saved-connection storage is private behind catalog read-model methods
+  (`iter`, `get`, `find`, `len`, `is_empty`).
+- Connection lifecycle request flags and fallback naming are private behind
+  lifecycle methods; tests use explicit lifecycle setup APIs rather than
+  production field access.
+- Connection connected status is private behind `is_connected` and
+  `set_connected` lifecycle APIs.
+- Active connection identity is private behind lifecycle accessors; consumers
+  no longer read or mutate the storage field directly.
+- Pending request/target and connection failure storage are private behind
+  lifecycle APIs; production consumers no longer access those storage fields
+  directly.
+- Connection dialog rendering is now driven by `ConnectionDialogView<'a>` with
+  explicit state/runtime/feedback dependencies; `view.rs`, `form_fields.rs`
+  and `advanced_panels.rs` no longer implement methods on `DbProApp`.
+- Active connection, schema and statusbar helpers are pure functions in
+  `connection_status.rs`; the module no longer implements methods on
+  `DbProApp`, and the architecture guard enforces that boundary.
+- Connection lifecycle event reducers are pure functions in
+  `connection_events.rs`; the root wrapper only performs follow-up runtime
+  orchestration after the reducer returns an explicit transition result.
+- Connection deletion confirmation now lives in
+  `connection/delete_dialog.rs` and receives explicit overlay/catalog/
+  lifecycle/runtime/feedback dependencies; it no longer implements a
+  `DbProApp` method.
+- Query-folder deletion confirmation now lives in
+  `query_folder_delete_dialog.rs`; the old mixed connection/folder confirmation
+  module was removed.
+- `DbProApp` now composes one `ConnectionFeatureState` aggregate containing
+  catalog, lifecycle and dialog sub-states; the architecture allowlist rejects
+  the former three root fields.
+- `DbProApp` now composes one `WorkspaceFeatureState` aggregate containing
+  shell/navigation, local-file activity and named-session sub-states; the
+  architecture allowlist rejects the former `workspace_files` and
+  `workspace_sessions` root fields. Existing shell field access is preserved
+  through a typed `Deref` facade while file/session ownership remains explicit
+  under `workspace.files` and `workspace.sessions`.
+- Schema event handling now lives in explicit-state reducers in
+  `schema_events.rs`; the root wrapper only performs the follow-up table-info
+  request returned by `SchemaLoadedTransition`. Stale request rejection and
+  missing-table reconciliation are covered by reducer tests, and the
+  architecture guard rejects `DbProApp` references in the reducer module.
+- Agent provider/workflow event handling now lives in explicit-state reducers
+  in `agent_events.rs`; provider configuration failure is request-scoped and
+  reducer tests cover stale configuration events and provider readiness. Toast
+  emission is owned by `FeedbackState`, not an app-only helper, and the
+  architecture guard rejects `DbProApp` references in the agent reducer.
+- Agent workflow event routing now also lives in `agent_events.rs`; document,
+  session and run identity checks are performed against `AgentState` there,
+  while the `DbProApp` method is only a thin composition-root adapter.
+- Agent document snapshots and UI-to-core context conversion now live in the
+  pure `agent_context.rs` mapper; it receives explicit query/schema inputs and
+  no longer depends on `DbProApp`.
+- Table event handling now lives in explicit-state reducers in
+  `table_events.rs`; metadata/data/row-reload transitions return typed cache
+  invalidation and staged-apply effects, while the root only executes those
+  follow-ups. Existing table mutation, reload and stale-request tests remain
+  green, and the architecture guard rejects `DbProApp` references in the
+  table reducer.
+- Saved-query and query-folder read-model replacement now lives in
+  `query_library_events.rs`; the root keeps only thin adapters for event
+  routing, and reducer tests cover replacement semantics.
+- SQL prediction ready/failed handling now lives in
+  `query_prediction_events.rs`; stale request and document-version checks stay
+  in the query-session reducer boundary, while the root only adapts runtime
+  event payloads.
+- Saved-query completion now lives in `query_save_events.rs`; the reducer
+  returns an explicit close-document transition and the root performs only the
+  resulting tab orchestration.
+- Query-history retention now lives in `query_history_events.rs`; the reducer
+  owns the 500-entry cap and only receives `QueryEditorState` plus a history
+  record.
+- Query queued feedback now lives in `query_queue_events.rs`; the reducer
+  receives only `FeedbackState` and the request identity.
+- Database-management event state transitions now live in
+  `management_events.rs` for monitoring, audit, pg settings, FDW, replication,
+  event triggers, security and data compare. `operation_events.rs` retains
+  only composition-root orchestration and cross-feature follow-ups.
+- File-picker state transitions now live in `file_picker_events.rs`, and DDL
+  completion now returns a typed refresh transition from `ddl_events.rs`.
+  Workspace opening and schema/RLS requests remain explicit root side effects.
+- Explain completion and query cancellation now live in
+  `query_execution_events.rs`, including output-tab selection, document
+  cleanup and cancellation history.
+- Single-statement query completion now lives in `query_result_events.rs`
+  behind an explicit `QueryResultContext`, including grid invalidation,
+  history, output selection and active-document presentation state.
+- Multi-statement query completion now lives in
+  `query_multi_result_events.rs` behind the same explicit state boundary;
+  diagnostics, history status and result presentation remain request-scoped.
+- Query-local failure handling now lives in `query_failure_events.rs`; the
+  root only routes failures to other feature reducers before invoking the
+  explicit query failure context. The old mixed `events_query.rs` module is
+  deleted.
+- Recent-table MRU ownership now lives on `SchemaExplorerState`; workspace,
+  palette, explorer and tests use the state API instead of a root facade.
+- Palette open lifecycle now lives on `PaletteState`; navigation, welcome,
+  sidebar, query shortcuts and tests no longer call a `DbProApp` palette
+  mutation facade.
+- New-connection dialog opening now lives on `ConnectionFeatureState`; all
+  shell entry points call the feature transition directly.
+- Workspace close/refresh lifecycle now lives on `WorkspaceFilesState`; only
+  the native folder-picker command remains in the composition root.
+- Workspace search/replace, task, refactor, context, schema snapshot and drift
+  transitions now live on `WorkspaceFilesState`; the root only composes the
+  schema input needed by snapshot/drift operations.
+- Workspace Git status/stage/unstage/diff/commit transitions and external-file
+  change detection now live on `WorkspaceFilesState`; query documents are
+  passed in as an explicit snapshot at the view boundary.
+- Schema compare snapshot, diff and migration-plan transitions now live on
+  `SchemaCompareState`; only migration apply remains root orchestration because
+  it allocates a request and dispatches provider work.
+- Transaction policy transitions now live on `QueryExecutionPolicyState` and
+  return explicit SQL effects; the root only dispatches the returned effect.
+- The capture-only native entrypoint now uses the feature-owned new-connection
+  helper, so the capture-feature release build stays aligned with the dialog
+  lifecycle migration.
+- Named-session store mutations and persistence now live on
+  `WorkspaceSessionState`; capture/restore of cross-feature layout remains
+  explicit composition-root orchestration.
+- Query output-tab override and active-tab mutations now live on
+  `QueryOutputState`; the root only resolves the active document identity.
+- Grid projection epoch and row-identity cache invalidation now live on
+  `TableDataState`; query/result reducers and table event orchestration call
+  that explicit state API.
+- Query document collection invariants now live on `QuerySessionState`; add,
+  select, remove, keep-one, truncate-right and reset operations no longer
+  mutate the document vector and active index ad hoc in `DbProApp` helpers.
+- Active query text, explain state, running request, result selection/count and
+  message projections now live on `QuerySessionState`; the root keeps only
+  cancellation, connection lookup and grid-invalidation orchestration.
+- Query-document connection/schema metadata changes and prediction
+  invalidation now live on `QuerySessionState`; the root only dispatches the
+  returned prediction-cancel command.
+- Result-grid row/cell selection and mutation-error matching now live on
+  `TableDataState` and `TableMutationState`; grid cells/views no longer call
+  selection helpers through `DbProApp`.
+- Result-grid keyboard navigation target calculation now lives on
+  `TableDataState`; the root handles only egui input and commit-edit effects.
+- Result-grid layout scope, persistence and restore transitions now live on
+  `TableDataState`; the former `grid_layout.rs` root facade is deleted and
+  table-opening flows pass an explicit layout scope into the state owner.
+- Result-grid row-identity derivation and cache rebuilding now live on
+  `TableDataState`; table-editor code keeps mutation orchestration while the
+  grid identity algorithm has one state owner.
+- Result-grid identity lookup now also lives on `TableDataState`; grid views
+  pass table metadata explicitly and no longer depend on a root lookup facade.
+- Mutation-error clearing now lives on `TableMutationState`; table-editor
+  views keep feedback and request orchestration but no longer implement the
+  target-matching state transition.
+- Selected-row projection now lives on `TableDataState`; clipboard code only
+  consumes the state-owned indexes for copy/export operations.
+- Table metadata primary-key and column-write-policy projections now live on
+  `TableState`; connection mutability remains an explicit lifecycle concern at
+  the composition boundary.
+- Active query buffer-version projection now lives on `QuerySessionState`; query
+  dispatchers consume the state API instead of a root helper.
+- Active query running-request projection now also lives on
+  `QuerySessionState`; query cancellation/dispatch checks read the owning
+  session directly.
+- Explain-plan/request and result-count projections now live on
+  `QuerySessionState`; output, agent and navigation surfaces read query state
+  directly without root projection facades.
+- Active query messages projection now lives on `QuerySessionState`; output
+  and navigation surfaces consume the session-owned message slice directly.
+- Active query result projection now lives on `QuerySessionState`; output,
+  navigation, palette and agent surfaces consume the session-owned result.
+- Active query text read projection now lives on `QuerySessionState`; callers
+  read the session directly, while the root setter remains only for prediction
+  cancellation plus text mutation orchestration.
+- Active output-tab read projection now lives on `QueryOutputState`; output
+  rendering reads the tab by active document identity, while tab mutations
+  remain explicit orchestration transitions.
+- Active output-tab mutation now also lives on `QueryOutputState`; query views
+  pass the active document identity directly and the root tab setter is gone.
+- Per-document output-tab routing now lives on `QueryOutputState`; the active
+  document condition is evaluated by the feature state, not by query view code.
+- Row-identity matching now uses the published `table_events` function
+  directly; the composition root no longer exposes a forwarding helper.
+- Toast mutations now live on `FeedbackState`; error/success/info notifications
+  no longer route through `DbProApp` wrappers.
+- Activity-bar rendering now lives in an explicit renderer that owns only
+  workspace-shell state and returns navigation intents; it no longer
+  implements a `DbProApp` method. The architecture guard enforces this seam.
+- Named workspace-session capture, restore, duplication and persistence now
+  run through `WorkspaceSessionContext` with explicit aggregate dependencies;
+  the session module no longer implements `DbProApp` methods.
+- Runtime event dispatch now lives in `crates/ui/src/event_router.rs`; feature
+  transition handlers remain independently callable from the router.
+- Agent and table event handlers now live in `agent_events.rs` and
+  `table_events.rs`.
+- Connection, schema and operation event handlers now live in their own
+  feature event modules; `events.rs` contains only the event pump and tests.
+- `event_router.rs` is now a pure event-to-handler dispatch table; database
+  operation, agent, query and feature-failure transitions no longer mutate
+  state inline in the router.
+- Runtime event application is bounded to `64` events per egui frame; a full
+  batch schedules another repaint. The native adapter uses a bounded
+  `sync_channel(256)` and retries asynchronously when the UI queue is full.
+- Runtime command sends are centralized through the dispatch adapter; closed
+  command boundaries are logged and surfaced as a user-visible runtime error.
+- Legacy `RunAgent`/`ExecuteAgentTool` commands and ignored tool completion
+  events were removed; the runtime now exposes one agent workflow command/event
+  contract.
+- Aggregate fields are scoped to the app boundary; the architecture guard
+  rejects crate-public state fields in feature state modules and connection
+  state modules.
+- `scripts/check-ui-architecture.sh`: PASS; it allowlists the composition-root
+  fields, rejects event handlers in `events.rs`, rejects direct state access in
+  `event_router.rs`, requires bounded event draining, and rejects feature code
+  bypassing the command dispatch adapter.
+- Shared dialog layout now reserves an explicit chrome budget, centers the card
+  inside the safe viewport, gives the body its own scroll budget, and renders a
+  full-width separated header with the close action aligned to the right.
+- Deterministic native capture of the affected New Connection modal: PASS at
+  logical `1280x800` (`/tmp/db-pro-evidence-core-error-latest.png`).
+  The inspected framebuffer shows balanced vertical margins, a separated
+  header, right-aligned close action, independently scrolling body and sticky
+  footer.
+- Deterministic state captures at logical `1280x800`: normal Welcome state
+  (`/tmp/db-pro-evidence-core-normal-1280x800.png`), loading Welcome state
+  (`/tmp/db-pro-evidence-core-loading-1280x800.png`) and New Connection error
+  state (`/tmp/db-pro-evidence-core-error-1280x800.png`). The error alert is
+  visible immediately below the separated header instead of being hidden at the
+  end of the scroll body.
+- Release runtime smoke: PASS; `target/release/db-pro-native` launched from
+  the verified HEAD and rendered the Welcome/empty state in a `1440x870` DB Pro
+  window. Capture was inspected from the native window after startup settled.
+- Post-refactor release framebuffer capture: PASS at logical `1280x800`
+  (`/tmp/db-pro-native-post-refactor.png`); Welcome/empty state, activity rail,
+  sidebar, query tabs and status bar were inspected after the state-owner
+  changes.
+- Latest query-state release framebuffer capture: PASS at logical `1280x800`
+  (`/tmp/db-pro-native-post-query-state-refactor.png`); the same Welcome/empty
+  surface was inspected after the active-query projection extractions.
+- Unit tests for the extracted aggregates are included in the UI test suite.
+- Query-document context tests cover explicit connection/schema binding and
+  document-owned output-tab cleanup during close.
+- `cargo check -p db-pro-ui`: PASS.
+- `cargo fmt --all`: executed.
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
+- `cargo test -p db-pro-ui --lib`: 632 passed, 0 failed.
+- `cargo fmt --all -- --check`: PASS.
+- `cargo check --workspace`: PASS.
+- `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
+- `cargo test --workspace --no-fail-fast`: 1304 passed, 0 failed, 42 ignored;
+  all workspace doc-tests passed with 0 tests.
+- `cargo build --release --locked -p db-pro-native`: PASS.
+- `cargo build --release --locked -p db-pro-native --features capture`: PASS.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: 12 pass, 4 warnings, 0 failures; warnings are ratcheted size/file/clone heuristics.
+- Synthetic/transfer harness extraction: `navigation_view.rs` reduced from
+  3503 to 3021 lines; the 482-line implementation now lives in
+  `transfer_harness_view.rs`.
+- Post-extraction focused verification: `cargo check -p db-pro-ui` PASS,
+  `cargo test -p db-pro-ui --lib` 632 passed, architecture guard PASS,
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS, and
+  `git diff --check` PASS.
+- Table mutation-dialog extraction: `table_editor_view.rs` reduced from 2643
+  to 2146 lines; the 504-line discard/pending/conflict slice now lives in
+  `table_mutation_dialogs_view.rs`. Focused clippy, architecture guard, clean
+  scan and 632 UI tests all PASS; clean scan remains 12 pass, 4 ratcheted
+  warnings, 0 failures.
+- Insert-row workflow extraction: `table_editor_view.rs` reduced from 2146 to
+  1795 lines; the 357-line open/duplicate/submit/dialog slice now lives in
+  `table_insert_row_view.rs`. Focused clippy, architecture guard, clean scan
+  and 632 UI tests all PASS; clean scan remains 12 pass, 4 ratcheted warnings,
+  0 failures.
+- Security activity extraction: `navigation_view.rs` reduced from 3021 to 2438
+  lines; the 586-line roles/RLS/policy slice now lives in
+  `security_activity_view.rs`. Focused clippy, architecture guard, clean scan
+  and 632 UI tests all PASS; clean scan remains 12 pass, 4 ratcheted warnings,
+  0 failures.
+- Management activity extraction: `navigation_view.rs` reduced from 2438 to
+  971 lines; the 1470-line monitoring/audit/settings/FDW/replication/event
+  trigger slice now lives in `database_management_view.rs`. Focused clippy,
+  architecture guard, clean scan and 632 UI tests all PASS; clean scan remains
+  12 pass, 4 ratcheted warnings, 0 failures.
+- Final source checkpoint: `426c8790` on `main`; worktree clean after the
+  management extraction.
+- Final full-gate rerun at this checkpoint: `cargo fmt --all -- --check`,
+  `cargo check --workspace`, `cargo clippy --workspace --all-targets -- -D
+  warnings`, `cargo test --workspace --no-fail-fast` (1304 passed, 0 failed,
+  42 ignored), `cargo build --release --locked -p db-pro-native`, and the
+  capture-feature release build all PASS.
+- Final runtime evidence: `/tmp/db-pro-native-core-current.png`, captured
+  from the release binary at logical `1280x800` with the New Connection modal
+  open; centered card, separated header, right-aligned close control, scroll
+  body and footer were visually inspected.
+- Management view topology extraction: deleted the 1490-line aggregate
+  `database_management_view.rs` and split it into seven feature-owned view
+  modules. Monitoring snapshot rendering is now split into health/local,
+  sessions, server stats, workload and confirmation methods. Focused check,
+  632 UI tests, clippy, architecture guard and clean scan all PASS; clean scan
+  reports 14 pass, 2 ratcheted warnings, 0 failures.
+- Runtime event/lifecycle extraction: `app.rs` reduced from 1187 to 734 lines;
+  runtime transitions live in `runtime_event_handlers.rs` (231 lines) and the
+  `eframe::App` adapter plus persistence/frame helpers live in
+  `app_lifecycle.rs` (253 lines). Focused clippy, architecture guard and 632 UI
+  tests PASS; clean scan is 16 pass, 0 warnings, 0 failures.
+- Table editor state aggregation: `DbProApp` now owns one `TableEditorState`
+  aggregate instead of separate `table_state`, `table_data` and
+  `table_mutation` root fields. Consumers use `self.table.state`,
+  `self.table.data` or `self.table.mutation`; the architecture allowlist was
+  updated to require the aggregate. Focused UI tests (632 passed), focused
+  clippy, architecture guard and clean scan PASS; clean scan reports 12 pass,
+  4 ratcheted baseline warnings, 0 failures.
+- Current release runtime capture: PASS at logical `1280x800`
+  (`/tmp/db-pro-native-table-data-query.png`) after rebuilding both
+  `db-pro-native` release variants. The New Connection surface still shows a
+  centered modal card, separated header, right-aligned close action, scrollable
+  body and footer; the state-owner refactor did not regress the visual surface.
+- Query state aggregation: `DbProApp` now owns one `QueryFeatureState`
+  aggregate instead of separate query session/editor/output/execution/library
+  root fields. Focused UI tests (632 passed), focused clippy, architecture
+  guard and clean scan PASS; clean scan reports 12 pass, 4 ratcheted baseline
+  warnings, 0 failures.
+- Storage hydration extraction: startup key parsing now lives in
+  `app_storage.rs` behind `NativeStorageContext` and
+  `NativeStorageDependencies`; `app_state.rs` only sequences restore phases.
+  Focused compile, clippy, architecture guard and 632 UI tests PASS; clean
+  scan reports 15 pass, 1 ratcheted warning, 0 failures.
+- Table data-query boundary extraction: `TableState` no longer owns result,
+  paging, filters, sorts or row-reload lifecycle. Those concerns now live in
+  `TableDataQueryState`; table reducers and views receive the explicit state
+  boundary. Focused UI tests (632 passed), clippy, architecture guard and
+  clean scan PASS; clean scan reports 12 pass, 4 ratcheted warnings, 0 failures.
+- Source checkpoint `96d52bd7`: full release gate rerun on `main` passed
+  (`cargo fmt --all -- --check`, workspace check/clippy, workspace tests;
+  1304 passed, 42 ignored, 0 failed), both native release builds passed, and
+  the deterministic capture at `/tmp/db-pro-native-table-data-query.png`
+  passed at logical `1280x800`.
+- Table-data behavior ownership follow-up: filter-operator compatibility and
+  table-query reset/invalidate/page transitions now live in
+  `TableDataQueryState`; focused UI tests (632 passed), clippy, fmt and
+  architecture guard PASS.
+- Final merged `main` checkpoint `5332876c`: after merging the concurrent SQL
+  Server PR, workspace format/check/clippy/tests and both native release builds
+  passed again; final modal capture is `/tmp/db-pro-native-final-main.png` at
+  logical `1280x800`.
+- Grid layout ownership follow-up: `TableDataState` now owns column ordering,
+  visibility, movement, auto-sizing and width calculation; `result_grid_view`
+  no longer exposes those as `DbProApp` methods. Focused UI tests (632 passed),
+  clippy, fmt and architecture guard PASS.
+- Table editing ownership follow-up: cell-edit buffers, inspector state,
+  discard confirmations and insert-row form state now live in
+  `TableEditingState`, separate from grid projection/layout/selection state.
+  Focused UI tests (632 passed), clippy, architecture guard and diff checks
+  PASS.
+- Design Mode action ownership follow-up: ER foreign-key draft parsing,
+  mutation-plan preview and query-runtime apply orchestration now live in
+  `diagram_design_actions.rs`; `diagram_view.rs` retains the Design Mode UI
+  surface and diagram rendering. Focused UI check, clippy, 632 UI tests,
+  architecture guard and diff checks PASS.
+- ER canvas interaction ownership follow-up: empty state, canvas surface,
+  pan handling and click-through table navigation now live in
+  `diagram_canvas_view.rs`; `diagram_view.rs` coordinates schema candidates,
+  toolbar and Design Mode. Focused UI check, clippy, 632 UI tests,
+  architecture guard, clean scan and diff checks PASS.
+- Current source checkpoint: `6b258257` on `main`. Full regression gate PASS:
+  `cargo fmt --all -- --check`, workspace check, workspace clippy with
+  `-D warnings`, workspace tests (`0 failed`), native release build and
+  capture-feature release build.
+- Current runtime evidence: `/tmp/db-pro-native-core-final.png`, captured from
+  the rebuilt release binary at logical `1280x800` with the
+  New Connection modal open. Visual inspection confirms the centered card,
+  separated header, right-aligned close control, scrollable body and footer.
+- Design Mode panel ownership follow-up: draft table/column/FK form rendering
+  now lives in `diagram_design_panel_view.rs`; `diagram_view.rs` only
+  coordinates whether the panel is shown. Focused UI tests (632 passed),
+  clippy, architecture guard and clean scan (14 pass, 2 ratcheted warnings)
+  PASS. One timing-sensitive chart performance assertion exceeded its budget
+  once at 300.7ms and passed on the isolated rerun and subsequent full UI run;
+  no product test failure remains.
+- Database-management state ownership follow-up: audit, event-trigger, FDW,
+  masking, monitoring, PostgreSQL settings, replication, routine, security,
+  synthetic-data and transfer state now cross the single
+  `DatabaseManagementState` aggregate through `DbProApp.management`. Focused
+  UI tests (632 passed), clippy, architecture guard, clean scan and diff
+  checks PASS.
+- Schema workspace state ownership follow-up: explorer, schema workbench,
+  schema compare and ER diagram state now cross the single
+  `SchemaWorkspaceState` aggregate through `DbProApp.schema`; storage and
+  reducer contexts still receive explicit child dependencies. Focused UI
+  tests (632 passed), clippy, architecture guard and diff checks PASS.
+- Schema comparison view ownership follow-up: schema-compare sidebar,
+  migration/data-compare surface and keyed data-diff dispatch now live in
+  `schema_compare_view.rs`; `navigation_view.rs` is reduced to shell and
+  activity surfaces. Focused UI tests (632 passed), clippy, architecture
+  guard, clean scan (15 pass, 1 ratcheted warning) and diff checks PASS.
+- Transfer activity ownership follow-up: backup/restore entry point,
+  synthetic seed, masking preview, transfer harness controls and job history
+  now live in `transfer_activity_view.rs`; `navigation_view.rs` is reduced to
+  shell/status/output and schema/diagram navigation. Focused UI tests (632
+  passed), clippy, architecture guard, clean scan (15 pass, 1 ratcheted
+  warning) and diff checks PASS.
+- Shell chrome ownership follow-up: top bar, status bar and output dock now
+  live in `shell_chrome_view.rs`; `navigation_view.rs` is reduced to the
+  remaining navigation activity composition. Focused UI tests (632 passed),
+  clippy, architecture guard, clean scan (15 pass, 1 ratcheted warning) and
+  diff checks PASS.
+- Query tool ownership follow-up: query action menu/editor actions now live
+  in `query_actions_view.rs`, while find overlays/bars live in
+  `query_search_view.rs`; `query_view.rs` is below the 800-line file boundary.
+  Focused UI tests (632 passed), clippy, architecture guard, clean scan (15
+  pass, 1 ratcheted warning) and diff checks PASS.
+- Palette ownership follow-up: static Quick Open/Command catalog builders now
+  live in `palette_catalog.rs`, and palette action routing lives in
+  `palette_actions.rs`; `palette_view.rs` is reduced to indexing/filtering and
+  dialog coordination. Focused UI tests (632 passed), UI clippy, architecture
+  guard, clean scan (14 pass, 2 ratcheted warnings) and diff checks PASS.
+- Table editor ownership follow-up: data-grid/paging rendering now lives in
+  `table_data_view.rs`, while row editing and staged mutation lifecycle live in
+  `table_mutation_actions.rs`; `table_editor_view.rs` is reduced to DDL and
+  table-request/filter coordination. Focused UI tests (632 passed), UI clippy,
+  architecture guard and diff checks PASS; clean scan has no failures and only
+  ratcheted legacy function-size/clone warnings.
+- Query editor ownership follow-up: hover/signature/completion support now
+  lives in `query_editor_support.rs`; `query_editor_panel.rs` is reduced to
+  editor interaction orchestration. Focused UI tests (632 passed), UI clippy,
+  architecture guard and diff checks PASS; clean scan has no failures and one
+  ratcheted function-size warning group.
+- Table metadata ownership follow-up: structure/columns now live in
+  `table_structure_view.rs`, while foreign keys, constraints and dependencies
+  live in `table_relations_view.rs`; `table_metadata_view.rs` owns indexes only.
+  Focused UI tests (632 passed), UI clippy, architecture guard and diff checks
+  PASS; clean scan has no failures.
+- IDE workspace ownership follow-up: persisted workspace types now live in
+  `ide_workspace_types.rs`, and bounded filesystem scanning/indexing lives in
+  `ide_workspace_scan.rs`; the state operation module is 712 lines. Focused UI
+  tests (632 passed), UI clippy, architecture guard and diff checks PASS; clean
+  scan has no failures after documenting the retained contract allowance.
+- Files activity ownership follow-up: workspace tabs/tree/search/tasks/graph/Git
+  now live in `files_activity_tabs.rs`; `files_activity_view.rs` is reduced to
+  the 201-line compositor. Focused UI tests (632 passed), UI clippy,
+  architecture guard and diff checks PASS; clean scan has no failures.
+- Workspace shell ownership follow-up: tab lifecycle/rendering now lives in
+  `workspace_tabs_view.rs`, reusable tab chrome in `workspace_tab_primitives.rs`,
+  and `workspace_view.rs` is reduced to an 18-line content compositor. Focused
+  UI tests (632 passed), UI clippy, architecture guard and diff checks PASS.
+- Chart ownership follow-up: chart configuration/projection, numeric parsing,
+  aggregation, downsampling and engine tests now live in `chart_engine.rs`;
+  `chart_view.rs` retains only the egui renderer facade and public API
+  re-exports at source SHA `0ba94810`. Focused UI tests (632 passed), UI
+  clippy, architecture guard, clean scan (14 pass, 2 ratcheted warnings) and
+  diff checks PASS. The timing-sensitive diagram benchmark
+  failed once during the first full run, then passed in isolation and in the
+  subsequent full UI run.
+- Agent thread ownership follow-up: message/activity/result rendering,
+  confirmation preview/actions, empty state and retry/thinking controls now
+  live in `agent_thread_view.rs`; panel/settings/context composition remains in
+  `agent_view.rs` at source SHA `f0ddf324`. Focused UI tests (632 passed), UI clippy, architecture
+  guard, clean scan (15 pass, 1 ratcheted legacy function-size warning) and
+  diff checks PASS.
+- Schema Workbench action ownership follow-up: mutation request construction,
+  object preview planning, database actions and DDL application now live in
+  `schema_workbench_actions.rs`; `schema_workbench.rs` retains state and view
+  composition at source SHA `08acab31`. Focused UI tests (632 passed), UI clippy, architecture guard,
+  clean scan (14 pass, ratcheted legacy/planner warnings) and diff checks PASS.
+- Runtime protocol ownership follow-up: `UiCommand`/`UiEvent` now live in
+  `runtime_protocol.rs`, while the bounded `TaskBridge` transport and channel
+  limits live in `task_bridge.rs`; `runtime.rs` retains DTOs and public API
+  re-exports at source SHA `b85d65da`. Focused UI tests (632 passed), UI
+  clippy, architecture guard, clean scan (16 pass, 0 warnings) and diff
+  checks PASS.
+- Final core refactor gate at source SHA `b85d65da`: `cargo fmt --all --
+  --check`, workspace `cargo check`, workspace clippy with `-D warnings`,
+  workspace tests (`404 core`, `119 infrastructure`, `34 runtime`, `30
+  tauri`, `21 native`, `632 UI`, plus integration suites), release native
+  build, capture build and architecture guard all PASS. Runtime capture is
+  recorded at `/tmp/db-pro-native-core-b85d65da.png` for the New Connection
+  surface at logical `1280x800`; the macOS host still clamps requested
+  `1440x900` and `1920x1080` captures to logical height `838`.
+- Runtime model-family ownership follow-up at source SHA `4bb3d21d`:
+  connection, schema/table and query/result/history DTOs now have separate
+  modules; `runtime.rs` is a 104-line facade. Focused UI tests (632 passed),
+  UI clippy, architecture guard, clean scan (16 pass, 0 warnings) and diff
+  checks PASS.
+- ER diagram boundary refactor at source SHA `3f8ec33b`: layout polling,
+  diagram canvas and design-mode actions now receive `DiagramViewContext` and
+  return typed `DiagramAction` intents; only composition-root orchestration
+  applies cross-feature table/query effects. Focused UI check, clippy, 632 UI
+  tests, architecture guard, clean scan and diff checks PASS.
+- Static catalog boundary at source SHA `74c0f870`: palette command builders
+  and shared SQL snippets no longer attach pure data to `DbProApp`; the new
+  snippet module has a stability test. Focused clippy, 633 UI tests,
+  architecture guard, clean scan and diff checks PASS.
+- Query diagnostics boundary at source SHA `94b8dbb3`: parser/lint analysis,
+  diagnostics debounce/cache refresh and formatting no longer implement
+  `DbProApp` methods. Focused check, clippy, 633 UI tests, architecture guard,
+  clean scan and diff checks PASS.
+- Sidebar renderer boundary at source SHA `01ec23d1`: diagram navigation and
+  maintenance controls now receive explicit inputs/state instead of a root
+  receiver. Focused check, clippy, 633 UI tests, architecture guard, clean
+  scan and diff checks PASS.
+- Result export boundary at source SHA `f64ae90d`: CSV/TSV, exact JSON, SQL
+  INSERT/COPY and literal formatting are pure module functions rather than
+  `DbProApp` methods. Focused check, clippy, 633 UI tests, architecture guard,
+  clean scan and diff checks PASS.
+- Grid navigation boundary at source SHA `84f94f26`: keyboard selection now
+  receives `GridNavigationContext`; edit commit stays explicit at the table
+  orchestration boundary. Focused check, clippy, 633 UI tests, architecture
+  guard, clean scan (16 pass, 0 warnings) and diff checks PASS.
+- Final full gate at source SHA `4bb3d21d`: `cargo fmt --all -- --check`,
+  workspace `cargo check`, workspace clippy with `-D warnings`, workspace
+  tests, release native build, capture build and architecture guard all PASS.
+  The current New Connection runtime capture is
+  `/tmp/db-pro-native-core-4bb3d21d.png` at logical `1280x800`; the dialog is
+  centered, its header is separated by a divider, and the close action is
+  aligned to the header's right edge. The release binary is running for
+  manual verification.
+- Query output boundary follow-ups at source SHA `441d3972`: output tabs,
+  chart/messages, explain/history and result selection/export now use explicit
+  contexts and typed intents. Full gate PASS: fmt, workspace check, workspace
+  clippy with `-D warnings`, workspace tests (`633` UI tests passed), native
+  release build, capture-feature release build, architecture guard and clean
+  scan (16 pass, 0 warnings). Runtime capture is
+  `/tmp/db-pro-native-core-441d3972.png`; the New Connection dialog is
+  centered with a separated header and right-aligned close control.
+- Core boundary follow-ups at source SHA `764548e1`: result-grid toolbar,
+  query context strip and grid selection projection now have explicit context
+  or pure-state module boundaries. Full gate PASS: fmt, workspace check,
+  workspace clippy with `-D warnings`, workspace tests (`630` UI tests and
+  `0 failed` overall), native release build, capture-feature release build,
+  architecture guard and clean scan (16 pass, 0 warnings). Runtime capture is
+  `/tmp/db-pro-native-core-764548e1.png`; the New Connection dialog remains
+  centered with a separated header and right-aligned close control.
+- Query run-control follow-up at source SHA `072f44be`: Run/Stop rendering now
+  returns typed command intents and the root remains the command executor.
+  Full gate PASS: fmt, workspace check, workspace clippy with `-D warnings`,
+  workspace tests (`630` UI tests and `0 failed` overall), native release
+  build, capture-feature release build, architecture guard and clean scan
+  (16 pass, 0 warnings). Runtime capture is
+  `/tmp/db-pro-native-core-072f44be.png`; the New Connection dialog remains
+  centered with a separated header and right-aligned close control.
+- Query context-picker follow-up at source SHA `ecde08d7`: picker rendering
+  now returns typed connection/schema/close intents and the root remains the
+  document mutation boundary. Focused UI check, clippy, 630 UI tests,
+  architecture guard and clean scan PASS; both native release builds were
+  rebuilt from this SHA. Runtime capture is
+  `/tmp/db-pro-native-core-ecde08d7.png`; the New Connection dialog remains
+  centered with a separated header and right-aligned close control.
+- Query parameter-panel follow-up at source SHA `925b8b83`: placeholder
+  discovery and in-memory parameter editing now cross an explicit session
+  context. Focused UI check, clippy, 630 UI tests, architecture guard and
+  clean scan PASS; full workspace check/clippy/tests also pass (`0 failed`),
+  both native release builds were rebuilt from this SHA. Runtime capture is
+  `/tmp/db-pro-native-core-925b8b83.png`; the New Connection dialog remains
+  centered with a separated header and right-aligned close control.
+- Schema Workbench secondary-view follow-up at source SHA `edd17b0f`:
+  dependency navigation and docs export now consume explicit workbench
+  context and typed actions. Focused UI check, clippy, 630 UI tests,
+  architecture guard and clean scan PASS; release and capture builds were
+  rebuilt from this SHA. Runtime capture is
+  `/tmp/db-pro-native-core-edd17b0f.png`; the New Connection dialog remains
+  centered with a separated header and right-aligned close control.
+- Table-data placeholder follow-up at source SHA `aef4c270`: loading and error
+  rendering now consume `TableDataPlaceholderContext` and return a typed retry
+  intent; the root remains the request executor. Focused UI check, clippy, 630
+  UI tests, architecture guard and clean scan PASS. Current full-gate runtime
+  capture is recorded below.
+- Table-data pagination follow-up at source SHA `eb03c668`: page navigation and
+  page-size selection now consume explicit pagination context and return typed
+  request/reset intents. Focused UI check, clippy, 630 UI tests, architecture
+  guard and clean scan PASS. Current full-gate runtime capture is recorded
+  below.
+- Table-data filter follow-up at source SHA `00de1a97`: filter scope,
+  operator/input controls and filter chips now consume explicit context and
+  return typed commit/reload/remove/clear intents. Focused UI fmt/check,
+  clippy, 630 UI tests, architecture guard and clean scan PASS; current
+  full-gate runtime capture is recorded below.
+- Table-data sort follow-up at source SHA `cffae04f`: sort label/selection and
+  staged-change guard now consume explicit context and return typed reload or
+  blocked intents. Focused UI fmt/check, clippy, 630 UI tests, architecture
+  guard and clean scan PASS; current full-gate runtime capture is recorded
+  below.
+- Table-data mutation-toolbar follow-up at source SHA `fe7c5aea`: refresh,
+  staged-change, mutation-failure and selection-status controls now consume
+  explicit context and return typed intents. Focused UI fmt/check, clippy, 630
+  UI tests, architecture guard and clean scan PASS; current full-gate runtime
+  capture is recorded below.
+
+- Current full gate at source SHA `613090c0`: `cargo fmt --all -- --check`,
+  workspace check, workspace clippy with `-D warnings`, workspace tests
+  (`404 core`, `119 infrastructure`, `32 runtime`, `4 tauri`, `3`, `21`, `9`,
+  `34`, `31`, `630 UI`; no failures), native release build, capture-feature
+  release build, architecture guard and clean scan (`16 pass`, `0 warnings`)
+  all PASS. Runtime capture is
+  `/tmp/db-pro-native-core-613090c0.png` at logical `1280x800`; the New
+  Connection dialog is centered with a separated header and right-aligned
+  close control. The rebuilt release binary is running for manual
+  verification.
+- Result-grid header menu follow-up at source SHA `1f0551c1`: column context
+  menu rendering now returns typed sort/filter/layout actions while the grid
+  root applies them. Focused UI check, clippy, 630 UI tests, architecture guard
+  and clean scan PASS; full native rebuild/runtime capture is pending for this
+  follow-up.
+- Current full gate at source SHA `1f0551c1`: workspace fmt/check/clippy,
+  workspace tests (`404 core`, `119 infrastructure`, `32 runtime`, `4 tauri`,
+  `3`, `21`, `9`, `34`, `31`, `630 UI`; no failures), native release build,
+  capture-feature release build, architecture guard and clean scan (`16 pass`,
+  `0 warnings`) all PASS. Runtime capture is
+  `/tmp/db-pro-native-core-1f0551c1-settled.png` at logical `1280x800`; the
+  New Connection dialog is centered with a separated header and right-aligned
+  close control. The rebuilt release binary is running for manual
+  verification.
+- Result-grid header content follow-up at source SHA `f0c3a822`: PK/FK badges,
+  column labels, data types and sort markers now render through an explicit
+  visual context. Focused UI check, clippy, 630 UI tests, architecture guard
+  and clean scan PASS; full native rebuild/runtime capture is pending for this
+  follow-up.
+- Current full gate at source SHA `f0c3a822`: workspace fmt/check/clippy,
+  workspace tests (`404 core`, `119 infrastructure`, `32 runtime`, `4 tauri`,
+  `3`, `21`, `9`, `34`, `31`, `630 UI`; no failures), native release build,
+  capture-feature release build, architecture guard and clean scan (`16 pass`,
+  `0 warnings`) all PASS. Runtime capture is
+  `/tmp/db-pro-native-core-f0c3a822-default.png` at logical `1280x800`; the
+  New Connection dialog is centered with a separated header and right-aligned
+  close control. The rebuilt release binary is running for manual
+  verification.
+- Result-grid cell follow-up at source SHA `b69b82c0`: cell surface/value
+  painting and the 17-command context menu now use explicit view contexts and
+  typed menu actions. Focused UI fmt/check, clippy, 630 UI tests and
+  architecture guard PASS; clean scan has only the existing size warnings for
+  the remaining grid composition methods. Full native rebuild/runtime evidence
+  is recorded below.
+- Current full gate at source SHA `b69b82c0`: workspace fmt/check/clippy,
+  workspace tests (`404 core`, `119 infrastructure`, `32 runtime`, `4 tauri`,
+  `3`, `21`, `9`, `34`, `31`, `630 UI`; no failures), native release build,
+  capture-feature release build, architecture guard and clean scan (`16 pass`,
+  `0 warnings`) all PASS. Runtime capture is
+  `/tmp/db-pro-native-core-b69b82c0.png` at logical `1280x800`; the New
+  Connection dialog is centered with a separated header and right-aligned
+  close control. The rebuilt release binary is running for manual
+  verification.
+
+## Core boundary checkpoint at `67965be2`
+
+- Workspace tab intent boundary: `6a117654`, `7b6c7d0f`.
+- Query completion/editor surface boundaries: `27baf92c`, `d8b7629d`.
+- Result-grid header intent boundary: `67965be2`.
+- Full gate at `67965be2`: format, workspace check, workspace clippy with
+  `-D warnings`, workspace tests (`404`, `119`, `32`, `4`, `3`, `21`, `9`,
+  `34`, `31`, `630` UI; no failures), native release build, capture build,
+  architecture guard and clean-code scan (`16 pass`, `0 warnings`) all pass.
+- Runtime capture: `/tmp/db-pro-native-core-67965be2.png` at logical
+  `1280x800`; New Connection is centered, its header has a divider, and close
+  is aligned at the right edge. Release binary from this SHA is running for
+  manual verification.
+
+## Not yet proven
+
+- Native screenshot/runtime evidence for the requested `1440x900` and
+  `1920x1080` logical heights remains host-limited: macOS capture clamps both
+  to a logical height of `838`. The required normal/loading/error/empty states
+  are now captured at exact logical `1280x800`.
+
+## Current core checkpoint at `2595eec5`
+
+- Agent state/adapter boundary: `fdaece8d`; `agent_state.rs` now owns only
+  lifecycle/preparation state, while `agent_actions.rs` owns cross-feature
+  context gathering, runtime dispatch and workspace effects. The guard rejects
+  `DbProApp` references from all feature state modules.
+- Runtime command-port boundary: `7c1efb7a`; connection/query dialogs,
+  query-document lifecycle and query editor surfaces use
+  `RuntimeCommandDispatcher`; formatter cancellation returns an intent to the
+  root, and direct `task_bridge.send_best_effort` bypasses are guarded.
+- Query editor effect boundary: `68b7a705`; the editor surface now returns
+  typed prediction/cancellation/run/save effects, while request-id allocation,
+  runtime dispatch and `pending_prediction_request` commit remain in
+  `query_editor_panel.rs`. The editor surface no longer depends on a runtime
+  command port and its render function is split into bounded phases.
+- Table command boundary: `2b599ee9`; `TableState` now owns only DDL text
+  validation and request lifecycle, while `table_editor_view.rs` maps table
+  targets and validated SQL into `UiCommand`. The architecture guard rejects
+  protocol construction in `table_state.rs`.
+- Table data command boundary: `b4a058d2`; `TableDataQueryState` now owns
+  filters, sorting, paging and request lifecycle, while table data adapters
+  map page and row-reload targets into `LoadTableData`. The architecture guard
+  rejects protocol construction in `table_data_query_state.rs`.
+- Query library command boundary: `2595eec5`; `QueryLibraryState` now owns
+  only saved-query/folder read models and folder normalization, while
+  `query_save_actions.rs` owns list/create/save/rename/delete protocol mapping.
+  The query operation callers all use this adapter.
+- Composition-root topology boundary: `2595eec5`; module path declarations and
+  feature re-exports moved to `app_modules.rs` through a same-scope `include!`.
+  `app.rs` now remains focused on aggregate ownership and orchestration, and
+  operation completion was split into bounded lifecycle phases.
+- Workspace search draft boundary: `20d1e190`; `FilesSearchContext` now edits
+  an owned `WorkspaceSearchDraft` and emits `UpdateDraft` before action intents,
+  so Find/Replace/Refactor always run against committed feature state.
+- Workspace-files state boundary: `05524c33`; `WorkspaceFilesState` now owns
+  panel selection, root/environment/trust transitions, directory expansion,
+  search routing and external-change dismissal. Activity adapters no longer
+  mutate those feature internals directly.
+- Composition-root guard: `de220cb9`; the architecture check now rejects egui
+  painting in `app.rs`, keeping the root limited to aggregate ownership and
+  cross-feature orchestration.
+- Saved Tasks run-policy boundary: `ba450fe2`; destructive confirmation,
+  scheduled-policy blocking and run-history recording now belong to
+  `SavedTaskState`; the root only dispatches the selected payload and commits
+  the runtime result.
+- Result-grid interaction boundary: `4a5ff3fe`; keyboard selection, staged
+  change commands, paste/F2 editing and navigation now reduce through
+  `ResultGridInteractionContext` typed actions. The root retains clipboard,
+  mutation, edit and navigation effect adapters.
+- Saved Tasks lifecycle boundary: `37da51cf`; draft creation/commit,
+  schedule enable/disable, due-task trigger selection and deletion dirty-state
+  now belong to `SavedTaskState`; `tasks_view.rs` retains runtime dispatch and
+  cross-feature orchestration.
+- Agent panel composition boundary: `6856abdf`; the panel shell now consumes
+  one `AgentPanelContext` and emits typed header/settings/context/thread/
+  composer actions. `agent_view.rs` retains snapshot preparation and effect
+  adapters only; the obsolete thread adapter was removed.
+- Settings composition boundary: `dde32725`; settings navigation, section
+  composition and diagnostics presentation now live in `SettingsSurfaceContext`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- Current focused UI checks after `20d1e190`: `cargo check -p db-pro-ui`,
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings` and
+  `cargo test -p db-pro-ui --lib --quiet` passed; 683 UI tests passed with no
+  failures.
+- Current command-port checks after `7c1efb7a`: `cargo check -p db-pro-ui`,
+  `cargo clippy -p db-pro-ui --all-targets -- -D warnings`, `cargo test
+  -p db-pro-ui --lib --quiet` and the architecture guard passed; 683 UI tests
+  passed with no failures.
+- Query editor effect checks after `68b7a705`: `cargo fmt --all -- --check`,
+  `cargo check -p db-pro-ui`, `cargo clippy -p db-pro-ui --all-targets --
+  -D warnings`, `cargo test -p db-pro-ui --lib --quiet`, the architecture
+  guard and clean-code scan passed; 684 UI tests passed with no failures.
+- Full workspace gate after `68b7a705`: `cargo fmt --all -- --check`,
+  `cargo check --workspace`, `cargo clippy --workspace --all-targets --
+  -D warnings` and `cargo test --workspace --no-fail-fast --quiet` passed;
+  404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and
+  684 UI tests passed, with environment-gated tests ignored. Both native
+  release builds, the architecture guard, clean-code scan (16 pass, 0
+  warnings) and `git diff --check` also passed.
+- Full workspace gate after `2b599ee9`: `cargo fmt --all -- --check`,
+  `cargo check --workspace`, `cargo clippy --workspace --all-targets --
+  -D warnings` and `cargo test --workspace --no-fail-fast --quiet` passed;
+  404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and
+  684 UI tests passed, with environment-gated tests ignored. Both native
+  release builds, the architecture guard, clean-code scan (16 pass, 0
+  warnings) and `git diff --check` also passed.
+- Full workspace gate after `b4a058d2`: `cargo fmt --all -- --check`,
+  `cargo check --workspace`, `cargo clippy --workspace --all-targets --
+  -D warnings` and `cargo test --workspace --no-fail-fast --quiet` passed;
+  404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and
+  684 UI tests passed, with environment-gated tests ignored. Both native
+  release builds, the architecture guard, clean-code scan (16 pass, 0
+  warnings) and `git diff --check` also passed.
+- Full workspace gate after `2595eec5`: `cargo fmt --all -- --check`,
+  `cargo check --workspace`, `cargo clippy --workspace --all-targets --
+  -D warnings` and `cargo test --workspace --no-fail-fast --quiet` passed;
+  404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and
+  684 UI tests passed, with environment-gated tests ignored. Both native
+  release builds, the architecture guard, clean-code scan (16 pass, 0
+  warnings) and `git diff --check` also passed.
+- Full workspace gate after `7c1efb7a`: `cargo fmt --all -- --check`,
+  `cargo check --workspace`, `cargo clippy --workspace --all-targets --
+  -D warnings` and `cargo test --workspace --no-fail-fast --quiet` passed;
+  404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and
+  683 UI tests passed, with only environment-gated tests ignored.
+- Full workspace gate rerun after `20d1e190`: `cargo fmt --all -- --check`,
+  `cargo check --workspace`, `cargo clippy --workspace --all-targets --
+  -D warnings` and `cargo test --workspace --no-fail-fast --quiet` passed;
+  404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and
+  683 UI tests passed, with only environment-gated tests ignored.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; workspace suites
+  include 404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34,
+  31 and 681 UI tests with no failures. Environment-gated tests remain
+  ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Current release runtime capture:
+  `/tmp/db-pro-native-core-2595eec5-new-1280x800.png`, logical `1280x800`,
+  captured from the release binary rebuilt after the query library and
+  composition-root topology boundaries.
+  The New Connection dialog remains centered with a separated
+  header/divider, right-aligned close control, complete body and separated
+  footer. The manual-verification release binary is running as PID `61715`.
+- Runtime matrix from the preceding release source `05524c33`:
+  - normal/empty: `/tmp/db-pro-native-core-05524c33-normal-1280x800.png`
+  - loading: `/tmp/db-pro-native-core-05524c33-loading-1280x800.png`
+  - New Connection error: `/tmp/db-pro-native-core-05524c33-error-1280x800.png`
+  - Query shell: `/tmp/db-pro-native-core-05524c33-query-1280x800.png`
+  - New Connection: `/tmp/db-pro-native-core-05524c33-new-1280x800.png`
+  All five captures are Retina `2560x1600` framebuffers for logical `1280x800`.
+  The larger requested captures from the previous release remain available:
+  `/tmp/db-pro-native-core-ba450fe2-new-1440x900.png` and
+  `/tmp/db-pro-native-core-ba450fe2-new-1920x1080.png`.
+  The two larger captures are host-limited to a logical height of `838`
+  (`2880x1676` and `3840x1676` Retina framebuffers respectively); their
+  centered modal/header/close/footer layout remains visually verified.
+
+## Core boundary checkpoint at `db6013ee`
+
+- Table workspace surface boundary: `35776e2b`.
+- Result-grid keyboard intent boundary: `8801fdce`.
+- Schema-object surface boundary: `d3414e38`.
+- Result-grid row-gutter surface boundary: `db6013ee`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 630 UI tests and
+  all workspace suites passed, with environment-gated tests ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- Runtime capture: `/tmp/db-pro-native-core-db6013ee.png`, logical `1280x800`.
+  The New Connection dialog is centered, has a separated header/divider and a
+  right-aligned close control. Release binary PID `49440` is running for manual
+  verification.
+
+## Final core checkpoint at `e4552773`
+
+- Result-grid row surface boundary: `748889bb`.
+- Capture stability fix: `e4552773` (default settle window raised to 60 frames).
+- Full fmt/check/clippy/workspace test/release-build/capture-build gate:
+  passed. Workspace suites include 630 passing UI tests; environment-gated
+  tests remain ignored.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- Clean scan: 16 pass, 0 warnings.
+- Default-settle runtime capture: `/tmp/db-pro-native-core-e4552773.png`,
+  logical `1280x800`. The New Connection body rendered fully; dialog is
+  centered, header is separated by a divider, and close is right-aligned.
+- Release binary from this code SHA is running as PID `53667` for manual
+  verification.
+
+## Current runtime checkpoint at `fc28d660`
+
+- Files tree surface boundary: `fc28d660`.
+- Full fmt/check/clippy/workspace test/release-build/capture-build gate:
+  passed; workspace suites include 630 passing UI tests and only
+  environment-gated tests ignored.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- Clean scan: 16 pass, 0 warnings.
+- Default-settle runtime capture: `/tmp/db-pro-native-core-fc28d660.png`,
+  logical `1280x800`; the New Connection body rendered fully, with centered
+  dialog, separated header/divider and right-aligned close control.
+- Release binary from this code SHA is running as PID `56582` for manual
+  verification.
+
+## Current management protocol checkpoint at `df35c68e`
+
+- Management read-only state boundary: `df35c68e`. `AuditState`, `FdwState`,
+  `ReplicationState`, `EventTriggerState` and `PgSettingsState` now own only
+  read models and form state; runtime `UiCommand` construction lives in the
+  corresponding activity adapters. `operation_events.rs` uses those same
+  adapters for refresh-after-mutation instead of calling protocol builders on
+  state objects.
+- The architecture guard now rejects `UiCommand` in all five management state
+  modules.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 684 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-df35c68e-new-1280x800-v3.png`,
+  logical `1280x800`, inspected from the rebuilt capture binary. The New
+  Connection dialog remains centered with a separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running from this SHA in terminal session
+  `93742` (native process PID `64315`) for manual verification.
+
+## Current monitoring protocol checkpoint at `cfb32462`
+
+- Monitoring command boundary: `cfb32462`. `MonitoringState` now owns
+  monitoring read model, polling and confirmation state only; snapshot,
+  workload, session-control, maintenance and reset command mapping lives in
+  `monitoring_activity_view.rs`. Refresh-after-action in `operation_events.rs`
+  uses the same adapter boundary.
+- The architecture guard now rejects `UiCommand` in `monitoring_state.rs`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 684 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-cfb32462-new-1280x800.png`,
+  logical `1280x800`, inspected from the rebuilt capture binary. The New
+  Connection dialog remains centered with a separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running from this SHA in terminal session
+  `25880` (native process PID `67520`) for manual verification.
+
+## Current security protocol checkpoint at `449dae87`
+
+- Security command boundary: `449dae87`. `SecurityState` now owns security
+  read models, form state and pure RLS input normalization only. Role,
+  privilege, membership and RLS `UiCommand` construction lives in
+  `security_activity_view.rs` behind a small request context; the root keeps
+  orchestration and dispatch only.
+- The architecture guard now rejects `UiCommand` in `security_state.rs`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 684 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-449dae87-new-1280x800.png`,
+  logical `1280x800`, inspected from the rebuilt capture binary. The New
+  Connection dialog remains centered with a separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running from this SHA in terminal session
+  `26465` (native process PID `69857`) for manual verification.
+
+## Current backup protocol checkpoint at `63bf2931`
+
+- Backup/restore command boundary: `63bf2931`. `OverlayState` now owns
+  transient paths and confirmation flags only; file-picker, backup and restore
+  `UiCommand` mapping lives in the settings root adapter. The adapter keeps
+  the existing path behavior covered by its own tests.
+- The architecture guard now rejects `UiCommand` in `overlay_state.rs`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 684 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-63bf2931-new-1280x800.png`,
+  logical `1280x800`, inspected from the rebuilt capture binary. The New
+  Connection dialog remains centered with a separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running from this SHA in terminal session
+  `58614` (native process PID `72941`) for manual verification.
+
+## Current schema-compare protocol checkpoint at `5cc14f0c`
+
+- Schema-compare command boundary: `5cc14f0c`. `SchemaCompareState` now owns
+  schema snapshots, diff/migration planning, fingerprint validation and pure
+  request/SQL preparation. `workspace_actions.rs` and `query_session.rs` own
+  the final `UiCommand` construction for keyed data diff and migration apply.
+- The architecture guard now rejects `UiCommand` in `schema_compare_state.rs`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed on the final rerun;
+  404 core, 119 infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and
+  684 UI tests passed. Environment-gated tests remain ignored. One preceding
+  full run hit the existing timing threshold in
+  `diagram::tests::scene_prep_1000_1920x1080`; the exact test rerun passed and
+  the subsequent full rerun passed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-5cc14f0c-new-1280x800.png`,
+  logical `1280x800`, inspected from the rebuilt capture binary. The New
+  Connection dialog remains centered with a separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running from this SHA in terminal session
+  `31209` (native process PID `76549`) for manual verification.
+
+## Current connection/root command checkpoint at `6ecdfb99`
+
+- Connection lifecycle boundary: `0c4cb176`. Connection lifecycle state no
+  longer constructs `UiCommand`; saved-connection switching is mapped by
+  `connection::logic` and callers use that adapter.
+- Composition-root command boundary: `6ecdfb99`. `app.rs` no longer constructs
+  runtime commands directly for connection loading or schema introspection;
+  those mappings live in feature adapters. The architecture guard rejects
+  `UiCommand::` in `app.rs` and rejects protocol commands in connection
+  lifecycle state.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 684 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-6ecdfb99-new-1280x800.png`,
+  logical `1280x800`, inspected from the rebuilt capture binary. The New
+  Connection dialog remains centered with a separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running from this SHA in terminal session
+  `42789` (native process PID `81098`) for manual verification.
+
+### Runtime acceptance matrix from `6ecdfb99`
+
+- Normal/empty: `/tmp/db-pro-native-core-6ecdfb99-normal-1280x800.png`,
+  `/tmp/db-pro-native-core-6ecdfb99-normal-1440x900.png`,
+  `/tmp/db-pro-native-core-6ecdfb99-normal-1920x1080.png`.
+- Loading: `/tmp/db-pro-native-core-6ecdfb99-loading-1280x800.png`,
+  `/tmp/db-pro-native-core-6ecdfb99-loading-1440x900.png`,
+  `/tmp/db-pro-native-core-6ecdfb99-loading-1920x1080.png`.
+- Error: `/tmp/db-pro-native-core-6ecdfb99-error-1280x800.png`,
+  `/tmp/db-pro-native-core-6ecdfb99-error-1440x900.png`,
+  `/tmp/db-pro-native-core-6ecdfb99-error-1920x1080.png`.
+- All nine captures were visually inspected. The 1280×800 logical captures
+  are Retina `2560x1600` framebuffers. The host clamps the larger logical
+  heights to `838`, producing `2880x1676` and `3840x1676` framebuffers; width,
+  responsive composition, modal centering, header divider, close alignment and
+  footer separation remain verified at those sizes.
+
+### Request identity boundary checkpoint at `5064ac20`
+
+- Feature adapters now allocate request identities only through
+  `DbProApp::next_request_id`; direct `TaskBridge::next_request_id` access is
+  architecture-guarded outside `app.rs`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 684 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-request-port-error-1280x800.png`,
+  created from the rebuilt release capture binary and visually inspected. The
+  New Connection dialog remains centered with the separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running for manual verification as native
+  process PID `83952`.
+
+### Command-preparation and failure-transition checkpoint at `e3a8fde0`
+
+- `SchemaWorkbenchState` now prepares `SchemaWorkbenchDdlRequest` and
+  `ExplorerConnectionContext` now prepares `ConnectRequest`; neither owns
+  runtime protocol construction. The architecture guard rejects
+  `UiCommand` in both modules.
+- Sensitive Security drafts and connection/query/folder delete confirmations
+  are committed only after the runtime channel accepts the command. A failed
+  Security password dispatch regression test passes and preserves the draft.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 686 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-one-way-transition-1280x800.png`,
+  created from the rebuilt release capture binary and visually inspected. The
+  New Connection dialog remains centered with separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running for manual verification as native
+  process PID `88932`.
+
+### Query effect-preparation checkpoint at `6ff9f937`
+
+- `QueryExecutionContext` now returns `PreparedQueryRun` and commits from the
+  typed effect; `QuerySaveContext` now returns `PreparedQuerySave`. Runtime
+  protocol construction is isolated in `events_query_dispatch.rs` and
+  `query_save_commands.rs`.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 686 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+- Runtime capture: `/tmp/db-pro-native-core-query-boundary-1280x800.png`,
+  created from the rebuilt release capture binary and visually inspected. The
+  New Connection dialog remains centered with separated header/divider,
+  right-aligned close control, complete body and separated footer.
+- The rebuilt release binary is running for manual verification as native
+  process PID `91555`.
+
+### Saved task SQL safety checkpoint at `0cf1ed32`
+
+- `tasks_view.rs` no longer interpolates saved task table/target values into
+  SQL. `saved_task_sql.rs` owns identifier quoting, driver-specific export
+  pagination and maintenance capability gating.
+- Focused `saved_task_sql` tests passed: 4 passed, 0 failed, including
+  injection-shaped identifiers and provider-specific syntax.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri, 3, 21, 9, 34, 31 and 690 UI tests
+  passed. Environment-gated tests remain ignored.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed before the documentation-only follow-up.
+
+### Runtime handoff after `0cf1ed32`
+
+- The saved-task SQL slice has no rendering-path change; the existing New
+  Connection capture remains the applicable visual evidence for the native
+  shell and shared dialog surface.
+- `target/release/db-pro-native` was rebuilt with the normal release gate and
+  launched successfully from the code at `0cf1ed32`; the running native
+  process is PID `94103` for manual verification.
+- The working tree is clean and `main` is synchronized with `origin/main` at
+  the documentation follow-up commit.
+
+### Core failure-transition checkpoint at `4904c81c`
+
+- Command-palette connection switching now reuses the guarded connection
+  transition, so staged-change and failed-dispatch protections apply equally
+  to palette and Explorer entry points.
+- Monitoring maintenance/terminate/reset and Settings restore confirmations
+  remain visible when the runtime worker rejects the command. Connection
+  failure reduction uses `PendingConnectionOperation` instead of parsing
+  feedback text.
+- Focused regressions passed for typed connection failure classification,
+  failed restore dispatch, failed monitoring maintenance dispatch, failed
+  palette connection switching, failed connection request cleanup and
+  connection draft SSL preservation.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 694 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 15 checks, 0 failures and 1 ratchet warning for pre-existing
+  long functions.
+- `git diff --check`: passed.
+
+### Database-management adapter checkpoint at `10a87a9e`
+
+- Audit, FDW, Event Trigger and Logical Replication no longer declare
+  `impl DbProApp`; each uses an explicit context with feature state, provider
+  snapshot, connection identity, feedback and `RuntimeCommandDispatcher`.
+- Audit returns `OpenQuery` as a typed effect and the root alone applies query
+  workspace navigation. Runtime dispatch failure handling is centralized in
+  `RuntimeCommandDispatcher::dispatch`, including connection-delete and
+  query-folder confirmation dialogs.
+- The UI source topology contains 64 `impl DbProApp` declarations, down from
+  68 before this slice; the remaining declarations are tracked as root
+  adapters or pending migration work rather than being treated as complete.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 694 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 15 checks and 0 failures; 1 warning group remains for four
+  pre-existing long functions in `connection/view.rs`.
+- `git diff --check`: passed.
+
+### PostgreSQL settings adapter checkpoint at `de5b0a0f`
+
+- PostgreSQL settings now use an explicit activity context instead of
+  `impl DbProApp`; it receives the settings state, provider/connection
+  snapshot, feedback and `RuntimeCommandDispatcher`.
+- Applying SET SESSION clears the edit dialog only after successful dispatch.
+  The failed-dispatch regression passed and preserves `work_mem=64MB` draft
+  state when the runtime worker is unavailable.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks and 0 warnings.
+- `git diff --check`: passed.
+
+### Multi-query execution boundary checkpoint at `c85f219e`
+
+- `QueryService::execute_multi` now coordinates connection/policy lookup,
+  execution-mode selection, single-statement schema invalidation and history
+  persistence; transactional/sequential execution and transaction-result
+  conversion live in `application/multi_query_execution.rs`.
+- Focused query-service tests passed: 32 passed, 0 failed, 372 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo check -p db-pro-core`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 14 checks, 0 failures and 2 ratchet warnings for the existing
+  `effective_keyword` function and long `query_service.rs` file.
+- `git diff --check`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- Post-commit clean scan exited 0 with 16 checks and 0 warnings because the
+  working tree had no source diff relative to `main`; the pre-commit scan
+  above is the applicable changed-source result.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `31706`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Table mutation execution boundary checkpoint at `c297c6dd`
+
+- `TableDataService::apply_mutations_detailed` now delegates to
+  `application/table_mutation_execution.rs`; the helper owns validation,
+  ordered statement planning, transaction dispatch/failure-index remapping and
+  affected-row aggregation.
+- Focused table-data tests passed: 22 passed, 0 failed, 382 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo check -p db-pro-core`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 14 checks, 0 failures and 2 ratchet warnings limited to the
+  existing long test functions and `table_data_service.rs` size.
+- `git diff --check`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- Post-commit clean scan exited 0 with 16 checks and 0 warnings because the
+  working tree had no source diff relative to `main`; the pre-commit scan
+  above is the applicable changed-source result.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `34681`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### SQL safety analysis boundary checkpoint at `49e51e6e`
+
+- `domain/safety.rs` retains policy/classification APIs; quote/comment/
+  dollar-quote scanning and tokenization are in `domain/safety_lexer.rs`, and
+  data-modifying CTE classification is in `domain/safety_cte.rs`.
+- Focused safety tests passed: 47 passed, 0 failed, 357 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo check -p db-pro-core`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 15 checks, 0 failures and 1 ratchet warning for the remaining
+  long `safety.rs` file.
+- `git diff --check`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- Post-commit clean scan exited 0 with 16 checks and 0 warnings because the
+  working tree had no source diff relative to `main`; the pre-commit scan
+  above is the applicable changed-source result.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `38781`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Schema DDL rendering boundary checkpoint at `4a63295d`
+
+- `SchemaService` now owns introspection/cache/DDL execution orchestration;
+  provider-aware table, index, constraint, foreign-key and trigger rendering
+  lives in `application/schema_ddl.rs`.
+- Focused schema-service tests passed: 19 passed, 0 failed, 385 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo check -p db-pro-core`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 failures and 0 warnings.
+- `git diff --check`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- Post-commit clean scan exited 0 with 16 checks and 0 warnings because the
+  working tree had no source diff relative to `main`; the pre-commit scan
+  above is the applicable changed-source result.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `42086`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Schema table projection boundary checkpoint at `93a4e85a`
+
+- `SchemaService::get_table_info` now only loads the introspection snapshot and
+  delegates projection to `application/schema_table_info.rs`; the helper owns
+  table parts, dependency edge construction and stable deduplication.
+- Focused schema-service tests passed: 19 passed, 0 failed, 385 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo check -p db-pro-core`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 failures and 0 warnings.
+- `git diff --check`: passed.
+- `cargo fmt --all -- --check`: passed.
+- `cargo check --workspace`: passed.
+- `cargo clippy --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --workspace --no-fail-fast --quiet`: passed; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- Post-commit clean scan exited 0 with 16 checks and 0 warnings because the
+  working tree had no source diff relative to `main`; the pre-commit scan
+  above is the applicable changed-source result.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `45684`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Connection update boundary checkpoint (pre-commit)
+
+- `ConnectionService::update` now delegates to
+  `application/connection_update.rs`; `PreparedUpdate` owns the update
+  snapshot, explicit database/SSH secret plans, secret rollback and the
+  persist/disconnect recovery sequence.
+- Focused `cargo test -p db-pro-core connection_service --quiet`: passed; 39
+  passed, 0 failed, 365 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 15 checks, 0 failures and only the existing `connection_service.rs`
+  long-function ratchet warning for create/delete.
+- `git diff --check`: passed.
+
+### Connection update boundary checkpoint at `9593c9c9`
+
+- `ConnectionService::update` now delegates to
+  `application/connection_update.rs`; `PreparedUpdate` owns the update
+  snapshot, explicit database/SSH secret plans, secret rollback and the
+  persist/disconnect recovery sequence.
+- Focused `cargo test -p db-pro-core connection_service --quiet`: passed; 39
+  passed, 0 failed, 365 filtered out.
+- Full workspace gate passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `49493`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Export formatting boundary checkpoint (pre-commit)
+
+- `ExportService` now delegates CSV, JSON and XLSX encoding to
+  `application/export_formats.rs`; authorization and provider query execution
+  remain in the service boundary.
+- Focused `cargo test -p db-pro-core export_service --quiet`: passed; 11
+  passed, 0 failed, 393 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
+### Object mutation builder boundary checkpoint (pre-commit)
+
+- `ObjectMutationService::plan` now delegates definition/action-to-DDL
+  rendering to `application/object_mutation_builders.rs`; preview policy,
+  safety, effects and fingerprint assembly remain in the service facade.
+- Focused `cargo test -p db-pro-core object_mutation_service --quiet`: passed;
+  7 passed, 0 failed, 397 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
+### Database transfer plan boundary checkpoint (pre-commit)
+
+- Conversion types, PG/SQLite mapping classification, endpoint capability
+  gates and row projection now live in `application/db_transfer_plan.rs`.
+  `db_transfer.rs` retains generator/target streaming adapters and re-exports
+  the existing planning API.
+- Focused `cargo test -p db-pro-core db_transfer --quiet`: passed; 9 passed,
+  0 failed, 395 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
+### Monitoring snapshot boundary checkpoint (pre-commit)
+
+- `MonitoringService::snapshot` now delegates provider query collection,
+  fallback handling and `MonitoringSnapshot` assembly to
+  `application/monitoring_snapshot.rs`.
+- Focused `cargo test -p db-pro-core monitoring_service --quiet`: passed; 6
+  passed, 0 failed, 398 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
+### Schema diff comparator boundary checkpoint (pre-commit)
+
+- `schema_diff_compare.rs` now owns qualified-name formatting, table/index set
+  differences, common-column comparison and typed mismatch lookup;
+  `SchemaService::diff_schemas` remains the introspection adapter.
+- Focused `cargo test -p db-pro-core schema_diff --quiet`: passed; 4 passed,
+  0 failed, 400 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
+### Query classification boundary checkpoint (pre-commit)
+
+- `query_classification.rs` now owns SQL statement classification, CTE keyword
+  scanning and leading-comment handling; `QueryService` retains orchestration
+  and imports the scoped classifier.
+- The `QueryService` test module now lives in
+  `application/query_service/tests.rs`, keeping the production facade focused
+  without changing test coverage or public behavior.
+- Focused `cargo test -p db-pro-core query_service --quiet`: passed; 32 passed,
+  0 failed, 372 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
+### Query classification boundary full release checkpoint at `79be8957`
+
+- Full workspace gate passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `73006`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### SQL builder boundary checkpoint (pre-commit)
+
+- `sql_builder.rs` remains the stable facade while read query construction is
+  isolated in `sql_builder/read.rs` and insert/update/delete/PK construction is
+  isolated in `sql_builder/mutation.rs`.
+- Shared identifier qualification, placeholder sequencing and typed parameter
+  conversion remain centralized; existing SQL shape and temporal binding
+  behavior are preserved.
+- Focused `cargo test -p db-pro-core sql_builder --quiet`: passed; 36 passed,
+  0 failed, 368 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+
+### SQL builder boundary full release checkpoint at `14981dbb`
+
+- Full workspace gate passed:
+  `cargo fmt --all -- --check`, `cargo check --workspace`,
+  `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace --no-fail-fast --quiet`; 404 core, 119
+  infrastructure, 32 runtime, 4 tauri and 695 UI tests passed. Environment-
+  gated tests remain ignored; no test failed.
+- `cargo build --release --locked -p db-pro-native`: passed.
+- `cargo build --release --locked -p db-pro-native --features capture`: passed.
+- `bash scripts/check-ui-architecture.sh`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.
+- The rebuilt normal release binary is running as native process PID `76853`
+  with `DB_PRO_DATA_DIR=/tmp/dbpro_manual_data` for manual verification.
+
+### Safety policy boundary checkpoint (pre-commit)
+
+- `safety_policy.rs` now owns `ConnectionSafetyPolicy` construction/defaulting
+  and `validate_against_policy`; `domain/safety.rs` remains the compatibility
+  facade for classifier/script APIs.
+- Safety tests now live in `domain/safety/tests.rs`, leaving production safety
+  code below the file-size threshold without changing public imports.
+- Focused `cargo test -p db-pro-core safety --quiet`: passed; 47 passed,
+  0 failed, 357 filtered out.
+- `cargo fmt --all`: passed.
+- `cargo clippy -p db-pro-core --all-targets -- -D warnings`: passed.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`:
+  passed with 16 checks, 0 warnings and 0 failures.
+- `git diff --check`: passed.

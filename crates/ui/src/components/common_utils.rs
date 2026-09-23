@@ -4,7 +4,7 @@ use egui::{Pos2, Rect, Vec2};
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DialogLayout {
     pub width: f32,
-    pub max_content_height: f32,
+    pub max_body_height: f32,
     pub target_pos: Pos2,
 }
 
@@ -19,10 +19,11 @@ pub fn calculate_dialog_layout(
     measured_height: Option<f32>,
     horizontal_margin: f32,
     vertical_margin: f32,
+    chrome_height: f32,
 ) -> DialogLayout {
     let horizontal_padding = horizontal_margin * 2.0;
     let width = requested_width.min((screen.width() - horizontal_padding).max(80.0));
-    let max_content_height = (screen.height() - 120.0).max(120.0);
+    let max_body_height = (screen.height() - vertical_margin * 2.0 - chrome_height).max(120.0);
 
     let target_x = (screen.center().x - width * 0.5).clamp(
         screen.left() + horizontal_margin,
@@ -44,7 +45,7 @@ pub fn calculate_dialog_layout(
 
     DialogLayout {
         width,
-        max_content_height,
+        max_body_height,
         target_pos: Pos2::new(target_x, target_y),
     }
 }
@@ -167,24 +168,24 @@ mod tests {
     #[test]
     fn test_calculate_dialog_layout_centers_correctly() {
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
-        let layout = calculate_dialog_layout(screen, 420.0, Some(300.0), 16.0, 24.0);
+        let layout = calculate_dialog_layout(screen, 420.0, Some(300.0), 16.0, 24.0, 220.0);
 
         assert_eq!(layout.width, 420.0);
         assert_eq!(layout.target_pos.x, (1280.0 - 420.0) / 2.0);
         assert_eq!(layout.target_pos.y, (800.0 - 300.0) / 2.0);
-        assert_eq!(layout.max_content_height, 800.0 - 120.0);
+        assert_eq!(layout.max_body_height, 800.0 - 48.0 - 220.0);
     }
 
     #[test]
     fn test_calculate_dialog_layout_handles_small_screens() {
         // Small laptop screen (e.g. 1024x600)
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1024.0, 600.0));
-        let layout = calculate_dialog_layout(screen, 880.0, Some(700.0), 16.0, 24.0);
+        let layout = calculate_dialog_layout(screen, 880.0, Some(700.0), 16.0, 24.0, 220.0);
 
         assert_eq!(layout.width, 880.0);
         // Because height 700 exceeds screen height 600, target_y should clamp to vertical_margin
         assert_eq!(layout.target_pos.y, 24.0);
-        assert_eq!(layout.max_content_height, 480.0);
+        assert_eq!(layout.max_body_height, 600.0 - 48.0 - 220.0);
     }
 
     #[test]

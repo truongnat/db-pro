@@ -1,35 +1,33 @@
 use super::*;
 use std::time::Instant;
 
+#[path = "query_layout_surface_view.rs"]
+mod query_layout_surface_view;
+
+#[path = "query_snippets_surface_view.rs"]
+mod query_snippets_surface_view;
+
 /// Egress note shown with the AI prediction control (#242).
 ///
-/// Inline prediction is the one AI feature that runs without any user action — `PredictionMode`
-/// defaults to `Eager` (`crates/ui/src/editor/prediction.rs:5-11`) and a scheduled request follows
-/// 300 ms after an edit or cursor move (`query_document.rs:13`) — so the control that chooses the
-/// mode is where its data flow has to be stated. The registry entry recording the same facts is
-/// `docs/release/known-limitations.md` LIM-019; with no key configured the runtime answers
-/// "AI provider is not configured" and nothing leaves the machine (`crates/runtime/src/worker.rs:1118`).
+/// Inline prediction can still schedule without a click — default is `Subtle`
+/// (`crates/ui/src/editor/prediction.rs`) so ghost text stays quieter until reveal,
+/// and a request follows 300 ms after an edit or cursor move (`query_document.rs`).
+/// The control that chooses the mode is where its data flow has to be stated. The
+/// registry entry recording the same facts is `docs/release/known-limitations.md`
+/// LIM-019; with no key configured the runtime answers "AI provider is not configured"
+/// and nothing leaves the machine (`crates/runtime/src/worker.rs:1118`).
 pub(super) const AI_PREDICTION_EGRESS_NOTE: &str =
     "Sends the SQL around your cursor and its schema context to your configured AI provider.";
 
 #[path = "query_helpers.rs"]
 mod query_helpers;
 pub(crate) use query_helpers::{
-    database_error_diagnostic, deduplicate_diagnostics, deduplicate_messages, elide_chars, format_query_document,
+    database_error_diagnostic, deduplicate_diagnostics, deduplicate_messages, format_query_document,
     prediction_replacement_range, write_file_atomically,
 };
 
-/// Fixed widths for the header connection/schema selectors. Bounding them keeps the
-/// Run/Builder/overflow actions reachable even with 60+ character names at 1280x800;
-/// full names stay on hover tooltips.
-const HEADER_CONN_COMBO_WIDTH: f32 = 170.0;
-const HEADER_SCHEMA_COMBO_WIDTH: f32 = 130.0;
-/// Character budget matching the fixed combo widths (caption font, ~5.5 px/char).
-const HEADER_COMBO_MAX_CHARS: usize = 28;
-
 impl DbProApp {
     pub(super) fn draw_query(&mut self, ui: &mut egui::Ui) {
-        // Shell owns horizontal inset (`SHELL_SPLIT_INSET`); keep the query surface flush.
         egui::Frame::none()
             .inner_margin(egui::Margin {
                 left: SPACE_XS,
@@ -37,730 +35,322 @@ impl DbProApp {
                 top: SPACE_XS,
                 bottom: 0.0,
             })
-            .show(ui, |ui| {
-                self.refresh_diagnostics();
-                let more_anchor = self.draw_query_header(ui);
-                if self.query_txn_bar_open || self.query_in_transaction {
-                    ui.add_space(6.0);
-                    if let Some(action) =
-                        TransactionBar::new(self.query_in_transaction, self.query_txn_pending, self.theme)
-                            .auto_commit(self.query_auto_commit)
-                            .show(ui)
-                    {
-                        self.handle_transaction_action(action);
-                    }
-                }
-                if self.disconnect_txn_guard {
-                    ui.colored_label(
-                        self.theme.warning,
-                        "Open transaction blocks disconnect — Commit or Rollback first.",
-                    );
-                    if Button::new(self.theme)
-                        .text("Dismiss")
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::Sm)
-                        .show(ui)
-                        .clicked()
-                    {
-                        self.disconnect_txn_guard = false;
-                    }
-                }
-                ui.add_space(4.0);
-                if self.query_tools_open {
-                    if let Some(anchor) = more_anchor {
-                        self.draw_query_actions_menu(ui.ctx(), anchor);
-                    }
-                }
-                if self.editor_search_open {
-                    self.draw_editor_search_bar(ui);
-                }
-                if self.visual_query_builder_open {
-                    egui::CollapsingHeader::new("Visual query builder")
-                        .default_open(true)
-                        .show(ui, |ui| {
-                            self.draw_visual_query_builder(ui);
-                        });
-                    ui.add_space(SPACE_SM);
-                }
-                self.draw_query_editor(ui);
-                self.draw_floating_completion_popup(ui.ctx());
-                if self.completion_open {
-                    self.draw_sql_completion(ui);
-                }
-                if self.snippets_open {
-                    self.draw_sql_snippets(ui);
-                }
-                self.draw_diagnostics(ui);
-                self.draw_sql_parameters_panel(ui);
-                self.draw_output_tabs(ui);
-
-                let result = self.active_query_result().cloned();
-                ui.add_space(8.0);
-                self.draw_output_pane(ui, result.as_ref());
-                self.draw_dirty_close_dialog(ui.ctx());
-                self.draw_save_as_dialog(ui.ctx());
-            });
+            .show(ui, |ui| self.draw_query_content(ui));
     }
 
-    /// Query title / file path, connection breadcrumb, run/stop and the overflow button.
-    /// Returns the overflow button rect so the actions menu can anchor to it.
-    fn draw_query_header(&mut self, ui: &mut egui::Ui) -> Option<egui::Rect> {
-        let modifier = Self::primary_modifier_label();
-        let mut more_anchor = None;
-        let doc_idx = self.active_query_document;
+    fn draw_query_content(&mut self, ui: &mut egui::Ui) {
+        self.refresh_query_diagnostics(ui);
+        self.draw_query_context_chrome(ui);
+        self.draw_query_transaction_chrome(ui);
+        self.draw_visual_query_builder_surface(ui);
+        let layout = query_layout_surface_view::calculate(query_layout_surface_view::QueryPanelLayoutContext {
+            available_height: ui.available_height(),
+            bottom_panel_open: self.workspace.bottom_panel_open,
+            output_dock_maximized: self.query.editor.query_output_dock_maximized,
+            bottom_panel_height: self.workspace.bottom_panel_height,
+        });
+        self.draw_query_editor_stack(ui, layout.editor_height);
+        self.draw_query_optional_panels(ui);
+        if layout.dock_open {
+            self.draw_query_output_dock(ui, layout.dock_height);
+        }
+        self.draw_query_status_bar(ui);
+        self.draw_dirty_close_dialog(ui.ctx());
+        self.draw_save_as_dialog(ui.ctx());
+    }
+
+    fn refresh_query_diagnostics(&mut self, ui: &egui::Ui) {
+        let driver = self.active_driver().to_owned();
+        let lint = self.preferences.settings.editor.lint.clone();
+        query_diagnostics_view::refresh_diagnostics(&mut self.query, &driver, &lint);
+        if let Some(deadline) = self.query.editor.diagnostics_debounce_at {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if !remaining.is_zero() {
+                ui.ctx().request_repaint_after(remaining);
+            }
+        }
+    }
+
+    fn draw_query_context_chrome(&mut self, ui: &mut egui::Ui) {
+        let doc_idx = self.query.session.active_document_index;
         let file_path = self
-            .query_documents
+            .query
+            .session
+            .documents
             .get(doc_idx)
             .and_then(|document| document.file_path.clone());
-        let query_title = self
-            .query_documents
-            .get(doc_idx)
-            .map(|document| document.title.clone())
-            .unwrap_or_else(|| "Query".to_owned());
+        let connected = self.active_query_connection_id().is_some() && self.connection.lifecycle.is_connected();
+        let connection_name = if connected {
+            self.active_query_connection_name().to_owned()
+        } else {
+            "No connection".to_owned()
+        };
+        let schema = self.active_query_schema().to_owned();
+        let environment = self
+            .active_query_connection()
+            .map(|connection| connection.environment.clone())
+            .unwrap_or_default();
+        let anchors = {
+            let mut context = query_context_view::QueryContextViewContext {
+                theme: self.theme,
+                editor: &mut self.query.editor,
+                file_path: file_path.as_deref(),
+                connected,
+                connection_name: &connection_name,
+                schema: &schema,
+                environment: &environment,
+            };
+            query_context_view::draw_context_strip(&mut context, ui)
+        };
+        if self.query.editor.query_context_picker_open {
+            if let Some(anchor) = anchors.context_anchor {
+                self.draw_query_context_picker(ui.ctx(), anchor);
+            }
+        }
+        if self.query.editor.query_tools_open {
+            if let Some(anchor) = anchors.more_anchor {
+                self.draw_query_actions_menu(ui.ctx(), anchor);
+            }
+        }
+    }
+
+    fn draw_query_transaction_chrome(&mut self, ui: &mut egui::Ui) {
+        let actions = query_transaction_surface_view::QueryTransactionSurfaceContext {
+            theme: self.theme,
+            execution: &mut self.query.execution,
+        }
+        .draw(ui);
+        for action in actions {
+            match action {
+                query_transaction_surface_view::QueryTransactionAction::Transaction(action) => {
+                    self.handle_transaction_action(action);
+                }
+                query_transaction_surface_view::QueryTransactionAction::DismissDisconnectGuard => {
+                    self.query.execution.disconnect_txn_guard = false;
+                }
+            }
+        }
+    }
+
+    fn draw_visual_query_builder_surface(&mut self, ui: &mut egui::Ui) {
+        query_shell_surface_view::draw_visual_builder(ui, self.query.editor.visual_builder.open, |ui| {
+            self.draw_visual_query_builder(ui)
+        });
+    }
+
+    fn draw_query_editor_stack(&mut self, ui: &mut egui::Ui, editor_height: f32) {
+        query_shell_surface_view::draw_editor_stack(ui, editor_height, |ui| self.draw_query_editor(ui));
+        self.draw_floating_completion_popup(ui.ctx());
+        let mut context = query_search_view::QuerySearchContext {
+            theme: self.theme,
+            editor: &mut self.query.editor,
+            session: &mut self.query.session,
+        };
+        query_search_view::draw_editor_search_overlay(&mut context, ui.ctx());
+    }
+
+    fn draw_query_optional_panels(&mut self, ui: &mut egui::Ui) {
+        if self.query.editor.snippets_open {
+            self.draw_sql_snippets(ui);
+        }
+        if self.query.editor.query_params_panel_open {
+            self.draw_sql_parameters_panel(ui);
+        }
+    }
+
+    fn draw_query_context_picker(&mut self, ctx: &egui::Context, anchor: egui::Rect) {
+        let doc_idx = self.query.session.active_document_index;
         let current_conn_id = self
-            .query_documents
+            .query
+            .session
+            .documents
             .get(doc_idx)
             .and_then(|d| d.connection_id.clone())
-            .or_else(|| self.active_connection_id.clone());
-        let conn_label = self.active_query_connection_name().to_owned();
+            .or_else(|| self.connection.lifecycle.active_connection_id().map(str::to_owned));
         let current_schema = self.active_query_schema().to_owned();
-        let connected = self.active_query_connection_id().is_some() && self.connected;
+        let available_schemas = if !self.schema.explorer.schema.schemas.is_empty() {
+            self.schema.explorer.schema.schemas.clone()
+        } else if !self.query_capabilities().allows(|caps| caps.schema.schemas) {
+            vec!["main".to_string()]
+        } else {
+            vec!["public".to_string()]
+        };
+        let connections: Vec<(String, String, String)> = self
+            .connection
+            .catalog
+            .iter()
+            .map(|c| (c.id.clone(), c.name.clone(), c.environment.clone()))
+            .collect();
 
-        let mut next_conn_id = None;
-        let mut next_schema = None;
-
-        // Zed-like path strip for file-backed SQL; plain title for untitled buffers.
-        if let Some(path) = file_path.as_deref() {
-            ui.horizontal(|ui| {
-                ui.label(icon_text(Icon::FileCode2, "", self.theme.text_muted));
-                ui.add(
-                    egui::Label::new(
-                        RichText::new(path)
-                            .font(font_caption())
-                            .monospace()
-                            .color(self.theme.text_secondary),
-                    )
-                    .truncate(),
-                )
-                .on_hover_text(path);
-            });
-            ui.add_space(4.0);
-        }
-
-        ui.horizontal(|ui| {
-            if file_path.is_none() {
-                ui.add(
-                    egui::Label::new(
-                        RichText::new(&query_title)
-                            .font(font_subheading())
-                            .strong()
-                            .color(self.theme.text_primary),
-                    )
-                    .truncate(),
-                )
-                .on_hover_text(&query_title);
-                ui.label(icon_text(Icon::ChevronRight, "", self.theme.text_muted));
+        let context = query_context_picker_view::QueryContextPickerContext {
+            theme: self.theme,
+            current_connection_id: current_conn_id.as_deref(),
+            current_schema: &current_schema,
+            available_schemas: &available_schemas,
+            connections: &connections,
+        };
+        if let Some(action) = query_context_picker_view::draw_picker(&context, ctx, anchor) {
+            match action {
+                query_context_picker_view::QueryContextPickerAction::SelectConnection(id) => {
+                    self.set_document_connection(doc_idx, Some(id));
+                    self.query.editor.query_context_picker_open = false;
+                }
+                query_context_picker_view::QueryContextPickerAction::SelectSchema(schema) => {
+                    self.set_document_schema(doc_idx, Some(schema));
+                    self.query.editor.query_context_picker_open = false;
+                }
+                query_context_picker_view::QueryContextPickerAction::Close => {
+                    self.query.editor.query_context_picker_open = false;
+                }
             }
+        }
+    }
 
-            egui::ComboBox::from_id_salt(("query_header_conn", doc_idx))
-                .width(HEADER_CONN_COMBO_WIDTH)
-                .selected_text(
-                    RichText::new(elide_chars(&conn_label, HEADER_COMBO_MAX_CHARS))
-                        .font(font_caption())
-                        .color(self.theme.accent),
-                )
-                .show_ui(ui, |ui| {
-                    for conn in &self.connections {
-                        let is_selected = current_conn_id.as_deref() == Some(conn.id.as_str());
-                        if ui.selectable_label(is_selected, &conn.name).clicked() {
-                            next_conn_id = Some(conn.id.clone());
-                        }
-                    }
-                })
-                .response
-                .on_hover_text(&conn_label);
-
-            ui.label(icon_text(Icon::ChevronRight, "", self.theme.text_muted));
-
-            let available_schemas = if !self.schema.schemas.is_empty() {
-                self.schema.schemas.clone()
-            } else if !self.query_capabilities().allows(|caps| caps.schema.schemas) {
-                vec!["main".to_string()]
-            } else {
-                vec!["public".to_string()]
+    fn draw_query_output_dock(&mut self, ui: &mut egui::Ui, dock_height: f32) {
+        let body_height = {
+            let mut context = query_output_dock_surface_view::QueryOutputDockContext {
+                theme: self.theme,
+                workspace: &mut self.workspace,
+                output: &mut self.query.output,
+                session: &self.query.session,
+                editor: &mut self.query.editor,
             };
-            egui::ComboBox::from_id_salt(("query_header_schema", doc_idx))
-                .width(HEADER_SCHEMA_COMBO_WIDTH)
-                .selected_text(
-                    RichText::new(elide_chars(&current_schema, HEADER_COMBO_MAX_CHARS))
-                        .font(font_caption())
-                        .color(self.theme.text_secondary),
-                )
-                .show_ui(ui, |ui| {
-                    for sch in &available_schemas {
-                        let is_selected = &current_schema == sch;
-                        if ui.selectable_label(is_selected, sch).clicked() {
-                            next_schema = Some(sch.clone());
-                        }
-                    }
-                })
-                .response
-                .on_hover_text(&current_schema);
+            context.draw_chrome(ui, dock_height)
+        };
+        ui.allocate_ui_with_layout(
+            egui::vec2(ui.available_width(), body_height),
+            Layout::top_down(Align::Min),
+            |ui| {
+                let result = self.query.session.active_result().cloned();
+                self.draw_output_pane(ui, result.as_ref());
+            },
+        );
+    }
 
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                let active_doc_running = self
-                    .query_documents
-                    .get(self.active_query_document)
-                    .and_then(|doc| match doc.execution_state {
-                        QueryExecutionState::Running(req) => Some(req),
-                        _ => None,
-                    });
-                let running = active_doc_running.is_some();
-                let cancel_supported = self.query_capabilities().allows(|c| c.query.cancel);
-                let cancel_reason = self
-                    .query_capabilities()
-                    .feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Cancel);
-                let run_button = if running {
-                    if cancel_supported {
-                        Button::new(self.theme)
-                            .text("Stop")
-                            .icon(Icon::Square)
-                            .variant(ButtonVariant::Secondary)
-                            .size(ButtonSize::Sm)
-                            .tooltip("Stop query (Esc)")
-                            .show(ui)
-                    } else {
-                        let tip = cancel_reason
-                            .as_deref()
-                            .unwrap_or("Query running (cancellation is unsupported by this provider)");
-                        Button::new(self.theme)
-                            .text("Running…")
-                            .icon(Icon::Loader)
-                            .variant(ButtonVariant::Secondary)
-                            .size(ButtonSize::Sm)
-                            .tooltip(tip)
-                            .show(ui)
-                    }
-                } else {
-                    let tip = if !connected {
-                        "Connect to a database before running".to_owned()
-                    } else {
-                        format!("Run query ({modifier}↵)")
-                    };
-                    Button::new(self.theme)
-                        .text("Run")
-                        .icon(Icon::Play)
-                        .variant(ButtonVariant::Default)
-                        .size(ButtonSize::Sm)
-                        .tooltip(tip)
-                        .show(ui)
-                };
-                if run_button.clicked() {
-                    if let Some(request_id) = active_doc_running {
-                        if cancel_supported {
-                            self.cancel_query(request_id);
-                        } else {
-                            self.runtime_message = cancel_reason
-                                .unwrap_or_else(|| "Query cancellation is not supported for this provider".to_owned());
-                        }
-                    } else if !connected {
-                        self.runtime_message = "Connect to a database before running a query".to_owned();
-                    } else {
-                        self.dispatch_query();
-                    }
-                }
-                let builder_label = if self.visual_query_builder_open {
-                    "Builder ✓"
-                } else {
-                    "Builder"
-                };
-                if Button::new(self.theme)
-                    .text(builder_label)
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .tooltip("Toggle visual SELECT builder (#247)")
-                    .show(ui)
-                    .clicked()
-                {
-                    self.visual_query_builder_open = !self.visual_query_builder_open;
-                }
-                let more_response = Button::new(self.theme)
-                    .icon(Icon::MoreHorizontal)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("More query actions")
-                    .show(ui);
-                if more_response.clicked() {
-                    self.query_tools_open = !self.query_tools_open;
-                }
-                more_anchor = Some(more_response.rect);
+    fn draw_query_status_bar(&mut self, ui: &mut egui::Ui) {
+        self.refresh_query_parameter_count();
+        if let Some(action) = self.draw_query_status_surface(ui) {
+            self.apply_query_status_bar_action(action);
+        }
+    }
+
+    fn refresh_query_parameter_count(&mut self) {
+        let param_key = (
+            self.query.session.active_document_index,
+            self.query.session.active_buffer_version(),
+        );
+        if self.query.editor.param_count_cache_key != Some(param_key) {
+            self.query.editor.param_count_cache_key = Some(param_key);
+            self.query.editor.param_count_cache =
+                crate::query::discover_sql_parameters(self.query.session.active_text()).len();
+        }
+    }
+
+    fn draw_query_status_surface(
+        &self,
+        ui: &mut egui::Ui,
+    ) -> Option<query_status_bar_surface_view::QueryStatusBarAction> {
+        let active_request_id = self
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+            .and_then(|document| match document.execution_state {
+                QueryExecutionState::Running(request_id) => Some(request_id),
+                _ => None,
             });
-        });
-
-        if let Some(cid) = next_conn_id {
-            self.set_document_connection(doc_idx, Some(cid));
-        }
-        if let Some(sch) = next_schema {
-            self.set_document_schema(doc_idx, Some(sch));
-        }
-
-        more_anchor
+        let capabilities = self.query_capabilities();
+        let cancel_reason =
+            capabilities.feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Cancel);
+        query_status_bar_surface_view::draw_status_bar(
+            &query_status_bar_surface_view::QueryStatusBarContext {
+                theme: self.theme,
+                connected: self.active_query_connection_id().is_some() && self.connection.lifecycle.is_connected(),
+                active_request_id,
+                cancel_supported: capabilities.allows(|value| value.query.cancel),
+                cancel_reason: cancel_reason.as_deref(),
+                modifier: Self::primary_modifier_label(),
+                bottom_panel_open: self.workspace.bottom_panel_open,
+                in_transaction: self.query.execution.query_in_transaction,
+                transaction_pending: self.query.execution.query_txn_pending,
+                auto_commit: self.query.execution.query_auto_commit,
+                cursor_line: self.query.editor.query_cursor_line,
+                cursor_column: self.query.editor.query_cursor_column,
+                driver: self.active_query_driver(),
+                schema: self.active_query_schema(),
+                parameter_count: self.query.editor.param_count_cache,
+                diagnostic_count: self.query.editor.diagnostics.len(),
+            },
+            ui,
+        )
     }
 
-    /// "Find in SQL" bar, shown while the editor search is open.
-    fn draw_editor_search_bar(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(SPACE_SM);
-        let mut goto_range = None;
-        let mut close_search = false;
-
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
-            ui.horizontal(|ui| {
-                let prev_search = self.editor_search.clone();
-                input(ui, &mut self.editor_search, "Find in SQL…", 240.0, self.theme);
-                if self.editor_search != prev_search {
-                    doc.search.query = self.editor_search.clone();
-                    doc.search.update_matches(doc.buffer.text());
-                    if let Some(first_match) = doc.search.matches.first().copied() {
-                        doc.search.active_match_index = 0;
-                        goto_range = Some(first_match);
-                    }
+    fn apply_query_status_bar_action(&mut self, action: query_status_bar_surface_view::QueryStatusBarAction) {
+        use query_status_bar_surface_view::QueryStatusBarAction as Action;
+        match action {
+            Action::RunControl(action) => match action {
+                query_run_control_view::QueryRunControlAction::Run => {
+                    self.dispatch_query();
                 }
-
-                if !self.editor_search.is_empty() {
-                    let total = doc.search.matches.len();
-                    let current = if total == 0 {
-                        0
-                    } else {
-                        doc.search.active_match_index + 1
-                    };
-                    let label_text = if total == 0 {
-                        "No matches".to_string()
-                    } else {
-                        format!("{current} of {total}")
-                    };
-                    ui.label(RichText::new(label_text).small().color(if total == 0 {
-                        self.theme.danger
-                    } else {
-                        self.theme.text_muted
-                    }));
-
-                    if Button::new(self.theme)
-                        .icon(Icon::ChevronUp)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .tooltip("Previous match (Shift+Enter)")
-                        .show(ui)
-                        .clicked()
-                    {
-                        if let Some(m) = doc.search.prev_match() {
-                            goto_range = Some(m);
-                        }
-                    }
-                    if Button::new(self.theme)
-                        .icon(Icon::ChevronDown)
-                        .variant(ButtonVariant::Ghost)
-                        .size(ButtonSize::IconSm)
-                        .tooltip("Next match (Enter)")
-                        .show(ui)
-                        .clicked()
-                    {
-                        if let Some(m) = doc.search.next_match() {
-                            goto_range = Some(m);
-                        }
-                    }
+                query_run_control_view::QueryRunControlAction::Cancel(request_id) => self.cancel_query(request_id),
+                query_run_control_view::QueryRunControlAction::ReportUnsupportedCancel(reason) => {
+                    self.feedback.runtime_message = reason;
                 }
-
-                if Button::new(self.theme)
-                    .icon(Icon::X)
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::IconSm)
-                    .tooltip("Close find bar (Esc)")
-                    .show(ui)
-                    .clicked()
-                {
-                    close_search = true;
+                query_run_control_view::QueryRunControlAction::ReportDisconnected => {
+                    self.feedback.runtime_message = "Connect to a database before running a query".to_owned();
                 }
-            });
-
-            if let Some((start, end)) = goto_range {
-                doc.cursor.set_offset(&doc.buffer, end);
-                doc.selection = crate::editor::SelectionRange::new(start, end);
+            },
+            Action::ShowOutput => self.workspace.bottom_panel_open = true,
+            Action::ToggleTransaction => {
+                self.query.execution.query_txn_bar_open = !self.query.execution.query_txn_bar_open;
             }
-        }
-
-        if close_search {
-            self.editor_search_open = false;
+            Action::ToggleParameters => {
+                self.query.editor.query_params_panel_open = !self.query.editor.query_params_panel_open;
+            }
+            Action::ShowDiagnostics => self.show_query_diagnostics(),
         }
     }
 
-    /// Keyword / table / column completion list.
-    fn draw_sql_completion(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            ui.label(RichText::new("SQL completion").strong());
-            let uses_positional = !self.query_capabilities().allows(|caps| caps.query.numbered_parameters);
-            let mut candidates = vec![
-                "SELECT".to_owned(),
-                "FROM".to_owned(),
-                "WHERE".to_owned(),
-                "JOIN".to_owned(),
-                "GROUP BY".to_owned(),
-                "ORDER BY".to_owned(),
-                "LIMIT".to_owned(),
-                "COUNT(*)".to_owned(),
-            ];
-            if uses_positional {
-                candidates.extend(["GLOB", "strftime", "WITHOUT ROWID"].into_iter().map(str::to_owned));
-            } else {
-                candidates.extend(
-                    ["ILIKE", "RETURNING", "jsonb_build_object"]
-                        .into_iter()
-                        .map(str::to_owned),
-                );
-            }
-            candidates.extend(self.active_schema_table_names());
-            candidates.extend(self.active_schema_column_names());
-            candidates.extend(self.schema.views.iter().map(|view| view.name.clone()));
-            candidates.extend(self.schema.functions.iter().map(|function| function.name.clone()));
-            for keyword in candidates.iter() {
-                if ui
-                    .selectable_label(false, keyword)
-                    .on_hover_text("Insert SQL keyword or expression")
-                    .clicked()
-                {
-                    self.append_to_active_query(keyword);
-                    self.completion_open = false;
-                }
-            }
-        });
+    fn show_query_diagnostics(&mut self) {
+        self.workspace.bottom_panel_open = true;
+        if let Some(doc_id) = self
+            .query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+            .map(|document| document.id.clone())
+        {
+            self.query.output.set_for_document_and_activate_if_active(
+                &doc_id,
+                self.query
+                    .session
+                    .active_document()
+                    .map(|document| document.id.as_str()),
+                OutputTab::Messages,
+            );
+        }
     }
+}
 
+impl DbProApp {
     /// Quick SQL snippet inserters.
     fn draw_sql_snippets(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            ui.label(RichText::new("SQL snippets").strong());
-            for (label, snippet) in Self::builtin_sql_snippets() {
-                if Button::new(self.theme)
-                    .text(*label)
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.insert_snippet(snippet);
-                    self.snippets_open = false;
-                }
-            }
-        });
-    }
-
-    pub(crate) fn builtin_sql_snippets() -> &'static [(&'static str, &'static str)] {
-        &[
-            ("SELECT table", "SELECT *\nFROM table_name\nLIMIT 100;"),
-            (
-                "UPDATE by primary key",
-                "UPDATE table_name\nSET column_name = value\nWHERE id = 1;",
-            ),
-            (
-                "INSERT row",
-                "INSERT INTO table_name (column_a, column_b)\nVALUES ($1, $2);",
-            ),
-            ("DELETE with WHERE", "DELETE FROM table_name\nWHERE id = $1;"),
-            (
-                "EXPLAIN ANALYZE",
-                "EXPLAIN (ANALYZE, BUFFERS)\nSELECT *\nFROM table_name\nWHERE id = $1;",
-            ),
-            (
-                "CREATE INDEX",
-                "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_table_column\nON table_name (column_name);",
-            ),
-        ]
-    }
-
-    /// Parser diagnostics for the current SQL, when any.
-    fn draw_diagnostics(&mut self, ui: &mut egui::Ui) {
-        if self.diagnostics.is_empty() {
-            return;
-        }
-        ui.colored_label(self.theme.warning, format!("Diagnostics · {}", self.diagnostics.len()));
-        for diagnostic in &self.diagnostics {
-            ui.colored_label(self.theme.warning, format!("• {diagnostic}"));
+        let context = query_snippets_surface_view::QuerySnippetsContext { theme: self.theme };
+        if let Some(query_snippets_surface_view::QuerySnippetsAction::Insert(snippet)) = context.draw(ui) {
+            self.insert_snippet(snippet);
+            self.query.editor.snippets_open = false;
         }
     }
 
     /// Discovered bind placeholders for the active document (#225 discovery slice).
     fn draw_sql_parameters_panel(&mut self, ui: &mut egui::Ui) {
-        let sql = self.active_query_text().to_owned();
-        let params = crate::query::discover_sql_parameters(&sql);
-        if params.is_empty() {
-            return;
-        }
         let supports_parameters = self.query_capabilities().allows(|caps| caps.query.parameters);
-        let doc_index = self.active_query_document;
-        ui.add_space(SPACE_XS);
-        ui.horizontal(|ui| {
-            ui.colored_label(self.theme.accent, format!("Parameters · {}", params.len()));
-            if !supports_parameters {
-                ui.label(
-                    RichText::new("provider does not advertise bindings yet")
-                        .small()
-                        .color(self.theme.warning),
-                );
-            }
-        });
-        for param in params {
-            let mut value = self
-                .query_documents
-                .get(doc_index)
-                .and_then(|doc| doc.parameter_values.get(&param.name).cloned())
-                .unwrap_or_default();
-            let mut is_secret = self
-                .query_documents
-                .get(doc_index)
-                .is_some_and(|doc| doc.parameter_secrets.contains(&param.name));
-            ui.horizontal(|ui| {
-                let kind = match param.kind {
-                    crate::query::ParameterKind::Numbered => "numbered",
-                    crate::query::ParameterKind::Named => "named",
-                    crate::query::ParameterKind::Positional => "positional",
-                };
-                ui.label(
-                    RichText::new(format!("{} ({kind})", param.name))
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
-                let edit = if is_secret {
-                    egui::TextEdit::singleline(&mut value).password(true)
-                } else {
-                    egui::TextEdit::singleline(&mut value)
-                };
-                ui.add(edit.desired_width(180.0));
-                ui.checkbox(&mut is_secret, "secret");
-            });
-            if let Some(doc) = self.query_documents.get_mut(doc_index) {
-                doc.parameter_values.insert(param.name.clone(), value);
-                if is_secret {
-                    doc.parameter_secrets.insert(param.name.clone());
-                } else {
-                    doc.parameter_secrets.remove(&param.name);
-                }
-            }
-        }
-        ui.label(
-            RichText::new("Values stay in-memory for this document; secret values are never persisted with drafts.")
-                .small()
-                .color(self.theme.text_muted),
-        );
-    }
-
-    /// Output tab strip (Results / Messages / Explain / History).
-    fn draw_query_actions_menu(&mut self, ctx: &egui::Context, anchor: egui::Rect) {
-        let menu_width = 264.0;
-        let menu_position = egui::pos2((anchor.right() - menu_width).max(8.0), anchor.bottom() + 4.0);
-        let mut close_menu = false;
-        let menu = egui::Area::new(egui::Id::new("query_actions_menu"))
-            .order(egui::Order::Foreground)
-            .fixed_pos(menu_position)
-            .show(ctx, |ui| {
-                egui::Frame {
-                    fill: self.theme.surface_elevated,
-                    inner_margin: egui::Margin::same(8.0),
-                    rounding: egui::Rounding::same(8.0),
-                    stroke: egui::Stroke::new(1.0, self.theme.border_subtle),
-                    ..Default::default()
-                }
-                .show(ui, |ui| {
-                    ui.set_min_width(menu_width);
-                    ui.label(
-                        RichText::new("Query actions")
-                            .small()
-                            .strong()
-                            .color(self.theme.text_muted),
-                    );
-                    ui.add_space(4.0);
-                    close_menu |= self.draw_query_run_actions(ui, ctx);
-                    ui.separator();
-                    ui.label(RichText::new("Editor").small().strong().color(self.theme.text_muted));
-                    ui.add_space(4.0);
-                    close_menu |= self.draw_query_editor_actions(ui);
-                    ui.label(
-                        RichText::new(format!("Editor font · {} px", self.editor_font_size))
-                            .small()
-                            .color(self.theme.text_muted),
-                    );
-                });
-            });
-        let clicked_outside = ctx.input(|input| {
-            input.pointer.any_click()
-                && input
-                    .pointer
-                    .interact_pos()
-                    .is_some_and(|position| !menu.response.rect.contains(position) && !anchor.contains(position))
-        });
-        if clicked_outside || close_menu {
-            self.query_tools_open = false;
-        }
-    }
-
-    /// Run / format / explain / agent / save entries.
-    /// Returns true when the menu should close.
-    fn draw_query_run_actions(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) -> bool {
-        let mut close_menu = false;
-        if menu_button_with_icon(
-            ui,
-            Icon::Play,
-            if self.selected_query.is_empty() {
-                "Run query"
-            } else {
-                "Run selection"
-            },
-            self.theme,
-        )
-        .clicked()
-        {
-            self.dispatch_query();
-            close_menu = true;
-        }
-        if menu_button_with_icon(ui, Icon::WandSparkles, "Format SQL", self.theme).clicked() {
-            self.format_active_query();
-            close_menu = true;
-        }
-        if menu_button_with_icon(ui, Icon::ChartNoAxesCombined, "Explain query", self.theme).clicked() {
-            self.explain_query();
-            close_menu = true;
-        }
-        if menu_button_with_icon(ui, Icon::Bot, "Ask Agent", self.theme).clicked() {
-            self.open_agent_prompt(
-                if self.selected_query.trim().is_empty() {
-                    "Explain the current SQL and suggest improvements"
-                } else {
-                    "Explain the selected SQL and suggest improvements"
-                },
-                ctx,
-            );
-            close_menu = true;
-        }
-        if menu_button_with_icon(ui, Icon::Save, "Save query", self.theme).clicked() {
-            self.save_query_document();
-            close_menu = true;
-        }
-        if menu_button_with_icon(ui, Icon::Save, "Save query as…", self.theme).clicked() {
-            self.open_save_as_dialog();
-            close_menu = true;
-        }
-        close_menu
-    }
-
-    /// Persists the current editor contents as a named saved query.
-    fn draw_query_editor_actions(&mut self, ui: &mut egui::Ui) -> bool {
-        let mut close_menu = false;
-        if menu_button_with_icon(ui, Icon::Search, "Find in SQL", self.theme).clicked() {
-            self.editor_search_open = !self.editor_search_open;
-            close_menu = true;
-        }
-        let txn_label = if self.query_txn_bar_open {
-            "Hide transaction controls"
-        } else {
-            "Show transaction controls"
+        let mut context = query_parameters_view::QueryParametersContext {
+            theme: self.theme,
+            session: &mut self.query.session,
+            supports_parameters,
         };
-        if menu_button_with_icon(ui, Icon::GitBranch, txn_label, self.theme).clicked() {
-            self.query_txn_bar_open = !self.query_txn_bar_open;
-            close_menu = true;
-        }
-        if menu_button_with_icon(ui, Icon::Minus, "Decrease font size", self.theme).clicked() {
-            self.editor_font_size = (self.editor_font_size - 1.0).max(10.0);
-        }
-        if menu_button_with_icon(ui, Icon::Plus, "Increase font size", self.theme).clicked() {
-            self.editor_font_size = (self.editor_font_size + 1.0).min(24.0);
-        }
-        if menu_button_with_icon(ui, Icon::List, "SQL completion", self.theme).clicked() {
-            self.completion_open = !self.completion_open;
-            close_menu = true;
-        }
-        if menu_button_with_icon(ui, Icon::Bot, "Generate SQL Prediction", self.theme).clicked() {
-            if self.prediction_mode != PredictionMode::Off {
-                if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
-                    doc.schedule_prediction_with_mode(Instant::now(), true);
-                }
-            }
-            close_menu = true;
-        }
-        ui.horizontal(|ui| {
-            ui.label(RichText::new("AI prediction").small().color(self.theme.text_muted));
-            for (mode, label) in [
-                (PredictionMode::Off, "Off"),
-                (PredictionMode::Subtle, "Subtle"),
-                (PredictionMode::Eager, "Eager"),
-            ] {
-                if ui.selectable_label(self.prediction_mode == mode, label).clicked() {
-                    self.prediction_mode = mode;
-                    if mode == PredictionMode::Off {
-                        self.cancel_prediction_for_document(self.active_query_document);
-                    }
-                }
-            }
-        });
-        ui.label(
-            RichText::new(AI_PREDICTION_EGRESS_NOTE)
-                .font(font_caption())
-                .color(self.theme.text_muted),
-        );
-        ui.add_space(4.0);
-        if menu_button_with_icon(ui, Icon::FileCode2, "SQL snippets", self.theme).clicked() {
-            self.snippets_open = !self.snippets_open;
-            close_menu = true;
-        }
-        ui.horizontal(|ui| {
-            input(ui, &mut self.query_folder, "folder (optional)", 150.0, self.theme);
-            if Button::new(self.theme)
-                .text("New folder")
-                .variant(ButtonVariant::Secondary)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                self.create_query_folder();
-            }
-        });
-        close_menu
-    }
-
-    /// Creates a saved-query folder from the name typed in the actions menu.
-    fn create_query_folder(&mut self) {
-        let Some(connection) = self.active_connection().cloned() else {
-            return;
-        };
-        if self.query_folder.trim().is_empty() {
-            return;
-        }
-        let request_id = self.task_bridge.next_request_id();
-        self.dispatch_command(UiCommand::CreateQueryFolder {
-            request_id,
-            connection_id: connection.id.clone(),
-            name: self.query_folder.trim().to_owned(),
-        });
-        self.runtime_message = "Creating query folder…".to_owned();
-    }
-
-    pub(crate) fn insert_snippet(&mut self, snippet: &str) {
-        self.cancel_prediction_for_document(self.active_query_document);
-        if let Some(doc) = self.query_documents.get_mut(self.active_query_document) {
-            let offset = doc.cursor.offset.min(doc.buffer.len_bytes());
-            let insertion = if offset > 0 && !doc.buffer.text()[..offset].ends_with('\n') {
-                format!("\n{snippet}")
-            } else {
-                snippet.to_owned()
-            };
-            doc.buffer.insert(offset, &insertion);
-            let new_offset = offset + insertion.len();
-            doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, new_offset);
-            doc.selection = crate::editor::SelectionRange::point(new_offset);
-            doc.dirty = true;
-            self.query_cursor_line = doc.cursor.line + 1;
-            self.query_cursor_column = doc.cursor.col + 1;
-        }
-        self.active_tab = WorkspaceTab::Query;
-        self.refresh_diagnostics();
-        self.runtime_message = "Snippet inserted".to_owned();
+        query_parameters_view::draw_parameters_panel(&mut context, ui);
     }
 }
 

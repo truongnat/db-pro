@@ -1,810 +1,132 @@
 use super::*;
 
-struct WorkspaceTabItem<'a> {
-    selected: bool,
-    icon: Icon,
-    title: &'a str,
-    unsaved: bool,
-    show_close: bool,
-}
-
-struct TabChromeAction {
-    clicked: bool,
-    close_clicked: bool,
-}
-
-const TAB_MIN_WIDTH: f32 = 72.0;
-const TAB_MAX_WIDTH: f32 = 220.0;
-const TAB_TITLE_MAX_WIDTH: f32 = 160.0;
-const TAB_HEIGHT: f32 = 28.0;
-
 impl DbProApp {
     pub(super) fn draw_workspace_tabs(&mut self, ui: &mut egui::Ui) {
-        let modifier = Self::primary_modifier_label();
+        let actions = {
+            let mut context = workspace_tabs_surface_view::WorkspaceTabsViewContext::new(
+                self.theme,
+                &self.workspace,
+                &self.query,
+                &self.schema,
+                &self.table,
+            );
+            context.draw_workspace_tabs(ui)
+        };
 
-        // Tab strip flush with CentralPanel; tiny top breath only.
-        let tabs_width = ui.available_width();
-        ui.set_min_width(tabs_width);
-        egui::Frame {
-            fill: self.theme.surface_panel,
-            inner_margin: egui::Margin {
-                left: SPACE_XS,
-                right: SPACE_XS,
-                top: SPACE_XXS,
-                bottom: 0.0,
-            },
-            stroke: egui::Stroke::NONE,
-            rounding: egui::Rounding::ZERO,
-            outer_margin: egui::Margin::ZERO,
-            ..Default::default()
+        for action in actions {
+            self.apply_workspace_tabs_action(action);
         }
-        .show(ui, |ui| {
-            let inner = ui.max_rect();
-            ui.set_min_size(egui::vec2(inner.width(), ui.min_rect().height().max(28.0)));
-            ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
+    }
 
-                egui::ScrollArea::horizontal()
-                    .id_salt("workspace-tabs-scroll")
-                    // Take full width; shrink height to the tab row (not the whole panel).
-                    .auto_shrink([false, true])
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
+    fn apply_workspace_tabs_action(&mut self, action: workspace_tabs_surface_view::WorkspaceTabsAction) {
+        use workspace_tabs_surface_view::WorkspaceTabsAction;
 
-                            let mut close_all_requested = false;
-                            let mut close_welcome_requested = false;
+        match action {
+            WorkspaceTabsAction::ActivateTab(tab) => self.workspace.active_tab = tab,
+            WorkspaceTabsAction::ActivateWelcome => self.activate_welcome_tab(),
+            WorkspaceTabsAction::CloseWelcome => self.close_welcome_tab(),
+            WorkspaceTabsAction::CloseAllTabs => self.close_all_tabs(),
+            WorkspaceTabsAction::SwitchQuery(index) => {
+                self.switch_query_document(index);
+                self.workspace.active_tab = WorkspaceTab::Query;
+            }
+            WorkspaceTabsAction::RequestCloseQuery(index) => self.request_close_query_document(index),
+            WorkspaceTabsAction::DuplicateQuery(index) => self.duplicate_query_document(index),
+            WorkspaceTabsAction::CloseOtherQueries(index) => self.close_other_query_documents(index),
+            WorkspaceTabsAction::CloseQueriesToRight(index) => self.close_query_documents_to_right(index),
+            WorkspaceTabsAction::RunQuery(index) => {
+                self.switch_query_document(index);
+                self.workspace.active_tab = WorkspaceTab::Query;
+                self.dispatch_query();
+            }
+            WorkspaceTabsAction::CloseWorkspaceTab(tab) => self.request_close_workspace_tab(tab),
+            WorkspaceTabsAction::RefreshTable => self.request_table_data(),
+            WorkspaceTabsAction::NewQuery => self.new_query_document(),
+        }
+    }
 
-                            // 1. Welcome Tab
-                            if self.welcome_open {
-                                let welcome_selected = self.active_tab == WorkspaceTab::Welcome;
-                                let welcome_action = draw_workspace_tab_item(
-                                    ui,
-                                    self.theme,
-                                    WorkspaceTabItem {
-                                        selected: welcome_selected,
-                                        icon: Icon::House,
-                                        title: "Welcome",
-                                        unsaved: false,
-                                        show_close: true,
-                                    },
-                                    |ui, close_menu| {
-                                        ui.label(
-                                            RichText::new("Welcome")
-                                                .font(font_ui_label())
-                                                .strong()
-                                                .color(self.theme.text_primary),
-                                        );
-                                        ui.separator();
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::X),
-                                            "Close Tab",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            close_welcome_requested = true;
-                                            *close_menu = true;
-                                        }
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::Layers),
-                                            "Close All Tabs",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            close_all_requested = true;
-                                            *close_menu = true;
-                                        }
-                                    },
-                                );
-                                if welcome_action.close_clicked {
-                                    close_welcome_requested = true;
-                                } else if welcome_action.clicked {
-                                    self.activate_welcome_tab();
-                                }
-                            }
-                            if close_welcome_requested {
-                                self.close_welcome_tab();
-                            }
+    fn draw_welcome(&mut self, ui: &mut egui::Ui) {
+        let active_connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+        let actions = welcome_surface_view::WelcomeSurfaceContext {
+            theme: self.theme,
+            welcome: &self.welcome,
+            catalog: &self.connection.catalog,
+            active_connection_id: active_connection_id.as_deref(),
+        }
+        .draw(ui);
+        self.apply_welcome_actions(actions);
+    }
 
-                            // 2. Query Documents Tabs
-                            let documents: Vec<(usize, String, String)> = self
-                                .query_documents
-                                .iter()
-                                .enumerate()
-                                .map(|(index, doc)| (index, doc.title.clone(), doc.content().to_owned()))
-                                .collect();
+    fn apply_welcome_actions(&mut self, actions: Vec<welcome_surface_view::WelcomeAction>) {
+        use welcome_surface_view::WelcomeAction;
 
-                            let mut switch_query_idx = None;
-                            let mut close_query_idx = None;
-                            let mut duplicate_query_idx = None;
-                            let mut close_others_idx = None;
-                            let mut close_right_idx = None;
-                            let mut run_query_idx = None;
-
-                            for (index, title, content) in &documents {
-                                let idx = *index;
-                                let selected =
-                                    self.active_tab == WorkspaceTab::Query && self.active_query_document == idx;
-                                let is_running = self
-                                    .query_documents
-                                    .get(idx)
-                                    .is_some_and(|doc| matches!(doc.execution_state, QueryExecutionState::Running(_)));
-                                let unsaved = self.query_documents.get(idx).is_some_and(QueryDocument::is_dirty);
-                                let icon = if is_running { Icon::Loader } else { Icon::FileCode2 };
-
-                                let action = draw_workspace_tab_item(
-                                    ui,
-                                    self.theme,
-                                    WorkspaceTabItem {
-                                        selected,
-                                        icon,
-                                        title,
-                                        unsaved,
-                                        show_close: true,
-                                    },
-                                    |ui, close_menu| {
-                                        ui.label(
-                                            RichText::new(title)
-                                                .font(font_ui_label())
-                                                .strong()
-                                                .color(self.theme.text_primary),
-                                        );
-                                        ui.separator();
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::X),
-                                            &format!("Close Tab ({modifier}W)"),
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            close_query_idx = Some(idx);
-                                            *close_menu = true;
-                                        }
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::Layers),
-                                            "Close Other Tabs",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            close_others_idx = Some(idx);
-                                            *close_menu = true;
-                                        }
-                                        if idx + 1 < self.query_documents.len()
-                                            && ctx_menu_item(
-                                                ui,
-                                                Some(Icon::ArrowRight),
-                                                "Close Tabs to the Right",
-                                                None,
-                                                self.theme.text_primary,
-                                                self.theme,
-                                            )
-                                            .clicked()
-                                        {
-                                            close_right_idx = Some(idx);
-                                            *close_menu = true;
-                                        }
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::Layers),
-                                            "Close All Tabs",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            close_all_requested = true;
-                                            *close_menu = true;
-                                        }
-                                        ui.separator();
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::Copy),
-                                            "Duplicate Tab",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            duplicate_query_idx = Some(idx);
-                                            *close_menu = true;
-                                        }
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::FileCode2),
-                                            "Copy SQL Content",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            ui.output_mut(|o| o.copied_text = content.clone());
-                                            *close_menu = true;
-                                        }
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::FileText),
-                                            "Copy Title",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            ui.output_mut(|o| o.copied_text = title.to_string());
-                                            *close_menu = true;
-                                        }
-                                        ui.separator();
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::Play),
-                                            &format!("Run Query ({modifier}↵)"),
-                                            None,
-                                            self.theme.accent,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            run_query_idx = Some(idx);
-                                            *close_menu = true;
-                                        }
-                                    },
-                                );
-
-                                if action.close_clicked {
-                                    close_query_idx = Some(idx);
-                                } else if action.clicked {
-                                    switch_query_idx = Some(idx);
-                                }
-                            }
-
-                            if let Some(idx) = switch_query_idx {
-                                self.switch_query_document(idx);
-                                self.active_tab = WorkspaceTab::Query;
-                            }
-                            if let Some(idx) = close_query_idx {
-                                self.request_close_query_document(idx);
-                            }
-                            if let Some(idx) = duplicate_query_idx {
-                                self.duplicate_query_document(idx);
-                            }
-                            if let Some(idx) = close_others_idx {
-                                self.close_other_query_documents(idx);
-                            }
-                            if let Some(idx) = close_right_idx {
-                                self.close_query_documents_to_right(idx);
-                            }
-                            if let Some(idx) = run_query_idx {
-                                self.switch_query_document(idx);
-                                self.active_tab = WorkspaceTab::Query;
-                                self.dispatch_query();
-                            }
-                            if close_all_requested {
-                                self.close_all_tabs();
-                            }
-
-                            // 3. Table Tab
-                            if let Some(table_name) = self.selected_table.clone() {
-                                let selected = self.active_tab == WorkspaceTab::Table;
-                                let unsaved = !self.staged_changes.is_empty();
-                                let mut close_table = false;
-                                let mut refresh_table = false;
-                                let table_action = draw_workspace_tab_item(
-                                    ui,
-                                    self.theme,
-                                    WorkspaceTabItem {
-                                        selected,
-                                        icon: Icon::Table2,
-                                        title: &table_name,
-                                        unsaved,
-                                        show_close: true,
-                                    },
-                                    |ui, close_menu| {
-                                        ui.label(
-                                            RichText::new(&table_name)
-                                                .font(font_ui_label())
-                                                .strong()
-                                                .color(self.theme.text_primary),
-                                        );
-                                        ui.separator();
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::X),
-                                            "Close Tab",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            close_table = true;
-                                            *close_menu = true;
-                                        }
-                                        ui.separator();
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::RefreshCw),
-                                            "Refresh Data",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            refresh_table = true;
-                                            *close_menu = true;
-                                        }
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::Copy),
-                                            "Copy Table Name",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            ui.output_mut(|o| o.copied_text = table_name.clone());
-                                            *close_menu = true;
-                                        }
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::FileCode2),
-                                            "Copy SELECT Query",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            ui.output_mut(|o| {
-                                                o.copied_text = format!("SELECT * FROM {table_name} LIMIT 100;")
-                                            });
-                                            *close_menu = true;
-                                        }
-                                    },
-                                );
-
-                                if table_action.close_clicked || close_table {
-                                    self.request_close_workspace_tab(WorkspaceTab::Table);
-                                } else if table_action.clicked {
-                                    self.active_tab = WorkspaceTab::Table;
-                                }
-                                if refresh_table {
-                                    self.request_table_data();
-                                }
-                            }
-
-                            // 4. Schema Object Tab (View, Trigger, Function)
-                            if let Some(selection) = self.selected_schema_object.clone() {
-                                let (icon, name) = match &selection {
-                                    SchemaObjectSelection::View(name) => (Icon::Eye, name.clone()),
-                                    SchemaObjectSelection::Trigger(name) => (Icon::Zap, name.clone()),
-                                    SchemaObjectSelection::Function { name, .. } => (Icon::Code2, name.clone()),
-                                };
-                                let selected = self.active_tab == WorkspaceTab::SchemaObject;
-                                let mut close_obj = false;
-                                let obj_action = draw_workspace_tab_item(
-                                    ui,
-                                    self.theme,
-                                    WorkspaceTabItem {
-                                        selected,
-                                        icon,
-                                        title: &name,
-                                        unsaved: false,
-                                        show_close: true,
-                                    },
-                                    |ui, close_menu| {
-                                        ui.label(
-                                            RichText::new(&name)
-                                                .font(font_ui_label())
-                                                .strong()
-                                                .color(self.theme.text_primary),
-                                        );
-                                        ui.separator();
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::X),
-                                            "Close Tab",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            close_obj = true;
-                                            *close_menu = true;
-                                        }
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::Copy),
-                                            "Copy Name",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            ui.output_mut(|o| o.copied_text = name.clone());
-                                            *close_menu = true;
-                                        }
-                                    },
-                                );
-
-                                if obj_action.close_clicked || close_obj {
-                                    self.request_close_workspace_tab(WorkspaceTab::SchemaObject);
-                                } else if obj_action.clicked {
-                                    self.active_tab = WorkspaceTab::SchemaObject;
-                                }
-                            }
-
-                            // 5. ER Diagram Tab
-                            if self.active_tab == WorkspaceTab::Diagram {
-                                let mut close_diagram = false;
-                                let diagram_action = draw_workspace_tab_item(
-                                    ui,
-                                    self.theme,
-                                    WorkspaceTabItem {
-                                        selected: true,
-                                        icon: Icon::ArrowRightLeft,
-                                        title: "ER Diagram",
-                                        unsaved: false,
-                                        show_close: true,
-                                    },
-                                    |ui, close_menu| {
-                                        ui.label(
-                                            RichText::new("ER Diagram")
-                                                .font(font_ui_label())
-                                                .strong()
-                                                .color(self.theme.text_primary),
-                                        );
-                                        ui.separator();
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::X),
-                                            "Close Tab",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            close_diagram = true;
-                                            *close_menu = true;
-                                        }
-                                    },
-                                );
-
-                                if diagram_action.close_clicked || close_diagram {
-                                    self.request_close_workspace_tab(WorkspaceTab::Diagram);
-                                }
-                            }
-
-                            if self.active_tab == WorkspaceTab::SchemaWorkbench {
-                                let mut close_wb = false;
-                                let wb_action = draw_workspace_tab_item(
-                                    ui,
-                                    self.theme,
-                                    WorkspaceTabItem {
-                                        selected: true,
-                                        icon: Icon::Boxes,
-                                        title: "Schema Workbench",
-                                        unsaved: false,
-                                        show_close: true,
-                                    },
-                                    |ui, close_menu| {
-                                        ui.label(
-                                            RichText::new("Schema Workbench")
-                                                .font(font_ui_label())
-                                                .strong()
-                                                .color(self.theme.text_primary),
-                                        );
-                                        ui.separator();
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::X),
-                                            "Close Tab",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            close_wb = true;
-                                            *close_menu = true;
-                                        }
-                                    },
-                                );
-
-                                if wb_action.close_clicked || close_wb {
-                                    self.request_close_workspace_tab(WorkspaceTab::SchemaWorkbench);
-                                }
-                            }
-
-                            if self.active_tab == WorkspaceTab::SchemaCompare {
-                                let mut close_cmp = false;
-                                let cmp_action = draw_workspace_tab_item(
-                                    ui,
-                                    self.theme,
-                                    WorkspaceTabItem {
-                                        selected: true,
-                                        icon: Icon::GitCompare,
-                                        title: "Schema Compare",
-                                        unsaved: false,
-                                        show_close: true,
-                                    },
-                                    |ui, close_menu| {
-                                        ui.label(
-                                            RichText::new("Schema Compare")
-                                                .font(font_ui_label())
-                                                .strong()
-                                                .color(self.theme.text_primary),
-                                        );
-                                        ui.separator();
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::X),
-                                            "Close Tab",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            close_cmp = true;
-                                            *close_menu = true;
-                                        }
-                                    },
-                                );
-                                if cmp_action.close_clicked || close_cmp {
-                                    self.request_close_workspace_tab(WorkspaceTab::SchemaCompare);
-                                }
-                            }
-
-                            // 6. Component Gallery Tab
-                            if self.active_tab == WorkspaceTab::ComponentGallery {
-                                let mut close_gallery = false;
-                                let gallery_action = draw_workspace_tab_item(
-                                    ui,
-                                    self.theme,
-                                    WorkspaceTabItem {
-                                        selected: true,
-                                        icon: Icon::Palette,
-                                        title: "Components",
-                                        unsaved: false,
-                                        show_close: true,
-                                    },
-                                    |ui, close_menu| {
-                                        ui.label(
-                                            RichText::new("Components")
-                                                .font(font_ui_label())
-                                                .strong()
-                                                .color(self.theme.text_primary),
-                                        );
-                                        ui.separator();
-                                        if ctx_menu_item(
-                                            ui,
-                                            Some(Icon::X),
-                                            "Close Tab",
-                                            None,
-                                            self.theme.text_primary,
-                                            self.theme,
-                                        )
-                                        .clicked()
-                                        {
-                                            close_gallery = true;
-                                            *close_menu = true;
-                                        }
-                                    },
-                                );
-
-                                if gallery_action.close_clicked || close_gallery {
-                                    self.request_close_workspace_tab(WorkspaceTab::ComponentGallery);
-                                }
-                            }
-
-                            // 7. Plus Button for New Query
-                            ui.add_space(2.0);
-                            if compact_icon_button(ui, Icon::Plus, self.theme)
-                                .on_hover_text(format!("New Query Tab ({modifier}N)"))
-                                .clicked()
-                            {
-                                self.new_query_document();
-                            }
-                        });
-                    });
-            });
-        });
+        for action in actions {
+            match action {
+                WelcomeAction::NewConnection => self.connection.open_new(),
+                WelcomeAction::NewQuery => {
+                    self.new_query_document();
+                    self.workspace.active_tab = WorkspaceTab::Query;
+                }
+                WelcomeAction::OpenPalette => self.palette.open(PaletteMode::Commands),
+                WelcomeAction::OpenDraftQuery(draft) => {
+                    self.set_active_query_text(draft);
+                    self.workspace.active_tab = WorkspaceTab::Query;
+                    self.feedback.runtime_message = "Opened draft in Query".to_owned();
+                }
+                WelcomeAction::Connect(connection_id) => {
+                    if let Some(connection) = self.connection.catalog.find(&connection_id).cloned() {
+                        self.connect_to_connection(&connection);
+                    }
+                }
+            }
+        }
     }
 
     pub(super) fn draw_workspace(&mut self, ui: &mut egui::Ui) {
         self.draw_workspace_tabs(ui);
-        match self.active_tab {
+        match self.workspace.active_tab {
             WorkspaceTab::Welcome => self.draw_welcome(ui),
             WorkspaceTab::Query => self.draw_query(ui),
             WorkspaceTab::Table => self.draw_table_workspace(ui),
             WorkspaceTab::SchemaObject => self.draw_schema_object_workspace(ui),
-            WorkspaceTab::Diagram => self.draw_diagram(ui),
+            WorkspaceTab::Diagram => {
+                let active_driver = self.active_driver().to_owned();
+                let connected = self.connection.lifecycle.is_connected();
+                let action = {
+                    let mut context = diagram_view::DiagramViewContext {
+                        theme: self.theme,
+                        diagram: &mut self.schema.diagram,
+                        explorer: &self.schema.explorer,
+                        active_driver: &active_driver,
+                        connected,
+                    };
+                    diagram_view::draw_diagram(&mut context, ui)
+                };
+                if let Some(action) = action {
+                    self.apply_diagram_action(action);
+                }
+            }
             WorkspaceTab::SchemaWorkbench => self.draw_schema_workbench(ui),
-            WorkspaceTab::SchemaCompare => self.draw_schema_compare(ui),
+            WorkspaceTab::SchemaCompare => {
+                let action = {
+                    let connection_name = self.active_connection_name().to_owned();
+                    let driver = self.active_driver().to_owned();
+                    let mut context = schema_compare_view::SchemaCompareViewContext {
+                        theme: self.theme,
+                        compare: &mut self.schema.compare,
+                        schema: &self.schema.explorer.schema,
+                        connection_name: &connection_name,
+                        driver: &driver,
+                        feedback: &mut self.feedback,
+                    };
+                    schema_compare_view::draw_schema_compare(&mut context, ui)
+                };
+                if let Some(action) = action {
+                    self.apply_schema_compare_action(action);
+                }
+            }
             WorkspaceTab::ComponentGallery => self.draw_component_gallery(ui),
         }
         self.draw_discard_changes_confirmation(ui);
-    }
-}
-
-fn truncate_tab_title(
-    ui: &egui::Ui,
-    title: &str,
-    font_id: egui::FontId,
-    color: egui::Color32,
-    max_width: f32,
-) -> String {
-    let full_width = ui
-        .painter()
-        .layout_no_wrap(title.to_owned(), font_id.clone(), color)
-        .size()
-        .x;
-    if full_width <= max_width {
-        return title.to_owned();
-    }
-
-    let ellipsis_width = ui
-        .painter()
-        .layout_no_wrap("…".to_owned(), font_id.clone(), color)
-        .size()
-        .x;
-    let mut visible = String::new();
-    for character in title.chars() {
-        let candidate = format!("{visible}{character}…");
-        let candidate_width = ui
-            .painter()
-            .layout_no_wrap(candidate.clone(), font_id.clone(), color)
-            .size()
-            .x;
-        if candidate_width > max_width.max(ellipsis_width) {
-            break;
-        }
-        visible.push(character);
-    }
-
-    format!("{visible}…")
-}
-
-fn draw_workspace_tab_item(
-    ui: &mut egui::Ui,
-    theme: DbProTheme,
-    item: WorkspaceTabItem<'_>,
-    context_menu: impl FnOnce(&mut egui::Ui, &mut bool),
-) -> TabChromeAction {
-    let font_id = if item.selected { font_ui_label() } else { font_body() };
-    let text_color = if item.selected {
-        theme.text_primary
-    } else {
-        theme.text_secondary
-    };
-    let icon_color = if item.selected { theme.accent } else { theme.text_muted };
-
-    let full_title_galley = ui
-        .painter()
-        .layout_no_wrap(item.title.to_owned(), font_id.clone(), text_color);
-    let close_slot = if item.show_close { 22.0 } else { 0.0 };
-    let unsaved_slot = if item.unsaved { 10.0 } else { 0.0 };
-    let title_width = full_title_galley.size().x.min(TAB_TITLE_MAX_WIDTH);
-    let item_width = (18.0 + title_width + unsaved_slot + close_slot + 18.0).clamp(TAB_MIN_WIDTH, TAB_MAX_WIDTH);
-    let title_available_width = item_width - 18.0 - unsaved_slot - close_slot - 18.0;
-    let display_title = truncate_tab_title(ui, item.title, font_id.clone(), text_color, title_available_width);
-    let title_galley = ui.painter().layout_no_wrap(display_title, font_id, text_color);
-
-    let (rect, resp) = ui.allocate_exact_size(egui::vec2(item_width, TAB_HEIGHT), egui::Sense::click());
-    let resp = resp
-        .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text(item.title);
-    let hovered = resp.hovered();
-
-    let context_clicked = is_context_menu_triggered(&resp, ui);
-
-    // Floating Context menu with Foreground Area z-index
-    context_action_menu(ui, &resp, theme, context_menu);
-
-    // Tab Background & Borders
-    let rounding = egui::Rounding {
-        nw: RADIUS_SM,
-        ne: RADIUS_SM,
-        sw: 0.0,
-        se: 0.0,
-    };
-
-    if item.selected {
-        ui.painter().rect(
-            rect,
-            rounding,
-            theme.surface_app,
-            egui::Stroke::new(STROKE_THIN, theme.border_subtle),
-        );
-        // Top accent indicator line
-        let top_indicator_rect = egui::Rect::from_min_size(rect.left_top(), egui::vec2(rect.width(), 2.0));
-        ui.painter()
-            .rect_filled(top_indicator_rect, egui::Rounding::same(1.0), theme.accent);
-    } else if hovered {
-        ui.painter().rect_filled(rect, rounding, theme.surface_hover);
-    }
-
-    // Icon
-    let icon_pos = egui::pos2(rect.left() + 8.0, rect.center().y);
-    ui.painter().text(
-        icon_pos,
-        egui::Align2::LEFT_CENTER,
-        char::from(item.icon).to_string(),
-        egui::FontId::new(12.0, egui::FontFamily::Name("lucide".into())),
-        icon_color,
-    );
-
-    // Title text
-    let title_pos = egui::pos2(rect.left() + 24.0, rect.center().y - title_galley.size().y * 0.5);
-    ui.painter().galley(title_pos, title_galley, text_color);
-
-    // Unsaved dirty dot
-    if item.unsaved {
-        let dot_pos = egui::pos2(rect.right() - close_slot - 6.0, rect.center().y);
-        ui.painter().circle_filled(dot_pos, 2.5, theme.accent);
-    }
-
-    // Close Button
-    let mut close_clicked = false;
-    if item.show_close {
-        let close_rect =
-            egui::Rect::from_center_size(egui::pos2(rect.right() - 12.0, rect.center().y), egui::vec2(16.0, 16.0));
-        let pointer_pos = ui.input(|i| i.pointer.hover_pos().or(i.pointer.interact_pos()));
-        let close_hovered = pointer_pos.is_some_and(|p| close_rect.contains(p));
-
-        if close_hovered {
-            ui.painter()
-                .rect_filled(close_rect, egui::Rounding::same(RADIUS_SM), theme.surface_hover);
-        }
-
-        let close_color = if close_hovered {
-            theme.danger
-        } else if item.selected {
-            theme.text_secondary
-        } else {
-            theme.text_muted
-        };
-
-        ui.painter().text(
-            close_rect.center(),
-            egui::Align2::CENTER_CENTER,
-            char::from(Icon::X).to_string(),
-            egui::FontId::new(10.5, egui::FontFamily::Name("lucide".into())),
-            close_color,
-        );
-
-        if resp.clicked() && close_hovered {
-            close_clicked = true;
-        }
-    }
-
-    let middle_clicked = resp.middle_clicked();
-
-    TabChromeAction {
-        clicked: resp.clicked() && !close_clicked && !context_clicked,
-        close_clicked: close_clicked || (middle_clicked && item.show_close),
     }
 }
