@@ -17,12 +17,13 @@ impl DbProApp {
         }
         .draw_header(ui, GridHeaderInput { result, widths, order });
         for action in actions {
-            self.apply_grid_header_action(result, indexes, order, action);
+            self.apply_grid_header_action(ui, result, indexes, order, action);
         }
     }
 
     fn apply_grid_header_action(
         &mut self,
+        ui: &mut egui::Ui,
         result: &UiQueryResult,
         indexes: &[usize],
         order: &[usize],
@@ -46,6 +47,12 @@ impl DbProApp {
                 if let Some(width) = self.table.data.grid_column_widths.get_mut(column_index) {
                     *width = (*width + delta).clamp(60.0, 1000.0);
                 }
+            }
+            GridHeaderAction::CopyColumnName(column_index) => {
+                self.copy_column_name(ui, result, column_index);
+            }
+            GridHeaderAction::CopyColumnValues(column_index) => {
+                self.copy_column_values(ui, result, column_index, indexes);
             }
             GridHeaderAction::MoveLeft(index) if index > 0 => {
                 self.table.data.move_column(index, index - 1, order.len());

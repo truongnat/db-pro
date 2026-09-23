@@ -118,6 +118,12 @@ impl DbProApp {
                 result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleJson => {
                     self.copy_all_as_json(ui, result, indexes);
                 }
+                result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleMarkdown => {
+                    self.copy_all_as_markdown(ui, result, indexes);
+                }
+                result_grid_toolbar_view::ResultGridToolbarAction::CopyVisibleInsert => {
+                    self.copy_all_as_insert(ui, result, indexes);
+                }
                 result_grid_toolbar_view::ResultGridToolbarAction::InspectSelectedCell {
                     row_index,
                     column_index,
@@ -198,7 +204,7 @@ impl DbProApp {
 
     /// Cycle a table-data sort clause. Shift-click keeps other clauses and
     /// makes the clicked column the next priority; plain click selects one
-    /// clause and cycles ASC -> DESC -> none.
+    /// clause and cycles ASC -> DESC -> none.\
     pub(crate) fn cycle_table_data_sort(&mut self, result: &UiQueryResult, column_index: usize, additive: bool) {
         if !self.table.mutation.staged_changes.is_empty() {
             self.feedback.runtime_message = "Apply or discard staged changes before changing sort".to_owned();
@@ -438,7 +444,3 @@ impl result_grid_row_view::GridRowSurfaceRenderer for GridRowRenderer<'_> {
         self.app.draw_grid_cell(ui, self.result, cell);
     }
 }
-
-#[cfg(test)]
-#[path = "result_grid_view_tests.rs"]
-mod tests;

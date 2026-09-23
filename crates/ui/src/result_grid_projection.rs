@@ -64,7 +64,7 @@ impl GridSelectionCache {
 
     /// Number of selection lookups built by this cache. Asserted by tests to pin the
     /// no-per-frame-rebuild property.
-    #[cfg(test)]
+    #[allow(dead_code)]
     pub(super) fn rebuilds(&self) -> u64 {
         self.rebuilds
     }

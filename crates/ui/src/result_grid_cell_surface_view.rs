@@ -92,8 +92,7 @@ pub(super) fn draw_value(
 ) {
     let text_rect = cell_rect.shrink2(egui::vec2(8.0, 3.0));
     let is_null = matches!(display_cell, UiCell::Null);
-    let text_value = cell_label(display_cell);
-    let raw_value = crate::cell_text(display_cell);
+    let raw_value = crate::result_grid::cell_text_as_str(display_cell);
     let font = match display_cell {
         UiCell::Null => FontId::proportional(11.5),
         UiCell::Number(_) | UiCell::Json(_) | UiCell::Bytes(_) => FontId::monospace(11.5),
@@ -127,24 +126,12 @@ pub(super) fn draw_value(
         painter.text(
             Pos2::new(text_rect.left(), text_rect.center().y),
             Align2::LEFT_CENTER,
-            &text_value,
+            raw_value,
             font,
             text_color,
         );
     }
-    if raw_value.chars().count() > 40 {
+    if cell_response.hovered() && raw_value.len() > 36 {
         cell_response.clone().on_hover_text(raw_value);
-    }
-}
-
-fn cell_label(cell: &UiCell) -> String {
-    match cell {
-        UiCell::Null => "NULL".to_owned(),
-        UiCell::Boolean(value) => value.to_string(),
-        UiCell::Number(value) | UiCell::Text(value) | UiCell::Bytes(value) => value.clone(),
-        UiCell::Json(value) => serde_json::from_str::<serde_json::Value>(value)
-            .ok()
-            .and_then(|json| serde_json::to_string_pretty(&json).ok())
-            .unwrap_or_else(|| value.clone()),
     }
 }

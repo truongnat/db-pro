@@ -19,6 +19,7 @@ pub(super) enum GridCellMenuAction {
     CopySelectedRows,
     CopySelectedRowsHeaders,
     CopySelectedRowsJson,
+    CopySelectedRowsMarkdown,
     CopySelectedRowsInsert,
     CopyJson,
     CopyCsv,
@@ -87,6 +88,12 @@ pub(super) fn draw_menu(
             "Copy Selected Rows as JSON",
             None,
             GridCellMenuAction::CopySelectedRowsJson,
+        );
+        menu_item!(
+            Icon::FileText,
+            "Copy Selected Rows as Markdown",
+            None,
+            GridCellMenuAction::CopySelectedRowsMarkdown,
         );
         menu_item!(
             Icon::Code,

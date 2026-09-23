@@ -97,12 +97,21 @@ impl DbProApp {
         self.copy_all_as_json(ui, result, &indexes);
     }
 
+    pub(super) fn copy_selected_rows_as_markdown(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
+        let indexes = self.table.data.selected_row_indexes();
+        self.copy_all_as_markdown(ui, result, &indexes);
+    }
+
     pub(super) fn copy_selected_rows_as_insert(&mut self, ui: &mut egui::Ui, result: &UiQueryResult) {
         let indexes = self.table.data.selected_row_indexes();
         if indexes.is_empty() {
             self.feedback.copy_status = "Select one or more rows first".to_owned();
             return;
         }
+        self.copy_all_as_insert(ui, result, &indexes);
+    }
+
+    pub(crate) fn copy_all_as_insert(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, indexes: &[usize]) {
         let table = self.schema.explorer.selected_table.as_deref().unwrap_or("table_name");
         let target =
             if self.workspace.active_tab == WorkspaceTab::Table && self.table.state.table_view == TableView::Data {
@@ -138,6 +147,73 @@ impl DbProApp {
             .collect::<Vec<_>>();
         ui.output_mut(|output| output.copied_text = statements.join("\n"));
         self.feedback.copy_status = format!("{} INSERT statements copied", statements.len());
+    }
+
+    pub(crate) fn copy_all_as_markdown(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, indexes: &[usize]) {
+        let header = format!(
+            "| {} |",
+            result
+                .columns
+                .iter()
+                .map(|c| c.name.replace('|', "\\|"))
+                .collect::<Vec<_>>()
+                .join(" | ")
+        );
+        let separator = format!(
+            "| {} |",
+            result
+                .columns
+                .iter()
+                .map(|_| "---")
+                .collect::<Vec<_>>()
+                .join(" | ")
+        );
+        let mut lines = vec![header, separator];
+        for &row_index in indexes {
+            if let Some(row) = result.rows.get(row_index) {
+                let row_str = format!(
+                    "| {} |",
+                    (0..result.columns.len())
+                        .map(|col_idx| {
+                            let cell = self
+                                .copy_cell_value(result, row_index, col_idx)
+                                .unwrap_or_else(|| row.get(col_idx).cloned().unwrap_or(UiCell::Null));
+                            crate::result_grid::cell_text_as_str(&cell).replace('|', "\\|")
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" | ")
+                );
+                lines.push(row_str);
+            }
+        }
+        ui.output_mut(|output| output.copied_text = lines.join("\n"));
+        self.feedback.copy_status = format!("{} rows copied as Markdown", indexes.len());
+    }
+
+    pub(crate) fn copy_column_name(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, column_index: usize) {
+        if let Some(col) = result.columns.get(column_index) {
+            ui.output_mut(|output| output.copied_text = col.name.clone());
+            self.feedback.copy_status = format!("Column name '{}' copied", col.name);
+        }
+    }
+
+    pub(crate) fn copy_column_values(
+        &mut self,
+        ui: &mut egui::Ui,
+        result: &UiQueryResult,
+        column_index: usize,
+        indexes: &[usize],
+    ) {
+        let values = indexes
+            .iter()
+            .filter_map(|&row_index| result.rows.get(row_index))
+            .map(|row| {
+                let cell = row.get(column_index).unwrap_or(&UiCell::Null);
+                crate::result_grid::cell_text_as_str(cell)
+            })
+            .collect::<Vec<_>>();
+        ui.output_mut(|output| output.copied_text = values.join("\n"));
+        self.feedback.copy_status = format!("{} column values copied", values.len());
     }
 
     pub(crate) fn copy_row_as_json(&mut self, ui: &mut egui::Ui, result: &UiQueryResult, row_index: usize) {

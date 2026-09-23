@@ -226,6 +226,10 @@ impl DbProApp {
                 self.ensure_selected_row(row_index);
                 self.copy_selected_rows_as_json(ui, result);
             }
+            Action::CopySelectedRowsMarkdown => {
+                self.ensure_selected_row(row_index);
+                self.copy_selected_rows_as_markdown(ui, result);
+            }
             Action::CopySelectedRowsInsert => {
                 self.ensure_selected_row(row_index);
                 self.copy_selected_rows_as_insert(ui, result);

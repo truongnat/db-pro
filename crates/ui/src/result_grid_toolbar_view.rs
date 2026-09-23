@@ -18,6 +18,8 @@ pub(super) enum ResultGridToolbarAction {
     CopySelectedRow,
     CopyVisibleCsv,
     CopyVisibleJson,
+    CopyVisibleMarkdown,
+    CopyVisibleInsert,
     InspectSelectedCell { row_index: usize, column_index: usize },
 }
 
@@ -100,6 +102,28 @@ pub(super) fn draw_toolbar(
                 .clicked()
             {
                 action = Some(ResultGridToolbarAction::CopyVisibleJson);
+            }
+            if Button::new(context.theme)
+                .text("Markdown")
+                .icon(Icon::FileText)
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .tooltip("Copy visible rows as Markdown table")
+                .show(ui)
+                .clicked()
+            {
+                action = Some(ResultGridToolbarAction::CopyVisibleMarkdown);
+            }
+            if Button::new(context.theme)
+                .text("INSERT")
+                .icon(Icon::Database)
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Sm)
+                .tooltip("Copy visible rows as SQL INSERT statements")
+                .show(ui)
+                .clicked()
+            {
+                action = Some(ResultGridToolbarAction::CopyVisibleInsert);
             }
             if Button::new(context.theme)
                 .text("Record")
