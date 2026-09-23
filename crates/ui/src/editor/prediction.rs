@@ -4,10 +4,10 @@ use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum PredictionMode {
-    #[default]
     Eager,
-    Subtle,
+    #[default]
     Off,
+    Subtle,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

@@ -185,39 +185,8 @@ pub(crate) fn translate_event(event: RuntimeEvent) -> Option<UiEvent> {
             message: error.message,
             position: error.position,
         }),
-        RuntimeEvent::AgentCompleted {
-            request_id,
-            provider,
-            message,
-        } => translate_agent_completed(request_id, provider, message),
         RuntimeEvent::AgentProviderReady { provider, detail } => Some(UiEvent::AgentProviderReady { provider, detail }),
         RuntimeEvent::AgentFailed { request_id, message } => translate_agent_failed(request_id, message),
-        RuntimeEvent::AgentToolCompleted {
-            request_id,
-            session_id,
-            run_id,
-            document_id,
-            result,
-        } => Some(UiEvent::AgentToolCompleted {
-            request_id: ui_request_id(request_id),
-            session_id,
-            run_id,
-            document_id,
-            result,
-        }),
-        RuntimeEvent::AgentToolFailed {
-            request_id,
-            session_id,
-            run_id,
-            document_id,
-            error,
-        } => Some(UiEvent::AgentToolFailed {
-            request_id: ui_request_id(request_id),
-            session_id,
-            run_id,
-            document_id,
-            error,
-        }),
         RuntimeEvent::AgentWorkflow { request_id, event } => Some(UiEvent::AgentWorkflow {
             request_id: ui_request_id(request_id),
             event,
@@ -417,23 +386,6 @@ fn translate_table_data_loaded(
 fn translate_query_cancelled(request_id: RuntimeRequestId) -> Option<UiEvent> {
     Some(UiEvent::QueryCancelled {
         request_id: ui_request_id(request_id),
-    })
-}
-
-fn translate_agent_completed(
-    request_id: RuntimeRequestId,
-    provider: String,
-    message: db_pro_runtime::AgentDraft,
-) -> Option<UiEvent> {
-    Some(UiEvent::AgentCompleted {
-        request_id: ui_request_id(request_id),
-        provider,
-        message: AgentMessage {
-            role: AgentRole::Assistant,
-            content: message.content,
-            sql: message.sql,
-            requires_confirmation: message.requires_confirmation,
-        },
     })
 }
 

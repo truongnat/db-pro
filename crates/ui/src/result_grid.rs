@@ -163,7 +163,7 @@ pub fn filtered_sorted_indexes(
 /// The inputs that decide one filtered/sorted row projection.
 ///
 /// `epoch` is the caller's monotonic id for the row data behind the grid: replacing a result set, or
-/// editing a displayed row in place, must advance it (`DbProApp::invalidate_grid_projection`). The
+/// editing a displayed row in place, must advance it (`TableDataState::invalidate_grid_projection`). The
 /// remaining fields are the grid's own filter/sort state plus a shape guard, so a projection is
 /// reused across frames until one of these inputs really changes.
 #[derive(Clone, Debug, PartialEq, Eq)]

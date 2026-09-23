@@ -4,7 +4,7 @@ use super::*;
 impl DbProApp {
     pub(crate) fn collect_problem_entries(&self) -> Vec<ProblemEntry> {
         let mut entries = Vec::new();
-        for (document_index, document) in self.query_documents.iter().enumerate() {
+        for (document_index, document) in self.query.session.documents.iter().enumerate() {
             for (diagnostic_index, diagnostic) in document.diagnostics.iter().enumerate() {
                 let cursor = crate::editor::CursorPosition::from_offset(&document.buffer, diagnostic.range.0);
                 entries.push(ProblemEntry {
@@ -22,7 +22,14 @@ impl DbProApp {
                 });
             }
         }
-        for (index, diagnostic) in self.ide_workspace.workspace_diagnostics.iter().enumerate() {
+        for (index, diagnostic) in self
+            .workspace
+            .files
+            .ide_workspace
+            .workspace_diagnostics
+            .iter()
+            .enumerate()
+        {
             let severity = match diagnostic.severity {
                 ide_workspace::WorkspaceDiagnosticSeverity::Error => crate::editor::DiagnosticSeverity::Error,
                 ide_workspace::WorkspaceDiagnosticSeverity::Warning => crate::editor::DiagnosticSeverity::Warning,
@@ -44,13 +51,14 @@ impl DbProApp {
         entries
     }
 
+    #[cfg(test)]
     pub(super) fn problem_matches_filters(&self, entry: &ProblemEntry) -> bool {
-        let severity_ok = match self.problems_severity_filter {
+        let severity_ok = match self.query.editor.problems_severity_filter {
             ProblemsSeverityFilter::All => true,
             ProblemsSeverityFilter::Errors => entry.severity == crate::editor::DiagnosticSeverity::Error,
             ProblemsSeverityFilter::Warnings => entry.severity == crate::editor::DiagnosticSeverity::Warning,
         };
-        let source_ok = match self.problems_source_filter {
+        let source_ok = match self.query.editor.problems_source_filter {
             ProblemsSourceFilter::All => true,
             ProblemsSourceFilter::Parser => entry.source == crate::editor::DiagnosticSource::Parser,
             ProblemsSourceFilter::Lint => entry.source == crate::editor::DiagnosticSource::Lint,
@@ -61,37 +69,37 @@ impl DbProApp {
     }
 
     pub(crate) fn navigate_to_problem(&mut self, document_index: usize, diagnostic_index: usize) {
-        let Some(document) = self.query_documents.get(document_index) else {
+        let Some(document) = self.query.session.documents.get(document_index) else {
             return;
         };
         let Some(diagnostic) = document.diagnostics.get(diagnostic_index).cloned() else {
             return;
         };
-        if document_index != self.active_query_document {
-            self.active_query_document = document_index;
+        if document_index != self.query.session.active_document_index {
+            self.query.session.active_document_index = document_index;
         }
-        let doc = &mut self.query_documents[document_index];
+        let doc = &mut self.query.session.documents[document_index];
         let start = diagnostic.range.0.min(doc.buffer.len_bytes());
         let end = diagnostic.range.1.min(doc.buffer.len_bytes()).max(start);
         doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, start);
         doc.selection = crate::editor::SelectionRange::new(start, end);
-        self.query_cursor_line = doc.cursor.line + 1;
-        self.query_cursor_column = doc.cursor.col + 1;
+        self.query.editor.query_cursor_line = doc.cursor.line + 1;
+        self.query.editor.query_cursor_column = doc.cursor.col + 1;
         if start != end {
-            self.selected_query = doc.buffer.slice(start, end).to_owned();
+            self.query.session.selected_text = doc.buffer.slice(start, end).to_owned();
         } else {
-            self.selected_query.clear();
+            self.query.session.selected_text.clear();
         }
-        self.activity = Activity::Problems;
-        self.sidebar_open = true;
-        self.active_tab = WorkspaceTab::Query;
-        self.problems_selected = Some((doc.id.clone(), diagnostic_index));
-        self.runtime_message = format!("Jumped to problem in {}", doc.title);
+        self.workspace.activity = Activity::Problems;
+        self.workspace.sidebar_open = true;
+        self.workspace.active_tab = WorkspaceTab::Query;
+        self.query.editor.problems_selected = Some((doc.id.clone(), diagnostic_index));
+        self.feedback.runtime_message = format!("Jumped to problem in {}", doc.title);
     }
 
     /// Apply a deterministic lint quick-fix as one undoable buffer replace (#257).
     pub(crate) fn apply_problem_fix(&mut self, document_index: usize, diagnostic_index: usize) -> bool {
-        let Some(document) = self.query_documents.get(document_index) else {
+        let Some(document) = self.query.session.documents.get(document_index) else {
             return false;
         };
         let Some(diagnostic) = document.diagnostics.get(diagnostic_index).cloned() else {
@@ -104,21 +112,23 @@ impl DbProApp {
         if start > end || end > document.buffer.len_bytes() {
             return false;
         }
-        if document_index != self.active_query_document {
-            self.active_query_document = document_index;
+        if document_index != self.query.session.active_document_index {
+            self.query.session.active_document_index = document_index;
         }
-        let doc = &mut self.query_documents[document_index];
+        let doc = &mut self.query.session.documents[document_index];
         doc.buffer.replace(start, end, &fix);
         let new_end = start + fix.len();
         doc.cursor = crate::editor::CursorPosition::from_offset(&doc.buffer, new_end);
         doc.selection = crate::editor::SelectionRange::new(start, new_end);
         doc.dirty = true;
-        self.query_cursor_line = doc.cursor.line + 1;
-        self.query_cursor_column = doc.cursor.col + 1;
+        self.query.editor.query_cursor_line = doc.cursor.line + 1;
+        self.query.editor.query_cursor_column = doc.cursor.col + 1;
         let title = doc.title.clone();
-        self.active_tab = WorkspaceTab::Query;
-        self.refresh_diagnostics();
-        self.runtime_message = format!("Applied quick fix in {title}");
+        self.workspace.active_tab = WorkspaceTab::Query;
+        let driver = self.active_driver().to_owned();
+        let lint = self.preferences.settings.editor.lint.clone();
+        query_diagnostics_view::refresh_diagnostics(&mut self.query, &driver, &lint);
+        self.feedback.runtime_message = format!("Applied quick fix in {title}");
         true
     }
 
@@ -129,7 +139,8 @@ impl DbProApp {
 
         let mut summary = DiagnosticsSummary::placeholder();
         summary.connections = self
-            .connections
+            .connection
+            .catalog
             .iter()
             .map(|connection| ConnectionDiagnostic {
                 connection_id: connection.id.clone(),
@@ -140,12 +151,14 @@ impl DbProApp {
                 username: connection.username.clone(),
                 has_password: true,
                 has_ssh: false,
-                is_connected: self.active_connection_id.as_deref() == Some(connection.id.as_str()),
+                is_connected: self.connection.lifecycle.active_connection_id() == Some(connection.id.as_str()),
             })
             .collect();
-        summary.runtime.active_connections = usize::from(self.active_connection_id.is_some());
+        summary.runtime.active_connections = usize::from(self.connection.lifecycle.active_connection_id().is_some());
         summary.runtime.active_executions = self
-            .query_documents
+            .query
+            .session
+            .documents
             .iter()
             .filter(|doc| {
                 matches!(
@@ -154,11 +167,11 @@ impl DbProApp {
                 )
             })
             .count();
-        if self.has_runtime_error() && !self.runtime_message.trim().is_empty() {
+        if self.has_runtime_error() && !self.feedback.runtime_message.trim().is_empty() {
             summary.recent_errors.push(ErrorDiagnostic {
                 timestamp: chrono::Utc::now().to_rfc3339(),
                 error_code: "UI_RUNTIME".to_owned(),
-                message: redact_sensitive(&self.runtime_message),
+                message: redact_sensitive(&self.feedback.runtime_message),
                 module: "ui".to_owned(),
             });
         }
@@ -178,8 +191,8 @@ impl DbProApp {
         let json = serde_json::to_string_pretty(&summary).map_err(|e| e.to_string())?;
         let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
         let file_name = format!("db-pro-support-bundle-{stamp}.json");
-        let path = if !self.backup_output_path.trim().is_empty() {
-            let parent = std::path::Path::new(self.backup_output_path.trim())
+        let path = if !self.overlay.backup_output_path.trim().is_empty() {
+            let parent = std::path::Path::new(self.overlay.backup_output_path.trim())
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new("."));
             parent.join(&file_name)

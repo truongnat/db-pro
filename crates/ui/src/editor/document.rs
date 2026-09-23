@@ -1,5 +1,5 @@
 use super::buffer::TextBuffer;
-use super::syntax::{SqlDialect, SqlHighlighter, SyntaxTokenKind};
+use super::syntax::{SqlDialect, SqlHighlighter, SyntaxToken, SyntaxTokenKind};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SqlStatement {
@@ -20,10 +20,13 @@ impl SqlDocumentAnalysis {
     }
 
     pub fn analyze(buffer: &TextBuffer, dialect: SqlDialect) -> Self {
-        let text = buffer.text();
         let highlighter = SqlHighlighter::new(dialect);
-        let tokens = highlighter.tokenize(text);
+        let tokens = highlighter.tokenize(buffer.text());
+        Self::from_tokens(buffer.text(), &tokens, buffer.version())
+    }
 
+    /// Build statement ranges from already-computed highlight tokens (avoids a second tokenize).
+    pub fn from_tokens(text: &str, tokens: &[SyntaxToken], version: u64) -> Self {
         let mut statements = Vec::new();
         let mut statement_start = None;
         let mut last_token_end = 0;
@@ -66,10 +69,7 @@ impl SqlDocumentAnalysis {
             }
         }
 
-        Self {
-            statements,
-            version: buffer.version(),
-        }
+        Self { statements, version }
     }
 
     pub fn current_statement_at(&self, offset: usize) -> Option<&SqlStatement> {

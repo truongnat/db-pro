@@ -1,5 +1,42 @@
 use super::*;
 
+fn render_editor_event(initial_text: &str, event: egui::Event, id_salt: &str) -> (String, SqlEditorResponse) {
+    let ctx = egui::Context::default();
+    let mut buffer = TextBuffer::from_string(initial_text);
+    let end = buffer.len_bytes();
+    let mut cursor = CursorPosition::from_offset(&buffer, end);
+    let mut selection = SelectionRange::default();
+    let theme = DbProTheme::dark();
+    let mut editor_response = SqlEditorResponse::default();
+
+    let _ = ctx.run(
+        egui::RawInput {
+            focused: true,
+            events: vec![event],
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let editor_id = ui.make_persistent_id(id_salt);
+                ui.memory_mut(|memory| memory.request_focus(editor_id));
+                editor_response = SqlEditor::new(
+                    &mut buffer,
+                    &mut cursor,
+                    &mut selection,
+                    SqlDialect::Postgres,
+                    &theme,
+                    &[],
+                    None,
+                    id_salt,
+                )
+                .show(ui, egui::vec2(600.0, 400.0));
+            });
+        },
+    );
+
+    (buffer.text().to_owned(), editor_response)
+}
+
 #[test]
 fn test_caret_geometry_calculation() {
     let text = "SELECT 1;\nSELECT 2;\nSELECT 3;";
@@ -58,6 +95,64 @@ fn test_ime_text_input_multilingual() {
     // Test undo
     assert!(editor.buffer.undo().is_some());
     assert_eq!(editor.buffer.text(), "SELECT ");
+}
+
+#[test]
+fn editor_auto_focus_is_one_shot_and_focus_survives_next_frame() {
+    let ctx = egui::Context::default();
+    let mut buf = TextBuffer::from_string("select 1");
+    let mut cursor = CursorPosition::default();
+    let mut selection = SelectionRange::default();
+    let theme = DbProTheme::light();
+    let editor_size = egui::vec2(400.0, 200.0);
+
+    let _ = ctx.run(
+        egui::RawInput {
+            focused: true,
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let editor = SqlEditor::new(
+                    &mut buf,
+                    &mut cursor,
+                    &mut selection,
+                    SqlDialect::Postgres,
+                    &theme,
+                    &[],
+                    None,
+                    "auto-focus",
+                )
+                .with_auto_focus(true);
+                assert!(editor.show(ui, editor_size).focused);
+            });
+        },
+    );
+
+    let mut focused = false;
+    let _ = ctx.run(
+        egui::RawInput {
+            focused: true,
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let editor = SqlEditor::new(
+                    &mut buf,
+                    &mut cursor,
+                    &mut selection,
+                    SqlDialect::Postgres,
+                    &theme,
+                    &[],
+                    None,
+                    "auto-focus",
+                );
+                focused = editor.show(ui, editor_size).focused;
+            });
+        },
+    );
+
+    assert!(focused, "one-shot auto-focus must not clear focus on the next frame");
 }
 
 #[test]
@@ -126,6 +221,84 @@ fn editor_keeps_focus_after_click_across_frames() {
 }
 
 #[test]
+fn command_s_requests_save_without_inserting_text() {
+    let ctx = egui::Context::default();
+    let mut buf = TextBuffer::from_string("SELECT 1");
+    let mut cursor = CursorPosition::default();
+    let mut selection = SelectionRange::default();
+    let theme = DbProTheme::dark();
+    let editor_size = egui::vec2(400.0, 200.0);
+
+    let _ = ctx.run(
+        egui::RawInput {
+            focused: true,
+            events: vec![egui::Event::Key {
+                key: egui::Key::S,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers {
+                    command: true,
+                    ..Default::default()
+                },
+            }],
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let editor_id = ui.make_persistent_id("save-shortcut");
+                ui.memory_mut(|memory| memory.request_focus(editor_id));
+                let editor = SqlEditor::new(
+                    &mut buf,
+                    &mut cursor,
+                    &mut selection,
+                    SqlDialect::Postgres,
+                    &theme,
+                    &[],
+                    None,
+                    "save-shortcut",
+                );
+                let response = editor.show(ui, editor_size);
+                assert!(response.wants_save);
+                assert_eq!(buf.text(), "SELECT 1");
+            });
+        },
+    );
+}
+
+#[test]
+fn completion_opens_only_for_dot_or_explicit_shortcut() {
+    let (typed_text, typed_response) =
+        render_editor_event("", egui::Event::Text("select".to_owned()), "ordinary-completion-input");
+    assert_eq!(typed_text, "select");
+    assert!(!typed_response.wants_completion);
+
+    let (dot_text, dot_response) =
+        render_editor_event("users", egui::Event::Text(".".to_owned()), "dot-completion-input");
+    assert_eq!(dot_text, "users.");
+    assert!(dot_response.wants_completion);
+    assert!(!dot_response.wants_manual_completion);
+
+    let (shortcut_text, shortcut_response) = render_editor_event(
+        "SELECT ",
+        egui::Event::Key {
+            key: egui::Key::Space,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers {
+                command: true,
+                ..Default::default()
+            },
+        },
+        "manual-completion-shortcut",
+    );
+    assert_eq!(shortcut_text, "SELECT ");
+    assert!(shortcut_response.wants_completion);
+    assert!(shortcut_response.wants_manual_completion);
+}
+
+#[test]
 fn test_ime_commit_event_in_editor_widget() {
     let ctx = egui::Context::default();
     let mut buf = TextBuffer::from_string("SELECT ");
@@ -157,10 +330,59 @@ fn test_ime_commit_event_in_editor_widget() {
             ui.memory_mut(|m| m.request_focus(editor_id));
             let resp = editor.show(ui, egui::vec2(600.0, 400.0));
             assert!(resp.changed, "IME commit should insert text when editor is focused");
-            assert!(resp.wants_completion);
+            assert!(
+                !resp.wants_completion,
+                "ordinary identifier typing must not open completion automatically"
+            );
         });
     });
 
     assert_eq!(buf.text(), "SELECT tên_cột");
     assert_eq!(cursor.offset, "SELECT tên_cột".len());
+}
+
+#[test]
+fn long_buffer_scrolls_to_keep_end_caret_visible() {
+    let ctx = egui::Context::default();
+    let text = (0..80).map(|i| format!("SELECT {i};")).collect::<Vec<_>>().join("\n");
+    let mut buf = TextBuffer::from_string(&text);
+    let end = buf.len_bytes();
+    let mut cursor = CursorPosition::from_offset(&buf, end);
+    let mut selection = SelectionRange::new(end, end);
+    let theme = DbProTheme::dark();
+    let viewport = egui::vec2(420.0, 160.0);
+
+    assert!(cursor.line > 40, "fixture caret should sit far below the fold");
+
+    let _ = ctx.run(
+        egui::RawInput {
+            focused: true,
+            ..Default::default()
+        },
+        |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let editor = SqlEditor::new(
+                    &mut buf,
+                    &mut cursor,
+                    &mut selection,
+                    SqlDialect::Postgres,
+                    &theme,
+                    &[],
+                    None,
+                    "scroll-long",
+                );
+                let _ = editor.show(ui, viewport);
+                let editor_id = ui.make_persistent_id("scroll-long");
+                let scroll = ui
+                    .ctx()
+                    .data(|d| d.get_temp::<egui::Vec2>(editor_id.with("scroll")))
+                    .unwrap_or(egui::Vec2::ZERO);
+                assert!(
+                    scroll.y > 0.0,
+                    "end caret must pull the viewport down, got scroll.y={}",
+                    scroll.y
+                );
+            });
+        },
+    );
 }

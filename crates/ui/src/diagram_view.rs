@@ -1,135 +1,153 @@
 use super::*;
 pub use crate::diagram::*;
 
-impl DbProApp {
-    pub(super) fn draw_diagram(&mut self, ui: &mut egui::Ui) {
-        let all_table_count = self.schema.table_details.len();
-        let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
-        let search_query = self.diagram_search.trim().to_ascii_lowercase();
-        let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
+pub(crate) struct DiagramViewContext<'a> {
+    pub(super) theme: DbProTheme,
+    pub(super) diagram: &'a mut DiagramState,
+    pub(super) explorer: &'a SchemaExplorerState,
+    pub(super) active_driver: &'a str,
+    pub(super) connected: bool,
+}
 
-        // Poll background layout worker:
-        if let Some(res) = self.diagram_layout_worker.poll_result() {
-            if res.graph_version == self.diagram_schema_version && res.request_id == self.diagram_latest_layout_request
-            {
-                self.diagram_graph = res.graph;
-                self.diagram_spatial_index = res.spatial_index;
-                self.diagram_layout_state = ErLayoutState::Ready;
-            }
+pub(crate) enum DiagramAction {
+    OpenTable(String),
+    ExecuteQuery(String),
+}
+
+pub(super) fn draw_diagram(ctx: &mut DiagramViewContext<'_>, ui: &mut egui::Ui) -> Option<DiagramAction> {
+    let all_table_count = ctx.explorer.schema.table_details.len();
+    let large_schema = all_table_count > ER_LARGE_SCHEMA_THRESHOLD;
+    let search_query = ctx.diagram.search.trim().to_ascii_lowercase();
+    let search_mode = diagram_search_mode(large_schema, ctx.diagram.show_all);
+
+    // Poll background layout worker:
+    if let Some(res) = ctx.diagram.layout_worker.poll_result() {
+        if res.graph_version == ctx.diagram.schema_version && res.request_id == ctx.diagram.latest_layout_request {
+            ctx.diagram.graph = res.graph;
+            ctx.diagram.spatial_index = res.spatial_index;
+            ctx.diagram.layout_state = ErLayoutState::Ready;
         }
-
-        if self.schema.table_details.is_empty() {
-            self.draw_diagram_empty_state(ui, 0, false, false);
-            return;
-        }
-
-        let render_limit = if !large_schema || self.diagram_show_all {
-            all_table_count
-        } else {
-            ER_MAX_TABLES
-        };
-
-        let (_candidate_count, tables) =
-            diagram_candidates(&self.schema.table_details, &search_query, search_mode, render_limit);
-
-        let grid_columns = if tables.len() <= 3 {
-            tables.len().max(1)
-        } else {
-            ((all_table_count as f32).sqrt().ceil() as usize).clamp(3, 10)
-        };
-
-        let max_visible_columns = self
-            .schema
-            .table_details
-            .iter()
-            .take(50)
-            .map(|table| table.columns.len().clamp(1, ER_MAX_COLUMNS))
-            .max()
-            .unwrap_or(1);
-        let node_height = ER_HEADER_HEIGHT + ER_ROW_HEIGHT * max_visible_columns as f32;
-
-        self.ensure_diagram_graph(grid_columns, node_height);
-
-        // Determine active table subset:
-        let active_node_indices: Option<Vec<usize>> = if search_mode && !search_query.is_empty() {
-            let seed_indices: Vec<usize> = self
-                .diagram_graph
-                .nodes
-                .iter()
-                .filter(|node| matches_diagram_search(&node.table, &search_query))
-                .map(|node| node.id)
-                .collect();
-            if seed_indices.is_empty() {
-                self.draw_diagram_toolbar(ui, large_schema, all_table_count, &tables, render_limit);
-                ui.add_space(10.0);
-                self.draw_diagram_empty_state(ui, all_table_count, true, true);
-                return;
-            }
-            Some(
-                self.diagram_graph
-                    .bfs_neighborhood(&seed_indices, self.diagram_neighborhood_depth, 100),
-            )
-        } else if search_mode && search_query.is_empty() {
-            self.draw_diagram_toolbar(ui, large_schema, all_table_count, &tables, render_limit);
-            ui.add_space(10.0);
-            self.draw_diagram_empty_state(ui, all_table_count, true, false);
-            return;
-        } else {
-            None
-        };
-
-        self.draw_diagram_toolbar(ui, large_schema, all_table_count, &tables, render_limit);
-        self.draw_er_design_panel(ui);
-        ui.add_space(10.0);
-
-        self.draw_diagram_canvas(ui, active_node_indices.as_deref());
     }
 
-    fn ensure_diagram_graph(&mut self, grid_columns: usize, node_height: f32) {
-        let current_count = self.schema.table_details.len();
-        let graph_dirty = self.diagram_graph.nodes.len() != current_count
-            || self.diagram_graph.schema_version != self.diagram_schema_version;
+    if ctx.explorer.schema.table_details.is_empty() {
+        super::diagram_canvas_view::draw_diagram_empty_state(ctx, ui, 0, false, false);
+        return None;
+    }
 
-        if graph_dirty && current_count > 0 {
-            if self.diagram_graph.nodes.is_empty() {
-                // First load: build immediately so canvas starts populated without blank frame
-                self.diagram_graph = ErGraph::build(
-                    &self.schema.table_details,
-                    self.diagram_schema_version,
-                    grid_columns,
-                    node_height,
-                );
-                self.diagram_spatial_index = ErSpatialIndex::build(
-                    &self.diagram_graph.nodes,
-                    &self.diagram_graph.edges,
-                    DEFAULT_SPATIAL_CELL_SIZE,
-                );
-                self.diagram_layout_state = ErLayoutState::Ready;
+    let render_limit = if !large_schema || ctx.diagram.show_all {
+        all_table_count
+    } else {
+        ER_MAX_TABLES
+    };
+
+    let (_candidate_count, tables) = diagram_candidates(
+        &ctx.explorer.schema.table_details,
+        &search_query,
+        search_mode,
+        render_limit,
+    );
+
+    let grid_columns = if tables.len() <= 3 {
+        tables.len().max(1)
+    } else {
+        ((all_table_count as f32).sqrt().ceil() as usize).clamp(3, 10)
+    };
+
+    let max_visible_columns = ctx
+        .explorer
+        .schema
+        .table_details
+        .iter()
+        .take(50)
+        .map(|table| table.columns.len().clamp(1, ER_MAX_COLUMNS))
+        .max()
+        .unwrap_or(1);
+    let node_height = ER_HEADER_HEIGHT + ER_ROW_HEIGHT * max_visible_columns as f32;
+
+    ensure_diagram_graph(ctx, grid_columns, node_height);
+
+    // Determine active table subset:
+    let active_node_indices: Option<Vec<usize>> = if search_mode && !search_query.is_empty() {
+        let seed_indices: Vec<usize> = ctx
+            .diagram
+            .graph
+            .nodes
+            .iter()
+            .filter(|node| matches_diagram_search(&node.table, &search_query))
+            .map(|node| node.id)
+            .collect();
+        if seed_indices.is_empty() {
+            draw_diagram_toolbar(ctx, ui, large_schema, all_table_count, &tables, render_limit);
+            ui.add_space(10.0);
+            super::diagram_canvas_view::draw_diagram_empty_state(ctx, ui, all_table_count, true, true);
+            return None;
+        }
+        Some(
+            ctx.diagram
+                .graph
+                .bfs_neighborhood(&seed_indices, ctx.diagram.neighborhood_depth, 100),
+        )
+    } else if search_mode && search_query.is_empty() {
+        draw_diagram_toolbar(ctx, ui, large_schema, all_table_count, &tables, render_limit);
+        ui.add_space(10.0);
+        super::diagram_canvas_view::draw_diagram_empty_state(ctx, ui, all_table_count, true, false);
+        return None;
+    } else {
+        None
+    };
+
+    draw_diagram_toolbar(ctx, ui, large_schema, all_table_count, &tables, render_limit);
+    let design_action = super::diagram_design_panel_view::draw_er_design_panel(ctx, ui);
+    ui.add_space(10.0);
+
+    let canvas_action = super::diagram_canvas_view::draw_diagram_canvas(ctx, ui, active_node_indices.as_deref());
+    design_action.or(canvas_action)
+}
+
+fn ensure_diagram_graph(ctx: &mut DiagramViewContext<'_>, grid_columns: usize, node_height: f32) {
+    let current_count = ctx.explorer.schema.table_details.len();
+    let graph_dirty = ctx.diagram.graph.nodes.len() != current_count
+        || ctx.diagram.graph.schema_version != ctx.diagram.schema_version;
+
+    if graph_dirty && current_count > 0 {
+        if ctx.diagram.graph.nodes.is_empty() {
+            // First load: build immediately so canvas starts populated without blank frame
+            ctx.diagram.graph = ErGraph::build(
+                &ctx.explorer.schema.table_details,
+                ctx.diagram.schema_version,
+                grid_columns,
+                node_height,
+            );
+            ctx.diagram.spatial_index = ErSpatialIndex::build(
+                &ctx.diagram.graph.nodes,
+                &ctx.diagram.graph.edges,
+                DEFAULT_SPATIAL_CELL_SIZE,
+            );
+            ctx.diagram.layout_state = ErLayoutState::Ready;
+        } else {
+            // Background worker update: keep old graph renderable and dispatch async request.
+            // saturating_add: at u64::MAX the version stays MAX; subsequent invalidations
+            // all produce the same version but the graph node count check (graph_dirty)
+            // prevents re-dispatch unless the actual table list changes.
+            ctx.diagram.schema_version = ctx.diagram.schema_version.saturating_add(1);
+            let request_id = ctx.diagram.layout_worker.request_layout(
+                ctx.diagram.schema_version,
+                ctx.explorer.schema.table_details.clone(),
+                grid_columns,
+                node_height,
+            );
+            ctx.diagram.latest_layout_request = request_id;
+
+            // If the worker is in degraded mode (spawn failed), the request was
+            // silently dropped. Transition to Failed state so the UI shows a
+            // concise error while retaining the last valid graph.
+            if ctx.diagram.layout_worker.dispatch_succeeded() {
+                ctx.diagram.layout_state = ErLayoutState::Computing {
+                    request_id,
+                    graph_version: ctx.diagram.schema_version,
+                };
             } else {
-                // Background worker update: keep old graph renderable and dispatch async request.
-                // saturating_add: at u64::MAX the version stays MAX; subsequent invalidations
-                // all produce the same version but the graph node count check (graph_dirty)
-                // prevents re-dispatch unless the actual table list changes.
-                self.diagram_schema_version = self.diagram_schema_version.saturating_add(1);
-                let request_id = self.diagram_layout_worker.request_layout(
-                    self.diagram_schema_version,
-                    self.schema.table_details.clone(),
-                    grid_columns,
-                    node_height,
-                );
-                self.diagram_latest_layout_request = request_id;
-
-                // If the worker is in degraded mode (spawn failed), the request was
-                // silently dropped. Transition to Failed state so the UI shows a
-                // concise error while retaining the last valid graph.
-                if self.diagram_layout_worker.dispatch_succeeded() {
-                    self.diagram_layout_state = ErLayoutState::Computing {
-                        request_id,
-                        graph_version: self.diagram_schema_version,
-                    };
-                } else {
-                    self.diagram_layout_state = ErLayoutState::Failed("ER layout worker unavailable".to_owned());
-                }
+                ctx.diagram.layout_state = ErLayoutState::Failed("ER layout worker unavailable".to_owned());
             }
         }
     }
@@ -178,527 +196,103 @@ pub(super) fn diagram_show_all_after_search_edit(show_all: bool, search_query: &
     }
 }
 
-impl DbProApp {
-    fn draw_diagram_toolbar(
-        &mut self,
-        ui: &mut egui::Ui,
-        large_schema: bool,
-        all_table_count: usize,
-        tables: &[UiTableSummary],
-        render_limit: usize,
-    ) {
-        let visible_tables = if self.diagram_show_all || !large_schema {
-            all_table_count
-        } else {
-            tables.len().min(render_limit)
-        };
-        let relationship_count: usize = self.diagram_graph.edges.len();
+fn draw_diagram_toolbar(
+    ctx: &mut DiagramViewContext<'_>,
+    ui: &mut egui::Ui,
+    large_schema: bool,
+    all_table_count: usize,
+    tables: &[UiTableSummary],
+    render_limit: usize,
+) {
+    let visible_tables = if ctx.diagram.show_all || !large_schema {
+        all_table_count
+    } else {
+        tables.len().min(render_limit)
+    };
+    let relationship_count: usize = ctx.diagram.graph.edges.len();
 
-        ui.horizontal_wrapped(|ui| {
-            section_label(ui, "ER DIAGRAM", self.theme);
-            ui.add_space(8.0);
-            badge(
-                ui,
-                &plural_count(visible_tables, "table", "tables"),
-                self.theme.accent_soft,
-                self.theme.accent,
-            );
-            badge(
-                ui,
-                &plural_count(relationship_count, "relationship", "relationships"),
-                self.theme.surface_hover,
-                self.theme.text_secondary,
-            );
-            if matches!(self.diagram_layout_state, ErLayoutState::Computing { .. }) {
-                badge(
-                    ui,
-                    "Arranging map…",
-                    self.theme.surface_hover,
-                    self.theme.text_secondary,
-                );
-            }
-            if large_schema {
-                ui.separator();
-                let search_changed =
-                    input(ui, &mut self.diagram_search, "Find table or column…", 220.0, self.theme).changed();
-                self.diagram_show_all =
-                    diagram_show_all_after_search_edit(self.diagram_show_all, &self.diagram_search, search_changed);
-                let search_mode = diagram_search_mode(large_schema, self.diagram_show_all);
-                if search_mode {
-                    ui.label(RichText::new("Neighborhood:").small().color(self.theme.text_muted));
-                    if ui
-                        .selectable_label(self.diagram_neighborhood_depth == 1, "1 hop")
-                        .clicked()
-                    {
-                        self.diagram_neighborhood_depth = 1;
-                    }
-                    if ui
-                        .selectable_label(self.diagram_neighborhood_depth == 2, "2 hops")
-                        .clicked()
-                    {
-                        self.diagram_neighborhood_depth = 2;
-                    }
-                    ui.add_space(4.0);
-                    if secondary_button_with_icon(
-                        ui,
-                        Icon::Workflow,
-                        &format!("Show all {all_table_count} tables"),
-                        self.theme,
-                    )
-                    .clicked()
-                    {
-                        self.diagram_show_all = true;
-                    }
-                } else {
-                    badge(ui, "All tables", self.theme.warning, self.theme.text_inverse);
-                    if compact_button_with_icon(ui, Icon::Search, "Focus search", self.theme).clicked() {
-                        self.diagram_show_all = false;
-                    }
-                }
-            }
-            ui.separator();
-            let design_label = if self.er_design.enabled {
-                "Design Mode ✓"
-            } else {
-                "Design Mode"
-            };
-            if secondary_button(ui, design_label, self.theme)
-                .on_hover_text("Draft schema edits — never mutates DB until Apply")
-                .clicked()
-            {
-                self.er_design.enabled = !self.er_design.enabled;
-                if self.er_design.enabled {
-                    let names: Vec<String> = self
-                        .schema
-                        .table_details
-                        .iter()
-                        .map(|t| format!("{}.{}", t.schema, t.name))
-                        .collect();
-                    self.er_design
-                        .set_schema_fingerprint(crate::diagram::design_mode::schema_fingerprint_from_names(&names));
-                }
-            }
-        });
-    }
-
-    pub(super) fn draw_er_design_panel(&mut self, ui: &mut egui::Ui) {
-        if !self.er_design.enabled {
-            return;
+    ui.horizontal_wrapped(|ui| {
+        section_label(ui, "ER DIAGRAM", ctx.theme);
+        ui.add_space(8.0);
+        badge(
+            ui,
+            &plural_count(visible_tables, "table", "tables"),
+            ctx.theme.accent_soft,
+            ctx.theme.accent,
+        );
+        badge(
+            ui,
+            &plural_count(relationship_count, "relationship", "relationships"),
+            ctx.theme.surface_hover,
+            ctx.theme.text_secondary,
+        );
+        if matches!(ctx.diagram.layout_state, ErLayoutState::Computing { .. }) {
+            badge(ui, "Arranging map…", ctx.theme.surface_hover, ctx.theme.text_secondary);
         }
-        ui.add_space(SPACE_SM);
-        card_frame(self.theme).show(ui, |ui| {
-            section_label(ui, "DESIGN DRAFT", self.theme);
-            ui.label(
-                RichText::new("Draft only · ObjectMutationService plan · fingerprint-gated apply")
-                    .small()
-                    .color(self.theme.text_muted),
-            );
-            let live_fp = {
-                let names: Vec<String> = self
+        if large_schema {
+            ui.separator();
+            let search_changed =
+                input(ui, &mut ctx.diagram.search, "Find table or column…", 220.0, ctx.theme).changed();
+            ctx.diagram.show_all =
+                diagram_show_all_after_search_edit(ctx.diagram.show_all, &ctx.diagram.search, search_changed);
+            let search_mode = diagram_search_mode(large_schema, ctx.diagram.show_all);
+            if search_mode {
+                ui.label(RichText::new("Neighborhood:").small().color(ctx.theme.text_muted));
+                if ui
+                    .selectable_label(ctx.diagram.neighborhood_depth == 1, "1 hop")
+                    .clicked()
+                {
+                    ctx.diagram.neighborhood_depth = 1;
+                }
+                if ui
+                    .selectable_label(ctx.diagram.neighborhood_depth == 2, "2 hops")
+                    .clicked()
+                {
+                    ctx.diagram.neighborhood_depth = 2;
+                }
+                ui.add_space(4.0);
+                if secondary_button_with_icon(
+                    ui,
+                    Icon::Workflow,
+                    &format!("Show all {all_table_count} tables"),
+                    ctx.theme,
+                )
+                .clicked()
+                {
+                    ctx.diagram.show_all = true;
+                }
+            } else {
+                badge(ui, "All tables", ctx.theme.warning, ctx.theme.text_inverse);
+                if compact_button_with_icon(ui, Icon::Search, "Focus search", ctx.theme).clicked() {
+                    ctx.diagram.show_all = false;
+                }
+            }
+        }
+        ui.separator();
+        let design_label = if ctx.diagram.design.enabled {
+            "Design Mode ✓"
+        } else {
+            "Design Mode"
+        };
+        if secondary_button(ui, design_label, ctx.theme)
+            .on_hover_text("Draft schema edits — never mutates DB until Apply")
+            .clicked()
+        {
+            ctx.diagram.design.enabled = !ctx.diagram.design.enabled;
+            if ctx.diagram.design.enabled {
+                let names: Vec<String> = ctx
+                    .explorer
                     .schema
                     .table_details
                     .iter()
                     .map(|t| format!("{}.{}", t.schema, t.name))
                     .collect();
-                crate::diagram::design_mode::schema_fingerprint_from_names(&names)
-            };
-            if self.er_design.fingerprint_stale(&live_fp) {
-                ui.colored_label(
-                    self.theme.warning,
-                    "Live schema changed — re-open Design Mode or discard before apply",
-                );
-            }
-            ui.horizontal(|ui| {
-                ui.add(egui::TextEdit::singleline(&mut self.er_design_new_schema).hint_text("schema"));
-                ui.add(egui::TextEdit::singleline(&mut self.er_design_new_table).hint_text("table"));
-                if secondary_button(ui, "Add draft table", self.theme).clicked() {
-                    self.er_design
-                        .add_draft_table(&self.er_design_new_schema, &self.er_design_new_table);
-                    self.er_design_new_table.clear();
-                }
-                if ghost_button(ui, "Undo", self.theme).clicked() {
-                    self.er_design.undo();
-                }
-                if ghost_button(ui, "Redo", self.theme).clicked() {
-                    self.er_design.redo();
-                }
-                if danger_button(ui, "Discard", self.theme).clicked() {
-                    self.er_design.discard();
-                }
-            });
-            for (idx, table) in self.er_design.draft.tables.clone().into_iter().enumerate() {
-                ui.label(
-                    RichText::new(format!(
-                        "draft {}.{} · {} cols",
-                        table.schema,
-                        table.name,
-                        table.columns.len()
-                    ))
-                    .strong()
-                    .monospace(),
-                );
-                for col in &table.columns {
-                    ui.label(
-                        RichText::new(format!(
-                            "  {} {}{}{}",
-                            col.name,
-                            col.data_type,
-                            if col.is_pk { " PK" } else { "" },
-                            if col.is_unique { " UNIQUE" } else { "" }
-                        ))
-                        .small()
-                        .monospace(),
-                    );
-                }
-                ui.horizontal(|ui| {
-                    ui.add(egui::TextEdit::singleline(&mut self.er_design_col_name).hint_text("col"));
-                    ui.add(egui::TextEdit::singleline(&mut self.er_design_col_type).hint_text("type"));
-                    if ghost_button(ui, "Add col", self.theme).clicked() {
-                        self.er_design.add_column(
-                            idx,
-                            crate::diagram::design_mode::DraftColumn {
-                                name: self.er_design_col_name.clone(),
-                                data_type: self.er_design_col_type.clone(),
-                                nullable: true,
-                                is_pk: false,
-                                is_unique: false,
-                            },
-                        );
-                        self.er_design_col_name.clear();
-                    }
-                });
-            }
-            ui.add_space(SPACE_XS);
-            ui.horizontal(|ui| {
-                ui.add(egui::TextEdit::singleline(&mut self.er_design_fk_name).hint_text("fk name"));
-                ui.add(egui::TextEdit::singleline(&mut self.er_design_fk_from).hint_text("from schema.table.col"));
-                ui.add(egui::TextEdit::singleline(&mut self.er_design_fk_to).hint_text("to schema.table.col"));
-                if secondary_button(ui, "Add FK", self.theme).clicked() {
-                    self.er_design_add_fk();
-                }
-            });
-            for fk in &self.er_design.draft.foreign_keys {
-                ui.label(
-                    RichText::new(format!(
-                        "FK {} · {}.{}({}) → {}.{}({})",
-                        fk.name,
-                        fk.from_schema,
-                        fk.from_table,
-                        fk.from_columns.join(","),
-                        fk.to_schema,
-                        fk.to_table,
-                        fk.to_columns.join(",")
-                    ))
-                    .small()
-                    .monospace(),
-                );
-            }
-            ui.horizontal(|ui| {
-                if secondary_button(ui, "Preview mutation plan", self.theme).clicked() {
-                    self.er_design_preview_plan();
-                }
-                if primary_button(ui, "Apply (confirm)", self.theme).clicked() {
-                    self.er_design_apply_plan();
-                }
-            });
-            if let Some(error) = &self.er_design.error {
-                ui.colored_label(self.theme.danger, error);
-            }
-            if !self.er_design.preview_sql.is_empty() {
-                ui.label(
-                    RichText::new(format!("fingerprint {}", self.er_design.preview_fingerprint))
-                        .small()
-                        .color(self.theme.text_muted),
-                );
-                for effect in &self.er_design.preview_effects {
-                    ui.label(RichText::new(effect).small().color(self.theme.text_secondary));
-                }
-                egui::ScrollArea::vertical().max_height(140.0).show(ui, |ui| {
-                    ui.label(RichText::new(&self.er_design.preview_sql).monospace());
-                });
-            }
-        });
-    }
-
-    fn er_design_add_fk(&mut self) {
-        let Some((from_schema, from_table, from_col)) = split_three(&self.er_design_fk_from) else {
-            self.er_design.error = Some("FK from must be schema.table.column".into());
-            return;
-        };
-        let Some((to_schema, to_table, to_col)) = split_three(&self.er_design_fk_to) else {
-            self.er_design.error = Some("FK to must be schema.table.column".into());
-            return;
-        };
-        let name = if self.er_design_fk_name.trim().is_empty() {
-            format!("fk_{from_table}_{to_table}")
-        } else {
-            self.er_design_fk_name.trim().to_owned()
-        };
-        self.er_design.add_fk(crate::diagram::design_mode::DraftForeignKey {
-            name,
-            from_schema,
-            from_table,
-            from_columns: vec![from_col],
-            to_schema,
-            to_table,
-            to_columns: vec![to_col],
-        });
-    }
-
-    fn er_design_preview_plan(&mut self) {
-        struct QuoteDialect;
-        impl db_pro_core::ports::SqlDialect for QuoteDialect {
-            fn placeholder(&self, index: usize) -> String {
-                format!("${index}")
-            }
-            fn quote_identifier(&self, name: &str) -> String {
-                format!("\"{}\"", name.replace('"', "\"\""))
+                ctx.diagram
+                    .design
+                    .set_schema_fingerprint(crate::diagram::design_mode::schema_fingerprint_from_names(&names));
             }
         }
-        let driver = self.active_driver().to_owned();
-        match crate::diagram::design_mode::plan_design_draft(&self.er_design.draft, &driver, &QuoteDialect) {
-            Ok(previews) => {
-                let (sql, fp, effects) = crate::diagram::design_mode::merge_preview_sql(&previews);
-                self.er_design.preview_sql = sql;
-                self.er_design.preview_fingerprint = fp;
-                self.er_design.preview_effects = effects;
-                self.er_design.error = None;
-                self.er_design.apply_confirm = true;
-            }
-            Err(err) => {
-                self.er_design.error = Some(err);
-                self.er_design.clear_preview();
-            }
-        }
-    }
-
-    fn er_design_apply_plan(&mut self) {
-        let live_fp = {
-            let names: Vec<String> = self
-                .schema
-                .table_details
-                .iter()
-                .map(|t| format!("{}.{}", t.schema, t.name))
-                .collect();
-            crate::diagram::design_mode::schema_fingerprint_from_names(&names)
-        };
-        if self.er_design.fingerprint_stale(&live_fp) {
-            self.er_design.error = Some("schema fingerprint stale — refresh Design Mode".into());
-            return;
-        }
-        if self.er_design.preview_sql.is_empty() || !self.er_design.apply_confirm {
-            self.er_design_preview_plan();
-            if self.er_design.preview_sql.is_empty() {
-                return;
-            }
-        }
-        if self.active_connection_id.is_none() || !self.connected {
-            self.er_design.error = Some("connect before applying design plan".into());
-            return;
-        }
-        self.set_active_query_text(self.er_design.preview_sql.clone());
-        self.active_tab = WorkspaceTab::Query;
-        self.dispatch_query();
-        self.runtime_message = "Design Mode mutation plan applied via query runtime".into();
-        self.er_design.discard();
-    }
-}
-
-fn split_three(raw: &str) -> Option<(String, String, String)> {
-    let parts: Vec<&str> = raw.split('.').collect();
-    if parts.len() != 3 {
-        return None;
-    }
-    Some((parts[0].to_owned(), parts[1].to_owned(), parts[2].to_owned()))
-}
-
-impl DbProApp {
-    fn draw_diagram_empty_state(
-        &mut self,
-        ui: &mut egui::Ui,
-        all_table_count: usize,
-        search_mode: bool,
-        no_matches: bool,
-    ) {
-        let canvas_size = egui::vec2(ui.available_width(), ui.available_height().max(360.0));
-        egui::Frame {
-            fill: self.theme.surface_editor,
-            inner_margin: egui::Margin::ZERO,
-            ..Default::default()
-        }
-        .show(ui, |ui| {
-            ui.set_min_size(canvas_size);
-            paint_diagram_grid(ui.painter(), ui.max_rect(), 1.0, self.theme);
-            ui.vertical_centered(|ui| {
-                let top_space = if no_matches { 56.0 } else { 40.0 };
-                ui.add_space(top_space);
-                ui.label(icon_text(
-                    if no_matches { Icon::Search } else { Icon::Workflow },
-                    if no_matches {
-                        "No matching tables"
-                    } else if search_mode {
-                        "Focus the schema map"
-                    } else {
-                        "No schema map yet"
-                    },
-                    self.theme.text_secondary,
-                ));
-                ui.add_space(8.0);
-                let description = if no_matches {
-                    "Try a different table or column name.".to_owned()
-                } else if search_mode {
-                    format!(
-                        "This schema has {all_table_count} tables. Search by table or column to open a focused neighborhood map, or show all tables explicitly."
-                    )
-                } else {
-                    "Connect to a database and load its tables to see the relationship map.".to_owned()
-                };
-                ui.label(RichText::new(description).small().color(self.theme.text_muted));
-                if no_matches {
-                    ui.add_space(10.0);
-                    if compact_button(ui, "Clear search", self.theme).clicked() {
-                        self.diagram_search.clear();
-                    }
-                }
-                ui.add_space(56.0);
-            });
-        });
-    }
-}
-
-impl DbProApp {
-    fn draw_diagram_canvas(&mut self, ui: &mut egui::Ui, active_filter: Option<&[usize]>) {
-        let world_size = if let Some(filter) = active_filter {
-            self.diagram_graph.active_subset_bounds(filter).size()
-        } else {
-            self.diagram_graph.world_bounds.size()
-        };
-        let viewport_size = egui::vec2(ui.available_width(), ui.available_height());
-        let canvas_size = diagram_canvas_size(world_size * self.diagram_zoom, viewport_size);
-        let zoom = self.diagram_zoom;
-        let pan = self.diagram_pan;
-        let theme = self.theme;
-
-        egui::Frame {
-            fill: theme.surface_editor,
-            inner_margin: egui::Margin::ZERO,
-            ..Default::default()
-        }
-        .show(ui, |ui| {
-            egui::ScrollArea::both().auto_shrink([false, false]).show(ui, |ui| {
-                let (response, painter) = ui.allocate_painter(canvas_size, Sense::click_and_drag());
-                paint_diagram_grid(&painter, response.rect, zoom, theme);
-
-                let viewport = ErViewport::new(pan, zoom, response.rect.min);
-                let scene = prepare_render_scene(
-                    &self.diagram_graph,
-                    &self.diagram_spatial_index,
-                    &viewport,
-                    response.rect,
-                    active_filter,
-                );
-
-                // Paint visible edges:
-                paint_scene_edges(&painter, &self.diagram_graph, &scene, &viewport, zoom, theme);
-
-                // Paint visible nodes:
-                let selected_table_name = self.selected_table.as_deref();
-                for &node_id in &scene.visible_nodes {
-                    if let Some(node) = self.diagram_graph.nodes.get(node_id) {
-                        let screen_rect = viewport.world_to_screen_rect(node.world_rect);
-                        let selected = selected_table_name == Some(node.table.name.as_str());
-                        paint_er_node_lod(&painter, node, screen_rect, selected, scene.lod, zoom, theme);
-                    }
-                }
-
-                draw_diagram_zoom_controls(
-                    ui,
-                    response.rect,
-                    &mut self.diagram_zoom,
-                    &mut self.diagram_pan,
-                    &self.diagram_graph,
-                    active_filter,
-                    theme,
-                );
-                self.update_diagram_pan(&response);
-
-                if response.clicked() {
-                    if let Some(pointer) = response.interact_pointer_pos() {
-                        let world_pos = viewport.screen_to_world_pos(pointer);
-                        if let Some(hit_id) = self
-                            .diagram_spatial_index
-                            .hit_test_node(world_pos, &self.diagram_graph.nodes)
-                        {
-                            let table_name = self.diagram_graph.nodes.get(hit_id).map(|node| node.table.name.clone());
-                            if let Some(name) = table_name {
-                                self.open_diagram_table(&name);
-                            }
-                        }
-                    }
-                }
-            });
-        });
-    }
-
-    fn update_diagram_pan(&mut self, response: &egui::Response) {
-        if response.drag_started() {
-            self.diagram_pan_origin = Some(self.diagram_pan);
-        }
-        if response.dragged() {
-            if let Some(origin) = self.diagram_pan_origin {
-                self.diagram_pan = origin + response.drag_delta();
-            }
-        }
-        if response.drag_stopped() {
-            self.diagram_pan_origin = None;
-        }
-    }
-
-    fn open_diagram_table(&mut self, table: &str) {
-        if self.selected_table.as_deref() != Some(table) && !self.staged_changes.is_empty() {
-            self.runtime_message = "Apply or discard staged changes before opening another table".to_owned();
-            return;
-        }
-        self.persist_current_grid_layout();
-        self.selected_table = Some(table.to_owned());
-        self.restore_grid_layout_for_active_table();
-        self.selected_schema_object = None;
-        self.schema_object_view = SchemaObjectView::Definition;
-        self.table_info = None;
-        self.table_ddl = None;
-        self.table_info_error = None;
-        self.table_ddl_error = None;
-        self.ddl_execute_confirmation = false;
-        self.ddl_execution_request = None;
-        self.table_data_result = None;
-        self.table_data_total_rows = None;
-        self.table_data_offset = 0;
-        self.table_data_filter_column.clear();
-        self.table_data_filter_operator = UiTableFilterOperator::default();
-        self.table_data_filter_value.clear();
-        self.table_data_filters.clear();
-        self.table_data_sorts.clear();
-        self.table_data_error = None;
-        self.table_info_request = None;
-        self.table_ddl_request = None;
-        self.table_data_request = None;
-        self.selected_cell = None;
-        self.selected_row = None;
-        self.selected_rows.clear();
-        self.selection_anchor_row = None;
-        self.selection_anchor_cell = None;
-        self.data_editing_cell = None;
-        self.data_edit_value.clear();
-        self.data_edit_error = None;
-        self.data_delete_confirmation = false;
-        self.discard_changes_confirmation = false;
-        self.table_view = TableView::Structure;
-        self.set_active_query_text(format!("SELECT *\nFROM {table}\nLIMIT 100;"));
-        self.request_table_info();
-        self.activity = Activity::Explorer;
-        self.sidebar_open = true;
-        self.active_tab = WorkspaceTab::Table;
-    }
+    });
 }
 
 pub(super) fn diagram_canvas_size(content_size: egui::Vec2, viewport_size: egui::Vec2) -> egui::Vec2 {
@@ -708,7 +302,7 @@ pub(super) fn diagram_canvas_size(content_size: egui::Vec2, viewport_size: egui:
     )
 }
 
-fn paint_diagram_grid(painter: &egui::Painter, rect: egui::Rect, zoom: f32, theme: DbProTheme) {
+pub(super) fn paint_diagram_grid(painter: &egui::Painter, rect: egui::Rect, zoom: f32, theme: DbProTheme) {
     let grid_step = (24.0 * zoom).max(8.0);
     let visible = painter.clip_rect().intersect(rect);
     if visible.is_negative() {
@@ -755,7 +349,7 @@ pub(super) fn diagram_foreign_key_label(foreign_key: &UiSchemaForeignKey) -> Str
     }
 }
 
-fn paint_scene_edges(
+pub(super) fn paint_scene_edges(
     painter: &egui::Painter,
     graph: &ErGraph,
     scene: &ErRenderScene,
@@ -845,7 +439,7 @@ fn paint_scene_edges(
     }
 }
 
-fn paint_er_node_lod(
+pub(super) fn paint_er_node_lod(
     painter: &egui::Painter,
     node: &ErNode,
     screen_rect: egui::Rect,
@@ -1018,7 +612,7 @@ fn paint_er_node_lod(
     }
 }
 
-fn draw_diagram_zoom_controls(
+pub(super) fn draw_diagram_zoom_controls(
     ui: &mut egui::Ui,
     canvas_rect: egui::Rect,
     zoom: &mut f32,

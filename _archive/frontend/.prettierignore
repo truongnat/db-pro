@@ -1,5 +1,0 @@
-dist
-node_modules
-src/routeTree.gen.ts
-# Generated test fixtures (gitignored build artifact — produced by scripts/generate-fixtures.mjs)
-test/fixtures

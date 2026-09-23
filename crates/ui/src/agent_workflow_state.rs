@@ -18,53 +18,53 @@ pub(crate) enum AgentUiActivityStatus {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct AgentUiActivity {
-    pub call_id: Option<String>,
-    pub tool: Option<AgentTool>,
-    pub label: String,
-    pub status: AgentUiActivityStatus,
-    pub duration_ms: Option<u64>,
+    pub(super) call_id: Option<String>,
+    pub(super) tool: Option<AgentTool>,
+    pub(super) label: String,
+    pub(super) status: AgentUiActivityStatus,
+    pub(super) duration_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct AgentUiToolResult {
-    pub call_id: String,
-    pub tool: AgentTool,
-    pub output: AgentToolOutput,
-    pub duration_ms: Option<u64>,
-    pub status: AgentUiActivityStatus,
+    pub(super) call_id: String,
+    pub(super) tool: AgentTool,
+    pub(super) output: AgentToolOutput,
+    pub(super) duration_ms: Option<u64>,
+    pub(super) status: AgentUiActivityStatus,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct AgentUiConfirmation {
-    pub run_id: AgentRunId,
-    pub call_id: String,
-    pub kind: AgentConfirmationKind,
-    pub preview: Option<AgentToolOutput>,
-    pub document_id: String,
+    pub(super) run_id: AgentRunId,
+    pub(super) call_id: String,
+    pub(super) kind: AgentConfirmationKind,
+    pub(super) preview: Option<AgentToolOutput>,
+    pub(super) document_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct AgentAuditEntry {
-    pub run_id: AgentRunId,
-    pub tool: AgentTool,
-    pub duration_ms: Option<u64>,
-    pub safety: Option<AgentSqlSafety>,
-    pub confirmed: bool,
+    pub(super) run_id: AgentRunId,
+    pub(super) tool: AgentTool,
+    pub(super) duration_ms: Option<u64>,
+    pub(super) safety: Option<AgentSqlSafety>,
+    pub(super) confirmed: bool,
 }
 
 #[derive(Debug)]
 pub(crate) struct AgentUiSession {
-    pub session: Option<AgentSession>,
-    pub active_run_id: Option<AgentRunId>,
-    pub mode: AgentMode,
-    pub state: AgentSessionState,
-    pub messages: Vec<AgentMessage>,
-    pub activities: Vec<AgentUiActivity>,
-    pub pending_confirmation: Option<AgentUiConfirmation>,
-    pub streaming_text: String,
-    pub tool_results: HashMap<String, AgentUiToolResult>,
-    pub audit_trail: Vec<AgentAuditEntry>,
-    pub request_id: Option<RequestId>,
+    pub(super) session: Option<AgentSession>,
+    pub(super) active_run_id: Option<AgentRunId>,
+    pub(super) mode: AgentMode,
+    pub(super) state: AgentSessionState,
+    pub(super) messages: Vec<AgentMessage>,
+    pub(super) activities: Vec<AgentUiActivity>,
+    pub(super) pending_confirmation: Option<AgentUiConfirmation>,
+    pub(super) streaming_text: String,
+    pub(super) tool_results: HashMap<String, AgentUiToolResult>,
+    pub(super) audit_trail: Vec<AgentAuditEntry>,
+    pub(super) request_id: Option<RequestId>,
 }
 
 impl Default for AgentUiSession {

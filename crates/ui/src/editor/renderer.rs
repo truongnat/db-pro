@@ -3,33 +3,68 @@ use super::buffer::{EditorSnapshot, TextBuffer};
 use super::cursor::CursorPosition;
 use super::decorations::DiagnosticSeverity;
 use super::diagnostics::Diagnostic;
+use super::hover::HoveredSqlToken;
 use super::prediction::EditPrediction;
 use super::selection::SelectionRange;
-use super::syntax::{CachedSqlTokens, SqlDialect, SqlHighlighter};
+use super::syntax::{CachedSqlTokens, SqlDialect, SqlHighlighter, SyntaxToken, SyntaxTokenKind};
+use crate::components::interact::text_input_info;
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
     Event, FontId, Key, Pos2, Rect, Rounding, Sense, Stroke, Ui, Vec2,
 };
+use std::time::Duration;
 
-const DEFAULT_LINE_HEIGHT: f32 = 22.0;
+const DEFAULT_LINE_HEIGHT: f32 = 20.0;
+const LINE_HEIGHT_MULT: f32 = 1.48;
 const FONT_SIZE: f32 = 13.5;
 const PADDING_LEFT: f32 = 10.0;
 const PADDING_TOP: f32 = 6.0;
+const PADDING_BOTTOM: f32 = 64.0;
+const CARET_WIDTH: f32 = 1.5;
+const CARET_BLINK_PERIOD_SECS: f64 = 1.05;
+const CARET_SOLID_AFTER_INPUT_SECS: f64 = 0.45;
+/// Flush with the query workspace — no card chrome around the buffer.
+const EDITOR_ROUNDING: f32 = 0.0;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct SqlEditorResponse {
     pub changed: bool,
     pub cursor_screen_pos: Pos2,
+    /// Interactive viewport rect — used to anchor find/completion overlays.
+    pub rect: Rect,
     pub wants_completion: bool,
     pub wants_manual_completion: bool,
     pub wants_manual_prediction: bool,
     pub wants_execute_statement: bool,
     pub wants_execute_all: bool,
     pub wants_format: bool,
+    pub wants_save: bool,
     pub wants_dismiss_prediction: bool,
     pub accepted_prediction_len: Option<usize>,
+    pub hovered_token: Option<HoveredSqlToken>,
     pub focused: bool,
+}
+
+impl Default for SqlEditorResponse {
+    fn default() -> Self {
+        Self {
+            changed: false,
+            cursor_screen_pos: Pos2::ZERO,
+            rect: Rect::NOTHING,
+            wants_completion: false,
+            wants_manual_completion: false,
+            wants_manual_prediction: false,
+            wants_execute_statement: false,
+            wants_execute_all: false,
+            wants_format: false,
+            wants_save: false,
+            wants_dismiss_prediction: false,
+            accepted_prediction_len: None,
+            hovered_token: None,
+            focused: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,6 +87,7 @@ pub struct SqlEditor<'a> {
     pub search_query: &'a str,
     pub active_search_match_index: usize,
     pub completion_open: bool,
+    pub auto_focus: bool,
     pub execution_range: Option<(usize, usize)>,
     pub font_size: f32,
     pub id_salt: &'a str,
@@ -84,6 +120,7 @@ impl<'a> SqlEditor<'a> {
             search_query: "",
             active_search_match_index: 0,
             completion_open: false,
+            auto_focus: false,
             execution_range: None,
             font_size: FONT_SIZE,
             id_salt,
@@ -116,6 +153,11 @@ impl<'a> SqlEditor<'a> {
         self
     }
 
+    pub fn with_auto_focus(mut self, auto_focus: bool) -> Self {
+        self.auto_focus = auto_focus;
+        self
+    }
+
     pub fn gutter_width(&self, char_width: f32) -> f32 {
         let lines = self.buffer.line_count().max(1);
         let digits = lines.to_string().len().max(2);
@@ -130,50 +172,76 @@ impl<'a> SqlEditor<'a> {
         let editor_id = ui.make_persistent_id(self.id_salt);
 
         let font_id = FontId::monospace(self.font_size);
-        let line_height = ui.fonts(|f| f.row_height(&font_id)).max(DEFAULT_LINE_HEIGHT);
-        let char_width = ui.fonts(|f| f.glyph_width(&font_id, 'M')).max(self.font_size * 0.6);
+        let glyph_row = ui.fonts(|f| f.row_height(&font_id));
+        let line_height = (self.font_size * LINE_HEIGHT_MULT)
+            .max(glyph_row)
+            .max(DEFAULT_LINE_HEIGHT);
+        let char_width = ui.fonts(|f| f.glyph_width(&font_id, 'M')).max(self.font_size * 0.55);
         let gutter_w = self.gutter_width(char_width);
         let line_count = self.buffer.line_count().max(1);
 
         let max_line_chars = self.buffer.max_line_len_chars().max(40);
-        let content_width = gutter_w + PADDING_LEFT + (max_line_chars as f32) * char_width + 80.0;
-        let content_height = (line_count as f32) * line_height + 60.0;
+        let content_width =
+            (gutter_w + PADDING_LEFT + (max_line_chars as f32) * char_width + 96.0).max(available_size.x);
+        let content_height = (line_count as f32) * line_height + PADDING_TOP + PADDING_BOTTOM;
 
-        let (rect, _) = ui.allocate_exact_size(available_size, Sense::hover());
-        let resp = ui.interact(rect, editor_id, Sense::click_and_drag());
-        if resp.clicked() {
+        let (viewport, _) = ui.allocate_exact_size(available_size, Sense::hover());
+        response.rect = viewport;
+        let resp = ui.interact(viewport, editor_id, Sense::click_and_drag());
+        if self.auto_focus || resp.clicked() {
             resp.request_focus();
         }
+        resp.widget_info(|| text_input_info(true, "SQL query editor"));
         let focused = resp.has_focus();
         response.focused = focused;
 
-        // Background Outer Frame
+        let max_scroll = Vec2::new(
+            (content_width - viewport.width()).max(0.0),
+            (content_height - viewport.height()).max(0.0),
+        );
+        let mut scroll: Vec2 = ui
+            .ctx()
+            .data(|d| d.get_temp::<Vec2>(editor_id.with("scroll")))
+            .unwrap_or(Vec2::ZERO);
+        if resp.hovered() || focused {
+            let delta = ui.input(|i| i.smooth_scroll_delta);
+            scroll -= delta;
+        }
+        scroll = Vec2::new(scroll.x.clamp(0.0, max_scroll.x), scroll.y.clamp(0.0, max_scroll.y));
+
+        let cursor_before = self.cursor.offset;
+        let line_before = self.cursor.line;
+
+        // Flush buffer plane: no rounded card; hairline only while focused.
         ui.painter()
-            .rect_filled(rect, Rounding::same(4.0), self.theme.surface_editor);
-        ui.painter().rect_stroke(
-            rect,
-            Rounding::same(4.0),
+            .rect_filled(viewport, Rounding::same(EDITOR_ROUNDING), self.theme.surface_editor);
+        if focused {
+            ui.painter().rect_stroke(
+                viewport,
+                Rounding::same(EDITOR_ROUNDING),
+                Stroke::new(1.0, self.theme.border_subtle),
+            );
+        }
+
+        ui.set_clip_rect(ui.clip_rect().intersect(viewport));
+
+        // Content coordinate space (scroll by translating origin).
+        let origin = viewport.min - scroll;
+        let rect = Rect::from_min_size(origin, Vec2::new(content_width.max(viewport.width()), content_height));
+
+        // Gutter strip (follows scroll so line numbers stay aligned with rows).
+        let gutter_rect = Rect::from_min_size(rect.min, Vec2::new(gutter_w, rect.height()));
+        ui.painter()
+            .rect_filled(gutter_rect, Rounding::ZERO, self.theme.editor_gutter_fill());
+        ui.painter().vline(
+            rect.min.x + gutter_w,
+            viewport.y_range(),
             Stroke::new(
                 1.0,
-                if focused {
-                    self.theme.accent.linear_multiply(0.6)
-                } else {
-                    self.theme.border_subtle
-                },
+                self.theme
+                    .border_subtle
+                    .linear_multiply(if self.theme.dark_mode { 0.55 } else { 0.7 }),
             ),
-        );
-
-        // Gutter Outer background
-        let gutter_rect = Rect::from_min_size(rect.min, Vec2::new(gutter_w, rect.height()));
-        ui.painter().rect_filled(
-            gutter_rect,
-            Rounding::ZERO,
-            self.theme.surface_panel.linear_multiply(0.4),
-        );
-        ui.painter().vline(
-            gutter_rect.right(),
-            rect.y_range(),
-            Stroke::new(1.0, self.theme.border_subtle.linear_multiply(0.4)),
         );
 
         // Handle Keyboard Events when focused
@@ -199,6 +267,10 @@ impl<'a> SqlEditor<'a> {
 
                         match key {
                             Key::Enter => {
+                                // Completion owns Enter/Tab while open — do not insert a newline.
+                                if self.completion_open {
+                                    continue;
+                                }
                                 self.buffer.break_typing_group();
                                 if is_cmd && shift {
                                     response.wants_execute_all = true;
@@ -310,6 +382,9 @@ impl<'a> SqlEditor<'a> {
                                 self.update_selection(shift);
                             }
                             Key::ArrowUp => {
+                                if self.completion_open {
+                                    continue;
+                                }
                                 self.buffer.break_typing_group();
                                 if is_cmd {
                                     self.cursor.move_doc_start(self.buffer);
@@ -319,6 +394,9 @@ impl<'a> SqlEditor<'a> {
                                 self.update_selection(shift);
                             }
                             Key::ArrowDown => {
+                                if self.completion_open {
+                                    continue;
+                                }
                                 self.buffer.break_typing_group();
                                 if event_mods.alt && !self.completion_open {
                                     if let Some(pred) = self.prediction {
@@ -352,11 +430,17 @@ impl<'a> SqlEditor<'a> {
                                 self.update_selection(shift);
                             }
                             Key::PageUp => {
+                                if self.completion_open {
+                                    continue;
+                                }
                                 self.buffer.break_typing_group();
                                 self.cursor.move_page_up(self.buffer, 15);
                                 self.update_selection(shift);
                             }
                             Key::PageDown => {
+                                if self.completion_open {
+                                    continue;
+                                }
                                 self.buffer.break_typing_group();
                                 self.cursor.move_page_down(self.buffer, 15);
                                 self.update_selection(shift);
@@ -380,13 +464,16 @@ impl<'a> SqlEditor<'a> {
                                     response.changed = true;
                                 }
                             }
-                            Key::Space if event_mods.ctrl && event_mods.alt => {
+                            Key::Space if is_cmd && event_mods.alt => {
                                 response.wants_manual_prediction = true;
                             }
                             Key::F if is_cmd && shift => {
                                 response.wants_format = true;
                             }
-                            Key::Space if event_mods.ctrl => {
+                            Key::S if is_cmd => {
+                                response.wants_save = true;
+                            }
+                            Key::Space if is_cmd => {
                                 response.wants_completion = true;
                                 response.wants_manual_completion = true;
                             }
@@ -408,14 +495,14 @@ impl<'a> SqlEditor<'a> {
                         }
                         self.type_text(&text);
                         response.changed = true;
-                        if text == "." || text.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                        if text == "." {
                             response.wants_completion = true;
                         }
                     }
                     Event::Ime(egui::ImeEvent::Commit(text)) if !text.is_empty() => {
                         self.type_text(&text);
                         response.changed = true;
-                        if text == "." || text.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                        if text == "." {
                             response.wants_completion = true;
                         }
                     }
@@ -498,17 +585,14 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
-        // Current Line Highlight
+        // Current Line Highlight — soft full-row wash (Zed-like).
         let current_line_top = rect.min.y + PADDING_TOP + (self.cursor.line as f32) * line_height;
         let current_line_rect = Rect::from_min_size(
-            Pos2::new(rect.min.x + gutter_w, current_line_top),
-            Vec2::new((rect.width() - gutter_w).max(0.0), line_height),
+            Pos2::new(rect.min.x, current_line_top),
+            Vec2::new(rect.width().max(viewport.width()), line_height),
         );
-        ui.painter().rect_filled(
-            current_line_rect,
-            Rounding::ZERO,
-            self.theme.surface_hover.linear_multiply(0.35),
-        );
+        ui.painter()
+            .rect_filled(current_line_rect, Rounding::ZERO, self.theme.editor_current_line_fill());
 
         // Search Matches Highlights
         if !self.search_query.trim().is_empty() {
@@ -572,7 +656,7 @@ impl<'a> SqlEditor<'a> {
             );
             for s_rect in rects {
                 ui.painter()
-                    .rect_filled(s_rect, Rounding::same(2.0), self.theme.accent.linear_multiply(0.24));
+                    .rect_filled(s_rect, Rounding::same(2.0), self.theme.editor_selection_fill());
             }
         }
 
@@ -622,21 +706,66 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
-        // Syntax Highlighting Tokens
+        // Ensure token cache is recomputed if present before borrowing
+        if let Some(cache) = self.cached_tokens.as_mut() {
+            cache.get_or_recompute(self.buffer, self.dialect);
+        }
+
+        // Syntax Highlighting Tokens (zero-copy borrowed slice)
         let highlighter = SqlHighlighter::new(self.dialect);
-        let tokens = if let Some(cache) = self.cached_tokens.as_mut() {
-            cache.get_or_recompute(self.buffer, self.dialect).to_vec()
+        let temp_tokens;
+        let tokens: &[SyntaxToken] = if let Some(cache) = self.cached_tokens.as_deref() {
+            cache.tokens()
         } else {
-            highlighter.tokenize(self.buffer.text())
+            temp_tokens = highlighter.tokenize(self.buffer.text());
+            &temp_tokens
         };
 
-        // Virtualized Visible Line Range
-        let view_top = rect.min.y;
-        let view_bottom = rect.max.y;
-        let first_visible_line =
-            (((view_top - rect.min.y - PADDING_TOP) / line_height).floor() as usize).saturating_sub(2);
+        if resp.hovered() && !self.completion_open {
+            if let Some(pointer) = ui.input(|input| input.pointer.hover_pos()) {
+                if pointer.x >= rect.min.x + gutter_w {
+                    let offset =
+                        self.screen_pos_to_offset(self.buffer, pointer, rect.min, gutter_w, line_height, char_width);
+                    let token_idx = tokens.partition_point(|token| token.range.1 <= offset);
+                    if let Some(token) = tokens.get(token_idx).filter(|token| {
+                        offset >= token.range.0
+                            && offset < token.range.1
+                            && matches!(
+                                token.kind,
+                                SyntaxTokenKind::Identifier
+                                    | SyntaxTokenKind::Function
+                                    | SyntaxTokenKind::Type
+                                    | SyntaxTokenKind::Keyword
+                            )
+                    }) {
+                        let anchor_rect = self
+                            .range_to_screen_rects(
+                                self.buffer,
+                                token.range.0,
+                                token.range.1,
+                                rect.min,
+                                gutter_w,
+                                line_height,
+                                char_width,
+                            )
+                            .into_iter()
+                            .next();
+                        if let Some(anchor_rect) = anchor_rect {
+                            response.hovered_token = Some(HoveredSqlToken {
+                                range: token.range,
+                                anchor_rect,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Virtualized visible lines (viewport ∩ scrolled content).
+        let first_visible_line = (((scroll.y - PADDING_TOP) / line_height).floor() as isize).max(0) as usize;
+        let first_visible_line = first_visible_line.saturating_sub(2);
         let last_visible_line =
-            (((view_bottom - rect.min.y - PADDING_TOP) / line_height).ceil() as usize + 2).min(line_count);
+            ((((scroll.y + viewport.height() - PADDING_TOP) / line_height).ceil() as usize) + 2).min(line_count);
 
         // Render Visible Text Lines & Gutter Numbers
         for line_idx in first_visible_line..last_visible_line {
@@ -649,24 +778,21 @@ impl<'a> SqlEditor<'a> {
                 Pos2::new(rect.min.x + gutter_w - 8.0, line_y + line_height * 0.5),
                 egui::Align2::RIGHT_CENTER,
                 line_num_str,
-                FontId::monospace(11.5),
-                if is_curr {
-                    self.theme.accent
-                } else {
-                    self.theme.text_muted
-                },
+                FontId::monospace(11.0),
+                self.theme.editor_line_number(is_curr),
             );
 
-            // Line Text Layout & Paint
+            // Line Text Layout & Paint (sub-linear binary search token slicing)
             let line_text = self.buffer.line_at(line_idx).unwrap_or("");
             if !line_text.is_empty() {
                 let line_start_off = self.buffer.line_start_offset(line_idx);
                 let line_end_off = self.buffer.line_end_offset(line_idx);
 
                 let mut job = LayoutJob::default();
-                for token in &tokens {
-                    if token.range.1 <= line_start_off || token.range.0 >= line_end_off {
-                        continue;
+                let start_token_idx = tokens.partition_point(|token| token.range.1 <= line_start_off);
+                for token in &tokens[start_token_idx..] {
+                    if token.range.0 >= line_end_off {
+                        break;
                     }
                     let seg_start = token.range.0.max(line_start_off);
                     let seg_end = token.range.1.min(line_end_off);
@@ -708,8 +834,9 @@ impl<'a> SqlEditor<'a> {
             let diag_color = match diag.severity {
                 DiagnosticSeverity::Error => self.theme.danger,
                 DiagnosticSeverity::Warning => self.theme.warning,
-                DiagnosticSeverity::Information | DiagnosticSeverity::Hint => self.theme.accent,
+                _ => self.theme.accent,
             };
+
             for d_rect in &rects {
                 let line_y = d_rect.bottom() - 2.0;
                 ui.painter().line_segment(
@@ -811,20 +938,74 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
-        // Caret Line / Blinking Cursor & IME positioning
+        // Caret — thin bar, solid after input, then soft blink (Zed cadence).
         if focused {
-            let cursor_rect = Rect::from_min_size(cursor_screen, Vec2::new(2.0, line_height));
-            ui.painter()
-                .rect_filled(cursor_rect, Rounding::same(1.0), self.theme.accent);
-            ui.output_mut(|o| {
-                o.ime = Some(egui::output::IMEOutput {
-                    rect: cursor_rect,
-                    cursor_rect,
+            let now = ui.input(|i| i.time);
+            let cursor_moved = self.cursor.offset != cursor_before || self.cursor.line != line_before;
+            if response.changed || cursor_moved {
+                ui.ctx().data_mut(|d| d.insert_temp(editor_id.with("last_input"), now));
+            }
+            let last_input = ui
+                .ctx()
+                .data(|d| d.get_temp::<f64>(editor_id.with("last_input")))
+                .unwrap_or(now);
+            let since = now - last_input;
+            let blink_on =
+                since < CARET_SOLID_AFTER_INPUT_SECS || ((now / CARET_BLINK_PERIOD_SECS).fract() as f32) < 0.58;
+            if blink_on {
+                let caret_h = (line_height - 2.0).max(line_height * 0.85);
+                let cursor_rect = Rect::from_min_size(
+                    Pos2::new(cursor_screen.x, cursor_screen.y + 1.0),
+                    Vec2::new(CARET_WIDTH, caret_h),
+                );
+                ui.painter()
+                    .rect_filled(cursor_rect, Rounding::same(0.5), self.theme.accent);
+                ui.output_mut(|o| {
+                    o.ime = Some(egui::output::IMEOutput {
+                        rect: cursor_rect,
+                        cursor_rect,
+                    });
                 });
-            });
+            }
+            // Schedule the next blink toggle only — continuous request_repaint() kept the
+            // whole query shell at ~display refresh while the editor was focused.
+            const ON_FRAC: f64 = 0.58;
+            let next_secs = if since < CARET_SOLID_AFTER_INPUT_SECS {
+                CARET_SOLID_AFTER_INPUT_SECS - since
+            } else {
+                let phase = (now / CARET_BLINK_PERIOD_SECS).fract();
+                if phase < ON_FRAC {
+                    (ON_FRAC - phase) * CARET_BLINK_PERIOD_SECS
+                } else {
+                    (1.0 - phase) * CARET_BLINK_PERIOD_SECS
+                }
+            };
+            ui.ctx()
+                .request_repaint_after(Duration::from_secs_f64(next_secs.clamp(0.016, 0.55)));
         }
 
-        let _ = (content_width, content_height);
+        // Keep caret inside the viewport after edits / moves.
+        let caret_local = Pos2::new(
+            gutter_w + PADDING_LEFT + (self.cursor.col as f32) * char_width,
+            PADDING_TOP + (self.cursor.line as f32) * line_height,
+        );
+        let margin = 8.0;
+        if caret_local.y < scroll.y + margin {
+            scroll.y = (caret_local.y - margin).max(0.0);
+        } else if caret_local.y + line_height > scroll.y + viewport.height() - margin {
+            scroll.y = (caret_local.y + line_height - viewport.height() + margin).max(0.0);
+        }
+        if caret_local.x < scroll.x + gutter_w + margin {
+            scroll.x = (caret_local.x - gutter_w - margin).max(0.0);
+        } else if caret_local.x > scroll.x + viewport.width() - margin {
+            scroll.x = (caret_local.x - viewport.width() + margin).max(0.0);
+        }
+        scroll = Vec2::new(scroll.x.clamp(0.0, max_scroll.x), scroll.y.clamp(0.0, max_scroll.y));
+        ui.ctx().data_mut(|d| d.insert_temp(editor_id.with("scroll"), scroll));
+
+        // Minimal scrollbar thumbs & overview ruler (diagnostic marks on vertical track).
+        paint_editor_scrollbars(ui, viewport, scroll, max_scroll, self.diagnostics, self.buffer, self.theme);
+
         response
     }
 
@@ -1084,6 +1265,70 @@ impl<'a> SqlEditor<'a> {
                 .set_offset(self.buffer, self.cursor.offset.saturating_sub(1));
             self.selection.collapse_to_active();
         }
+    }
+}
+
+fn paint_editor_scrollbars(
+    ui: &Ui,
+    viewport: Rect,
+    scroll: Vec2,
+    max_scroll: Vec2,
+    diagnostics: &[Diagnostic],
+    buffer: &TextBuffer,
+    theme: &DbProTheme,
+) {
+    const THICK: f32 = 4.0;
+    const PAD: f32 = 2.0;
+    let painter = ui.painter();
+    let track_h = (viewport.height() - PAD * 2.0).max(12.0);
+    let track_x = viewport.max.x - PAD - THICK;
+
+    // Overview ruler markers for diagnostics (JetBrains / DataGrip error stripes)
+    let line_count = buffer.line_count().max(1);
+    for diag in diagnostics {
+        let (diag_line, _) = buffer.offset_to_line_col(diag.range.0);
+        let frac = (diag_line as f32 / line_count as f32).clamp(0.0, 1.0);
+        let mark_y = viewport.min.y + PAD + frac * (track_h - 3.0);
+        let mark_rect = Rect::from_min_size(
+            Pos2::new(track_x - 1.0, mark_y),
+            Vec2::new(THICK + 2.0, 3.0),
+        );
+        let mark_color = match diag.severity {
+            DiagnosticSeverity::Error => theme.danger,
+            DiagnosticSeverity::Warning => theme.warning,
+            _ => theme.accent,
+        };
+        painter.rect_filled(mark_rect, Rounding::same(1.0), mark_color);
+    }
+
+    if max_scroll.y > 1.0 {
+        let thumb_h = ((viewport.height() / (viewport.height() + max_scroll.y)) * track_h).clamp(16.0, track_h);
+        let t = (scroll.y / max_scroll.y).clamp(0.0, 1.0);
+        let thumb_y = viewport.min.y + PAD + t * (track_h - thumb_h);
+        let thumb = Rect::from_min_size(
+            Pos2::new(track_x, thumb_y),
+            Vec2::new(THICK, thumb_h),
+        );
+        painter.rect_filled(
+            thumb,
+            Rounding::same(THICK * 0.5),
+            theme.text_muted.linear_multiply(0.55),
+        );
+    }
+    if max_scroll.x > 1.0 {
+        let track_w = (viewport.width() - PAD * 2.0).max(12.0);
+        let thumb_w = ((viewport.width() / (viewport.width() + max_scroll.x)) * track_w).clamp(16.0, track_w);
+        let t = (scroll.x / max_scroll.x).clamp(0.0, 1.0);
+        let thumb_x = viewport.min.x + PAD + t * (track_w - thumb_w);
+        let thumb = Rect::from_min_size(
+            Pos2::new(thumb_x, viewport.max.y - PAD - THICK),
+            Vec2::new(thumb_w, THICK),
+        );
+        painter.rect_filled(
+            thumb,
+            Rounding::same(THICK * 0.5),
+            theme.text_muted.linear_multiply(0.45),
+        );
     }
 }
 

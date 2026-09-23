@@ -133,11 +133,13 @@ async fn run_introspection_once(pool: &sqlx::PgPool) -> Result<IntrospectResult,
 }
 
 async fn introspect_schemas(pool: &sqlx::PgPool) -> Result<Vec<Schema>, DbError> {
+    // Hide catalog schemas and session-local temp namespaces (`pg_temp_*`,
+    // `pg_toast_temp_*`) — they are not user-managed schemas in the explorer.
     let rows = sqlx::query(
         r#"
         SELECT schema_name
         FROM information_schema.schemata
-        WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+        WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND schema_name !~ '^pg_(toast_)?temp'
         ORDER BY schema_name
         "#,
     )
@@ -161,7 +163,7 @@ async fn introspect_tables(pool: &sqlx::PgPool) -> Result<Vec<Table>, DbError> {
         SELECT table_name, table_schema
         FROM information_schema.tables
         WHERE table_type = 'BASE TABLE'
-          AND table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+          AND table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND table_schema !~ '^pg_(toast_)?temp'
         ORDER BY table_schema, table_name
         "#,
     )
@@ -176,7 +178,7 @@ async fn introspect_tables(pool: &sqlx::PgPool) -> Result<Vec<Table>, DbError> {
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE c.relkind = 'r'
-          AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+          AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND n.nspname !~ '^pg_(toast_)?temp'
         "#,
     )
     .fetch_all(pool)
@@ -240,7 +242,7 @@ async fn introspect_columns_raw(pool: &sqlx::PgPool) -> Result<Vec<RawColumn>, D
         JOIN pg_namespace n ON c.relnamespace = n.oid
         LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
         LEFT JOIN pg_collation coll ON a.attcollation = coll.oid
-        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND n.nspname !~ '^pg_(toast_)?temp'
           AND a.attnum > 0
           AND NOT a.attisdropped
         ORDER BY n.nspname, c.relname, a.attnum
@@ -288,7 +290,7 @@ async fn introspect_primary_keys(pool: &sqlx::PgPool) -> Result<Vec<PrimaryKey>,
             ON tc.constraint_name = kcu.constraint_name
             AND tc.table_schema = kcu.table_schema
         WHERE tc.constraint_type = 'PRIMARY KEY'
-          AND tc.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+          AND tc.table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND tc.table_schema !~ '^pg_(toast_)?temp'
         ORDER BY tc.table_schema, tc.table_name, tc.constraint_name, kcu.ordinal_position
         "#,
     )
@@ -361,7 +363,7 @@ async fn introspect_indexes(pool: &sqlx::PgPool) -> Result<Vec<Index>, DbError> 
         JOIN pg_class tbl ON tbl.oid = i.indrelid
         JOIN pg_namespace n ON n.oid = tbl.relnamespace
         JOIN pg_am am ON am.oid = idx.relam
-        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND n.nspname !~ '^pg_(toast_)?temp'
         ORDER BY n.nspname, tbl.relname, idx.relname
         "#,
     )
@@ -593,7 +595,7 @@ const FOREIGN_KEY_SQL: &str = r#"
         JOIN pg_attribute dst_att
             ON dst_att.attrelid = fcls.oid AND dst_att.attnum = dst.attnum
         WHERE con.contype = 'f'
-          AND nsp.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+          AND nsp.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND nsp.nspname !~ '^pg_(toast_)?temp'
         ORDER BY nsp.nspname, cls.relname, con.conname, src.ord
         "#;
 
@@ -692,7 +694,7 @@ async fn introspect_check_constraints(pool: &sqlx::PgPool) -> Result<Vec<CheckCo
         JOIN pg_namespace nsp ON nsp.oid = con.connamespace
         JOIN pg_class cls ON cls.oid = con.conrelid
         WHERE con.contype = 'c'
-          AND nsp.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+          AND nsp.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND nsp.nspname !~ '^pg_(toast_)?temp'
         ORDER BY nsp.nspname, cls.relname, con.conname
         "#,
     )
@@ -731,7 +733,7 @@ async fn introspect_views(pool: &sqlx::PgPool) -> Result<Vec<View>, DbError> {
         r#"
         SELECT table_schema, table_name, view_definition
         FROM information_schema.views
-        WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+        WHERE table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND table_schema !~ '^pg_(toast_)?temp'
         "#,
     )
     .fetch_all(pool)
@@ -775,7 +777,7 @@ async fn introspect_triggers(pool: &sqlx::PgPool) -> Result<Vec<Trigger>, DbErro
             AND n.nspname = t.event_object_schema
             AND c.relname = t.event_object_table
         LEFT JOIN pg_proc ON pg_proc.oid = pg_t.tgfoid
-        WHERE t.trigger_schema NOT IN ('pg_catalog', 'information_schema')
+        WHERE t.trigger_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND t.trigger_schema !~ '^pg_(toast_)?temp'
         ORDER BY t.event_object_schema, t.event_object_table, t.trigger_name
         "#,
     )
@@ -832,7 +834,7 @@ async fn introspect_functions(pool: &sqlx::PgPool) -> Result<Vec<Function>, DbEr
         FROM pg_proc p
         JOIN pg_namespace n ON n.oid = p.pronamespace
         LEFT JOIN pg_language l ON l.oid = p.prolang
-        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast') AND n.nspname !~ '^pg_(toast_)?temp'
           AND p.prokind IN ('f', 'p')
         ORDER BY n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)
         "#,

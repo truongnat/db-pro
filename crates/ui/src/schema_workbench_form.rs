@@ -1,361 +1,889 @@
 //! Schema workbench object form and SQL preview panes.
-use super::schema_workbench::{ConstraintKindUi, SchemaWorkbenchMode};
+use super::schema_workbench::{
+    ConstraintKindUi, SchemaWorkbenchMode, SchemaWorkbenchState, TableDesignerColumn,
+};
 use super::*;
+use crate::components::dialog::Dialog;
 use crate::components::{Button, ButtonSize, ButtonVariant};
 use db_pro_core::domain::object_mutation::ObjectAction;
+use lucide_icons::Icon;
 
-impl DbProApp {
-    pub(super) fn draw_workbench_form(&mut self, ui: &mut egui::Ui) {
-        let mode = self.schema_workbench.mode;
+pub(super) struct SchemaWorkbenchFormContext<'a> {
+    pub(super) theme: DbProTheme,
+    pub(super) workbench: &'a mut SchemaWorkbenchState,
+    pub(super) can_mutate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SchemaWorkbenchFormAction {
+    PlanObject(ObjectAction),
+    PlanDatabase(ObjectAction),
+    ApplyDdl,
+    OpenSql(String),
+}
+
+pub(super) fn draw_workbench_form(
+    context: &mut SchemaWorkbenchFormContext<'_>,
+    ui: &mut egui::Ui,
+) -> Option<SchemaWorkbenchFormAction> {
+    let mode = context.workbench.mode;
+    ui.horizontal(|ui| {
+        ui.vertical(|ui| {
+            ui.set_width(220.0);
+            ui.label(RichText::new("Schema").small().color(context.theme.text_secondary));
+            crate::components::input::Input::new(&mut context.workbench.schema, "main", context.theme)
+                .width(220.0)
+                .show(ui);
+        });
+        ui.add_space(SPACE_MD);
+        ui.vertical(|ui| {
+            ui.set_width(280.0);
+            ui.label(RichText::new("Table / Object Name").small().color(context.theme.text_secondary));
+            crate::components::input::Input::new(&mut context.workbench.name, "table_name", context.theme)
+                .width(280.0)
+                .show(ui);
+        });
+    });
+    ui.add_space(SPACE_SM);
+
+    match mode {
+        SchemaWorkbenchMode::Table => {
+            draw_table_designer(context, ui);
+        }
+        SchemaWorkbenchMode::Column => {
+            ui.horizontal(|ui| {
+                ui.label("Table");
+                ui.text_edit_singleline(&mut context.workbench.parent_table);
+                ui.label("Type");
+                ui.text_edit_singleline(&mut context.workbench.data_type);
+            });
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut context.workbench.nullable, "Nullable");
+                ui.checkbox(&mut context.workbench.is_pk, "PK (create table only)");
+                ui.label("Default");
+                ui.text_edit_singleline(&mut context.workbench.default_expr);
+            });
+            ui.horizontal(|ui| {
+                ui.label("Rename to");
+                ui.text_edit_singleline(&mut context.workbench.new_name);
+            });
+        }
+        SchemaWorkbenchMode::View => {
+            draw_view_designer(context, ui);
+        }
+        SchemaWorkbenchMode::Index => {
+            draw_index_designer(context, ui);
+        }
+        SchemaWorkbenchMode::Constraint => {
+            draw_constraint_designer(context, ui);
+        }
+        SchemaWorkbenchMode::Trigger => {
+            draw_trigger_designer(context, ui);
+        }
+        SchemaWorkbenchMode::Sequence => {
+            draw_sequence_designer(context, ui);
+        }
+        SchemaWorkbenchMode::Type => {
+            draw_type_designer(context, ui);
+        }
+        SchemaWorkbenchMode::SchemaDb => {
+            ui.label("Schema name uses Name field; Database create/drop uses Name as DB name.");
+            ui.checkbox(&mut context.workbench.cascade, "CASCADE on drop schema");
+        }
+        SchemaWorkbenchMode::Extension => {
+            ui.label("Extension schema (optional)");
+            ui.text_edit_singleline(&mut context.workbench.extension_schema);
+            ui.checkbox(&mut context.workbench.cascade, "CASCADE on drop");
+        }
+        SchemaWorkbenchMode::Comment => {
+            ui.horizontal(|ui| {
+                ui.label("Parent (column comments)");
+                ui.text_edit_singleline(&mut context.workbench.parent_table);
+            });
+            ui.label("Comment text (empty clears)");
+            ui.text_edit_singleline(&mut context.workbench.comment_text);
+        }
+        SchemaWorkbenchMode::Partition => {
+            ui.horizontal(|ui| {
+                ui.label("Parent table");
+                ui.text_edit_singleline(&mut context.workbench.parent_table);
+            });
+            ui.label("FOR VALUES …");
+            ui.text_edit_singleline(&mut context.workbench.partition_bound);
+        }
+        SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs | SchemaWorkbenchMode::History => {}
+    }
+
+    ui.add_space(SPACE_MD);
+    let mut action = None;
+    ui.horizontal_wrapped(|ui| {
+        if Button::new(context.theme)
+            .text("Plan create")
+            .variant(ButtonVariant::Default)
+            .size(ButtonSize::Sm)
+            .icon(Icon::Plus)
+            .show(ui)
+            .clicked()
+        {
+            action = Some(SchemaWorkbenchFormAction::PlanObject(ObjectAction::Create));
+        }
+        if Button::new(context.theme)
+            .text("Plan drop")
+            .variant(ButtonVariant::Destructive)
+            .size(ButtonSize::Sm)
+            .icon(Icon::Trash2)
+            .show(ui)
+            .clicked()
+        {
+            action = Some(SchemaWorkbenchFormAction::PlanObject(ObjectAction::Drop));
+        }
+        if mode == SchemaWorkbenchMode::Column
+            && Button::new(context.theme)
+                .text("Plan rename")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+        {
+            action = Some(SchemaWorkbenchFormAction::PlanObject(ObjectAction::Rename));
+        }
+        if mode == SchemaWorkbenchMode::View
+            && context.workbench.materialized
+            && Button::new(context.theme)
+                .text("Plan refresh")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+        {
+            action = Some(SchemaWorkbenchFormAction::PlanObject(ObjectAction::Refresh));
+        }
+        if mode == SchemaWorkbenchMode::Comment
+            && Button::new(context.theme)
+                .text("Plan comment")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+        {
+            action = Some(SchemaWorkbenchFormAction::PlanObject(ObjectAction::Comment));
+        }
+        if mode == SchemaWorkbenchMode::SchemaDb {
+            if Button::new(context.theme)
+                .text("Plan create database")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
+                action = Some(SchemaWorkbenchFormAction::PlanDatabase(ObjectAction::Create));
+            }
+            if Button::new(context.theme)
+                .text("Plan drop database")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .show(ui)
+                .clicked()
+            {
+                action = Some(SchemaWorkbenchFormAction::PlanDatabase(ObjectAction::Drop));
+            }
+        }
+    });
+
+    action
+}
+
+fn draw_trigger_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut egui::Ui) {
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new("Trigger Designer")
+                .strong()
+                .color(context.theme.text_primary),
+        );
+        ui.add_space(SPACE_MD);
+        if Button::new(context.theme)
+            .text("+ Audit Trail Preset")
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
+            context.workbench.timing = "AFTER".into();
+            context.workbench.event = "INSERT,UPDATE,DELETE".into();
+            context.workbench.body = "FOR EACH ROW EXECUTE FUNCTION audit_log_changes()".into();
+        }
+        if Button::new(context.theme)
+            .text("+ Auto Updated-At Preset")
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
+            context.workbench.timing = "BEFORE".into();
+            context.workbench.event = "UPDATE".into();
+            context.workbench.body = "FOR EACH ROW EXECUTE FUNCTION set_updated_at_timestamp()".into();
+        }
+    });
+    ui.add_space(SPACE_SM);
+
+    ui.horizontal(|ui| {
+        ui.vertical(|ui| {
+            ui.set_width(200.0);
+            ui.label(RichText::new("Target Table").small().color(context.theme.text_secondary));
+            crate::components::input::Input::new(&mut context.workbench.parent_table, "table_name", context.theme)
+                .width(200.0)
+                .show(ui);
+        });
+        ui.add_space(SPACE_MD);
+        ui.vertical(|ui| {
+            ui.set_width(140.0);
+            ui.label(RichText::new("Timing").small().color(context.theme.text_secondary));
+            let timings = ["BEFORE", "AFTER", "INSTEAD OF"];
+            egui::ComboBox::from_id_salt("trigger_timing_cb")
+                .selected_text(&context.workbench.timing)
+                .width(140.0)
+                .show_ui(ui, |ui| {
+                    for t in &timings {
+                        ui.selectable_value(&mut context.workbench.timing, (*t).to_string(), *t);
+                    }
+                });
+        });
+        ui.add_space(SPACE_MD);
+        ui.vertical(|ui| {
+            ui.set_width(220.0);
+            ui.label(RichText::new("Events CSV (e.g. INSERT, UPDATE)").small().color(context.theme.text_secondary));
+            crate::components::input::Input::new(&mut context.workbench.event, "INSERT, UPDATE", context.theme)
+                .width(220.0)
+                .show(ui);
+        });
+    });
+    ui.add_space(SPACE_SM);
+    ui.vertical(|ui| {
+        ui.label(RichText::new("Trigger Body / Action (e.g. FOR EACH ROW EXECUTE FUNCTION ...):").small().color(context.theme.text_secondary));
+        ui.add(
+            egui::TextEdit::multiline(&mut context.workbench.body)
+                .font(egui::TextStyle::Monospace)
+                .desired_rows(4)
+                .desired_width(f32::INFINITY),
+        );
+    });
+}
+
+fn draw_sequence_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut egui::Ui) {
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new("Sequence Designer")
+                .strong()
+                .color(context.theme.text_primary),
+        );
+        ui.add_space(SPACE_MD);
+        if Button::new(context.theme)
+            .text("+ Reset to 1..N Defaults")
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
+            context.workbench.start = "1".into();
+            context.workbench.increment = "1".into();
+            context.workbench.cycle = false;
+        }
+    });
+    ui.add_space(SPACE_SM);
+    ui.horizontal(|ui| {
+        ui.vertical(|ui| {
+            ui.set_width(160.0);
+            ui.label(RichText::new("Start Value").small().color(context.theme.text_secondary));
+            crate::components::input::Input::new(&mut context.workbench.start, "1", context.theme)
+                .width(160.0)
+                .show(ui);
+        });
+        ui.add_space(SPACE_MD);
+        ui.vertical(|ui| {
+            ui.set_width(160.0);
+            ui.label(RichText::new("Increment By").small().color(context.theme.text_secondary));
+            crate::components::input::Input::new(&mut context.workbench.increment, "1", context.theme)
+                .width(160.0)
+                .show(ui);
+        });
+        ui.add_space(SPACE_MD);
+        ui.vertical(|ui| {
+            ui.label(RichText::new("Cycle").small().color(context.theme.text_secondary));
+            ui.checkbox(&mut context.workbench.cycle, "Enable CYCLE");
+        });
+    });
+}
+
+fn draw_type_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut egui::Ui) {
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new("Custom Enum Type Designer")
+                .strong()
+                .color(context.theme.text_primary),
+        );
+        ui.add_space(SPACE_MD);
+        if Button::new(context.theme)
+            .text("+ Status Enum Preset")
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
+            context.workbench.enum_values_csv = "'draft', 'pending', 'active', 'archived'".into();
+        }
+        if Button::new(context.theme)
+            .text("+ Priority Enum Preset")
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
+            context.workbench.enum_values_csv = "'low', 'normal', 'high', 'urgent'".into();
+        }
+    });
+    ui.add_space(SPACE_SM);
+    ui.vertical(|ui| {
+        ui.label(RichText::new("Enum Values CSV (comma separated values):").small().color(context.theme.text_secondary));
+        crate::components::input::Input::new(&mut context.workbench.enum_values_csv, "'val1', 'val2', 'val3'", context.theme)
+            .width(520.0)
+            .show(ui);
+    });
+}
+
+fn draw_view_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut egui::Ui) {
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new("View Query Designer")
+                .strong()
+                .color(context.theme.text_primary),
+        );
+        ui.add_space(SPACE_MD);
+        ui.checkbox(&mut context.workbench.materialized, "Materialized View");
+        ui.add_space(SPACE_MD);
+        if Button::new(context.theme)
+            .text("+ Basic SELECT")
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
+            context.workbench.select_sql = "SELECT id, name, created_at\nFROM users\nWHERE active = true;".to_owned();
+        }
+        if Button::new(context.theme)
+            .text("+ Aggregate Summary")
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
+            context.workbench.select_sql = "SELECT date_trunc('day', created_at) AS date,\n       count(*) AS total_records,\n       sum(amount) AS total_amount\nFROM transactions\nGROUP BY 1\nORDER BY 1 DESC;".to_owned();
+        }
+        if Button::new(context.theme)
+            .text("+ Multi-Table JOIN")
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
+            context.workbench.select_sql = "SELECT o.id AS order_id,\n       u.name AS customer_name,\n       o.total_price,\n       o.status\nFROM orders o\nJOIN users u ON u.id = o.user_id\nWHERE o.status != 'cancelled';".to_owned();
+        }
+    });
+    ui.add_space(SPACE_SM);
+
+    ui.vertical(|ui| {
+        ui.label(RichText::new("Query Definition (SELECT Statement):").small().color(context.theme.text_secondary));
+        ui.add(
+            egui::TextEdit::multiline(&mut context.workbench.select_sql)
+                .font(egui::TextStyle::Monospace)
+                .desired_rows(6)
+                .desired_width(f32::INFINITY),
+        );
+    });
+}
+
+fn draw_index_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut egui::Ui) {
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new("Index Designer")
+                .strong()
+                .color(context.theme.text_primary),
+        );
+        ui.add_space(SPACE_MD);
+        ui.checkbox(&mut context.workbench.unique, "Unique Index");
+    });
+    ui.add_space(SPACE_SM);
+
+    ui.horizontal(|ui| {
+        ui.vertical(|ui| {
+            ui.set_width(200.0);
+            ui.label(RichText::new("Target Table").small().color(context.theme.text_secondary));
+            crate::components::input::Input::new(&mut context.workbench.parent_table, "table_name", context.theme)
+                .width(200.0)
+                .show(ui);
+        });
+        ui.add_space(SPACE_MD);
+        ui.vertical(|ui| {
+            ui.set_width(140.0);
+            ui.label(RichText::new("Index Method").small().color(context.theme.text_secondary));
+            let methods = ["BTREE", "HASH", "GIN", "GIST", "BRIN"];
+            egui::ComboBox::from_id_salt("index_method_cb")
+                .selected_text(&context.workbench.index_method)
+                .width(140.0)
+                .show_ui(ui, |ui| {
+                    for m in &methods {
+                        ui.selectable_value(&mut context.workbench.index_method, (*m).to_string(), *m);
+                    }
+                });
+        });
+        ui.add_space(SPACE_MD);
+        ui.vertical(|ui| {
+            ui.set_width(260.0);
+            ui.label(RichText::new("Columns CSV (e.g. email, created_at DESC)").small().color(context.theme.text_secondary));
+            crate::components::input::Input::new(&mut context.workbench.columns_csv, "col1, col2", context.theme)
+                .width(260.0)
+                .show(ui);
+        });
+    });
+    ui.add_space(SPACE_SM);
+    ui.vertical(|ui| {
+        ui.label(RichText::new("WHERE Predicate / Partial Index (Optional):").small().color(context.theme.text_secondary));
+        crate::components::input::Input::new(&mut context.workbench.index_predicate, "deleted_at IS NULL", context.theme)
+            .width(500.0)
+            .show(ui);
+    });
+}
+
+fn draw_constraint_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut egui::Ui) {
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new("Constraint Designer")
+                .strong()
+                .color(context.theme.text_primary),
+        );
+        ui.add_space(SPACE_MD);
+        egui::ComboBox::from_id_salt("constraint_kind_cb")
+            .selected_text(match context.workbench.constraint_kind {
+                ConstraintKindUi::PrimaryKey => "Primary key (PK)",
+                ConstraintKindUi::Unique => "Unique constraint (UQ)",
+                ConstraintKindUi::Check => "Check constraint (CK)",
+                ConstraintKindUi::ForeignKey => "Foreign key (FK)",
+            })
+            .width(180.0)
+            .show_ui(ui, |ui| {
+                ui.selectable_value(
+                    &mut context.workbench.constraint_kind,
+                    ConstraintKindUi::PrimaryKey,
+                    "Primary key (PK)",
+                );
+                ui.selectable_value(
+                    &mut context.workbench.constraint_kind,
+                    ConstraintKindUi::Unique,
+                    "Unique constraint (UQ)",
+                );
+                ui.selectable_value(
+                    &mut context.workbench.constraint_kind,
+                    ConstraintKindUi::Check,
+                    "Check constraint (CK)",
+                );
+                ui.selectable_value(
+                    &mut context.workbench.constraint_kind,
+                    ConstraintKindUi::ForeignKey,
+                    "Foreign key (FK)",
+                );
+            });
+    });
+    ui.add_space(SPACE_SM);
+
+    ui.horizontal(|ui| {
+        ui.vertical(|ui| {
+            ui.set_width(200.0);
+            ui.label(RichText::new("Target Table").small().color(context.theme.text_secondary));
+            crate::components::input::Input::new(&mut context.workbench.parent_table, "table_name", context.theme)
+                .width(200.0)
+                .show(ui);
+        });
+        ui.add_space(SPACE_MD);
+        ui.vertical(|ui| {
+            ui.set_width(280.0);
+            ui.label(RichText::new("Columns CSV").small().color(context.theme.text_secondary));
+            crate::components::input::Input::new(&mut context.workbench.columns_csv, "col_id", context.theme)
+                .width(280.0)
+                .show(ui);
+        });
+    });
+
+    if context.workbench.constraint_kind == ConstraintKindUi::Check {
+        ui.add_space(SPACE_SM);
+        ui.vertical(|ui| {
+            ui.label(RichText::new("Check Expression:").small().color(context.theme.text_secondary));
+            crate::components::input::Input::new(&mut context.workbench.expression, "price > 0 AND quantity >= 0", context.theme)
+                .width(500.0)
+                .show(ui);
+        });
+    }
+
+    if context.workbench.constraint_kind == ConstraintKindUi::ForeignKey {
+        ui.add_space(SPACE_SM);
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
-                ui.set_width(220.0);
-                ui.label(RichText::new("Schema").small().color(self.theme.text_secondary));
-                crate::components::input::Input::new(&mut self.schema_workbench.schema, "main", self.theme)
-                    .width(220.0)
+                ui.set_width(160.0);
+                ui.label(RichText::new("Reference Schema").small().color(context.theme.text_secondary));
+                crate::components::input::Input::new(&mut context.workbench.ref_schema, "public", context.theme)
+                    .width(160.0)
                     .show(ui);
             });
             ui.add_space(SPACE_MD);
             ui.vertical(|ui| {
-                ui.set_width(280.0);
-                ui.label(RichText::new("Name").small().color(self.theme.text_secondary));
-                crate::components::input::Input::new(&mut self.schema_workbench.name, "object_name", self.theme)
-                    .width(280.0)
+                ui.set_width(200.0);
+                ui.label(RichText::new("Reference Table").small().color(context.theme.text_secondary));
+                crate::components::input::Input::new(&mut context.workbench.ref_table, "users", context.theme)
+                    .width(200.0)
+                    .show(ui);
+            });
+            ui.add_space(SPACE_MD);
+            ui.vertical(|ui| {
+                ui.set_width(200.0);
+                ui.label(RichText::new("Reference Columns CSV").small().color(context.theme.text_secondary));
+                crate::components::input::Input::new(&mut context.workbench.ref_columns_csv, "id", context.theme)
+                    .width(200.0)
                     .show(ui);
             });
         });
         ui.add_space(SPACE_SM);
-
-        match mode {
-            SchemaWorkbenchMode::Table => {
-                ui.label(
-                    RichText::new("Columns CSV (name:type[:pk|:nn])")
-                        .small()
-                        .color(self.theme.text_secondary),
-                );
-                crate::components::input::Input::new(
-                    &mut self.schema_workbench.columns_csv,
-                    "id:INTEGER:pk,name:TEXT",
-                    self.theme,
-                )
-                .width(520.0)
-                .show(ui);
-            }
-            SchemaWorkbenchMode::Column => {
-                ui.horizontal(|ui| {
-                    ui.label("Table");
-                    ui.text_edit_singleline(&mut self.schema_workbench.parent_table);
-                    ui.label("Type");
-                    ui.text_edit_singleline(&mut self.schema_workbench.data_type);
-                });
-                ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.schema_workbench.nullable, "Nullable");
-                    ui.checkbox(&mut self.schema_workbench.is_pk, "PK (create table only)");
-                    ui.label("Default");
-                    ui.text_edit_singleline(&mut self.schema_workbench.default_expr);
-                });
-                ui.horizontal(|ui| {
-                    ui.label("Rename to");
-                    ui.text_edit_singleline(&mut self.schema_workbench.new_name);
-                });
-            }
-            SchemaWorkbenchMode::View => {
-                ui.checkbox(&mut self.schema_workbench.materialized, "Materialized");
-                ui.label("SELECT body");
-                ui.add(
-                    egui::TextEdit::multiline(&mut self.schema_workbench.select_sql)
-                        .desired_rows(4)
-                        .desired_width(f32::INFINITY),
-                );
-            }
-            SchemaWorkbenchMode::Index => {
-                ui.horizontal(|ui| {
-                    ui.label("Table");
-                    ui.text_edit_singleline(&mut self.schema_workbench.parent_table);
-                    ui.checkbox(&mut self.schema_workbench.unique, "Unique");
-                });
-                ui.label("Columns CSV");
-                ui.text_edit_singleline(&mut self.schema_workbench.columns_csv);
-            }
-            SchemaWorkbenchMode::Constraint => {
-                ui.horizontal(|ui| {
-                    ui.label("Table");
-                    ui.text_edit_singleline(&mut self.schema_workbench.parent_table);
-                    egui::ComboBox::from_id_salt("constraint_kind")
-                        .selected_text(match self.schema_workbench.constraint_kind {
-                            ConstraintKindUi::PrimaryKey => "Primary key",
-                            ConstraintKindUi::Unique => "Unique",
-                            ConstraintKindUi::Check => "Check",
-                            ConstraintKindUi::ForeignKey => "Foreign key",
-                        })
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut self.schema_workbench.constraint_kind,
-                                ConstraintKindUi::PrimaryKey,
-                                "Primary key",
-                            );
-                            ui.selectable_value(
-                                &mut self.schema_workbench.constraint_kind,
-                                ConstraintKindUi::Unique,
-                                "Unique",
-                            );
-                            ui.selectable_value(
-                                &mut self.schema_workbench.constraint_kind,
-                                ConstraintKindUi::Check,
-                                "Check",
-                            );
-                            ui.selectable_value(
-                                &mut self.schema_workbench.constraint_kind,
-                                ConstraintKindUi::ForeignKey,
-                                "Foreign key",
-                            );
-                        });
-                });
-                ui.label("Columns CSV");
-                ui.text_edit_singleline(&mut self.schema_workbench.columns_csv);
-                if self.schema_workbench.constraint_kind == ConstraintKindUi::Check {
-                    ui.label("Expression");
-                    ui.text_edit_singleline(&mut self.schema_workbench.expression);
-                }
-                if self.schema_workbench.constraint_kind == ConstraintKindUi::ForeignKey {
-                    ui.horizontal(|ui| {
-                        ui.label("Ref schema");
-                        ui.text_edit_singleline(&mut self.schema_workbench.ref_schema);
-                        ui.label("Ref table");
-                        ui.text_edit_singleline(&mut self.schema_workbench.ref_table);
+        ui.horizontal(|ui| {
+            let actions = ["NO ACTION", "CASCADE", "SET NULL", "RESTRICT", "SET DEFAULT"];
+            ui.vertical(|ui| {
+                ui.set_width(180.0);
+                ui.label(RichText::new("ON DELETE").small().color(context.theme.text_secondary));
+                egui::ComboBox::from_id_salt("fk_on_delete_cb")
+                    .selected_text(&context.workbench.on_delete)
+                    .width(180.0)
+                    .show_ui(ui, |ui| {
+                        for a in &actions {
+                            ui.selectable_value(&mut context.workbench.on_delete, (*a).to_string(), *a);
+                        }
                     });
-                    ui.label("Ref columns CSV");
-                    ui.text_edit_singleline(&mut self.schema_workbench.ref_columns_csv);
-                    ui.label("ON DELETE");
-                    ui.text_edit_singleline(&mut self.schema_workbench.on_delete);
-                }
-            }
-            SchemaWorkbenchMode::Trigger => {
-                ui.horizontal(|ui| {
-                    ui.label("Table");
-                    ui.text_edit_singleline(&mut self.schema_workbench.parent_table);
-                    ui.label("Timing");
-                    ui.text_edit_singleline(&mut self.schema_workbench.timing);
-                    ui.label("Event");
-                    ui.text_edit_singleline(&mut self.schema_workbench.event);
-                });
-                ui.label("Body");
-                ui.add(
-                    egui::TextEdit::multiline(&mut self.schema_workbench.body)
-                        .desired_rows(3)
-                        .desired_width(f32::INFINITY),
-                );
-            }
-            SchemaWorkbenchMode::Sequence => {
-                ui.horizontal(|ui| {
-                    ui.label("Start");
-                    ui.text_edit_singleline(&mut self.schema_workbench.start);
-                    ui.label("Increment");
-                    ui.text_edit_singleline(&mut self.schema_workbench.increment);
-                    ui.checkbox(&mut self.schema_workbench.cycle, "Cycle");
-                });
-            }
-            SchemaWorkbenchMode::Type => {
-                ui.label("Enum values CSV");
-                ui.text_edit_singleline(&mut self.schema_workbench.enum_values_csv);
-            }
-            SchemaWorkbenchMode::SchemaDb => {
-                ui.label("Schema name uses Name field; Database create/drop uses Name as DB name.");
-                ui.checkbox(&mut self.schema_workbench.cascade, "CASCADE on drop schema");
-            }
-            SchemaWorkbenchMode::Extension => {
-                ui.label("Extension schema (optional)");
-                ui.text_edit_singleline(&mut self.schema_workbench.extension_schema);
-                ui.checkbox(&mut self.schema_workbench.cascade, "CASCADE on drop");
-            }
-            SchemaWorkbenchMode::Comment => {
-                ui.horizontal(|ui| {
-                    ui.label("Parent (column comments)");
-                    ui.text_edit_singleline(&mut self.schema_workbench.parent_table);
-                });
-                ui.label("Comment text (empty clears)");
-                ui.text_edit_singleline(&mut self.schema_workbench.comment_text);
-            }
-            SchemaWorkbenchMode::Partition => {
-                ui.horizontal(|ui| {
-                    ui.label("Parent table");
-                    ui.text_edit_singleline(&mut self.schema_workbench.parent_table);
-                });
-                ui.label("FOR VALUES …");
-                ui.text_edit_singleline(&mut self.schema_workbench.partition_bound);
-            }
-            SchemaWorkbenchMode::Dependencies | SchemaWorkbenchMode::Docs => {}
-        }
+            });
+            ui.add_space(SPACE_MD);
+            ui.vertical(|ui| {
+                ui.set_width(180.0);
+                ui.label(RichText::new("ON UPDATE").small().color(context.theme.text_secondary));
+                egui::ComboBox::from_id_salt("fk_on_update_cb")
+                    .selected_text(&context.workbench.on_update)
+                    .width(180.0)
+                    .show_ui(ui, |ui| {
+                        for a in &actions {
+                            ui.selectable_value(&mut context.workbench.on_update, (*a).to_string(), *a);
+                        }
+                    });
+            });
+        });
+    }
+}
 
+fn draw_table_designer(context: &mut SchemaWorkbenchFormContext<'_>, ui: &mut egui::Ui) {
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new("Columns Designer")
+                .strong()
+                .color(context.theme.text_primary),
+        );
         ui.add_space(SPACE_MD);
-        ui.horizontal_wrapped(|ui| {
-            if Button::new(self.theme)
-                .text("Plan create")
-                .variant(ButtonVariant::Secondary)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                self.plan_workbench_action(ObjectAction::Create);
-            }
-            if Button::new(self.theme)
-                .text("Plan drop")
-                .variant(ButtonVariant::Secondary)
-                .size(ButtonSize::Sm)
-                .show(ui)
-                .clicked()
-            {
-                self.plan_workbench_action(ObjectAction::Drop);
-            }
-            if mode == SchemaWorkbenchMode::Column
-                && Button::new(self.theme)
-                    .text("Plan rename")
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-            {
-                self.plan_workbench_action(ObjectAction::Rename);
-            }
-            if mode == SchemaWorkbenchMode::View
-                && self.schema_workbench.materialized
-                && Button::new(self.theme)
-                    .text("Plan refresh")
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-            {
-                self.plan_workbench_action(ObjectAction::Refresh);
-            }
-            if mode == SchemaWorkbenchMode::Comment
-                && Button::new(self.theme)
-                    .text("Plan comment")
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-            {
-                self.plan_workbench_action(ObjectAction::Comment);
-            }
-            if mode == SchemaWorkbenchMode::SchemaDb {
-                if Button::new(self.theme)
-                    .text("Plan create database")
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.plan_database_action(ObjectAction::Create);
-                }
-                if Button::new(self.theme)
-                    .text("Plan drop database")
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.plan_database_action(ObjectAction::Drop);
-                }
+        if Button::new(context.theme)
+            .text("+ Add Column")
+            .variant(ButtonVariant::Default)
+            .size(ButtonSize::Sm)
+            .icon(Icon::Plus)
+            .show(ui)
+            .clicked()
+        {
+            context.workbench.add_table_column();
+        }
+        ui.add_space(SPACE_SM);
+        if Button::new(context.theme)
+            .text("+ UUID PK")
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
+            context.workbench.table_columns.insert(
+                0,
+                TableDesignerColumn {
+                    name: "id".into(),
+                    data_type: "UUID".into(),
+                    nullable: false,
+                    is_pk: true,
+                    auto_increment: false,
+                    default_expr: "gen_random_uuid()".into(),
+                    comment: "UUID Primary Key".into(),
+                },
+            );
+            context.workbench.sync_table_columns_to_csv();
+        }
+        if Button::new(context.theme)
+            .text("+ Timestamps")
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .show(ui)
+            .clicked()
+        {
+            context.workbench.table_columns.push(TableDesignerColumn {
+                name: "created_at".into(),
+                data_type: "TIMESTAMPTZ".into(),
+                nullable: false,
+                is_pk: false,
+                auto_increment: false,
+                default_expr: "CURRENT_TIMESTAMP".into(),
+                comment: "Created timestamp".into(),
+            });
+            context.workbench.table_columns.push(TableDesignerColumn {
+                name: "updated_at".into(),
+                data_type: "TIMESTAMPTZ".into(),
+                nullable: false,
+                is_pk: false,
+                auto_increment: false,
+                default_expr: "CURRENT_TIMESTAMP".into(),
+                comment: "Updated timestamp".into(),
+            });
+            context.workbench.sync_table_columns_to_csv();
+        }
+    });
+    ui.add_space(SPACE_SM);
+
+    let col_count = context.workbench.table_columns.len();
+    let mut remove_idx = None;
+    let mut move_up_idx = None;
+    let mut move_down_idx = None;
+
+    egui::Frame::none()
+        .fill(context.theme.surface_panel)
+        .rounding(egui::Rounding::same(6.0))
+        .inner_margin(egui::Margin::same(8.0))
+        .show(ui, |ui| {
+            // Header
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("#").small().color(context.theme.text_secondary));
+                ui.add_space(4.0);
+                ui.label(RichText::new("Column Name").small().strong().color(context.theme.text_secondary));
+                ui.add_space(75.0);
+                ui.label(RichText::new("Data Type").small().strong().color(context.theme.text_secondary));
+                ui.add_space(55.0);
+                ui.label(RichText::new("PK").small().strong().color(context.theme.text_secondary));
+                ui.add_space(10.0);
+                ui.label(RichText::new("Nullable").small().strong().color(context.theme.text_secondary));
+                ui.add_space(10.0);
+                ui.label(RichText::new("AutoInc").small().strong().color(context.theme.text_secondary));
+                ui.add_space(10.0);
+                ui.label(RichText::new("Default Expression").small().strong().color(context.theme.text_secondary));
+            });
+            ui.separator();
+
+            let types = [
+                "BIGINT",
+                "INTEGER",
+                "SMALLINT",
+                "VARCHAR(255)",
+                "TEXT",
+                "BOOLEAN",
+                "TIMESTAMPTZ",
+                "TIMESTAMP",
+                "NUMERIC(12,2)",
+                "FLOAT8",
+                "JSONB",
+                "UUID",
+                "BYTEA",
+                "DATE",
+            ];
+
+            for idx in 0..col_count {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(format!("{}", idx + 1)).small().color(context.theme.text_muted));
+
+                    let col = &mut context.workbench.table_columns[idx];
+
+                    // Name
+                    ui.add(
+                        egui::TextEdit::singleline(&mut col.name)
+                            .hint_text("column_name")
+                            .desired_width(150.0),
+                    );
+
+                    // Type combobox
+                    egui::ComboBox::from_id_salt(format!("col_type_{idx}"))
+                        .selected_text(&col.data_type)
+                        .width(120.0)
+                        .show_ui(ui, |ui| {
+                            for t in &types {
+                                ui.selectable_value(&mut col.data_type, (*t).to_string(), *t);
+                            }
+                        });
+
+                    // PK
+                    if ui.checkbox(&mut col.is_pk, "").changed() && col.is_pk {
+                        col.nullable = false;
+                    }
+
+                    // Nullable
+                    let can_be_nullable = !col.is_pk;
+                    ui.add_enabled(can_be_nullable, egui::Checkbox::without_text(&mut col.nullable));
+
+                    // Auto inc
+                    ui.checkbox(&mut col.auto_increment, "");
+
+                    // Default
+                    ui.add(
+                        egui::TextEdit::singleline(&mut col.default_expr)
+                            .hint_text("default / expr")
+                            .desired_width(130.0),
+                    );
+
+                    // Reorder & delete buttons
+                    if idx > 0 && ui.small_button("▲").clicked() {
+                        move_up_idx = Some(idx);
+                    }
+                    if idx + 1 < col_count && ui.small_button("▼").clicked() {
+                        move_down_idx = Some(idx);
+                    }
+                    if ui.small_button("✕").clicked() {
+                        remove_idx = Some(idx);
+                    }
+                });
+                ui.add_space(2.0);
             }
         });
+
+    if let Some(idx) = remove_idx {
+        context.workbench.remove_table_column(idx);
+    }
+    if let Some(idx) = move_up_idx {
+        context.workbench.move_table_column_up(idx);
+    }
+    if let Some(idx) = move_down_idx {
+        context.workbench.move_table_column_down(idx);
     }
 
-    pub(super) fn draw_workbench_preview(&mut self, ui: &mut egui::Ui) {
-        card_frame(self.theme).show(ui, |ui| {
-            ui.set_min_width((ui.available_width() - 8.0).max(0.0));
-            section_label(ui, "PREVIEW", self.theme);
-            ui.add_space(SPACE_SM);
-            if let Some(err) = &self.schema_workbench.preview_error {
-                ui.colored_label(self.theme.danger, err);
-                ui.add_space(SPACE_XS);
+    context.workbench.sync_table_columns_to_csv();
+}
+
+pub(super) fn draw_workbench_preview(
+    context: &mut SchemaWorkbenchFormContext<'_>,
+    ui: &mut egui::Ui,
+) -> Option<SchemaWorkbenchFormAction> {
+    let mut action = None;
+    let sql = context.workbench.preview_sql.clone();
+
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new("Live Planned DDL Preview")
+                .strong()
+                .color(context.theme.text_primary),
+        );
+        ui.add_space(SPACE_MD);
+        let preview_empty = sql.trim().is_empty();
+        let apply_enabled = context.can_mutate && !preview_empty;
+        ui.add_enabled_ui(apply_enabled, |ui| {
+            if Button::new(context.theme)
+                .text("Apply DDL to Database")
+                .variant(ButtonVariant::Default)
+                .size(ButtonSize::Sm)
+                .icon(Icon::Check)
+                .show(ui)
+                .clicked()
+            {
+                context.workbench.apply_confirmation = true;
             }
-            if !self.schema_workbench.preview_safety.is_empty() {
+        });
+        ui.add_enabled_ui(!preview_empty, |ui| {
+            if Button::new(context.theme)
+                .text("Open in SQL Editor")
+                .variant(ButtonVariant::Secondary)
+                .size(ButtonSize::Sm)
+                .icon(Icon::FileCode2)
+                .show(ui)
+                .clicked()
+            {
+                action = Some(SchemaWorkbenchFormAction::OpenSql(sql.clone()));
+            }
+        });
+    });
+
+    if let Some(err) = &context.workbench.preview_error {
+        ui.add_space(SPACE_XS);
+        ui.colored_label(context.theme.danger, format!("Plan error: {err}"));
+    }
+
+    ui.add_space(SPACE_SM);
+    egui::Frame::none()
+        .fill(context.theme.surface_panel)
+        .rounding(egui::Rounding::same(6.0))
+        .inner_margin(egui::Margin::same(10.0))
+        .show(ui, |ui| {
+            if sql.trim().is_empty() {
                 ui.label(
-                    RichText::new(format!(
-                        "Safety: {} · fingerprint {}",
-                        self.schema_workbench.preview_safety, self.schema_workbench.preview_fingerprint
-                    ))
-                    .small()
-                    .color(self.theme.text_muted),
+                    RichText::new("-- Click 'Plan create', 'Plan drop' or 'Plan rename' above to generate DDL")
+                        .color(context.theme.text_muted)
+                        .monospace(),
                 );
-                ui.add_space(SPACE_XS);
+            } else {
+                egui::ScrollArea::vertical()
+                    .max_height(220.0)
+                    .show(ui, |ui| {
+                        ui.add(
+                            egui::Label::new(
+                                RichText::new(&sql)
+                                    .color(context.theme.text_primary)
+                                    .monospace(),
+                            )
+                            .wrap(),
+                        );
+                    });
             }
-            ui.label(RichText::new("SQL").small().strong().color(self.theme.text_secondary));
-            editor_frame(self.theme).show(ui, |ui| {
-                ui.add(
-                    egui::TextEdit::multiline(&mut self.schema_workbench.preview_sql)
-                        .desired_rows(8)
-                        .desired_width(f32::INFINITY)
-                        .code_editor(),
-                );
-            });
-            ui.add_space(SPACE_SM);
-            ui.horizontal(|ui| {
-                let can_apply = !self.schema_workbench.preview_sql.trim().is_empty()
-                    && self.schema_workbench.preview_error.is_none()
-                    && self.can_mutate_active_connection();
-                if Button::new(self.theme)
-                    .text("Apply DDL…")
-                    .variant(ButtonVariant::Default)
-                    .size(ButtonSize::Sm)
-                    .enabled(can_apply)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.schema_workbench.apply_confirmation = true;
-                }
-                let can_open_editor = !self.schema_workbench.preview_sql.trim().is_empty();
-                if Button::new(self.theme)
-                    .text("Open in SQL editor")
-                    .variant(ButtonVariant::Secondary)
-                    .size(ButtonSize::Sm)
-                    .enabled(can_open_editor)
-                    .show(ui)
-                    .clicked()
-                    && can_open_editor
-                {
-                    let sql = self.schema_workbench.preview_sql.clone();
-                    self.new_query_document();
-                    if let Some(doc) = self.query_documents.last_mut() {
-                        doc.set_text(sql);
-                    }
-                    self.active_tab = WorkspaceTab::Query;
-                    self.activity = Activity::Queries;
-                }
-            });
         });
 
-        if self.schema_workbench.apply_confirmation {
-            egui::Window::new("Confirm DDL apply")
-                .collapsible(false)
-                .resizable(false)
-                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-                .show(ui.ctx(), |ui| {
-                    ui.label("Apply the previewed DDL to the active connection?");
-                    ui.add_space(8.0);
-                    ui.horizontal(|ui| {
-                        if Button::new(self.theme)
-                            .text("Cancel")
-                            .size(ButtonSize::Sm)
-                            .variant(ButtonVariant::Ghost)
-                            .show(ui)
-                            .clicked()
-                        {
-                            self.schema_workbench.apply_confirmation = false;
-                        }
-                        if Button::new(self.theme)
-                            .text("Apply")
-                            .size(ButtonSize::Sm)
-                            .variant(ButtonVariant::Destructive)
-                            .show(ui)
-                            .clicked()
-                        {
-                            self.schema_workbench.apply_confirmation = false;
-                            self.apply_workbench_ddl();
-                        }
-                    });
+    if context.workbench.apply_confirmation {
+        let mut confirm_action = None;
+        let mut open = true;
+        Dialog::new(&mut open, "Confirm Apply DDL Mutation", context.theme)
+            .show(ui, |ui| {
+                ui.colored_label(
+                    context.theme.warning,
+                    "Applying this DDL will directly modify the active database schema.",
+                );
+                ui.add_space(SPACE_SM);
+                CodeBlock::new(&sql, context.theme).language("sql").show(ui);
+                ui.add_space(SPACE_MD);
+                ui.horizontal(|ui| {
+                    if Button::new(context.theme)
+                        .text("Apply DDL")
+                        .variant(ButtonVariant::Default)
+                        .size(ButtonSize::Sm)
+                        .icon(Icon::Check)
+                        .show(ui)
+                        .clicked()
+                    {
+                        confirm_action = Some(SchemaWorkbenchFormAction::ApplyDdl);
+                        context.workbench.apply_confirmation = false;
+                    }
+                    if Button::new(context.theme)
+                        .text("Cancel")
+                        .variant(ButtonVariant::Ghost)
+                        .size(ButtonSize::Sm)
+                        .icon(Icon::X)
+                        .show(ui)
+                        .clicked()
+                    {
+                        context.workbench.apply_confirmation = false;
+                    }
                 });
+            });
+        if !open {
+            context.workbench.apply_confirmation = false;
+        }
+        if confirm_action.is_some() {
+            action = confirm_action;
         }
     }
+
+    action
 }

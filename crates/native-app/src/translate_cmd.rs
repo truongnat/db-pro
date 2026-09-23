@@ -160,9 +160,7 @@ pub(crate) fn translate_command(command: UiCommand) -> Option<RuntimeCommand> {
         | UiCommand::DeleteTableRow { .. }
         | UiCommand::InsertTableRow { .. }
         | UiCommand::ApplyTableChanges { .. } => translate_table_command(command),
-        UiCommand::RunAgent { .. }
-        | UiCommand::ExecuteAgentTool { .. }
-        | UiCommand::StartAgentRun { .. }
+        UiCommand::StartAgentRun { .. }
         | UiCommand::ContinueAgentRun { .. }
         | UiCommand::CancelAgentRun { .. }
         | UiCommand::IntrospectSchema { .. }
@@ -431,36 +429,6 @@ pub(crate) fn map_table_mutation(mutation: UiTableMutation) -> Option<db_pro_cor
 
 pub(crate) fn translate_agent_command(command: UiCommand) -> Option<RuntimeCommand> {
     match command {
-        UiCommand::RunAgent {
-            request_id,
-            prompt,
-            context,
-        } => Some(RuntimeCommand::RunAgent {
-            request_id: runtime_request_id(request_id),
-            prompt,
-            context: db_pro_runtime::AgentContext {
-                connection_name: context.connection_name,
-                driver: context.driver,
-                tables: context.tables,
-                columns: context.columns,
-                schema: context.schema,
-                selected_table: context.selected_table,
-                selected_columns: context.selected_columns,
-                current_sql: context.current_sql,
-                result_summary: context.result_summary,
-                explain_plan: context.explain_plan,
-                last_error: context.last_error,
-            },
-        }),
-        UiCommand::ExecuteAgentTool {
-            request_id,
-            request,
-            context,
-        } => Some(RuntimeCommand::ExecuteAgentTool {
-            request_id: runtime_request_id(request_id),
-            request,
-            context,
-        }),
         UiCommand::StartAgentRun {
             request_id,
             prompt,

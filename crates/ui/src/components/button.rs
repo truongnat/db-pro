@@ -7,6 +7,7 @@ use egui::{
     Color32, FontFamily, FontId, Pos2, Rect, Response, Rounding, Sense, Stroke, Ui, Vec2,
 };
 use lucide_icons::Icon;
+use std::borrow::Cow;
 
 const BUTTON_ROUNDING: f32 = 6.0;
 const ICON_TEXT_GAP: f32 = 8.0;
@@ -30,16 +31,17 @@ pub enum ButtonSize {
     IconSm,
 }
 
-pub struct Button {
-    pub(crate) label: Option<String>,
+pub struct Button<'a> {
+    pub(crate) label: Option<Cow<'a, str>>,
     pub(crate) icon: Option<Icon>,
     pub(crate) variant: ButtonVariant,
     pub(crate) size: ButtonSize,
     pub(crate) enabled: bool,
     pub(crate) loading: bool,
     pub(crate) full_width: bool,
-    pub(crate) access_label: Option<String>,
-    pub(crate) tooltip: Option<String>,
+    pub(crate) access_label: Option<Cow<'a, str>>,
+    pub(crate) tooltip: Option<Cow<'a, str>>,
+    pub(crate) focusable: bool,
     pub(crate) theme: DbProTheme,
 }
 
@@ -51,7 +53,139 @@ struct SizeTokens {
     default_width: f32,
 }
 
-impl Button {
+impl SizeTokens {
+    pub fn calculate_width(&self, content_width: f32, full_width: bool, available_width: f32) -> f32 {
+        if full_width {
+            available_width
+        } else {
+            self.default_width.max(content_width + self.padding.x * 2.0)
+        }
+    }
+}
+
+struct LoadingLayout {
+    rect: Rect,
+    fill_color: Color32,
+    border_stroke: Stroke,
+    content_w: f32,
+    text_galley: Option<std::sync::Arc<egui::Galley>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ButtonPalette {
+    pub fill_rest: Color32,
+    pub fill_hover: Color32,
+    pub stroke_rest: Stroke,
+    pub stroke_hover: Stroke,
+    pub text_color: Color32,
+}
+
+impl ButtonPalette {
+    pub fn from_variant(variant: ButtonVariant, theme: DbProTheme) -> Self {
+        match variant {
+            ButtonVariant::Default => Self {
+                fill_rest: theme.accent,
+                fill_hover: theme.accent_hover,
+                stroke_rest: Stroke::NONE,
+                stroke_hover: Stroke::NONE,
+                text_color: theme.accent_foreground,
+            },
+            ButtonVariant::Secondary => Self {
+                fill_rest: theme.surface_hover,
+                fill_hover: theme.surface_active,
+                stroke_rest: Stroke::NONE,
+                stroke_hover: Stroke::NONE,
+                text_color: theme.text_primary,
+            },
+            ButtonVariant::Outline => Self {
+                fill_rest: Color32::TRANSPARENT,
+                fill_hover: theme.surface_hover,
+                stroke_rest: Stroke::new(1.0, theme.border_default),
+                stroke_hover: Stroke::new(1.0, theme.border_strong),
+                text_color: theme.text_primary,
+            },
+            ButtonVariant::Ghost => Self {
+                fill_rest: Color32::TRANSPARENT,
+                fill_hover: theme.surface_hover,
+                stroke_rest: Stroke::NONE,
+                stroke_hover: Stroke::NONE,
+                text_color: theme.text_primary,
+            },
+            ButtonVariant::Destructive => Self {
+                fill_rest: theme.danger,
+                fill_hover: theme.danger.linear_multiply(0.85),
+                stroke_rest: Stroke::NONE,
+                stroke_hover: Stroke::NONE,
+                text_color: theme.accent_foreground,
+            },
+            ButtonVariant::Link => Self {
+                fill_rest: Color32::TRANSPARENT,
+                fill_hover: Color32::TRANSPARENT,
+                stroke_rest: Stroke::NONE,
+                stroke_hover: Stroke::NONE,
+                text_color: theme.accent,
+            },
+        }
+    }
+
+    pub fn disabled(theme: DbProTheme) -> Self {
+        Self {
+            fill_rest: theme.surface_panel,
+            fill_hover: theme.surface_panel,
+            stroke_rest: Stroke::NONE,
+            stroke_hover: Stroke::NONE,
+            text_color: theme.text_disabled,
+        }
+    }
+
+    pub fn loading_colors(&self, variant: ButtonVariant, theme: DbProTheme) -> (Color32, Color32, Stroke) {
+        match variant {
+            ButtonVariant::Default => (self.text_color, self.fill_rest, Stroke::NONE),
+            ButtonVariant::Secondary => (theme.text_secondary, theme.surface_hover, Stroke::NONE),
+            ButtonVariant::Outline => (
+                theme.text_secondary,
+                Color32::TRANSPARENT,
+                Stroke::new(1.0, theme.border_default),
+            ),
+            ButtonVariant::Ghost => (theme.text_secondary, Color32::TRANSPARENT, Stroke::NONE),
+            ButtonVariant::Destructive => (self.text_color, self.fill_rest, Stroke::NONE),
+            ButtonVariant::Link => (theme.text_secondary, Color32::TRANSPARENT, Stroke::NONE),
+        }
+    }
+
+    pub fn resolve_state(&self, hover: f32) -> (Color32, Stroke) {
+        let fill = lerp_color(self.fill_rest, self.fill_hover, hover);
+        let stroke_color = lerp_color(self.stroke_rest.color, self.stroke_hover.color, hover);
+        let stroke_width = self.stroke_rest.width + (self.stroke_hover.width - self.stroke_rest.width) * hover;
+        let stroke = if stroke_width > 0.0 && stroke_color != Color32::TRANSPARENT {
+            Stroke::new(stroke_width, stroke_color)
+        } else {
+            Stroke::NONE
+        };
+        (fill, stroke)
+    }
+}
+
+pub struct ButtonGroup {
+    #[allow(dead_code)]
+    theme: DbProTheme,
+}
+
+impl ButtonGroup {
+    pub fn new(theme: DbProTheme) -> Self {
+        Self { theme }
+    }
+
+    pub fn show<R>(self, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing = Vec2::new(1.0, 0.0);
+            add_contents(ui)
+        })
+        .inner
+    }
+}
+
+impl<'a> Button<'a> {
     pub fn new(theme: DbProTheme) -> Self {
         Self {
             label: None,
@@ -63,17 +197,13 @@ impl Button {
             full_width: false,
             access_label: None,
             tooltip: None,
+            focusable: true,
             theme,
         }
     }
 
-    pub fn text(mut self, text: impl Into<String>) -> Self {
+    pub fn text(mut self, text: impl Into<Cow<'a, str>>) -> Self {
         self.label = Some(text.into());
-        self
-    }
-
-    pub fn tooltip(mut self, tooltip: impl Into<String>) -> Self {
-        self.tooltip = Some(tooltip.into());
         self
     }
 
@@ -107,123 +237,162 @@ impl Button {
         self
     }
 
-    pub fn access_label(mut self, label: impl Into<String>) -> Self {
+    pub fn access_label(mut self, label: impl Into<Cow<'a, str>>) -> Self {
         self.access_label = Some(label.into());
         self
+    }
+
+    pub fn tooltip(mut self, tooltip: impl Into<Cow<'a, str>>) -> Self {
+        self.tooltip = Some(tooltip.into());
+        self
+    }
+
+    pub fn focusable(mut self, focusable: bool) -> Self {
+        self.focusable = focusable;
+        self
+    }
+
+    pub fn accessible_name(&self) -> String {
+        self.access_label
+            .as_deref()
+            .or(self.label.as_deref())
+            .or(self.tooltip.as_deref())
+            .unwrap_or("Button")
+            .to_string()
     }
 
     fn size_tokens(&self) -> SizeTokens {
         match self.size {
             ButtonSize::Sm => SizeTokens {
-                min_height: 26.0,
+                min_height: 28.0,
                 font_size: 11.5,
                 icon_size: 13.0,
-                padding: egui::vec2(8.0, 3.0),
-                default_width: 0.0,
+                padding: Vec2::new(10.0, 4.0),
+                default_width: 28.0,
             },
             ButtonSize::Default => SizeTokens {
                 min_height: 32.0,
-                font_size: 13.0,
+                font_size: 12.5,
                 icon_size: 14.5,
-                padding: egui::vec2(12.0, 5.0),
-                default_width: 0.0,
+                padding: Vec2::new(12.0, 5.0),
+                default_width: 32.0,
             },
             ButtonSize::Lg => SizeTokens {
                 min_height: 38.0,
-                font_size: 14.5,
+                font_size: 13.5,
                 icon_size: 16.0,
-                padding: egui::vec2(16.0, 7.0),
-                default_width: 0.0,
+                padding: Vec2::new(16.0, 8.0),
+                default_width: 38.0,
             },
             ButtonSize::Icon => SizeTokens {
                 min_height: 32.0,
-                font_size: 13.0,
-                icon_size: 16.0,
-                padding: egui::vec2(6.0, 6.0),
+                font_size: 12.5,
+                icon_size: 15.0,
+                padding: Vec2::new(8.0, 8.0),
                 default_width: 32.0,
             },
             ButtonSize::IconSm => SizeTokens {
-                min_height: 24.0,
-                font_size: 11.5,
-                icon_size: 13.0,
-                padding: egui::vec2(4.0, 4.0),
-                default_width: 24.0,
+                min_height: 26.0,
+                font_size: 11.0,
+                icon_size: 13.5,
+                padding: Vec2::new(6.0, 6.0),
+                default_width: 26.0,
             },
         }
-    }
-
-    fn accessible_name(&self) -> String {
-        self.access_label
-            .clone()
-            .or_else(|| self.label.clone())
-            // An icon-only control carries no visible text, so its tooltip is the only
-            // name a screen reader could be given; without this the button would be
-            // announced as the literal string "Button".
-            .or_else(|| self.tooltip.clone())
-            .unwrap_or_else(|| "Button".to_owned())
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
         let tokens = self.size_tokens();
+
         if self.loading {
-            return self.show_loading(ui, &tokens);
+            self.show_loading(ui, &tokens)
+        } else {
+            self.show_interactive(ui, &tokens)
         }
-        self.show_interactive(ui, &tokens)
     }
 
     fn show_loading(self, ui: &mut Ui, tokens: &SizeTokens) -> Response {
-        let (text_color, fill_color, border_stroke) = rest_colors(self.variant, self.theme);
-        let rounding = Rounding::same(BUTTON_ROUNDING);
-        let text_galley = self.label.as_ref().map(|txt| {
-            ui.painter()
-                .layout_no_wrap(txt.clone(), FontId::proportional(tokens.font_size), text_color)
-        });
-        let gap = if text_galley.is_some() { ICON_TEXT_GAP } else { 0.0 };
-        let text_w = text_galley.as_ref().map_or(0.0, |g| g.size().x);
-        let content_w = tokens.icon_size + gap + text_w;
-        let width = if self.full_width {
-            ui.available_width()
+        let palette = ButtonPalette::from_variant(self.variant, self.theme);
+        let (_, fill_color, border_stroke) = palette.loading_colors(self.variant, self.theme);
+
+        let (content_w, text_galley) = if let Some(ref text) = self.label {
+            let galley = ui.fonts(|fonts| {
+                fonts.layout_no_wrap(
+                    text.to_string(),
+                    FontId::proportional(tokens.font_size),
+                    palette.text_color,
+                )
+            });
+            let gap = ICON_TEXT_GAP;
+            (tokens.icon_size + gap + galley.size().x, Some(galley))
         } else {
-            tokens.default_width.max(content_w + tokens.padding.x * 2.0)
+            (tokens.icon_size, None)
         };
+
+        let width = tokens.calculate_width(content_w, self.full_width, ui.available_width());
         let (rect, response) = ui.allocate_exact_size(Vec2::new(width, tokens.min_height), Sense::hover());
         response.widget_info(|| button_info(false, &self.accessible_name()));
-        ui.painter().rect_filled(rect, rounding, fill_color);
-        if border_stroke != Stroke::NONE {
-            ui.painter().rect_stroke(rect, rounding, border_stroke);
+
+        let layout = LoadingLayout {
+            rect,
+            fill_color,
+            border_stroke,
+            content_w,
+            text_galley,
+        };
+        self.paint_loading(ui, &layout, tokens);
+
+        response.on_hover_cursor(egui::CursorIcon::Wait)
+    }
+
+    fn paint_loading(&self, ui: &mut Ui, layout: &LoadingLayout, tokens: &SizeTokens) {
+        let palette = ButtonPalette::from_variant(self.variant, self.theme);
+        let (text_color, _, _) = palette.loading_colors(self.variant, self.theme);
+        let rounding = Rounding::same(BUTTON_ROUNDING);
+        ui.painter().rect_filled(layout.rect, rounding, layout.fill_color);
+        if layout.border_stroke != Stroke::NONE {
+            ui.painter().rect_stroke(layout.rect, rounding, layout.border_stroke);
         }
-        let start_x = rect.center().x - content_w * 0.5;
+        let start_x = layout.rect.center().x - layout.content_w * 0.5;
         animation::paint_spinner(
             ui.painter(),
-            Pos2::new(start_x + tokens.icon_size * 0.5, rect.center().y),
+            Pos2::new(start_x + tokens.icon_size * 0.5, layout.rect.center().y),
             (tokens.icon_size - 2.0) * 0.5,
             1.8,
             text_color,
             text_color.linear_multiply(0.25),
             animation::spinner_angle(ui),
         );
-        if let Some(galley) = text_galley {
+        if let Some(galley) = &layout.text_galley {
+            let gap = ICON_TEXT_GAP;
             let text_pos = Pos2::new(
                 start_x + tokens.icon_size + gap,
-                rect.center().y - galley.size().y * 0.5,
+                layout.rect.center().y - galley.size().y * 0.5,
             );
-            ui.painter().galley(text_pos, galley, Color32::PLACEHOLDER);
+            ui.painter()
+                .galley(text_pos, std::sync::Arc::clone(galley), Color32::PLACEHOLDER);
         }
-        response.on_hover_cursor(egui::CursorIcon::Wait)
     }
 
     fn show_interactive(self, ui: &mut Ui, tokens: &SizeTokens) -> Response {
         let name = self.accessible_name();
-        let job = content_job(&self, tokens);
+        let palette = ButtonPalette::from_variant(self.variant, self.theme);
+        let job = content_job(&self, tokens, palette.text_color);
         let galley = ui.fonts(|fonts| fonts.layout_job(job));
-        let width = if self.full_width {
-            ui.available_width()
+        let width = tokens.calculate_width(galley.size().x, self.full_width, ui.available_width());
+
+        let sense = if self.enabled {
+            Sense {
+                click: true,
+                drag: false,
+                focusable: self.focusable,
+            }
         } else {
-            tokens.default_width.max(galley.size().x + tokens.padding.x * 2.0)
+            Sense::hover()
         };
-        let sense = if self.enabled { Sense::click() } else { Sense::hover() };
         let (rect, mut response) = ui.allocate_exact_size(Vec2::new(width, tokens.min_height), sense);
         response.widget_info(|| button_info(self.enabled, &name));
+
         if self.enabled {
             response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
         }
@@ -238,44 +407,47 @@ impl Button {
             response.id.with("press"),
             self.enabled && response.is_pointer_button_down_on(),
         );
-        let (rest_fill, hover_fill, rest_stroke, hover_stroke, text_color) =
-            interactive_colors(self.variant, self.theme);
-        let fill = lerp_color(rest_fill, hover_fill, hover);
-        let stroke_color = lerp_color(rest_stroke.color, hover_stroke.color, hover);
-        let stroke = if rest_stroke == Stroke::NONE && hover_stroke == Stroke::NONE {
-            Stroke::NONE
-        } else {
-            Stroke::new(1.0, stroke_color)
-        };
 
+        let (fill, stroke) = palette.resolve_state(hover);
         let scale = press_scale(press);
         let paint_rect = Rect::from_center_size(rect.center(), rect.size() * scale);
-        let rounding = Rounding::same(BUTTON_ROUNDING);
-        ui.painter().rect_filled(paint_rect, rounding, fill);
-        if stroke != Stroke::NONE {
-            ui.painter().rect_stroke(paint_rect, rounding, stroke);
-        }
 
-        let text_pos = Pos2::new(
-            paint_rect.center().x - galley.size().x * 0.5,
-            paint_rect.center().y - galley.size().y * 0.5,
-        );
-        ui.painter().galley(text_pos, galley, text_color);
+        paint_interactive_surface(ui, paint_rect, fill, stroke, &galley, palette.text_color);
 
         if response.has_focus() {
             paint_focus_ring(ui, rect, BUTTON_ROUNDING, self.theme);
         }
 
         if let Some(ref tooltip_text) = self.tooltip {
-            response = Tooltip::new(tooltip_text, self.theme).show(&response);
+            response = Tooltip::new(tooltip_text.as_ref(), self.theme).show(&response);
         }
 
         response
     }
 }
 
-fn content_job(button: &Button, tokens: &SizeTokens) -> LayoutJob {
-    let (_, _, _, _, text_color) = interactive_colors(button.variant, button.theme);
+fn paint_interactive_surface(
+    ui: &mut Ui,
+    paint_rect: Rect,
+    fill: Color32,
+    stroke: Stroke,
+    galley: &std::sync::Arc<egui::Galley>,
+    text_color: Color32,
+) {
+    let rounding = Rounding::same(BUTTON_ROUNDING);
+    ui.painter().rect_filled(paint_rect, rounding, fill);
+    if stroke != Stroke::NONE {
+        ui.painter().rect_stroke(paint_rect, rounding, stroke);
+    }
+
+    let text_pos = Pos2::new(
+        paint_rect.center().x - galley.size().x * 0.5,
+        paint_rect.center().y - galley.size().y * 0.5,
+    );
+    ui.painter().galley(text_pos, std::sync::Arc::clone(galley), text_color);
+}
+
+fn content_job(button: &Button<'_>, tokens: &SizeTokens, text_color: Color32) -> LayoutJob {
     let mut job = LayoutJob::default();
     if let Some(icon) = button.icon {
         job.append(
@@ -293,7 +465,7 @@ fn content_job(button: &Button, tokens: &SizeTokens) -> LayoutJob {
     }
     if let Some(ref text) = button.label {
         job.append(
-            text,
+            text.as_ref(),
             0.0,
             TextFormat {
                 font_id: FontId::proportional(tokens.font_size),
@@ -303,68 +475,6 @@ fn content_job(button: &Button, tokens: &SizeTokens) -> LayoutJob {
         );
     }
     job
-}
-
-fn rest_colors(variant: ButtonVariant, theme: DbProTheme) -> (Color32, Color32, Stroke) {
-    match variant {
-        ButtonVariant::Default => (theme.accent_foreground, theme.accent, Stroke::NONE),
-        ButtonVariant::Secondary => (theme.text_primary, theme.surface_hover, Stroke::NONE),
-        ButtonVariant::Outline => (
-            theme.text_primary,
-            Color32::TRANSPARENT,
-            Stroke::new(1.0, theme.border_default),
-        ),
-        ButtonVariant::Ghost => (theme.text_secondary, Color32::TRANSPARENT, Stroke::NONE),
-        ButtonVariant::Destructive => (theme.text_inverse, theme.danger, Stroke::NONE),
-        ButtonVariant::Link => (theme.accent, Color32::TRANSPARENT, Stroke::NONE),
-    }
-}
-
-fn interactive_colors(variant: ButtonVariant, theme: DbProTheme) -> (Color32, Color32, Stroke, Stroke, Color32) {
-    match variant {
-        ButtonVariant::Default => (
-            theme.accent,
-            theme.accent_hover,
-            Stroke::NONE,
-            Stroke::NONE,
-            theme.accent_foreground,
-        ),
-        ButtonVariant::Secondary => (
-            theme.surface_hover,
-            theme.surface_active,
-            Stroke::NONE,
-            Stroke::NONE,
-            theme.text_primary,
-        ),
-        ButtonVariant::Outline => (
-            Color32::TRANSPARENT,
-            theme.surface_hover,
-            Stroke::new(1.0, theme.border_default),
-            Stroke::new(1.0, theme.border_strong),
-            theme.text_primary,
-        ),
-        ButtonVariant::Ghost => (
-            Color32::TRANSPARENT,
-            theme.surface_hover,
-            Stroke::NONE,
-            Stroke::new(1.0, theme.border_subtle),
-            theme.text_secondary,
-        ),
-        ButtonVariant::Destructive => (
-            theme.danger,
-            theme.danger.linear_multiply(0.85),
-            Stroke::NONE,
-            Stroke::NONE,
-            theme.text_inverse,
-        ),
-        ButtonVariant::Link => (
-            Color32::TRANSPARENT,
-            Color32::TRANSPARENT,
-            Stroke::NONE,
-            Stroke::NONE,
-            theme.accent,
-        ),
-    }
 }
 
 #[cfg(test)]

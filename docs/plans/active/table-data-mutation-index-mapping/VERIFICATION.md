@@ -1,29 +1,22 @@
 # Verification — Table Data Mutation Failure Index Mapping
 
-## Automated Tests Executed
+## Unit Test Coverage
 
-1. `cargo test -p db-pro-core --lib application::table_data_service::tests`
-   - Result: 23 passed / 0 failed.
-   - Includes:
-     - `apply_mutations_detailed_maps_statement_index_to_original_input_mutation`
-     - `apply_mutations_detailed_maps_statement_index_complex_reordering`
+Added unit tests in `crates/core/src/application/table_data_service.rs`:
 
-2. `cargo fmt --all -- --check`
-   - Result: Pass (exit 0).
+1. `apply_mutations_detailed_maps_statement_index_to_original_input_mutation`:
+   - Verifies that when execution fails on reordered statement at index 1 (`Insert`), `statement_index` is mapped back to original input index 0 (`Insert`).
 
-3. `cargo check --workspace`
-   - Result: Pass (exit 0).
+2. `apply_mutations_detailed_maps_statement_index_complex_reordering`:
+   - Verifies `[Insert, Update, Delete, Insert]` reordering. Execution order is `[Delete, Update, Insert, Insert]`. A failure at exec index 0 (`Delete`) maps back to original input index 2.
 
-4. `cargo clippy -p db-pro-core -p db-pro-infrastructure --all-targets -- -D warnings`
-   - Result: Pass (exit 0).
+3. `apply_mutations_detailed_retains_zero_statement_index_on_begin_failure`:
+   - Verifies that when `execute_parameterized_transaction` fails with `phase: Begin`, `statement_index` remains `0` and is NOT remapped to `indexed_mutations[0].0`.
 
-5. `cargo test -p db-pro-core -p db-pro-infrastructure`
-   - Result: Pass (all tests green).
+4. `apply_mutations_detailed_retains_zero_statement_index_on_validation_failure`:
+   - Verifies that when `apply_mutations_detailed` fails with `phase: Validation` (e.g. read-only connection), `statement_index` is `0` (not `self.mutations.len()`).
 
-6. Clean code scan (`bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`)
-   - Result: Pass (0 failures, 0 warnings).
+## Automated Execution
 
-## Severity Status
-- **P0**: 0
-- **P1**: 0
-- **P2**: 0
+Command: `cargo test -p db-pro-core`
+Result: pending re-run after merging `origin/main` into this branch.

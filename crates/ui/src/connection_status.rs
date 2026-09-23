@@ -3,154 +3,233 @@ use super::*;
 use egui::Color32;
 use lucide_icons::Icon;
 
-impl DbProApp {
-    pub(super) fn active_connection(&self) -> Option<&UiConnectionSummary> {
-        self.connections
-            .iter()
-            .find(|connection| Some(connection.id.as_str()) == self.active_connection_id.as_deref())
-    }
+pub(super) fn active_connection<'a>(
+    catalog: &'a ConnectionCatalogState,
+    lifecycle: &ConnectionLifecycleState,
+) -> Option<&'a UiConnectionSummary> {
+    catalog
+        .iter()
+        .find(|connection| Some(connection.id.as_str()) == lifecycle.active_connection_id())
+}
 
-    pub(super) fn active_connection_name(&self) -> &str {
-        self.active_connection()
-            .map(|connection| connection.name.as_str())
-            .unwrap_or(self.connection_name.as_str())
-    }
+pub(super) fn active_connection_name<'a>(
+    catalog: &'a ConnectionCatalogState,
+    lifecycle: &'a ConnectionLifecycleState,
+) -> &'a str {
+    active_connection(catalog, lifecycle)
+        .map(|connection| connection.name.as_str())
+        .unwrap_or(lifecycle.fallback_name())
+}
 
-    pub(super) fn active_driver(&self) -> &str {
-        self.active_connection()
-            .map(|connection| connection.driver.as_str())
-            .unwrap_or("PostgreSQL")
-    }
+pub(super) fn active_driver<'a>(
+    catalog: &'a ConnectionCatalogState,
+    lifecycle: &'a ConnectionLifecycleState,
+) -> &'a str {
+    active_connection(catalog, lifecycle)
+        .map(|connection| connection.driver.as_str())
+        .unwrap_or("PostgreSQL")
+}
 
-    pub(crate) fn active_capabilities(&self) -> CapabilityLookup {
-        match self.active_connection() {
-            Some(connection) => CapabilityLookup::for_driver_label(&connection.driver),
-            None => CapabilityLookup::NoActiveConnection,
-        }
+pub(crate) fn active_capabilities(
+    catalog: &ConnectionCatalogState,
+    lifecycle: &ConnectionLifecycleState,
+) -> CapabilityLookup {
+    match active_connection(catalog, lifecycle) {
+        Some(connection) => CapabilityLookup::for_driver_label(&connection.driver),
+        None => CapabilityLookup::NoActiveConnection,
     }
+}
 
-    pub(super) fn active_schema(&self) -> &str {
-        self.selected_schema
-            .as_deref()
-            .or_else(|| self.schema.schemas.first().map(String::as_str))
-            .unwrap_or_else(|| {
-                if self.active_driver().eq_ignore_ascii_case("sqlite") {
-                    "main"
-                } else {
-                    "public"
-                }
-            })
+pub(super) fn active_schema<'a>(
+    schema_explorer: &'a SchemaExplorerState,
+    catalog: &'a ConnectionCatalogState,
+    lifecycle: &'a ConnectionLifecycleState,
+) -> &'a str {
+    schema_explorer
+        .selected_schema
+        .as_deref()
+        .or_else(|| schema_explorer.schema.schemas.first().map(String::as_str))
+        .unwrap_or_else(|| {
+            if active_driver(catalog, lifecycle).eq_ignore_ascii_case("sqlite") {
+                "main"
+            } else {
+                "public"
+            }
+        })
+}
+
+pub(super) fn active_schema_table_names(
+    schema_explorer: &SchemaExplorerState,
+    catalog: &ConnectionCatalogState,
+    lifecycle: &ConnectionLifecycleState,
+) -> Vec<String> {
+    schema_table_names(schema_explorer, active_schema(schema_explorer, catalog, lifecycle))
+}
+
+/// Table names belonging to `schema`. Empty `schema` (SQLite flat tree) returns all tables.
+pub(super) fn schema_table_names(schema_explorer: &SchemaExplorerState, schema: &str) -> Vec<String> {
+    if schema_explorer.schema.schemas.is_empty() || schema_explorer.schema.table_details.is_empty() {
+        return schema_explorer.schema.tables.clone();
     }
-
-    pub(super) fn active_schema_table_names(&self) -> Vec<String> {
-        if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
-            return self.schema.tables.clone();
-        }
-        self.schema
+    if schema.is_empty() {
+        return schema_explorer
+            .schema
             .table_details
             .iter()
-            .filter(|table| table.schema == self.active_schema())
             .map(|table| table.name.clone())
-            .collect()
+            .collect();
     }
+    schema_explorer
+        .schema
+        .table_details
+        .iter()
+        .filter(|table| table.schema == schema)
+        .map(|table| table.name.clone())
+        .collect()
+}
 
-    pub(super) fn active_schema_column_names(&self) -> Vec<String> {
-        if self.schema.schemas.is_empty() || self.schema.table_details.is_empty() {
-            return self.schema.columns.clone();
-        }
-        self.schema
-            .table_details
+pub(super) fn schema_table_count(schema_explorer: &SchemaExplorerState, schema: &str) -> usize {
+    if schema_explorer.schema.schemas.is_empty() || schema_explorer.schema.table_details.is_empty() {
+        return schema_explorer.schema.tables.len();
+    }
+    if schema.is_empty() {
+        return schema_explorer.schema.table_details.len();
+    }
+    schema_explorer
+        .schema
+        .table_details
+        .iter()
+        .filter(|table| table.schema == schema)
+        .count()
+}
+
+/// Count matching table names without allocating a name list.
+pub(super) fn schema_matching_table_count(schema_explorer: &SchemaExplorerState, schema: &str, query: &str) -> usize {
+    if query.is_empty() {
+        return schema_table_count(schema_explorer, schema);
+    }
+    if schema_explorer.schema.schemas.is_empty() || schema_explorer.schema.table_details.is_empty() {
+        return schema_explorer
+            .schema
+            .tables
             .iter()
-            .filter(|table| table.schema == self.active_schema())
-            .flat_map(|table| table.columns.iter().map(|column| column.name.clone()))
-            .collect()
+            .filter(|table| matches_explorer_table(table, query))
+            .count();
     }
+    schema_explorer
+        .schema
+        .table_details
+        .iter()
+        .filter(|table| schema.is_empty() || table.schema == schema)
+        .filter(|table| matches_explorer_table(&table.name, query))
+        .count()
+}
 
-    pub(super) fn has_runtime_error(&self) -> bool {
-        self.runtime_message.contains("failed")
-            || self.runtime_message.contains("Failed")
-            || self.runtime_message.contains("error")
-            || self.runtime_message.contains("Error")
+pub(super) fn active_schema_column_names(
+    schema_explorer: &SchemaExplorerState,
+    catalog: &ConnectionCatalogState,
+    lifecycle: &ConnectionLifecycleState,
+) -> Vec<String> {
+    if schema_explorer.schema.schemas.is_empty() || schema_explorer.schema.table_details.is_empty() {
+        return schema_explorer.schema.columns.clone();
     }
+    let schema = active_schema(schema_explorer, catalog, lifecycle);
+    schema_explorer
+        .schema
+        .table_details
+        .iter()
+        .filter(|table| table.schema == schema)
+        .flat_map(|table| table.columns.iter().map(|column| column.name.clone()))
+        .collect()
+}
 
-    /// The status-bar message and the colour it is rendered in.
-    ///
-    /// Every `runtime_message` is user-facing: a refusal such as "Connect with write
-    /// access to delete rows" is the *only* feedback a blocked action produces, so the
-    /// bar shows any non-empty message and reserves the danger colour for errors.
-    /// Restricting the bar to strings containing "failed"/"error" hid every refusal,
-    /// gate and informational message the app sets.
-    pub(super) fn runtime_status(&self) -> Option<(String, Color32)> {
-        if self.runtime_message.trim().is_empty() {
-            None
-        } else if self.has_runtime_error() {
-            Some((self.runtime_message.clone(), self.theme.danger))
-        } else {
-            Some((self.runtime_message.clone(), self.theme.text_secondary))
-        }
-    }
+pub(super) fn has_runtime_error(feedback: &FeedbackState) -> bool {
+    feedback.runtime_message.contains("failed")
+        || feedback.runtime_message.contains("Failed")
+        || feedback.runtime_message.contains("error")
+        || feedback.runtime_message.contains("Error")
+}
 
-    pub(super) fn statusbar_state(&self) -> (Icon, Color32, &'static str) {
-        if self.connected && self.active_connection_id.is_some() {
-            return (Icon::CircleCheck, self.theme.success, "Connected");
-        }
-        if self.runtime_message.starts_with("Connecting") {
-            return (Icon::Circle, self.theme.accent, "Connecting…");
-        }
-        if self.has_runtime_error() {
-            return (Icon::TriangleAlert, self.theme.danger, "Runtime error");
-        }
-        (Icon::Circle, self.theme.warning, "Not connected")
+/// The status-bar message and the colour it is rendered in.
+pub(super) fn runtime_status(feedback: &FeedbackState, theme: DbProTheme) -> Option<(String, Color32)> {
+    if feedback.runtime_message.trim().is_empty() {
+        None
+    } else if has_runtime_error(feedback) {
+        Some((feedback.runtime_message.clone(), theme.danger))
+    } else {
+        Some((feedback.runtime_message.clone(), theme.text_secondary))
     }
+}
 
-    pub(super) fn shows_editor_status(&self) -> bool {
-        self.active_tab == WorkspaceTab::Query
+pub(super) fn statusbar_state(
+    lifecycle: &ConnectionLifecycleState,
+    feedback: &FeedbackState,
+    theme: DbProTheme,
+) -> (Icon, Color32, &'static str) {
+    if lifecycle.is_connected() && lifecycle.active_connection_id().is_some() {
+        return (Icon::CircleCheck, theme.success, "Connected");
     }
+    if feedback.runtime_message.starts_with("Connecting") {
+        return (Icon::Circle, theme.accent, "Connecting…");
+    }
+    if has_runtime_error(feedback) {
+        return (Icon::TriangleAlert, theme.danger, "Runtime error");
+    }
+    (Icon::Circle, theme.warning, "Not connected")
+}
 
-    pub(super) fn statusbar_context_label(&self) -> &'static str {
-        match self.active_tab {
-            WorkspaceTab::Welcome => "Workspace",
-            WorkspaceTab::Query => "SQL Editor",
-            WorkspaceTab::Table => match self.table_view {
-                TableView::Structure => "Table Structure",
-                TableView::Data => "Data Editor",
-                TableView::Profile => "Column Profile",
-                TableView::Indexes => "Table Indexes",
-                TableView::Relations => "Table Relations",
-                TableView::Constraints => "Table Constraints",
-                TableView::Dependencies => "Table Dependencies",
-                TableView::Ddl => "Table DDL",
-            },
-            WorkspaceTab::SchemaObject => "Schema Object",
-            WorkspaceTab::Diagram => "ER Diagram",
-            WorkspaceTab::SchemaWorkbench => "Schema Workbench",
-            WorkspaceTab::SchemaCompare => "Schema Compare",
-            WorkspaceTab::ComponentGallery => "Component Gallery",
-        }
-    }
+pub(super) fn shows_editor_status() -> bool {
+    // Query status strip owns Ln/Col — keep the shell statusbar free of duplicate chrome.
+    false
+}
 
-    pub(super) fn connection_indicator(&self, connection: &UiConnectionSummary) -> (Icon, Color32) {
-        let is_active = self.active_connection_id.as_deref() == Some(connection.id.as_str());
-        let is_connected = is_active && self.connected;
-        let is_failed = self.failed_connection_ids.contains(&connection.id);
-        let icon = if is_connected {
-            Icon::CircleCheck
-        } else if is_failed {
-            Icon::AlertCircle
-        } else {
-            Icon::Circle
-        };
-        let color = if is_connected && connection.readonly {
-            self.theme.warning
-        } else if is_connected {
-            self.theme.success
-        } else if is_failed {
-            self.theme.danger
-        } else if is_active {
-            self.theme.accent
-        } else {
-            self.theme.text_muted
-        };
-        (icon, color)
+pub(super) fn statusbar_context_label(workspace: &WorkspaceShellState, table_state: &TableState) -> &'static str {
+    match workspace.active_tab {
+        WorkspaceTab::Welcome => "Workspace",
+        WorkspaceTab::Query => "SQL Editor",
+        WorkspaceTab::Table => match table_state.table_view {
+            TableView::Structure => "Table Structure",
+            TableView::Data => "Data Editor",
+            TableView::Profile => "Column Profile",
+            TableView::Indexes => "Table Indexes",
+            TableView::Relations => "Table Relations",
+            TableView::Constraints => "Table Constraints",
+            TableView::Dependencies => "Table Dependencies",
+            TableView::Ddl => "Table DDL",
+        },
+        WorkspaceTab::SchemaObject => "Schema Object",
+        WorkspaceTab::Diagram => "ER Diagram",
+        WorkspaceTab::SchemaWorkbench => "Schema Workbench",
+        WorkspaceTab::SchemaCompare => "Schema Compare",
+        WorkspaceTab::ComponentGallery => "Component Gallery",
     }
+}
+
+pub(super) fn connection_indicator(
+    lifecycle: &ConnectionLifecycleState,
+    connection: &UiConnectionSummary,
+    theme: DbProTheme,
+) -> (Icon, Color32) {
+    let is_active = lifecycle.active_connection_id() == Some(connection.id.as_str());
+    let is_connected = is_active && lifecycle.is_connected();
+    let is_failed = lifecycle.has_failed_connection(&connection.id);
+    let icon = if is_connected {
+        Icon::CircleCheck
+    } else if is_failed {
+        Icon::AlertCircle
+    } else {
+        Icon::Circle
+    };
+    let color = if is_connected && connection.readonly {
+        theme.warning
+    } else if is_connected {
+        theme.success
+    } else if is_failed {
+        theme.danger
+    } else if is_active {
+        theme.accent
+    } else {
+        theme.text_muted
+    };
+    (icon, color)
 }

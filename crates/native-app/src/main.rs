@@ -1,21 +1,23 @@
 use std::error::Error;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{SyncSender, TrySendError};
 use std::thread;
 
 use db_pro_core::application::sql_builder::{FilterOp, SortClause, SortDir, TableFilter};
 use db_pro_core::domain::query::CellValue;
 use db_pro_runtime::{spawn_worker, DbProRuntime, RuntimeCommand, RuntimeEvent, RuntimeRequestId};
 use db_pro_ui::{
-    AgentMessage, AgentRole, DbProApp, DbProTheme, RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn,
-    UiCommand, UiConnectionDraft, UiConnectionSummary, UiDependencyDirection, UiDependencyKind, UiDriver, UiEvent,
-    UiFunctionSummary, UiQueryError, UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary,
-    UiSchemaColumn, UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableColumn,
-    UiTableDataFilter, UiTableDataSort, UiTableDependency, UiTableFilterOperator, UiTableForeignKey, UiTableIndex,
-    UiTableInfo, UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
+    DbProApp, DbProTheme, RequestId, TaskBridge, UiCell, UiCheckConstraint, UiColumn, UiCommand, UiConnectionDraft,
+    UiConnectionSummary, UiDependencyDirection, UiDependencyKind, UiDriver, UiEvent, UiFunctionSummary, UiQueryError,
+    UiQueryExecutionOutput, UiQueryFolderSummary, UiQueryResult, UiSavedQuerySummary, UiSchemaColumn,
+    UiSchemaForeignKey, UiSchemaSummary, UiSslMode, UiStatementOutput, UiTableColumn, UiTableDataFilter,
+    UiTableDataSort, UiTableDependency, UiTableFilterOperator, UiTableForeignKey, UiTableIndex, UiTableInfo,
+    UiTableMutation, UiTableSummary, UiTriggerSummary, UiViewSummary,
 };
 use eframe::egui;
 use tokio::runtime::Builder;
 
+#[cfg(feature = "capture")]
+mod capture;
 mod translate;
 #[cfg(test)]
 mod translate_tests;
@@ -286,13 +288,13 @@ async fn seed_default_connection(runtime: &DbProRuntime) {
 /// Forwards translated runtime events to the UI, stopping when the UI is gone.
 fn spawn_event_pump(
     mut runtime_rx: tokio::sync::mpsc::Receiver<RuntimeEvent>,
-    event_tx: Sender<UiEvent>,
+    event_tx: SyncSender<UiEvent>,
     event_handle: tokio::runtime::Handle,
 ) {
     event_handle.spawn(async move {
         while let Some(event) = runtime_rx.recv().await {
             if let Some(event) = translate_event(event) {
-                if event_tx.send(event).is_err() {
+                if !send_ui_event_with_backpressure(&event_tx, event).await {
                     break;
                 }
             }
@@ -300,31 +302,89 @@ fn spawn_event_pump(
     });
 }
 
+async fn send_ui_event_with_backpressure(event_tx: &SyncSender<UiEvent>, mut event: UiEvent) -> bool {
+    loop {
+        match event_tx.try_send(event) {
+            Ok(()) => return true,
+            Err(TrySendError::Disconnected(_)) => return false,
+            Err(TrySendError::Full(next_event)) => {
+                event = next_event;
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            }
+        }
+    }
+}
+
+/// Pins the initial window size from `DB_PRO_WINDOW_SIZE` (`1280x800`), instead of
+/// maximizing.
+///
+/// UI acceptance evidence has to be captured at exact viewports
+/// (`docs/10-egui-native-migration-plan.md`), and a maximized window renders at
+/// whatever the monitor happens to be. Unset or malformed means "maximize as usual",
+/// so this is inert for a normal launch.
+fn capture_window_size() -> Option<[f32; 2]> {
+    let raw = non_empty_env("DB_PRO_WINDOW_SIZE")?;
+    parse_window_size(&raw.to_string_lossy())
+}
+
+/// The parsing half of [`capture_window_size`], free of process-global state.
+fn parse_window_size(raw: &str) -> Option<[f32; 2]> {
+    let (width, height) = raw.split_once(['x', 'X'])?;
+    let width: f32 = width.trim().parse().ok()?;
+    let height: f32 = height.trim().parse().ok()?;
+    if width.is_finite() && height.is_finite() && width > 0.0 && height > 0.0 {
+        Some([width, height])
+    } else {
+        None
+    }
+}
+
 fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
+    let pinned_size = capture_window_size();
+    tracing::info!(?pinned_size, "capture: resolved window size override");
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_title("DB Pro")
+        .with_min_inner_size([1024.0, 640.0]);
+    viewport = match pinned_size {
+        Some(size) => viewport.with_inner_size(size),
+        None => viewport.with_maximized(true),
+    };
+
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title("DB Pro")
-            .with_maximized(true)
-            .with_min_inner_size([1024.0, 640.0]),
+        viewport,
         ..Default::default()
     };
 
     eframe::run_native(
         "DB Pro",
         options,
-        Box::new(|creation_context| {
-            // Re-apply the product default after eframe restores its persisted window frame.
-            creation_context
-                .egui_ctx
-                .send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+        Box::new(move |creation_context| {
+            // Re-apply the product default after eframe restores its persisted window
+            // frame — unless a capture run pinned an exact viewport.
+            if pinned_size.is_none() {
+                creation_context
+                    .egui_ctx
+                    .send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+            }
             DbProTheme::install_fonts(&creation_context.egui_ctx);
-            Ok(Box::new(DbProApp::with_task_bridge_and_storage(
-                bridge,
-                creation_context.storage,
-            )))
+            creation_context.egui_ctx.enable_accesskit();
+            let app = DbProApp::with_task_bridge_and_storage(bridge, creation_context.storage);
+            Ok(wrap_for_capture(app))
         }),
     )?;
     Ok(())
+}
+
+/// Wraps the app in the evidence capture driver when one was requested.
+#[cfg(feature = "capture")]
+fn wrap_for_capture(app: DbProApp) -> Box<dyn eframe::App> {
+    capture::CaptureApp::wrap(app)
+}
+
+/// Without the `capture` feature the app runs unwrapped.
+#[cfg(not(feature = "capture"))]
+fn wrap_for_capture(app: DbProApp) -> Box<dyn eframe::App> {
+    Box::new(app)
 }
 
 #[cfg(test)]
@@ -418,5 +478,37 @@ mod tests {
 
         assert!(password.is_empty());
         assert!(config.ssh_tunnel.is_none());
+    }
+
+    #[test]
+    fn window_size_override_parses_the_documented_gate_viewports() {
+        for (raw, expected) in [
+            ("1280x800", [1280.0, 800.0]),
+            ("1440x900", [1440.0, 900.0]),
+            ("1920x1080", [1920.0, 1080.0]),
+            ("1280X800", [1280.0, 800.0]),
+            (" 1280 x 800 ", [1280.0, 800.0]),
+        ] {
+            assert_eq!(parse_window_size(raw), Some(expected), "parsing {raw:?}");
+        }
+    }
+
+    /// A malformed override must fall back to the maximized default rather than
+    /// pinning a degenerate window (or panicking on the launch path).
+    #[test]
+    fn malformed_window_size_falls_back_to_maximized() {
+        for raw in [
+            "",
+            "1280",
+            "1280x",
+            "x800",
+            "0x800",
+            "1280x0",
+            "-5x800",
+            "widexhigh",
+            "1280x800x600",
+        ] {
+            assert_eq!(parse_window_size(raw), None, "expected {raw:?} to be rejected");
+        }
     }
 }

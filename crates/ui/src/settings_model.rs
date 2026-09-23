@@ -110,6 +110,8 @@ impl AppSettings {
 pub(crate) struct GeneralSettings {
     pub confirm_destructive_queries: bool,
     pub restore_tabs_on_startup: bool,
+    #[serde(default)]
+    pub language: crate::UiLanguage,
 }
 
 impl Default for GeneralSettings {
@@ -117,6 +119,7 @@ impl Default for GeneralSettings {
         Self {
             confirm_destructive_queries: true,
             restore_tabs_on_startup: true,
+            language: crate::UiLanguage::default(),
         }
     }
 }
@@ -147,7 +150,7 @@ impl Default for EditorSettings {
             tab_width: 2,
             format_on_save: false,
             completion_enabled: true,
-            prediction_mode: "eager".to_owned(),
+            prediction_mode: "off".to_owned(),
             lint: SqlLintSettings::default(),
         }
     }
@@ -330,6 +333,16 @@ pub(crate) fn default_keybinding_catalog() -> &'static [KeybindingCommand] {
             title: "Run Query",
             default_shortcut: "f5",
         },
+        KeybindingCommand {
+            id: "connection.new",
+            title: "New Connection",
+            default_shortcut: "mod+n",
+        },
+        KeybindingCommand {
+            id: "query.new",
+            title: "New Query",
+            default_shortcut: "mod+t",
+        },
     ]
 }
 
@@ -433,6 +446,8 @@ fn parse_key_name(name: &str) -> Option<egui::Key> {
         "y" => egui::Key::Y,
         "z" => egui::Key::Z,
         "f5" => egui::Key::F5,
+        "f4" => egui::Key::F4,
+        "delete" | "del" => egui::Key::Delete,
         "enter" | "return" => egui::Key::Enter,
         "escape" | "esc" => egui::Key::Escape,
         _ => return None,
@@ -461,6 +476,13 @@ mod tests {
         assert_eq!(migrated.version, SETTINGS_VERSION);
         assert_eq!(migrated.editor.font_size, 24.0);
         assert_eq!(migrated.data_grid.page_size, 25);
+    }
+
+    #[test]
+    fn keybinding_catalog_includes_new_connection_and_query() {
+        let kb = KeybindingSettings::default();
+        assert_eq!(kb.resolved("connection.new"), "mod+n");
+        assert_eq!(kb.resolved("query.new"), "mod+t");
     }
 
     #[test]

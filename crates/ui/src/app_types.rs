@@ -244,6 +244,28 @@ pub(crate) const GRID_ROW_NUMBER_WIDTH: f32 = 48.0;
 pub use crate::diagram::{ErGraph, ErSpatialIndex};
 
 pub(crate) const EXPLORER_MAX_TABLES: usize = 100;
+/// Row height used by the Codex navigator for viewport culling.
+pub(crate) const EXPLORER_ROW_HEIGHT: f32 = 26.0;
+
+/// Schemas the explorer should show. Hides PostgreSQL catalog / session-temp
+/// namespaces (`pg_temp_*`, `pg_toast_temp_*`) even if a provider still returns them.
+pub(crate) fn is_user_visible_schema(name: &str) -> bool {
+    !matches!(name, "pg_catalog" | "information_schema" | "pg_toast")
+        && !name.starts_with("pg_temp")
+        && !name.starts_with("pg_toast_temp")
+}
+
+/// Cached explorer table listing for one `(connection, schema, search)` key.
+/// Rebuilt only when the key changes — avoids reallocating 1k+ name strings every frame.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ExplorerNavCache {
+    pub connection_id: String,
+    pub schema: String,
+    pub search: String,
+    pub total_count: usize,
+    pub matching_count: usize,
+    pub visible: Vec<String>,
+}
 
 pub(crate) fn matches_diagram_search(table: &UiTableSummary, query: &str) -> bool {
     table.name.to_ascii_lowercase().contains(query)
@@ -317,6 +339,8 @@ pub(crate) struct ColumnProfile {
     pub distinct_rate: f64,
     pub min: Option<String>,
     pub max: Option<String>,
+    pub avg: Option<f64>,
+    pub sum: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

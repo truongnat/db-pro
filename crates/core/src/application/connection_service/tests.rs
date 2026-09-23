@@ -467,6 +467,29 @@ async fn delete_active_disconnects_first() {
 }
 
 #[tokio::test]
+async fn delete_continues_when_secret_retrieve_fails() {
+    let id = ConnectionId::new();
+    let conn = Connection::new(test_config()).with_secret_ref("key".into());
+
+    let mut repo = MockConnectionRepository::new();
+    repo.expect_get().returning(move |_| Ok(Some(conn.clone())));
+    repo.expect_delete().returning(|_| Ok(()));
+
+    let mut secrets = MockSecretStore::new();
+    secrets.expect_retrieve_secret().returning(|_| {
+        Err(DbError::Internal(
+            "keyring entry creation failed: Attribute service name is empty".into(),
+        ))
+    });
+    secrets.expect_delete_secret().returning(|_| Ok(()));
+
+    let svc = build_service(MockDbConnector::new(), repo, secrets);
+    svc.delete(&id)
+        .await
+        .expect("delete must succeed even when the secret store cannot be read");
+}
+
+#[tokio::test]
 async fn delete_repo_failure_restores_secret() {
     let id = ConnectionId::new();
     let conn = Connection::new(test_config()).with_secret_ref("key".into());

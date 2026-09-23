@@ -1,15 +1,23 @@
+#[macro_use]
+extern crate rust_i18n;
+
+i18n!("locales", fallback = "en");
+
 mod agent;
 mod app;
 mod chart_view;
 pub mod components;
 pub mod diagram;
 pub mod editor;
+pub mod i18n;
 mod policy;
 pub mod query;
 mod result_grid;
 mod runtime;
 mod theme;
 pub mod tokens;
+
+pub use i18n::UiLanguage;
 
 pub use agent::{
     respond as respond_to_agent, AgentContext, AgentMessage, AgentProvider, AgentProviderError, AgentProviderInfo,
