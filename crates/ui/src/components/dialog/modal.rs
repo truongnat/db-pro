@@ -83,8 +83,20 @@ impl<'a> Dialog<'a> {
             return None;
         }
 
-        if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
-            *self.open = false;
+        // Modal coordination (ui-core-audit P0-1/P0-3/P0-4): only the topmost dialog
+        // reacts to Esc and the backdrop, and owns the keyboard focus trap, so stacked
+        // dialogs never all close on one Esc and Tab can never escape the active dialog.
+        let is_topmost = super::modal_guard::register(ctx, id);
+        let card_layer = egui::LayerId::new(Order::Foreground, id.with("card"));
+        let anchor_id = id.with("focus_anchor");
+
+        if is_topmost {
+            if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+                *self.open = false;
+            }
+            // Run before the card content is drawn so an explicit request_focus inside
+            // the content (e.g. the first text field) later this pass wins over the anchor.
+            super::modal_guard::trap_focus(ctx, card_layer, anchor_id);
         }
 
         let screen = screen_rect_fallback(ctx);
@@ -134,7 +146,6 @@ impl<'a> Dialog<'a> {
         // 2. Dialog card — same Foreground family, pinned as a sublayer of the
         // dim so it always paints/hits directly above the overlay (never under it).
         let mut card_rect = None;
-        let card_layer = egui::LayerId::new(Order::Foreground, id.with("card"));
         Area::new(id.with("card"))
             .order(Order::Foreground)
             .fixed_pos(origin)
@@ -151,6 +162,7 @@ impl<'a> Dialog<'a> {
                         width: layout.width,
                         max_body_height: layout.max_body_height,
                         theme,
+                        anchor_id,
                     },
                     card_ui,
                     add_frame,
@@ -169,7 +181,7 @@ impl<'a> Dialog<'a> {
             m.areas_mut().move_to_top(card_layer);
         });
 
-        if backdrop_clicked {
+        if is_topmost && backdrop_clicked {
             if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
                 if !card_rect.is_some_and(|r| r.contains(pos)) {
                     *open = false;
@@ -190,6 +202,7 @@ struct DialogCardPaint<'a> {
     width: f32,
     max_body_height: f32,
     theme: DbProTheme,
+    anchor_id: Id,
 }
 
 fn paint_dialog_card<R>(
@@ -204,6 +217,7 @@ fn paint_dialog_card<R>(
         width,
         max_body_height,
         theme,
+        anchor_id,
     } = card;
     Frame {
         fill: theme.surface_floating,
@@ -214,6 +228,15 @@ fn paint_dialog_card<R>(
         ..Default::default()
     }
     .show(ui, |ui| {
+        // Hidden focus anchor: the first focusable widget in the dialog's own layer,
+        // so `modal_guard::trap_focus` always has an in-dialog target to fall back to
+        // when keyboard focus tries to escape to the window behind the dialog.
+        ui.interact(
+            egui::Rect::from_min_size(ui.cursor().min, egui::Vec2::ZERO),
+            anchor_id,
+            egui::Sense::focusable_noninteractive(),
+        );
+
         let inner_w = (width - 48.0).max(80.0);
         ui.set_width(inner_w);
         ui.set_max_width(inner_w);
