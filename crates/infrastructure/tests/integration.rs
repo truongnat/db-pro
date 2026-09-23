@@ -699,6 +699,24 @@ async fn introspect_views() {
     let view_names: Vec<&str> = result.views.iter().map(|v| v.name.as_str()).collect();
     assert!(view_names.contains(&"active_users"));
     assert!(view_names.contains(&"order_summary"));
+
+    let active_user_cols: Vec<_> = result
+        .columns
+        .iter()
+        .filter(|c| c.table_name == "active_users")
+        .collect();
+    assert_eq!(active_user_cols.len(), 3);
+    let active_user_col_names: Vec<&str> = active_user_cols.iter().map(|c| c.name.as_str()).collect();
+    assert!(active_user_col_names.contains(&"id"));
+    assert!(active_user_col_names.contains(&"émâil"));
+    assert!(active_user_col_names.contains(&"name"));
+
+    let order_summary_cols: Vec<_> = result
+        .columns
+        .iter()
+        .filter(|c| c.table_name == "order_summary")
+        .collect();
+    assert_eq!(order_summary_cols.len(), 4);
 }
 
 #[tokio::test]

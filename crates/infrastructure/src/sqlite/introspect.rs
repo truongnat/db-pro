@@ -13,8 +13,13 @@ fn escape_identifier(name: &str) -> String {
 
 pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult, DbError> {
     let table_names = fetch_table_names(conn)?;
+    let views = introspect_views(conn)?;
+
+    let mut object_names = table_names.clone();
+    object_names.extend(views.iter().map(|v| v.name.clone()));
+
     let tables = introspect_tables(conn, &table_names)?;
-    let mut columns = introspect_columns(conn, &table_names)?;
+    let mut columns = introspect_columns(conn, &object_names)?;
     let indexes = introspect_indexes(conn, &table_names)?;
     for index in indexes
         .iter()
@@ -31,7 +36,6 @@ pub fn run_introspection(conn: &rusqlite::Connection) -> Result<IntrospectResult
     }
     let foreign_keys = introspect_foreign_keys(conn, &table_names)?;
     let check_constraints = introspect_check_constraints(conn, &table_names)?;
-    let views = introspect_views(conn)?;
     let triggers = introspect_triggers(conn)?;
 
     // Derive primary keys from already-fetched columns (no extra PRAGMA calls)
@@ -844,5 +848,28 @@ mod tests {
         let (timing, event) = parse_sqlite_trigger_sql(sql);
         assert_eq!(timing, "AFTER");
         assert_eq!(event, "DELETE");
+    }
+
+    #[test]
+    fn introspection_populates_columns_for_sqlite_views() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, active INTEGER);\
+             CREATE VIEW active_users AS SELECT id, email FROM users WHERE active = 1;",
+        )
+        .unwrap();
+
+        let result = run_introspection(&conn).unwrap();
+        assert_eq!(result.views.len(), 1);
+        assert_eq!(result.views[0].name, "active_users");
+
+        let view_cols: Vec<_> = result
+            .columns
+            .iter()
+            .filter(|c| c.table_name == "active_users")
+            .collect();
+        assert_eq!(view_cols.len(), 2);
+        assert_eq!(view_cols[0].name, "id");
+        assert_eq!(view_cols[1].name, "email");
     }
 }
