@@ -1,0 +1,5 @@
+{
+  "name": "DB Pro (Rust egui desktop)",
+  "user": "ubuntu",
+  "install": "bash ./.cursor/install.sh"
+}
