@@ -5,7 +5,12 @@
 //! state, leaving pane rendering at the explicit root boundary.
 use super::*;
 
-const RESIZE_GRIP_HEIGHT: f32 = 4.0;
+/// Interactive grab band for the dock resize divider. A 4px band was too narrow to
+/// grab reliably (desktop HIG suggests ~8-10px); the visible line stays thin so the
+/// affordance is easy to hit without a heavy visual bar.
+const RESIZE_GRIP_HIT_HEIGHT: f32 = 8.0;
+/// Thickness of the visible divider line centered inside the grab band.
+const RESIZE_GRIP_LINE_THICKNESS: f32 = 2.0;
 
 /// Height reserved for the output tab strip. An unconstrained `right_to_left`
 /// tab row expands to fill the dock's whole available height, so the strip must
@@ -53,18 +58,21 @@ impl QueryOutputDockContext<'_> {
 
     fn draw_resize_grip(&mut self, ui: &mut egui::Ui) {
         let (grip_rect, grip_response) = ui.allocate_exact_size(
-            egui::vec2(ui.available_width(), RESIZE_GRIP_HEIGHT),
+            egui::vec2(ui.available_width(), RESIZE_GRIP_HIT_HEIGHT),
             egui::Sense::drag(),
         );
-        ui.painter().rect_filled(
-            grip_rect,
-            0.0,
-            if grip_response.hovered() || grip_response.dragged() {
-                self.theme.border_strong
-            } else {
-                self.theme.border_subtle
-            },
+        let color = if grip_response.hovered() || grip_response.dragged() {
+            self.theme.border_strong
+        } else {
+            self.theme.border_subtle
+        };
+        // Paint a thin line centered in the taller grab band so the divider stays visually
+        // subtle while remaining easy to grab.
+        let line_rect = egui::Rect::from_center_size(
+            grip_rect.center(),
+            egui::vec2(grip_rect.width(), RESIZE_GRIP_LINE_THICKNESS),
         );
+        ui.painter().rect_filled(line_rect, 0.0, color);
         if grip_response.dragged() {
             let next_height = self.workspace.bottom_panel_height - grip_response.drag_delta().y;
             self.workspace.set_bottom_panel_height(next_height);
