@@ -32,11 +32,17 @@
 | Open **P0** (tracked) | 4 — all in `ui-core-audit` |
 | Open **P1** (tracked) | ~11 (see §5) |
 
+> **Correction (2026-09-23).** This audit derived state largely from each plan's `*.md` docs, which
+> can lag the actual code. Follow-up work found several items already implemented in `main`:
+> `ui-core-audit` P0s (fixed in #307), the blank query-results grid (#308), the resize hit targets
+> (#309, P2-18), and `sqlserver-transaction-begin-index` (already fixed in `61e97658`, now moved to
+> `completed/`). Treat per-row states below as "as of the plan docs"; verify against code before acting.
+
 **Headline findings**
 
-1. **`ui-core-audit` is the only active feature with open P0s** (4) plus 5 P1s — native modal
-   focus/backdrop/Esc/z-order defects, and its plan notes the verification build failed. Highest
-   priority.
+1. ~~**`ui-core-audit` is the only active feature with open P0s**~~ **[RESOLVED 2026-09-23, #307]** the
+   modal focus-trap / backdrop / Esc / z-order P0s are fixed; the "build failed" note was an artifact
+   of the CLI audit box, not the code. `ui-core-audit`'s remaining work is P1-5 accessibility.
 2. **Systemic gap: native UI runtime evidence is `PENDING` for every UI-facing active feature.**
    Prior sessions could not reach the GUI. **This is now unblocked** — in this environment the native
    `db-pro-native` binary builds and runs, and an end-to-end SQLite flow was demonstrated
@@ -96,7 +102,7 @@ All five are legitimately `COMPLETED` (no `RUNTIME_VERIFY` plan is parked under 
 | schema-regression (S7) | RUNTIME_VERIFY | 0 | 0 | 0 | NOT VERIFIED | PASS | PENDING | S1–S6 regression matrix; PG tests `#[ignore]`d (EVIDENCE_GAP); UI traversal unverified. |
 | sqlite-view-column-introspection | RUNTIME_VERIFY | 0 | 0 | 0 | N/A | AUTOMATED-ONLY | PENDING | SQLite view column introspection parity with PG; tests pass, UI runtime pending. |
 | sqlserver-provider | RUNTIME_VERIFY | 0 | 1 | 0 | N/A | N/A | PENDING | SQL Server provider adapter; automated PASS, live SQL Server fixture + UI evidence blocked. |
-| sqlserver-transaction-begin-index | PLANNING (inferred) | 0 | 1 | 0 | N/A | N/A | N/A | Report `statement_index 0` on SQL Server Begin/Validation failure; not yet implemented. |
+| sqlserver-transaction-begin-index | COMPLETED | 0 | 0 | 0 | AUTOMATED-ONLY | N/A | N/A | Report `statement_index 0` on SQL Server Begin/Validation failure. **[CORRECTED 2026-09-23]** already implemented in `61e97658` with 3 passing unit tests (audit had read the stale plan doc); moved to `completed/`. |
 | table-data-editor-hardening | RUNTIME_VERIFY | 0 | 0 | 0 | AUTOMATED-ONLY | PASS | PENDING | Staged mutation identity/ChangeSet/3-way conflict; SQLite verified, live PG + UI interaction pending. |
 | table-data-mutation-index-mapping | REVIEW (inferred) | 0 | 0 | 0 | AUTOMATED-ONLY | AUTOMATED-ONLY | N/A | Remap mutation-failure index to original order; core unit-tested, PR published, no runtime evidence. |
 | secret-fallback-coverage | REVIEW | 0 | 0 | 0 | N/A | N/A | N/A | Deterministic Argon2/AES-GCM + encrypted-fallback tests; provider/UI runtime not applicable. |
@@ -197,7 +203,7 @@ move out of `active/`:
 | P1 ×2 | native-core-architecture | Feature-state migration correctness items; 1920×1080 capture unstable. |
 | P1 | saved-query-rename | Delete-then-save rename data-loss class (targets archived frontend — verify against native path). |
 | P1 | sqlserver-provider | Live SQL Server fixture + UI evidence blocked (no server provisioned). |
-| P1 | sqlserver-transaction-begin-index | `statement_index 0` on Begin/Validation failure — not yet implemented. |
+| ~~P1~~ RESOLVED | sqlserver-transaction-begin-index | `statement_index 0` on Begin/Validation failure — **[CORRECTED 2026-09-23]** already implemented (`61e97658`) and regression-tested; not an open finding. |
 | P1 | table-details-workspace | Live PG + multi-resolution runtime evidence outstanding. |
 
 **Newly observed this session (not yet in any plan — recommend filing):**

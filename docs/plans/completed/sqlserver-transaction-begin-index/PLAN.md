@@ -2,6 +2,7 @@
 
 ## Baseline
 
+- State: COMPLETED (implemented in `61e97658`, verified on HEAD `aaa7a69e`, 2026-09-23)
 - Target branch: `fix/sqlserver-transaction-begin-index`
 - Severity: P1 / P2 (Transaction failure reporting contract mismatch)
 - Canonical Lifecycle: `PLANNING → IMPLEMENTING → REVIEW → RUNTIME_VERIFY → COMPLETED`
