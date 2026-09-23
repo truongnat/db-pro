@@ -36,12 +36,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # egui/eframe (crates/ui, crates/native-app) needs the GL/X11/Wayland development headers.
+      # egui/eframe (crates/ui, crates/native-app) needs GL/X11/Wayland headers,
+      # and libdbus-1-dev/pkg-config for keyring/dbus-secret-service compilation in tests.
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev
+            libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev \
+            libdbus-1-dev pkg-config ripgrep
 
       - name: Rust toolchain
         uses: dtolnay/rust-toolchain@stable
