@@ -99,10 +99,11 @@ impl<'a> GridHeaderViewContext<'a> {
                         .any(|fk| fk.from_columns.iter().any(|col| col == &column.name))
                 });
 
-                // Resize divider on the right edge (4px grab target)
+                // Resize divider on the right edge (8px grab target — a 6px band was
+                // too narrow to grab reliably per the ui-core-audit layout review).
                 let divider_rect = Rect::from_min_max(
-                    Pos2::new(col_rect.right() - 3.0, col_rect.top()),
-                    Pos2::new(col_rect.right() + 3.0, col_rect.bottom()),
+                    Pos2::new(col_rect.right() - 4.0, col_rect.top()),
+                    Pos2::new(col_rect.right() + 4.0, col_rect.bottom()),
                 );
                 let divider_id = ui.id().with(("grid_col_resize", col_idx));
                 let divider = ui.interact(divider_rect, divider_id, Sense::drag());
