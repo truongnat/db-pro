@@ -2,6 +2,7 @@ pub mod config;
 pub mod frame;
 pub mod layout;
 pub mod modal;
+pub(crate) mod modal_guard;
 pub mod sheet;
 
 #[cfg(test)]
