@@ -352,3 +352,13 @@ fn password_eye_toggles_when_clicked() {
          click, the eye never fires and the password stays masked"
     );
 }
+
+#[test]
+fn input_margin_and_rounding_tokens_match_theme_tokens() {
+    use super::config::{FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_ROUNDING};
+    use crate::tokens::{RADIUS_SM, SPACE_SM, SPACE_XS};
+
+    assert_eq!(FIELD_INNER_MARGIN_X, SPACE_SM);
+    assert_eq!(FIELD_INNER_MARGIN_Y, SPACE_XS);
+    assert_eq!(INPUT_ROUNDING, RADIUS_SM);
+}

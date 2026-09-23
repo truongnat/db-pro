@@ -105,6 +105,25 @@ impl WelcomeSurfaceContext<'_> {
 
     fn draw_identity(&self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
+            let (icon_rect, _) = ui.allocate_exact_size(Vec2::new(42.0, 42.0), Sense::hover());
+            ui.painter().rect_filled(
+                icon_rect,
+                egui::Rounding::same(RADIUS_MD),
+                self.theme.surface_elevated,
+            );
+            ui.painter().rect_stroke(
+                icon_rect,
+                egui::Rounding::same(RADIUS_MD),
+                egui::Stroke::new(1.0, self.theme.border_subtle),
+            );
+            ui.painter().text(
+                icon_rect.center(),
+                egui::Align2::CENTER_CENTER,
+                char::from(Icon::Database).to_string(),
+                font_icon(ICON_LG),
+                self.theme.accent,
+            );
+            ui.add_space(SPACE_MD);
             ui.vertical(|ui| {
                 ui.label(
                     RichText::new("DB Pro")
@@ -112,7 +131,7 @@ impl WelcomeSurfaceContext<'_> {
                         .strong()
                         .color(self.theme.text_primary),
                 );
-                ui.add_space(SPACE_XS);
+                ui.add_space(SPACE_XXS);
                 let subtitle = if let Some(active) = self.active_connection() {
                     format!("Connected · {}", active.name)
                 } else if self.catalog.is_empty() {
@@ -126,7 +145,7 @@ impl WelcomeSurfaceContext<'_> {
                         .color(self.theme.text_secondary),
                 );
             });
-            ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing = Vec2::new(SPACE_XS, 0.0);
                     ui.label(
@@ -233,10 +252,16 @@ impl WelcomeSurfaceContext<'_> {
             ui.painter()
                 .rect_filled(rect, egui::Rounding::same(RADIUS_SM), self.theme.surface_hover);
         }
+        if row.primary {
+            let bar_rect = egui::Rect::from_min_max(
+                egui::pos2(rect.left(), rect.top() + 6.0),
+                egui::pos2(rect.left() + 3.0, rect.bottom() - 6.0),
+            );
+            ui.painter().rect_filled(bar_rect, egui::Rounding::same(1.5), self.theme.accent);
+        }
         if focused {
             paint_focus_ring(ui, rect, RADIUS_SM, self.theme);
         }
-
         let icon_color = if row.primary {
             self.theme.accent
         } else if hovered || focused {
@@ -327,10 +352,14 @@ impl WelcomeSurfaceContext<'_> {
 
             for connection in self.catalog.iter().take(CONNECTION_ROW_LIMIT) {
                 let is_active = self.active_connection_id == Some(connection.id.as_str());
-                let meta = format!(
-                    "{} · {}:{}/{}",
-                    connection.driver, connection.host, connection.port, connection.database
-                );
+                let meta = if connection.driver.eq_ignore_ascii_case("sqlite") {
+                    format!("SQLite · {}", connection.database)
+                } else {
+                    format!(
+                        "{} · {}:{}/{}",
+                        connection.driver, connection.host, connection.port, connection.database
+                    )
+                };
                 if self.connection_row(
                     ui,
                     WelcomeConnectionRow {

@@ -2,9 +2,10 @@ use egui::{FontFamily, FontId, Frame, Id, Margin, Response, RichText, Rounding, 
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
-use super::config::INPUT_ROUNDING;
+use super::config::{FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_ROUNDING};
 use super::layout::{paint_field_chrome, resolve_field_width};
 use crate::components::interact::{button_info, text_input_info};
+use crate::tokens::{LABEL_HELPER_GAP, SPACE_XS};
 use crate::DbProTheme;
 
 pub struct Input<'a> {
@@ -98,7 +99,7 @@ impl<'a> Input<'a> {
                         .strong()
                         .color(self.theme.text_secondary),
                 );
-                ui.add_space(3.0);
+                ui.add_space(LABEL_HELPER_GAP);
             }
 
             let has_error = self.error_text.is_some();
@@ -115,12 +116,12 @@ impl<'a> Input<'a> {
                 } else {
                     Stroke::NONE
                 },
-                inner_margin: Margin::symmetric(8.0, 4.0),
+                inner_margin: Margin::symmetric(FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y),
                 rounding: Rounding::same(INPUT_ROUNDING),
                 ..Default::default()
             };
 
-            let frame_w = (width - 16.0).max(60.0);
+            let frame_w = (width - FIELD_INNER_MARGIN_X * 2.0).max(60.0);
             let frame_output = frame.show(ui, |ui| {
                 ui.set_width(frame_w);
                 ui.set_max_width(frame_w);
@@ -135,7 +136,7 @@ impl<'a> Input<'a> {
                                     self.theme.border_subtle
                                 }),
                         );
-                        ui.add_space(4.0);
+                        ui.add_space(SPACE_XS);
                     }
 
                     let has_text = !self.value.is_empty();

@@ -116,7 +116,11 @@ impl TableRelationsContext<'_> {
             0 => {
                 ui.horizontal(|ui| {
                     ui.label(icon_text(Icon::ArrowRightLeft, "", self.theme.accent));
-                    ui.label(RichText::new(&relation.name).strong().color(self.theme.text_primary));
+                    let display_name = crate::components::truncate_ellipsis(&relation.name, 26);
+                    let resp = ui.label(RichText::new(&display_name).strong().color(self.theme.text_primary));
+                    if relation.name.chars().count() > 26 {
+                        resp.on_hover_text(&relation.name);
+                    }
                 });
             }
             1 => {
@@ -127,11 +131,16 @@ impl TableRelationsContext<'_> {
                 );
             }
             2 => {
-                ui.label(
-                    RichText::new(format!("{}.{}", relation.to_schema, relation.to_table))
+                let target = format!("{}.{}", relation.to_schema, relation.to_table);
+                let display_target = crate::components::truncate_ellipsis(&target, 24);
+                let resp = ui.label(
+                    RichText::new(&display_target)
                         .strong()
                         .color(self.theme.text_primary),
                 );
+                if target.chars().count() > 24 {
+                    resp.on_hover_text(&target);
+                }
             }
             3 => {
                 ui.label(

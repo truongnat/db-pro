@@ -304,6 +304,133 @@ impl DbProApp {
         self.theme = DbProTheme::light();
     }
 
+    /// Capture helper: open the Table workspace with data grid populated.
+    pub fn open_table_workspace_for_capture(&mut self) {
+        self.preferences.dark_mode = true;
+        self.theme = DbProTheme::dark();
+        self.workspace.activity = Activity::Explorer;
+        self.workspace.active_tab = WorkspaceTab::Table;
+        self.schema.explorer.selected_table = Some("users".to_owned());
+        self.table.state.table_view = TableView::Data;
+        self.table.state.table_info = Some(crate::UiTableInfo {
+            schema: "public".to_owned(),
+            name: "users".to_owned(),
+            row_count: Some(3),
+            columns: vec![
+                crate::UiTableColumn {
+                    name: "id".to_owned(),
+                    data_type: "uuid".to_owned(),
+                    nullable: false,
+                    is_primary_key: true,
+                    is_unique: true,
+                    is_identity: false,
+                    is_generated: false,
+                    ordinal: 1,
+                    default: None,
+                    collation: None,
+                },
+                crate::UiTableColumn {
+                    name: "email".to_owned(),
+                    data_type: "text".to_owned(),
+                    nullable: false,
+                    is_primary_key: false,
+                    is_unique: true,
+                    is_identity: false,
+                    is_generated: false,
+                    ordinal: 2,
+                    default: None,
+                    collation: None,
+                },
+                crate::UiTableColumn {
+                    name: "active".to_owned(),
+                    data_type: "boolean".to_owned(),
+                    nullable: false,
+                    is_primary_key: false,
+                    is_unique: false,
+                    is_identity: false,
+                    is_generated: false,
+                    ordinal: 3,
+                    default: Some("true".to_owned()),
+                    collation: None,
+                },
+            ],
+            primary_key: Some(vec!["id".to_owned()]),
+            indexes: vec![crate::UiTableIndex {
+                name: "idx_users_email".to_owned(),
+                columns: vec!["email".to_owned()],
+                unique: true,
+                primary: false,
+                method: "btree".to_owned(),
+                definition: "CREATE UNIQUE INDEX idx_users_email ON users(email)".to_owned(),
+                predicate: None,
+                include_columns: Vec::new(),
+            }],
+            foreign_keys: Vec::new(),
+            check_constraints: Vec::new(),
+            dependencies: Vec::new(),
+        });
+        self.table.data_query.result = Some(crate::UiQueryResult {
+            columns: vec![
+                crate::UiColumn {
+                    name: "id".to_owned(),
+                    data_type: "uuid".to_owned(),
+                    nullable: false,
+                },
+                crate::UiColumn {
+                    name: "email".to_owned(),
+                    data_type: "text".to_owned(),
+                    nullable: false,
+                },
+                crate::UiColumn {
+                    name: "active".to_owned(),
+                    data_type: "boolean".to_owned(),
+                    nullable: false,
+                },
+            ],
+            rows: vec![
+                vec![
+                    crate::UiCell::Text("a1b2c3d4-e5f6-7890-1234-56789abcdef0".to_owned()),
+                    crate::UiCell::Text("alice@example.com".to_owned()),
+                    crate::UiCell::Boolean(true),
+                ],
+                vec![
+                    crate::UiCell::Text("b2c3d4e5-f6a7-8901-2345-6789abcdef01".to_owned()),
+                    crate::UiCell::Text("bob@example.com".to_owned()),
+                    crate::UiCell::Boolean(true),
+                ],
+                vec![
+                    crate::UiCell::Text("c3d4e5f6-a7b8-9012-3456-789abcdef012".to_owned()),
+                    crate::UiCell::Text("charlie@example.com".to_owned()),
+                    crate::UiCell::Boolean(false),
+                ],
+            ],
+            row_count: 3,
+            duration_ms: 1,
+        });
+    }
+
+    /// Capture helper: open the Diagram / ER canvas.
+    pub fn open_diagram_workspace_for_capture(&mut self) {
+        self.preferences.dark_mode = true;
+        self.theme = DbProTheme::dark();
+        self.workspace.activity = Activity::Diagram;
+        self.workspace.active_tab = WorkspaceTab::Diagram;
+    }
+
+    /// Capture helper: open the Settings panel.
+    pub fn open_settings_workspace_for_capture(&mut self) {
+        self.preferences.dark_mode = true;
+        self.theme = DbProTheme::dark();
+        self.workspace.activity = Activity::Settings;
+    }
+
+    /// Capture helper: open the Agent sidebar panel.
+    pub fn open_agent_workspace_for_capture(&mut self) {
+        self.preferences.dark_mode = true;
+        self.theme = DbProTheme::dark();
+        self.workspace.agent_open = true;
+    }
+
     pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
         match tab {
             WorkspaceTab::Table => {

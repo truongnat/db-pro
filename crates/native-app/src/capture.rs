@@ -47,6 +47,18 @@ const QUERY_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_QUERY";
 /// When set with [`QUERY_WORKSPACE_ENV`], force light theme for the Query capture.
 const QUERY_LIGHT_ENV: &str = "DB_PRO_CAPTURE_QUERY_LIGHT";
 
+/// When set, switch to the Table workspace before capturing (data grid / structure shots).
+const TABLE_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_TABLE";
+
+/// When set, switch to the ER Diagram canvas before capturing.
+const DIAGRAM_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_DIAGRAM";
+
+/// When set, switch to the Settings activity before capturing.
+const SETTINGS_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_SETTINGS";
+
+/// When set, open the Agent workspace panel before capturing.
+const AGENT_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_AGENT";
+
 /// Environment variable pinning the viewport size for evidence runs (the same key
 /// `main.rs` reads for the initial window). The capture driver re-asserts it each
 /// frame so the window cannot maximize itself away from the requested size.
@@ -181,6 +193,18 @@ impl CaptureApp {
             } else {
                 self.inner.open_query_workspace_for_capture();
             }
+            self.opened_dialog = true;
+        } else if std::env::var_os(TABLE_WORKSPACE_ENV).is_some() {
+            self.inner.open_table_workspace_for_capture();
+            self.opened_dialog = true;
+        } else if std::env::var_os(DIAGRAM_WORKSPACE_ENV).is_some() {
+            self.inner.open_diagram_workspace_for_capture();
+            self.opened_dialog = true;
+        } else if std::env::var_os(SETTINGS_WORKSPACE_ENV).is_some() {
+            self.inner.open_settings_workspace_for_capture();
+            self.opened_dialog = true;
+        } else if std::env::var_os(AGENT_WORKSPACE_ENV).is_some() {
+            self.inner.open_agent_workspace_for_capture();
             self.opened_dialog = true;
         }
     }

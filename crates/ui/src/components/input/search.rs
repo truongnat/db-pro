@@ -1,16 +1,13 @@
 use egui::{Align, Button, Frame, Layout, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
 use lucide_icons::Icon;
 
-use super::config::INPUT_ROUNDING;
+use super::config::{FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_ROUNDING};
 use super::layout::{paint_field_chrome, resolve_field_width};
+use crate::tokens::SPACE_XS;
 use crate::DbProTheme;
 
-/// Frame padding. The frame's outer width is `inner + 2 * FIELD_INNER_MARGIN_X`, so the
-/// field's `width()` request is honoured only if the content is capped, not just floored.
-const FIELD_INNER_MARGIN_X: f32 = 8.0;
-const FIELD_INNER_MARGIN_Y: f32 = 5.0;
 /// Gap between the leading icon and the text field.
-const ICON_GAP: f32 = 4.0;
+const ICON_GAP: f32 = SPACE_XS;
 
 pub struct SearchInput<'a> {
     value: &'a mut String,

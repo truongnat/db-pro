@@ -1,3 +1,4 @@
+use crate::tokens::{SPACE_MD, SPACE_SM, SPACE_XXS};
 use crate::DbProTheme;
 use egui::{FontFamily, FontId, Frame, Margin, Pos2, RichText, Rounding, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
@@ -50,11 +51,11 @@ pub fn card_header<'a>(
                 .color(theme.text_primary),
         );
         if let Some(desc) = description {
-            ui.add_space(2.0);
+            ui.add_space(SPACE_XXS);
             ui.label(RichText::new(desc.as_ref()).size(12.0).color(theme.text_secondary));
         }
     });
-    ui.add_space(10.0);
+    ui.add_space(SPACE_SM);
 }
 
 pub fn card_content<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
@@ -62,7 +63,7 @@ pub fn card_content<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> 
 }
 
 pub fn card_footer<R>(ui: &mut Ui, theme: DbProTheme, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
-    ui.add_space(12.0);
+    ui.add_space(SPACE_MD);
     let avail_w = ui.available_width();
     let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(avail_w, 1.0), egui::Sense::hover());
     ui.painter().line_segment(
@@ -72,7 +73,7 @@ pub fn card_footer<R>(ui: &mut Ui, theme: DbProTheme, add_contents: impl FnOnce(
         ],
         Stroke::new(1.0, theme.border_subtle),
     );
-    ui.add_space(10.0);
+    ui.add_space(SPACE_SM);
 
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| add_contents(ui))

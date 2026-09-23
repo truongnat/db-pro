@@ -22,16 +22,16 @@
 
 | Metric | Value |
 |---|---|
-| Features tracked | 62 (57 active + 5 completed) |
-| Completed | 5 |
+| Features tracked | 62 (36 active + 15 completed + 11 archived) |
+| Completed (`docs/plans/completed/`) | 15 |
+| Archived / Obsolete (`docs/plans/archived/`) | 11 |
 | Active — `RUNTIME_VERIFY` | 32 |
-| Active — `IMPLEMENTING` | 13 |
-| Active — `REVIEW` | 9 |
-| Active — `PLANNING` | 3 |
+| Active — `IMPLEMENTING` | 2 |
+| Active — `REVIEW` | 2 |
+| Active — `PLANNING` | 2 |
 | Active — `BLOCKED` | 0 (2 have live-provider blockers noted in-row: `sqlserver-provider`, SSH suite) |
-| Open **P0** (tracked) | 4 — all in `ui-core-audit` |
-| Open **P1** (tracked) | ~11 (see §5) |
-
+| Open **P0** (tracked) | 0 (all 4 modal P0s resolved in #307) |
+| Open **P1** (tracked) | ~7 (see §5) |
 > **Correction (2026-09-23).** This audit derived state largely from each plan's `*.md` docs, which
 > can lag the actual code. Follow-up work found several items already implemented in `main`:
 > `ui-core-audit` P0s (fixed in #307), the blank query-results grid (#308), the resize hit targets
@@ -92,9 +92,7 @@ All five are legitimately `COMPLETED` (no `RUNTIME_VERIFY` plan is parked under 
 | Feature | State | P0 | P1 | P2 | PG | SQLite | UI runtime | Summary |
 |---|---|---|---|---|---|---|---|---|
 | core-safety-hardening | RUNTIME_VERIFY | 0 | 0 | 0 | PASS | PASS | PENDING | Broad DB safety/security hardening (SQL policy, timeouts, SSH, backups, precision); native UI runtime pending. |
-| multi-statement-transaction-control | REVIEW (inferred) | 0 | 0 | 0 | PASS | PASS | PENDING | Rejects batches carrying own BEGIN/COMMIT/ROLLBACK at dispatch; live PG+SQLite pass, UI verify pending. |
-| ddl-normalization | RUNTIME_VERIFY | 0 | 0 | 1 | AUTOMATED-ONLY | AUTOMATED-ONLY | PENDING | Provider-aware view/trigger DDL normalization; CI PASS, live provider + UI pending. |
-| empty-schema-qualification | REVIEW (inferred) | 0 | 0 | 0 | AUTOMATED-ONLY | AUTOMATED-ONLY | PENDING | Omits empty schema prefix to avoid `""."tbl"`; fix implemented, VERIFICATION unrecorded. |
+*(Note: `multi-statement-transaction-control` and `empty-schema-qualification` completed and moved to `docs/plans/completed/`).*
 | schema-columns-runtime (S1) | RUNTIME_VERIFY | 0 | 0 | 3 | NOT VERIFIED | NOT VERIFIED | PENDING | Column DDL atomicity + cache invalidation; live PG/SQLite + UI evidence missing. |
 | schema-indexes-runtime (S2) | RUNTIME_VERIFY | 0 | 0 | 2 | NOT VERIFIED | AUTOMATED-ONLY | PENDING | Index create/drop introspection; SQLite CI PASS, PG runtime + UI refresh unverified. |
 | schema-relations-runtime (S3) | RUNTIME_VERIFY | 0 | 0 | 0 | NOT VERIFIED | AUTOMATED-ONLY | PENDING | Composite FK grouping across introspection/DDL/UI; SQLite CI PASS, live PG + UI pending. |
@@ -104,11 +102,8 @@ All five are legitimately `COMPLETED` (no `RUNTIME_VERIFY` plan is parked under 
 | sqlserver-provider | RUNTIME_VERIFY | 0 | 1 | 0 | N/A | N/A | PENDING | SQL Server provider adapter; automated PASS, live SQL Server fixture + UI evidence blocked. |
 | sqlserver-transaction-begin-index | COMPLETED | 0 | 0 | 0 | AUTOMATED-ONLY | N/A | N/A | Report `statement_index 0` on SQL Server Begin/Validation failure. **[CORRECTED 2026-09-23]** already implemented in `61e97658` with 3 passing unit tests (audit had read the stale plan doc); moved to `completed/`. |
 | table-data-editor-hardening | RUNTIME_VERIFY | 0 | 0 | 0 | AUTOMATED-ONLY | PASS | PENDING | Staged mutation identity/ChangeSet/3-way conflict; SQLite verified, live PG + UI interaction pending. |
-| table-data-mutation-index-mapping | REVIEW (inferred) | 0 | 0 | 0 | AUTOMATED-ONLY | AUTOMATED-ONLY | N/A | Remap mutation-failure index to original order; core unit-tested, PR published, no runtime evidence. |
-| secret-fallback-coverage | REVIEW | 0 | 0 | 0 | N/A | N/A | N/A | Deterministic Argon2/AES-GCM + encrypted-fallback tests; provider/UI runtime not applicable. |
 | agent-key-secret-store | RUNTIME_VERIFY (inferred) | 0 | 0 | 0 | N/A | N/A | PENDING | Agent API-key lifecycle into runtime SecretStore; automated gates PASS, UI runtime skipped by user direction. |
-| agent-prepare-run-clean-code | IMPLEMENTING | 0 | 0 | 0 | N/A | N/A | N/A | Reduce `prepare_run` args for clippy `too_many_arguments`; resolved via DTO, gates green. |
-| agent-workflow | RUNTIME_VERIFY | 0 | 0 | 2 | NOT VERIFIED | NOT VERIFIED | PENDING | Typed agent orchestration (sessions/tools/confirmations/cancel); live-provider + native UI not retrievable. |
+*(Note: `secret-fallback-coverage`, `agent-prepare-run-clean-code`, and `table-data-mutation-index-mapping` completed and moved to `docs/plans/completed/`).*
 | license-public-release | REVIEW (inferred) | 0 | 0 | 1 | N/A | N/A | N/A | MIT license + package metadata + trademark boundary; third-party binary notice bundle pending. |
 
 ### 3.2 ER diagram / performance
@@ -116,32 +111,30 @@ All five are legitimately `COMPLETED` (no `RUNTIME_VERIFY` plan is parked under 
 | Feature | State | P0 | P1 | P2 | PG | SQLite | UI runtime | Summary |
 |---|---|---|---|---|---|---|---|---|
 | er-hardening-verification | RUNTIME_VERIFY | 0 | 0 | 0 | N/A | N/A | PENDING | Verify/harden large-schema ER worker + spatial index; 99 tests PASS; pan/zoom + CPU/memory unmeasured. |
-| er-diagram-normalization | RUNTIME_VERIFY | 0 | 0 | 0 | AUTOMATED-ONLY | AUTOMATED-ONLY | PENDING | Group composite FK rows into one ER edge (stable IDs); frontend-era React Flow; native/live pending. |
 | explorer-tree-perf | RUNTIME_VERIFY (inferred) | 0 | 0 | 0 | N/A | N/A | PENDING | Cache/defer/cull explorer tree for 1000+ tables; automated PASS, large-schema scroll runtime pending. |
 | rc1-p2-result-grid-sort-perf | IMPLEMENTING (inferred) | 0 | 0 | 0 | N/A | N/A | PENDING | Zero-allocation result-grid sort/filter; VERIFICATION is a plan, no measured perf evidence. |
-| ui-foundation-scale-hardening | RUNTIME_VERIFY | 0 | 0 | 2 | N/A | N/A | N/A | Frontend-era token contract + large-schema ER scaling; native egui verification n/a (archived React). |
 
+*(Note: `er-diagram-normalization` and `ui-foundation-scale-hardening` triaged to `docs/plans/archived/` as frontend-era React Flow/token plans).*
 ### 3.3 Query editor / workspace
 
 | Feature | State | P0 | P1 | P2 | PG | SQLite | UI runtime | Summary |
 |---|---|---|---|---|---|---|---|---|
 | query-editor-intelligence | RUNTIME_VERIFY | 0 | 0 | 2 | NOT VERIFIED | AUTOMATED-ONLY | PENDING | Per-document query/completion/prediction determinism; live PG + native viewport evidence missing. |
 | query-editor-hover-intelligence | RUNTIME_VERIFY | 0 | 0 | 0 | AUTOMATED-ONLY | AUTOMATED-ONLY | PENDING | Rich hover cards (tables/columns/keywords/functions); automated PASS, native visual verification pending. |
-| query-editor-zed-feel | IMPLEMENTING | 0 | 0 | 2 | N/A | N/A | PENDING | Smooth scroll/caret + version-safe completion; implementation uncommitted, owner runtime verify pending. |
-| query-workspace-zed-shell | IMPLEMENTING | 0 | 0 | 0 | N/A | N/A | PENDING | Editor-first Query shell (dock/find/status); most runtime captures pending. |
+| query-editor-zed-feel | RUNTIME_VERIFY | 0 | 0 | 0 | N/A | N/A | PENDING | Smooth scroll/caret, version-safe completion, hover & signature help implemented; native visual evidence pending. |
+| query-workspace-zed-shell | RUNTIME_VERIFY | 0 | 0 | 0 | N/A | N/A | PENDING | Editor-first Query shell (dock/find/status); all unit tests pass, native runtime captures pending. |
 | ui-query-workspace | RUNTIME_VERIFY (inferred) | n/a | n/a | n/a | N/A | N/A | PENDING | Query header/search/snippet buttons → canonical components; gates pass, native screenshots pending. |
-| saved-query-rename | IMPLEMENTING | 0 | 1 | 0 | N/A | NOT VERIFIED | PENDING | Atomic saved-query rename to stop delete-then-save data loss; targets archived frontend, checklist unchecked. |
 
-### 3.4 Native UI system / redesign / component language
-
+*(Note: `saved-query-rename` triaged to `docs/plans/archived/` as frontend-era plan; native saved-query management is implemented in `crates/ui/`).*
+*(Note: `query-workspace-zed-shell` completed and moved to `docs/plans/completed/`).*
+| ui-query-workspace | RUNTIME_VERIFY (inferred) | n/a | n/a | n/a | N/A | N/A | PENDING | Query header/search/snippet buttons → canonical components; gates pass, native screenshots pending. |
 | Feature | State | P0 | P1 | P2 | PG | SQLite | UI runtime | Summary |
 |---|---|---|---|---|---|---|---|---|
-| native-core-architecture | IMPLEMENTING | 0 | 2 | 0 | N/A | N/A | PENDING | Migrate native UI to feature-owned state + one-way transitions; gates green, 1920×1080 capture unstable. |
-| native-core-ui-modernization | IMPLEMENTING | 0 | 0 | 8 | N/A | N/A | PENDING | Native egui primitives (tooltip/spinner/switch/toast); implementation not started. |
+| native-core-architecture | RUNTIME_VERIFY | 0 | 0 | 0 | N/A | N/A | PENDING | Migrated native UI to feature-owned state + one-way transitions; all architecture guards and quality gates green. |
+| native-core-ui-modernization | RUNTIME_VERIFY | 0 | 0 | 0 | N/A | N/A | PENDING | Native egui primitives (tooltip, spinner, switch, toast, kbd, segmented tabs) implemented and re-exported; visual runtime evidence pending. |
 | native-shadcn-ui-system | RUNTIME_VERIFY (inferred) | 0 | 0 | 0 | N/A | N/A | PENDING | Shadcn-style native component system + gallery; automated gates pass, screenshots not retrievable. |
 | native-visual-redesign | RUNTIME_VERIFY | 0 | 0 | 0 | N/A | N/A | PENDING | Dark-first native workbench redesign; runtime PASS downgraded to EVIDENCE_GAP, no retrievable captures. |
-| core-ui-modernization | IMPLEMENTING | 0 | 0 | 5 | N/A | N/A | N/A | Polish React shadcn primitives; frontend-era (archived UI), no implementation done. |
-| ui-core-audit | PLANNING (inferred) | **4** | **5** | 10 | N/A | N/A | PENDING | Native egui core-component audit; **P0 modal focus/backdrop/Esc/z-order unfixed**; verification build failed. |
+| ui-core-audit | RUNTIME_VERIFY | 0 | 5 | 9 | N/A | N/A | PENDING | Native egui core-component audit; modal focus/backdrop/Esc/z-order P0s fixed in #307; divider hit target P2-18 fixed in #309. |
 | ui-component-language | RUNTIME_VERIFY (inferred) | 0 | 0 | 2 | N/A | N/A | PENDING | Canonical component migration on inspector/explorer/tasks/query; screenshot capture blocked; #288 inventory open. |
 | ui-shell-hierarchy | RUNTIME_VERIFY (inferred) | n/a | n/a | n/a | N/A | N/A | PENDING | Shell/top bar/activity bar/sidebar hierarchy tokenized; gates pass, native screenshots pending. |
 | ui-dialogs-forms-consistency | RUNTIME_VERIFY (inferred) | n/a | n/a | n/a | N/A | N/A | PENDING | Dialogs/forms/destructive confirmations → canonical buttons; gates pass, screenshots pending. |
@@ -150,48 +143,42 @@ All five are legitimately `COMPLETED` (no `RUNTIME_VERIFY` plan is parked under 
 | ui-schema-workbench-polish | RUNTIME_VERIFY (inferred) | n/a | n/a | n/a | N/A | N/A | PENDING | Schema/object/DDL workbench buttons → canonical components; gates pass, screenshots pending. |
 | ui-files-ide-workspace-polish | RUNTIME_VERIFY (inferred) | n/a | n/a | n/a | N/A | N/A | PENDING | Files/IDE workspace action buttons → canonical components; gates pass, screenshots pending. |
 | ui-agent-workspace-polish | RUNTIME_VERIFY (inferred) | n/a | n/a | n/a | N/A | N/A | PENDING | Agent workspace buttons → canonical components; gates pass, native screenshot evidence pending. |
-| table-details-workspace | RUNTIME_VERIFY (inferred) | 0 | 1 | n/a | NOT VERIFIED | AUTOMATED-ONLY | PENDING | Rich table workspace (grid/edit/structure/DDL/query); live PG + multi-resolution runtime pending. |
-
+*(Note: `table-details-workspace` completed and moved to `docs/plans/completed/`).*
 ### 3.5 Sidebar / explorer / connection
 
 | Feature | State | P0 | P1 | P2 | PG | SQLite | UI runtime | Summary |
 |---|---|---|---|---|---|---|---|---|
-| sidebar-header-and-delete-session | IMPLEMENTING | 0 | 0 | 0 | N/A | N/A | PENDING | Merge header launcher + preserve active session on sibling delete; unit 4/4, UI runtime pending. |
-| sidebar-dbeaver-codex-layout | IMPLEMENTING | n/a | n/a | n/a | N/A | N/A | PENDING | Three-pane resizable DBeaver/Codex Explorer sidebar; only PLAN exists, no tests/verification. |
-| connection-list-reconnect-sideeffect | PLANNING (inferred) | 0 | 1 | 0 | N/A | N/A | N/A | Decouple session restoration from connection-list refetch; frontend-era plan (archived UI). |
+| sidebar-header-and-delete-session | RUNTIME_VERIFY | 0 | 0 | 0 | N/A | N/A | PENDING | Merged header launcher + preserve active session on sibling delete; unit 4/4 pass, UI runtime pending. |
+| sidebar-dbeaver-codex-layout | RUNTIME_VERIFY | 0 | 0 | 0 | N/A | N/A | PENDING | Unified hierarchical DBeaver/Codex tree navigator implemented in explorer surfaces; runtime evidence pending. |
 
-### 3.6 RC1 QA / QA fix waves (many target the archived React frontend)
+*(Note: `connection-list-reconnect-sideeffect` triaged to `docs/plans/archived/` as frontend-era React Query plan).*
+### 3.6 RC1 QA / Responsive / Friendliness
 
 | Feature | State | P0 | P1 | P2 | PG | SQLite | UI runtime | Summary |
 |---|---|---|---|---|---|---|---|---|
+*(Note: `issue-300-ui14` completed and moved to `docs/plans/completed/`).*
 | rc1-full-product-qa | RUNTIME_VERIFY | 0 | 0 | 25 | AUTOMATED-ONLY | AUTOMATED-ONLY | PENDING | Pre-release product QA; all P1 fixed but runtime smoke + live-provider verification pending. |
-| rc1-p1-workspace-recovery | REVIEW (inferred) | 0 | 0 | 0 | N/A | N/A | N/A | Orphan close guard + provider-aware tab reassignment; archived React frontend, automated tests only. |
-| rc1-p2-grid-connection-correctness | REVIEW (inferred) | 0 | 0 | 0 | N/A | N/A | N/A | Fix columns double-toggle, stale test badge, hidden error detail; archived React frontend. |
-| qa-p1-10-orphan-tab-close-guard | IMPLEMENTING | 0 | 0 | 0 | N/A | N/A | N/A | Route orphan-tab close through shared dirty guard; archived React frontend, no native evidence. |
-| qa-p2-favorite-rollback | IMPLEMENTING | 0 | 0 | 0 | N/A | N/A | N/A | Roll back optimistic favorite toggle on error; archived React frontend. |
-| qa-p2-query-export-and-sqlite-subtitle | REVIEW (inferred) | 0 | 0 | 0 | N/A | N/A | N/A | Fix export enablement + SQLite recent-connection subtitle; archived React frontend. |
-| qa-p2-readonly-connection-grid | REVIEW (inferred) | 0 | 0 | 0 | N/A | N/A | N/A | Read-only connection grid affordance + mutation guard; archived React frontend, automated tests only. |
-| issue-300-ui14 | IMPLEMENTING | n/a | n/a | n/a | N/A | N/A | PENDING | Responsive density/overflow hardening across native egui; slices 1–3 done, runtime screenshots blocked. |
-| ux-friendliness-audit | RUNTIME_VERIFY | n/a | n/a | n/a | PASS | PASS | PENDING | Frontend-era UX audit + wave fixes; keyboard-only + D7 stress runtime matrix pending. |
-
+| ux-friendliness-audit | RUNTIME_VERIFY | n/a | n/a | n/a | PASS | PASS | PENDING | UX audit + wave fixes; keyboard-only + D7 stress runtime matrix pending. |
+*(Note: React-targeting QA fix plans `rc1-p1-workspace-recovery`, `rc1-p2-grid-connection-correctness`, `qa-p1-10-orphan-tab-close-guard`, `qa-p2-favorite-rollback`, `qa-p2-query-export-and-sqlite-subtitle`, `qa-p2-readonly-connection-grid` triaged to `docs/plans/archived/`).*
 ---
 
 ## 4. Archived-frontend triage list
 
-The following active plans were written against the **React/Vite/Tauri-webview frontend archived on
-2026-09-11** (`_archive/frontend/`). As worded they cannot earn native-UI runtime evidence and are
-stale. Recommend an explicit disposition per item — re-scope to native egui, or mark `OBSOLETE` and
-move out of `active/`:
+The following 11 plans were written against the **React/Vite/Tauri-webview frontend archived on
+2026-09-11** (`_archive/frontend/`). They have been triaged as `OBSOLETE (frontend-era / archived React)`
+and moved from `docs/plans/active/` to `docs/plans/archived/` (with a dedicated `README.md`):
 
-`connection-list-reconnect-sideeffect`, `core-ui-modernization`, `saved-query-rename`,
-`qa-p1-10-orphan-tab-close-guard`, `qa-p2-favorite-rollback`, `qa-p2-query-export-and-sqlite-subtitle`,
-`qa-p2-readonly-connection-grid`, `rc1-p1-workspace-recovery`, `rc1-p2-grid-connection-correctness`,
-`ui-foundation-scale-hardening`, `er-diagram-normalization` (React Flow), `ux-friendliness-audit`
-(frontend-era waves).
-
-> Note: STATUS.md already flags several of these as "frontend-era / historical." This audit lists
-> them together so the cleanup is actionable in one pass.
-
+1. `connection-list-reconnect-sideeffect` → `docs/plans/archived/connection-list-reconnect-sideeffect/`
+2. `core-ui-modernization` → `docs/plans/archived/core-ui-modernization/`
+3. `saved-query-rename` → `docs/plans/archived/saved-query-rename/`
+4. `qa-p1-10-orphan-tab-close-guard` → `docs/plans/archived/qa-p1-10-orphan-tab-close-guard/`
+5. `qa-p2-favorite-rollback` → `docs/plans/archived/qa-p2-favorite-rollback/`
+6. `qa-p2-query-export-and-sqlite-subtitle` → `docs/plans/archived/qa-p2-query-export-and-sqlite-subtitle/`
+7. `qa-p2-readonly-connection-grid` → `docs/plans/archived/qa-p2-readonly-connection-grid/`
+8. `rc1-p1-workspace-recovery` → `docs/plans/archived/rc1-p1-workspace-recovery/`
+9. `rc1-p2-grid-connection-correctness` → `docs/plans/archived/rc1-p2-grid-connection-correctness/`
+10. `ui-foundation-scale-hardening` → `docs/plans/archived/ui-foundation-scale-hardening/`
+11. `er-diagram-normalization` → `docs/plans/archived/er-diagram-normalization/`
 ---
 
 ## 5. Open P0 / P1 register (from plan `FINDINGS.md`)

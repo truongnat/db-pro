@@ -2,7 +2,8 @@ use crate::tokens::SPACE_XS;
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
-    Align, Button, Color32, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui,
+    Align, Button, Color32, FontFamily, FontId, Frame, Margin, Rect, Response, RichText, Rounding, Stroke, TextEdit,
+    Ui,
 };
 use lucide_icons::Icon;
 
@@ -237,7 +238,7 @@ pub fn sidebar_item(ui: &mut Ui, icon: Icon, label: &str, active: bool, theme: D
     };
     let button = Button::new(icon_layout(icon, label, text_color))
         .min_size(egui::vec2(width, 26.0))
-        .rounding(Rounding::same(7.0))
+        .rounding(Rounding::same(6.0))
         .stroke(Stroke::NONE);
     let response = if active {
         ui.add(button.fill(theme.surface_active))
@@ -245,19 +246,22 @@ pub fn sidebar_item(ui: &mut Ui, icon: Icon, label: &str, active: bool, theme: D
         ui.add(button)
     };
     if active {
-        ui.painter().line_segment(
-            [
-                egui::pos2(response.rect.left() + 1.0, response.rect.top() + 4.0),
-                egui::pos2(response.rect.left() + 1.0, response.rect.bottom() - 4.0),
-            ],
-            Stroke::new(2.0, theme.accent),
+        let pill_rect = Rect::from_min_max(
+            egui::pos2(response.rect.left() + 1.0, response.rect.top() + 4.0),
+            egui::pos2(response.rect.left() + 3.0, response.rect.bottom() - 4.0),
         );
+        ui.painter().rect_filled(pill_rect, Rounding::same(1.0), theme.accent);
     }
     response
 }
 
 pub fn section_label(ui: &mut Ui, text: impl Into<String>, theme: DbProTheme) -> Response {
-    ui.label(RichText::new(text.into()).size(10.0).strong().color(theme.text_muted))
+    ui.label(
+        RichText::new(text.into())
+            .font(FontId::new(10.5, FontFamily::Name("ui_medium".into())))
+            .strong()
+            .color(theme.text_muted),
+    )
 }
 
 pub fn primary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) -> Response {

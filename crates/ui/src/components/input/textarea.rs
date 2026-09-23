@@ -2,6 +2,7 @@ use egui::{Align, Frame, Margin, Response, RichText, Rounding, Stroke, TextEdit,
 
 use super::config::INPUT_ROUNDING;
 use super::layout::paint_field_chrome;
+use crate::tokens::LABEL_HELPER_GAP;
 use crate::DbProTheme;
 
 pub struct Textarea<'a> {
@@ -60,7 +61,7 @@ impl<'a> Textarea<'a> {
                         });
                     }
                 });
-                ui.add_space(3.0);
+                ui.add_space(LABEL_HELPER_GAP);
             }
 
             let frame_output = Frame {

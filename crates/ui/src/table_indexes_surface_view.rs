@@ -135,8 +135,10 @@ impl TableIndexesContext<'_> {
                 },
             ),
             4 => {
+                let pred_str = index.predicate.as_deref().unwrap_or("—");
+                let truncated_pred = crate::components::truncate_ellipsis(pred_str, 28);
                 ui.label(
-                    RichText::new(index.predicate.as_deref().unwrap_or("—"))
+                    RichText::new(truncated_pred)
                         .monospace()
                         .color(self.theme.text_secondary),
                 )
@@ -158,8 +160,9 @@ impl TableIndexesContext<'_> {
                     self.theme.text_muted
                 },
             ));
+            let display_name = crate::components::truncate_ellipsis(&index.name, 30);
             let response = ui
-                .label(RichText::new(&index.name).strong().color(self.theme.text_primary))
+                .label(RichText::new(display_name).strong().color(self.theme.text_primary))
                 .on_hover_text(&index.definition);
             if response.clicked() {
                 actions.push(TableIndexesAction::SelectIndex(index.name.clone()));
@@ -168,7 +171,11 @@ impl TableIndexesContext<'_> {
     }
 
     fn draw_text_cell(&self, ui: &mut egui::Ui, text: String) {
-        ui.label(RichText::new(text).monospace().color(self.theme.text_secondary));
+        let truncated = crate::components::truncate_ellipsis(&text, 36);
+        let resp = ui.label(RichText::new(&truncated).monospace().color(self.theme.text_secondary));
+        if text.chars().count() > 36 {
+            resp.on_hover_text(&text);
+        }
     }
 
     fn draw_status_cell(&self, ui: &mut egui::Ui, index: &UiTableIndex) {

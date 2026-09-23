@@ -58,47 +58,133 @@ pub(super) fn draw_activity_bar(ctx: &egui::Context, context: &ActivityBarContex
 }
 
 fn draw_activity_buttons(ui: &mut egui::Ui, context: &ActivityBarContext) -> Option<ActivityBarAction> {
-    ui.add_space(SPACE_SM);
+    ui.add_space(SPACE_XS);
     let mut action = None;
-    for (activity, icon, hint) in [
+
+    // Group 1: Core Navigation
+    let group1 = [
         (Some(Activity::Explorer), Icon::Database, "Explorer"),
-        (Some(Activity::Files), Icon::FolderOpen, "Files"),
         (Some(Activity::Queries), Icon::FileCode2, "Queries"),
+        (Some(Activity::Files), Icon::FolderOpen, "Files"),
         (Some(Activity::Data), Icon::Table2, "Data"),
+    ];
+
+    for (activity, icon, hint) in group1 {
+        let active = activity.is_some_and(|value| context.activity == value)
+            || (hint == "Queries" && context.active_tab == WorkspaceTab::Query);
+        if draw_rail_icon_button(ui, icon, active, hint, context.theme) {
+            action = activity_action(activity, hint);
+        }
+        ui.add_space(2.0);
+    }
+
+    ui.add_space(SPACE_XS);
+    draw_rail_separator(ui, context.theme);
+    ui.add_space(SPACE_XS);
+
+    // Group 2: Tools & Management
+    let group2 = [
+        (Some(Activity::Diagram), Icon::ArrowRightLeft, "ER diagram"),
+        (Some(Activity::Schema), Icon::Boxes, "Schema workbench"),
+        (Some(Activity::Compare), Icon::GitCompare, "Schema compare"),
         (Some(Activity::History), Icon::History, "History"),
         (Some(Activity::Problems), Icon::TriangleAlert, "Problems"),
         (Some(Activity::Transfers), Icon::Upload, "Transfers"),
         (Some(Activity::Monitor), Icon::Gauge, "Monitor"),
         (Some(Activity::Security), Icon::Shield, "Security"),
-        (Some(Activity::Diagram), Icon::ArrowRightLeft, "ER diagram"),
-        (Some(Activity::Schema), Icon::Boxes, "Schema workbench"),
-        (Some(Activity::Compare), Icon::GitCompare, "Schema compare"),
         (Some(Activity::Tasks), Icon::ListTodo, "Saved tasks"),
-        (None, Icon::Bot, "Agent (Copilot)"),
-    ] {
-        let active = activity.is_some_and(|value| context.activity == value)
-            || (hint == "Queries" && context.active_tab == WorkspaceTab::Query)
-            || (hint == "Agent (Copilot)" && context.agent_open);
-        let response = icon_button(ui, icon, active, context.theme);
-        if response.on_hover_text(hint).clicked() {
+    ];
+
+    for (activity, icon, hint) in group2 {
+        let active = activity.is_some_and(|value| context.activity == value);
+        if draw_rail_icon_button(ui, icon, active, hint, context.theme) {
             action = activity_action(activity, hint);
         }
-        ui.add_space(SPACE_XS);
+        ui.add_space(2.0);
     }
+
+    ui.add_space(SPACE_XS);
+    draw_rail_separator(ui, context.theme);
+    ui.add_space(SPACE_XS);
+
+    // Group 3: AI Copilot
+    let agent_active = context.agent_open;
+    if draw_rail_icon_button(ui, Icon::Bot, agent_active, "Agent (Copilot)", context.theme) {
+        action = Some(ActivityBarAction::ToggleAgent);
+    }
+
     action
 }
 
+fn draw_rail_separator(ui: &mut egui::Ui, theme: DbProTheme) {
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(24.0, 1.0), egui::Sense::hover());
+    ui.painter().hline(
+        rect.x_range(),
+        rect.center().y,
+        egui::Stroke::new(1.0, theme.border_subtle),
+    );
+}
+
+fn draw_rail_icon_button(
+    ui: &mut egui::Ui,
+    icon: Icon,
+    active: bool,
+    hint: &str,
+    theme: DbProTheme,
+) -> bool {
+    let (rect, resp) = ui.allocate_exact_size(egui::vec2(36.0, 34.0), egui::Sense::click());
+    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(hint);
+    let hovered = resp.hovered();
+
+    if active {
+        ui.painter().rect_filled(
+            rect,
+            egui::Rounding::same(RADIUS_SM),
+            theme.surface_active,
+        );
+        // Left accent indicator pill on the panel edge
+        let bar_left = ui.max_rect().left();
+        let bar_rect = egui::Rect::from_min_max(
+            egui::pos2(bar_left, rect.center().y - 8.0),
+            egui::pos2(bar_left + 2.5, rect.center().y + 8.0),
+        );
+        ui.painter().rect_filled(bar_rect, egui::Rounding::same(1.25), theme.accent);
+    } else if hovered {
+        ui.painter().rect_filled(
+            rect,
+            egui::Rounding::same(RADIUS_SM),
+            theme.surface_hover,
+        );
+    }
+
+    let icon_color = if active {
+        theme.accent
+    } else if hovered {
+        theme.text_primary
+    } else {
+        theme.text_muted
+    };
+
+    ui.painter().text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        char::from(icon).to_string(),
+        font_icon(16.5),
+        icon_color,
+    );
+
+    resp.clicked()
+}
+
 fn draw_settings_button(ui: &mut egui::Ui, context: &ActivityBarContext) -> bool {
-    icon_button(
+    draw_rail_icon_button(
         ui,
         Icon::Settings2,
         context.activity == Activity::Settings,
+        "Settings",
         context.theme,
     )
-    .on_hover_text("Settings")
-    .clicked()
 }
-
 fn activity_action(activity: Option<Activity>, hint: &str) -> Option<ActivityBarAction> {
     match (activity, hint) {
         (Some(Activity::Queries), _) => Some(ActivityBarAction::OpenQuery),

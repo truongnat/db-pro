@@ -69,6 +69,9 @@ impl<'a> UnderlineTabs<'a> {
             ui.memory_mut(|memory| memory.request_focus(resp.id));
         }
         resp.widget_info(|| radio_info(true, is_active, tab_name));
+        if resp.has_focus() {
+            crate::components::interact::paint_focus_ring(ui, rect, UNDERLINE_HOVER_RADIUS, self.theme);
+        }
 
         if resp.hovered() && !is_active {
             ui.painter().rect_filled(

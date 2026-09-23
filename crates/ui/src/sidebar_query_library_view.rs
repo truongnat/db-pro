@@ -47,20 +47,21 @@ impl SidebarQueryLibraryContext<'_> {
 
     pub(super) fn draw_local_history(&self, ui: &mut egui::Ui) -> Vec<SidebarQueryLibraryAction> {
         if self.history.is_empty() {
-            ui.label(RichText::new("No queries run yet").color(self.theme.text_muted));
+            ui.label(RichText::new("No queries run yet").small().color(self.theme.text_muted));
             return Vec::new();
         }
 
         let mut actions = Vec::new();
-        for query in self.history.iter().rev() {
-            let title = query.lines().next().unwrap_or("query");
-            if sidebar_item(ui, Icon::History, title, false, self.theme)
-                .on_hover_text("Open query from local history")
+        for query in self.history.iter().rev().take(15) {
+            let first_line = query.lines().next().unwrap_or("query").trim();
+            let display = crate::components::truncate_ellipsis(first_line, 26);
+            if sidebar_item(ui, Icon::History, &display, false, self.theme)
+                .on_hover_text(query)
                 .clicked()
             {
                 actions.push(SidebarQueryLibraryAction::OpenHistory(query.clone()));
             }
-            ui.add_space(12.0);
+            ui.add_space(2.0);
         }
         actions
     }

@@ -257,9 +257,10 @@ impl TableStructureContext<'_> {
                     .color(color),
             );
             ui.add_space(4.0);
+            let display_name = crate::components::truncate_ellipsis(&column.name, 32);
             let response = ui
                 .label(
-                    RichText::new(&column.name)
+                    RichText::new(&display_name)
                         .font(font_ui_label())
                         .strong()
                         .color(self.theme.text_primary),
@@ -282,12 +283,17 @@ impl TableStructureContext<'_> {
     }
 
     fn draw_data_type_cell(&self, ui: &mut egui::Ui, column: &UiTableColumn) {
-        ui.label(
-            RichText::new(&column.data_type)
+        let truncated = crate::components::truncate_ellipsis(&column.data_type, 24);
+        let resp = ui.label(
+            RichText::new(&truncated)
                 .monospace()
                 .color(self.theme.text_secondary),
-        )
-        .on_hover_text("Full database type");
+        );
+        if column.data_type.chars().count() > 24 {
+            resp.on_hover_text(&column.data_type);
+        } else {
+            resp.on_hover_text("Full database type");
+        }
     }
 
     fn draw_nullable_cell(&self, ui: &mut egui::Ui, column: &UiTableColumn) {
@@ -317,11 +323,23 @@ impl TableStructureContext<'_> {
     }
 
     fn draw_default_cell(&self, ui: &mut egui::Ui, column: &UiTableColumn) {
-        ui.label(
-            RichText::new(column.default.as_deref().unwrap_or("—"))
-                .font(font_caption())
-                .color(self.theme.text_secondary),
-        );
+        if let Some(default_val) = column.default.as_deref() {
+            let truncated = crate::components::truncate_ellipsis(default_val, 28);
+            let resp = ui.label(
+                RichText::new(&truncated)
+                    .font(font_caption())
+                    .color(self.theme.text_secondary),
+            );
+            if default_val.chars().count() > 28 {
+                resp.on_hover_text(default_val);
+            }
+        } else {
+            ui.label(
+                RichText::new("—")
+                    .font(font_caption())
+                    .color(self.theme.text_secondary),
+            );
+        }
     }
 
     fn draw_column_detail(&self, ctx: &egui::Context, actions: &mut Vec<TableStructureAction>) {

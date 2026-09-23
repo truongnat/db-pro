@@ -4,9 +4,10 @@ use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
-use super::config::INPUT_ROUNDING;
+use super::config::{FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_ROUNDING};
 use super::layout::{paint_field_chrome, resolve_field_width};
 use crate::components::interact::text_input_info;
+use crate::tokens::{LABEL_HELPER_GAP, SPACE_XS};
 use crate::DbProTheme;
 
 pub struct PasswordInput<'a> {
@@ -91,11 +92,11 @@ impl<'a> PasswordInput<'a> {
                         ui.label(RichText::new("*").size(12.0).strong().color(self.theme.danger));
                     }
                 });
-                ui.add_space(3.0);
+                ui.add_space(LABEL_HELPER_GAP);
             }
 
             let has_error = self.error_text.is_some();
-            let frame_w = (width - 16.0).max(60.0);
+            let frame_w = (width - FIELD_INNER_MARGIN_X * 2.0).max(60.0);
             let frame_output = Frame {
                 fill: self.theme.surface_editor,
                 stroke: if has_error {
@@ -103,7 +104,7 @@ impl<'a> PasswordInput<'a> {
                 } else {
                     Stroke::NONE
                 },
-                inner_margin: Margin::symmetric(8.0, 4.0),
+                inner_margin: Margin::symmetric(FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y),
                 rounding: Rounding::same(INPUT_ROUNDING),
                 ..Default::default()
             }
@@ -116,7 +117,7 @@ impl<'a> PasswordInput<'a> {
                             .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
                             .color(self.theme.text_muted),
                     );
-                    ui.add_space(4.0);
+                    ui.add_space(SPACE_XS);
 
                     let edit_w = (ui.available_width() - 26.0).max(40.0);
                     let mut text_edit = TextEdit::singleline(self.value).password(!*self.show_password);

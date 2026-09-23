@@ -19,8 +19,8 @@
 - [x] Completion detail/documentation shown on selection and hover
 - [x] `Ctrl/Cmd+S` requests save without inserting text
 - [x] Continuous prefix filtering with version-safe session refresh
-- [ ] SQL symbol hover outside the completion popup
-- [ ] Signature help for SQL functions
+- [x] SQL symbol hover outside the completion popup
+- [x] Signature help for SQL functions
 
 ## Gates
 
