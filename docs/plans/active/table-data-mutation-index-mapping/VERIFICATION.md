@@ -18,5 +18,16 @@ Added unit tests in `crates/core/src/application/table_data_service.rs`:
 
 ## Automated Execution
 
-Command: `cargo test -p db-pro-core`
-Result: pending re-run after merging `origin/main` into this branch.
+Commands executed after merging `origin/main`:
+
+1. `cargo test -p db-pro-core --lib application::table_data_service`
+   - Result: 25 passed / 0 failed (includes all four index-mapping tests above).
+
+2. `cargo test -p db-pro-core`
+   - Result: 407 passed / 0 failed.
+
+3. `cargo clippy -p db-pro-core --all-targets -- -D warnings`
+   - Result: Pass (exit 0).
+
+4. `rustfmt --check crates/core/src/application/table_data_service.rs crates/core/src/application/table_mutation_execution.rs`
+   - Result: Pass (exit 0). Workspace `cargo fmt --all -- --check` still reports pre-existing UI formatting drift from `main`; this merge does not reformat those files.
