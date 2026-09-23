@@ -75,10 +75,8 @@ pub fn card_footer<R>(ui: &mut Ui, theme: DbProTheme, add_contents: impl FnOnce(
     ui.add_space(10.0);
 
     ui.horizontal(|ui| {
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            add_contents(ui)
-        })
-        .inner
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| add_contents(ui))
+            .inner
     })
     .inner
 }

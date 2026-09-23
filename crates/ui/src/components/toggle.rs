@@ -1,8 +1,6 @@
 use crate::components::animation::hover_t;
 use crate::DbProTheme;
-use egui::{
-    Align2, Color32, FontFamily, FontId, Pos2, Response, Rounding, Sense, Stroke, Ui, Vec2,
-};
+use egui::{Align2, Color32, FontFamily, FontId, Pos2, Response, Rounding, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -114,9 +112,9 @@ impl<'a> Toggle<'a> {
             }
         }
         if let Some(label) = self.label {
-            let galley = ui
-                .painter()
-                .layout_no_wrap(label.to_string(), FontId::proportional(font_size), Color32::WHITE);
+            let galley =
+                ui.painter()
+                    .layout_no_wrap(label.to_string(), FontId::proportional(font_size), Color32::WHITE);
             content_width += galley.size().x;
         }
 
@@ -142,11 +140,7 @@ impl<'a> Toggle<'a> {
         let (fill, stroke, text_color) = match self.variant {
             ToggleVariant::Default => {
                 if is_pressed {
-                    (
-                        self.theme.accent,
-                        Stroke::NONE,
-                        self.theme.accent_foreground,
-                    )
+                    (self.theme.accent, Stroke::NONE, self.theme.accent_foreground)
                 } else {
                     let bg = if hover > 0.001 {
                         self.theme.surface_hover.linear_multiply(hover)
@@ -156,7 +150,11 @@ impl<'a> Toggle<'a> {
                     (
                         bg,
                         Stroke::NONE,
-                        if self.enabled { self.theme.text_secondary } else { self.theme.text_disabled },
+                        if self.enabled {
+                            self.theme.text_secondary
+                        } else {
+                            self.theme.text_disabled
+                        },
                     )
                 }
             }
@@ -184,7 +182,11 @@ impl<'a> Toggle<'a> {
                     (
                         bg,
                         stroke,
-                        if self.enabled { self.theme.text_secondary } else { self.theme.text_disabled },
+                        if self.enabled {
+                            self.theme.text_secondary
+                        } else {
+                            self.theme.text_disabled
+                        },
                     )
                 }
             }
@@ -341,11 +343,9 @@ impl<'a, T: Clone + PartialEq> ToggleGroup<'a, T> {
                     }
                 }
                 if let Some(label) = it.label {
-                    let galley = ui.painter().layout_no_wrap(
-                        label.to_string(),
-                        FontId::proportional(font_size),
-                        Color32::WHITE,
-                    );
+                    let galley =
+                        ui.painter()
+                            .layout_no_wrap(label.to_string(), FontId::proportional(font_size), Color32::WHITE);
                     w += galley.size().x;
                 }
                 w = w.max(height);
@@ -372,7 +372,8 @@ impl<'a, T: Clone + PartialEq> ToggleGroup<'a, T> {
                 };
 
                 ui.painter().rect_filled(rect, rounding, fill);
-                ui.painter().rect_stroke(rect, rounding, Stroke::new(1.0, self.theme.border_default));
+                ui.painter()
+                    .rect_stroke(rect, rounding, Stroke::new(1.0, self.theme.border_default));
 
                 let text_color = if is_selected {
                     self.theme.accent_foreground

@@ -61,8 +61,7 @@ impl<'a, T: Clone + PartialEq> RadioGroup<'a, T> {
         let render_items = |ui: &mut Ui| {
             for opt in self.options {
                 let is_selected = opt.value == *selected;
-                let mut radio = Radio::new(is_selected, opt.label, self.theme)
-                    .enabled(!opt.disabled);
+                let mut radio = Radio::new(is_selected, opt.label, self.theme).enabled(!opt.disabled);
 
                 if let Some(desc) = opt.description {
                     radio = radio.description(desc);

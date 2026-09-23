@@ -421,8 +421,7 @@ mod tests {
 
             // Test new shadcn-parity components
             let mut accordion_open = Some("item-1".to_string());
-            let acc_item = AccordionItem::new("item-1", "Advanced Options")
-                .icon(lucide_icons::Icon::Sliders);
+            let acc_item = AccordionItem::new("item-1", "Advanced Options").icon(lucide_icons::Icon::Sliders);
             let _ = Accordion::new(theme).show_single(ui, acc_item, &mut accordion_open, true, |ui| {
                 ui.label("Inside accordion");
             });

@@ -1,9 +1,7 @@
 use crate::components::animation::hover_t;
 use crate::components::feedback::kbd_badge;
 use crate::DbProTheme;
-use egui::{
-    Align2, Color32, FontFamily, FontId, Pos2, Rect, Response, Rounding, Sense, Stroke, Ui, UiBuilder, Vec2,
-};
+use egui::{Align2, Color32, FontFamily, FontId, Pos2, Rect, Response, Rounding, Sense, Stroke, Ui, UiBuilder, Vec2};
 use lucide_icons::Icon;
 
 pub struct CommandInput<'a> {
@@ -179,11 +177,12 @@ impl<'a> CommandItem<'a> {
         );
 
         if let Some(sub) = self.subtitle {
-            let sub_x = left_x + ui.painter().layout_no_wrap(
-                self.title.to_string(),
-                DbProTheme::ui_medium_font(13.0),
-                Color32::WHITE,
-            ).size().x + 8.0;
+            let sub_x = left_x
+                + ui.painter()
+                    .layout_no_wrap(self.title.to_string(), DbProTheme::ui_medium_font(13.0), Color32::WHITE)
+                    .size()
+                    .x
+                + 8.0;
 
             ui.painter().text(
                 Pos2::new(sub_x, center_y),

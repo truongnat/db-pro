@@ -126,11 +126,9 @@ impl<'a> Collapsible<'a> {
 
         // Optional badge
         if let Some(badge) = self.badge {
-            let badge_galley = ui.painter().layout_no_wrap(
-                badge.to_string(),
-                FontId::proportional(11.0),
-                self.theme.text_muted,
-            );
+            let badge_galley =
+                ui.painter()
+                    .layout_no_wrap(badge.to_string(), FontId::proportional(11.0), self.theme.text_muted);
             let badge_w = badge_galley.size().x + 10.0;
             let badge_rect = egui::Rect::from_center_size(
                 Pos2::new(rect.right() - 14.0 - badge_w * 0.5, center_y),

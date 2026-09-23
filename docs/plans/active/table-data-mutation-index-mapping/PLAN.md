@@ -9,7 +9,7 @@
 ## Objective
 
 Fix `TableMutationExecution` in `crates/core/src/application/table_mutation_execution.rs` so that:
-1. When a batch transaction statement fails during execution (`phase == Statement`), `TransactionFailure::statement_index` is mapped back to the caller's original `mutations` slice index rather than the internal reordered statement index.
+1. When a batch transaction statement fails during execution (`phase == Statement`), `TransactionFailure::statement_index` is mapped back to the caller's original `mutations` slice index rather than the internal reordered statement index (Delete -> Update -> Insert).
 2. Pre-execution failures (`phase == Begin` or `phase == Validation`) retain `statement_index = 0` (reflecting zero statements executed) and do not falsely attribute pre-execution failures to reordered statement indices.
 3. `validation_failure` sets `statement_index = 0` instead of `self.mutations.len()`, preventing out-of-bounds array access.
 
@@ -21,4 +21,5 @@ Fix `TableMutationExecution` in `crates/core/src/application/table_mutation_exec
 2. Add unit tests in `crates/core/src/application/table_data_service.rs` verifying:
    - `Validation` phase failures return `statement_index: 0`.
    - `Begin` phase failures retain `statement_index: 0` without remapping.
-   - `Statement` phase failures correctly remap `statement_index` to original input mutation indices.
+   - `Statement` phase failures correctly remap `statement_index` to original input mutation indices, including the two-mutation `[Insert, Delete]` case and the four-mutation `[Insert, Update, Delete, Insert]` reordering.
+3. Verify Rust quality gates (`cargo fmt`, `cargo check`, `cargo clippy`, `cargo test`).
