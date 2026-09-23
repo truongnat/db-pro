@@ -17,6 +17,8 @@ pub(super) struct GridHeaderMenuContext {
 pub(super) enum GridHeaderMenuAction {
     Sort(Option<bool>),
     AddFilter,
+    CopyColumnName(usize),
+    CopyColumnValues(usize),
     MoveLeft(usize),
     MoveRight(usize),
     ResetOrder,
@@ -86,6 +88,33 @@ pub(super) fn draw_menu(
             .clicked()
         {
             action = Some(GridHeaderMenuAction::AddFilter);
+            *close_menu = true;
+        }
+        ui.separator();
+        if ctx_menu_item(
+            ui,
+            Some(Icon::Copy),
+            "Copy Column Name",
+            None,
+            context.theme.text_primary,
+            context.theme,
+        )
+        .clicked()
+        {
+            action = Some(GridHeaderMenuAction::CopyColumnName(context.column_index));
+            *close_menu = true;
+        }
+        if ctx_menu_item(
+            ui,
+            Some(Icon::ListFilter),
+            "Copy Column Values",
+            None,
+            context.theme.text_primary,
+            context.theme,
+        )
+        .clicked()
+        {
+            action = Some(GridHeaderMenuAction::CopyColumnValues(context.column_index));
             *close_menu = true;
         }
         ui.separator();

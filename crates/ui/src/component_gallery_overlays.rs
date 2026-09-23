@@ -135,6 +135,80 @@ impl DbProApp {
                 {
                     self.gallery_state.sheet_open = true;
                 }
+
+                ui.add_space(8.0);
+                if Button::new(theme)
+                    .text("Open AlertDialog")
+                    .variant(ButtonVariant::Destructive)
+                    .show(ui)
+                    .clicked()
+                {
+                    self.gallery_state.alert_dialog_open = true;
+                }
+
+                ui.add_space(8.0);
+                HoverCard::new("gallery_hover_card", theme).show(
+                    ui,
+                    |ui| {
+                        Button::new(theme)
+                            .text("@db-pro/core")
+                            .variant(ButtonVariant::Link)
+                            .show(ui)
+                    },
+                    |ui| {
+                        ui.label(
+                            RichText::new("db-pro-core crate")
+                                .font(DbProTheme::ui_medium_font(13.0))
+                                .color(theme.text_primary),
+                        );
+                        ui.add_space(4.0);
+                        ui.label(
+                            RichText::new("Pure Rust database client and engine abstractions for PostgreSQL, MySQL, and SQLite.")
+                                .size(11.5)
+                                .color(theme.text_secondary),
+                        );
+                    },
+                );
+            });
+        });
+
+        ui.add_space(16.0);
+        self.draw_section_heading(
+            ui,
+            "Command Palette Primitives",
+            "CommandInput, CommandGroup, CommandItem, and CommandEmpty for quick actions.",
+        );
+
+        Card::new(theme).show(ui, |ui| {
+            ui.set_max_width(520.0);
+            CommandInput::new(&mut self.gallery_state.command_query, theme)
+                .placeholder("Type a command or search actions...")
+                .show(ui);
+
+            CommandGroup::new("ACTIONS").show(ui, theme, |ui| {
+                CommandItem::new("cmd_run", "Execute Current Query")
+                    .icon(Icon::Play)
+                    .shortcut("⌘Enter")
+                    .show(ui, theme);
+                CommandItem::new("cmd_explain", "Explain & Analyze Query")
+                    .icon(Icon::Search)
+                    .shortcut("⌥⌘E")
+                    .show(ui, theme);
+                CommandItem::new("cmd_format", "Format SQL Document")
+                    .icon(Icon::AlignLeft)
+                    .shortcut("⇧⌥F")
+                    .show(ui, theme);
+            });
+
+            CommandGroup::new("NAVIGATION").show(ui, theme, |ui| {
+                CommandItem::new("cmd_explorer", "Go to Database Explorer")
+                    .icon(Icon::Database)
+                    .shortcut("⌘1")
+                    .show(ui, theme);
+                CommandItem::new("cmd_settings", "Open Settings")
+                    .icon(Icon::Settings)
+                    .shortcut("⌘,")
+                    .show(ui, theme);
             });
         });
 
@@ -185,6 +259,18 @@ impl DbProApp {
                 ui.label(RichText::new("email · text").size(12.5).color(theme.text_primary));
             });
         self.gallery_state.sheet_open = sheet_open;
+
+        let mut alert_open = self.gallery_state.alert_dialog_open;
+        AlertDialog::new(
+            "Delete Production Database",
+            "Are you absolutely sure? This action cannot be undone. This will permanently delete the selected database schema and terminate all connected clients.",
+            theme,
+        )
+        .confirm_label("Yes, delete database")
+        .cancel_label("Cancel")
+        .destructive(true)
+        .show(ui.ctx(), &mut alert_open);
+        self.gallery_state.alert_dialog_open = alert_open;
     }
 
     pub(super) fn draw_gallery_tables_section(&mut self, ui: &mut Ui) {

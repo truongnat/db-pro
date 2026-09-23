@@ -1,12 +1,17 @@
+pub mod accordion;
 pub mod agent_composer;
 pub mod agent_primitives;
 pub mod alert;
 pub mod animation;
+pub mod aspect_ratio;
 pub mod badge;
 pub mod button;
+pub mod calendar;
 pub mod card;
 pub mod chrome;
 pub mod code;
+pub mod collapsible;
+pub mod command;
 pub mod common_utils;
 pub mod database;
 pub mod dev_tools;
@@ -15,32 +20,42 @@ pub mod diff;
 pub mod explain;
 pub mod feedback;
 pub mod form;
+pub mod hover_card;
 pub mod input;
 pub mod interact;
 pub mod legacy;
 pub mod logs;
 pub mod nav;
 pub mod overlay;
+pub mod radio_group;
+pub mod scroll_area;
 pub mod select;
 pub mod selection;
+pub mod separator;
 pub mod sql_editor;
 pub mod table;
 pub mod tabs;
+pub mod toggle;
 pub mod transaction;
 pub mod tree;
 pub mod workspace;
 
+pub use accordion::{Accordion, AccordionItem, AccordionType};
 pub use agent_composer::{AgentComposer, AgentComposerAction, AgentMode};
 pub use agent_primitives::{
     AgentPlan, AgentSqlActionKind, AgentTaskItem, AgentTaskStatus, AgentThinking, ContextChip, ContextChipKind,
     ExecutionApproval, ExecutionApprovalAction, RiskLevel, StatusBadge, StatusBadgeVariant, ToolCall, ToolCallStatus,
 };
-pub use alert::{Alert, AlertVariant};
+pub use alert::{Alert, AlertDialog, AlertDialogAction, AlertVariant};
+pub use aspect_ratio::AspectRatio;
 pub use badge::{Badge, BadgeVariant};
-pub use button::{Button, ButtonSize, ButtonVariant};
-pub use card::{card_header, Card, MetricCard};
-pub use chrome::{toolbar_button, Avatar, AvatarSize, EmptyState, Skeleton, Toolbar};
+pub use button::{Button, ButtonGroup, ButtonSize, ButtonVariant};
+pub use calendar::{day_of_week, days_in_month, is_leap_year, Calendar, DatePicker, SimpleDate};
+pub use card::{card_content, card_footer, card_header, Card, MetricCard, MetricTrend};
+pub use chrome::{toolbar_button, Avatar, AvatarShape, AvatarSize, AvatarStatus, EmptyState, Skeleton, Toolbar};
 pub use code::{CodeBlock, InlineCode};
+pub use collapsible::Collapsible;
+pub use command::{CommandEmpty, CommandGroup, CommandInput, CommandItem};
 pub use common_utils::*;
 pub use database::{ConnectionCard, ConnectionCardAction, ConnectionStatus, DatabaseDriver, DatabaseTypeBadge};
 pub use dev_tools::{ProgressRing, TerminalBlock};
@@ -49,6 +64,7 @@ pub use diff::{DiffLine, DiffLineType, DiffViewer};
 pub use explain::{ExplainPlanTree, PlanNode};
 pub use feedback::{kbd_badge, kbd_combo, separator_with_text, Progress, Spinner};
 pub use form::{FieldRule, FormField, FormState, Label, ValidationMode};
+pub use hover_card::HoverCard;
 pub use input::{Input, PasswordInput, SearchInput, Textarea};
 pub use legacy::*;
 pub use logs::{LogEntry, LogLevel, LogViewer};
@@ -57,11 +73,15 @@ pub use overlay::{
     context_action_menu, ctx_menu_item, is_context_menu_triggered, DropdownItem, DropdownMenu, Popover, Toast,
     ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant, Tooltip, TooltipPosition,
 };
+pub use radio_group::{RadioGroup, RadioGroupOption};
+pub use scroll_area::ScrollArea;
 pub use select::{dropdown_should_open_above, Select};
 pub use selection::{Checkbox, Radio, Slider, Switch};
+pub use separator::{Separator, SeparatorOrientation};
 pub use sql_editor::{SqlEditorAction, SqlEditorToolbar};
 pub use table::{Table, TableColumn, TableColumnAlign};
 pub use tabs::{SegmentedTabs, UnderlineTabs};
+pub use toggle::{Toggle, ToggleGroup, ToggleGroupItem, ToggleSize, ToggleVariant};
 pub use transaction::{DestructiveOperationDialog, TransactionAction, TransactionBar};
 pub use tree::{reveal_children, DatabaseTreeNode, TreeNodeKind};
 pub use workspace::{
@@ -255,6 +275,15 @@ mod tests {
     }
 
     #[test]
+    fn test_alert_dialog_construction() {
+        let theme = DbProTheme::light();
+        let alert_dialog = AlertDialog::new("Delete Table", "Are you sure?", theme)
+            .confirm_label("Delete")
+            .destructive(true);
+        assert!(alert_dialog.destructive);
+    }
+
+    #[test]
     fn test_progress_fraction_clamping() {
         let theme = DbProTheme::light();
         let p1 = Progress::new(1.5, theme);
@@ -296,7 +325,12 @@ mod tests {
                 .show(ui);
             assert!(field.rect.is_finite());
 
-            let avatar = Avatar::new(theme).initials("TD").size(AvatarSize::Md).show(ui);
+            let avatar = Avatar::new(theme)
+                .initials("TD")
+                .size(AvatarSize::Md)
+                .shape(AvatarShape::Rounded)
+                .status(AvatarStatus::Online)
+                .show(ui);
             assert!(avatar.rect.is_finite());
 
             let trigger = Button::new(theme).text("Hint").show(ui);
@@ -313,7 +347,7 @@ mod tests {
 
             let mut menu_open = true;
             let items = [
-                DropdownItem::new("Run").icon(lucide_icons::Icon::Play).shortcut("⌘↵"),
+                DropdownItem::new("Run").icon(lucide_icons::Icon::Play).shortcut("⌘↩"),
                 DropdownItem::new("Delete").danger(true).enabled(false),
             ];
             let menu_trigger = Button::new(theme).text("Menu").show(ui);
@@ -331,7 +365,7 @@ mod tests {
             assert!(sheet.is_some());
             assert!(sheet.unwrap().rect.is_finite());
 
-            let skeleton = Skeleton::new(theme).size(120.0, 12.0).show(ui);
+            let skeleton = Skeleton::new(theme).size(120.0, 12.0).shimmer(true).show(ui);
             assert!(skeleton.rect.is_finite());
 
             let toast = Toast::new("Changes saved", theme)
@@ -384,6 +418,59 @@ mod tests {
             Progress::new(0.5, theme).show(ui);
             Progress::indeterminate(theme).show(ui);
             Spinner::new(theme).show(ui);
+
+            // Test new shadcn-parity components
+            let mut accordion_open = Some("item-1".to_string());
+            let acc_item = AccordionItem::new("item-1", "Advanced Options")
+                .icon(lucide_icons::Icon::Sliders);
+            let _ = Accordion::new(theme).show_single(ui, acc_item, &mut accordion_open, true, |ui| {
+                ui.label("Inside accordion");
+            });
+
+            let mut collapsible_open = false;
+            let (col_resp, _) = Collapsible::new(&mut collapsible_open, theme)
+                .title("Details")
+                .show(ui, |ui| {
+                    ui.label("Collapsible content");
+                });
+            assert!(col_resp.rect.is_finite());
+
+            let mut toggle_state = false;
+            let tog_resp = Toggle::new(&mut toggle_state, theme)
+                .label("Grid View")
+                .icon(lucide_icons::Icon::Grid)
+                .show(ui);
+            assert!(tog_resp.rect.is_finite());
+
+            let mut group_sel = 1;
+            let tg = ToggleGroup::new(theme)
+                .item(ToggleGroupItem::new(1).label("Data"))
+                .item(ToggleGroupItem::new(2).label("Structure"))
+                .item(ToggleGroupItem::new(3).label("DDL"));
+            let _ = tg.show_single(ui, &mut group_sel);
+
+            let (sep_h, _) = (Separator::horizontal(theme).label("OR").show(ui), ());
+            assert!(sep_h.rect.is_finite());
+            let sep_v = Separator::vertical(theme).show(ui);
+            assert!(sep_v.rect.is_finite());
+
+            let (ratio_resp, _) = AspectRatio::sixteen_nine().show(ui, |ui| {
+                ui.label("16:9 canvas");
+            });
+            assert!(ratio_resp.rect.is_finite());
+
+            let mut date_sel = Some(SimpleDate::new(2026, 9, 23));
+            let dp_resp = DatePicker::new("dp-test", &mut date_sel, theme).show(ui);
+            assert!(dp_resp.rect.is_finite());
+
+            let mut cmd_query = String::new();
+            let cmd_resp = CommandInput::new(&mut cmd_query, theme).show(ui);
+            assert!(cmd_resp.rect.is_finite());
+            let item_resp = CommandItem::new("run-query", "Execute Query")
+                .icon(lucide_icons::Icon::Play)
+                .shortcut("⌘Enter")
+                .show(ui, theme);
+            assert!(item_resp.rect.is_finite());
         });
     }
 
@@ -676,6 +763,37 @@ mod tests {
                 .bottleneck(true);
             let tree_resp = ExplainPlanTree::new(&root, 12.0, theme).show(ui);
             assert!(tree_resp.rect.width() > 0.0);
+        });
+    }
+
+    #[test]
+    fn test_calendar_math_and_date_picker() {
+        assert_eq!(days_in_month(2024, 2), 29); // Leap year
+        assert_eq!(days_in_month(2023, 2), 28); // Normal year
+        assert_eq!(days_in_month(2026, 9), 30);
+        assert!(is_leap_year(2024));
+        assert!(!is_leap_year(2025));
+
+        // 2026-09-23 is Wednesday (dow = 3)
+        assert_eq!(day_of_week(2026, 9, 23), 3);
+
+        let parsed = SimpleDate::parse("2026-09-23");
+        assert_eq!(parsed, Some(SimpleDate::new(2026, 9, 23)));
+        assert_eq!(parsed.unwrap().to_iso_string(), "2026-09-23");
+    }
+
+    #[test]
+    fn test_radio_group_selection() {
+        let theme = DbProTheme::light();
+        run_ui(|ui| {
+            let mut selected = 1;
+            let rg = RadioGroup::new(theme)
+                .option(RadioGroupOption::new(1, "PostgreSQL").description("Recommended"))
+                .option(RadioGroupOption::new(2, "MySQL"))
+                .option(RadioGroupOption::new(3, "SQLite"));
+            let changed = rg.show(ui, &mut selected);
+            assert_eq!(changed, None);
+            assert_eq!(selected, 1);
         });
     }
 

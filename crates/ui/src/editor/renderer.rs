@@ -6,7 +6,7 @@ use super::diagnostics::Diagnostic;
 use super::hover::HoveredSqlToken;
 use super::prediction::EditPrediction;
 use super::selection::SelectionRange;
-use super::syntax::{CachedSqlTokens, SqlDialect, SqlHighlighter, SyntaxTokenKind};
+use super::syntax::{CachedSqlTokens, SqlDialect, SqlHighlighter, SyntaxToken, SyntaxTokenKind};
 use crate::components::interact::text_input_info;
 use crate::DbProTheme;
 use egui::{
@@ -706,12 +706,19 @@ impl<'a> SqlEditor<'a> {
             }
         }
 
-        // Syntax Highlighting Tokens
+        // Ensure token cache is recomputed if present before borrowing
+        if let Some(cache) = self.cached_tokens.as_mut() {
+            cache.get_or_recompute(self.buffer, self.dialect);
+        }
+
+        // Syntax Highlighting Tokens (zero-copy borrowed slice)
         let highlighter = SqlHighlighter::new(self.dialect);
-        let tokens = if let Some(cache) = self.cached_tokens.as_mut() {
-            cache.get_or_recompute(self.buffer, self.dialect).to_vec()
+        let temp_tokens;
+        let tokens: &[SyntaxToken] = if let Some(cache) = self.cached_tokens.as_deref() {
+            cache.tokens()
         } else {
-            highlighter.tokenize(self.buffer.text())
+            temp_tokens = highlighter.tokenize(self.buffer.text());
+            &temp_tokens
         };
 
         if resp.hovered() && !self.completion_open {
@@ -719,7 +726,8 @@ impl<'a> SqlEditor<'a> {
                 if pointer.x >= rect.min.x + gutter_w {
                     let offset =
                         self.screen_pos_to_offset(self.buffer, pointer, rect.min, gutter_w, line_height, char_width);
-                    if let Some(token) = tokens.iter().find(|token| {
+                    let token_idx = tokens.partition_point(|token| token.range.1 <= offset);
+                    if let Some(token) = tokens.get(token_idx).filter(|token| {
                         offset >= token.range.0
                             && offset < token.range.1
                             && matches!(
@@ -774,16 +782,17 @@ impl<'a> SqlEditor<'a> {
                 self.theme.editor_line_number(is_curr),
             );
 
-            // Line Text Layout & Paint
+            // Line Text Layout & Paint (sub-linear binary search token slicing)
             let line_text = self.buffer.line_at(line_idx).unwrap_or("");
             if !line_text.is_empty() {
                 let line_start_off = self.buffer.line_start_offset(line_idx);
                 let line_end_off = self.buffer.line_end_offset(line_idx);
 
                 let mut job = LayoutJob::default();
-                for token in &tokens {
-                    if token.range.1 <= line_start_off || token.range.0 >= line_end_off {
-                        continue;
+                let start_token_idx = tokens.partition_point(|token| token.range.1 <= line_start_off);
+                for token in &tokens[start_token_idx..] {
+                    if token.range.0 >= line_end_off {
+                        break;
                     }
                     let seg_start = token.range.0.max(line_start_off);
                     let seg_end = token.range.1.min(line_end_off);
@@ -825,8 +834,9 @@ impl<'a> SqlEditor<'a> {
             let diag_color = match diag.severity {
                 DiagnosticSeverity::Error => self.theme.danger,
                 DiagnosticSeverity::Warning => self.theme.warning,
-                DiagnosticSeverity::Information | DiagnosticSeverity::Hint => self.theme.accent,
+                _ => self.theme.accent,
             };
+
             for d_rect in &rects {
                 let line_y = d_rect.bottom() - 2.0;
                 ui.painter().line_segment(
@@ -993,8 +1003,8 @@ impl<'a> SqlEditor<'a> {
         scroll = Vec2::new(scroll.x.clamp(0.0, max_scroll.x), scroll.y.clamp(0.0, max_scroll.y));
         ui.ctx().data_mut(|d| d.insert_temp(editor_id.with("scroll"), scroll));
 
-        // Minimal scrollbar thumbs (always-available affordance when content overflows).
-        paint_editor_scrollbars(ui, viewport, scroll, max_scroll, self.theme);
+        // Minimal scrollbar thumbs & overview ruler (diagnostic marks on vertical track).
+        paint_editor_scrollbars(ui, viewport, scroll, max_scroll, self.diagnostics, self.buffer, self.theme);
 
         response
     }
@@ -1258,23 +1268,51 @@ impl<'a> SqlEditor<'a> {
     }
 }
 
-fn paint_editor_scrollbars(ui: &Ui, viewport: Rect, scroll: Vec2, max_scroll: Vec2, theme: &DbProTheme) {
-    const THICK: f32 = 3.0;
-    const PAD: f32 = 3.0;
+fn paint_editor_scrollbars(
+    ui: &Ui,
+    viewport: Rect,
+    scroll: Vec2,
+    max_scroll: Vec2,
+    diagnostics: &[Diagnostic],
+    buffer: &TextBuffer,
+    theme: &DbProTheme,
+) {
+    const THICK: f32 = 4.0;
+    const PAD: f32 = 2.0;
     let painter = ui.painter();
+    let track_h = (viewport.height() - PAD * 2.0).max(12.0);
+    let track_x = viewport.max.x - PAD - THICK;
+
+    // Overview ruler markers for diagnostics (JetBrains / DataGrip error stripes)
+    let line_count = buffer.line_count().max(1);
+    for diag in diagnostics {
+        let (diag_line, _) = buffer.offset_to_line_col(diag.range.0);
+        let frac = (diag_line as f32 / line_count as f32).clamp(0.0, 1.0);
+        let mark_y = viewport.min.y + PAD + frac * (track_h - 3.0);
+        let mark_rect = Rect::from_min_size(
+            Pos2::new(track_x - 1.0, mark_y),
+            Vec2::new(THICK + 2.0, 3.0),
+        );
+        let mark_color = match diag.severity {
+            DiagnosticSeverity::Error => theme.danger,
+            DiagnosticSeverity::Warning => theme.warning,
+            _ => theme.accent,
+        };
+        painter.rect_filled(mark_rect, Rounding::same(1.0), mark_color);
+    }
+
     if max_scroll.y > 1.0 {
-        let track_h = (viewport.height() - PAD * 2.0).max(12.0);
         let thumb_h = ((viewport.height() / (viewport.height() + max_scroll.y)) * track_h).clamp(16.0, track_h);
         let t = (scroll.y / max_scroll.y).clamp(0.0, 1.0);
         let thumb_y = viewport.min.y + PAD + t * (track_h - thumb_h);
         let thumb = Rect::from_min_size(
-            Pos2::new(viewport.max.x - PAD - THICK, thumb_y),
+            Pos2::new(track_x, thumb_y),
             Vec2::new(THICK, thumb_h),
         );
         painter.rect_filled(
             thumb,
             Rounding::same(THICK * 0.5),
-            theme.text_muted.linear_multiply(0.45),
+            theme.text_muted.linear_multiply(0.55),
         );
     }
     if max_scroll.x > 1.0 {

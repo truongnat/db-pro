@@ -108,15 +108,15 @@ impl ButtonPalette {
                 fill_rest: Color32::TRANSPARENT,
                 fill_hover: theme.surface_hover,
                 stroke_rest: Stroke::NONE,
-                stroke_hover: Stroke::new(1.0, theme.border_subtle),
-                text_color: theme.text_secondary,
+                stroke_hover: Stroke::NONE,
+                text_color: theme.text_primary,
             },
             ButtonVariant::Destructive => Self {
                 fill_rest: theme.danger,
                 fill_hover: theme.danger.linear_multiply(0.85),
                 stroke_rest: Stroke::NONE,
                 stroke_hover: Stroke::NONE,
-                text_color: theme.text_inverse,
+                text_color: theme.accent_foreground,
             },
             ButtonVariant::Link => Self {
                 fill_rest: Color32::TRANSPARENT,
@@ -128,30 +128,60 @@ impl ButtonPalette {
         }
     }
 
-    pub fn resolve_state(&self, hover: f32) -> (Color32, Stroke) {
-        let fill = lerp_color(self.fill_rest, self.fill_hover, hover);
-        let stroke_color = lerp_color(self.stroke_rest.color, self.stroke_hover.color, hover);
-        let stroke = if self.stroke_rest == Stroke::NONE && self.stroke_hover == Stroke::NONE {
-            Stroke::NONE
-        } else {
-            Stroke::new(1.0, stroke_color)
-        };
-        (fill, stroke)
+    pub fn disabled(theme: DbProTheme) -> Self {
+        Self {
+            fill_rest: theme.surface_panel,
+            fill_hover: theme.surface_panel,
+            stroke_rest: Stroke::NONE,
+            stroke_hover: Stroke::NONE,
+            text_color: theme.text_disabled,
+        }
     }
 
     pub fn loading_colors(&self, variant: ButtonVariant, theme: DbProTheme) -> (Color32, Color32, Stroke) {
         match variant {
-            ButtonVariant::Default => (theme.accent_foreground, theme.accent, Stroke::NONE),
-            ButtonVariant::Secondary => (theme.text_primary, theme.surface_hover, Stroke::NONE),
+            ButtonVariant::Default => (self.text_color, self.fill_rest, Stroke::NONE),
+            ButtonVariant::Secondary => (theme.text_secondary, theme.surface_hover, Stroke::NONE),
             ButtonVariant::Outline => (
-                theme.text_primary,
+                theme.text_secondary,
                 Color32::TRANSPARENT,
                 Stroke::new(1.0, theme.border_default),
             ),
             ButtonVariant::Ghost => (theme.text_secondary, Color32::TRANSPARENT, Stroke::NONE),
-            ButtonVariant::Destructive => (theme.text_inverse, theme.danger, Stroke::NONE),
-            ButtonVariant::Link => (theme.accent, Color32::TRANSPARENT, Stroke::NONE),
+            ButtonVariant::Destructive => (self.text_color, self.fill_rest, Stroke::NONE),
+            ButtonVariant::Link => (theme.text_secondary, Color32::TRANSPARENT, Stroke::NONE),
         }
+    }
+
+    pub fn resolve_state(&self, hover: f32) -> (Color32, Stroke) {
+        let fill = lerp_color(self.fill_rest, self.fill_hover, hover);
+        let stroke_color = lerp_color(self.stroke_rest.color, self.stroke_hover.color, hover);
+        let stroke_width = self.stroke_rest.width + (self.stroke_hover.width - self.stroke_rest.width) * hover;
+        let stroke = if stroke_width > 0.0 && stroke_color != Color32::TRANSPARENT {
+            Stroke::new(stroke_width, stroke_color)
+        } else {
+            Stroke::NONE
+        };
+        (fill, stroke)
+    }
+}
+
+pub struct ButtonGroup {
+    #[allow(dead_code)]
+    theme: DbProTheme,
+}
+
+impl ButtonGroup {
+    pub fn new(theme: DbProTheme) -> Self {
+        Self { theme }
+    }
+
+    pub fn show<R>(self, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing = Vec2::new(1.0, 0.0);
+            add_contents(ui)
+        })
+        .inner
     }
 }
 
@@ -162,13 +192,13 @@ impl<'a> Button<'a> {
             icon: None,
             variant: ButtonVariant::Default,
             size: ButtonSize::Default,
-            theme,
             enabled: true,
-            tooltip: None,
-            focusable: true,
             loading: false,
             full_width: false,
             access_label: None,
+            tooltip: None,
+            focusable: true,
+            theme,
         }
     }
 
@@ -197,18 +227,8 @@ impl<'a> Button<'a> {
         self
     }
 
-    pub fn tooltip(mut self, tooltip: impl Into<Cow<'a, str>>) -> Self {
-        self.tooltip = Some(tooltip.into());
-        self
-    }
-
     pub fn loading(mut self, loading: bool) -> Self {
         self.loading = loading;
-        self
-    }
-
-    pub fn focusable(mut self, focusable: bool) -> Self {
-        self.focusable = focusable;
         self
     }
 
@@ -222,80 +242,94 @@ impl<'a> Button<'a> {
         self
     }
 
-    fn size_tokens(&self) -> SizeTokens {
-        match self.size {
-            ButtonSize::Sm => SizeTokens {
-                min_height: 26.0,
-                font_size: 11.5,
-                icon_size: 13.0,
-                padding: egui::vec2(8.0, 3.0),
-                default_width: 0.0,
-            },
-            ButtonSize::Default => SizeTokens {
-                min_height: 32.0,
-                font_size: 13.0,
-                icon_size: 14.5,
-                padding: egui::vec2(12.0, 5.0),
-                default_width: 0.0,
-            },
-            ButtonSize::Lg => SizeTokens {
-                min_height: 38.0,
-                font_size: 14.5,
-                icon_size: 16.0,
-                padding: egui::vec2(16.0, 7.0),
-                default_width: 0.0,
-            },
-            ButtonSize::Icon => SizeTokens {
-                min_height: 32.0,
-                font_size: 13.0,
-                icon_size: 16.0,
-                padding: egui::vec2(6.0, 6.0),
-                default_width: 32.0,
-            },
-            ButtonSize::IconSm => SizeTokens {
-                min_height: 24.0,
-                font_size: 11.5,
-                icon_size: 13.0,
-                padding: egui::vec2(4.0, 4.0),
-                default_width: 24.0,
-            },
-        }
+    pub fn tooltip(mut self, tooltip: impl Into<Cow<'a, str>>) -> Self {
+        self.tooltip = Some(tooltip.into());
+        self
     }
 
-    fn accessible_name(&self) -> Cow<'_, str> {
+    pub fn focusable(mut self, focusable: bool) -> Self {
+        self.focusable = focusable;
+        self
+    }
+
+    pub fn accessible_name(&self) -> String {
         self.access_label
             .as_deref()
             .or(self.label.as_deref())
             .or(self.tooltip.as_deref())
-            .map(Cow::Borrowed)
-            .unwrap_or(Cow::Borrowed("Button"))
+            .unwrap_or("Button")
+            .to_string()
+    }
+
+    fn size_tokens(&self) -> SizeTokens {
+        match self.size {
+            ButtonSize::Sm => SizeTokens {
+                min_height: 28.0,
+                font_size: 11.5,
+                icon_size: 13.0,
+                padding: Vec2::new(10.0, 4.0),
+                default_width: 28.0,
+            },
+            ButtonSize::Default => SizeTokens {
+                min_height: 32.0,
+                font_size: 12.5,
+                icon_size: 14.5,
+                padding: Vec2::new(12.0, 5.0),
+                default_width: 32.0,
+            },
+            ButtonSize::Lg => SizeTokens {
+                min_height: 38.0,
+                font_size: 13.5,
+                icon_size: 16.0,
+                padding: Vec2::new(16.0, 8.0),
+                default_width: 38.0,
+            },
+            ButtonSize::Icon => SizeTokens {
+                min_height: 32.0,
+                font_size: 12.5,
+                icon_size: 15.0,
+                padding: Vec2::new(8.0, 8.0),
+                default_width: 32.0,
+            },
+            ButtonSize::IconSm => SizeTokens {
+                min_height: 26.0,
+                font_size: 11.0,
+                icon_size: 13.5,
+                padding: Vec2::new(6.0, 6.0),
+                default_width: 26.0,
+            },
+        }
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
         let tokens = self.size_tokens();
+
         if self.loading {
-            return self.show_loading(ui, &tokens);
+            self.show_loading(ui, &tokens)
+        } else {
+            self.show_interactive(ui, &tokens)
         }
-        self.show_interactive(ui, &tokens)
     }
 
     fn show_loading(self, ui: &mut Ui, tokens: &SizeTokens) -> Response {
         let palette = ButtonPalette::from_variant(self.variant, self.theme);
-        let (text_color, fill_color, border_stroke) = palette.loading_colors(self.variant, self.theme);
+        let (_, fill_color, border_stroke) = palette.loading_colors(self.variant, self.theme);
 
-        let text_galley = self.label.as_ref().map(|txt| {
-            ui.painter().layout_no_wrap(
-                txt.as_ref().to_owned(),
-                FontId::proportional(tokens.font_size),
-                text_color,
-            )
-        });
+        let (content_w, text_galley) = if let Some(ref text) = self.label {
+            let galley = ui.fonts(|fonts| {
+                fonts.layout_no_wrap(
+                    text.to_string(),
+                    FontId::proportional(tokens.font_size),
+                    palette.text_color,
+                )
+            });
+            let gap = ICON_TEXT_GAP;
+            (tokens.icon_size + gap + galley.size().x, Some(galley))
+        } else {
+            (tokens.icon_size, None)
+        };
 
-        let gap = if text_galley.is_some() { ICON_TEXT_GAP } else { 0.0 };
-        let text_w = text_galley.as_ref().map_or(0.0, |g| g.size().x);
-        let content_w = tokens.icon_size + gap + text_w;
         let width = tokens.calculate_width(content_w, self.full_width, ui.available_width());
-
         let (rect, response) = ui.allocate_exact_size(Vec2::new(width, tokens.min_height), Sense::hover());
         response.widget_info(|| button_info(false, &self.accessible_name()));
 
@@ -358,6 +392,7 @@ impl<'a> Button<'a> {
         };
         let (rect, mut response) = ui.allocate_exact_size(Vec2::new(width, tokens.min_height), sense);
         response.widget_info(|| button_info(self.enabled, &name));
+
         if self.enabled {
             response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
         }

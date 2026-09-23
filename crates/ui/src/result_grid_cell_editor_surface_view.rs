@@ -20,7 +20,9 @@ pub(super) fn draw(
     cell_rect: egui::Rect,
 ) -> Option<CellEditorAction> {
     let response = draw_input(context, ui, cell_rect);
-    response.request_focus();
+    if !response.has_focus() {
+        response.request_focus();
+    }
     if response.changed() {
         *context.error = None;
     }
