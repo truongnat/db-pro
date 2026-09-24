@@ -19,7 +19,7 @@ const DEFAULT_LINE_HEIGHT: f32 = 20.0;
 const LINE_HEIGHT_MULT: f32 = 1.48;
 const FONT_SIZE: f32 = 13.5;
 const PADDING_LEFT: f32 = 10.0;
-const PADDING_TOP: f32 = 6.0;
+const PADDING_TOP: f32 = 12.0;
 const PADDING_BOTTOM: f32 = 64.0;
 const CARET_WIDTH: f32 = 1.5;
 const CARET_BLINK_PERIOD_SECS: f64 = 1.05;
@@ -778,7 +778,7 @@ impl<'a> SqlEditor<'a> {
                 Pos2::new(rect.min.x + gutter_w - 8.0, line_y + line_height * 0.5),
                 egui::Align2::RIGHT_CENTER,
                 line_num_str,
-                FontId::monospace(11.0),
+                FontId::monospace((self.font_size - 1.5).clamp(11.0, 14.0)),
                 self.theme.editor_line_number(is_curr),
             );
 

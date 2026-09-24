@@ -10,6 +10,8 @@ const NARROW_BREAKPOINT: f32 = 640.0;
 const CONNECTION_ROW_LIMIT: usize = 8;
 const ACTION_ROW_HEIGHT: f32 = 40.0;
 const CONNECTION_ROW_HEIGHT: f32 = 44.0;
+const WELCOME_CONTENT_ESTIMATE: f32 = 300.0;
+const WELCOME_CARD_MIN_HEIGHT: f32 = 196.0;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum WelcomeAction {
@@ -59,7 +61,7 @@ impl WelcomeSurfaceContext<'_> {
         ui.horizontal(|ui| {
             ui.add_space(inset);
             ui.allocate_ui_with_layout(Vec2::new(column_w, available.y), Layout::top_down(Align::Min), |ui| {
-                ui.add_space(SPACE_3XL);
+                ui.add_space(welcome_top_inset(available.y));
                 self.draw_identity(ui);
                 ui.add_space(SPACE_2XL);
                 self.draw_hairline(ui);
@@ -195,6 +197,13 @@ impl WelcomeSurfaceContext<'_> {
         self.section_label(ui, "Start");
         ui.add_space(SPACE_SM);
 
+        self.card_frame().show(ui, |ui| {
+            ui.set_min_height(WELCOME_CARD_MIN_HEIGHT);
+            self.draw_start_rows(ui, intent);
+        });
+    }
+
+    fn draw_start_rows(&self, ui: &mut egui::Ui, intent: &mut WelcomeIntent) {
         if self.action_row(
             ui,
             WelcomeActionRow {
@@ -229,6 +238,16 @@ impl WelcomeSurfaceContext<'_> {
             },
         ) {
             intent.open_palette = true;
+        }
+    }
+
+    fn card_frame(&self) -> egui::Frame {
+        egui::Frame {
+            fill: self.theme.surface_elevated,
+            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
+            inner_margin: egui::Margin::same(SPACE_SM),
+            rounding: egui::Rounding::same(RADIUS_MD),
+            ..Default::default()
         }
     }
 
@@ -337,14 +356,8 @@ impl WelcomeSurfaceContext<'_> {
         self.section_label(ui, "Connections");
         ui.add_space(SPACE_SM);
 
-        egui::Frame {
-            fill: self.theme.surface_elevated,
-            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-            inner_margin: egui::Margin::same(SPACE_XS),
-            rounding: egui::Rounding::same(RADIUS_MD),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
+        self.card_frame().show(ui, |ui| {
+            ui.set_min_height(WELCOME_CARD_MIN_HEIGHT);
             if self.catalog.is_empty() {
                 self.draw_empty_connections(ui, intent);
                 return;
@@ -510,6 +523,11 @@ impl WelcomeSurfaceContext<'_> {
     }
 }
 
+fn welcome_top_inset(available_height: f32) -> f32 {
+    let spare = (available_height - WELCOME_CONTENT_ESTIMATE).max(0.0);
+    (spare * 0.18).clamp(SPACE_2XL, 96.0)
+}
+
 fn shortcut_parts(keys: &[&str]) -> Vec<String> {
     let mut parts = Vec::with_capacity(keys.len() + 1);
     parts.push(if cfg!(target_os = "macos") { "⌘" } else { "Ctrl" }.to_owned());
@@ -525,6 +543,13 @@ fn shortcut_parts(keys: &[&str]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn welcome_top_inset_keeps_the_start_block_in_the_upper_third() {
+        assert_eq!(welcome_top_inset(400.0), SPACE_2XL);
+        assert!((welcome_top_inset(800.0) - 90.0).abs() < 0.1);
+        assert_eq!(welcome_top_inset(1400.0), 96.0);
+    }
 
     #[test]
     fn welcome_action_preserves_connection_identity() {
