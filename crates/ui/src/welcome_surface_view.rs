@@ -5,11 +5,31 @@ use crate::components::kbd_combo;
 use egui::{CursorIcon, Sense, Vec2};
 use lucide_icons::Icon;
 
-const CONTENT_MAX_WIDTH: f32 = 880.0;
+const CONTENT_MAX_WIDTH: f32 = 980.0;
 const NARROW_BREAKPOINT: f32 = 640.0;
 const CONNECTION_ROW_LIMIT: usize = 8;
 const ACTION_ROW_HEIGHT: f32 = 40.0;
 const CONNECTION_ROW_HEIGHT: f32 = 44.0;
+const WELCOME_CONTENT_ESTIMATE: f32 = 460.0;
+const WELCOME_CARD_MIN_HEIGHT: f32 = 168.0;
+
+const STARTER_SQL: &[(&str, &str, &str)] = &[
+    (
+        "Orders by status",
+        "Group the lab order book",
+        "SELECT status, count(*) AS orders, sum(total_cents) / 100.0 AS revenue\nFROM lab.orders\nGROUP BY status\nORDER BY orders DESC;",
+    ),
+    (
+        "Top customers",
+        "Highest spend in lab.customers",
+        "SELECT c.full_name, c.city, count(o.id) AS orders, sum(o.total_cents) / 100.0 AS spent\nFROM lab.customers c\nJOIN lab.orders o ON o.customer_id = c.id\nGROUP BY c.id, c.full_name, c.city\nORDER BY spent DESC\nLIMIT 25;",
+    ),
+    (
+        "Event payloads",
+        "Recent jsonb events",
+        "SELECT event_type, payload->>'table' AS relation, occurred_at\nFROM lab.events\nORDER BY occurred_at DESC\nLIMIT 50;",
+    ),
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum WelcomeAction {
@@ -44,13 +64,13 @@ struct WelcomeConnectionRow<'a> {
 
 pub(super) struct WelcomeSurfaceContext<'a> {
     pub(super) theme: DbProTheme,
-    pub(super) welcome: &'a WelcomeState,
+    pub(super) welcome: &'a mut WelcomeState,
     pub(super) catalog: &'a ConnectionCatalogState,
     pub(super) active_connection_id: Option<&'a str>,
 }
 
 impl WelcomeSurfaceContext<'_> {
-    pub(super) fn draw(&self, ui: &mut egui::Ui) -> Vec<WelcomeAction> {
+    pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<WelcomeAction> {
         let mut intent = WelcomeIntent::default();
         let available = ui.available_size();
         let column_w = available.x.min(CONTENT_MAX_WIDTH);
@@ -59,11 +79,11 @@ impl WelcomeSurfaceContext<'_> {
         ui.horizontal(|ui| {
             ui.add_space(inset);
             ui.allocate_ui_with_layout(Vec2::new(column_w, available.y), Layout::top_down(Align::Min), |ui| {
-                ui.add_space(SPACE_3XL);
+                ui.add_space(welcome_top_inset(available.y));
                 self.draw_identity(ui);
-                ui.add_space(SPACE_2XL);
-                self.draw_hairline(ui);
-                ui.add_space(SPACE_XL);
+                ui.add_space(SPACE_LG);
+                self.draw_composer(ui, &mut intent);
+                ui.add_space(SPACE_LG);
 
                 if column_w >= NARROW_BREAKPOINT {
                     self.draw_two_column(ui, &mut intent);
@@ -135,9 +155,9 @@ impl WelcomeSurfaceContext<'_> {
                 let subtitle = if let Some(active) = self.active_connection() {
                     format!("Connected · {}", active.name)
                 } else if self.catalog.is_empty() {
-                    "A focused database workspace. Connect to begin.".to_owned()
+                    "Database IDE. Ask in SQL, or connect a source.".to_owned()
                 } else {
-                    "Resume a connection, or start something new.".to_owned()
+                    "Pick up a connection, or ask the database directly.".to_owned()
                 };
                 ui.label(
                     RichText::new(subtitle)
@@ -161,13 +181,91 @@ impl WelcomeSurfaceContext<'_> {
         });
     }
 
-    fn draw_hairline(&self, ui: &mut egui::Ui) {
-        let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 1.0), Sense::hover());
-        ui.painter().hline(
-            rect.x_range(),
-            rect.center().y,
-            egui::Stroke::new(1.0, self.theme.border_subtle),
+    fn draw_composer(&mut self, ui: &mut egui::Ui, intent: &mut WelcomeIntent) {
+        self.section_label(ui, "Ask the database");
+        ui.add_space(SPACE_XS);
+        self.card_frame().show(ui, |ui| {
+            ui.label(
+                RichText::new("Write a question or SQL. Enter opens it in the query editor.")
+                    .font(font_caption())
+                    .color(self.theme.text_muted),
+            );
+            ui.add_space(SPACE_XS);
+            let editor = egui::TextEdit::multiline(&mut self.welcome.prompt)
+                .hint_text("SELECT status, count(*) FROM lab.orders GROUP BY status;")
+                .font(egui::FontId::monospace(13.0))
+                .desired_rows(3)
+                .desired_width(f32::INFINITY);
+            let response = ui.add(editor);
+            let submit = response.has_focus()
+                && ui.input(|input| input.key_pressed(egui::Key::Enter) && input.modifiers.command);
+            if submit && !self.welcome.prompt.trim().is_empty() {
+                intent.open_draft_query = true;
+            }
+            ui.add_space(SPACE_SM);
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing = Vec2::new(SPACE_XS, 0.0);
+                if Button::new(self.theme)
+                    .icon(Icon::SquarePen)
+                    .text("Open in editor")
+                    .variant(ButtonVariant::Default)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                    && !self.welcome.prompt.trim().is_empty()
+                {
+                    intent.open_draft_query = true;
+                }
+                if Button::new(self.theme)
+                    .icon(Icon::PlugZap)
+                    .text("New connection")
+                    .variant(ButtonVariant::Outline)
+                    .size(ButtonSize::Sm)
+                    .show(ui)
+                    .clicked()
+                {
+                    intent.new_connection = true;
+                }
+            });
+            ui.add_space(SPACE_SM);
+            for (title, detail, sql) in STARTER_SQL {
+                if self.starter_row(ui, title, detail) {
+                    self.welcome.prompt = (*sql).to_owned();
+                    intent.open_draft_query = true;
+                }
+            }
+        });
+    }
+
+    fn starter_row(&self, ui: &mut egui::Ui, title: &str, detail: &str) -> bool {
+        let (rect, response) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 36.0), Sense::click());
+        let response = response.on_hover_cursor(CursorIcon::PointingHand);
+        if response.hovered() || response.has_focus() {
+            ui.painter()
+                .rect_filled(rect, egui::Rounding::same(RADIUS_SM), self.theme.surface_hover);
+        }
+        ui.painter().text(
+            egui::pos2(rect.left() + SPACE_XS, rect.center().y),
+            egui::Align2::LEFT_CENTER,
+            char::from(Icon::Sparkles).to_string(),
+            font_icon(ICON_SM),
+            self.theme.accent,
         );
+        ui.painter().text(
+            egui::pos2(rect.left() + 28.0, rect.center().y - 7.0),
+            egui::Align2::LEFT_CENTER,
+            title,
+            font_ui_label(),
+            self.theme.text_primary,
+        );
+        ui.painter().text(
+            egui::pos2(rect.left() + 28.0, rect.center().y + 8.0),
+            egui::Align2::LEFT_CENTER,
+            detail,
+            font_caption(),
+            self.theme.text_muted,
+        );
+        response.clicked()
     }
 
     fn draw_two_column(&self, ui: &mut egui::Ui, intent: &mut WelcomeIntent) {
@@ -195,6 +293,13 @@ impl WelcomeSurfaceContext<'_> {
         self.section_label(ui, "Start");
         ui.add_space(SPACE_SM);
 
+        self.card_frame().show(ui, |ui| {
+            ui.set_min_height(WELCOME_CARD_MIN_HEIGHT);
+            self.draw_start_rows(ui, intent);
+        });
+    }
+
+    fn draw_start_rows(&self, ui: &mut egui::Ui, intent: &mut WelcomeIntent) {
         if self.action_row(
             ui,
             WelcomeActionRow {
@@ -229,6 +334,16 @@ impl WelcomeSurfaceContext<'_> {
             },
         ) {
             intent.open_palette = true;
+        }
+    }
+
+    fn card_frame(&self) -> egui::Frame {
+        egui::Frame {
+            fill: self.theme.surface_elevated,
+            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
+            inner_margin: egui::Margin::same(SPACE_SM),
+            rounding: egui::Rounding::same(RADIUS_MD),
+            ..Default::default()
         }
     }
 
@@ -337,14 +452,8 @@ impl WelcomeSurfaceContext<'_> {
         self.section_label(ui, "Connections");
         ui.add_space(SPACE_SM);
 
-        egui::Frame {
-            fill: self.theme.surface_elevated,
-            stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-            inner_margin: egui::Margin::same(SPACE_XS),
-            rounding: egui::Rounding::same(RADIUS_MD),
-            ..Default::default()
-        }
-        .show(ui, |ui| {
+        self.card_frame().show(ui, |ui| {
+            ui.set_min_height(WELCOME_CARD_MIN_HEIGHT);
             if self.catalog.is_empty() {
                 self.draw_empty_connections(ui, intent);
                 return;
@@ -510,6 +619,11 @@ impl WelcomeSurfaceContext<'_> {
     }
 }
 
+fn welcome_top_inset(available_height: f32) -> f32 {
+    let spare = (available_height - WELCOME_CONTENT_ESTIMATE).max(0.0);
+    (spare * 0.18).clamp(SPACE_2XL, 96.0)
+}
+
 fn shortcut_parts(keys: &[&str]) -> Vec<String> {
     let mut parts = Vec::with_capacity(keys.len() + 1);
     parts.push(if cfg!(target_os = "macos") { "⌘" } else { "Ctrl" }.to_owned());
@@ -525,6 +639,13 @@ fn shortcut_parts(keys: &[&str]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn welcome_top_inset_keeps_the_start_block_in_the_upper_third() {
+        assert_eq!(welcome_top_inset(400.0), SPACE_2XL);
+        assert!((welcome_top_inset(900.0) - 79.2).abs() < 0.1);
+        assert_eq!(welcome_top_inset(1600.0), 96.0);
+    }
 
     #[test]
     fn welcome_action_preserves_connection_identity() {

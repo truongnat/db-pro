@@ -147,6 +147,13 @@ Design tokens are owned by `DbProTheme` in `crates/ui/src/theme.rs` and mapped t
 `egui::Visuals`. Widgets must read semantic tokens from the theme instead of
 hard-coding colors, and a token must not be duplicated across views.
 
+When reshaping a surface, read the project UI skills first:
+
+- `.cursor/skills/frontend-design/SKILL.md` — layout, type, and a point of view that is specific to a database IDE
+- `.cursor/skills/theme-factory/SKILL.md` — palette and type pairings when a new theme is requested
+
+Those skills do not override `DbProTheme`. Map any chosen colors through theme tokens.
+
 UI changes require runtime evidence (screenshot or short screen recording) of the
 affected surface at 1280×800, 1440×900 and 1920×1080, in normal plus
 loading/error/empty states. The visual acceptance gate is defined in

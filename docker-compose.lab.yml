@@ -1,0 +1,25 @@
+# Large lab database for manual IDE testing. Separate from docker-compose.yml so CI
+# fixtures stay small. Host port 55433.
+services:
+  lab-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: dbpro
+      POSTGRES_PASSWORD: dbpro_test
+      POSTGRES_DB: dbpro_lab
+    ports:
+      - "55433:5432"
+    volumes:
+      - ./fixtures/lab/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+      - ./fixtures/lab/002_load.sh:/docker-entrypoint-initdb.d/002_load.sh:ro
+      - ./fixtures/lab/003_expand.sql:/seed/003_expand.sql:ro
+      - ./fixtures/lab/seed-map.json:/seed/seed-map.json:ro
+      - lab_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbpro -d dbpro_lab"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  lab_pg_data:

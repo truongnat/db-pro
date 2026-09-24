@@ -43,8 +43,11 @@ pub(super) struct ExplorerSurfaceContext<'a> {
 
 impl ExplorerSurfaceContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<ExplorerSurfaceAction> {
-        let mut actions = self.draw_toolbar(ui);
-        ui.add_space(6.0);
+        let mut actions = Vec::new();
+        if !self.catalog.is_empty() {
+            actions.extend(self.draw_toolbar(ui));
+            ui.add_space(6.0);
+        }
 
         let tree_width = ui
             .max_rect()

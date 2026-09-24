@@ -90,7 +90,13 @@ impl DbProApp {
             .active_query_connection()
             .map(|connection| connection.environment.clone())
             .unwrap_or_default();
-        let anchors = {
+        let active_request_id = self.active_query_request_id();
+        let capabilities = self.query_capabilities();
+        let cancel_reason =
+            capabilities.feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Cancel);
+        let cancel_supported = capabilities.allows(|value| value.query.cancel);
+        let modifier = Self::primary_modifier_label();
+        let chrome = {
             let mut context = query_context_view::QueryContextViewContext {
                 theme: self.theme,
                 editor: &mut self.query.editor,
@@ -99,9 +105,17 @@ impl DbProApp {
                 connection_name: &connection_name,
                 schema: &schema,
                 environment: &environment,
+                active_request_id,
+                cancel_supported,
+                cancel_reason: cancel_reason.as_deref(),
+                modifier,
             };
             query_context_view::draw_context_strip(&mut context, ui)
         };
+        if let Some(action) = chrome.action {
+            self.apply_query_chrome_action(action);
+        }
+        let anchors = chrome.anchors;
         if self.query.editor.query_context_picker_open {
             if let Some(anchor) = anchors.context_anchor {
                 self.draw_query_context_picker(ui.ctx(), anchor);
@@ -250,26 +264,9 @@ impl DbProApp {
         &self,
         ui: &mut egui::Ui,
     ) -> Option<query_status_bar_surface_view::QueryStatusBarAction> {
-        let active_request_id = self
-            .query
-            .session
-            .documents
-            .get(self.query.session.active_document_index)
-            .and_then(|document| match document.execution_state {
-                QueryExecutionState::Running(request_id) => Some(request_id),
-                _ => None,
-            });
-        let capabilities = self.query_capabilities();
-        let cancel_reason =
-            capabilities.feature_limitation(db_pro_core::domain::capabilities::CapabilityFeature::Cancel);
         query_status_bar_surface_view::draw_status_bar(
             &query_status_bar_surface_view::QueryStatusBarContext {
                 theme: self.theme,
-                connected: self.active_query_connection_id().is_some() && self.connection.lifecycle.is_connected(),
-                active_request_id,
-                cancel_supported: capabilities.allows(|value| value.query.cancel),
-                cancel_reason: cancel_reason.as_deref(),
-                modifier: Self::primary_modifier_label(),
                 bottom_panel_open: self.workspace.bottom_panel_open,
                 in_transaction: self.query.execution.query_in_transaction,
                 transaction_pending: self.query.execution.query_txn_pending,
@@ -285,21 +282,50 @@ impl DbProApp {
         )
     }
 
+    fn active_query_request_id(&self) -> Option<RequestId> {
+        self.query
+            .session
+            .documents
+            .get(self.query.session.active_document_index)
+            .and_then(|document| match document.execution_state {
+                QueryExecutionState::Running(request_id) => Some(request_id),
+                _ => None,
+            })
+    }
+
+    fn apply_query_chrome_action(&mut self, action: query_context_view::QueryChromeAction) {
+        use query_context_view::QueryChromeAction;
+        match action {
+            QueryChromeAction::RunControl(action) => self.apply_run_control_action(action),
+            QueryChromeAction::Explain => self.explain_query(),
+            QueryChromeAction::Format => {
+                let capabilities = self.query_capabilities();
+                if let Some(request_id) = query_diagnostics_view::format_active_query(&mut self.query, capabilities) {
+                    self.send_command_best_effort(UiCommand::CancelSqlPrediction { request_id });
+                }
+            }
+        }
+    }
+
+    fn apply_run_control_action(&mut self, action: query_run_control_view::QueryRunControlAction) {
+        use query_run_control_view::QueryRunControlAction;
+        match action {
+            QueryRunControlAction::Run => {
+                self.dispatch_query();
+            }
+            QueryRunControlAction::Cancel(request_id) => self.cancel_query(request_id),
+            QueryRunControlAction::ReportUnsupportedCancel(reason) => {
+                self.feedback.runtime_message = reason;
+            }
+            QueryRunControlAction::ReportDisconnected => {
+                self.feedback.runtime_message = "Connect to a database before running a query".to_owned();
+            }
+        }
+    }
+
     fn apply_query_status_bar_action(&mut self, action: query_status_bar_surface_view::QueryStatusBarAction) {
         use query_status_bar_surface_view::QueryStatusBarAction as Action;
         match action {
-            Action::RunControl(action) => match action {
-                query_run_control_view::QueryRunControlAction::Run => {
-                    self.dispatch_query();
-                }
-                query_run_control_view::QueryRunControlAction::Cancel(request_id) => self.cancel_query(request_id),
-                query_run_control_view::QueryRunControlAction::ReportUnsupportedCancel(reason) => {
-                    self.feedback.runtime_message = reason;
-                }
-                query_run_control_view::QueryRunControlAction::ReportDisconnected => {
-                    self.feedback.runtime_message = "Connect to a database before running a query".to_owned();
-                }
-            },
             Action::ShowOutput => self.workspace.bottom_panel_open = true,
             Action::ToggleTransaction => {
                 self.query.execution.query_txn_bar_open = !self.query.execution.query_txn_bar_open;

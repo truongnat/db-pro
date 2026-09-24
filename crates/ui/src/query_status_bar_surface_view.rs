@@ -6,7 +6,6 @@ pub(super) const QUERY_STATUS_HEIGHT: f32 = 24.0;
 
 #[derive(Debug)]
 pub(super) enum QueryStatusBarAction {
-    RunControl(query_run_control_view::QueryRunControlAction),
     ShowOutput,
     ToggleTransaction,
     ToggleParameters,
@@ -15,11 +14,6 @@ pub(super) enum QueryStatusBarAction {
 
 pub(super) struct QueryStatusBarContext<'a> {
     pub(super) theme: DbProTheme,
-    pub(super) connected: bool,
-    pub(super) active_request_id: Option<RequestId>,
-    pub(super) cancel_supported: bool,
-    pub(super) cancel_reason: Option<&'a str>,
-    pub(super) modifier: &'a str,
     pub(super) bottom_panel_open: bool,
     pub(super) in_transaction: bool,
     pub(super) transaction_pending: usize,
@@ -60,15 +54,7 @@ pub(super) fn draw_status_bar(context: &QueryStatusBarContext<'_>, ui: &mut egui
 }
 
 fn draw_right_controls(context: &QueryStatusBarContext<'_>, ui: &mut egui::Ui) -> Option<QueryStatusBarAction> {
-    let run_context = query_run_control_view::QueryRunControlContext {
-        theme: context.theme,
-        connected: context.connected,
-        active_request_id: context.active_request_id,
-        cancel_supported: context.cancel_supported,
-        cancel_reason: context.cancel_reason,
-        modifier: context.modifier,
-    };
-    let mut action = query_run_control_view::draw_run_control(&run_context, ui).map(QueryStatusBarAction::RunControl);
+    let mut action = None;
     if !context.bottom_panel_open
         && Button::new(context.theme)
             .icon(Icon::PanelBottom)

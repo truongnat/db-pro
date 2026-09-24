@@ -183,9 +183,9 @@ impl DbProTheme {
     /// Soft current-line highlight — readable without shouting.
     pub fn editor_current_line_fill(self) -> Color32 {
         if self.dark_mode {
-            Color32::from_rgba_unmultiplied(255, 255, 255, 10)
+            Color32::from_rgba_unmultiplied(255, 255, 255, 22)
         } else {
-            Color32::from_rgba_unmultiplied(15, 23, 42, 8)
+            Color32::from_rgba_unmultiplied(15, 23, 42, 16)
         }
     }
 
@@ -202,7 +202,7 @@ impl DbProTheme {
         if current {
             self.text_secondary
         } else if self.dark_mode {
-            Color32::from_rgb(90, 90, 90)
+            Color32::from_rgb(120, 120, 120)
         } else {
             Color32::from_rgb(170, 170, 170)
         }
