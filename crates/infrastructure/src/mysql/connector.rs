@@ -152,8 +152,18 @@ impl DbConnector for MySqlConnector {
         &self,
         handle: &ConnectionHandle,
         statements: &[String],
-        _read_statements: &[bool],
+        read_statements: &[bool],
     ) -> Result<Vec<db_pro_core::ports::TransactionStatementResult>, db_pro_core::ports::TransactionFailure> {
+        if statements.len() != read_statements.len() {
+            return Err(db_pro_core::ports::TransactionFailure {
+                phase: db_pro_core::ports::TransactionFailurePhase::Validation,
+                statement_index: 0,
+                outcome: db_pro_core::ports::TransactionFailureOutcome::NotStarted,
+                results: Vec::new(),
+                error: DbError::Validation("MySQL transaction statement metadata length mismatch".into()),
+            });
+        }
+
         let pool = self
             .get_pool(handle)
             .await
@@ -173,29 +183,62 @@ impl DbConnector for MySqlConnector {
             error: DbError::QueryFailed(format!("MySQL transaction begin failed: {}", e)),
         })?;
 
-        let mut results = Vec::new();
-        for (idx, stmt) in statements.iter().enumerate() {
-            match sqlx::query(stmt).execute(&mut *tx).await {
-                Ok(result) => {
-                    results.push(db_pro_core::ports::TransactionStatementResult::Affected {
-                        row_count: result.rows_affected(),
-                        duration_ms: 0,
-                    });
-                }
-                Err(e) => {
-                    // Rollback on the error path is best-effort: if rollback itself fails
-                    // (e.g. broken connection), return the original statement error with a warning log,
-                    // without swallowing the rollback failure.
-                    if let Err(rollback_error) = tx.rollback().await {
-                        tracing::warn!(statement_index = idx, error = %rollback_error, "MySQL rollback after failed statement also failed — transaction may still be open on the connection");
+        let mut results = Vec::with_capacity(statements.len());
+        for (idx, (stmt, is_read)) in statements.iter().zip(read_statements).enumerate() {
+            let started = std::time::Instant::now();
+            if *is_read {
+                match sqlx::query(stmt).fetch_all(&mut *tx).await {
+                    Ok(rows) => match MySqlQueryMapper::map_rows(rows) {
+                        Ok(mut query_result) => {
+                            query_result.duration_ms = started.elapsed().as_millis() as u64;
+                            results.push(db_pro_core::ports::TransactionStatementResult::Query(query_result));
+                        }
+                        Err(e) => {
+                            if let Err(rollback_error) = tx.rollback().await {
+                                tracing::warn!(statement_index = idx, error = %rollback_error, "MySQL rollback after row mapping error also failed");
+                            }
+                            return Err(db_pro_core::ports::TransactionFailure {
+                                phase: db_pro_core::ports::TransactionFailurePhase::Statement,
+                                statement_index: idx,
+                                outcome: db_pro_core::ports::TransactionFailureOutcome::RolledBack,
+                                results,
+                                error: e,
+                            });
+                        }
+                    },
+                    Err(e) => {
+                        if let Err(rollback_error) = tx.rollback().await {
+                            tracing::warn!(statement_index = idx, error = %rollback_error, "MySQL rollback after failed query also failed — transaction may still be open on the connection");
+                        }
+                        return Err(db_pro_core::ports::TransactionFailure {
+                            phase: db_pro_core::ports::TransactionFailurePhase::Statement,
+                            statement_index: idx,
+                            outcome: db_pro_core::ports::TransactionFailureOutcome::RolledBack,
+                            results,
+                            error: DbError::QueryFailed(format!("MySQL statement {} failed: {}", idx, e)),
+                        });
                     }
-                    return Err(db_pro_core::ports::TransactionFailure {
-                        phase: db_pro_core::ports::TransactionFailurePhase::Statement,
-                        statement_index: idx,
-                        outcome: db_pro_core::ports::TransactionFailureOutcome::RolledBack,
-                        results,
-                        error: DbError::QueryFailed(format!("MySQL statement {} failed: {}", idx, e)),
-                    });
+                }
+            } else {
+                match sqlx::query(stmt).execute(&mut *tx).await {
+                    Ok(result) => {
+                        results.push(db_pro_core::ports::TransactionStatementResult::Affected {
+                            row_count: result.rows_affected(),
+                            duration_ms: started.elapsed().as_millis() as u64,
+                        });
+                    }
+                    Err(e) => {
+                        if let Err(rollback_error) = tx.rollback().await {
+                            tracing::warn!(statement_index = idx, error = %rollback_error, "MySQL rollback after failed statement also failed — transaction may still be open on the connection");
+                        }
+                        return Err(db_pro_core::ports::TransactionFailure {
+                            phase: db_pro_core::ports::TransactionFailurePhase::Statement,
+                            statement_index: idx,
+                            outcome: db_pro_core::ports::TransactionFailureOutcome::RolledBack,
+                            results,
+                            error: DbError::QueryFailed(format!("MySQL statement {} failed: {}", idx, e)),
+                        });
+                    }
                 }
             }
         }
@@ -421,6 +464,48 @@ mod tests {
             environment: Default::default(),
             readonly: false,
         }
+    }
+
+    use db_pro_core::ports::{TransactionFailureOutcome, TransactionFailurePhase};
+
+    #[tokio::test]
+    async fn execute_transaction_reports_validation_failure_on_mismatched_read_statements_length() {
+        let connector = MySqlConnector::new();
+        let handle = ConnectionHandle::new(999);
+        let statements = vec!["SELECT 1".to_string(), "SELECT 2".to_string()];
+        let read_statements = vec![true]; // Mismatched length: 2 statements vs 1 read flag
+
+        let failure = connector
+            .execute_transaction(&handle, &statements, &read_statements)
+            .await
+            .expect_err("mismatched statement lengths must fail validation");
+
+        assert_eq!(failure.phase, TransactionFailurePhase::Validation);
+        assert_eq!(
+            failure.statement_index, 0,
+            "statement_index must be 0 for Validation phase failure"
+        );
+        assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
+    }
+
+    #[tokio::test]
+    async fn execute_transaction_reports_begin_failure_on_unknown_handle() {
+        let connector = MySqlConnector::new();
+        let handle = ConnectionHandle::new(999); // Handle not connected
+        let statements = vec!["SELECT 1".to_string(), "SELECT 2".to_string()];
+        let read_statements = vec![true, true];
+
+        let failure = connector
+            .execute_transaction(&handle, &statements, &read_statements)
+            .await
+            .expect_err("begin transaction on unknown handle must fail validation/connection lookup");
+
+        assert_eq!(failure.phase, TransactionFailurePhase::Validation);
+        assert_eq!(
+            failure.statement_index, 0,
+            "statement_index must be 0 for Validation phase failure"
+        );
+        assert_eq!(failure.outcome, TransactionFailureOutcome::NotStarted);
     }
 
     #[test]
