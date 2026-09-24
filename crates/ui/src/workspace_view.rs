@@ -49,7 +49,7 @@ impl DbProApp {
         let active_connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
         let actions = welcome_surface_view::WelcomeSurfaceContext {
             theme: self.theme,
-            welcome: &self.welcome,
+            welcome: &mut self.welcome,
             catalog: &self.connection.catalog,
             active_connection_id: active_connection_id.as_deref(),
         }
