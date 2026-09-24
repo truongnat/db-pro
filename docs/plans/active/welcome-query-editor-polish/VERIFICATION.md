@@ -47,6 +47,29 @@ Accent pixels for the Run control on the 1440 query capture sit on rows 72–95,
 | PostgreSQL | N/A | N/A | No SQL or connection behavior changed |
 | SQLite | N/A | N/A | No SQL or connection behavior changed |
 
+## Lab database
+
+`docker-compose.lab.yml` on host port 55433, database `dbpro_lab`, user `dbpro`. Seed mapping: `fixtures/lab/seed-map.json`, expanded by `003_expand.sql`.
+
+```text
+sudo docker compose -f docker-compose.lab.yml up -d
+PGPASSWORD=dbpro_test psql -h 127.0.0.1 -p 55433 -U dbpro -d dbpro_lab
+```
+
+Measured 2026-09-24 after init (`INSERT 0 1` then `DO` in the container log):
+
+| Table | Rows |
+|---|---|
+| lab.products | 1200 |
+| lab.customers | 8000 |
+| lab.orders | 20000 |
+| lab.order_items | 40000 |
+| lab.events | 12000 |
+
+`SELECT status, count(*) FROM lab.orders GROUP BY status` returned six statuses, 3333–3334 each. The Welcome starter joining customers to orders returned rows (top spend 6309.90).
+
+Welcome capture after the composer redesign: `/opt/cursor/artifacts/welcome_lab_1440.png`.
+
 ## Remaining
 
 - P0: 0

@@ -1,0 +1,23 @@
+{
+  "dataset": "dbpro-lab",
+  "description": "Expanded by fixtures/lab/003_expand.sql from this mapping. Counts are the row targets.",
+  "volumes": {
+    "customers": 8000,
+    "products": 1200,
+    "orders": 20000,
+    "events": 12000
+  },
+  "given_names": ["An", "Minh", "Linh", "Huy", "Trang", "Nam", "Ha", "Khoa", "My", "Duc", "Lan", "Phuc", "Chi", "Quang", "Vy", "Tuan"],
+  "family_names": ["Nguyen", "Tran", "Le", "Pham", "Hoang", "Vu", "Dang", "Bui", "Do", "Ngo"],
+  "cities": ["Hanoi", "Saigon", "Danang", "Hue", "Cantho", "Haiphong", "Dalat", "Nhatrang"],
+  "categories": [
+    {"slug": "electronics", "name": "Electronics"},
+    {"slug": "books", "name": "Books"},
+    {"slug": "home", "name": "Home"},
+    {"slug": "grocery", "name": "Grocery"},
+    {"slug": "outdoor", "name": "Outdoor"},
+    {"slug": "tools", "name": "Tools"}
+  ],
+  "order_statuses": ["pending", "paid", "packed", "shipped", "delivered", "cancelled"],
+  "event_types": ["query.run", "query.explain", "schema.refresh", "agent.ask", "grid.export", "connection.open"]
+}
