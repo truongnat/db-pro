@@ -41,7 +41,7 @@
 - The `Connecting…` row opens only by default when no persisted disclosure state exists; users can still collapse it.
 - The connected-row selected treatment derives from the existing `is_connected` state.
 - Runtime review remains incomplete: no connected PostgreSQL schema tree or Explorer error-state capture; the host cannot reach the required 900/1080 logical heights.
-- Independent review has not run; this branch is not marked ready to merge.
+- Independent review has not run; the feature remains `RUNTIME_VERIFY`, not lifecycle-completed.
 
 ## Provider impact
 

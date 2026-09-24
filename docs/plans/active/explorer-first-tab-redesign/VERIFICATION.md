@@ -3,7 +3,7 @@
 ## Source baseline
 
 - Design inventory source SHA: `a21504ebd2a0d37e83c89e2a57ed5d731b99df1b`.
-- Base commit: `7c889eec`; feature source changes remain uncommitted on `feature/explorer-first-tab-redesign`.
+- Implementation commit: `a9efb730` (merged to `origin/main`).
 
 ## Runtime evidence
 
