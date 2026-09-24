@@ -14,7 +14,7 @@
 
 ## 2. Progress checkpoint
 
-- Current HEAD: recorded in §6 after the implementation commit
+- Current HEAD: `06c6df6f4bced9032c446c9a038911005750226c`
 - Completed acceptance rows: Welcome inset and cards, empty Explorer filter, query toolbar, gutter contrast, three-size captures
 - Remaining acceptance rows: independent review; full workspace clippy/test suite
 - Findings / risks: P2 only, see FINDINGS.md. No P0/P1
