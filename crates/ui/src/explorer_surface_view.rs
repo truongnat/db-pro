@@ -14,6 +14,7 @@ use super::{
     ConnectionCatalogState, ConnectionLifecycleState, DbProTheme, SchemaExplorerState, UiConnectionSummary, UiTableInfo,
 };
 use eframe::egui;
+use crate::tokens::{SPACE_SM, SPACE_XS};
 
 pub(super) enum ExplorerSurfaceAction {
     NewConnection,
@@ -46,7 +47,17 @@ impl ExplorerSurfaceContext<'_> {
         let mut actions = Vec::new();
         if !self.catalog.is_empty() {
             actions.extend(self.draw_toolbar(ui));
-            ui.add_space(6.0);
+            ui.add_space(SPACE_SM);
+            ui.horizontal(|ui| {
+                ui.add_space(SPACE_XS);
+                ui.label(
+                    egui::RichText::new("CONNECTIONS")
+                        .small()
+                        .strong()
+                        .color(self.theme.text_tertiary),
+                );
+            });
+            ui.add_space(SPACE_XS);
         }
 
         let tree_width = ui

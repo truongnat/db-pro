@@ -47,7 +47,7 @@ impl ConnectionRowContext<'_> {
         let mut collapsing = egui::collapsing_header::CollapsingState::load_with_default_open(
             ui.ctx(),
             id,
-            self.is_connected || self.is_failed,
+            self.is_connected || self.is_connecting || self.is_failed,
         );
         let is_open = collapsing.is_open();
         let (response, chevron_clicked) = self.draw_row(ui, is_open);
@@ -79,7 +79,7 @@ impl ConnectionRowContext<'_> {
                 icon: Icon::Database,
                 icon_color: self.icon_color(),
                 label: &self.connection.name,
-                is_selected: false,
+                is_selected: self.is_connected,
                 is_dimmed: !self.is_connected && !self.is_failed && !self.is_connecting,
                 status_dot: Some(self.status_dot()),
                 badge_text: Some(self.badge_text()),
