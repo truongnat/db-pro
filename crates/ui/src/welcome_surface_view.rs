@@ -125,54 +125,26 @@ impl WelcomeSurfaceContext<'_> {
 
     fn draw_identity(&self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            let (icon_rect, _) = ui.allocate_exact_size(Vec2::new(42.0, 42.0), Sense::hover());
-            ui.painter().rect_filled(
-                icon_rect,
-                egui::Rounding::same(RADIUS_MD),
-                self.theme.surface_elevated,
-            );
-            ui.painter().rect_stroke(
-                icon_rect,
-                egui::Rounding::same(RADIUS_MD),
-                egui::Stroke::new(1.0, self.theme.border_subtle),
-            );
-            ui.painter().text(
-                icon_rect.center(),
-                egui::Align2::CENTER_CENTER,
-                char::from(Icon::Database).to_string(),
-                font_icon(ICON_LG),
-                self.theme.accent,
-            );
-            ui.add_space(SPACE_MD);
             ui.vertical(|ui| {
                 ui.label(
                     RichText::new("DB Pro")
-                        .font(font_page_title())
-                        .strong()
+                        .font(font_display())
                         .color(self.theme.text_primary),
                 );
-                ui.add_space(SPACE_XXS);
-                let subtitle = if let Some(active) = self.active_connection() {
-                    format!("Connected · {}", active.name)
-                } else if self.catalog.is_empty() {
-                    "Database IDE. Ask in SQL, or connect a source.".to_owned()
-                } else {
-                    "Pick up a connection, or ask the database directly.".to_owned()
-                };
+                ui.add_space(SPACE_XS);
+                let (mark, _) = ui.allocate_exact_size(Vec2::new(36.0, 3.0), Sense::hover());
+                ui.painter()
+                    .rect_filled(mark, egui::Rounding::same(RADIUS_FULL), self.theme.accent);
+                ui.add_space(SPACE_SM);
                 ui.label(
-                    RichText::new(subtitle)
+                    RichText::new(self.brand_line())
                         .font(font_body())
                         .color(self.theme.text_secondary),
                 );
             });
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing = Vec2::new(SPACE_XS, 0.0);
-                    ui.label(
-                        RichText::new("Palette")
-                            .font(font_caption())
-                            .color(self.theme.text_muted),
-                    );
                     let parts = shortcut_parts(&["Shift", "P"]);
                     let refs: Vec<&str> = parts.iter().map(String::as_str).collect();
                     kbd_combo(ui, &refs, self.theme);
@@ -181,20 +153,22 @@ impl WelcomeSurfaceContext<'_> {
         });
     }
 
+    fn brand_line(&self) -> String {
+        if let Some(active) = self.active_connection() {
+            format!("Connected to {}", active.name)
+        } else if self.catalog.is_empty() {
+            "Write SQL. Connect when the query needs a database.".to_owned()
+        } else {
+            "Continue a connection, or write the next query.".to_owned()
+        }
+    }
+
     fn draw_composer(&mut self, ui: &mut egui::Ui, intent: &mut WelcomeIntent) {
-        self.section_label(ui, "Ask the database");
-        ui.add_space(SPACE_XS);
         self.card_frame().show(ui, |ui| {
-            ui.label(
-                RichText::new("Write a question or SQL. Enter opens it in the query editor.")
-                    .font(font_caption())
-                    .color(self.theme.text_muted),
-            );
-            ui.add_space(SPACE_XS);
             let editor = egui::TextEdit::multiline(&mut self.welcome.prompt)
-                .hint_text("SELECT status, count(*) FROM lab.orders GROUP BY status;")
+                .hint_text("Ask in SQL. Ctrl+Enter opens the editor.")
                 .font(egui::FontId::monospace(13.0))
-                .desired_rows(3)
+                .desired_rows(2)
                 .desired_width(f32::INFINITY);
             let response = ui.add(editor);
             let submit = response.has_focus()
@@ -341,8 +315,8 @@ impl WelcomeSurfaceContext<'_> {
         egui::Frame {
             fill: self.theme.surface_elevated,
             stroke: egui::Stroke::new(STROKE_THIN, self.theme.border_subtle),
-            inner_margin: egui::Margin::same(SPACE_SM),
-            rounding: egui::Rounding::same(RADIUS_MD),
+            inner_margin: egui::Margin::same(SPACE_MD),
+            rounding: egui::Rounding::same(RADIUS_LG),
             ..Default::default()
         }
     }
