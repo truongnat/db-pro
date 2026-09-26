@@ -1,11 +1,9 @@
-pub mod config;
-pub mod layout;
-pub mod option;
-pub mod view;
+mod config;
+mod handler;
+mod ui;
 
 #[cfg(test)]
 mod tests;
 
-pub use layout::dropdown_should_open_above;
-pub use option::{paint_option, SelectOption};
-pub use view::Select;
+pub use handler::dropdown_should_open_above;
+pub use ui::{paint_option, Select, SelectOption};

@@ -1,4 +1,4 @@
-use egui::{FontFamily, FontId, Frame, Id, Margin, Rect, Response, RichText, Rounding, Sense, Stroke, Ui};
+use egui::{Frame, Id, Rect, Response, RichText, Sense, Stroke, Ui};
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
@@ -7,8 +7,12 @@ use crate::components::interact::{combo_box_info, paint_focus_ring};
 use crate::components::overlay::{floating_surface, screen_rect};
 use crate::DbProTheme;
 
-use super::config::MENU_PAD;
-use super::layout::calculate_menu_geometry;
+use super::super::config::{ICON_GAP, LABEL_GAP, SELECT_LABEL_SIZE, TRIGGER_TEXT_HEIGHT};
+use super::super::handler::{
+    calculate_menu_geometry, menu_min_content_width, menu_surface_margin, navigate_selection, selected_label,
+    selection_from_click, should_close_for_key, should_close_on_outside_click, should_request_load_more,
+    should_toggle_popup, trigger_accessibility_label, trigger_content_width, trigger_inner_margin, trigger_text_width,
+};
 use super::option::{paint_option, SelectOption};
 
 pub struct Select<'a> {
@@ -71,52 +75,53 @@ impl<'a> Select<'a> {
                 ui.add(
                     egui::Label::new(
                         RichText::new(lbl.as_ref())
-                            .font(DbProTheme::ui_medium_font(12.0))
+                            .font(DbProTheme::ui_medium_font(SELECT_LABEL_SIZE))
                             .color(self.theme.text_secondary),
                     )
                     .halign(egui::Align::Min),
                 );
-                ui.add_space(4.0);
+                ui.add_space(LABEL_GAP);
             }
 
-            let current_text = self
-                .options
-                .get(*self.selected)
-                .map(|s| s.as_str())
-                .unwrap_or("Select an option...");
+            let current_text = selected_label(self.options, *self.selected);
 
             let popup_id = Id::new(self.id_salt);
             let is_open = ui.memory(|mem| mem.is_popup_open(popup_id));
 
             let trigger_btn = Frame {
                 fill: self.theme.surface_editor,
-                stroke: Stroke::new(1.0, self.theme.border_default),
-                inner_margin: Margin::symmetric(10.0, 6.0),
-                rounding: Rounding::same(6.0),
+                stroke: Stroke::new(crate::tokens::STROKE_THIN, self.theme.border_default),
+                inner_margin: trigger_inner_margin(ui.spacing().button_padding.x, ui.spacing().button_padding.y),
+                rounding: ui.style().visuals.widgets.inactive.rounding,
                 ..Default::default()
             }
             .show(ui, |ui| {
-                let content_width = (width - 20.0).min(ui.available_width()).max(80.0);
+                let content_width = trigger_content_width(width, ui.available_width());
                 ui.set_width(content_width);
                 ui.horizontal(|ui| {
                     let icon = if is_open { Icon::ChevronUp } else { Icon::ChevronDown };
-                    let text_width = (ui.available_width() - 22.0).max(32.0);
+                    let text_width = trigger_text_width(ui.available_width());
                     let text_response = ui.allocate_ui_with_layout(
-                        egui::vec2(text_width, 18.0),
+                        egui::vec2(text_width, TRIGGER_TEXT_HEIGHT),
                         egui::Layout::left_to_right(egui::Align::Center),
                         |text_ui| {
                             text_ui.set_min_width(text_width);
                             text_ui.add(
-                                egui::Label::new(RichText::new(current_text).size(13.0).color(self.theme.text_primary))
-                                    .halign(egui::Align::Min)
-                                    .truncate(),
+                                egui::Label::new(
+                                    RichText::new(current_text)
+                                        .size(crate::tokens::FONT_SIZE_UI_LABEL)
+                                        .color(self.theme.text_primary),
+                                )
+                                .halign(egui::Align::Min)
+                                .truncate(),
                             )
                         },
                     );
                     text_response.inner.on_hover_text(current_text);
+                    ui.add_space(ICON_GAP);
                     ui.label(
                         RichText::new(char::from(icon).to_string())
-                            .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
+                            .font(crate::tokens::font_icon(crate::tokens::ICON_SM))
                             .color(self.theme.text_muted),
                     );
                 });
@@ -124,15 +129,11 @@ impl<'a> Select<'a> {
             .response;
 
             let response = trigger_btn.interact(Sense::click());
-            let info_label = self
-                .label
-                .as_deref()
-                .map(|label| format!("{label}: {current_text}"))
-                .unwrap_or_else(|| current_text.to_owned());
+            let info_label = trigger_accessibility_label(self.label.as_deref(), current_text);
             response.widget_info(|| combo_box_info(true, &info_label));
-            let keyboard_open = response.has_focus()
-                && ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::Space));
-            if response.clicked() || keyboard_open {
+            let keyboard_toggle =
+                ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::Space));
+            if should_toggle_popup(response.clicked(), response.has_focus(), keyboard_toggle) {
                 ui.memory_mut(|mem| mem.toggle_popup(popup_id));
             }
 
@@ -146,10 +147,11 @@ impl<'a> Select<'a> {
             } else {
                 lerp_color(self.theme.border_default, self.theme.border_strong, hover)
             };
+            let rounding = ui.style().visuals.widgets.inactive.rounding;
             ui.painter()
-                .rect_stroke(response.rect, Rounding::same(6.0), Stroke::new(1.0, border));
+                .rect_stroke(response.rect, rounding, Stroke::new(crate::tokens::STROKE_THIN, border));
             if response.has_focus() {
-                paint_focus_ring(ui, response.rect, 6.0, self.theme);
+                paint_focus_ring(ui, response.rect, rounding.nw, self.theme);
             }
 
             if ui.memory(|mem| mem.is_popup_open(popup_id)) {
@@ -162,16 +164,16 @@ impl<'a> Select<'a> {
     }
 
     fn show_menu(self, ui: &mut Ui, popup_id: Id, parent_rect: Rect) {
-        if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-            ui.memory_mut(|mem| mem.close_popup());
-        }
-        if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) && *self.selected + 1 < self.options.len() {
-            *self.selected += 1;
-        }
-        if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) && *self.selected > 0 {
-            *self.selected -= 1;
-        }
-        if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+        let key_actions = ui.input(|input| {
+            (
+                input.key_pressed(egui::Key::Escape),
+                input.key_pressed(egui::Key::Enter),
+                input.key_pressed(egui::Key::ArrowDown),
+                input.key_pressed(egui::Key::ArrowUp),
+            )
+        });
+        *self.selected = navigate_selection(*self.selected, self.options.len(), key_actions.2, key_actions.3);
+        if should_close_for_key(key_actions.0, key_actions.1) {
             ui.memory_mut(|mem| mem.close_popup());
         }
 
@@ -182,8 +184,13 @@ impl<'a> Select<'a> {
             .fixed_pos(geo.menu_pos)
             .order(egui::Order::Foreground)
             .show(ui.ctx(), |ui| {
-                floating_surface(self.theme, 10.0, Margin::symmetric(4.0, MENU_PAD)).show(ui, |ui| {
-                    ui.set_min_width(geo.menu_width - 8.0);
+                floating_surface(
+                    self.theme,
+                    ui.style().visuals.window_rounding.nw,
+                    menu_surface_margin(ui.spacing().menu_margin.left),
+                )
+                .show(ui, |ui| {
+                    ui.set_min_width(menu_min_content_width(geo.menu_width));
                     ui.set_max_width(geo.menu_width);
                     egui::ScrollArea::vertical()
                         .id_salt(popup_id.with("scroll"))
@@ -191,7 +198,7 @@ impl<'a> Select<'a> {
                         .auto_shrink([false, true])
                         .show(ui, |ui| {
                             for (idx, opt) in self.options.iter().enumerate() {
-                                if paint_option(
+                                let clicked = paint_option(
                                     ui,
                                     SelectOption {
                                         label: opt,
@@ -199,9 +206,9 @@ impl<'a> Select<'a> {
                                         theme: self.theme,
                                     },
                                 )
-                                .clicked()
-                                {
-                                    *self.selected = idx;
+                                .clicked();
+                                if let Some(selected) = selection_from_click(clicked, idx) {
+                                    *self.selected = selected;
                                     ui.memory_mut(|mem| mem.close_popup());
                                 }
                             }
@@ -214,7 +221,7 @@ impl<'a> Select<'a> {
                                         theme: self.theme,
                                     },
                                 );
-                                if load.clicked() {
+                                if should_request_load_more(load.clicked(), self.has_more) {
                                     if let Some(flag) = self.load_more {
                                         *flag = true;
                                     }
@@ -224,11 +231,14 @@ impl<'a> Select<'a> {
                 });
             });
 
-        if ui.input(|i| i.pointer.any_click()) {
-            if let Some(pos) = ui.input(|i| i.pointer.interact_pos()) {
-                if !parent_rect.contains(pos) && !area_resp.response.rect.contains(pos) {
-                    ui.memory_mut(|mem| mem.close_popup());
-                }
+        if let Some(pos) = ui.input(|input| input.pointer.interact_pos()) {
+            if should_close_on_outside_click(
+                ui.input(|input| input.pointer.any_click()),
+                pos,
+                parent_rect,
+                area_resp.response.rect,
+            ) {
+                ui.memory_mut(|mem| mem.close_popup());
             }
         }
     }

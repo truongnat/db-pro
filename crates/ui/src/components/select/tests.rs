@@ -1,4 +1,4 @@
-use super::layout::dropdown_should_open_above;
+use super::handler::dropdown_should_open_above;
 
 #[test]
 fn dropdown_flips_above_when_there_is_no_room_below() {

@@ -1,3 +1,23 @@
-pub const ITEM_HEIGHT: f32 = 32.0;
+use crate::tokens::{ICON_TEXT_GAP, RADIUS_DROPDOWN, SPACE_SM, SPACE_XL, SPACE_XS, TABLE_ROW_HEIGHT_COMPACT};
+
+pub const ITEM_HEIGHT: f32 = TABLE_ROW_HEIGHT_COMPACT;
+pub const OPTION_INDICATOR_WIDTH: f32 = crate::tokens::ICON_LG;
+pub const OPTION_INDICATOR_INSET: f32 = SPACE_SM;
 pub const MAX_VISIBLE_ITEMS: usize = 8;
-pub const MENU_PAD: f32 = 6.0;
+pub const MENU_PAD: f32 = RADIUS_DROPDOWN;
+pub const LABEL_GAP: f32 = SPACE_XS;
+pub const ICON_GAP: f32 = ICON_TEXT_GAP;
+pub const MIN_TRIGGER_WIDTH: f32 = crate::tokens::INPUT_HEIGHT_DEFAULT * 2.0;
+pub const MIN_TRIGGER_TEXT_WIDTH: f32 = crate::tokens::FONT_SIZE_BODY_SM * 2.0;
+pub const TRIGGER_HORIZONTAL_INSET: f32 = SPACE_XL;
+pub const TRIGGER_TEXT_RESERVED_WIDTH: f32 = crate::tokens::ICON_SM + crate::tokens::ICON_TEXT_GAP;
+pub const MENU_MIN_WIDTH: f32 = crate::tokens::INPUT_HEIGHT_DEFAULT * 4.0;
+pub const MENU_SCREEN_INSET: f32 = SPACE_SM;
+pub const MENU_MIN_SCREEN_WIDTH: f32 = crate::tokens::INPUT_HEIGHT_DEFAULT * 2.0;
+pub const MENU_HEIGHT_GUTTER: f32 = SPACE_XS;
+pub const OPTION_TEXT_SIZE: f32 = crate::tokens::FONT_SIZE_UI_LABEL;
+pub const SELECT_LABEL_SIZE: f32 = crate::tokens::FONT_SIZE_CAPTION;
+pub const CHECK_ICON_SIZE: f32 = crate::tokens::ICON_XS;
+pub const TRIGGER_TEXT_HEIGHT: f32 = crate::tokens::FONT_SIZE_SECTION_TITLE;
+pub const VERTICAL_CENTER_FACTOR: f32 = 0.5;
+pub const DOUBLE_FACTOR: f32 = 2.0;

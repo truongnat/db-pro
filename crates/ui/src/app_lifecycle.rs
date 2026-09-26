@@ -19,6 +19,7 @@ impl eframe::App for DbProApp {
         self.prepare_frame(ctx);
         self.draw_shell(ctx);
         self.draw_overlays(ctx);
+        ctx.set_cursor_icon(egui::CursorIcon::Default);
     }
 }
 impl DbProApp {

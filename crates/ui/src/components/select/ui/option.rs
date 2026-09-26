@@ -1,7 +1,8 @@
-use super::config::ITEM_HEIGHT;
+use super::super::config::{CHECK_ICON_SIZE, ITEM_HEIGHT, OPTION_TEXT_SIZE};
+use super::super::handler::{option_check_icon_pos, option_galley_pos, option_text_rect};
 use crate::components::animation::{hover_t, lerp_color};
 use crate::DbProTheme;
-use egui::{Color32, FontFamily, FontId, Pos2, Rect, Response, Rounding, Sense, Ui, Vec2};
+use egui::{Color32, FontFamily, FontId, Response, Sense, Ui, Vec2};
 use lucide_icons::Icon;
 
 pub struct SelectOption<'a> {
@@ -19,34 +20,25 @@ pub fn paint_option(ui: &mut Ui, option: SelectOption<'_>) -> Response {
     } else {
         lerp_color(Color32::TRANSPARENT, theme.surface_hover, hover)
     };
-    ui.painter().rect_filled(rect, Rounding::same(6.0), bg);
+    ui.painter()
+        .rect_filled(rect, ui.style().visuals.widgets.inactive.rounding, bg);
     let text_color = if selected { theme.accent } else { theme.text_primary };
-    let text_right = if selected {
-        rect.right() - 28.0
-    } else {
-        rect.right() - 8.0
-    };
-    let text_rect = Rect::from_min_max(
-        Pos2::new(rect.left() + 8.0, rect.top()),
-        Pos2::new(text_right, rect.bottom()),
-    );
+    let text_rect = option_text_rect(rect, ui.spacing().button_padding.x, selected);
     let galley = ui.painter().layout(
         label.to_owned(),
-        FontId::proportional(13.0),
+        FontId::proportional(OPTION_TEXT_SIZE),
         text_color,
         text_rect.width(),
     );
-    ui.painter().galley(
-        Pos2::new(text_rect.left(), text_rect.center().y - galley.size().y * 0.5),
-        galley,
-        text_color,
-    );
+    let galley_pos = option_galley_pos(text_rect.left(), text_rect.center().y, galley.size().y);
+    ui.painter().galley(galley_pos, galley, text_color);
     if selected {
+        let check_pos = option_check_icon_pos(rect.right(), rect.center().y);
         ui.painter().text(
-            Pos2::new(rect.right() - 8.0, rect.center().y),
+            check_pos,
             egui::Align2::RIGHT_CENTER,
             char::from(Icon::Check).to_string(),
-            FontId::new(12.0, FontFamily::Name("lucide".into())),
+            FontId::new(CHECK_ICON_SIZE, FontFamily::Name("lucide".into())),
             theme.accent,
         );
     }
