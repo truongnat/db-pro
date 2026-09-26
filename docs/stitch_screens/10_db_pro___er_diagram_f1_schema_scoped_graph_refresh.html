@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DB Pro — ER Diagram (F1 Schema-Scoped Graph Refresh)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #212121;
+      color: #ECECEC;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* DB Pro planar borders & surfaces */
+    .border-planar { border-color: #383838; }
+    .border-subtle { border-color: #2D2D2D; }
+    .bg-app { background-color: #212121; }
+    .bg-panel { background-color: #2A2A2A; }
+    .bg-editor { background-color: #181818; }
+    .bg-elevated { background-color: #303030; }
+    .bg-card { background-color: #242424; }
+    
+    /* Custom scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #1C1C1C; }
+    ::-webkit-scrollbar-thumb { background: #383838; border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4A4A4A; }
+
+    /* Diagram SVG grid background */
+    .canvas-grid {
+      background-color: #181818;
+      background-image: radial-gradient(#2B2B2B 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    /* Edge connectors */
+    .edge-line {
+      stroke: #555555;
+      stroke-width: 1.5;
+      fill: none;
+    }
+    .edge-line-active {
+      stroke: #339CFF;
+      stroke-width: 1.5;
+      fill: none;
+    }
+    .edge-marker {
+      fill: #555555;
+    }
+    .edge-marker-active {
+      fill: #339CFF;
+    }
+
+    /* Pulsing skeleton line for loading state */
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 0.35; }
+      50% { opacity: 0.7; }
+    }
+    .animate-pulse-subtle {
+      animation: pulse-subtle 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col bg-app text-[#ECECEC] text-[12px] leading-tight select-none">
+
+  <!-- TOP SHELL / TITLE BAR (Height 36px) -->
+  <header class="h-[36px] bg-[#1E1E1E] border-b border-[#323232] flex items-center justify-between px-3 flex-shrink-0">
+    <div class="flex items-center space-x-3">
+      <!-- App Name & Engine -->
+      <div class="flex items-center space-x-2">
+        <span class="font-semibold text-[12px] tracking-normal text-[#ECECEC]">DB PRO</span>
+        <span class="text-[10px] text-[#8D8D8D] font-mono px-1.5 py-0.5 rounded bg-[#2A2A2A] border border-[#3A3A3A]">v2.4-native</span>
+      </div>
+
+      <div class="h-3 w-[1px] bg-[#3A3A3A]"></div>
+
+      <!-- Connection & Database Dropdown -->
+      <div class="flex items-center space-x-1.5">
+        <div class="flex items-center space-x-1.5 px-2 py-1 rounded bg-[#2A2A2A] border border-[#3A3A3A] hover:border-[#4A4A4A] cursor-pointer text-[11px]">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+          <span class="font-mono text-[#ECECEC]">prod-pg</span>
+          <span class="text-[#8D8D8D]">· PostgreSQL 16</span>
+          <svg class="w-3 h-3 text-[#8D8D8D]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+
+        <div class="flex items-center space-x-1.5 px-2 py-1 rounded bg-[#2A2A2A] border border-[#3A3A3A] hover:border-[#4A4A4A] cursor-pointer text-[11px]">
+          <span class="text-[#8D8D8D]">db:</span>
+          <span class="font-mono text-[#ECECEC]">inventory</span>
+          <svg class="w-3 h-3 text-[#8D8D8D]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workspace Tabs -->
+    <div class="flex items-center h-full space-x-[1px]">
+      <div class="h-full px-3 flex items-center space-x-2 text-[#8D8D8D] hover:text-[#B9B9B9] hover:bg-[#252525] cursor-pointer text-[11px] border-r border-[#2C2C2C]">
+        <svg class="w-3.5 h-3.5 text-[#777]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span class="font-mono">query.sql</span>
+      </div>
+
+      <div class="h-full px-3 flex items-center space-x-2 text-[#8D8D8D] hover:text-[#B9B9B9] hover:bg-[#252525] cursor-pointer text-[11px] border-r border-[#2C2C2C]">
+        <svg class="w-3.5 h-3.5 text-[#777]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <span class="font-mono">users</span>
+      </div>
+
+      <!-- Active ER Diagram Tab -->
+      <div class="h-full px-3 flex items-center space-x-2 bg-[#2A2A2A] text-[#ECECEC] text-[11px] border-t-2 border-t-[#339CFF] border-r border-l border-[#323232]">
+        <svg class="w-3.5 h-3.5 text-[#339CFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+        </svg>
+        <span class="font-medium">ER Diagram</span>
+        <span class="w-1.5 h-1.5 rounded-full bg-[#339CFF]"></span>
+      </div>
+    </div>
+
+    <!-- Right Top Chrome Badges & Controls -->
+    <div class="flex items-center space-x-2.5">
+      <!-- Target-State Design Spec tag -->
+      <div class="px-2 py-0.5 rounded bg-[#1B2836] border border-[#1E4366] text-[#60A5FA] text-[10px] font-mono">
+        F1 Target Specification · Research Doc Intent
+      </div>
+
+      <div class="h-3 w-[1px] bg-[#323232]"></div>
+
+      <div class="flex items-center space-x-1 text-[#8D8D8D]">
+        <button class="p-1 hover:text-[#ECECEC] hover:bg-[#2A2A2A] rounded" title="Layout Settings">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </button>
+        <button class="p-1 hover:text-[#ECECEC] hover:bg-[#2A2A2A] rounded" title="Audit Logs">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- WORKSPACE BODY (Flex Row) -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- VERTICAL ACTIVITY RAIL (Width 44px) -->
+    <aside class="w-[44px] bg-[#1A1A1A] border-r border-[#323232] flex flex-col items-center py-2 space-y-3 flex-shrink-0">
+      <!-- Database explorer -->
+      <button class="w-8 h-8 rounded flex items-center justify-center text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#262626]" title="Explorer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+      </button>
+
+      <!-- SQL Query editor -->
+      <button class="w-8 h-8 rounded flex items-center justify-center text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#262626]" title="SQL Editor">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      </button>
+
+      <!-- Diagram (SELECTED) -->
+      <button class="w-8 h-8 rounded flex items-center justify-center bg-[#253240] text-[#339CFF] border border-[#1E4366]" title="ER Diagram (Active)">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4zM10 7h4M10 17h4M7 10v4M17 10v4"/>
+        </svg>
+      </button>
+
+      <!-- Table / Data inspector -->
+      <button class="w-8 h-8 rounded flex items-center justify-center text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#262626]" title="Table Inspector">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      </button>
+
+      <!-- History -->
+      <button class="w-8 h-8 rounded flex items-center justify-center text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#262626]" title="Query & Schema History">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </button>
+
+      <div class="flex-1"></div>
+
+      <!-- Settings at bottom -->
+      <button class="w-8 h-8 rounded flex items-center justify-center text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#262626]" title="Settings">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+      </button>
+    </aside>
+
+    <!-- SCHEMA NAVIGATOR (Width 220px) -->
+    <section class="w-[220px] bg-panel border-r border-[#323232] flex flex-col flex-shrink-0">
+      <!-- Section Header -->
+      <div class="h-[32px] px-3 flex items-center justify-between border-b border-[#383838]">
+        <span class="text-[11px] font-medium text-[#B9B9B9] uppercase tracking-wider">Schemas</span>
+        <span class="text-[10px] font-mono text-[#8D8D8D] bg-[#212121] px-1.5 py-0.5 rounded border border-[#383838]">prod-pg</span>
+      </div>
+
+      <!-- Quick Filter -->
+      <div class="p-2 border-b border-[#323232]">
+        <div class="relative">
+          <input type="text" placeholder="Filter schemas..." value="" class="w-full bg-[#1F1F1F] text-[#ECECEC] text-[11px] pl-6 pr-2 py-1 rounded border border-[#3A3A3A] focus:border-[#339CFF] focus:outline-none placeholder-[#666]">
+          <svg class="w-3.5 h-3.5 text-[#666] absolute left-1.5 top-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+      </div>
+
+      <!-- Schema Tree List -->
+      <div class="flex-1 overflow-y-auto py-1">
+        <!-- Schema: public (Unselected / Previous Scope) -->
+        <div class="group px-2 py-1 mx-1 rounded text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#252525] flex items-center justify-between cursor-pointer">
+          <div class="flex items-center space-x-1.5">
+            <svg class="w-3 h-3 text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <svg class="w-3.5 h-3.5 text-[#888]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7z"/></svg>
+            <span class="font-mono text-[11px]">public</span>
+          </div>
+          <span class="text-[10px] text-[#666] font-mono group-hover:text-[#8D8D8D]">4 tables</span>
+        </div>
+
+        <!-- Schema: audit (ACTIVE / SELECTED) -->
+        <div class="px-2 py-1.5 mx-1 my-0.5 rounded bg-[#1B2936] text-[#ECECEC] border border-[#1E4366] flex items-center justify-between cursor-pointer">
+          <div class="flex items-center space-x-1.5">
+            <svg class="w-3 h-3 text-[#339CFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            <svg class="w-3.5 h-3.5 text-[#339CFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7z"/></svg>
+            <span class="font-mono text-[11px] font-medium text-[#60A5FA]">audit</span>
+          </div>
+          <div class="flex items-center space-x-1">
+            <span class="text-[9px] font-mono px-1 py-0.2 rounded bg-[#16344F] text-[#93C5FD]">Active</span>
+            <span class="text-[10px] text-[#93C5FD] font-mono">4</span>
+          </div>
+        </div>
+
+        <!-- Sub-items under audit (Tables) -->
+        <div class="pl-6 pr-2 py-0.5 space-y-0.5">
+          <div class="px-2 py-1 rounded text-[#ECECEC] hover:bg-[#252525] flex items-center justify-between text-[11px] cursor-pointer">
+            <div class="flex items-center space-x-1.5">
+              <span class="w-1.5 h-1.5 rounded-sm bg-[#339CFF]"></span>
+              <span class="font-mono text-[11px]">users</span>
+            </div>
+            <span class="text-[9px] font-mono text-[#8D8D8D]">PK</span>
+          </div>
+          <div class="px-2 py-1 rounded text-[#ECECEC] hover:bg-[#252525] flex items-center justify-between text-[11px] cursor-pointer">
+            <div class="flex items-center space-x-1.5">
+              <span class="w-1.5 h-1.5 rounded-sm bg-[#339CFF]"></span>
+              <span class="font-mono text-[11px]">change_log</span>
+            </div>
+            <span class="text-[9px] font-mono text-[#8D8D8D]">FK</span>
+          </div>
+          <div class="px-2 py-1 rounded text-[#ECECEC] hover:bg-[#252525] flex items-center justify-between text-[11px] cursor-pointer">
+            <div class="flex items-center space-x-1.5">
+              <span class="w-1.5 h-1.5 rounded-sm bg-[#339CFF]"></span>
+              <span class="font-mono text-[11px]">events</span>
+            </div>
+            <span class="text-[9px] font-mono text-[#8D8D8D]">FK</span>
+          </div>
+          <div class="px-2 py-1 rounded text-[#B9B9B9] hover:bg-[#252525] flex items-center justify-between text-[11px] cursor-pointer">
+            <div class="flex items-center space-x-1.5">
+              <span class="w-1.5 h-1.5 rounded-sm bg-[#888]"></span>
+              <span class="font-mono text-[11px]">actors</span>
+            </div>
+            <span class="text-[9px] font-mono text-[#8D8D8D]">PK</span>
+          </div>
+        </div>
+
+        <!-- Schema: information_schema -->
+        <div class="group px-2 py-1 mx-1 rounded text-[#666] hover:text-[#8D8D8D] flex items-center justify-between cursor-pointer">
+          <div class="flex items-center space-x-1.5">
+            <svg class="w-3 h-3 text-[#555]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <span class="font-mono text-[11px]">pg_catalog</span>
+          </div>
+          <span class="text-[10px] text-[#555] font-mono">system</span>
+        </div>
+      </div>
+
+      <!-- Scope metadata info footer in navigator -->
+      <div class="p-2.5 bg-[#222222] border-t border-[#323232] text-[10px] space-y-1">
+        <div class="text-[#8D8D8D] flex justify-between">
+          <span>Active Scope:</span>
+          <span class="font-mono text-[#ECECEC]">audit</span>
+        </div>
+        <div class="text-[#8D8D8D] flex justify-between">
+          <span>Objects:</span>
+          <span class="font-mono text-[#ECECEC]">4 tables · 0 views</span>
+        </div>
+        <div class="text-[#8D8D8D] flex justify-between">
+          <span>Generation:</span>
+          <span class="font-mono text-[#22C55E]">gen-482 (current)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CENTRAL WORKSPACE: DIAGRAM WORKBENCH -->
+    <main class="flex-1 flex flex-col min-w-0 bg-editor overflow-hidden">
+      
+      <!-- TOOLBAR UNDER TABS (Height 36px) -->
+      <div class="h-[36px] bg-panel border-b border-[#323232] px-3 flex items-center justify-between flex-shrink-0">
+        <!-- Left: Breadcrumb & Search -->
+        <div class="flex items-center space-x-3">
+          <!-- Qualified Scope Breadcrumb -->
+          <div class="flex items-center space-x-1 text-[11px] font-mono bg-[#1E1E1E] px-2 py-1 rounded border border-[#3A3A3A]">
+            <span class="text-[#8D8D8D]">prod-pg</span>
+            <span class="text-[#555]">/</span>
+            <span class="text-[#8D8D8D]">inventory</span>
+            <span class="text-[#555]">/</span>
+            <span class="text-[#339CFF] font-medium">audit</span>
+          </div>
+
+          <!-- Diagram Quick Search Input -->
+          <div class="relative w-56">
+            <input type="text" placeholder="Find tables or columns in audit…" class="w-full bg-[#1E1E1E] text-[#ECECEC] text-[11px] pl-6 pr-6 py-1 rounded border border-[#3A3A3A] focus:border-[#339CFF] focus:outline-none placeholder-[#666]">
+            <svg class="w-3.5 h-3.5 text-[#666] absolute left-1.5 top-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <span class="absolute right-1.5 top-1 text-[9px] font-mono text-[#666] border border-[#333] px-1 rounded">/</span>
+          </div>
+
+          <div class="h-4 w-[1px] bg-[#3A3A3A]"></div>
+
+          <!-- Refresh Schema Action -->
+          <button class="flex items-center space-x-1.5 px-2.5 py-1 bg-[#252525] hover:bg-[#303030] text-[#ECECEC] rounded border border-[#3A3A3A] hover:border-[#4A4A4A] text-[11px] active:bg-[#1E1E1E]" title="Force introspection and rebuild diagram layout">
+            <svg class="w-3 h-3 text-[#339CFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span>Refresh schema</span>
+          </button>
+        </div>
+
+        <!-- Right: Zoom, Fit, and Status Indicator -->
+        <div class="flex items-center space-x-2">
+          <!-- Zoom Controls (28px height standard) -->
+          <div class="flex items-center bg-[#1E1E1E] border border-[#3A3A3A] rounded">
+            <button class="px-2 py-1 text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#2A2A2A] text-[11px]" title="Zoom Out">−</button>
+            <span class="px-1.5 py-1 text-[11px] font-mono text-[#B9B9B9] border-r border-l border-[#333]">100%</span>
+            <button class="px-2 py-1 text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#2A2A2A] text-[11px]" title="Zoom In">+</button>
+          </div>
+
+          <button class="px-2 py-1 bg-[#252525] hover:bg-[#303030] text-[#B9B9B9] hover:text-[#ECECEC] rounded border border-[#3A3A3A] text-[11px]" title="Fit entire schema graph to view">
+            Fit graph
+          </button>
+
+          <div class="h-4 w-[1px] bg-[#3A3A3A]"></div>
+
+          <!-- Scope & State Badge -->
+          <div class="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-[#182B1E] border border-[#1F542A] text-[#22C55E] text-[11px]">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+            <span>Schema: <strong class="font-mono">audit</strong> · Ready</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CANVAS WORKSPACE (Stack: Inline Transition Safety Specimen + Active Diagram Canvas + State Matrix Drawer) -->
+      <div class="flex-1 flex flex-col overflow-hidden relative">
+
+        <!-- TRANSITION SAFETY SPECIMEN STRIP (F1 Safety Invariant Guarantee) -->
+        <div class="h-[62px] bg-[#1C1F24] border-b border-[#2C3847] px-3 py-1.5 flex items-center justify-between flex-shrink-0">
+          <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-1.5">
+              <span class="px-1.5 py-0.5 rounded bg-[#2D3748] text-[#93C5FD] text-[10px] font-mono font-medium border border-[#3B4C63]">F1 Safety Invariant</span>
+              <span class="text-[11px] font-medium text-[#ECECEC]">Schema-Scoped Refresh Transition:</span>
+            </div>
+
+            <!-- Transition Pipeline visualization -->
+            <div class="flex items-center space-x-2 text-[10px]">
+              <!-- Old Scope (Public) - Dimmed / Non-interactive proof -->
+              <div class="flex items-center space-x-1 px-2 py-0.5 rounded bg-[#222] border border-[#383838] opacity-60">
+                <span class="text-[#8D8D8D]">Previous:</span>
+                <span class="font-mono text-[#B9B9B9]">public (4 tables)</span>
+                <span class="text-[#8D8D8D] text-[9px]">[users, orders, products, invoices]</span>
+              </div>
+
+              <svg class="w-3 h-3 text-[#555]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+
+              <!-- In-Flight State representation -->
+              <div class="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-[#172636] border border-[#1E4366] text-[#60A5FA]">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#339CFF] animate-ping"></span>
+                <span class="font-medium">Switching schema…</span>
+                <span class="font-mono text-[9px] text-[#93C5FD]">Loading diagram for prod-pg / inventory / audit</span>
+              </div>
+
+              <svg class="w-3 h-3 text-[#555]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+
+              <!-- Target Scope (Audit) - Active Verified -->
+              <div class="flex items-center space-x-1 px-2 py-0.5 rounded bg-[#162D20] border border-[#1C512C] text-[#4ADE80]">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+                <span class="font-medium">Current Target:</span>
+                <span class="font-mono">audit (4 tables)</span>
+                <span class="text-[9px] text-[#86EFAC]">[users, change_log, events, actors]</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stale layout prevention note -->
+          <div class="flex items-center space-x-1.5 text-[10px] text-[#F59E0B] bg-[#271E0B] px-2 py-0.5 rounded border border-[#4B3913]">
+            <svg class="w-3 h-3 text-[#F59E0B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <span>Previous schema view is not interactive while refresh is pending · Zero stale node bleed</span>
+          </div>
+        </div>
+
+        <!-- MAIN INTERACTIVE DIAGRAM CANVAS -->
+        <div class="flex-1 canvas-grid relative overflow-auto p-8 flex items-center justify-center">
+
+          <!-- SVG CONNECTING EDGES OVERLAY -->
+          <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 10;">
+            <defs>
+              <!-- Arrow marker for foreign keys -->
+              <marker id="fk-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#339CFF"/>
+              </marker>
+              <marker id="fk-arrow-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#5A5A5A"/>
+              </marker>
+              <!-- Crow's foot / circle indicator -->
+              <circle id="fk-source" cx="5" cy="5" r="3" fill="#339CFF"/>
+            </defs>
+
+            <!-- Edge 1: audit.change_log (user_id FK) -> audit.users (id PK) -->
+            <!-- From change_log left side (~(center-x - 120), center-y) to users right side (~(center-x - 220), center-y) -->
+            <path d="M 590 325 C 500 325, 480 325, 390 325" class="edge-line-active" marker-end="url(#fk-arrow)" />
+            
+            <!-- Relationship label badge -->
+            <rect x="460" y="314" width="70" height="18" rx="3" fill="#1A1A1A" stroke="#339CFF" stroke-width="1"/>
+            <text x="495" y="327" font-size="9" font-family="'JetBrains Mono', monospace" fill="#60A5FA" text-anchor="middle">user_id FK</text>
+
+            <!-- Edge 2: audit.events (actor_id FK) -> audit.actors (id PK) -->
+            <!-- From events right side to actors left side -->
+            <path d="M 830 325 C 910 325, 930 325, 1010 325" class="edge-line-active" marker-end="url(#fk-arrow)" />
+            
+            <rect x="888" y="314" width="74" height="18" rx="3" fill="#1A1A1A" stroke="#339CFF" stroke-width="1"/>
+            <text x="925" y="327" font-size="9" font-family="'JetBrains Mono', monospace" fill="#60A5FA" text-anchor="middle">actor_id FK</text>
+          </svg>
+
+          <!-- DIAGRAM GRAPH LAYOUT (4 Qualified Audit Nodes) -->
+          <div class="relative w-[1120px] h-[520px] flex items-center justify-between" style="z-index: 20;">
+
+            <!-- NODE 1: audit.users (Target Table) -->
+            <div class="absolute left-[150px] top-[230px] w-[240px] bg-card rounded border border-[#3A3A3A] hover:border-[#339CFF] shadow-xl group transition-colors cursor-pointer" title="Double click to open Table Workspace for audit.users">
+              <!-- Node Header -->
+              <div class="h-[30px] px-2.5 bg-[#2B2B2B] border-b border-[#3A3A3A] flex items-center justify-between rounded-t">
+                <div class="flex items-center space-x-1.5 truncate">
+                  <span class="text-[#8D8D8D] font-mono text-[10px]">audit.</span>
+                  <span class="font-mono font-medium text-[12px] text-[#ECECEC] group-hover:text-[#339CFF]">users</span>
+                </div>
+                <div class="flex items-center space-x-1">
+                  <span class="text-[9px] font-mono text-[#8D8D8D] bg-[#1E1E1E] px-1 py-0.5 rounded border border-[#333]">BASE TABLE</span>
+                </div>
+              </div>
+
+              <!-- Node Columns (2-4 plausible columns) -->
+              <div class="p-1 space-y-0.5 text-[11px] font-mono">
+                <!-- PK Column -->
+                <div class="px-2 py-1 rounded bg-[#1F2937] border border-[#2B3B52] flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-[#339CFF] text-[9px] font-semibold">PK</span>
+                    <span class="text-[#ECECEC] font-medium">id</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">int8</span>
+                </div>
+
+                <!-- Regular column -->
+                <div class="px-2 py-1 flex items-center justify-between hover:bg-[#2A2A2A] rounded">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3"></span>
+                    <span class="text-[#B9B9B9]">email</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">text</span>
+                </div>
+
+                <!-- Regular column -->
+                <div class="px-2 py-1 flex items-center justify-between hover:bg-[#2A2A2A] rounded">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3"></span>
+                    <span class="text-[#B9B9B9]">created_at</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">timestamptz</span>
+                </div>
+              </div>
+
+              <!-- Node Footer / Open Target Action -->
+              <div class="h-[22px] px-2 bg-[#222222] border-t border-[#333] flex items-center justify-between text-[9px] rounded-b">
+                <span class="text-[#777]">Scope: prod-pg.audit</span>
+                <span class="text-[#339CFF] opacity-0 group-hover:opacity-100 flex items-center space-x-0.5 font-sans">
+                  <span>Open Table</span>
+                  <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </span>
+              </div>
+            </div>
+
+            <!-- NODE 2: audit.change_log (FK Reference Table) -->
+            <div class="absolute left-[590px] top-[215px] w-[240px] bg-card rounded border-2 border-[#339CFF] shadow-2xl group cursor-pointer" title="Double click to open Table Workspace for audit.change_log">
+              <!-- Header -->
+              <div class="h-[30px] px-2.5 bg-[#1B2936] border-b border-[#254A6B] flex items-center justify-between rounded-t">
+                <div class="flex items-center space-x-1.5 truncate">
+                  <span class="text-[#60A5FA] font-mono text-[10px]">audit.</span>
+                  <span class="font-mono font-medium text-[12px] text-[#ECECEC]">change_log</span>
+                </div>
+                <span class="text-[9px] font-mono text-[#93C5FD] bg-[#16344F] px-1 py-0.5 rounded border border-[#204E75]">SELECTED</span>
+              </div>
+
+              <!-- Columns -->
+              <div class="p-1 space-y-0.5 text-[11px] font-mono">
+                <!-- PK Column -->
+                <div class="px-2 py-1 flex items-center justify-between hover:bg-[#2A2A2A] rounded">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-[#339CFF] text-[9px] font-semibold">PK</span>
+                    <span class="text-[#ECECEC]">id</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">int8</span>
+                </div>
+
+                <!-- FK Column (Outgoing to audit.users) -->
+                <div class="px-2 py-1 rounded bg-[#172535] border border-[#1E4366] flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-[#F59E0B] text-[9px] font-semibold">FK</span>
+                    <span class="text-[#93C5FD] font-medium">user_id</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">int8</span>
+                </div>
+
+                <!-- Regular column -->
+                <div class="px-2 py-1 flex items-center justify-between hover:bg-[#2A2A2A] rounded">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3"></span>
+                    <span class="text-[#B9B9B9]">changed_at</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">timestamptz</span>
+                </div>
+
+                <!-- Regular column -->
+                <div class="px-2 py-1 flex items-center justify-between hover:bg-[#2A2A2A] rounded">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3"></span>
+                    <span class="text-[#B9B9B9]">delta</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">jsonb</span>
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div class="h-[22px] px-2 bg-[#1A232E] border-t border-[#254A6B] flex items-center justify-between text-[9px] rounded-b">
+                <span class="text-[#93C5FD]">FK: audit.users(id)</span>
+                <span class="text-[#339CFF] flex items-center space-x-0.5 font-sans">
+                  <span>Open Table</span>
+                  <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </span>
+              </div>
+            </div>
+
+            <!-- NODE 3: audit.actors (Target Table) -->
+            <div class="absolute left-[1010px] top-[240px] w-[230px] bg-card rounded border border-[#3A3A3A] hover:border-[#339CFF] shadow-xl group transition-colors cursor-pointer" title="Double click to open Table Workspace for audit.actors">
+              <!-- Node Header -->
+              <div class="h-[30px] px-2.5 bg-[#2B2B2B] border-b border-[#3A3A3A] flex items-center justify-between rounded-t">
+                <div class="flex items-center space-x-1.5 truncate">
+                  <span class="text-[#8D8D8D] font-mono text-[10px]">audit.</span>
+                  <span class="font-mono font-medium text-[12px] text-[#ECECEC] group-hover:text-[#339CFF]">actors</span>
+                </div>
+                <span class="text-[9px] font-mono text-[#8D8D8D] bg-[#1E1E1E] px-1 py-0.5 rounded border border-[#333]">BASE TABLE</span>
+              </div>
+
+              <!-- Columns -->
+              <div class="p-1 space-y-0.5 text-[11px] font-mono">
+                <div class="px-2 py-1 rounded bg-[#1F2937] border border-[#2B3B52] flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-[#339CFF] text-[9px] font-semibold">PK</span>
+                    <span class="text-[#ECECEC] font-medium">id</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">int8</span>
+                </div>
+
+                <div class="px-2 py-1 flex items-center justify-between hover:bg-[#2A2A2A] rounded">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3"></span>
+                    <span class="text-[#B9B9B9]">name</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">text</span>
+                </div>
+
+                <div class="px-2 py-1 flex items-center justify-between hover:bg-[#2A2A2A] rounded">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3"></span>
+                    <span class="text-[#B9B9B9]">role</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">varchar(64)</span>
+                </div>
+              </div>
+
+              <div class="h-[22px] px-2 bg-[#222222] border-t border-[#333] flex items-center justify-between text-[9px] rounded-b">
+                <span class="text-[#777]">Scope: prod-pg.audit</span>
+                <span class="text-[#339CFF] opacity-0 group-hover:opacity-100 flex items-center space-x-0.5 font-sans">
+                  <span>Open Table</span>
+                  <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </span>
+              </div>
+            </div>
+
+            <!-- NODE 4: audit.events (FK Reference Table) -->
+            <div class="absolute left-[590px] top-[40px] w-[240px] bg-card rounded border border-[#3A3A3A] hover:border-[#339CFF] shadow-xl group transition-colors cursor-pointer" title="Double click to open Table Workspace for audit.events">
+              <!-- Node Header -->
+              <div class="h-[30px] px-2.5 bg-[#2B2B2B] border-b border-[#3A3A3A] flex items-center justify-between rounded-t">
+                <div class="flex items-center space-x-1.5 truncate">
+                  <span class="text-[#8D8D8D] font-mono text-[10px]">audit.</span>
+                  <span class="font-mono font-medium text-[12px] text-[#ECECEC] group-hover:text-[#339CFF]">events</span>
+                </div>
+                <span class="text-[9px] font-mono text-[#8D8D8D] bg-[#1E1E1E] px-1 py-0.5 rounded border border-[#333]">BASE TABLE</span>
+              </div>
+
+              <!-- Columns -->
+              <div class="p-1 space-y-0.5 text-[11px] font-mono">
+                <div class="px-2 py-1 flex items-center justify-between hover:bg-[#2A2A2A] rounded">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-[#339CFF] text-[9px] font-semibold">PK</span>
+                    <span class="text-[#ECECEC]">id</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">int8</span>
+                </div>
+
+                <div class="px-2 py-1 rounded bg-[#172535] border border-[#1E4366] flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-[#F59E0B] text-[9px] font-semibold">FK</span>
+                    <span class="text-[#93C5FD]">actor_id</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">int8</span>
+                </div>
+
+                <div class="px-2 py-1 flex items-center justify-between hover:bg-[#2A2A2A] rounded">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3"></span>
+                    <span class="text-[#B9B9B9]">event_name</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">varchar(128)</span>
+                </div>
+              </div>
+
+              <div class="h-[22px] px-2 bg-[#222222] border-t border-[#333] flex items-center justify-between text-[9px] rounded-b">
+                <span class="text-[#777]">FK: audit.actors(id)</span>
+                <span class="text-[#339CFF] opacity-0 group-hover:opacity-100 flex items-center space-x-0.5 font-sans">
+                  <span>Open Table</span>
+                  <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </span>
+              </div>
+            </div>
+
+            <!-- UNCONNECTED TABLE SPECIMEN: audit.retention_policy (demonstrating unrelated table in same schema) -->
+            <div class="absolute left-[150px] top-[40px] w-[240px] bg-card rounded border border-[#3A3A3A] hover:border-[#339CFF] shadow-lg group transition-colors cursor-pointer" title="audit.retention_policy (unrelated / no foreign keys)">
+              <div class="h-[30px] px-2.5 bg-[#282828] border-b border-[#3A3A3A] flex items-center justify-between rounded-t">
+                <div class="flex items-center space-x-1.5 truncate">
+                  <span class="text-[#8D8D8D] font-mono text-[10px]">audit.</span>
+                  <span class="font-mono font-medium text-[12px] text-[#ECECEC] group-hover:text-[#339CFF]">retention_policy</span>
+                </div>
+                <span class="text-[9px] font-mono text-[#888] bg-[#1E1E1E] px-1 py-0.5 rounded border border-[#333]">STANDALONE</span>
+              </div>
+
+              <div class="p-1 space-y-0.5 text-[11px] font-mono">
+                <div class="px-2 py-1 rounded bg-[#1F2937] border border-[#2B3B52] flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-[#339CFF] text-[9px] font-semibold">PK</span>
+                    <span class="text-[#ECECEC] font-medium">rule_id</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">int4</span>
+                </div>
+                <div class="px-2 py-1 flex items-center justify-between hover:bg-[#2A2A2A] rounded">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-3"></span>
+                    <span class="text-[#B9B9B9]">days_to_keep</span>
+                  </div>
+                  <span class="text-[#8D8D8D] text-[10px]">int4</span>
+                </div>
+              </div>
+
+              <div class="h-[22px] px-2 bg-[#222222] border-t border-[#333] flex items-center justify-between text-[9px] rounded-b">
+                <span class="text-[#666]">0 relationships</span>
+                <span class="text-[#339CFF] opacity-0 group-hover:opacity-100 flex items-center space-x-0.5 font-sans">
+                  <span>Open Table</span>
+                  <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- COMPONENT STATE MATRIX BOTTOM SPECIMEN DRAWER (Collapsible Reference for F1 Edge Cases) -->
+        <section class="h-[148px] bg-panel border-t border-[#323232] flex flex-col flex-shrink-0">
+          <div class="h-[26px] px-3 bg-[#242424] border-b border-[#323232] flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="text-[10px] font-medium text-[#B9B9B9] uppercase tracking-wider">F1 Specimen Matrix · Introspection & Refresh States</span>
+              <span class="text-[9px] font-mono text-[#8D8D8D] bg-[#1E1E1E] px-1 py-0.5 rounded border border-[#333]">Same-count schema disambiguation</span>
+            </div>
+            <span class="text-[10px] text-[#8D8D8D]">Layout engine rejects stale layout computations from prior scope</span>
+          </div>
+
+          <!-- 3 Specimen Cards in a grid -->
+          <div class="flex-1 grid grid-cols-3 divide-x divide-[#323232] overflow-hidden text-[11px]">
+            
+            <!-- State 1: Refreshing Skeleton (Non-clickable, no public card bleed) -->
+            <div class="p-2.5 flex flex-col justify-between bg-[#222222]">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[#ECECEC] font-medium text-[11px] flex items-center space-x-1.5">
+                  <span class="w-2 h-2 rounded-full bg-[#339CFF] animate-pulse"></span>
+                  <span>1. Schema Switching Skeleton</span>
+                </span>
+                <span class="text-[9px] font-mono text-[#F59E0B] bg-[#2E2008] px-1 rounded border border-[#4D360E]">Input Disabled</span>
+              </div>
+
+              <!-- Mini visual mock of skeleton layout -->
+              <div class="h-[60px] bg-[#181818] rounded border border-dashed border-[#3A3A3A] p-2 flex items-center justify-around pointer-events-none">
+                <div class="w-20 h-10 rounded border border-[#444] bg-[#222] p-1 space-y-1 animate-pulse-subtle">
+                  <div class="h-2 w-12 bg-[#339CFF]/40 rounded"></div>
+                  <div class="h-1.5 w-16 bg-[#444] rounded"></div>
+                </div>
+                <div class="w-12 h-[1px] bg-[#444] border-dashed border-t border-[#666]"></div>
+                <div class="w-20 h-10 rounded border border-[#444] bg-[#222] p-1 space-y-1 animate-pulse-subtle">
+                  <div class="h-2 w-10 bg-[#339CFF]/40 rounded"></div>
+                  <div class="h-1.5 w-14 bg-[#444] rounded"></div>
+                </div>
+              </div>
+              <div class="text-[10px] text-[#8D8D8D] truncate">
+                Toolbar locked · Previous <code class="font-mono text-[#B9B9B9]">public</code> nodes unmounted immediately
+              </div>
+            </div>
+
+            <!-- State 2: Empty Schema (Zero Tables in target scope) -->
+            <div class="p-2.5 flex flex-col justify-between bg-[#222222]">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[#ECECEC] font-medium text-[11px] flex items-center space-x-1.5">
+                  <span class="w-2 h-2 rounded-full bg-[#888]"></span>
+                  <span>2. Empty Target Schema</span>
+                </span>
+                <span class="text-[9px] font-mono text-[#8D8D8D] bg-[#1E1E1E] px-1 rounded border border-[#333]">Zero Objects</span>
+              </div>
+
+              <div class="h-[60px] bg-[#181818] rounded border border-[#333] flex flex-col items-center justify-center p-1 text-center">
+                <span class="text-[10px] text-[#B9B9B9] font-medium">No relational tables in <span class="font-mono text-[#339CFF]">staging</span></span>
+                <span class="text-[9px] text-[#666]">Never shows lingering graphs from previous active schema</span>
+              </div>
+              <div class="text-[10px] text-[#8D8D8D] truncate">
+                Clean zero-state placeholder with explicit scope indicator
+              </div>
+            </div>
+
+            <!-- State 3: Introspection Error with Clean Retry -->
+            <div class="p-2.5 flex flex-col justify-between bg-[#222222]">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[#ECECEC] font-medium text-[11px] flex items-center space-x-1.5">
+                  <span class="w-2 h-2 rounded-full bg-[#EF4444]"></span>
+                  <span>3. Refresh Timeout / Error State</span>
+                </span>
+                <span class="text-[9px] font-mono text-[#EF4444] bg-[#2E0B0B] px-1 rounded border border-[#521313]">Retryable</span>
+              </div>
+
+              <div class="h-[60px] bg-[#1C1414] rounded border border-[#481E1E] p-2 flex items-center justify-between">
+                <div class="space-y-0.5">
+                  <div class="text-[10px] text-[#FCA5A5] font-medium">Schema introspection failed</div>
+                  <div class="text-[9px] font-mono text-[#EF4444]">libpq: query cancelled (5000ms)</div>
+                </div>
+                <button class="px-2 py-1 bg-[#2C1919] hover:bg-[#3D2020] text-[#FCA5A5] border border-[#6B2424] rounded text-[10px] font-medium">
+                  Retry
+                </button>
+              </div>
+              <div class="text-[10px] text-[#8D8D8D] truncate">
+                Prior diagram stays cleared to avoid misleading execution context
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- PERSISTENT STATUS BAR (Height 24px) -->
+  <footer class="h-[24px] bg-[#1A1A1A] border-t border-[#323232] px-3 flex items-center justify-between text-[11px] font-mono text-[#8D8D8D] flex-shrink-0">
+    <div class="flex items-center space-x-3">
+      <!-- Status Indicator -->
+      <div class="flex items-center space-x-1.5 text-[#ECECEC]">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+        <span>Ready</span>
+      </div>
+
+      <span class="text-[#444]">·</span>
+
+      <!-- Active Connection & Schema Scope -->
+      <div>
+        <span>Connection: </span>
+        <span class="text-[#ECECEC]">prod-pg</span>
+        <span class="text-[#666]">(PostgreSQL 16)</span>
+      </div>
+
+      <span class="text-[#444]">·</span>
+
+      <div>
+        <span>Scope: </span>
+        <span class="text-[#339CFF]">inventory.audit</span>
+      </div>
+
+      <span class="text-[#444]">·</span>
+
+      <!-- Introspection confirmation without invented timings -->
+      <div class="text-[#22C55E] flex items-center space-x-1">
+        <svg class="w-3 h-3 text-[#22C55E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <span>Schema refreshed</span>
+      </div>
+    </div>
+
+    <!-- Right status metrics -->
+    <div class="flex items-center space-x-3 text-[10px]">
+      <span class="text-[#8D8D8D]">Objects: <span class="text-[#ECECEC]">4 audit tables</span></span>
+      <span class="text-[#444]">·</span>
+      <span class="text-[#8D8D8D]">Foreign Keys: <span class="text-[#ECECEC]">2 directed edges</span></span>
+      <span class="text-[#444]">·</span>
+      <span class="text-[#8D8D8D]">Cache: <span class="text-[#339CFF]">isolated (scope: audit)</span></span>
+      <span class="text-[#444]">·</span>
+      <span class="text-[#8D8D8D]">Encoding: <span class="text-[#ECECEC]">UTF-8</span></span>
+    </div>
+  </footer>
+
+</body>
+</html>

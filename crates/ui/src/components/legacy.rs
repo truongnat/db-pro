@@ -270,7 +270,7 @@ pub fn primary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme
             .fill(theme.accent)
             .stroke(Stroke::new(1.0, theme.accent))
             .min_size(egui::vec2(0.0, 28.0))
-            .rounding(Rounding::same(7.0)),
+            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON)),
     )
 }
 
@@ -280,7 +280,7 @@ pub fn primary_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbP
             .fill(theme.accent)
             .stroke(Stroke::new(1.0, theme.accent))
             .min_size(egui::vec2(0.0, 28.0))
-            .rounding(Rounding::same(7.0)),
+            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON)),
     )
 }
 
@@ -290,7 +290,7 @@ pub fn secondary_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProThe
             .fill(theme.surface_hover)
             .stroke(Stroke::NONE)
             .min_size(egui::vec2(0.0, 28.0))
-            .rounding(Rounding::same(7.0)),
+            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON)),
     )
 }
 
@@ -300,7 +300,7 @@ pub fn secondary_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: D
             .fill(theme.surface_hover)
             .stroke(Stroke::NONE)
             .min_size(egui::vec2(0.0, 28.0))
-            .rounding(Rounding::same(7.0)),
+            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON)),
     )
 }
 
@@ -308,7 +308,7 @@ pub fn ghost_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme) 
     ui.add(
         Button::new(label.into().color(theme.text_secondary))
             .min_size(egui::vec2(0.0, 26.0))
-            .rounding(Rounding::same(4.0))
+            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON))
             .stroke(Stroke::NONE),
     )
 }
@@ -317,7 +317,7 @@ pub fn ghost_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbPro
     ui.add(
         Button::new(icon_layout(icon, label, theme.text_secondary))
             .min_size(egui::vec2(0.0, 26.0))
-            .rounding(Rounding::same(4.0))
+            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON))
             .stroke(Stroke::NONE),
     )
 }
@@ -327,7 +327,7 @@ pub fn menu_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbProT
     ui.add_sized(
         [ui.available_width(), 28.0],
         Button::new(icon_layout(icon, label, theme.text_primary))
-            .rounding(Rounding::same(6.0))
+            .rounding(Rounding::same(crate::tokens::RADIUS_SM))
             .stroke(Stroke::NONE),
     )
 }
@@ -336,7 +336,7 @@ pub fn compact_button(ui: &mut Ui, label: impl Into<RichText>, theme: DbProTheme
     ui.add(
         Button::new(label.into().size(12.0).color(theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(7.0))
+            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON))
             .stroke(Stroke::NONE),
     )
 }
@@ -346,7 +346,7 @@ pub fn compact_button_enabled(ui: &mut Ui, label: impl Into<RichText>, enabled: 
         enabled,
         Button::new(label.into().size(12.0).color(theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(7.0))
+            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON))
             .stroke(Stroke::NONE),
     )
 }
@@ -355,11 +355,10 @@ pub fn compact_button_with_icon(ui: &mut Ui, icon: Icon, label: &str, theme: DbP
     ui.add(
         Button::new(icon_layout(icon, label, theme.text_secondary))
             .min_size(egui::vec2(0.0, 24.0))
-            .rounding(Rounding::same(7.0))
+            .rounding(Rounding::same(crate::tokens::RADIUS_BUTTON))
             .stroke(Stroke::NONE),
     )
 }
-
 pub fn compact_button_with_icon_enabled(
     ui: &mut Ui,
     icon: Icon,

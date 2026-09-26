@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<title>DB Pro — Explorer (F1 Object Filter Workbench)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-secondary-fixed-variant": "#474746",
+            "surface-bright": "#393939",
+            "on-primary-fixed-variant": "#004880",
+            "tertiary-fixed": "#e5e2e1",
+            "on-primary-container": "#00325b",
+            "secondary": "#c8c6c5",
+            "tertiary-container": "#9a9898",
+            "error-container": "#93000a",
+            "surface-container-lowest": "#0e0e0e",
+            "on-surface": "#e5e2e1",
+            "outline": "#8a919e",
+            "surface-variant": "#353535",
+            "secondary-container": "#474746",
+            "on-error-container": "#ffdad6",
+            "on-primary-fixed": "#001c38",
+            "background": "#131313",
+            "tertiary": "#c8c6c5",
+            "on-error": "#690005",
+            "on-tertiary-container": "#313131",
+            "secondary-fixed": "#e4e2e1",
+            "surface-container-low": "#1b1c1c",
+            "surface-container-highest": "#353535",
+            "secondary-fixed-dim": "#c8c6c5",
+            "on-secondary": "#303030",
+            "surface-container-high": "#2a2a2a",
+            "primary": "#a1c9ff",
+            "on-secondary-fixed": "#1b1c1c",
+            "on-secondary-container": "#b6b5b4",
+            "tertiary-fixed-dim": "#c8c6c5",
+            "surface-container": "#202020",
+            "primary-fixed-dim": "#a1c9ff",
+            "on-tertiary-fixed": "#1c1b1b",
+            "surface-dim": "#131313",
+            "surface-tint": "#a1c9ff",
+            "primary-container": "#339cff",
+            "error": "#ffb4ab",
+            "on-primary": "#00325b",
+            "inverse-surface": "#e5e2e1",
+            "surface": "#131313",
+            "outline-variant": "#404752",
+            "on-tertiary-fixed-variant": "#474746",
+            "primary-fixed": "#d3e4ff",
+            "on-background": "#e5e2e1",
+            "inverse-primary": "#0060a8",
+            "on-tertiary": "#313030",
+            "on-surface-variant": "#c0c7d5",
+            "inverse-on-surface": "#303030"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "space-lg": "1rem",
+            "space-xs": "0.25rem",
+            "margin": "0.75rem",
+            "space-sm": "0.5rem",
+            "gutter": "0.75rem",
+            "space-xl": "1.25rem",
+            "space-md": "0.75rem"
+          },
+          "fontFamily": {
+            "code-small": ["JetBrains Mono"],
+            "label": ["Inter"],
+            "caption": ["Inter"],
+            "body": ["Inter"],
+            "display": ["Inter"],
+            "code": ["JetBrains Mono"],
+            "heading": ["Inter"],
+            "body-strong": ["Inter"],
+            "title": ["Inter"]
+          },
+          "fontSize": {
+            "code-small": ["11px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "label": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "caption": ["11px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "body": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "display": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+            "code": ["12px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "heading": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "body-strong": ["13px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "title": ["18px", { "lineHeight": "24px", "fontWeight": "600" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 16px;
+      line-height: 1;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #404752;
+      border-radius: 3px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #8a919e;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface select-none antialiased h-screen w-screen overflow-hidden flex flex-col font-body text-body">
+<!-- TOP APP BAR / WINDOW HEADER -->
+<header class="h-9 w-full bg-surface text-on-surface border-b border-outline-variant flex items-center justify-between px-3 select-none flex-shrink-0 z-40">
+<div class="flex items-center gap-3">
+<!-- macOS Style Window Dots -->
+<div class="flex items-center gap-1.5 pr-2 border-r border-outline-variant">
+<span class="w-3 h-3 rounded-full bg-[#ff5f56] inline-block"></span>
+<span class="w-3 h-3 rounded-full bg-[#ffbd2e] inline-block"></span>
+<span class="w-3 h-3 rounded-full bg-[#27c93f] inline-block"></span>
+</div>
+<!-- App Brand & Title -->
+<div class="flex items-center gap-2">
+<span class="font-heading text-heading uppercase tracking-normal text-on-surface">DB Pro</span>
+<span class="text-outline">/</span>
+<span class="font-caption text-caption text-secondary">native workstation</span>
+<span class="text-outline">/</span>
+<span class="font-label text-label text-primary font-medium">Explorer</span>
+</div>
+<!-- Target DB Badge -->
+<div class="ml-3 flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container border border-outline-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-[#34c759] inline-block"></span>
+<span class="font-code-small text-code-small text-on-surface">prod-pg · PostgreSQL</span>
+</div>
+</div>
+<!-- Window Navigation Context / Center -->
+<div class="hidden md:flex items-center gap-1 font-caption text-caption text-secondary">
+<span class="font-code-small text-code-small px-1.5 py-0.5 rounded bg-surface-container-high border border-outline-variant text-on-surface">F1 Object Filter</span>
+<span>workbench active</span>
+</div>
+<!-- Window Utility Actions -->
+<div class="flex items-center gap-1">
+<button class="w-7 h-7 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-surface-variant transition-colors" title="Split Editor Right">
+<span class="material-symbols-outlined" data-icon="splitscreen">splitscreen</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-surface-variant transition-colors" title="Keyboard Shortcuts">
+<span class="material-symbols-outlined" data-icon="keyboard">keyboard</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-surface-variant transition-colors" title="Settings">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+</header>
+<!-- MAIN DOCKED SHELL CONTAINER -->
+<div class="flex-1 flex overflow-hidden relative">
+<!-- ACTIVITY RAIL (Compact Left Rail ~44px wide) -->
+<nav class="w-11 bg-surface-container-low border-r border-outline-variant flex flex-col justify-between items-center py-2 flex-shrink-0 z-30">
+<div class="flex flex-col items-center gap-1 w-full">
+<!-- Active Explorer -->
+<button class="relative w-9 h-9 flex items-center justify-center rounded text-primary bg-secondary-container" title="Explorer (Selected)">
+<div class="absolute left-0 top-1 bottom-1 w-0.5 bg-primary-container rounded-r"></div>
+<span class="material-symbols-outlined" data-icon="folder" style="font-variation-settings: 'FILL' 1;">folder</span>
+</button>
+<button class="w-9 h-9 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-surface-variant transition-colors" title="Query Console">
+<span class="material-symbols-outlined" data-icon="code">code</span>
+</button>
+<button class="w-9 h-9 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-surface-variant transition-colors" title="Tables &amp; Data Grids">
+<span class="material-symbols-outlined" data-icon="table_view">table_view</span>
+</button>
+<button class="w-9 h-9 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-surface-variant transition-colors" title="Schema Tree">
+<span class="material-symbols-outlined" data-icon="account_tree">account_tree</span>
+</button>
+<button class="w-9 h-9 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-surface-variant transition-colors" title="Query History">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+</div>
+<div class="flex flex-col items-center gap-1 w-full">
+<button class="w-9 h-9 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-surface-variant transition-colors" title="Terminal">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+</button>
+<button class="w-9 h-9 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-surface-variant transition-colors" title="Workspace Preferences">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+</button>
+</div>
+</nav>
+<!-- EXPLORER PANE (320px wide, bg #2A2A2A, border-r #414141) -->
+<aside class="w-80 bg-surface-container-high border-r border-outline-variant flex flex-col flex-shrink-0 relative z-20">
+<!-- Pane Header / Scope Details -->
+<div class="h-9 px-3 border-b border-outline-variant flex items-center justify-between bg-surface-container-high">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="font-heading text-heading text-on-surface font-semibold tracking-tight">Explorer</span>
+<span class="text-outline">·</span>
+<span class="font-code-small text-code-small text-secondary truncate">prod-pg</span>
+</div>
+<div class="flex items-center gap-1">
+<div class="px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant flex items-center gap-1">
+<span class="font-code-small text-code-small text-primary">app_db / public</span>
+<span class="material-symbols-outlined text-outline" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Explorer Filter Toolbar Bar -->
+<div class="p-2 border-b border-outline-variant bg-surface-container relative">
+<div class="flex items-center gap-1.5">
+<!-- Active Filter Search Input Field -->
+<div class="flex-1 h-7 bg-surface-container-low border border-primary-container rounded flex items-center px-2 gap-1.5">
+<span class="material-symbols-outlined text-primary" data-icon="search">search</span>
+<span class="font-code-small text-code-small text-on-surface font-medium flex-1">audit</span>
+<span class="px-1 py-0.2 rounded bg-surface-variant text-outline font-code-small text-code-small">7 kinds</span>
+<button class="text-outline hover:text-on-surface flex items-center" title="Clear filter query">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+<button class="h-7 w-7 rounded bg-surface-container-low border border-outline-variant text-secondary hover:text-on-surface hover:bg-surface-variant flex items-center justify-center transition-colors" title="Filter Options Active">
+<span class="material-symbols-outlined text-primary" data-icon="filter_list">filter_list</span>
+</button>
+<button class="h-7 w-7 rounded bg-surface-container-low border border-outline-variant text-secondary hover:text-on-surface hover:bg-surface-variant flex items-center justify-center transition-colors" title="Reload Schema Tree">
+<span class="material-symbols-outlined" data-icon="refresh">refresh</span>
+</button>
+</div>
+<!-- Filter State Indicator Row -->
+<div class="flex items-center justify-between mt-1.5 px-0.5 font-caption text-caption text-secondary">
+<div class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span>Mode: Contains</span>
+</div>
+<span class="text-outline">Persisted (public)</span>
+</div>
+</div>
+<!-- ANCHORED POPOVER: F1 OBJECT FILTER WORKBENCH -->
+<!-- Elevated popover docked immediately below filter bar with crisp 1px border -->
+<div class="absolute top-[82px] left-2 right-2 bg-on-secondary border border-outline-variant rounded z-50 shadow-2xl flex flex-col">
+<!-- Popover Header -->
+<div class="h-7 px-2.5 border-b border-outline-variant flex items-center justify-between bg-surface-container-high">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary" data-icon="tune">tune</span>
+<span class="font-label text-label font-medium text-on-surface">Filter objects</span>
+</div>
+<div class="flex items-center gap-2 font-caption text-caption text-outline">
+<button class="hover:text-on-surface">Clear</button>
+<span class="px-1 py-0.2 bg-surface-variant rounded border border-outline-variant font-code-small text-code-small">esc</span>
+</div>
+</div>
+<div class="p-2.5 flex flex-col gap-2.5 max-h-[520px] overflow-y-auto custom-scroll">
+<!-- Popover Input Row -->
+<div class="flex flex-col gap-1">
+<label class="font-caption text-caption text-secondary">Object Name Match</label>
+<div class="h-7 bg-surface-container-low border border-primary-container rounded flex items-center px-2 gap-1.5">
+<span class="material-symbols-outlined text-primary" data-icon="search">search</span>
+<input class="bg-transparent border-0 p-0 font-code-small text-code-small text-on-surface focus:ring-0 w-full" type="text" value="audit"/>
+<button class="text-outline hover:text-on-surface">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+</div>
+<!-- Mode Selector Dropdown -->
+<div class="grid grid-cols-2 gap-2">
+<div class="flex flex-col gap-1">
+<label class="font-caption text-caption text-secondary">Evaluation Mode</label>
+<div class="h-7 px-2 rounded bg-surface-container-low border border-outline-variant flex items-center justify-between text-on-surface font-caption text-caption">
+<span>Contains</span>
+<span class="material-symbols-outlined text-outline" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-caption text-caption text-secondary">Regex Support</label>
+<div class="h-7 px-2 rounded bg-surface-container-low border border-outline-variant flex items-center text-outline font-caption text-caption">
+<span>Off (Plain string)</span>
+</div>
+</div>
+</div>
+<!-- Scope Guidance -->
+<div class="px-2 py-1.5 rounded bg-surface-container-low border border-outline-variant flex flex-col gap-0.5">
+<div class="flex items-center gap-1 font-label text-label text-primary font-medium">
+<span class="material-symbols-outlined text-primary" data-icon="database">database</span>
+<span>Scope: Current schema (public)</span>
+</div>
+<p class="font-caption text-caption text-secondary leading-snug">
+              Search current object names; add metadata criteria for a narrower match.
+            </p>
+</div>
+<!-- Object Kind Checklist (All 7 explicit types) -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<span class="font-caption text-caption text-secondary font-medium">Object Kinds (7 Selected)</span>
+<button class="font-caption text-caption text-primary hover:underline">Select all</button>
+</div>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 bg-surface-container-low p-2 rounded border border-outline-variant font-caption text-caption text-on-surface">
+<!-- Tables -->
+<label class="flex items-center gap-1.5 cursor-pointer">
+<input checked="" class="w-3.5 h-3.5 rounded bg-surface-container border-outline-variant text-primary-container focus:ring-0" type="checkbox"/>
+<span class="material-symbols-outlined text-primary" data-icon="table_view">table_view</span>
+<span>Tables</span>
+</label>
+<!-- Views -->
+<label class="flex items-center gap-1.5 cursor-pointer">
+<input checked="" class="w-3.5 h-3.5 rounded bg-surface-container border-outline-variant text-primary-container focus:ring-0" type="checkbox"/>
+<span class="material-symbols-outlined text-secondary" data-icon="preview">preview</span>
+<span>Views</span>
+</label>
+<!-- Functions -->
+<label class="flex items-center gap-1.5 cursor-pointer">
+<input checked="" class="w-3.5 h-3.5 rounded bg-surface-container border-outline-variant text-primary-container focus:ring-0" type="checkbox"/>
+<span class="material-symbols-outlined text-primary" data-icon="functions">functions</span>
+<span>Functions</span>
+</label>
+<!-- Triggers -->
+<label class="flex items-center gap-1.5 cursor-pointer">
+<input checked="" class="w-3.5 h-3.5 rounded bg-surface-container border-outline-variant text-primary-container focus:ring-0" type="checkbox"/>
+<span class="material-symbols-outlined text-secondary" data-icon="bolt">bolt</span>
+<span>Triggers</span>
+</label>
+<!-- Sequences -->
+<label class="flex items-center gap-1.5 cursor-pointer">
+<input checked="" class="w-3.5 h-3.5 rounded bg-surface-container border-outline-variant text-primary-container focus:ring-0" type="checkbox"/>
+<span class="material-symbols-outlined text-primary" data-icon="format_list_numbered">format_list_numbered</span>
+<span>Sequences</span>
+</label>
+<!-- Types -->
+<label class="flex items-center gap-1.5 cursor-pointer">
+<input checked="" class="w-3.5 h-3.5 rounded bg-surface-container border-outline-variant text-primary-container focus:ring-0" type="checkbox"/>
+<span class="material-symbols-outlined text-secondary" data-icon="data_object">data_object</span>
+<span>Types</span>
+</label>
+<!-- Extensions -->
+<label class="flex items-center gap-1.5 cursor-pointer col-span-2">
+<input checked="" class="w-3.5 h-3.5 rounded bg-surface-container border-outline-variant text-primary-container focus:ring-0" type="checkbox"/>
+<span class="material-symbols-outlined text-secondary" data-icon="extension">extension</span>
+<span>Extensions</span>
+</label>
+</div>
+</div>
+<!-- Collapsible Metadata Criteria -->
+<div class="border border-outline-variant rounded bg-surface-container-low overflow-hidden">
+<button class="w-full h-7 px-2 flex items-center justify-between text-secondary hover:text-on-surface bg-surface-container">
+<span class="font-caption text-caption flex items-center gap-1">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+<span>Metadata criteria (collapsed)</span>
+</span>
+<span class="font-code-small text-code-small text-outline">Schema, Owner, Comment</span>
+</button>
+<div class="p-2 border-t border-outline-variant font-caption text-caption text-outline bg-surface-container-low">
+              Unavailable criteria stay disabled with a reason for this provider.
+            </div>
+</div>
+<!-- Options Checkbox -->
+<div class="flex items-center justify-between pt-1">
+<label class="flex items-center gap-1.5 cursor-pointer">
+<input class="w-3.5 h-3.5 rounded bg-surface-container border-outline-variant text-primary-container focus:ring-0" type="checkbox"/>
+<span class="font-caption text-caption text-secondary">Include system objects</span>
+</label>
+<span class="font-code-small text-code-small text-outline">pg_catalog.* excluded</span>
+</div>
+</div>
+<!-- Action Bar & Footer -->
+<div class="p-2 bg-surface-container border-t border-outline-variant flex items-center justify-between">
+<button class="h-7 px-2.5 rounded bg-surface-container-high border border-outline-variant font-label text-label text-secondary hover:text-on-surface hover:bg-surface-variant transition-colors">
+            Clear
+          </button>
+<div class="flex items-center gap-2">
+<button class="h-7 px-3 rounded bg-primary-container text-on-primary-container font-label text-label font-medium hover:bg-opacity-90 transition-colors">
+              Apply
+            </button>
+</div>
+</div>
+<div class="px-2.5 py-1 bg-surface-container-lowest border-t border-outline-variant font-code-small text-code-small text-outline flex items-center justify-between">
+<span>Saved for prod-pg / app_db / public</span>
+<span class="material-symbols-outlined text-outline" data-icon="check_circle">check_circle</span>
+</div>
+</div>
+<!-- EXPLORER TREE (Docked below filter bar, planar 24px rows) -->
+<div class="flex-1 overflow-y-auto custom-scroll p-1 font-caption text-caption">
+<!-- FOLDER 1: Tables (2 Matches) -->
+<div class="flex flex-col">
+<div class="h-6 px-1.5 flex items-center justify-between text-on-surface hover:bg-surface-variant cursor-pointer rounded">
+<div class="flex items-center gap-1 min-w-0">
+<span class="material-symbols-outlined text-secondary" data-icon="arrow_drop_down">arrow_drop_down</span>
+<span class="material-symbols-outlined text-secondary" data-icon="folder_open">folder_open</span>
+<span class="font-label text-label font-medium">Tables</span>
+</div>
+<span class="font-code-small text-code-small px-1 rounded bg-secondary-container text-primary">2</span>
+</div>
+<!-- Table Items -->
+<div class="flex flex-col pl-4">
+<div class="h-6 px-1.5 flex items-center gap-1.5 text-on-surface hover:bg-surface-variant cursor-pointer rounded">
+<span class="material-symbols-outlined text-primary" data-icon="table_view">table_view</span>
+<span class="font-code-small text-code-small text-on-surface">audit_log</span>
+</div>
+<div class="h-6 px-1.5 flex items-center gap-1.5 text-on-surface hover:bg-surface-variant cursor-pointer rounded">
+<span class="material-symbols-outlined text-primary" data-icon="table_view">table_view</span>
+<span class="font-code-small text-code-small text-on-surface">user_audit</span>
+</div>
+</div>
+</div>
+<!-- FOLDER 2: Views (0 Matches - Visible with reason) -->
+<div class="flex flex-col mt-0.5">
+<div class="h-6 px-1.5 flex items-center justify-between text-secondary hover:bg-surface-variant cursor-pointer rounded">
+<div class="flex items-center gap-1 min-w-0">
+<span class="material-symbols-outlined text-outline" data-icon="arrow_drop_down">arrow_drop_down</span>
+<span class="material-symbols-outlined text-outline" data-icon="folder_open">folder_open</span>
+<span class="font-label text-label">Views</span>
+</div>
+<span class="font-code-small text-code-small text-outline">0</span>
+</div>
+<div class="pl-6 h-5 flex items-center">
+<span class="font-caption text-caption italic text-outline">No views match “audit”</span>
+</div>
+</div>
+<!-- FOLDER 3: Functions (1 Match) -->
+<div class="flex flex-col mt-0.5">
+<div class="h-6 px-1.5 flex items-center justify-between text-on-surface hover:bg-surface-variant cursor-pointer rounded">
+<div class="flex items-center gap-1 min-w-0">
+<span class="material-symbols-outlined text-secondary" data-icon="arrow_drop_down">arrow_drop_down</span>
+<span class="material-symbols-outlined text-secondary" data-icon="folder_open">folder_open</span>
+<span class="font-label text-label font-medium">Functions</span>
+</div>
+<span class="font-code-small text-code-small px-1 rounded bg-secondary-container text-primary">1</span>
+</div>
+<div class="flex flex-col pl-4">
+<div class="h-6 px-1.5 flex items-center gap-1.5 text-on-surface hover:bg-surface-variant cursor-pointer rounded">
+<span class="material-symbols-outlined text-primary" data-icon="functions">functions</span>
+<span class="font-code-small text-code-small text-on-surface">audit_user()</span>
+</div>
+</div>
+</div>
+<!-- FOLDER 4: Triggers (0 Matches) -->
+<div class="flex flex-col mt-0.5">
+<div class="h-6 px-1.5 flex items-center justify-between text-secondary hover:bg-surface-variant cursor-pointer rounded">
+<div class="flex items-center gap-1 min-w-0">
+<span class="material-symbols-outlined text-outline" data-icon="arrow_drop_down">arrow_drop_down</span>
+<span class="material-symbols-outlined text-outline" data-icon="folder_open">folder_open</span>
+<span class="font-label text-label">Triggers</span>
+</div>
+<span class="font-code-small text-code-small text-outline">0</span>
+</div>
+<div class="pl-6 h-5 flex items-center">
+<span class="font-caption text-caption italic text-outline">No triggers match “audit”</span>
+</div>
+</div>
+<!-- FOLDER 5: Sequences (1 Match) -->
+<div class="flex flex-col mt-0.5">
+<div class="h-6 px-1.5 flex items-center justify-between text-on-surface hover:bg-surface-variant cursor-pointer rounded">
+<div class="flex items-center gap-1 min-w-0">
+<span class="material-symbols-outlined text-secondary" data-icon="arrow_drop_down">arrow_drop_down</span>
+<span class="material-symbols-outlined text-secondary" data-icon="folder_open">folder_open</span>
+<span class="font-label text-label font-medium">Sequences</span>
+</div>
+<span class="font-code-small text-code-small px-1 rounded bg-secondary-container text-primary">1</span>
+</div>
+<div class="flex flex-col pl-4">
+<div class="h-6 px-1.5 flex items-center gap-1.5 text-on-surface hover:bg-surface-variant cursor-pointer rounded">
+<span class="material-symbols-outlined text-primary" data-icon="format_list_numbered">format_list_numbered</span>
+<span class="font-code-small text-code-small text-on-surface">audit_event_id_seq</span>
+</div>
+</div>
+</div>
+<!-- FOLDER 6: Types (0 Matches) -->
+<div class="flex flex-col mt-0.5">
+<div class="h-6 px-1.5 flex items-center justify-between text-secondary hover:bg-surface-variant cursor-pointer rounded">
+<div class="flex items-center gap-1 min-w-0">
+<span class="material-symbols-outlined text-outline" data-icon="arrow_drop_down">arrow_drop_down</span>
+<span class="material-symbols-outlined text-outline" data-icon="folder_open">folder_open</span>
+<span class="font-label text-label">Types</span>
+</div>
+<span class="font-code-small text-code-small text-outline">0</span>
+</div>
+<div class="pl-6 h-5 flex items-center">
+<span class="font-caption text-caption italic text-outline">No types match “audit”</span>
+</div>
+</div>
+<!-- FOLDER 7: Extensions (0 Matches) -->
+<div class="flex flex-col mt-0.5">
+<div class="h-6 px-1.5 flex items-center justify-between text-secondary hover:bg-surface-variant cursor-pointer rounded">
+<div class="flex items-center gap-1 min-w-0">
+<span class="material-symbols-outlined text-outline" data-icon="arrow_drop_down">arrow_drop_down</span>
+<span class="material-symbols-outlined text-outline" data-icon="folder_open">folder_open</span>
+<span class="font-label text-label">Extensions</span>
+</div>
+<span class="font-code-small text-code-small text-outline">0</span>
+</div>
+<div class="pl-6 h-5 flex items-center">
+<span class="font-caption text-caption italic text-outline">No extensions match “audit”</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- CENTRAL WORKSPACE (bg #181818, main canvas) -->
+<main class="flex-1 bg-surface-container-lowest flex flex-col overflow-hidden">
+<!-- Active Tab Bar -->
+<div class="h-9 bg-surface-container border-b border-outline-variant flex items-center px-1 gap-1 flex-shrink-0">
+<!-- Active Tab -->
+<div class="h-7 px-2.5 bg-surface-container-lowest border-t-2 border-primary-container border-x border-outline-variant flex items-center gap-2 text-on-surface">
+<span class="material-symbols-outlined text-primary" data-icon="table_view">table_view</span>
+<span class="font-code-small text-code-small font-medium">users [prod-pg · public]</span>
+<button class="text-outline hover:text-on-surface">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+<!-- Inactive Tab -->
+<div class="h-7 px-2.5 bg-transparent hover:bg-surface-variant flex items-center gap-2 text-secondary cursor-pointer rounded transition-colors">
+<span class="material-symbols-outlined text-secondary" data-icon="code">code</span>
+<span class="font-code-small text-code-small">query_audit_check.sql</span>
+<button class="text-outline hover:text-on-surface">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+<button class="w-6 h-6 flex items-center justify-center text-outline hover:text-on-surface hover:bg-surface-variant rounded ml-1" title="New Tab">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+</button>
+</div>
+<!-- Workspace Subheader: Breadcrumb & Object Secondary Tabs -->
+<div class="h-8 bg-surface-container-high border-b border-outline-variant flex items-center justify-between px-3 flex-shrink-0">
+<!-- Breadcrumb Path -->
+<div class="flex items-center gap-1.5 font-caption text-caption text-secondary">
+<span class="font-code-small text-code-small text-outline">prod-pg</span>
+<span class="text-outline">/</span>
+<span class="font-code-small text-code-small text-outline">app_db</span>
+<span class="text-outline">/</span>
+<span class="font-code-small text-code-small text-outline">public</span>
+<span class="text-outline">/</span>
+<div class="flex items-center gap-1 font-code-small text-code-small text-on-surface font-semibold">
+<span class="material-symbols-outlined text-primary" data-icon="table_view">table_view</span>
+<span>users</span>
+</div>
+</div>
+<!-- Secondary Object Views Tabs -->
+<div class="flex items-center h-full gap-4 font-label text-label">
+<button class="h-full text-secondary hover:text-on-surface flex items-center px-1">
+            Data
+          </button>
+<button class="h-full text-primary border-b-2 border-primary font-medium flex items-center px-1">
+            Structure (Columns)
+          </button>
+<button class="h-full text-secondary hover:text-on-surface flex items-center px-1">
+            Indexes &amp; Keys
+          </button>
+<button class="h-full text-secondary hover:text-on-surface flex items-center px-1">
+            DDL Script
+          </button>
+</div>
+</div>
+<!-- Table Structure Control Bar -->
+<div class="h-8 bg-surface-container border-b border-outline-variant flex items-center justify-between px-3 flex-shrink-0 font-caption text-caption">
+<div class="flex items-center gap-2">
+<button class="h-6 px-2 rounded bg-surface-container-high border border-outline-variant text-on-surface hover:bg-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-primary" data-icon="add">add</span>
+<span>Add Column</span>
+</button>
+<button class="h-6 px-2 rounded bg-surface-container-high border border-outline-variant text-secondary hover:text-on-surface hover:bg-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined" data-icon="delete">delete</span>
+<span>Drop</span>
+</button>
+<div class="h-3 w-px bg-outline-variant"></div>
+<span class="text-secondary font-code-small text-code-small">4 columns defined</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="h-6 px-2 bg-surface-container-low border border-outline-variant rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-outline" data-icon="search">search</span>
+<input class="bg-transparent border-0 p-0 font-code-small text-code-small text-on-surface focus:ring-0 w-28" placeholder="Filter columns..." type="text"/>
+</div>
+<button class="h-6 px-2 rounded bg-surface-container-high border border-outline-variant text-secondary hover:text-on-surface" title="Export Structure">
+<span class="material-symbols-outlined" data-icon="ios_share">ios_share</span>
+</button>
+</div>
+</div>
+<!-- STRUCTURE DATA GRID (Native Tabular Desktop Grid, 28px Rows) -->
+<div class="flex-1 overflow-auto custom-scroll bg-surface-container-lowest">
+<table class="w-full border-collapse text-left font-body text-body">
+<thead class="bg-surface-container border-b border-outline-variant sticky top-0 z-10 font-label text-label text-secondary">
+<tr class="h-7">
+<th class="w-10 px-2 border-r border-outline-variant text-center font-code-small text-code-small text-outline">#</th>
+<th class="w-8 px-2 border-r border-outline-variant text-center">PK</th>
+<th class="w-48 px-3 border-r border-outline-variant">Column Name</th>
+<th class="w-36 px-3 border-r border-outline-variant">Data Type</th>
+<th class="w-24 px-3 border-r border-outline-variant">Nullable</th>
+<th class="w-56 px-3 border-r border-outline-variant">Default Expression</th>
+<th class="px-3">Comment</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant font-code-small text-code-small">
+<!-- Row 1: id (int8, Primary Key) -->
+<tr class="h-7 hover:bg-surface-container transition-colors bg-surface-container-lowest">
+<td class="text-center border-r border-outline-variant text-outline bg-surface-container-low">1</td>
+<td class="text-center border-r border-outline-variant">
+<span class="material-symbols-outlined text-[#ffbd2e]" data-icon="key" style="font-variation-settings: 'FILL' 1;">key</span>
+</td>
+<td class="px-3 border-r border-outline-variant font-medium text-on-surface flex items-center gap-1.5 h-7">
+<span class="text-primary font-semibold">id</span>
+</td>
+<td class="px-3 border-r border-outline-variant text-primary">int8 (bigint)</td>
+<td class="px-3 border-r border-outline-variant text-secondary font-label text-label">NOT NULL</td>
+<td class="px-3 border-r border-outline-variant text-outline italic">nextval('users_id_seq'::regclass)</td>
+<td class="px-3 text-outline">Primary user identifier</td>
+</tr>
+<!-- Row 2: email (text, NOT NULL) -->
+<tr class="h-7 hover:bg-surface-container transition-colors bg-surface-container-lowest">
+<td class="text-center border-r border-outline-variant text-outline bg-surface-container-low">2</td>
+<td class="text-center border-r border-outline-variant"></td>
+<td class="px-3 border-r border-outline-variant font-medium text-on-surface h-7">
+                email
+              </td>
+<td class="px-3 border-r border-outline-variant text-primary">text</td>
+<td class="px-3 border-r border-outline-variant text-secondary font-label text-label">NOT NULL</td>
+<td class="px-3 border-r border-outline-variant text-outline italic">NULL</td>
+<td class="px-3 text-outline">User login email / unique verified</td>
+</tr>
+<!-- Row 3: created_at (timestamptz, DEFAULT now()) -->
+<tr class="h-7 hover:bg-surface-container transition-colors bg-surface-container-lowest">
+<td class="text-center border-r border-outline-variant text-outline bg-surface-container-low">3</td>
+<td class="text-center border-r border-outline-variant"></td>
+<td class="px-3 border-r border-outline-variant font-medium text-on-surface h-7">
+                created_at
+              </td>
+<td class="px-3 border-r border-outline-variant text-primary">timestamptz</td>
+<td class="px-3 border-r border-outline-variant text-secondary font-label text-label">NOT NULL</td>
+<td class="px-3 border-r border-outline-variant text-on-surface">now()</td>
+<td class="px-3 text-outline">Audit timestamp of profile creation</td>
+</tr>
+<!-- Row 4: is_active (bool, DEFAULT true) -->
+<tr class="h-7 hover:bg-surface-container transition-colors bg-surface-container-lowest">
+<td class="text-center border-r border-outline-variant text-outline bg-surface-container-low">4</td>
+<td class="text-center border-r border-outline-variant"></td>
+<td class="px-3 border-r border-outline-variant font-medium text-on-surface h-7">
+                is_active
+              </td>
+<td class="px-3 border-r border-outline-variant text-primary">bool</td>
+<td class="px-3 border-r border-outline-variant text-secondary font-label text-label">NOT NULL</td>
+<td class="px-3 border-r border-outline-variant text-on-surface">true</td>
+<td class="px-3 text-outline">Soft deletion status flag</td>
+</tr>
+</tbody>
+</table>
+</div>
+</main>
+</div>
+<!-- BOTTOM WORKSTATION STATUS BAR (24px Docked) -->
+<footer class="h-6 w-full bg-surface-container-low border-t border-outline-variant flex items-center justify-between px-2 font-caption text-caption select-none flex-shrink-0 z-40">
+<!-- Left Status Cluster -->
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-[#34c759] inline-block"></span>
+<span class="text-on-surface font-medium">Ready</span>
+</div>
+<span class="text-outline">|</span>
+<div class="flex items-center gap-1 text-secondary">
+<span>Connection:</span>
+<span class="font-code-small text-code-small text-on-surface">prod-pg · PostgreSQL</span>
+</div>
+<span class="text-outline">|</span>
+<div class="flex items-center gap-1 text-secondary">
+<span>Schema:</span>
+<span class="font-code-small text-code-small text-primary">public</span>
+</div>
+</div>
+<!-- Center Active Filter Summary -->
+<div class="hidden lg:flex items-center gap-1.5 text-secondary">
+<span class="material-symbols-outlined text-primary" data-icon="filter_alt">filter_alt</span>
+<span class="text-on-surface font-code-small text-code-small">Filter: audit</span>
+<span class="text-outline">(Contains, 7 kinds, user-scoped) · Persisted in workspace</span>
+</div>
+<!-- Right Workspace Metrics Cluster -->
+<div class="flex items-center gap-3 font-code-small text-code-small text-secondary">
+<span>Encoding: UTF-8</span>
+<span class="text-outline">|</span>
+<span>Line 1, Col 1</span>
+<span class="text-outline">|</span>
+<span class="text-primary">DB Pro v2.4 Native</span>
+</div>
+</footer>
+</body></html>

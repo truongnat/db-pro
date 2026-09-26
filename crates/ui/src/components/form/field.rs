@@ -39,6 +39,7 @@ impl<'a> Label<'a> {
         ui.horizontal(|ui| {
             let response = ui.label(RichText::new(self.text.as_ref()).size(12.0).strong().color(color));
             if self.required {
+                ui.add_space(crate::tokens::LABEL_HELPER_GAP);
                 ui.label(RichText::new("*").size(12.0).strong().color(self.theme.danger));
             }
             response
@@ -98,13 +99,25 @@ impl<'a> FormField<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
+        let mut access_label = self.label.to_string();
+        if self.required {
+            access_label.push_str(", required");
+        }
+        if let Some(error) = self.error_text.as_deref() {
+            access_label.push_str(". Error: ");
+            access_label.push_str(error);
+        }
+
         ui.vertical(|ui| {
-            Label::new(self.label, self.theme)
+            Label::new(self.label.as_ref(), self.theme)
                 .required(self.required)
                 .enabled(self.enabled)
                 .show(ui);
             ui.add_space(4.0);
-            let mut field = Input::new(self.value, self.placeholder.as_ref(), self.theme).enabled(self.enabled);
+            let mut field = Input::new(self.value, self.placeholder.as_ref(), self.theme)
+                .id_salt(self.label.as_ref())
+                .access_label(access_label)
+                .enabled(self.enabled);
             if let Some(error) = self.error_text.as_deref() {
                 field = field.error_text(error);
             } else if let Some(helper) = self.helper_text.as_deref() {

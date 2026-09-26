@@ -134,51 +134,33 @@ impl DbProApp {
         self.draw_section_heading(
             ui,
             "Badges & Status Pills",
-            "Status indicators, categorization tags, and notification counters.",
+            "Operational telemetry for query execution and connection state.",
         );
 
         Card::new(theme).show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
-                Badge::new("Default Accent", theme)
-                    .variant(BadgeVariant::Default)
-                    .show(ui);
-                ui.add_space(8.0);
-                Badge::new("Secondary Pill", theme)
+                ui.spacing_mut().item_spacing = egui::vec2(SPACE_MD, SPACE_SM);
+                ui.label(
+                    RichText::new("EXECUTION BADGES")
+                        .font(font_caption())
+                        .color(theme.text_tertiary),
+                );
+                Badge::new("Ready", theme)
                     .variant(BadgeVariant::Secondary)
+                    .dot(true)
                     .show(ui);
-                ui.add_space(8.0);
-                Badge::new("Outline Tag", theme).variant(BadgeVariant::Outline).show(ui);
-                ui.add_space(8.0);
-                Badge::new("Active Node", theme)
+                Badge::new("Running (42 ms)", theme)
+                    .variant(BadgeVariant::Default)
+                    .dot(true)
+                    .show(ui);
+                Badge::new("Succeeded", theme)
                     .variant(BadgeVariant::Success)
-                    .dot(true)
+                    .icon(Icon::CircleCheck)
                     .show(ui);
-                ui.add_space(8.0);
-                Badge::new("Warning Alert", theme)
-                    .variant(BadgeVariant::Warning)
-                    .icon(Icon::AlertTriangle)
-                    .show(ui);
-                ui.add_space(8.0);
-                Badge::new("Connection Error", theme)
+                Badge::new("Failed", theme)
                     .variant(BadgeVariant::Destructive)
-                    .dot(true)
+                    .icon(Icon::CircleX)
                     .show(ui);
-                ui.add_space(8.0);
-                Badge::new("PostgreSQL 16.2", theme)
-                    .variant(BadgeVariant::Info)
-                    .icon(Icon::Database)
-                    .show(ui);
-            });
-
-            ui.add_space(16.0);
-            ui.label(RichText::new("Avatars").size(13.0).strong().color(theme.text_secondary));
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                Avatar::new(theme).initials("TD").size(AvatarSize::Sm).show(ui);
-                ui.add_space(8.0);
-                Avatar::new(theme).initials("QP").size(AvatarSize::Md).show(ui);
-                ui.add_space(8.0);
-                Avatar::new(theme).icon(Icon::Bot).size(AvatarSize::Lg).show(ui);
             });
         });
     }
@@ -242,14 +224,14 @@ impl DbProApp {
                 .show_line_numbers(true)
                 .show(ui);
 
-            ui.add_space(20.0);
+            ui.add_space(SPACE_XL);
 
             // Row 2: DiffViewer & Schema Tree
             ui.columns(2, |cols| {
                 // Col 1: DiffViewer
                 let ui = &mut cols[0];
                 ui.label(RichText::new("Schema & SQL Diff Proposal").size(13.0).strong().color(theme.text_secondary));
-                ui.add_space(6.0);
+                ui.add_space(SPACE_SM);
 
                 let diff_lines = [
                     DiffLine::context(10, 10, "-- Schema migration for public.users"),
@@ -265,13 +247,13 @@ impl DbProApp {
                 // Col 2: Schema Tree
                 let ui = &mut cols[1];
                 ui.label(RichText::new("Hierarchical Database Tree").size(13.0).strong().color(theme.text_secondary));
-                ui.add_space(6.0);
+                ui.add_space(SPACE_SM);
 
                 let tree_frame = egui::Frame::none()
                     .fill(theme.surface_editor)
-                    .stroke(egui::Stroke::new(1.0, theme.border_default))
-                    .rounding(egui::Rounding::same(8.0))
-                    .inner_margin(egui::Margin::same(6.0));
+                    .stroke(egui::Stroke::new(STROKE_THIN, theme.border_default))
+                    .rounding(egui::Rounding::same(RADIUS_CARD))
+                    .inner_margin(egui::Margin::same(SPACE_SM));
 
                 tree_frame.show(ui, |ui| {
                     DatabaseTreeNode::new("localhost:5432", TreeNodeKind::Server, 0, theme)

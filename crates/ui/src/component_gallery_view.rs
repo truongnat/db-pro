@@ -5,7 +5,6 @@ use lucide_icons::Icon;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum GalleryCategory {
     #[default]
-    All,
     Buttons,
     Badges,
     Inputs,
@@ -135,7 +134,7 @@ impl Default for ComponentGalleryState {
         );
 
         Self {
-            category: GalleryCategory::All,
+            category: GalleryCategory::Buttons,
             input_text: "postgres_prod_replica".to_owned(),
             input_error_text: "invalid_connection_string".to_owned(),
             search_text: "".to_owned(),
@@ -213,193 +212,215 @@ impl Default for ComponentGalleryState {
 
 impl DbProApp {
     pub(super) fn draw_component_gallery(&mut self, ui: &mut Ui) {
-        let theme = self.theme;
+        let available_height = ui.available_height();
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 0.0;
+            self.draw_gallery_category_navigation(ui, available_height);
 
-        egui::ScrollArea::vertical()
-            .id_salt("component_gallery_scroll")
-            .auto_shrink([false, false])
-            .show(ui, |ui| {
-                ui.add_space(SPACE_SM);
+            ui.separator();
 
-                // ── Toolbar Header ──────────────────────────────────────────
-                ui.horizontal(|ui| {
-                    ui.vertical(|ui| {
+            ui.vertical(|ui| {
+                ui.set_min_width(ui.available_width());
+                self.draw_gallery_header(ui);
+                ui.separator();
+
+                egui::ScrollArea::vertical()
+                    .id_salt("component_gallery_detail_scroll")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        ui.set_min_width(ui.available_width());
+                        ui.add_space(SPACE_MD);
                         ui.horizontal(|ui| {
-                            ui.label(RichText::new("✨").size(20.0));
-                            ui.label(
-                                RichText::new("Common UI Design System")
-                                    .size(20.0)
-                                    .strong()
-                                    .color(theme.text_primary),
-                            );
-                            Badge::new("Design System", theme)
-                                .variant(BadgeVariant::Default)
-                                .dot(true)
-                                .show(ui);
+                            ui.add_space(SPACE_LG);
+                            ui.vertical(|ui| {
+                                ui.set_max_width(1120.0);
+                                self.draw_selected_gallery_category(ui);
+                                ui.add_space(SPACE_2XL);
+                            });
+                            ui.add_space(SPACE_LG);
                         });
-                        ui.add_space(2.0);
+                    });
+            });
+        });
+
+        let _events = self.gallery_state.toasts.render(ui, self.theme);
+    }
+
+    fn draw_gallery_header(&mut self, ui: &mut Ui) {
+        let theme = self.theme;
+        egui::Frame::none()
+            .fill(theme.surface_app)
+            .inner_margin(egui::Margin::symmetric(SPACE_LG, SPACE_SM))
+            .show(ui, |ui| {
+                ui.set_min_height(TOOLBAR_HEIGHT);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(char::from(Icon::Palette).to_string())
+                            .font(font_icon(ICON_DEFAULT))
+                            .color(theme.accent),
+                    );
+                    ui.add_space(SPACE_XS);
+                    ui.vertical(|ui| {
                         ui.label(
-                            RichText::new(
-                                "Interactive living style guide and reusable component primitives for DB Pro Native.",
-                            )
-                            .size(13.0)
-                            .color(theme.text_secondary),
+                            RichText::new("Component Gallery")
+                                .font(font_subheading())
+                                .color(theme.text_primary),
+                        );
+                        ui.label(
+                            RichText::new("DB Pro workstation primitives")
+                                .font(font_caption())
+                                .color(theme.text_tertiary),
                         );
                     });
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        // Reset button
                         if Button::new(theme)
-                            .text("Reset Demo")
-                            .variant(ButtonVariant::Outline)
-                            .size(ButtonSize::Sm)
-                            .icon(Icon::RotateCcw)
-                            .show(ui)
-                            .clicked()
-                        {
-                            self.gallery_state = ComponentGalleryState::default();
-                        }
-
-                        ui.add_space(8.0);
-
-                        // Live Light / Dark theme toggle
-                        let is_dark = self.preferences.dark_mode;
-                        let theme_icon = if is_dark { Icon::Sun } else { Icon::Moon };
-                        let theme_label = if is_dark { "Light Mode" } else { "Dark Mode" };
-                        if Button::new(theme)
-                            .text(theme_label)
-                            .variant(ButtonVariant::Secondary)
-                            .size(ButtonSize::Sm)
-                            .icon(theme_icon)
+                            .icon(if self.preferences.dark_mode {
+                                Icon::Sun
+                            } else {
+                                Icon::Moon
+                            })
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::IconSm)
+                            .tooltip(if self.preferences.dark_mode {
+                                "Preview light theme"
+                            } else {
+                                "Preview dark theme"
+                            })
                             .show(ui)
                             .clicked()
                         {
                             self.preferences.dark_mode = !self.preferences.dark_mode;
                         }
+
+                        ui.add_space(SPACE_XS);
+                        if Button::new(theme)
+                            .text("Reset")
+                            .variant(ButtonVariant::Ghost)
+                            .size(ButtonSize::Sm)
+                            .icon(Icon::RotateCcw)
+                            .tooltip("Reset interactive component samples")
+                            .show(ui)
+                            .clicked()
+                        {
+                            self.gallery_state = ComponentGalleryState::default();
+                        }
                     });
                 });
-
-                ui.add_space(16.0);
-
-                // ── Category Filter Bar ─────────────────────────────────────
-                let categories = [
-                    (GalleryCategory::All, "All Components"),
-                    (GalleryCategory::Buttons, "Buttons"),
-                    (GalleryCategory::Badges, "Badges"),
-                    (GalleryCategory::Inputs, "Forms & Inputs"),
-                    (GalleryCategory::Selection, "Selection"),
-                    (GalleryCategory::Cards, "Cards"),
-                    (GalleryCategory::Alerts, "Alerts"),
-                    (GalleryCategory::Feedback, "Feedback"),
-                    (GalleryCategory::Overlays, "Overlays"),
-                    (GalleryCategory::Navigation, "Navigation"),
-                    (GalleryCategory::Tables, "Data Tables"),
-                    (GalleryCategory::DevTools, "Developer Tools"),
-                    (GalleryCategory::DatabaseShell, "Database & Shell"),
-                    (GalleryCategory::AgentUi, "AI Agent UI"),
-                ];
-
-                let mut current_cat_idx = categories
-                    .iter()
-                    .position(|(c, _)| *c == self.gallery_state.category)
-                    .unwrap_or(0);
-                let cat_labels: Vec<&str> = categories.iter().map(|(_, l)| *l).collect();
-
-                SegmentedTabs::new(&mut current_cat_idx, &cat_labels, theme).show(ui);
-                self.gallery_state.category = categories[current_cat_idx].0;
-
-                ui.add_space(20.0);
-
-                let cat = self.gallery_state.category;
-
-                // ── 1. BUTTONS ──────────────────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::Buttons {
-                    self.draw_gallery_buttons_section(ui);
-                    ui.add_space(24.0);
-                }
-
-                // ── 2. BADGES ───────────────────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::Badges {
-                    self.draw_gallery_badges_section(ui);
-                    ui.add_space(24.0);
-                }
-
-                // ── 3. FORMS & INPUTS ───────────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::Inputs {
-                    self.draw_gallery_inputs_section(ui);
-                    ui.add_space(24.0);
-                }
-
-                // ── 4. SELECTION CONTROLS ───────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::Selection {
-                    self.draw_gallery_selection_section(ui);
-                    ui.add_space(24.0);
-                }
-
-                // ── 5. CARDS & CONTAINERS ───────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::Cards {
-                    self.draw_gallery_cards_section(ui);
-                    ui.add_space(24.0);
-                }
-
-                // ── 6. ALERTS & NOTICES ─────────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::Alerts {
-                    self.draw_gallery_alerts_section(ui);
-                    ui.add_space(24.0);
-                }
-
-                // ── 7. FEEDBACK & PROGRESS ──────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::Feedback {
-                    self.draw_gallery_feedback_section(ui);
-                    ui.add_space(24.0);
-                }
-
-                // ── 8. OVERLAYS ─────────────────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::Overlays {
-                    self.draw_gallery_overlays_section(ui);
-                    ui.add_space(24.0);
-                }
-
-                // ── 9. NAVIGATION & TABS ────────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::Navigation {
-                    self.draw_gallery_navigation_section(ui);
-                    ui.add_space(24.0);
-                }
-
-                // ── 9. DATA TABLES ──────────────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::Tables {
-                    self.draw_gallery_tables_section(ui);
-                    ui.add_space(24.0);
-                }
-
-                // ── 10. DEVELOPER TOOLS ─────────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::DevTools {
-                    self.draw_gallery_devtools_section(ui);
-                    ui.add_space(24.0);
-                }
-
-                // ── 11. DATABASE & SHELL ─────────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::DatabaseShell {
-                    self.draw_gallery_database_shell_section(ui);
-                    ui.add_space(24.0);
-                }
-
-                // ── 12. AI AGENT UI ─────────────────────────────────────────
-                if cat == GalleryCategory::All || cat == GalleryCategory::AgentUi {
-                    self.draw_gallery_agent_ui_section(ui);
-                    ui.add_space(32.0);
-                }
             });
+    }
 
-        let _events = self.gallery_state.toasts.render(ui, theme);
+    fn draw_gallery_category_navigation(&mut self, ui: &mut Ui, available_height: f32) {
+        let theme = self.theme;
+        egui::Frame::none()
+            .fill(theme.surface_panel)
+            .inner_margin(egui::Margin::same(SPACE_SM))
+            .show(ui, |ui| {
+                ui.vertical(|ui| {
+                ui.set_min_size(egui::vec2(196.0, available_height));
+                ui.set_max_width(196.0);
+
+                ui.label(
+                    RichText::new("LIBRARY")
+                        .font(font_caption())
+                        .color(theme.text_tertiary),
+                );
+                ui.add_space(SPACE_SM);
+
+                self.draw_gallery_category_group(
+                    ui,
+                    &[
+                        (GalleryCategory::Buttons, Icon::MousePointerClick, "Buttons"),
+                        (GalleryCategory::Badges, Icon::Badge, "Badges & status"),
+                        (GalleryCategory::Inputs, Icon::TextCursorInput, "Forms & inputs"),
+                        (GalleryCategory::Selection, Icon::SlidersHorizontal, "Selection"),
+                        (GalleryCategory::Cards, Icon::PanelsTopLeft, "Surfaces"),
+                    ],
+                );
+
+                ui.add_space(SPACE_MD);
+                ui.label(
+                    RichText::new("SYSTEM")
+                        .font(font_caption())
+                        .color(theme.text_tertiary),
+                );
+                ui.add_space(SPACE_XS);
+                self.draw_gallery_category_group(
+                    ui,
+                    &[
+                        (GalleryCategory::Alerts, Icon::TriangleAlert, "Alerts"),
+                        (GalleryCategory::Feedback, Icon::Activity, "Feedback"),
+                        (GalleryCategory::Overlays, Icon::PanelTopOpen, "Overlays"),
+                        (GalleryCategory::Navigation, Icon::Waypoints, "Navigation"),
+                    ],
+                );
+
+                ui.add_space(SPACE_MD);
+                ui.label(
+                    RichText::new("WORKSTATION")
+                        .font(font_caption())
+                        .color(theme.text_tertiary),
+                );
+                ui.add_space(SPACE_XS);
+                self.draw_gallery_category_group(
+                    ui,
+                    &[
+                        (GalleryCategory::Tables, Icon::Table2, "Data tables"),
+                        (GalleryCategory::DevTools, Icon::Code2, "Developer tools"),
+                        (GalleryCategory::DatabaseShell, Icon::Database, "Database shell"),
+                        (GalleryCategory::AgentUi, Icon::Bot, "Agent UI"),
+                    ],
+                );
+                });
+            });
+    }
+
+    fn draw_gallery_category_group(
+        &mut self,
+        ui: &mut Ui,
+        categories: &[(GalleryCategory, Icon, &'static str)],
+    ) {
+        for (category, icon, label) in categories {
+            let selected = self.gallery_state.category == *category;
+            if Button::new(self.theme)
+                .text(*label)
+                .icon(*icon)
+                .variant(if selected {
+                    ButtonVariant::Secondary
+                } else {
+                    ButtonVariant::Ghost
+                })
+                .size(ButtonSize::Sm)
+                .full_width(true)
+                .show(ui)
+                .clicked()
+            {
+                self.gallery_state.category = *category;
+            }
+            ui.add_space(SPACE_XXS);
+        }
+    }
+
+    fn draw_selected_gallery_category(&mut self, ui: &mut Ui) {
+        match self.gallery_state.category {
+            GalleryCategory::Buttons => self.draw_gallery_buttons_section(ui),
+            GalleryCategory::Badges => self.draw_gallery_badges_section(ui),
+            GalleryCategory::Inputs => self.draw_gallery_inputs_section(ui),
+            GalleryCategory::Selection => self.draw_gallery_selection_section(ui),
+            GalleryCategory::Cards => self.draw_gallery_cards_section(ui),
+            GalleryCategory::Alerts => self.draw_gallery_alerts_section(ui),
+            GalleryCategory::Feedback => self.draw_gallery_feedback_section(ui),
+            GalleryCategory::Overlays => self.draw_gallery_overlays_section(ui),
+            GalleryCategory::Navigation => self.draw_gallery_navigation_section(ui),
+            GalleryCategory::Tables => self.draw_gallery_tables_section(ui),
+            GalleryCategory::DevTools => self.draw_gallery_devtools_section(ui),
+            GalleryCategory::DatabaseShell => self.draw_gallery_database_shell_section(ui),
+            GalleryCategory::AgentUi => self.draw_gallery_agent_ui_section(ui),
+        }
     }
 
     pub(super) fn draw_section_heading(&self, ui: &mut Ui, title: &str, subtitle: &str) {
-        ui.vertical(|ui| {
-            ui.label(RichText::new(title).size(16.0).strong().color(self.theme.text_primary));
-            ui.add_space(2.0);
-            ui.label(RichText::new(subtitle).size(12.0).color(self.theme.text_muted));
-        });
-        ui.add_space(10.0);
+        SectionHeader::new(title, self.theme).description(subtitle).show(ui);
+        ui.add_space(SPACE_MD);
     }
 }

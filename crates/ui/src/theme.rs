@@ -98,7 +98,7 @@ impl DbProTheme {
     pub fn dark() -> Self {
         Self {
             dark_mode: true,
-            // Open-api-style.md Warm Minimalism Dark Tokens:
+            // Stitch Design System Dark Tokens (docs/DESIGN.md / projects/1651725598433404641):
             surface_app: Color32::from_rgb(33, 33, 33), // --background: #212121
             surface_panel: Color32::from_rgb(42, 42, 42), // --surface: #2a2a2a
             surface_elevated: Color32::from_rgb(48, 48, 48), // --surface-2: #303030
@@ -125,15 +125,15 @@ impl DbProTheme {
             danger: Color32::from_rgb(239, 68, 68),    // --danger: #ef4444
             info: Color32::from_rgb(59, 130, 246),     // --info: #3b82f6
             overlay: Color32::from_black_alpha(64),    // scrim ~0.25, card stays fully opaque on top
-            code_keyword: Color32::from_rgb(130, 170, 255),
-            code_string: Color32::from_rgb(152, 195, 121),
-            code_number: Color32::from_rgb(229, 192, 123),
-            code_comment: Color32::from_rgb(110, 110, 110),
-            code_type: Color32::from_rgb(198, 146, 232),
-            code_function: Color32::from_rgb(97, 214, 214),
-            code_operator: Color32::from_rgb(171, 178, 191),
-            code_punctuation: Color32::from_rgb(171, 178, 191),
-            code_variable: Color32::from_rgb(224, 224, 224),
+            code_keyword: Color32::from_rgb(199, 146, 234), // #C792EA (synKeyword)
+            code_string: Color32::from_rgb(195, 232, 141), // #C3E88D (synString)
+            code_number: Color32::from_rgb(247, 140, 108), // #F78C6C (synConst)
+            code_comment: Color32::from_rgb(103, 110, 149), // #676E95 (synComment)
+            code_type: Color32::from_rgb(255, 203, 107), // #FFCB6B (synType)
+            code_function: Color32::from_rgb(130, 170, 255), // #82AAFF (synFunc)
+            code_operator: Color32::from_rgb(137, 221, 255), // #89DDFF (synPunct)
+            code_punctuation: Color32::from_rgb(137, 221, 255), // #89DDFF (synPunct)
+            code_variable: Color32::from_rgb(238, 255, 255), // #EEFFFF (synIdent)
         }
     }
     /// Subtle tinted fill for badges, diff rows, and status cards (~10-12% opacity).

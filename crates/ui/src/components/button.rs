@@ -9,8 +9,8 @@ use egui::{
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
-const BUTTON_ROUNDING: f32 = 6.0;
-const ICON_TEXT_GAP: f32 = 8.0;
+const BUTTON_ROUNDING: f32 = 4.0;
+const ICON_TEXT_GAP: f32 = 6.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonVariant {

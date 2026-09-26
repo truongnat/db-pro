@@ -163,7 +163,7 @@ impl ShellTopbarContext<'_> {
             .icon(Icon::Palette)
             .variant(ButtonVariant::Ghost)
             .size(ButtonSize::IconSm)
-            .tooltip("Component Gallery (UI Design System)")
+            .tooltip("Open Component Gallery")
             .show(ui)
             .clicked()
         {

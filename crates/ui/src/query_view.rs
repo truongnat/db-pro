@@ -44,15 +44,45 @@ impl DbProApp {
         self.draw_query_transaction_chrome(ui);
         self.draw_visual_query_builder_surface(ui);
         let layout = query_layout_surface_view::calculate(query_layout_surface_view::QueryPanelLayoutContext {
+            available_width: ui.available_width(),
             available_height: ui.available_height(),
             bottom_panel_open: self.workspace.bottom_panel_open,
             output_dock_maximized: self.query.editor.query_output_dock_maximized,
             bottom_panel_height: self.workspace.bottom_panel_height,
+            right_dock_width: self.workspace.right_dock_width,
+            dock_position: self.workspace.output_dock_position,
         });
-        self.draw_query_editor_stack(ui, layout.editor_height);
-        self.draw_query_optional_panels(ui);
-        if layout.dock_open {
-            self.draw_query_output_dock(ui, layout.dock_height);
+        if layout.dock_open && layout.dock_position == OutputDockPosition::Right {
+            ui.horizontal(|ui| {
+                ui.allocate_ui_with_layout(
+                    egui::vec2(layout.editor_width, layout.editor_height),
+                    Layout::top_down(Align::Min),
+                    |ui| {
+                        self.draw_query_editor_stack(ui, layout.editor_height);
+                    },
+                );
+                let mut splitter_context = query_output_dock_surface_view::QueryOutputDockContext {
+                    theme: self.theme,
+                    workspace: &mut self.workspace,
+                    output: &mut self.query.output,
+                    session: &self.query.session,
+                    editor: &mut self.query.editor,
+                };
+                splitter_context.draw_horizontal_splitter(ui, layout.dock_height);
+                ui.allocate_ui_with_layout(
+                    egui::vec2(layout.dock_width.min(ui.available_width()), layout.dock_height),
+                    Layout::top_down(Align::Min),
+                    |ui| {
+                        self.draw_query_output_dock(ui, layout.dock_height);
+                    },
+                );
+            });
+        } else {
+            self.draw_query_editor_stack(ui, layout.editor_height);
+            self.draw_query_optional_panels(ui);
+            if layout.dock_open {
+                self.draw_query_output_dock(ui, layout.dock_height);
+            }
         }
         self.draw_query_status_bar(ui);
         self.draw_dirty_close_dialog(ui.ctx());

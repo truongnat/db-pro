@@ -27,10 +27,20 @@ impl<'a> SchemaObjectFoldersView<'a> {
         Self { theme, explorer }
     }
 
-    pub(super) fn draw_views(&self, ui: &mut egui::Ui, schema: &str, count: usize) -> Vec<SchemaObjectFolderAction> {
-        let views = self
+    pub(super) fn draw_views(
+        &self,
+        ui: &mut egui::Ui,
+        schema: &str,
+        search_query: &str,
+        _count: usize,
+    ) -> Vec<SchemaObjectFolderAction> {
+        let views: Vec<_> = self
             .explorer
-            .filter_by_schema(&self.explorer.schema.views, schema, |view| &view.schema);
+            .filter_by_schema(&self.explorer.schema.views, schema, |view| &view.schema)
+            .into_iter()
+            .filter(|v| search_query.is_empty() || v.name.to_ascii_lowercase().contains(search_query))
+            .collect();
+        let count = views.len();
         let mut actions = Vec::new();
         let theme = self.theme;
         let folder_id = ui.make_persistent_id(("codex_views_folder", schema));
@@ -44,7 +54,11 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 icon_color: theme.success,
                 label: "Views",
                 count,
-                empty_label: Some("No views in schema"),
+                empty_label: Some(if search_query.is_empty() {
+                    "No views in schema"
+                } else {
+                    "No matching views"
+                }),
             },
             |ui| {
                 for view in &views {
@@ -59,11 +73,16 @@ impl<'a> SchemaObjectFoldersView<'a> {
         &self,
         ui: &mut egui::Ui,
         schema: &str,
-        count: usize,
+        search_query: &str,
+        _count: usize,
     ) -> Vec<SchemaObjectFolderAction> {
-        let functions = self
+        let functions: Vec<_> = self
             .explorer
-            .filter_by_schema(&self.explorer.schema.functions, schema, |function| &function.schema);
+            .filter_by_schema(&self.explorer.schema.functions, schema, |function| &function.schema)
+            .into_iter()
+            .filter(|f| search_query.is_empty() || f.name.to_ascii_lowercase().contains(search_query))
+            .collect();
+        let count = functions.len();
         let mut actions = Vec::new();
         let theme = self.theme;
         let folder_id = ui.make_persistent_id(("codex_functions_folder", schema));
@@ -77,7 +96,11 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 icon_color: theme.code_type,
                 label: "Functions",
                 count,
-                empty_label: Some("No functions in schema"),
+                empty_label: Some(if search_query.is_empty() {
+                    "No functions in schema"
+                } else {
+                    "No matching functions"
+                }),
             },
             |ui| {
                 for function in &functions {
@@ -88,10 +111,20 @@ impl<'a> SchemaObjectFoldersView<'a> {
         actions
     }
 
-    pub(super) fn draw_triggers(&self, ui: &mut egui::Ui, schema: &str, count: usize) -> Vec<SchemaObjectFolderAction> {
-        let triggers = self
+    pub(super) fn draw_triggers(
+        &self,
+        ui: &mut egui::Ui,
+        schema: &str,
+        search_query: &str,
+        _count: usize,
+    ) -> Vec<SchemaObjectFolderAction> {
+        let triggers: Vec<_> = self
             .explorer
-            .filter_by_schema(&self.explorer.schema.triggers, schema, |trigger| &trigger.schema);
+            .filter_by_schema(&self.explorer.schema.triggers, schema, |trigger| &trigger.schema)
+            .into_iter()
+            .filter(|t| search_query.is_empty() || t.name.to_ascii_lowercase().contains(search_query))
+            .collect();
+        let count = triggers.len();
         let mut actions = Vec::new();
         let theme = self.theme;
         let folder_id = ui.make_persistent_id(("codex_triggers_folder", schema));
@@ -105,7 +138,11 @@ impl<'a> SchemaObjectFoldersView<'a> {
                 icon_color: theme.warning,
                 label: "Triggers",
                 count,
-                empty_label: Some("No triggers in schema"),
+                empty_label: Some(if search_query.is_empty() {
+                    "No triggers in schema"
+                } else {
+                    "No matching triggers"
+                }),
             },
             |ui| {
                 for trigger in &triggers {

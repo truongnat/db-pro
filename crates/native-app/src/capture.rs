@@ -59,6 +59,9 @@ const SETTINGS_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_SETTINGS";
 /// When set, open the Agent workspace panel before capturing.
 const AGENT_WORKSPACE_ENV: &str = "DB_PRO_CAPTURE_AGENT";
 
+/// When set, switch to the native Component Gallery before capturing.
+const COMPONENT_GALLERY_ENV: &str = "DB_PRO_CAPTURE_COMPONENT_GALLERY";
+
 /// Environment variable pinning the viewport size for evidence runs (the same key
 /// `main.rs` reads for the initial window). The capture driver re-asserts it each
 /// frame so the window cannot maximize itself away from the requested size.
@@ -205,6 +208,9 @@ impl CaptureApp {
             self.opened_dialog = true;
         } else if std::env::var_os(AGENT_WORKSPACE_ENV).is_some() {
             self.inner.open_agent_workspace_for_capture();
+            self.opened_dialog = true;
+        } else if std::env::var_os(COMPONENT_GALLERY_ENV).is_some() {
+            self.inner.open_component_gallery_for_capture();
             self.opened_dialog = true;
         }
     }

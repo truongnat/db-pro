@@ -65,23 +65,57 @@ impl DbProApp {
         if !is_table_data {
             self.draw_result_grid_toolbar(ui, result, &indexes, editable);
         }
-        self.draw_record_inspector_panel(ui, result);
 
+        let inspector_open = self.table.editing.record_inspector_open;
         let row_offset = if is_table_data { self.table.data_query.offset } else { 0 };
-        let grid_width = ui.available_width().max(0.0);
-        let widths = self.table.data.column_widths(result.columns.len(), grid_width);
-        self.draw_grid_body(
-            ui,
-            result_grid_body_view::ResultGridBodyContext {
-                result,
-                indexes: &indexes,
-                widths: &widths,
-                order: &order,
-                editable,
-                row_offset,
-                selection_lookup: &selection_lookup,
-            },
-        );
+        if inspector_open {
+            let inspector_width = 320.0f32.min(ui.available_width() * 0.45);
+            let main_grid_width = (ui.available_width() - inspector_width - 8.0).max(180.0);
+            ui.horizontal(|ui| {
+                ui.allocate_ui_with_layout(
+                    egui::vec2(main_grid_width, ui.available_height()),
+                    Layout::top_down(Align::Min),
+                    |ui| {
+                        let widths = self.table.data.column_widths(result.columns.len(), main_grid_width);
+                        self.draw_grid_body(
+                            ui,
+                            result_grid_body_view::ResultGridBodyContext {
+                                result,
+                                indexes: &indexes,
+                                widths: &widths,
+                                order: &order,
+                                editable,
+                                row_offset,
+                                selection_lookup: &selection_lookup,
+                            },
+                        );
+                    },
+                );
+                ui.separator();
+                ui.allocate_ui_with_layout(
+                    egui::vec2(ui.available_width(), ui.available_height()),
+                    Layout::top_down(Align::Min),
+                    |ui| {
+                        self.draw_record_inspector_panel(ui, result);
+                    },
+                );
+            });
+        } else {
+            let grid_width = ui.available_width().max(0.0);
+            let widths = self.table.data.column_widths(result.columns.len(), grid_width);
+            self.draw_grid_body(
+                ui,
+                result_grid_body_view::ResultGridBodyContext {
+                    result,
+                    indexes: &indexes,
+                    widths: &widths,
+                    order: &order,
+                    editable,
+                    row_offset,
+                    selection_lookup: &selection_lookup,
+                },
+            );
+        }
 
         self.restore_grid_cache(projection_key, indexes, order, selection_lookup);
     }

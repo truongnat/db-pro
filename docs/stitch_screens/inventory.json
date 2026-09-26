@@ -1,0 +1,116 @@
+[
+  {
+    "index": 1,
+    "title": "DB Pro \u2014 SQL Editor & Results Grid (Native Theme Fixed)",
+    "screen_name": "projects/1651725598433404641/screens/48612897f811428993057362684cf13d",
+    "file": "docs/stitch_screens/01_db_pro___sql_editor_and_results_grid_native_theme_fixed.html"
+  },
+  {
+    "index": 2,
+    "title": "DB Pro \u2014 SQL Editor & Results Grid (Native Theme)",
+    "screen_name": "projects/1651725598433404641/screens/3130945227ba42d5941897384d31996a",
+    "file": "docs/stitch_screens/02_db_pro___sql_editor_and_results_grid_native_theme.html"
+  },
+  {
+    "index": 3,
+    "title": "DB Pro \u2014 ER Diagram (audit schema)",
+    "screen_name": "projects/1651725598433404641/screens/60a0848d177341e3a2d14dfd2456242a",
+    "file": "docs/stitch_screens/03_db_pro___er_diagram_audit_schema.html"
+  },
+  {
+    "index": 4,
+    "title": "DB Pro \u2014 Data Activity (F1 Stable Table Reference Identity)",
+    "screen_name": "projects/1651725598433404641/screens/2dc6714370c04a18913694ac40c27eb4",
+    "file": "docs/stitch_screens/04_db_pro___data_activity_f1_stable_table_reference_identity.html"
+  },
+  {
+    "index": 5,
+    "title": "DB Pro Component Library \u2014 Inputs, Selection & Navigation",
+    "screen_name": "projects/1651725598433404641/screens/6d09637f18e943c59e3795cc23907e41",
+    "file": "docs/stitch_screens/05_db_pro_component_library___inputs_selection_and_navigation.html"
+  },
+  {
+    "index": 6,
+    "title": "DESIGN.md",
+    "screen_name": "projects/1651725598433404641/screens/17282764574588259759",
+    "file": "docs/stitch_screens/06_designmd.html"
+  },
+  {
+    "index": 7,
+    "title": "DB Pro Component Library \u2014 SQL Editor & Results Grid",
+    "screen_name": "projects/1651725598433404641/screens/365d4728f83b494f912f41f96411f8d8",
+    "file": "docs/stitch_screens/07_db_pro_component_library___sql_editor_and_results_grid.html"
+  },
+  {
+    "index": 8,
+    "title": "DB Pro \u2014 SQL Editor & Results Grid (Native Theme)",
+    "screen_name": "projects/1651725598433404641/screens/1810aa0a099c45a7bda1d21e8c8a098c",
+    "file": "docs/stitch_screens/08_db_pro___sql_editor_and_results_grid_native_theme.html"
+  },
+  {
+    "index": 9,
+    "title": "DB Pro \u2014 Schema Compare (F1 Block Incomplete Migration DDL)",
+    "screen_name": "projects/1651725598433404641/screens/d9920f5dde654231b9c87a23c32493d6",
+    "file": "docs/stitch_screens/09_db_pro___schema_compare_f1_block_incomplete_migration_ddl.html"
+  },
+  {
+    "index": 10,
+    "title": "DB Pro \u2014 ER Diagram (F1 Schema-Scoped Graph Refresh)",
+    "screen_name": "projects/1651725598433404641/screens/1e1ac180dd6846ffacdc43cf824fd37b",
+    "file": "docs/stitch_screens/10_db_pro___er_diagram_f1_schema_scoped_graph_refresh.html"
+  },
+  {
+    "index": 11,
+    "title": "DB Pro \u2014 Explorer (F1 Object Filter Workbench)",
+    "screen_name": "projects/1651725598433404641/screens/ff437793844a4c979cbf15232b5b9f68",
+    "file": "docs/stitch_screens/11_db_pro___explorer_f1_object_filter_workbench.html"
+  },
+  {
+    "index": 12,
+    "title": "DB Pro \u2014 Execution History (F1 Unified Execution History)",
+    "screen_name": "projects/1651725598433404641/screens/4f18731c843840749a365fbeacd64b20",
+    "file": "docs/stitch_screens/12_db_pro___execution_history_f1_unified_execution_history.html"
+  },
+  {
+    "index": 13,
+    "title": "DB Pro \u2014 Execution History (Proposed F1)",
+    "screen_name": "projects/1651725598433404641/screens/8dff26a9a6544084874f7308f8cbaa83",
+    "file": "docs/stitch_screens/13_db_pro___execution_history_proposed_f1.html"
+  },
+  {
+    "index": 14,
+    "title": "DB Pro \u2014 Queries Activity (F1 Safe Open & Connection Context)",
+    "screen_name": "projects/1651725598433404641/screens/34ecaee1c1204bcc994bc73a8a37179e",
+    "file": "docs/stitch_screens/14_db_pro___queries_activity_f1_safe_open_and_connection_context.html"
+  },
+  {
+    "index": 15,
+    "title": "DB Pro \u2014 Files Workspace (F1 Trust & File Mutation Review)",
+    "screen_name": "projects/1651725598433404641/screens/2b4edebf1d414414a57ece7de277d702",
+    "file": "docs/stitch_screens/15_db_pro___files_workspace_f1_trust_and_file_mutation_review.html"
+  },
+  {
+    "index": 16,
+    "title": "DB Pro \u2014 Rebind a Missing Table Reference",
+    "screen_name": "projects/1651725598433404641/screens/b9a6e0925bac47c79d3a26e6166027eb",
+    "file": "docs/stitch_screens/16_db_pro___rebind_a_missing_table_reference.html"
+  },
+  {
+    "index": 17,
+    "title": "DB Pro \u2014 Queries Activity (F1 Source Context Unavailable)",
+    "screen_name": "projects/1651725598433404641/screens/eeaae94d47bc43f3b89b6ad8147e88da",
+    "file": "docs/stitch_screens/17_db_pro___queries_activity_f1_source_context_unavailable.html"
+  },
+  {
+    "index": 18,
+    "title": "DB Pro Component Library \u2014 Feedback, Dialogs & Commands",
+    "screen_name": "projects/1651725598433404641/screens/ae3c47e257a64b49a843e69f68b61ad0",
+    "file": "docs/stitch_screens/18_db_pro_component_library___feedback_dialogs_and_commands.html"
+  },
+  {
+    "index": 19,
+    "title": "DB Pro Component Library",
+    "screen_name": "projects/1651725598433404641/screens/c7bd7705873043ba9b2cf4bf6981eb4a",
+    "file": "docs/stitch_screens/19_db_pro_component_library.html"
+  }
+]

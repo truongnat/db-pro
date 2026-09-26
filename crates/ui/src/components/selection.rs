@@ -163,95 +163,83 @@ impl<'a> Switch<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let width: f32 = 36.0;
+        let width = 36.0;
         let height: f32 = 20.0;
-        let spacing: f32 = 8.0;
+        let spacing = 8.0;
+        let text_width = (ui.available_width() - width - spacing).max(32.0);
+        let text_color = if self.enabled {
+            self.theme.text_primary
+        } else {
+            self.theme.text_muted
+        };
+        let label_galley = self.label.map(|label| {
+            ui.painter()
+                .layout(label.to_owned(), FontId::proportional(13.0), text_color, text_width)
+        });
+        let description_galley = self.description.map(|description| {
+            ui.painter().layout(
+                description.to_owned(),
+                FontId::proportional(11.5),
+                self.theme.text_muted,
+                text_width,
+            )
+        });
+        let text_height = label_galley.as_ref().map_or(0.0, |galley| galley.size().y)
+            + description_galley.as_ref().map_or(0.0, |galley| 3.0 + galley.size().y);
+        let total_height = height.max(text_height);
+        let row_width = ui.available_width().max(width);
 
-        ui.horizontal(|ui| {
-            let desc_extra = if self.description.is_some() { 16.0 } else { 0.0 };
-            let total_height = height.max(20.0 + desc_extra);
+        let (row_rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
+        response.widget_info(|| checkbox_info(self.enabled, *self.on, self.label.unwrap_or("Switch")));
 
-            let label_width = if let Some(lbl) = self.label {
-                let text_font = FontId::proportional(13.0);
-                ui.painter()
-                    .layout_no_wrap(lbl.to_owned(), text_font, self.theme.text_primary)
-                    .size()
-                    .x
-            } else {
-                0.0
-            };
-            let row_width = (width + spacing + label_width).max(width);
+        let keyboard_toggle = response.has_focus()
+            && ui.input(|input| input.key_pressed(egui::Key::Space) || input.key_pressed(egui::Key::Enter));
+        if self.enabled && (response.clicked() || keyboard_toggle) {
+            *self.on = !*self.on;
+            response.mark_changed();
+        }
 
-            let (row_rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
-            response.widget_info(|| checkbox_info(self.enabled, *self.on, self.label.unwrap_or("Switch")));
+        let switch_y = row_rect.top() + 1.0;
+        let switch_rect = Rect::from_min_size(Pos2::new(row_rect.left(), switch_y), Vec2::new(width, height));
+        let rounding = Rounding::same(height * 0.5);
 
-            if self.enabled && response.clicked() {
-                *self.on = !*self.on;
-                response.mark_changed();
+        let anim_t = crate::components::animation::hover_t(ui.ctx(), response.id.with("switch_glide"), *self.on);
+        let hover = hover_t(
+            ui.ctx(),
+            response.id.with("hover"),
+            self.enabled && (response.hovered() || response.has_focus()),
+        );
+        let off_color = lerp_color(self.theme.border_default, self.theme.border_strong, hover);
+        let bg_color = if *self.on { self.theme.accent } else { off_color };
+        ui.painter().rect_filled(switch_rect, rounding, bg_color);
+
+        if response.has_focus() {
+            paint_focus_ring(ui, switch_rect, height * 0.5, self.theme);
+        }
+
+        let knob_radius = (height - 4.0) * 0.5;
+        let knob_x_left = switch_rect.left() + 2.0 + knob_radius;
+        let knob_x_right = switch_rect.right() - 2.0 - knob_radius;
+        let knob_x = egui::lerp(knob_x_left..=knob_x_right, anim_t);
+        let knob_center = Pos2::new(knob_x, switch_rect.center().y);
+        ui.painter().circle_filled(knob_center, knob_radius, Color32::WHITE);
+
+        let text_pos = Pos2::new(row_rect.left() + width + spacing, row_rect.top());
+        if let Some(label_galley) = label_galley {
+            let description_y = text_pos.y + label_galley.size().y + 3.0;
+            ui.painter().galley(text_pos, label_galley, Color32::PLACEHOLDER);
+            if let Some(description_galley) = description_galley {
+                ui.painter().galley(
+                    Pos2::new(text_pos.x, description_y),
+                    description_galley,
+                    Color32::PLACEHOLDER,
+                );
             }
+        } else if let Some(description_galley) = description_galley {
+            ui.painter().galley(text_pos, description_galley, Color32::PLACEHOLDER);
+        }
 
-            let switch_y = if self.description.is_some() {
-                row_rect.top() + 1.0
-            } else {
-                row_rect.center().y - (height * 0.5)
-            };
-            let switch_rect = Rect::from_min_size(Pos2::new(row_rect.left(), switch_y), Vec2::new(width, height));
-            let rounding = Rounding::same(height * 0.5);
-
-            // Animated smooth transition for knob position
-            let anim_t = crate::components::animation::hover_t(ui.ctx(), response.id.with("switch_glide"), *self.on);
-
-            let hover = hover_t(
-                ui.ctx(),
-                response.id.with("hover"),
-                self.enabled && (response.hovered() || response.has_focus()),
-            );
-            let off_color = lerp_color(self.theme.border_default, self.theme.border_strong, hover);
-            let bg_color = if *self.on { self.theme.accent } else { off_color };
-
-            ui.painter().rect_filled(switch_rect, rounding, bg_color);
-
-            if response.has_focus() {
-                paint_focus_ring(ui, switch_rect, height * 0.5, self.theme);
-            }
-
-            // Smooth animated knob
-            let knob_radius = (height - 4.0) * 0.5;
-            let knob_x_left = switch_rect.left() + 2.0 + knob_radius;
-            let knob_x_right = switch_rect.right() - 2.0 - knob_radius;
-            let knob_x = egui::lerp(knob_x_left..=knob_x_right, anim_t);
-            let knob_center = Pos2::new(knob_x, switch_rect.center().y);
-            ui.painter().circle_filled(knob_center, knob_radius, Color32::WHITE);
-
-            // Text and description
-            if let Some(lbl) = self.label {
-                let text_color = if self.enabled {
-                    self.theme.text_primary
-                } else {
-                    self.theme.text_muted
-                };
-                let text_pos = Pos2::new(row_rect.left() + width + spacing, switch_y);
-                let galley = ui
-                    .painter()
-                    .layout_no_wrap(lbl.to_owned(), FontId::proportional(13.0), text_color);
-                ui.painter().galley(text_pos, galley, Color32::PLACEHOLDER);
-
-                if let Some(desc) = self.description {
-                    let desc_galley =
-                        ui.painter()
-                            .layout_no_wrap(desc.to_owned(), FontId::proportional(11.5), self.theme.text_muted);
-                    let desc_pos = Pos2::new(row_rect.left() + width + spacing, text_pos.y + 16.0);
-                    ui.painter().galley(desc_pos, desc_galley, Color32::PLACEHOLDER);
-                }
-            }
-
-            if self.enabled {
-                response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
-            }
-
-            response
-        })
-        .inner
+        response
     }
 }
 

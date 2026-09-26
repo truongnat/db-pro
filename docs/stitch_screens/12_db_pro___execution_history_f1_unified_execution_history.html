@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1440, initial-scale=1.0">
+<title>DB Pro — Execution history (F1 unified execution history)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-app: #212121;
+    --bg-panel: #2A2A2A;
+    --bg-editor: #181818;
+    --bg-elevated: #303030;
+    --border-color: #414141;
+    --text-primary: #ECECEC;
+    --text-secondary: #B9B9B9;
+    --text-muted: #8D8D8D;
+    --accent: #339CFF;
+    --accent-dim: rgba(51, 156, 255, 0.14);
+    --success: #22C55E;
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --danger-dim: rgba(239, 68, 68, 0.12);
+  }
+
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 12px;
+    line-height: 16px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Planar borders - 1px solid without glow or shadow */
+  .border-planar {
+    border: 1px solid var(--border-color);
+  }
+  .border-b-planar {
+    border-bottom: 1px solid var(--border-color);
+  }
+  .border-r-planar {
+    border-right: 1px solid var(--border-color);
+  }
+  .border-t-planar {
+    border-top: 1px solid var(--border-color);
+  }
+  .border-l-planar {
+    border-left: 1px solid var(--border-color);
+  }
+
+  /* Custom subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #1c1c1c;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #383838;
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #484848;
+  }
+
+  /* Custom control focus */
+  .focus-ring:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  /* Density rows */
+  .row-density {
+    height: 28px;
+  }
+</style>
+</head>
+<body class="w-[1440px] h-[900px] flex flex-col bg-[#212121] text-[#ECECEC] overflow-hidden">
+
+  <!-- TOP APP HEADER / TITLEBAR (36px) -->
+  <header class="h-9 px-3 bg-[#2A2A2A] border-b-planar flex items-center justify-between shrink-0 text-xs">
+    <div class="flex items-center space-x-3">
+      <!-- Window Dots / App brand -->
+      <div class="flex items-center space-x-1.5 mr-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-[#414141]"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-[#414141]"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-[#414141]"></span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="font-semibold text-[#ECECEC] tracking-wide text-xs">DB PRO</span>
+        <span class="text-[#8D8D8D]">/</span>
+        <span class="text-[#B9B9B9]">native workstation</span>
+        <span class="text-[#8D8D8D]">/</span>
+        <span class="text-[#ECECEC] font-medium">Execution history</span>
+      </div>
+      <!-- Specification Chip -->
+      <span class="ml-2 px-1.5 py-0.5 text-[10px] font-mono bg-[#303030] text-[#B9B9B9] border-planar rounded">target-state design spec (2026-09-24)</span>
+    </div>
+
+    <!-- Right Header Context / Active Connection indicator -->
+    <div class="flex items-center space-x-4 text-xs">
+      <div class="flex items-center space-x-1.5 bg-[#212121] px-2 py-1 rounded border-planar">
+        <span class="w-2 h-2 rounded-full bg-[#22C55E]"></span>
+        <span class="text-[#ECECEC] font-mono text-[11px]">local-pg</span>
+        <span class="text-[#8D8D8D] font-mono text-[11px]">: 5432</span>
+      </div>
+      <div class="flex items-center space-x-2 text-[#8D8D8D]">
+        <button class="hover:text-[#ECECEC] p-1" title="Keyboard Shortcuts">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+        </button>
+        <button class="hover:text-[#ECECEC] p-1" title="Settings">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN BODY: Activity Rail (left) + Main Execution History Pane -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- LEFT ACTIVITY RAIL (44px) - Native DB Pro placement, History selected -->
+    <nav class="w-11 bg-[#181818] border-r-planar flex flex-col items-center py-2 shrink-0 select-none justify-between">
+      <div class="flex flex-col items-center space-y-1 w-full">
+        <!-- Files -->
+        <button class="w-8 h-8 rounded flex items-center justify-center text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#2A2A2A] transition-colors" title="Files Workspace">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+        </button>
+        <!-- SQL Editor -->
+        <button class="w-8 h-8 rounded flex items-center justify-center text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#2A2A2A] transition-colors" title="SQL Query Editor">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+        </button>
+        <!-- Schema Tree -->
+        <button class="w-8 h-8 rounded flex items-center justify-center text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#2A2A2A] transition-colors" title="Schema & ER Diagram">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+        </button>
+        <!-- Data Tables -->
+        <button class="w-8 h-8 rounded flex items-center justify-center text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#2A2A2A] transition-colors" title="Data Activity">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+        </button>
+        <!-- History (SELECTED / ACTIVE) -->
+        <button class="w-8 h-8 rounded flex items-center justify-center text-[#339CFF] bg-[#2A2A2A] relative" title="Execution History (Selected)">
+          <div class="absolute left-0 top-1.5 bottom-1.5 w-[2px] bg-[#339CFF] rounded-r"></div>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </button>
+      </div>
+
+      <div class="flex flex-col items-center space-y-1 w-full">
+        <button class="w-8 h-8 rounded flex items-center justify-center text-[#8D8D8D] hover:text-[#ECECEC]" title="Status & Logs">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        </button>
+      </div>
+    </nav>
+
+    <!-- WORKBENCH AREA: 62% Execution List (Left) + 38% Detail Inspector (Right) -->
+    <main class="flex-1 flex overflow-hidden bg-[#212121]">
+
+      <!-- LEFT COLUMN: History List & Controls (62% width) -->
+      <section class="w-[62%] h-full flex flex-col border-r-planar bg-[#212121]">
+
+        <!-- Page Header & Scope Context (Height: 52px) -->
+        <div class="px-4 py-2.5 bg-[#2A2A2A] border-b-planar flex items-center justify-between shrink-0">
+          <div>
+            <div class="flex items-center space-x-2">
+              <h1 class="text-sm font-semibold text-[#ECECEC] tracking-tight">Execution history</h1>
+              <span class="text-[11px] px-1.5 py-0.2 bg-[#212121] text-[#8D8D8D] rounded border-planar font-mono">3 shown</span>
+            </div>
+            <p class="text-[11px] text-[#8D8D8D] mt-0.5">Queries you ran · newest first</p>
+          </div>
+          <!-- Research disclaimer / Scope banner tag -->
+          <div class="flex items-center space-x-2">
+            <span class="text-[10px] text-[#8D8D8D] font-mono bg-[#212121] px-2 py-1 rounded border-planar">
+              F1 unified record prototype · unexecuted editor drafts excluded
+            </span>
+          </div>
+        </div>
+
+        <!-- COMPACT FILTER BAR (Height: 36px) -->
+        <div class="h-9 px-3 bg-[#262626] border-b-planar flex items-center space-x-2 shrink-0 text-xs">
+          <!-- SQL Search -->
+          <div class="relative w-52 flex items-center">
+            <svg class="w-3.5 h-3.5 text-[#8D8D8D] absolute left-2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <input type="text" placeholder="Filter SQL..." class="w-full h-7 pl-7 pr-2 bg-[#181818] border-planar rounded text-[11px] text-[#ECECEC] placeholder-[#8D8D8D] focus-ring" />
+          </div>
+
+          <!-- Connection Filter -->
+          <div class="relative">
+            <select class="h-7 pl-2 pr-6 bg-[#181818] border-planar rounded text-[11px] text-[#ECECEC] focus-ring appearance-none cursor-pointer">
+              <option>All connections</option>
+              <option>local-pg</option>
+              <option>staging-pg</option>
+              <option>warehouse.db (SQLite)</option>
+            </select>
+            <svg class="w-3 h-3 text-[#8D8D8D] absolute right-2 top-2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          </div>
+
+          <!-- Database / Schema Filter -->
+          <div class="relative">
+            <select class="h-7 pl-2 pr-6 bg-[#181818] border-planar rounded text-[11px] text-[#ECECEC] focus-ring appearance-none cursor-pointer">
+              <option>All schemas</option>
+              <option>public</option>
+              <option>audit</option>
+              <option>main</option>
+            </select>
+            <svg class="w-3 h-3 text-[#8D8D8D] absolute right-2 top-2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          </div>
+
+          <!-- Outcome Filter -->
+          <div class="relative">
+            <select class="h-7 pl-2 pr-6 bg-[#181818] border-planar rounded text-[11px] text-[#ECECEC] focus-ring appearance-none cursor-pointer">
+              <option>All outcomes</option>
+              <option>Success</option>
+              <option>Failed</option>
+              <option>Cancelled</option>
+            </select>
+            <svg class="w-3 h-3 text-[#8D8D8D] absolute right-2 top-2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          </div>
+
+          <!-- Time Range -->
+          <div class="relative">
+            <select class="h-7 pl-2 pr-6 bg-[#181818] border-planar rounded text-[11px] text-[#ECECEC] focus-ring appearance-none cursor-pointer">
+              <option>Past 24 hours</option>
+              <option>Past 7 days</option>
+              <option>Custom range...</option>
+            </select>
+            <svg class="w-3 h-3 text-[#8D8D8D] absolute right-2 top-2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          </div>
+
+          <!-- Clear Filters (active button) -->
+          <button class="h-7 px-2 text-[11px] text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#303030] rounded border-planar transition-colors" title="Reset active filters">
+            Clear
+          </button>
+        </div>
+
+        <!-- EXECUTION HISTORY LIST VIEW (Grouped by Today / Yesterday) -->
+        <div class="flex-1 overflow-y-auto">
+
+          <!-- Section Group: TODAY -->
+          <div class="px-3 py-1.5 bg-[#262626] border-b-planar text-[11px] font-semibold text-[#8D8D8D] flex items-center justify-between sticky top-0 z-10">
+            <span>TODAY — 2026-09-24</span>
+            <span class="font-mono text-[10px] text-[#8D8D8D]">3 executions</span>
+          </div>
+
+          <div class="divide-y divide-[#323232]">
+
+            <!-- RECORD 1: SUCCESS (10:42) -->
+            <div class="group px-3 py-2 hover:bg-[#2A2A2A] cursor-pointer transition-colors flex items-center justify-between">
+              <div class="flex items-start space-x-2.5 min-w-0 flex-1">
+                <!-- Status icon badge -->
+                <div class="w-4 h-4 rounded-full bg-[#181818] border border-[#22C55E]/40 flex items-center justify-center shrink-0 mt-0.5" title="Execution Succeeded">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+                </div>
+
+                <div class="min-w-0 flex-1 pr-2">
+                  <!-- SQL Preview (JetBrains Mono) -->
+                  <div class="font-mono text-xs text-[#ECECEC] truncate font-medium">
+                    SELECT id, email FROM users LIMIT 100;
+                  </div>
+                  <!-- Context line: Target info -->
+                  <div class="flex items-center space-x-2 text-[11px] text-[#8D8D8D] mt-0.5">
+                    <span class="text-[#B9B9B9] font-mono">local-pg · app_db · public</span>
+                    <span>•</span>
+                    <span class="text-[#22C55E]">Success</span>
+                    <span>•</span>
+                    <span class="font-mono">100 rows</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Time & Duration -->
+              <div class="text-right shrink-0 font-mono text-[11px] text-[#8D8D8D]">
+                <div class="text-[#ECECEC]">10:42</div>
+                <div class="text-[10px] text-[#8D8D8D]">12 ms</div>
+              </div>
+            </div>
+
+            <!-- RECORD 2: FAILED (SELECTED IN DESIGN SPEC) (10:39) -->
+            <div class="bg-[#2A2A2A] border-l-2 border-l-[#339CFF] px-3 py-2 cursor-pointer flex items-center justify-between relative shadow-inner">
+              <div class="flex items-start space-x-2.5 min-w-0 flex-1">
+                <!-- Status icon badge (Failed) -->
+                <div class="w-4 h-4 rounded-full bg-[#181818] border border-[#EF4444]/60 flex items-center justify-center shrink-0 mt-0.5" title="Execution Failed">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#EF4444]"></span>
+                </div>
+
+                <div class="min-w-0 flex-1 pr-2">
+                  <!-- SQL Preview -->
+                  <div class="font-mono text-xs text-[#ECECEC] truncate font-medium">
+                    SELECT * FROM user_profiles;
+                  </div>
+                  <!-- Context line -->
+                  <div class="flex items-center space-x-2 text-[11px] text-[#8D8D8D] mt-0.5">
+                    <span class="text-[#B9B9B9] font-mono">staging-pg · app_db · audit</span>
+                    <span>•</span>
+                    <span class="text-[#EF4444] font-medium">Failed</span>
+                    <span>•</span>
+                    <span class="text-[#EF4444] truncate max-w-[280px]">relation public.user_profiles does not exist</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Time & Error indicator -->
+              <div class="text-right shrink-0 font-mono text-[11px]">
+                <div class="text-[#ECECEC]">10:39</div>
+                <div class="text-[10px] text-[#EF4444]">error</div>
+              </div>
+            </div>
+
+            <!-- RECORD 3: CANCELLED (10:35) -->
+            <div class="group px-3 py-2 hover:bg-[#2A2A2A] cursor-pointer transition-colors flex items-center justify-between">
+              <div class="flex items-start space-x-2.5 min-w-0 flex-1">
+                <!-- Status icon badge (Cancelled) -->
+                <div class="w-4 h-4 rounded-full bg-[#181818] border border-[#F59E0B]/50 flex items-center justify-center shrink-0 mt-0.5" title="Execution Cancelled">
+                  <span class="w-1.5 h-1.5 rounded-sm bg-[#F59E0B]"></span>
+                </div>
+
+                <div class="min-w-0 flex-1 pr-2">
+                  <!-- SQL Preview -->
+                  <div class="font-mono text-xs text-[#ECECEC] truncate font-medium">
+                    SELECT * FROM events ORDER BY created_at;
+                  </div>
+                  <!-- Context line: explicitly 'Cancelled', never success -->
+                  <div class="flex items-center space-x-2 text-[11px] text-[#8D8D8D] mt-0.5">
+                    <span class="text-[#B9B9B9] font-mono">warehouse.db · main · SQLite</span>
+                    <span>•</span>
+                    <span class="text-[#F59E0B] font-medium">Cancelled</span>
+                    <span>•</span>
+                    <span class="font-mono text-[#8D8D8D]">no rows returned</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Time & Duration -->
+              <div class="text-right shrink-0 font-mono text-[11px] text-[#8D8D8D]">
+                <div class="text-[#ECECEC]">10:35</div>
+                <div class="text-[10px] text-[#8D8D8D]">1.2 s</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Section Group: YESTERDAY -->
+          <div class="px-3 py-1.5 bg-[#262626] border-y-planar text-[11px] font-semibold text-[#8D8D8D] flex items-center justify-between">
+            <span>YESTERDAY — 2026-09-23</span>
+            <span class="font-mono text-[10px] text-[#8D8D8D]">0 matching filters</span>
+          </div>
+          <div class="px-4 py-3 text-xs text-[#8D8D8D] italic text-center">
+            No further executions in selected time window.
+          </div>
+
+          <!-- COMPONENT STATE SPECIMEN BOX (Introspection & Edge Cases) -->
+          <div class="m-3 p-3 bg-[#1B1B1B] border-planar rounded text-xs space-y-3">
+            <div class="flex items-center justify-between border-b border-[#303030] pb-1.5">
+              <span class="font-mono text-[10px] text-[#B9B9B9] uppercase tracking-wider font-semibold">F1 Specimen Matrix: Edge & Empty States</span>
+              <span class="text-[10px] text-[#8D8D8D] font-mono">UI States Specimen</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-[11px]">
+              <!-- Empty State Specimen -->
+              <div class="p-2.5 bg-[#212121] border-planar rounded">
+                <div class="text-[#B9B9B9] font-medium mb-1 flex items-center space-x-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#8D8D8D]"></span>
+                  <span>Empty History State</span>
+                </div>
+                <div class="p-2 bg-[#181818] border-planar rounded text-center">
+                  <div class="text-[#ECECEC] font-medium text-[11px]">No executions yet</div>
+                  <div class="text-[#8D8D8D] text-[10px] mt-0.5">Run a query to see it here</div>
+                </div>
+              </div>
+
+              <!-- Storage Unavailable / Offline State -->
+              <div class="p-2.5 bg-[#212121] border-planar rounded">
+                <div class="text-[#B9B9B9] font-medium mb-1 flex items-center space-x-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#EF4444]"></span>
+                  <span>Storage Unavailable State</span>
+                </div>
+                <div class="p-2 bg-[#181818] border border-[#EF4444]/40 rounded flex items-center justify-between">
+                  <div class="text-[10px] text-[#EF4444] truncate pr-2">Execution store disconnected</div>
+                  <button class="px-1.5 py-0.5 text-[10px] font-mono bg-[#303030] hover:bg-[#414141] text-[#ECECEC] rounded border-planar">Retry</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- LIST FOOTER SUMMARY -->
+        <div class="h-7 px-3 bg-[#262626] border-t-planar flex items-center justify-between text-[11px] text-[#8D8D8D] shrink-0 font-mono">
+          <span>Showing 3 executions from local workstation buffer</span>
+          <span>Buffer: isolated (scope: local session)</span>
+        </div>
+
+      </section>
+
+      <!-- RIGHT COLUMN: Detail Inspector for Selected Record (38% width) -->
+      <section class="w-[38%] h-full flex flex-col bg-[#262626]">
+
+        <!-- Inspector Header (Height: 52px) -->
+        <div class="px-4 py-2.5 bg-[#2A2A2A] border-b-planar flex items-center justify-between shrink-0">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-semibold text-[#ECECEC]">Record details</span>
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/30">Failed</span>
+            </div>
+            <div class="text-[11px] font-mono text-[#8D8D8D] mt-0.5">ID: exec-20260924-1039-4402</div>
+          </div>
+
+          <!-- PRIMARY ACTION: Open as new query -->
+          <div>
+            <button class="h-7 px-3 bg-[#339CFF] hover:bg-[#2883db] text-[#131313] font-medium rounded text-xs flex items-center space-x-1.5 transition-colors focus-ring" title="Creates a new editor draft tab; does not execute">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+              <span>Open as new query</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Non-execution safety disclaimer -->
+        <div class="px-4 py-1.5 bg-[#212121] border-b-planar flex items-center space-x-2 text-[11px] text-[#8D8D8D]">
+          <svg class="w-3.5 h-3.5 text-[#F59E0B] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span>Selecting or opening a record creates a draft only. Replay/execution is never triggered automatically.</span>
+        </div>
+
+        <!-- Inspector Content Scroll Area -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+
+          <!-- Execution Target & Identity Grid -->
+          <div class="bg-[#212121] border-planar rounded p-3 space-y-2">
+            <div class="text-[11px] font-semibold text-[#8D8D8D] uppercase tracking-wider">Source Context</div>
+            
+            <div class="grid grid-cols-2 gap-y-2 text-xs">
+              <div>
+                <span class="text-[#8D8D8D] block text-[10px]">Exact source target:</span>
+                <span class="text-[#ECECEC] font-mono text-[11px]">staging-pg / app_db / audit</span>
+              </div>
+              <div>
+                <span class="text-[#8D8D8D] block text-[10px]">Started time:</span>
+                <span class="text-[#ECECEC] font-mono text-[11px]">2026-09-24 10:39:14</span>
+              </div>
+              <div>
+                <span class="text-[#8D8D8D] block text-[10px]">Outcome:</span>
+                <span class="text-[#EF4444] font-medium text-[11px]">Failed</span>
+              </div>
+              <div>
+                <span class="text-[#8D8D8D] block text-[10px]">Result count:</span>
+                <span class="text-[#8D8D8D] font-mono text-[11px]">0 rows affected</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- FULL SQL IN READ-ONLY PANE -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold text-[#8D8D8D] uppercase tracking-wider">Executed SQL (Read-only)</span>
+              <button class="text-[11px] text-[#339CFF] hover:underline font-mono" title="Copy exact SQL">Copy</button>
+            </div>
+            
+            <div class="bg-[#181818] border-planar rounded p-3 font-mono text-xs text-[#ECECEC] leading-5 relative">
+              <div class="text-[#8D8D8D] text-[10px] select-none absolute top-2 right-2">Read-only pane</div>
+              <pre class="m-0 font-mono text-[#ECECEC]"><code><span class="text-[#339CFF]">SELECT</span> * 
+<span class="text-[#339CFF]">FROM</span> user_profiles;</code></pre>
+            </div>
+            <p class="text-[10px] text-[#8D8D8D]">Parameters: None captured (parameter capturing disabled by policy).</p>
+          </div>
+
+          <!-- ERROR DETAILS DISCLOSURE (Plain text database error) -->
+          <div class="space-y-1.5">
+            <div class="flex items-center space-x-1.5">
+              <svg class="w-3.5 h-3.5 text-[#EF4444]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+              <span class="text-[11px] font-semibold text-[#EF4444] uppercase tracking-wider">Database Error Output</span>
+            </div>
+
+            <div class="p-3 bg-[#181818] border border-[#EF4444]/40 rounded font-mono text-xs text-[#EF4444] leading-relaxed">
+              relation public.user_profiles does not exist
+            </div>
+            <p class="text-[10px] text-[#8D8D8D]">Raw provider error message preserved verbatim without SQLSTATE inference.</p>
+          </div>
+
+          <!-- Context Disambiguation Note -->
+          <div class="p-3 bg-[#212121] border-planar rounded text-[11px] text-[#8D8D8D] space-y-1">
+            <div class="text-[#ECECEC] font-medium">Record Identity Notice</div>
+            <p>
+              A record's SQL text alone is not its identity. This execution was bound to connection <span class="text-[#B9B9B9] font-mono">staging-pg</span> under schema <span class="text-[#B9B9B9] font-mono">audit</span>. If re-executed, the query will create a distinct new execution record with a fresh timestamp.
+            </p>
+          </div>
+
+        </div>
+
+        <!-- Inspector Action Footer -->
+        <div class="p-3 bg-[#2A2A2A] border-t-planar flex items-center justify-between text-xs shrink-0">
+          <button class="px-3 py-1.5 bg-[#303030] hover:bg-[#383838] text-[#ECECEC] rounded border-planar transition-colors text-[11px]">
+            Copy ID
+          </button>
+          <div class="flex items-center space-x-2">
+            <button class="px-3 py-1.5 bg-[#303030] hover:bg-[#383838] text-[#ECECEC] rounded border-planar transition-colors text-[11px]">
+              Export selected (JSON)
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- PERSISTENT DOCKED STATUS BAR (24px) - Native DB Pro Workbench -->
+  <footer class="h-6 px-3 bg-[#181818] border-t-planar flex items-center justify-between text-[11px] text-[#8D8D8D] shrink-0 font-mono select-none">
+    <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+        <span class="text-[#ECECEC]">Ready</span>
+      </div>
+      <span>|</span>
+      <span>Active Session: <span class="text-[#B9B9B9]">local-pg</span></span>
+      <span>|</span>
+      <span>Target Store: <span class="text-[#B9B9B9]">local workstation memory buffer</span></span>
+      <span>|</span>
+      <span class="text-[#F59E0B]">Auto-replay: DISABLED (Strict)</span>
+    </div>
+
+    <div class="flex items-center space-x-4">
+      <span>History Mode: F1 Unified</span>
+      <span>|</span>
+      <span>Encoding: UTF-8</span>
+      <span>|</span>
+      <span>Ping: 12 ms</span>
+    </div>
+  </footer>
+
+</body>
+</html>

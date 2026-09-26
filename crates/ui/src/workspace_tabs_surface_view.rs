@@ -86,7 +86,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
                             self.draw_static_tab(ui, WorkspaceTab::Diagram, Icon::ArrowRightLeft, "ER Diagram");
                             self.draw_static_tab(ui, WorkspaceTab::SchemaWorkbench, Icon::Boxes, "Schema Workbench");
                             self.draw_static_tab(ui, WorkspaceTab::SchemaCompare, Icon::GitCompare, "Schema Compare");
-                            self.draw_static_tab(ui, WorkspaceTab::ComponentGallery, Icon::Palette, "Components");
+                            self.draw_static_tab(ui, WorkspaceTab::ComponentGallery, Icon::Palette, "Component Gallery");
                             // 7. Plus Button for New Query
                             ui.add_space(2.0);
                             if compact_icon_button(ui, Icon::Plus, self.theme)

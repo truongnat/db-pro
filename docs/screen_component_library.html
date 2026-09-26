@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DB Pro Components — Native Desktop Design System</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "secondary-fixed-dim": "#d6d4d3",
+            "error-container": "#7f2927",
+            "error": "#ee7d77",
+            "error-dim": "#bb5551",
+            "inverse-primary": "#0061a9",
+            "on-tertiary": "#605f5e",
+            "on-primary": "#004275",
+            "on-primary-container": "#b3d3ff",
+            "tertiary-fixed-dim": "#e8e5e4",
+            "on-tertiary-fixed-variant": "#676666",
+            "tertiary-fixed": "#f6f3f2",
+            "on-surface-variant": "#ababab",
+            "surface-bright": "#2b2c2c",
+            "on-tertiary-fixed": "#4a4949",
+            "on-secondary-fixed": "#3f3f3f",
+            "tertiary-container": "#edeaea",
+            "secondary-fixed": "#e4e2e1",
+            "surface-variant": "#252626",
+            "primary-fixed-dim": "#bad6ff",
+            "on-background": "#e6e5e5",
+            "surface-dim": "#0e0e0e",
+            "outline": "#757575",
+            "surface-container-highest": "#252626",
+            "surface-container-high": "#1f2020",
+            "on-error": "#490106",
+            "primary-container": "#004880",
+            "on-secondary-fixed-variant": "#5c5b5b",
+            "surface-container-lowest": "#000000",
+            "on-tertiary-container": "#575656",
+            "tertiary": "#fcf9f8",
+            "surface-container": "#191a1a",
+            "on-primary-fixed-variant": "#005da3",
+            "primary-dim": "#87bcff",
+            "primary-fixed": "#d3e4ff",
+            "secondary-dim": "#9f9d9d",
+            "on-surface": "#e6e5e5",
+            "on-secondary-container": "#c1bfbe",
+            "on-primary-fixed": "#004174",
+            "inverse-on-surface": "#555555",
+            "secondary-container": "#3b3b3b",
+            "tertiary-dim": "#edeaea",
+            "surface-container-low": "#131313",
+            "outline-variant": "#474848",
+            "background": "#0e0e0e",
+            "surface-tint": "#a1c9ff",
+            "primary": "#a1c9ff",
+            "inverse-surface": "#fcf9f8",
+            "on-error-container": "#ff9993",
+            "surface": "#0e0e0e",
+            "secondary": "#9f9d9d",
+            "on-secondary": "#202020"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "space-xl": "1.25rem",
+            "gutter": "0.75rem",
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem",
+            "space-lg": "1rem",
+            "margin": "0.75rem",
+            "space-md": "0.75rem"
+          },
+          "fontFamily": {
+            "title": ["Inter"],
+            "display": ["Inter"],
+            "code": ["JetBrains Mono"],
+            "heading": ["Inter"],
+            "body": ["Inter"],
+            "label": ["Inter"],
+            "code-small": ["JetBrains Mono"],
+            "body-strong": ["Inter"],
+            "caption": ["Inter"]
+          },
+          "fontSize": {
+            "title": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "display": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+            "code": ["12px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "heading": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "body": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "label": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "code-small": ["11px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "body-strong": ["13px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "caption": ["11px", { "lineHeight": "16px", "fontWeight": "400" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-size: 16px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      user-select: none;
+    }
+    /* Native desktop scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #191a1a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3b3b3b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #474848;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased selection:bg-primary-container selection:text-on-primary-container flex flex-col h-screen overflow-hidden">
+<!-- Top Global Header (Anchor Component: TopNavBar with Workbench Metadata) -->
+<header class="bg-surface border-b border-outline-variant flex justify-between items-center px-3 h-9 w-full select-none shrink-0 z-30">
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 bg-primary rounded-sm flex items-center justify-center text-[9px] font-bold text-on-primary">D</span>
+<span class="font-heading text-xs font-semibold text-on-surface tracking-normal uppercase">DB Pro</span>
+</div>
+<div class="h-3.5 w-[1px] bg-outline-variant"></div>
+<span class="font-label text-xs text-on-surface-variant font-medium">Component Reference Board</span>
+<span class="font-code-small text-caption text-secondary bg-surface-container px-1.5 py-0.5 rounded border border-outline-variant">Native Desktop System · v2.4</span>
+</div>
+<!-- Center Nav Anchors -->
+<nav class="hidden md:flex items-center gap-4 text-xs font-label">
+<a class="text-primary border-b-2 border-primary font-medium h-9 flex items-center px-1" href="#colors">Colors</a>
+<a class="text-secondary hover:text-on-surface font-normal h-9 flex items-center px-1" href="#typography">Tokens</a>
+<a class="text-secondary hover:text-on-surface font-normal h-9 flex items-center px-1" href="#buttons">Controls</a>
+<a class="text-secondary hover:text-on-surface font-normal h-9 flex items-center px-1" href="#inputs">Inputs</a>
+<a class="text-secondary hover:text-on-surface font-normal h-9 flex items-center px-1" href="#editor">SQL Editor</a>
+<a class="text-secondary hover:text-on-surface font-normal h-9 flex items-center px-1" href="#grid">Data Grid</a>
+<a class="text-secondary hover:text-on-surface font-normal h-9 flex items-center px-1" href="#overlays">Overlays</a>
+</nav>
+<!-- Trailing Controls & Switch Specimen -->
+<div class="flex items-center gap-2">
+<!-- Theme Switch Specimen Toggle -->
+<div class="flex items-center bg-surface-container-high rounded p-0.5 border border-outline-variant text-[11px] font-label">
+<button class="px-2 py-0.5 rounded bg-secondary-container text-primary font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">dark_mode</span> Dark
+        </button>
+<button class="px-2 py-0.5 rounded text-secondary hover:text-on-surface flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">light_mode</span> Light
+        </button>
+</div>
+<div class="h-3.5 w-[1px] bg-outline-variant"></div>
+<button class="px-2 py-1 text-xs font-label bg-surface-container-high hover:bg-surface-variant border border-outline-variant rounded text-on-surface flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">terminal</span>
+</button>
+<button class="px-2 py-1 text-xs font-label bg-surface-container-high hover:bg-surface-variant border border-outline-variant rounded text-on-surface flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">tune</span>
+</button>
+<div class="w-5 h-5 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label text-[10px] font-bold" title="Database Admin Avatar">
+        DA
+      </div>
+</div>
+</header>
+<!-- Main Multi-Pane Workbench Frame -->
+<div class="flex-1 flex overflow-hidden">
+<!-- LEFT SIDEBAR: Sticky Compact Section Index Navigation (SideNavBar Anchor) -->
+<aside class="w-60 bg-surface-container-low border-r border-outline-variant flex flex-col justify-between h-full py-2 px-1 select-none shrink-0 overflow-y-auto">
+<div>
+<!-- Cluster Header Badge -->
+<div class="px-2 py-1.5 mb-2 rounded bg-surface-container border border-outline-variant flex items-center justify-between">
+<div class="flex items-center gap-2 min-w-0">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<div class="truncate">
+<div class="font-heading text-xs font-bold text-on-surface truncate">postgres-prod-01</div>
+<div class="font-caption text-caption text-secondary">localhost:5432 • online</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-xs text-secondary">expand_more</span>
+</div>
+<!-- CTA Action -->
+<button class="w-full mb-3 h-7 bg-primary text-on-primary font-label text-xs font-medium rounded flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 transition-opacity">
+<span class="material-symbols-outlined text-xs">add</span> New Query
+        </button>
+<!-- Navigation Anchors / Table of Contents -->
+<div class="px-2 py-1 text-[10px] font-label uppercase tracking-wider text-secondary font-semibold">Specs & Components</div>
+<nav class="space-y-0.5 text-xs font-body">
+<a class="flex items-center gap-2 px-2 py-1 rounded bg-secondary-container text-primary border-l-2 border-primary font-medium" href="#colors">
+<span class="material-symbols-outlined text-xs">palette</span> 1. Colors & Syntax
+          </a>
+<a class="flex items-center gap-2 px-2 py-1 rounded text-secondary hover:bg-surface-variant hover:text-on-surface" href="#typography">
+<span class="material-symbols-outlined text-xs">text_fields</span> 2. Type & Metric Tokens
+          </a>
+<a class="flex items-center gap-2 px-2 py-1 rounded text-secondary hover:bg-surface-variant hover:text-on-surface" href="#buttons">
+<span class="material-symbols-outlined text-xs">smart_button</span> 3. Buttons & Actions
+          </a>
+<a class="flex items-center gap-2 px-2 py-1 rounded text-secondary hover:bg-surface-variant hover:text-on-surface" href="#inputs">
+<span class="material-symbols-outlined text-xs">input</span> 4. Inputs & Selects
+          </a>
+<a class="flex items-center gap-2 px-2 py-1 rounded text-secondary hover:bg-surface-variant hover:text-on-surface" href="#controls">
+<span class="material-symbols-outlined text-xs">check_box</span> 5. Checkboxes & Switches
+          </a>
+<a class="flex items-center gap-2 px-2 py-1 rounded text-secondary hover:bg-surface-variant hover:text-on-surface" href="#tabs-tree">
+<span class="material-symbols-outlined text-xs">account_tree</span> 6. Tabs & Schema Tree
+          </a>
+<a class="flex items-center gap-2 px-2 py-1 rounded text-secondary hover:bg-surface-variant hover:text-on-surface" href="#alerts">
+<span class="material-symbols-outlined text-xs">notifications</span> 7. Alerts & Badges
+          </a>
+<a class="flex items-center gap-2 px-2 py-1 rounded text-secondary hover:bg-surface-variant hover:text-on-surface" href="#editor">
+<span class="material-symbols-outlined text-xs">code</span> 8. SQL Editor Canvas
+          </a>
+<a class="flex items-center gap-2 px-2 py-1 rounded text-secondary hover:bg-surface-variant hover:text-on-surface" href="#grid">
+<span class="material-symbols-outlined text-xs">table_view</span> 9. Results Grid
+          </a>
+<a class="flex items-center gap-2 px-2 py-1 rounded text-secondary hover:bg-surface-variant hover:text-on-surface" href="#overlays">
+<span class="material-symbols-outlined text-xs">layers</span> 10. Modals & Overlays
+          </a>
+<a class="flex items-center gap-2 px-2 py-1 rounded text-secondary hover:bg-surface-variant hover:text-on-surface" href="#states">
+<span class="material-symbols-outlined text-xs">hourglass_empty</span> 11. States & Status Bar
+          </a>
+</nav>
+</div>
+<!-- Footer Action Links -->
+<div class="pt-2 border-t border-outline-variant space-y-0.5 text-xs font-body">
+<a class="flex items-center gap-2 px-2 py-1 text-secondary hover:bg-surface-variant hover:text-on-surface rounded" href="#">
+<span class="material-symbols-outlined text-xs">keyboard</span> Shortcuts
+        </a>
+<a class="flex items-center gap-2 px-2 py-1 text-secondary hover:bg-surface-variant hover:text-on-surface rounded" href="#">
+<span class="material-symbols-outlined text-xs">terminal</span> Terminal
+        </a>
+<a class="flex items-center gap-2 px-2 py-1 text-secondary hover:bg-surface-variant hover:text-on-surface rounded" href="#">
+<span class="material-symbols-outlined text-xs">tune</span> Settings
+        </a>
+</div>
+</aside>
+<!-- RIGHT SPECIMEN BOARD (Dense Workstation Canvas) -->
+<main class="flex-1 bg-surface-container-lowest overflow-y-auto p-4 space-y-6">
+<!-- Board Header Subtext -->
+<div class="flex items-center justify-between pb-3 border-b border-outline-variant">
+<div>
+<h1 class="font-title text-title text-on-surface">Native Desktop UI Components</h1>
+<p class="font-body text-body text-secondary mt-0.5">High-density engineering components built for PostgreSQL & SQLite database management workstations.</p>
+</div>
+<div class="flex items-center gap-2 font-code-small text-caption text-secondary-dim">
+<span class="px-2 py-1 bg-surface-container rounded border border-outline-variant">Grid: 4px base</span>
+<span class="px-2 py-1 bg-surface-container rounded border border-outline-variant">Controls: 28px / 24px</span>
+<span class="px-2 py-1 bg-surface-container rounded border border-outline-variant">Radius: 2px/4px</span>
+</div>
+</div>
+<!-- SECTION 1: Color Roles & Syntax Colors -->
+<section class="bg-surface-container-low border border-outline-variant rounded p-3.5 space-y-3" id="colors">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="font-heading text-heading text-on-surface">1. Color Roles & Syntax Palette</span>
+<span class="text-caption font-caption text-secondary-dim">Planar structural tokens</span>
+</div>
+<span class="text-caption font-code-small text-secondary">Zero blur shadows · 1px structural hierarchy</span>
+</div>
+<!-- UI Swatches -->
+<div>
+<div class="font-label text-caption text-secondary uppercase tracking-wider mb-2">Workbench UI Swatches (Dark Production)</div>
+<div class="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-10 gap-2">
+<!-- App Bg -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant space-y-1">
+<div class="h-6 rounded bg-[#212121] border border-outline-variant"></div>
+<div class="font-label text-xs font-semibold text-on-surface truncate">App Bg</div>
+<div class="font-code-small text-[10px] text-secondary">#212121</div>
+</div>
+<!-- Panel Bg -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant space-y-1">
+<div class="h-6 rounded bg-[#2A2A2A] border border-outline-variant"></div>
+<div class="font-label text-xs font-semibold text-on-surface truncate">Panel Bg</div>
+<div class="font-code-small text-[10px] text-secondary">#2A2A2A</div>
+</div>
+<!-- Editor Bg -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant space-y-1">
+<div class="h-6 rounded bg-[#181818] border border-outline-variant"></div>
+<div class="font-label text-xs font-semibold text-on-surface truncate">Editor Bg</div>
+<div class="font-code-small text-[10px] text-secondary">#181818</div>
+</div>
+<!-- Elevated -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant space-y-1">
+<div class="h-6 rounded bg-[#303030] border border-outline-variant"></div>
+<div class="font-label text-xs font-semibold text-on-surface truncate">Elevated</div>
+<div class="font-code-small text-[10px] text-secondary">#303030</div>
+</div>
+<!-- Border -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant space-y-1">
+<div class="h-6 rounded bg-[#414141] border border-outline-variant"></div>
+<div class="font-label text-xs font-semibold text-on-surface truncate">Border</div>
+<div class="font-code-small text-[10px] text-secondary">#414141</div>
+</div>
+<!-- Primary Text -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant space-y-1">
+<div class="h-6 rounded bg-[#ECECEC]"></div>
+<div class="font-label text-xs font-semibold text-on-surface truncate">Primary Text</div>
+<div class="font-code-small text-[10px] text-secondary">#ECECEC</div>
+</div>
+<!-- Muted Text -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant space-y-1">
+<div class="h-6 rounded bg-[#8D8D8D]"></div>
+<div class="font-label text-xs font-semibold text-on-surface truncate">Muted Text</div>
+<div class="font-code-small text-[10px] text-secondary">#8D8D8D</div>
+</div>
+<!-- Accent -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant space-y-1">
+<div class="h-6 rounded bg-primary"></div>
+<div class="font-label text-xs font-semibold text-on-surface truncate">Accent</div>
+<div class="font-code-small text-[10px] text-secondary">#339CFF</div>
+</div>
+<!-- Success -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant space-y-1">
+<div class="h-6 rounded bg-[#22C55E]"></div>
+<div class="font-label text-xs font-semibold text-on-surface truncate">Success</div>
+<div class="font-code-small text-[10px] text-secondary">#22C55E</div>
+</div>
+<!-- Danger -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant space-y-1">
+<div class="h-6 rounded bg-error"></div>
+<div class="font-label text-xs font-semibold text-on-surface truncate">Danger</div>
+<div class="font-code-small text-[10px] text-secondary">#EF4444</div>
+</div>
+</div>
+</div>
+<!-- Light Theme Swatch Strip & Syntax Highlighting -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+<!-- Light Theme Strip -->
+<div class="p-2.5 rounded bg-surface-container border border-outline-variant space-y-1.5">
+<span class="font-label text-xs text-secondary-dim font-medium uppercase tracking-wider">Light Theme Swatch Reference</span>
+<div class="grid grid-cols-4 gap-2">
+<div class="p-1.5 rounded bg-[#FFFFFF] border border-[#E2E8F0] text-[#0D0D0D]">
+<div class="font-label text-xs font-bold">Bg #FFF</div>
+<div class="text-[10px] font-code-small text-[#676666]">#F7F7F7 Canvas</div>
+</div>
+<div class="p-1.5 rounded bg-[#0285FF] text-white">
+<div class="font-label text-xs font-bold">Light Accent</div>
+<div class="text-[10px] font-code-small text-white/80">#0285FF</div>
+</div>
+<div class="p-1.5 rounded bg-[#E2E8F0] text-[#0D0D0D]">
+<div class="font-label text-xs font-bold">Border</div>
+<div class="text-[10px] font-code-small text-[#676666]">#E2E8F0</div>
+</div>
+<div class="p-1.5 rounded bg-[#0D0D0D] text-white">
+<div class="font-label text-xs font-bold">Text</div>
+<div class="text-[10px] font-code-small text-secondary-fixed">#0D0D0D</div>
+</div>
+</div>
+</div>
+<!-- Syntax Highlighting Tokens -->
+<div class="p-2.5 rounded bg-[#181818] border border-outline-variant space-y-1.5">
+<span class="font-label text-xs text-secondary font-medium uppercase tracking-wider">Syntax Highlighting Palette (Distinct from UI Accent)</span>
+<div class="flex flex-wrap gap-2 text-xs font-code">
+<span class="px-2 py-0.5 rounded bg-surface-container border border-outline-variant text-[#C792EA]">Keywords (#C792EA)</span>
+<span class="px-2 py-0.5 rounded bg-surface-container border border-outline-variant text-[#82AAFF]">Functions (#82AAFF)</span>
+<span class="px-2 py-0.5 rounded bg-surface-container border border-outline-variant text-[#C3E88D]">Strings (#C3E88D)</span>
+<span class="px-2 py-0.5 rounded bg-surface-container border border-outline-variant text-[#F78C6C]">Constants (#F78C6C)</span>
+<span class="px-2 py-0.5 rounded bg-surface-container border border-outline-variant text-[#676E95]">Comments (#676E95)</span>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 2: Typography Scale & Spacing/Radius Tokens -->
+<section class="bg-surface-container-low border border-outline-variant rounded p-3.5 space-y-3" id="typography">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="font-heading text-heading text-on-surface">2. Typography Scale & Density Metrics</span>
+<span class="text-caption font-caption text-secondary-dim">Inter UI Chrome + JetBrains Mono Grid/Code</span>
+</div>
+<span class="text-caption font-code-small text-secondary">Rigid 4px baseline rhythm</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Type Scale Specimen -->
+<div class="bg-surface-container p-3 rounded border border-outline-variant space-y-2">
+<div class="font-label text-caption text-secondary uppercase tracking-wider mb-1">Hierarchy Specimens</div>
+<div class="space-y-2 border-b border-outline-variant pb-2">
+<div class="flex items-baseline justify-between">
+<span class="font-caption text-caption text-secondary">Caption 11px / 16px</span>
+<span class="font-caption text-caption text-secondary-dim">System details, gutter lines, timestamps</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-body text-xs text-on-surface">Body Dense 12px / 16px</span>
+<span class="font-body text-xs text-secondary-dim">Sidebar trees, tab titles, compact grids</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-body text-body text-on-surface">Body Normal 13px / 20px</span>
+<span class="font-body text-body text-secondary-dim">Modal body, query explanations, toast alerts</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-code text-code text-primary-dim">Code JetBrains 12px / 20px</span>
+<span class="font-code text-code-small text-secondary-dim">SELECT * FROM pg_catalog</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-heading text-heading text-on-surface">Header 14px / 20px Semibold</span>
+<span class="font-heading text-heading text-secondary-dim">Inspector & schema panels</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="font-title text-title text-on-surface">Title 16px / 24px Semibold</span>
+<span class="font-title text-title text-secondary-dim">Dialog headers & workspace tabs</span>
+</div>
+</div>
+</div>
+<!-- Spacing & Metrics -->
+<div class="bg-surface-container p-3 rounded border border-outline-variant space-y-2.5">
+<div class="font-label text-caption text-secondary uppercase tracking-wider">Metrics & Elevation Tokens</div>
+<div class="grid grid-cols-2 gap-2 text-xs">
+<div class="p-2 rounded bg-surface-container-high border border-outline-variant">
+<span class="font-label text-on-surface block">Base Rhythm</span>
+<span class="font-code-small text-secondary">4px increment system (4, 8, 12, 16, 24, 32px)</span>
+</div>
+<div class="p-2 rounded bg-surface-container-high border border-outline-variant">
+<span class="font-label text-on-surface block">Control Radii</span>
+<span class="font-code-small text-secondary">Buttons/Inputs: 4px · Modal: 6px · Cell: 0px</span>
+</div>
+<div class="p-2 rounded bg-surface-container-high border border-outline-variant">
+<span class="font-label text-on-surface block">Control Heights</span>
+<span class="font-code-small text-secondary">Toolbar: 36px · Standard: 28px · Dense: 24px</span>
+</div>
+<div class="p-2 rounded bg-surface-container-high border border-outline-variant">
+<span class="font-label text-on-surface block">Grid Row Height</span>
+<span class="font-code-small text-secondary">Data Row: 24px · Header: 26px · Tree Row: 22px</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 3: Buttons & Icon Buttons -->
+<section class="bg-surface-container-low border border-outline-variant rounded p-3.5 space-y-3" id="buttons">
+<div class="flex items-center justify-between">
+<span class="font-heading text-heading text-on-surface">3. Button Variants & Interactive States</span>
+<span class="text-caption font-code-small text-secondary">Height: 28px · Padding: 8px · Radius: 4px</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-xs font-label border-collapse">
+<thead>
+<tr class="border-b border-outline-variant text-secondary text-[11px]">
+<th class="py-1 px-2 font-medium">Variant</th>
+<th class="py-1 px-2 font-medium">Default</th>
+<th class="py-1 px-2 font-medium">Hover</th>
+<th class="py-1 px-2 font-medium">Focus</th>
+<th class="py-1 px-2 font-medium">Pressed / Active</th>
+<th class="py-1 px-2 font-medium">Disabled</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Primary -->
+<tr>
+<td class="py-2 px-2 font-medium text-secondary">Primary</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-primary text-on-primary font-medium rounded hover:opacity-90">Execute</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-primary-dim text-on-primary font-medium rounded">Execute</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-primary text-on-primary font-medium rounded ring-2 ring-primary ring-offset-1 ring-offset-surface">Execute</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-primary-container text-white font-medium rounded">Execute</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-surface-container-high text-outline cursor-not-allowed rounded opacity-60" disabled="">Execute</button>
+</td>
+</tr>
+<!-- Secondary -->
+<tr>
+<td class="py-2 px-2 font-medium text-secondary">Secondary</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-[#2A2A2A] border border-outline-variant text-on-surface rounded">Connect</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-[#363636] border border-outline text-on-surface rounded">Connect</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-[#2A2A2A] border border-primary text-on-surface rounded ring-1 ring-primary">Connect</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-surface-bright border border-outline-variant text-primary rounded">Connect</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-surface-container border border-outline-variant text-outline cursor-not-allowed rounded opacity-50" disabled="">Connect</button>
+</td>
+</tr>
+<!-- Ghost -->
+<tr>
+<td class="py-2 px-2 font-medium text-secondary">Ghost</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 text-secondary hover:bg-surface-variant hover:text-on-surface rounded">Format SQL</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-surface-variant text-on-surface rounded">Format SQL</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-surface-container border border-primary text-on-surface rounded">Format SQL</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-secondary-container text-primary rounded">Format SQL</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 text-outline cursor-not-allowed rounded opacity-50" disabled="">Format SQL</button>
+</td>
+</tr>
+<!-- Danger -->
+<tr>
+<td class="py-2 px-2 font-medium text-secondary">Danger</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-error text-on-error font-medium rounded">Drop Table</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-[#EF4444] text-white font-medium rounded">Drop Table</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-error text-on-error font-medium rounded ring-2 ring-error">Drop Table</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-error-container text-white font-medium rounded">Drop Table</button>
+</td>
+<td class="py-2 px-2">
+<button class="h-7 px-2.5 bg-surface-container text-outline cursor-not-allowed rounded opacity-50" disabled="">Drop Table</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Icon Buttons Rail -->
+<div class="pt-2 border-t border-outline-variant flex items-center justify-between">
+<span class="font-label text-xs text-secondary">Icon Button Specimen Strip (28x28px & 24x24px targets):</span>
+<div class="flex items-center gap-1.5">
+<button class="w-7 h-7 flex items-center justify-center rounded bg-primary text-on-primary" title="Execute Query">
+<span class="material-symbols-outlined text-sm">play_arrow</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded bg-surface-container-high border border-outline-variant text-secondary hover:text-on-surface" title="Refresh Schema">
+<span class="material-symbols-outlined text-sm">refresh</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded bg-surface-container-high border border-outline-variant text-secondary hover:text-on-surface" title="Filter Records">
+<span class="material-symbols-outlined text-sm">filter_alt</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded bg-surface-container-high border border-outline-variant text-secondary hover:text-on-surface" title="Format SQL (Ctrl+Shift+F)">
+<span class="material-symbols-outlined text-sm">reorder</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded bg-surface-container-high border border-outline-variant text-secondary hover:text-on-surface" title="Settings">
+<span class="material-symbols-outlined text-sm">settings</span>
+</button>
+<button class="w-7 h-7 flex items-center justify-center rounded bg-surface-container-high border border-outline-variant text-secondary hover:text-on-surface" title="CLI Terminal">
+<span class="material-symbols-outlined text-sm">terminal</span>
+</button>
+</div>
+</div>
+</section>
+<!-- SECTION 4: Inputs, Search, Password, and Selects -->
+<section class="bg-surface-container-low border border-outline-variant rounded p-3.5 space-y-3" id="inputs">
+<div class="flex items-center justify-between">
+<span class="font-heading text-heading text-on-surface">4. Text, Search, Password Inputs & Native Selects</span>
+<span class="text-caption font-code-small text-secondary">Inner padding: 8px · Height: 28px</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+<!-- Standard Text Input States -->
+<div class="bg-surface-container p-2.5 rounded border border-outline-variant space-y-2">
+<span class="font-label text-caption text-secondary uppercase tracking-wider block">Text Field States</span>
+<!-- Default -->
+<div>
+<label class="font-caption text-[11px] text-secondary-dim block mb-0.5">Connection Host (Default)</label>
+<input class="w-full h-7 px-2 bg-surface-container-high border border-outline-variant rounded text-xs text-on-surface font-code focus:outline-none" type="text" value="127.0.0.1"/>
+</div>
+<!-- Focused with Caret -->
+<div>
+<label class="font-caption text-[11px] text-primary block mb-0.5">Database Name (Focused)</label>
+<input class="w-full h-7 px-2 bg-surface-container-high border border-primary rounded text-xs text-on-surface font-code ring-1 ring-primary focus:outline-none" type="text" value="production_db"/>
+</div>
+<!-- Error State -->
+<div>
+<label class="font-caption text-[11px] text-error block mb-0.5">Port (Error)</label>
+<input class="w-full h-7 px-2 bg-surface-container-high border border-error rounded text-xs text-error font-code focus:outline-none" type="text" value="99999"/>
+<span class="font-caption text-[10px] text-error block mt-0.5">Port must be between 1 and 65535</span>
+</div>
+<!-- Disabled State -->
+<div>
+<label class="font-caption text-[11px] text-outline block mb-0.5">Socket Path (Disabled)</label>
+<input class="w-full h-7 px-2 bg-surface-container-lowest border border-outline-variant rounded text-xs text-outline font-code cursor-not-allowed" disabled="" type="text" value="/var/run/postgresql/.s.PGSQL.5432"/>
+</div>
+</div>
+<!-- Specialized Inputs: Search & Password -->
+<div class="bg-surface-container p-2.5 rounded border border-outline-variant space-y-3">
+<span class="font-label text-caption text-secondary uppercase tracking-wider block">Specialized Inputs</span>
+<!-- Search with badge -->
+<div>
+<label class="font-caption text-[11px] text-secondary-dim block mb-0.5">Search Schema / Query Filter</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-2 text-xs text-secondary">search</span>
+<input class="w-full h-7 pl-6 pr-14 bg-surface-container-high border border-outline-variant rounded text-xs text-on-surface font-body focus:border-primary focus:outline-none" type="text" value="orders"/>
+<span class="absolute right-6 text-xs text-secondary hover:text-on-surface cursor-pointer">✕</span>
+<span class="absolute right-1.5 px-1 py-0.2 rounded bg-surface-container border border-outline-variant font-code-small text-[9px] text-secondary">^F</span>
+</div>
+</div>
+<!-- Password with Reveal Toggle -->
+<div>
+<label class="font-caption text-[11px] text-secondary-dim block mb-0.5">Database Password</label>
+<div class="relative flex items-center">
+<input class="w-full h-7 pl-2 pr-7 bg-surface-container-high border border-outline-variant rounded text-xs text-on-surface font-code focus:border-primary focus:outline-none" type="password" value="SuperSecretPassword123"/>
+<button class="absolute right-1.5 text-secondary hover:text-on-surface flex items-center" title="Toggle visibility">
+<span class="material-symbols-outlined text-xs">visibility</span>
+</button>
+</div>
+</div>
+<!-- Read-only Connection URI -->
+<div>
+<label class="font-caption text-[11px] text-secondary-dim block mb-0.5">Connection String (Read-only)</label>
+<input class="w-full h-7 px-2 bg-surface-container-lowest border border-outline-variant rounded text-xs text-secondary font-code focus:outline-none" readonly="" type="text" value="postgresql://app_user:***@127.0.0.1:5432/main"/>
+</div>
+</div>
+<!-- Native Dropdown Selects -->
+<div class="bg-surface-container p-2.5 rounded border border-outline-variant space-y-3">
+<span class="font-label text-caption text-secondary uppercase tracking-wider block">Selects & Dropdowns</span>
+<div>
+<label class="font-caption text-[11px] text-secondary-dim block mb-0.5">Database Driver</label>
+<div class="relative">
+<select class="w-full h-7 pl-2 pr-7 bg-surface-container-high border border-outline-variant rounded text-xs text-on-surface font-body appearance-none focus:border-primary focus:outline-none">
+<option selected="">PostgreSQL 16 (libpq / ssl)</option>
+<option>SQLite 3.42 (WAL mode)</option>
+<option>PostgreSQL 15 (CockroachDB compat)</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2 pointer-events-none text-xs text-secondary">expand_more</span>
+</div>
+</div>
+<div>
+<label class="font-caption text-[11px] text-secondary-dim block mb-0.5">Transaction Isolation Level</label>
+<div class="relative">
+<select class="w-full h-7 pl-2 pr-7 bg-surface-container-high border border-outline-variant rounded text-xs text-on-surface font-body appearance-none focus:border-primary focus:outline-none">
+<option selected="">Read Committed (Default)</option>
+<option>Repeatable Read</option>
+<option>Serializable</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2 pointer-events-none text-xs text-secondary">expand_more</span>
+</div>
+</div>
+<div>
+<label class="font-caption text-[11px] text-outline block mb-0.5">Encoding (Disabled)</label>
+<div class="relative">
+<select class="w-full h-7 pl-2 pr-7 bg-surface-container-lowest border border-outline-variant rounded text-xs text-outline font-body appearance-none cursor-not-allowed" disabled="">
+<option>UTF-8 (Standard)</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2 pointer-events-none text-xs text-outline">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 5: Checkboxes, Radios, Switches & Segmented Controls -->
+<section class="bg-surface-container-low border border-outline-variant rounded p-3.5 space-y-3" id="controls">
+<div class="flex items-center justify-between">
+<span class="font-heading text-heading text-on-surface">5. Checkboxes, Radios, Switches & Segmented Controls</span>
+<span class="text-caption font-code-small text-secondary">Precise binary indicators</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+<!-- Checkboxes (14x14px, 2px radius) -->
+<div class="bg-surface-container p-2.5 rounded border border-outline-variant space-y-2">
+<span class="font-label text-caption text-secondary uppercase tracking-wider block">Checkboxes (14×14)</span>
+<label class="flex items-center gap-2 cursor-pointer text-xs font-body">
+<span class="w-3.5 h-3.5 rounded-sm border border-outline-variant bg-surface-container-high flex items-center justify-center"></span>
+<span class="text-on-surface">Unchecked</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer text-xs font-body">
+<span class="w-3.5 h-3.5 rounded-sm bg-primary text-on-primary flex items-center justify-center text-[10px] font-bold">✓</span>
+<span class="text-on-surface">Checked (SSL Required)</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer text-xs font-body">
+<span class="w-3.5 h-3.5 rounded-sm bg-primary text-on-primary flex items-center justify-center text-[10px] font-bold">−</span>
+<span class="text-on-surface">Indeterminate</span>
+</label>
+<label class="flex items-center gap-2 cursor-not-allowed text-xs font-body opacity-50">
+<span class="w-3.5 h-3.5 rounded-sm border border-outline-variant bg-surface-container flex items-center justify-center"></span>
+<span class="text-outline">Disabled Option</span>
+</label>
+</div>
+<!-- Radios (14x14px circular) -->
+<div class="bg-surface-container p-2.5 rounded border border-outline-variant space-y-2">
+<span class="font-label text-caption text-secondary uppercase tracking-wider block">Radios (14×14)</span>
+<label class="flex items-center gap-2 cursor-pointer text-xs font-body">
+<span class="w-3.5 h-3.5 rounded-full border border-outline-variant bg-surface-container-high flex items-center justify-center"></span>
+<span class="text-on-surface">Auto-commit</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer text-xs font-body">
+<span class="w-3.5 h-3.5 rounded-full border border-primary flex items-center justify-center">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+</span>
+<span class="text-on-surface">Manual Commit</span>
+</label>
+<label class="flex items-center gap-2 cursor-not-allowed text-xs font-body opacity-50">
+<span class="w-3.5 h-3.5 rounded-full border border-outline-variant bg-surface-container flex items-center justify-center"></span>
+<span class="text-outline">Disabled Radio</span>
+</label>
+</div>
+<!-- Toggle Switches (28x16 track, 12x12 thumb) -->
+<div class="bg-surface-container p-2.5 rounded border border-outline-variant space-y-2.5">
+<span class="font-label text-caption text-secondary uppercase tracking-wider block">Switches (28×16)</span>
+<!-- On -->
+<div class="flex items-center justify-between text-xs font-body">
+<span class="text-on-surface">Syntax Check</span>
+<div class="w-7 h-4 bg-primary rounded-full relative flex items-center px-0.5 cursor-pointer">
+<div class="w-3 h-3 bg-on-primary rounded-full absolute right-0.5"></div>
+</div>
+</div>
+<!-- Off -->
+<div class="flex items-center justify-between text-xs font-body">
+<span class="text-on-surface">Telemetry</span>
+<div class="w-7 h-4 bg-surface-container-highest border border-outline-variant rounded-full relative flex items-center px-0.5 cursor-pointer">
+<div class="w-3 h-3 bg-outline rounded-full absolute left-0.5"></div>
+</div>
+</div>
+<!-- Disabled -->
+<div class="flex items-center justify-between text-xs font-body opacity-50">
+<span class="text-outline">Audit Log (Locked)</span>
+<div class="w-7 h-4 bg-surface-container border border-outline-variant rounded-full relative flex items-center px-0.5 cursor-not-allowed">
+<div class="w-3 h-3 bg-outline-variant rounded-full absolute left-0.5"></div>
+</div>
+</div>
+</div>
+<!-- Segmented Controls -->
+<div class="bg-surface-container p-2.5 rounded border border-outline-variant space-y-2.5">
+<span class="font-label text-caption text-secondary uppercase tracking-wider block">Segmented Controls</span>
+<!-- Result Format Specimen -->
+<div class="space-y-1">
+<span class="font-caption text-[11px] text-secondary-dim">View Mode</span>
+<div class="flex bg-surface-container-high p-0.5 rounded border border-outline-variant text-[11px] font-label">
+<button class="flex-1 py-1 rounded bg-secondary-container text-primary font-medium text-center">Grid</button>
+<button class="flex-1 py-1 rounded text-secondary hover:text-on-surface text-center">JSON</button>
+<button class="flex-1 py-1 rounded text-secondary hover:text-on-surface text-center">Raw</button>
+</div>
+</div>
+<!-- Log filter Specimen -->
+<div class="space-y-1">
+<span class="font-caption text-[11px] text-secondary-dim">Filter Logs</span>
+<div class="flex bg-surface-container-high p-0.5 rounded border border-outline-variant text-[11px] font-label">
+<button class="flex-1 py-1 rounded bg-secondary-container text-on-surface font-medium text-center">All</button>
+<button class="flex-1 py-1 rounded text-error hover:text-on-surface text-center">Errors (2)</button>
+<button class="flex-1 py-1 rounded text-secondary hover:text-on-surface text-center">Warn (0)</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 6: Workspace Tabs & Schema Tree -->
+<section class="bg-surface-container-low border border-outline-variant rounded p-3.5 space-y-3" id="tabs-tree">
+<div class="flex items-center justify-between">
+<span class="font-heading text-heading text-on-surface">6. Document/Query Tabs & Native Schema Tree</span>
+<span class="text-caption font-code-small text-secondary">20px hierarchy indents · Status dirty dot</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Document / Query Tabs Specimen -->
+<div class="bg-surface-container p-3 rounded border border-outline-variant space-y-2">
+<div class="font-label text-caption text-secondary uppercase tracking-wider mb-2">TabBar Specimen (Height 36px)</div>
+<div class="flex items-center bg-[#2A2A2A] border-b border-outline-variant h-9 px-1 gap-1 overflow-x-auto text-xs font-label">
+<!-- Active Tab -->
+<div class="h-7 px-2.5 bg-[#181818] border-t-2 border-primary text-on-surface font-medium flex items-center gap-2 rounded-t select-none">
+<span class="material-symbols-outlined text-xs text-primary">code</span>
+<span>users.sql</span>
+<button class="text-secondary hover:text-on-surface text-xs ml-1">✕</button>
+</div>
+<!-- Dirty / Unsaved Tab -->
+<div class="h-7 px-2.5 bg-[#2A2A2A] hover:bg-surface-variant text-on-surface flex items-center gap-2 rounded-t select-none border-b border-transparent">
+<span class="material-symbols-outlined text-xs text-secondary">code</span>
+<span>scratchpad.sql</span>
+<span class="w-1.5 h-1.5 rounded-full bg-primary" title="Unsaved changes"></span>
+<button class="text-secondary hover:text-on-surface text-xs ml-1">✕</button>
+</div>
+<!-- Inactive Tab -->
+<div class="h-7 px-2.5 bg-[#2A2A2A] hover:bg-surface-variant text-secondary hover:text-on-surface flex items-center gap-2 rounded-t select-none">
+<span class="material-symbols-outlined text-xs">code</span>
+<span>orders_query.sql</span>
+<button class="text-secondary hover:text-on-surface text-xs ml-1">✕</button>
+</div>
+<!-- Pinned Tab -->
+<div class="h-7 px-2 bg-[#2A2A2A] text-secondary hover:text-on-surface flex items-center gap-1 rounded-t select-none" title="Pinned tab">
+<span class="material-symbols-outlined text-xs text-primary-dim">push_pin</span>
+<span>schema_v2</span>
+</div>
+<!-- Plus button -->
+<button class="w-6 h-6 flex items-center justify-center text-secondary hover:text-on-surface hover:bg-surface-variant rounded">
+<span class="material-symbols-outlined text-xs">add</span>
+</button>
+</div>
+<div class="p-2 bg-[#181818] rounded-b border border-outline-variant border-t-0 font-code-small text-caption text-secondary">
+              Active tab context: Connected to <span class="text-primary font-mono">postgres-prod-01 (public)</span>
+</div>
+</div>
+<!-- Native Schema Tree Specimen (Indented, high-density) -->
+<div class="bg-surface-container p-3 rounded border border-outline-variant space-y-2">
+<div class="flex items-center justify-between mb-1">
+<span class="font-label text-caption text-secondary uppercase tracking-wider">Desktop Tree Item Specimen (22px row)</span>
+<div class="flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-xs cursor-pointer hover:text-on-surface">unfold_more</span>
+<span class="material-symbols-outlined text-xs cursor-pointer hover:text-on-surface">refresh</span>
+</div>
+</div>
+<div class="font-body text-xs bg-surface-container-high p-1.5 rounded border border-outline-variant space-y-0.5 select-none">
+<!-- Cluster Root Node -->
+<div class="h-6 flex items-center gap-1.5 px-1 rounded text-on-surface font-semibold hover:bg-surface-variant">
+<span class="material-symbols-outlined text-xs">arrow_drop_down</span>
+<span class="material-symbols-outlined text-xs text-primary">dns</span>
+<span>local-pg</span>
+<span class="font-code-small text-[10px] text-secondary font-normal">· PostgreSQL 16</span>
+</div>
+<!-- Schema public -->
+<div class="h-6 flex items-center gap-1.5 pl-5 pr-1 rounded text-on-surface font-medium hover:bg-surface-variant">
+<span class="material-symbols-outlined text-xs">arrow_drop_down</span>
+<span class="material-symbols-outlined text-xs text-[#F59E0B]">folder_open</span>
+<span>public</span>
+</div>
+<!-- Tables group -->
+<div class="h-5.5 flex items-center gap-1.5 pl-9 pr-1 rounded bg-secondary-container text-primary font-medium">
+<span class="material-symbols-outlined text-xs">arrow_drop_down</span>
+<span class="material-symbols-outlined text-xs">table_chart</span>
+<span>users</span>
+<span class="font-code-small text-[10px] text-secondary ml-auto">4,219 rows</span>
+</div>
+<!-- Columns list -->
+<div class="h-5 flex items-center gap-2 pl-14 pr-1 text-secondary hover:text-on-surface">
+<span class="material-symbols-outlined text-[11px] text-primary">key</span>
+<span class="font-code text-[11px] text-on-surface">id</span>
+<span class="font-code-small text-[10px] text-outline ml-auto">uuid</span>
+</div>
+<div class="h-5 flex items-center gap-2 pl-14 pr-1 text-secondary hover:text-on-surface">
+<span class="material-symbols-outlined text-[11px] text-outline">notes</span>
+<span class="font-code text-[11px] text-on-surface">email</span>
+<span class="font-code-small text-[10px] text-outline ml-auto">varchar(255)</span>
+</div>
+<div class="h-5 flex items-center gap-2 pl-14 pr-1 text-secondary hover:text-on-surface">
+<span class="material-symbols-outlined text-[11px] text-outline">toggle_on</span>
+<span class="font-code text-[11px] text-on-surface">is_active</span>
+<span class="font-code-small text-[10px] text-outline ml-auto">boolean</span>
+</div>
+<!-- Table: orders -->
+<div class="h-5.5 flex items-center gap-1.5 pl-9 pr-1 rounded text-on-surface hover:bg-surface-variant">
+<span class="material-symbols-outlined text-xs">arrow_right</span>
+<span class="material-symbols-outlined text-xs text-secondary">table_chart</span>
+<span>orders</span>
+</div>
+<!-- Loading state node -->
+<div class="h-5.5 flex items-center gap-1.5 pl-5 pr-1 rounded text-secondary italic">
+<span class="w-2.5 h-2.5 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>
+<span>remote_db (connecting...)</span>
+</div>
+<!-- Error node -->
+<div class="h-5.5 flex items-center gap-1.5 pl-5 pr-1 rounded text-error">
+<span class="material-symbols-outlined text-xs">error</span>
+<span>archive_dw (connection refused)</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 7: Inline Alerts & Status Badges -->
+<section class="bg-surface-container-low border border-outline-variant rounded p-3.5 space-y-3" id="alerts">
+<div class="flex items-center justify-between">
+<span class="font-heading text-heading text-on-surface">7. Inline Alerts & Status Badges</span>
+<span class="text-caption font-code-small text-secondary">Operational telemetry feedback</span>
+</div>
+<!-- Badges strip -->
+<div class="flex flex-wrap items-center gap-3 bg-surface-container p-2.5 rounded border border-outline-variant">
+<span class="font-label text-caption text-secondary uppercase tracking-wider mr-2">Execution Badges:</span>
+<!-- Ready -->
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container-high border border-outline-variant text-xs font-label text-secondary">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span> Ready
+          </span>
+<!-- Running -->
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-primary-container/40 border border-primary text-xs font-label text-primary">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span> Running (42ms)
+          </span>
+<!-- Succeeded -->
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#22C55E]/10 border border-[#22C55E]/40 text-xs font-label text-[#22C55E]">
+<span class="material-symbols-outlined text-xs">check_circle</span> Succeeded
+          </span>
+<!-- Failed -->
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-error-container/30 border border-error text-xs font-label text-error">
+<span class="material-symbols-outlined text-xs">cancel</span> Failed
+          </span>
+</div>
+<!-- Alert Banners -->
+<div class="space-y-2">
+<!-- Error Alert -->
+<div class="flex items-center justify-between px-3 py-2 rounded bg-error-container/20 border border-error/50 text-error text-xs font-body">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">error</span>
+<span><strong>Query failed:</strong> relation "public.user_profiles" does not exist at character 15</span>
+</div>
+<button class="font-code-small text-caption text-error hover:underline">View Stacktrace</button>
+</div>
+<!-- Info Alert -->
+<div class="flex items-center justify-between px-3 py-2 rounded bg-primary-container/20 border border-primary/40 text-primary text-xs font-body">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">info</span>
+<span>100 rows fetched in 12 ms · Query cost 8.42..19.33</span>
+</div>
+<span class="font-code-small text-caption text-secondary">PID: 49021</span>
+</div>
+<!-- Warning Alert -->
+<div class="flex items-center justify-between px-3 py-2 rounded bg-[#F59E0B]/10 border border-[#F59E0B]/50 text-[#F59E0B] text-xs font-body">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">warning</span>
+<span>Uncommitted transaction active in session #4. Lock held on table `orders`.</span>
+</div>
+<div class="flex gap-2 font-label text-caption">
+<button class="px-2 py-0.5 rounded bg-[#F59E0B]/20 text-[#F59E0B] font-semibold hover:bg-[#F59E0B]/30">Commit</button>
+<button class="px-2 py-0.5 rounded bg-surface-container border border-outline-variant text-on-surface hover:bg-surface-variant">Rollback</button>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 8: SQL Editor Specimen -->
+<section class="bg-surface-container-low border border-outline-variant rounded p-3.5 space-y-3" id="editor">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="font-heading text-heading text-on-surface">8. SQL Editor Canvas & Execution Toolbar</span>
+<span class="text-caption font-code-small text-secondary">JetBrains Mono 12px / 20px</span>
+</div>
+<span class="font-code-small text-caption text-secondary">UTF-8 · LF · Dialect: PostgreSQL</span>
+</div>
+<!-- Toolbar Specimen (Height 36px) -->
+<div class="flex items-center justify-between bg-[#2A2A2A] border border-outline-variant px-2.5 h-9 rounded-t select-none">
+<div class="flex items-center gap-2">
+<button class="h-6 px-2 bg-primary text-on-primary font-label text-xs font-semibold rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">play_arrow</span> Run
+            </button>
+<button class="h-6 px-2 bg-error text-on-error font-label text-xs font-semibold rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">stop</span> Stop
+            </button>
+<div class="h-3 w-[1px] bg-outline-variant mx-1"></div>
+<button class="h-6 px-2 text-secondary hover:text-on-surface hover:bg-surface-variant rounded text-xs font-label flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">analytics</span> Explain
+            </button>
+<button class="h-6 px-2 text-secondary hover:text-on-surface hover:bg-surface-variant rounded text-xs font-label flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">auto_fix_high</span> Format
+            </button>
+</div>
+<div class="flex items-center gap-2 font-code-small text-caption text-secondary">
+<span>Execution limit:</span>
+<select class="bg-surface-container-high border border-outline-variant rounded h-5 px-1 text-[11px] text-on-surface">
+<option>100 rows</option>
+<option>500 rows</option>
+<option>All rows</option>
+</select>
+</div>
+</div>
+<!-- Code Window Canvas (#181818) -->
+<div class="bg-[#181818] border-x border-b border-outline-variant p-3 font-code text-xs leading-5 flex">
+<!-- Line Number Gutter -->
+<div class="text-outline text-right pr-4 select-none space-y-0.5 border-r border-outline-variant font-code-small">
+<div class="flex items-center justify-end gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary" title="Breakpoint"></span>
+<span>1</span>
+</div>
+<div>2</div>
+<div>3</div>
+<div>4</div>
+<div>5</div>
+<div>6</div>
+</div>
+<!-- Highlighted SQL Code -->
+<div class="pl-4 space-y-0.5 flex-1 text-on-surface">
+<div>
+<span class="text-[#C792EA] font-semibold">SELECT</span>
+<span class="text-on-surface">id, email, is_active</span>
+</div>
+<div>
+<span class="text-[#C792EA] font-semibold">FROM</span>
+<span class="text-[#82AAFF]">users</span>
+</div>
+<div>
+<span class="text-[#C792EA] font-semibold">WHERE</span>
+<span class="text-on-surface">is_active</span> = <span class="text-[#F78C6C]">true</span>
+</div>
+<div class="flex items-center">
+<span class="text-[#C792EA] font-semibold">ORDER BY</span>
+<span class="text-on-surface ml-1">created_at</span>
+<span class="text-[#C792EA] font-semibold ml-1">DESC</span>
+<!-- Focused Blinking Cursor Specimen -->
+<span class="w-1.5 h-4 bg-primary inline-block ml-0.5 animate-pulse"></span>
+</div>
+<div>
+<span class="text-[#C792EA] font-semibold">LIMIT</span>
+<span class="text-[#F78C6C]">100</span>;
+            </div>
+<div class="text-[#676E95] italic">
+              -- Fetched active verified operators only
+            </div>
+</div>
+</div>
+<!-- Inline Editor Status Subbar -->
+<div class="flex items-center justify-between px-2.5 py-1 bg-surface-container border border-outline-variant rounded-b font-code-small text-caption text-secondary">
+<div class="flex items-center gap-3">
+<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span> local-pg</span>
+<span>PostgreSQL 16</span>
+<span>Schema: public</span>
+</div>
+<div class="flex items-center gap-3 text-secondary-dim">
+<span>100 rows</span>
+<span>12 ms execution</span>
+<span>Ln 4, Col 24</span>
+</div>
+</div>
+</section>
+<!-- SECTION 9: Results Grid Specimen -->
+<section class="bg-surface-container-low border border-outline-variant rounded p-3.5 space-y-3" id="grid">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="font-heading text-heading text-on-surface">9. Dense Results Grid Specimen</span>
+<span class="text-caption font-code-small text-secondary">Row height: 24px · Sticky headers · NULL badge</span>
+</div>
+<span class="font-code-small text-caption text-secondary">Showing 1-100 of 4,219 rows · Filter applied</span>
+</div>
+<div class="border border-outline-variant rounded overflow-hidden">
+<table class="w-full text-left border-collapse select-none">
+<!-- Headers: UI font with types -->
+<thead>
+<tr class="bg-[#2A2A2A] border-b border-outline-variant text-xs font-label text-secondary">
+<th class="w-10 px-2 py-1 border-r border-outline-variant text-center font-normal text-outline">#</th>
+<th class="px-3 py-1 border-r border-outline-variant">
+<div class="flex items-center justify-between">
+<span class="text-on-surface font-semibold">id</span>
+<span class="font-code-small text-[10px] text-outline font-normal">UUID</span>
+</div>
+</th>
+<th class="px-3 py-1 border-r border-outline-variant">
+<div class="flex items-center justify-between">
+<span class="text-on-surface font-semibold">email</span>
+<span class="font-code-small text-[10px] text-outline font-normal">VARCHAR</span>
+</div>
+</th>
+<th class="px-3 py-1 border-r border-outline-variant">
+<div class="flex items-center justify-between">
+<span class="text-on-surface font-semibold">is_active</span>
+<span class="font-code-small text-[10px] text-outline font-normal">BOOLEAN</span>
+</div>
+</th>
+<th class="px-3 py-1">
+<div class="flex items-center justify-between">
+<span class="text-on-surface font-semibold">created_at</span>
+<span class="font-code-small text-[10px] text-outline font-normal">TIMESTAMP</span>
+</div>
+</th>
+</tr>
+</thead>
+<!-- Data Cells: JetBrains Mono Font -->
+<tbody class="divide-y divide-outline-variant font-code text-xs">
+<!-- Row 1 -->
+<tr class="h-6 hover:bg-surface-variant bg-[#181818]">
+<td class="px-2 py-0.5 border-r border-outline-variant text-center text-outline text-[11px]">1</td>
+<td class="px-3 py-0.5 border-r border-outline-variant text-on-surface">1042</td>
+<td class="px-3 py-0.5 border-r border-outline-variant text-on-surface">ava@example.dev</td>
+<td class="px-3 py-0.5 border-r border-outline-variant text-[#22C55E]">true</td>
+<td class="px-3 py-0.5 text-secondary">2024-03-01 10:20:11</td>
+</tr>
+<!-- Row 2: Selected Cell Active Border Specimen -->
+<tr class="h-6 hover:bg-surface-variant bg-[#212121]">
+<td class="px-2 py-0.5 border-r border-outline-variant text-center text-outline text-[11px]">2</td>
+<td class="px-3 py-0.5 border-r border-outline-variant text-on-surface">1043</td>
+<!-- Active Cell outlined with 1px accent border -->
+<td class="px-3 py-0.5 border-r border-outline-variant bg-[#181818] ring-1 ring-primary ring-inset">
+<span class="italic text-tertiary-dim/60 font-serif text-[11px] bg-surface-container px-1 rounded">NULL</span>
+</td>
+<td class="px-3 py-0.5 border-r border-outline-variant text-error">false</td>
+<td class="px-3 py-0.5 text-secondary">2024-03-01 11:05:40</td>
+</tr>
+<!-- Row 3 -->
+<tr class="h-6 hover:bg-surface-variant bg-[#181818]">
+<td class="px-2 py-0.5 border-r border-outline-variant text-center text-outline text-[11px]">3</td>
+<td class="px-3 py-0.5 border-r border-outline-variant text-on-surface">1044</td>
+<td class="px-3 py-0.5 border-r border-outline-variant text-on-surface">devon@example.dev</td>
+<td class="px-3 py-0.5 border-r border-outline-variant text-[#22C55E]">true</td>
+<td class="px-3 py-0.5 text-secondary">2024-03-01 11:42:00</td>
+</tr>
+</tbody>
+</table>
+<!-- Grid Footer -->
+<div class="bg-[#2A2A2A] px-3 py-1 border-t border-outline-variant flex items-center justify-between text-xs font-label text-secondary">
+<div class="flex items-center gap-3">
+<span>Selected 1 cell (Row 2, Column email)</span>
+<span>·</span>
+<button class="text-primary hover:underline font-code-small">Copy as SQL</button>
+</div>
+<div class="flex items-center gap-2 font-code-small text-caption">
+<span>Page 1 / 43</span>
+<button class="px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant text-secondary hover:text-on-surface">Prev</button>
+<button class="px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant text-secondary hover:text-on-surface">Next</button>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 10: Menus, Command Palette & Modal Dialog -->
+<section class="bg-surface-container-low border border-outline-variant rounded p-3.5 space-y-3" id="overlays">
+<div class="flex items-center justify-between">
+<span class="font-heading text-heading text-on-surface">10. Context Menus, Command Palette & Modal Dialog Specimen</span>
+<span class="text-caption font-code-small text-secondary">Planar modal layer (Layer 2 & 3)</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Context Menu Specimen (Layer 2) -->
+<div class="bg-surface-container p-3 rounded border border-outline-variant space-y-2">
+<span class="font-label text-caption text-secondary uppercase tracking-wider block">Context Menu (Cell Right-Click)</span>
+<div class="w-52 bg-[#262626] border border-outline-variant rounded shadow-lg p-1 space-y-0.5 text-xs font-label">
+<button class="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-primary hover:text-on-primary text-on-surface">
+<span>Copy Cell Value</span>
+<span class="font-code-small text-[10px] text-secondary">Ctrl+C</span>
+</button>
+<button class="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-surface-variant text-on-surface">
+<span>Filter by Value</span>
+<span class="font-code-small text-[10px] text-secondary">Alt+F</span>
+</button>
+<button class="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-surface-variant text-on-surface">
+<span>Generate UPDATE...</span>
+</button>
+<div class="h-[1px] bg-outline-variant my-1"></div>
+<button class="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-surface-variant text-on-surface">
+<span>Export as CSV</span>
+<span class="material-symbols-outlined text-xs text-secondary">file_download</span>
+</button>
+<button class="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-error/20 text-error">
+<span>Set to NULL</span>
+</button>
+</div>
+</div>
+<!-- Command Palette Specimen (560px modal pattern) -->
+<div class="bg-surface-container p-3 rounded border border-outline-variant space-y-2">
+<span class="font-label text-caption text-secondary uppercase tracking-wider block">Command Palette (Ctrl+K)</span>
+<div class="bg-[#303030] border border-outline-variant rounded shadow-xl overflow-hidden text-xs">
+<div class="flex items-center px-2.5 py-1.5 border-b border-outline-variant bg-[#262626]">
+<span class="text-primary font-mono font-bold mr-1.5">></span>
+<input class="bg-transparent text-on-surface w-full focus:outline-none font-body text-xs" type="text" value="Schema"/>
+<span class="font-code-small text-[10px] text-secondary bg-surface-container px-1 rounded">ESC</span>
+</div>
+<div class="p-1 space-y-0.5 font-label">
+<div class="flex items-center justify-between px-2 py-1 rounded bg-secondary-container text-primary font-medium">
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-xs">arrow_forward</span> Switch to schema: public</span>
+<span class="font-code-small text-[10px] text-secondary">Select</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded hover:bg-surface-variant text-on-surface">
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-xs text-secondary">code</span> Generate DDL for table: users</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1 rounded hover:bg-surface-variant text-error">
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-xs">power_off</span> Disconnect session</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Compact Modal Dialog Specimen -->
+<div class="bg-surface-container p-3 rounded border border-outline-variant space-y-2">
+<span class="font-label text-caption text-secondary uppercase tracking-wider block">Modal Dialog (6px radius)</span>
+<div class="bg-[#303030] border border-outline-variant rounded-[6px] p-3 shadow-xl space-y-3">
+<div class="flex items-center justify-between border-b border-outline-variant pb-2">
+<span class="font-title text-heading text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm text-error">warning</span> Confirm Execution
+                </span>
+<button class="text-secondary hover:text-on-surface text-xs">✕</button>
+</div>
+<p class="font-body text-xs text-secondary leading-relaxed">
+                Drop table <code class="bg-[#181818] px-1 py-0.5 rounded text-primary font-code text-[11px]">tmp_cache</code>? All data and constraints will be permanently destroyed.
+              </p>
+<div class="flex items-center justify-end gap-2 pt-1">
+<button class="h-7 px-2.5 bg-[#2A2A2A] border border-outline-variant text-on-surface rounded text-xs font-label hover:bg-surface-variant">Cancel</button>
+<button class="h-7 px-2.5 bg-error text-on-error rounded text-xs font-label font-medium hover:bg-[#EF4444]">Drop Table</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 11: Empty, Loading, Error & Toast States -->
+<section class="bg-surface-container-low border border-outline-variant rounded p-3.5 space-y-3" id="states">
+<div class="flex items-center justify-between">
+<span class="font-heading text-heading text-on-surface">11. Empty, Loading, Error & Toast States</span>
+<span class="text-caption font-code-small text-secondary">Transient system feedback</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+<!-- Empty State -->
+<div class="bg-surface-container p-3 rounded border border-outline-variant text-center space-y-2 flex flex-col items-center justify-center">
+<span class="material-symbols-outlined text-2xl text-outline">database</span>
+<div>
+<div class="font-label text-xs font-semibold text-on-surface">No saved connections</div>
+<div class="font-caption text-caption text-secondary">Configure a local PostgreSQL or SQLite cluster.</div>
+</div>
+<button class="h-6 px-2 bg-primary text-on-primary font-label text-xs font-medium rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">add</span> Add connection
+            </button>
+</div>
+<!-- Loading State -->
+<div class="bg-surface-container p-3 rounded border border-outline-variant space-y-2 flex flex-col justify-center">
+<div class="flex items-center justify-between text-xs font-body">
+<span class="text-on-surface">Connecting to local-pg...</span>
+<span class="font-code-small text-secondary">1.2s</span>
+</div>
+<div class="w-full bg-surface-container-high h-1.5 rounded overflow-hidden">
+<div class="bg-primary h-full w-2/3 animate-pulse"></div>
+</div>
+<span class="font-caption text-[10px] text-secondary">Authenticating via SCRAM-SHA-256</span>
+</div>
+<!-- Error State Panel -->
+<div class="bg-surface-container p-3 rounded border border-outline-variant space-y-2 flex flex-col justify-center">
+<div class="flex items-center gap-1.5 text-error text-xs font-semibold">
+<span class="material-symbols-outlined text-sm">wifi_off</span> Connection Timeout
+            </div>
+<div class="font-code-small text-[10px] text-secondary leading-relaxed bg-[#181818] p-1.5 rounded border border-outline-variant">
+              Connection timeout to 127.0.0.1:5432 after 5000ms. Is the server running locally?
+            </div>
+<button class="h-6 px-2 bg-surface-container-high border border-outline-variant text-on-surface font-label text-xs rounded hover:bg-surface-variant">Retry Connection</button>
+</div>
+<!-- Floating Toast Notification Specimen -->
+<div class="bg-surface-container p-3 rounded border border-outline-variant space-y-2 flex flex-col justify-center">
+<span class="font-label text-caption text-secondary uppercase tracking-wider">Transient Toast Alert</span>
+<div class="bg-[#2A2A2A] border border-outline-variant rounded p-2 shadow-lg flex items-center justify-between text-xs font-label">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-xs text-[#22C55E]">content_copy</span>
+<span class="text-on-surface">Copied '1042' to clipboard</span>
+</div>
+<button class="text-secondary hover:text-on-surface text-xs ml-2">✕</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+<!-- Bottom Native Status Bar Specimen (Anchor: Status Bar Height 24px) -->
+<footer class="h-6 bg-surface-container border-t border-outline-variant px-3 flex items-center justify-between text-caption font-code-small text-secondary select-none shrink-0 z-30">
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-1.5 text-on-surface">
+<span class="w-2 h-2 rounded-full bg-[#22C55E]"></span> Ready
+      </span>
+<span>local-pg (SSL Active)</span>
+<span>PostgreSQL 16.2</span>
+</div>
+<div class="flex items-center gap-4">
+<span>UTF-8</span>
+<span>LF</span>
+<span>Ln 4, Col 18</span>
+<span class="text-primary font-semibold">12 ms</span>
+</div>
+</footer>
+</body></html>

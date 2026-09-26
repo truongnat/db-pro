@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=2560, initial-scale=1.0" name="viewport"/>
+<title>DB Pro Component Library — SQL Editor &amp; Results Grid</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            app: '#212121',
+            panel: '#2A2A2A',
+            editor: '#181818',
+            surfaceElevated: '#303030',
+            borderDefault: '#414141',
+            borderSubtle: '#333333',
+            textPrimary: '#ECECEC',
+            textSecondary: '#B9B9B9',
+            textMuted: '#8D8D8D',
+            textDim: '#5A5A5A',
+            accent: '#339CFF',
+            accentMuted: '#1E3A5F',
+            success: '#22C55E',
+            danger: '#EF4444',
+            warning: '#F59E0B',
+            // Syntax tokens
+            synKeyword: '#C792EA',
+            synFunc: '#82AAFF',
+            synString: '#C3E88D',
+            synConst: '#F78C6C',
+            synComment: '#676E95',
+            synIdent: '#EEFFFF',
+            synPunct: '#89DDFF',
+            synType: '#FFCB6B',
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #212121;
+      color: #ECECEC;
+      font-family: 'Inter', -apple-system, sans-serif;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      width: 2560px;
+      min-height: 2048px;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #181818;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #3A3A3A;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #4F4F4F;
+    }
+    .diag-error {
+      text-decoration: underline wavy #EF4444;
+      text-underline-offset: 3px;
+    }
+    .diag-warning {
+      text-decoration: underline wavy #F59E0B;
+      text-underline-offset: 3px;
+    }
+    .grid-cell {
+      height: 28px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      border-bottom: 1px solid #414141;
+      border-right: 1px solid #414141;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+  </style>
+</head>
+<body class="p-6 bg-[#212121] select-none text-[12px] leading-tight font-sans">
+<!-- TOP GLOBAL HEADER BAR (Control standard height 28px inside 36px header) -->
+<header class="flex items-center justify-between h-9 px-4 bg-[#2A2A2A] border border-[#414141] rounded-[4px] mb-4">
+<div class="flex items-center space-x-3">
+<div class="flex items-center space-x-2">
+<span class="inline-block w-2.5 h-2.5 rounded-full bg-accent"></span>
+<span class="font-bold text-xs tracking-wider text-textPrimary uppercase">DB PRO</span>
+</div>
+<span class="text-textDim text-xs font-sans">/</span>
+<span class="text-xs text-textSecondary font-medium">Design Reference Board</span>
+<span class="text-[10px] bg-[#181818] px-1.5 py-0.5 rounded-[4px] border border-[#414141] text-textMuted font-mono">v2.4-native</span>
+</div>
+<!-- Central Switcher Tabs (Inter font, 28px standard controls) -->
+<nav class="flex items-center space-x-1 bg-[#181818] px-1 py-0.5 rounded-[4px] border border-[#414141] text-xs font-sans">
+<span class="px-2.5 py-1 text-textMuted hover:text-textPrimary rounded-[4px] cursor-pointer transition">Colors &amp; Type</span>
+<span class="px-2.5 py-1 text-textMuted hover:text-textPrimary rounded-[4px] cursor-pointer transition">Inputs &amp; Navigation</span>
+<span class="px-2.5 py-1 bg-[#303030] text-accent font-medium rounded-[4px] border border-accent/40 shadow-none cursor-pointer">SQL Editor &amp; Results Grid</span>
+<span class="px-2.5 py-1 text-textMuted hover:text-textPrimary rounded-[4px] cursor-pointer transition">Data Grid Pro</span>
+<span class="px-2.5 py-1 text-textMuted hover:text-textPrimary rounded-[4px] cursor-pointer transition">Dialogs &amp; Sheets</span>
+</nav>
+<!-- Cluster pill + mode indicator -->
+<div class="flex items-center space-x-3 text-xs">
+<div class="flex items-center space-x-2 bg-[#181818] px-2.5 py-1 rounded-[4px] border border-[#414141]">
+<span class="w-2 h-2 rounded-full bg-success"></span>
+<span class="font-mono text-textPrimary">local-pg : 5432</span>
+<span class="text-textSecondary font-sans">postgres</span>
+</div>
+<div class="flex items-center space-x-1.5 bg-[#2A2A2A] border border-[#414141] px-2.5 py-1 rounded-[4px]">
+<span class="text-[11px] text-accent font-medium">Dark Mode Specimen</span>
+</div>
+</div>
+</header>
+<!-- SPECIMEN BOARD TITLE BAR & TOKENS -->
+<div class="flex items-center justify-between pb-3 mb-4 border-b border-[#414141]">
+<div>
+<div class="flex items-baseline space-x-3">
+<h1 class="text-xl font-bold tracking-tight text-textPrimary font-sans">SQL editor &amp; results grid</h1>
+<span class="text-xs text-textSecondary font-sans">Workstation specimens • native Rust/egui database IDE conventions • planar structural tokens</span>
+</div>
+<p class="text-[11px] text-textMuted mt-1 font-sans">Specimen catalog for high-density query workspace. Row height: 28px, Toolbar: 36px, Status bar: 24px, Grid baseline: 4px.</p>
+</div>
+<!-- Metrics badges -->
+<div class="flex items-center space-x-3 text-xs font-sans">
+<div class="flex items-center space-x-1.5 bg-[#2A2A2A] px-3 py-1 rounded-[4px] border border-[#414141]">
+<span class="text-textMuted">Control H:</span>
+<span class="text-accent font-semibold font-mono">28px</span>
+<span class="text-textDim ml-1">Toolbar:</span>
+<span class="text-textPrimary font-semibold font-mono">36px</span>
+</div>
+<div class="flex items-center space-x-1.5 bg-[#2A2A2A] px-3 py-1 rounded-[4px] border border-[#414141]">
+<span class="text-textMuted">Row H:</span>
+<span class="text-accent font-semibold font-mono">28px</span>
+<span class="text-textDim ml-1">Gutter:</span>
+<span class="text-textPrimary font-semibold font-mono">44px</span>
+</div>
+<div class="flex items-center space-x-1.5 bg-[#2A2A2A] px-3 py-1 rounded-[4px] border border-[#414141]">
+<span class="text-textMuted">Radius:</span>
+<span class="text-textPrimary font-semibold font-mono">4px / 2px</span>
+</div>
+<div class="flex items-center space-x-1.5 bg-[#2A2A2A] px-3 py-1 rounded-[4px] border border-[#414141]">
+<span class="text-textMuted">Theme Accent:</span>
+<span class="inline-block w-3 h-3 rounded-[2px] bg-accent"></span>
+<span class="text-textPrimary font-semibold font-mono">#339CFF</span>
+</div>
+</div>
+</div>
+<!-- ========================================================================= -->
+<!-- SECTION 01: INTEGRATED 3-PANE MINI-WORKBENCH SPECIMEN                     -->
+<!-- ========================================================================= -->
+<section class="mb-6">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center space-x-2">
+<span class="bg-accent/20 text-accent font-mono text-[10px] px-1.5 py-0.5 rounded-[4px] font-bold">01</span>
+<h2 class="text-xs font-semibold text-textPrimary tracking-wide uppercase font-sans">Integrated 3-Pane Mini-Workbench Specimen</h2>
+<span class="text-[11px] text-textSecondary font-sans">— Primary workstation execution layout (Schema Tree + SQL Editor + Live Results Grid + Query Status Bar)</span>
+</div>
+<span class="text-[11px] text-textMuted font-mono">active: query_users.sql | target: public.users</span>
+</div>
+<!-- THE WORKBENCH CONTAINER (Planar structural, sharp corners for native dock feel, 0px blur) -->
+<div class="border border-[#414141] bg-[#212121] flex flex-col h-[740px] overflow-hidden">
+<!-- Top Window Header / Global Breadcrumb of Mini Workbench (32px) -->
+<div class="h-8 bg-[#2A2A2A] border-b border-[#414141] px-3 flex items-center justify-between select-none">
+<div class="flex items-center space-x-2 font-sans">
+<div class="flex space-x-1.5 mr-2">
+<span class="w-2.5 h-2.5 rounded-full bg-[#414141] hover:bg-danger inline-block cursor-pointer"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-[#414141] hover:bg-warning inline-block cursor-pointer"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-[#414141] hover:bg-success inline-block cursor-pointer"></span>
+</div>
+<span class="text-textDim">|</span>
+<span class="text-xs font-semibold text-textPrimary">local-pg · PostgreSQL 16.2</span>
+<span class="text-textDim text-[11px]">›</span>
+<span class="text-[11px] text-textSecondary">production_cluster</span>
+<span class="text-textDim text-[11px]">›</span>
+<span class="text-[11px] text-accent font-mono bg-accent/15 px-1.5 py-0.5 rounded-[2px]">public</span>
+</div>
+<div class="flex items-center space-x-3 text-[11px] font-sans text-textSecondary">
+<span class="flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-success mr-1.5"></span>Connected (SSL)</span>
+<span class="text-textDim">|</span>
+<span>Trans: auto-commit</span>
+<span class="text-textDim">|</span>
+<span class="font-mono">Encoding: UTF-8</span>
+</div>
+</div>
+<!-- MAIN SPLIT WORKSPACE: Left Schema Browser + Right Editor & Grid -->
+<div class="flex flex-1 overflow-hidden">
+<!-- PANE 1: SCHEMA BROWSER TREE (Left pane, 280px) -->
+<aside class="w-[280px] bg-[#2A2A2A] border-r border-[#414141] flex flex-col flex-shrink-0">
+<!-- Schema Pane Header -->
+<div class="h-9 px-3 border-b border-[#414141] flex items-center justify-between bg-[#2A2A2A]">
+<span class="text-xs font-semibold text-textPrimary uppercase tracking-wider font-sans">Schema Browser</span>
+<div class="flex items-center space-x-1 text-textSecondary">
+<button class="w-6 h-6 flex items-center justify-center hover:text-textPrimary hover:bg-[#303030] rounded-[4px] text-xs" title="Refresh">↻</button>
+<button class="w-6 h-6 flex items-center justify-center hover:text-textPrimary hover:bg-[#303030] rounded-[4px] text-xs" title="Filter schema">🔍</button>
+<button class="w-6 h-6 flex items-center justify-center hover:text-textPrimary hover:bg-[#303030] rounded-[4px] text-xs" title="Collapse All">⊟</button>
+</div>
+</div>
+<!-- Tree Quick Filter (28px height input) -->
+<div class="p-2 border-b border-[#414141] bg-[#212121]">
+<div class="flex items-center bg-[#181818] border border-[#414141] focus-within:border-accent rounded-[4px] h-7 px-2 text-xs">
+<span class="text-textMuted mr-1.5 text-[10px] font-sans">Filter:</span>
+<input class="bg-transparent text-textPrimary outline-none w-full text-xs font-mono" readonly="" type="text" value="public"/>
+<span class="text-textMuted text-[10px] hover:text-textPrimary cursor-pointer font-sans">×</span>
+</div>
+</div>
+<!-- Tree Specimen View -->
+<div class="flex-1 overflow-y-auto p-1 font-mono text-xs custom-scrollbar">
+<!-- Connection root -->
+<div class="flex items-center h-6 px-1.5 hover:bg-[#303030] rounded-[2px] text-textPrimary cursor-pointer">
+<span class="text-textDim mr-1 text-[10px]">▼</span>
+<span class="text-accent mr-1.5">🗄</span>
+<span class="font-medium">local-pg</span>
+<span class="text-textMuted text-[10px] ml-auto font-sans">server</span>
+</div>
+<!-- Databases -->
+<div class="pl-3">
+<div class="flex items-center h-6 px-1.5 hover:bg-[#303030] rounded-[2px] text-textPrimary cursor-pointer">
+<span class="text-textDim mr-1 text-[10px]">▼</span>
+<span class="text-warning mr-1.5">📁</span>
+<span class="font-semibold text-textPrimary">app_db</span>
+<span class="text-[10px] bg-accent/20 text-accent px-1.5 py-0.2 rounded-[2px] ml-1.5 font-sans">active</span>
+</div>
+<!-- Schemas inside app_db -->
+<div class="pl-3 border-l border-[#414141] ml-2">
+<!-- Schema: public (expanded) -->
+<div class="flex items-center h-6 px-1.5 hover:bg-[#303030] rounded-[2px] text-textPrimary cursor-pointer">
+<span class="text-textDim mr-1 text-[10px]">▼</span>
+<span class="text-synKeyword mr-1.5">📂</span>
+<span class="text-textPrimary font-medium">public</span>
+<span class="text-textMuted text-[10px] ml-auto font-sans">18 tbls</span>
+</div>
+<!-- Tables inside public -->
+<div class="pl-3 border-l border-[#414141] ml-2">
+<div class="flex items-center h-6 px-1.5 hover:bg-[#303030] rounded-[2px] text-textSecondary cursor-pointer">
+<span class="text-textDim mr-1 text-[10px]">►</span>
+<span class="text-accent mr-1.5 text-[11px]">▦</span>
+<span>audit_logs</span>
+</div>
+<div class="flex items-center h-6 px-1.5 hover:bg-[#303030] rounded-[2px] text-textSecondary cursor-pointer">
+<span class="text-textDim mr-1 text-[10px]">►</span>
+<span class="text-accent mr-1.5 text-[11px]">▦</span>
+<span>organizations</span>
+</div>
+<!-- SELECTED TABLE: users -->
+<div class="flex items-center h-6 px-1.5 bg-accent/20 border-l-2 border-accent text-accent font-medium rounded-r-[2px] cursor-pointer">
+<span class="text-accent mr-1 text-[10px]">▼</span>
+<span class="text-accent mr-1.5 text-[11px]">▦</span>
+<span class="text-textPrimary font-semibold">users</span>
+<span class="text-[10px] text-accent ml-auto font-sans">selected</span>
+</div>
+<!-- Columns of users table -->
+<div class="pl-4 border-l border-[#414141] ml-2">
+<div class="flex items-center h-5 px-1 text-[11px] text-textSecondary">
+<span class="text-warning mr-1.5 text-[9px]">🔑</span>
+<span class="text-textPrimary">id</span>
+<span class="text-textMuted ml-auto text-[10px]">int8</span>
+</div>
+<div class="flex items-center h-5 px-1 text-[11px] text-textSecondary">
+<span class="text-textDim mr-1.5 text-[9px]">•</span>
+<span class="text-textPrimary">email</span>
+<span class="text-textMuted ml-auto text-[10px]">text</span>
+</div>
+<div class="flex items-center h-5 px-1 text-[11px] text-textSecondary">
+<span class="text-textDim mr-1.5 text-[9px]">•</span>
+<span class="text-textPrimary">is_active</span>
+<span class="text-textMuted ml-auto text-[10px]">bool</span>
+</div>
+<div class="flex items-center h-5 px-1 text-[11px] text-textSecondary">
+<span class="text-textDim mr-1.5 text-[9px]">•</span>
+<span class="text-textSecondary">created_at</span>
+<span class="text-textMuted ml-auto text-[10px]">timestamptz</span>
+</div>
+</div>
+<div class="flex items-center h-6 px-1.5 hover:bg-[#303030] rounded-[2px] text-textSecondary cursor-pointer">
+<span class="text-textDim mr-1 text-[10px]">►</span>
+<span class="text-accent mr-1.5 text-[11px]">▦</span>
+<span>user_profiles</span>
+</div>
+</div>
+<!-- Collapsed Schema: pg_catalog -->
+<div class="flex items-center h-6 px-1.5 hover:bg-[#303030] rounded-[2px] text-textMuted cursor-pointer">
+<span class="text-textDim mr-1 text-[10px]">►</span>
+<span class="text-textMuted mr-1.5">📁</span>
+<span>pg_catalog</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom DB Meta (24px) -->
+<div class="h-6 px-2.5 border-t border-[#414141] bg-[#212121] text-[11px] font-mono text-textMuted flex items-center justify-between">
+<span>Cache: valid</span>
+<span>Ping: 12ms</span>
+</div>
+</aside>
+<!-- RIGHT WORKSPACE: Query Editor (top) + Results Grid (bottom) -->
+<div class="flex-1 flex flex-col bg-[#181818] overflow-hidden">
+<!-- PANE 2: EDITOR SECTION (Top half) -->
+<div class="flex flex-col h-[340px] border-b border-[#414141] flex-shrink-0">
+<!-- EDITOR TAB BAR (Row height 28px standard) -->
+<div class="h-7 bg-[#2A2A2A] border-b border-[#414141] flex items-center px-1 space-x-1 select-none overflow-x-auto">
+<!-- Active Dirty Tab -->
+<div class="flex items-center h-6 px-3 bg-[#181818] border-t-2 border-accent text-textPrimary text-xs font-mono font-medium rounded-t-[4px] space-x-2">
+<span class="w-1.5 h-1.5 rounded-full bg-accent inline-block" title="Unsaved changes / Dirty"></span>
+<span>query_users.sql</span>
+<span class="text-textMuted hover:text-textPrimary ml-1 text-xs cursor-pointer font-sans">×</span>
+</div>
+<!-- Inactive Tab -->
+<div class="flex items-center h-6 px-3 bg-[#2A2A2A] hover:bg-[#303030] text-textSecondary hover:text-textPrimary text-xs font-mono rounded-t-[4px] space-x-2 cursor-pointer border-t-2 border-transparent transition">
+<span class="text-textSecondary">migrate_v2.sql</span>
+<span class="text-textMuted hover:text-textPrimary ml-1 text-xs font-sans">×</span>
+</div>
+<!-- Inactive Clean Tab -->
+<div class="flex items-center h-6 px-3 bg-[#2A2A2A] hover:bg-[#303030] text-textSecondary hover:text-textPrimary text-xs font-mono rounded-t-[4px] space-x-2 cursor-pointer border-t-2 border-transparent transition">
+<span class="text-textSecondary">explain_analyze.sql</span>
+<span class="text-textMuted hover:text-textPrimary ml-1 text-xs font-sans">×</span>
+</div>
+<!-- Add New Query Tab Button -->
+<button class="w-6 h-6 flex items-center justify-center text-textSecondary hover:text-textPrimary hover:bg-[#303030] rounded-[4px] text-xs font-sans" title="New Query Tab">+</button>
+</div>
+<!-- QUERY TOOLBAR (Exact 36px Height, 28px controls) -->
+<div class="h-9 bg-[#212121] border-b border-[#414141] px-3 flex items-center justify-between select-none">
+<!-- Action Buttons -->
+<div class="flex items-center space-x-2 font-sans">
+<!-- RUN BUTTON (Primary Action, #339CFF) -->
+<button class="h-7 px-3 bg-accent text-[#0E0E0E] font-semibold text-xs rounded-[4px] flex items-center space-x-1.5 hover:bg-accent/90 active:scale-[0.98] transition">
+<span class="text-[10px]">▶</span>
+<span>Run</span>
+<span class="text-[10px] opacity-75 font-mono ml-1">⌘↵</span>
+</button>
+<!-- STOP BUTTON (Disabled/Inactive state) -->
+<button class="h-7 px-2.5 bg-[#2A2A2A] border border-[#414141] text-textMuted text-xs rounded-[4px] flex items-center space-x-1 cursor-not-allowed">
+<span class="text-[10px]">■</span>
+<span>Stop</span>
+</button>
+<div class="h-4 w-px bg-[#414141] mx-1"></div>
+<!-- EXPLAIN BUTTON -->
+<button class="h-7 px-2.5 bg-[#2A2A2A] hover:bg-[#303030] border border-[#414141] text-textPrimary text-xs rounded-[4px] flex items-center space-x-1 transition">
+<span class="text-[11px]">⚡</span>
+<span>Explain</span>
+</button>
+<!-- FORMAT SQL BUTTON -->
+<button class="h-7 px-2.5 bg-[#2A2A2A] hover:bg-[#303030] border border-[#414141] text-textPrimary text-xs rounded-[4px] flex items-center space-x-1 transition">
+<span class="text-[11px]">≡</span>
+<span>Format</span>
+<span class="text-[10px] text-textMuted font-mono">⇧⌥F</span>
+</button>
+<!-- CLEAR / REVERT -->
+<button class="h-7 px-2 bg-[#2A2A2A] hover:bg-[#303030] border border-[#414141] text-textSecondary hover:text-textPrimary text-xs rounded-[4px] transition" title="Clear Editor">
+<span>🗑</span>
+</button>
+</div>
+<!-- Context Selectors & Limit Pill -->
+<div class="flex items-center space-x-3 text-xs font-sans">
+<!-- Limit Selector -->
+<div class="flex items-center space-x-1.5 bg-[#181818] border border-[#414141] px-2.5 py-1 rounded-[4px]">
+<span class="text-textSecondary text-[11px]">Limit:</span>
+<span class="font-mono text-textPrimary font-semibold">100 rows</span>
+<span class="text-textMuted text-[10px]">▾</span>
+</div>
+<!-- Execution Mode -->
+<div class="flex items-center space-x-1.5 bg-[#181818] border border-[#414141] px-2.5 py-1 rounded-[4px]">
+<span class="text-textSecondary text-[11px]">Auto-commit:</span>
+<span class="text-success font-mono font-semibold">ON</span>
+</div>
+<!-- Schema target in toolbar -->
+<div class="flex items-center space-x-1 text-textSecondary text-xs">
+<span>schema:</span>
+<span class="text-accent underline font-mono cursor-pointer">public</span>
+</div>
+</div>
+</div>
+<!-- CODE EDITOR BODY WITH GUTTER & SYNTAX HIGHLIGHTING -->
+<div class="flex-1 bg-[#181818] flex overflow-hidden font-mono text-[13px] leading-[22px] relative custom-scrollbar">
+<!-- Line Number Gutter (Exact 44px wide) -->
+<div class="w-[44px] bg-[#181818] border-r border-[#333333] py-2 text-right pr-3 select-none text-textDim flex flex-col font-mono text-xs">
+<span>1</span>
+<span class="text-accent font-semibold bg-accent/15 -mr-3 pr-3">2</span>
+<span>3</span>
+<span>4</span>
+<span>5</span>
+<span>6</span>
+<span>7</span>
+<span>8</span>
+<span>9</span>
+<span>10</span>
+</div>
+<!-- Code Content & Caret Area -->
+<div class="flex-1 py-2 px-4 overflow-x-auto relative">
+<!-- Current Active Line Highlight Background (Line 2) -->
+<div class="absolute left-0 right-0 top-[30px] h-[22px] bg-[#303030]/60 -z-0 pointer-events-none border-l-2 border-accent"></div>
+<!-- Verbatim SQL lines -->
+<div class="relative z-10">
+<!-- Line 1: Comment -->
+<div><span class="text-synComment">-- Fetch active user accounts created since early 2025</span></div>
+<!-- Line 2: Active Line with Caret and Selection -->
+<div class="flex items-center">
+<span class="text-synKeyword font-semibold">SELECT</span>
+<span class="text-textPrimary ml-2">id, email, is_active</span>
+<!-- Caret cursor specimen -->
+<span class="inline-block w-[2px] h-[16px] bg-accent ml-0.5 -mb-0.5 animate-pulse"></span>
+</div>
+<!-- Line 3: FROM clause -->
+<div>
+<span class="text-synKeyword font-semibold">FROM</span>
+<span class="text-textPrimary ml-2">users</span>
+</div>
+<!-- Line 4: WHERE clause with String and Date Const -->
+<div>
+<span class="text-synKeyword font-semibold">WHERE</span>
+<span class="text-textPrimary ml-2">created_at</span>
+<span class="text-synPunct ml-1.5">&gt;=</span>
+<span class="text-synKeyword ml-1.5 font-semibold">DATE</span>
+<span class="text-synString ml-1.5">'2025-01-01'</span>
+</div>
+<!-- Line 5: LIMIT clause -->
+<div>
+<span class="text-synKeyword font-semibold">LIMIT</span>
+<span class="text-synConst ml-2">100</span><span class="text-synPunct">;</span>
+</div>
+<!-- Line 6: Blank line -->
+<div> </div>
+<!-- Line 7: Secondary specimen query with Syntax Highlight tokens -->
+<div>
+<span class="text-synKeyword font-semibold">EXPLAIN ANALYZE</span>
+<span class="text-synKeyword ml-2 font-semibold">SELECT</span>
+<span class="text-synFunc ml-1.5">COUNT</span><span class="text-synPunct">(</span><span class="text-synPunct">*</span><span class="text-synPunct">)</span>
+<span class="text-synKeyword ml-2 font-semibold">FROM</span>
+<span class="text-textPrimary ml-2">users</span>
+<span class="text-synKeyword ml-2 font-semibold">WHERE</span>
+<span class="text-textPrimary ml-2">is_active</span>
+<span class="text-synPunct ml-1.5">=</span>
+<span class="text-synConst ml-1.5">true</span><span class="text-synPunct">;</span>
+</div>
+</div>
+</div>
+<!-- Mini Editor Corner Widget (Row/Col Position) -->
+<div class="absolute bottom-1.5 right-3 bg-[#2A2A2A] px-2 py-0.5 rounded-[4px] border border-[#414141] text-[10px] text-textSecondary font-mono">
+                Ln 2, Col 27 · UTF-8 · LF · SQL (PostgreSQL)
+              </div>
+</div>
+</div>
+<!-- PANE 3: RESULTS GRID SECTION (Bottom half of workbench) -->
+<div class="flex-1 flex flex-col bg-[#212121] overflow-hidden">
+<!-- RESULTS HEADER / ACTION BAR (Exact 36px Height) -->
+<div class="h-9 bg-[#2A2A2A] border-b border-[#414141] px-3 flex items-center justify-between select-none">
+<div class="flex items-center space-x-3 font-sans">
+<span class="text-xs font-semibold text-textPrimary uppercase tracking-wider">Results</span>
+<span class="text-xs bg-[#181818] px-2 py-0.5 rounded-[4px] border border-[#414141] text-textSecondary font-mono">Table: users (public)</span>
+<span class="text-xs text-textDim">|</span>
+<div class="flex items-center space-x-1.5 text-xs text-textSecondary font-sans">
+<span>Returned:</span>
+<span class="text-accent font-semibold font-mono">100 rows</span>
+<span class="text-textDim">•</span>
+<span>Execution:</span>
+<span class="text-success font-semibold font-mono">12 ms</span>
+</div>
+</div>
+<!-- Grid Toolbar Actions (28px height buttons) -->
+<div class="flex items-center space-x-2 text-xs font-sans">
+<button class="h-7 px-2.5 bg-[#181818] hover:bg-[#303030] border border-[#414141] text-textSecondary hover:text-textPrimary rounded-[4px] flex items-center space-x-1 transition">
+<span>🔍 Filter</span>
+</button>
+<button class="h-7 px-2.5 bg-[#181818] hover:bg-[#303030] border border-[#414141] text-textSecondary hover:text-textPrimary rounded-[4px] flex items-center space-x-1 transition">
+<span>⤓ Export CSV</span>
+</button>
+<button class="h-7 px-2.5 bg-[#181818] hover:bg-[#303030] border border-[#414141] text-textSecondary hover:text-textPrimary rounded-[4px] flex items-center space-x-1 transition">
+<span>📋 Copy</span>
+</button>
+<span class="text-textDim">|</span>
+<button class="w-7 h-7 flex items-center justify-center hover:text-textPrimary hover:bg-[#303030] rounded-[4px] text-textSecondary transition" title="Settings">⚙</button>
+</div>
+</div>
+<!-- DATA GRID TABLE (Standard 28px Row Height, High-Density Planar Table) -->
+<div class="flex-1 overflow-auto bg-[#181818] custom-scrollbar flex flex-col font-mono text-xs">
+<!-- GRID HEADER (Row Height 28px, Sortable/Resizable) -->
+<div class="flex bg-[#2A2A2A] border-b border-[#414141] sticky top-0 z-20 text-[11px] font-semibold text-textPrimary select-none">
+<!-- Index Corner Header -->
+<div class="w-12 h-7 px-2 flex items-center justify-center border-r border-[#414141] text-textMuted bg-[#2A2A2A] flex-shrink-0">
+                  #
+                </div>
+<!-- Column 1: id (int8) -->
+<div class="w-36 h-7 px-3 flex items-center justify-between border-r border-[#414141] hover:bg-[#303030] cursor-pointer group flex-shrink-0 transition">
+<div class="flex items-center space-x-1.5">
+<span class="text-warning text-[10px]">🔑</span>
+<span class="text-textPrimary">id</span>
+<span class="text-textMuted text-[10px] font-normal">(int8)</span>
+</div>
+<span class="text-accent text-[10px]">▲</span>
+</div>
+<!-- Column 2: email (text) -->
+<div class="w-64 h-7 px-3 flex items-center justify-between border-r border-[#414141] hover:bg-[#303030] cursor-pointer group flex-shrink-0 transition">
+<div class="flex items-center space-x-1.5">
+<span class="text-textDim text-[10px]">•</span>
+<span class="text-textPrimary">email</span>
+<span class="text-textMuted text-[10px] font-normal">(text)</span>
+</div>
+<span class="text-textDim text-[10px] group-hover:text-textPrimary">▾</span>
+</div>
+<!-- Column 3: is_active (bool) -->
+<div class="w-36 h-7 px-3 flex items-center justify-between border-r border-[#414141] hover:bg-[#303030] cursor-pointer group flex-shrink-0 transition">
+<div class="flex items-center space-x-1.5">
+<span class="text-textDim text-[10px]">•</span>
+<span class="text-textPrimary">is_active</span>
+<span class="text-textMuted text-[10px] font-normal">(bool)</span>
+</div>
+<span class="text-textDim text-[10px] group-hover:text-textPrimary">▾</span>
+</div>
+<!-- Column 4: created_at (timestamptz) -->
+<div class="w-60 h-7 px-3 flex items-center justify-between border-r border-[#414141] hover:bg-[#303030] cursor-pointer group flex-shrink-0 transition">
+<div class="flex items-center space-x-1.5">
+<span class="text-textDim text-[10px]">•</span>
+<span class="text-textPrimary">created_at</span>
+<span class="text-textMuted text-[10px] font-normal">(timestamptz)</span>
+</div>
+<span class="text-textDim text-[10px] group-hover:text-textPrimary">▾</span>
+</div>
+<!-- Spacer column -->
+<div class="flex-1 h-7 bg-[#2A2A2A]"></div>
+</div>
+<!-- DATA ROWS (Each row 28px height, dense, keyboard focusable) -->
+<!-- ROW 1: Verbatim spec row: 1042 | ava@example.dev | true -->
+<div class="flex border-b border-[#333333] hover:bg-[#2A2A2A]/70 transition-colors h-7 group">
+<div class="w-12 h-7 px-2 flex items-center justify-center border-r border-[#333333] text-textMuted text-[11px] bg-[#2A2A2A]/40 flex-shrink-0">
+                  1
+                </div>
+<div class="w-36 h-7 px-3 flex items-center border-r border-[#333333] text-textPrimary flex-shrink-0">
+                  1042
+                </div>
+<!-- Selected / Focused cell specimen (1px ring-accent) -->
+<div class="w-64 h-7 px-3 flex items-center border-r border-[#333333] text-textPrimary bg-accent/20 ring-1 ring-inset ring-accent flex-shrink-0 font-medium">
+                  ava@example.dev
+                </div>
+<!-- Boolean TRUE badge -->
+<div class="w-36 h-7 px-3 flex items-center border-r border-[#333333] flex-shrink-0">
+<span class="text-success bg-success/15 px-1.5 py-0.5 rounded-[2px] text-[11px] font-semibold">true</span>
+</div>
+<div class="w-60 h-7 px-3 flex items-center border-r border-[#333333] text-textSecondary flex-shrink-0">
+                  2025-01-02 08:34:11+00
+                </div>
+<div class="flex-1 h-7"></div>
+</div>
+<!-- ROW 2: Verbatim spec row: 1043 | NULL | false -->
+<div class="flex border-b border-[#333333] hover:bg-[#2A2A2A]/70 transition-colors h-7 group">
+<div class="w-12 h-7 px-2 flex items-center justify-center border-r border-[#333333] text-textMuted text-[11px] bg-[#2A2A2A]/40 flex-shrink-0">
+                  2
+                </div>
+<div class="w-36 h-7 px-3 flex items-center border-r border-[#333333] text-textPrimary flex-shrink-0">
+                  1043
+                </div>
+<!-- NULL value pill -->
+<div class="w-64 h-7 px-3 flex items-center border-r border-[#333333] flex-shrink-0">
+<span class="text-warning italic text-[11px] font-medium bg-warning/15 px-1 rounded-[2px]">NULL</span>
+</div>
+<!-- Boolean FALSE badge -->
+<div class="w-36 h-7 px-3 flex items-center border-r border-[#333333] flex-shrink-0">
+<span class="text-danger bg-danger/15 px-1.5 py-0.5 rounded-[2px] text-[11px] font-semibold">false</span>
+</div>
+<div class="w-60 h-7 px-3 flex items-center border-r border-[#333333] text-textSecondary flex-shrink-0">
+                  2025-01-03 14:12:00+00
+                </div>
+<div class="flex-1 h-7"></div>
+</div>
+<!-- ROW 3: Active Row Selection Specimen -->
+<div class="flex border-b border-[#333333] bg-accent/15 border-l-2 border-l-accent h-7 group">
+<div class="w-12 h-7 px-2 flex items-center justify-center border-r border-[#333333] text-accent text-[11px] font-bold bg-accent/25 flex-shrink-0">
+                  3
+                </div>
+<div class="w-36 h-7 px-3 flex items-center border-r border-[#333333] text-textPrimary flex-shrink-0 font-medium">
+                  1044
+                </div>
+<div class="w-64 h-7 px-3 flex items-center border-r border-[#333333] text-textPrimary flex-shrink-0">
+                  dev-lead@corp.internal
+                </div>
+<div class="w-36 h-7 px-3 flex items-center border-r border-[#333333] flex-shrink-0">
+<span class="text-success bg-success/15 px-1.5 py-0.5 rounded-[2px] text-[11px] font-semibold">true</span>
+</div>
+<div class="w-60 h-7 px-3 flex items-center border-r border-[#333333] text-textSecondary flex-shrink-0">
+                  2025-01-04 19:40:22+00
+                </div>
+<div class="flex-1 h-7"></div>
+</div>
+<!-- ROW 4: Editable cell in-place specimen -->
+<div class="flex border-b border-[#333333] hover:bg-[#2A2A2A]/70 transition-colors h-7 group">
+<div class="w-12 h-7 px-2 flex items-center justify-center border-r border-[#333333] text-textMuted text-[11px] bg-[#2A2A2A]/40 flex-shrink-0">
+                  4
+                </div>
+<div class="w-36 h-7 px-3 flex items-center border-r border-[#333333] text-textPrimary flex-shrink-0">
+                  1045
+                </div>
+<!-- In-place editing active input -->
+<div class="w-64 h-7 p-0 flex items-center border-r border-[#333333] bg-[#181818] flex-shrink-0">
+<input class="w-full h-full bg-[#181818] px-3 text-textPrimary font-mono text-xs border border-accent rounded-none outline-none ring-1 ring-accent" readonly="" type="text" value="marcus.wright@sys.io"/>
+</div>
+<div class="w-36 h-7 px-3 flex items-center border-r border-[#333333] flex-shrink-0">
+<span class="text-success bg-success/15 px-1.5 py-0.5 rounded-[2px] text-[11px] font-semibold">true</span>
+</div>
+<div class="w-60 h-7 px-3 flex items-center border-r border-[#333333] text-textSecondary flex-shrink-0">
+                  2025-01-05 11:05:08+00
+                </div>
+<div class="flex-1 h-7"></div>
+</div>
+<!-- ROW 5: Additional sample data -->
+<div class="flex border-b border-[#333333] hover:bg-[#2A2A2A]/70 transition-colors h-7 group">
+<div class="w-12 h-7 px-2 flex items-center justify-center border-r border-[#333333] text-textMuted text-[11px] bg-[#2A2A2A]/40 flex-shrink-0">
+                  5
+                </div>
+<div class="w-36 h-7 px-3 flex items-center border-r border-[#333333] text-textPrimary flex-shrink-0">
+                  1046
+                </div>
+<div class="w-64 h-7 px-3 flex items-center border-r border-[#333333] text-textPrimary flex-shrink-0">
+                  sarah.chen@analytics.cloud
+                </div>
+<div class="w-36 h-7 px-3 flex items-center border-r border-[#333333] flex-shrink-0">
+<span class="text-success bg-success/15 px-1.5 py-0.5 rounded-[2px] text-[11px] font-semibold">true</span>
+</div>
+<div class="w-60 h-7 px-3 flex items-center border-r border-[#333333] text-textSecondary flex-shrink-0">
+                  2025-01-06 09:22:45+00
+                </div>
+<div class="flex-1 h-7"></div>
+</div>
+</div>
+<!-- GRID PAGINATION & FOOTER STATUS (Exact 24px Height) -->
+<div class="h-6 bg-[#2A2A2A] border-t border-[#414141] px-3 flex items-center justify-between text-[11px] font-mono text-textSecondary select-none">
+<!-- Left: Verbatim footer text: 100 rows · 12 ms · Ready -->
+<div class="flex items-center space-x-2">
+<span class="w-2 h-2 rounded-full bg-success"></span>
+<span class="text-textPrimary font-semibold">100 rows</span>
+<span class="text-textDim">·</span>
+<span>12 ms</span>
+<span class="text-textDim">·</span>
+<span class="text-success font-medium">Ready</span>
+</div>
+<!-- Center: Pagination info -->
+<div class="flex items-center space-x-2 font-sans">
+<button class="w-5 h-4 flex items-center justify-center bg-[#181818] border border-[#414141] rounded-[2px] text-textMuted disabled:opacity-40" disabled="">«</button>
+<button class="w-5 h-4 flex items-center justify-center bg-[#181818] border border-[#414141] rounded-[2px] text-textMuted disabled:opacity-40" disabled="">‹</button>
+<span class="text-textPrimary font-mono">Page 1 of 1</span>
+<button class="w-5 h-4 flex items-center justify-center bg-[#181818] border border-[#414141] rounded-[2px] text-textMuted disabled:opacity-40" disabled="">›</button>
+<button class="w-5 h-4 flex items-center justify-center bg-[#181818] border border-[#414141] rounded-[2px] text-textMuted disabled:opacity-40" disabled="">»</button>
+<span class="text-textMuted ml-1">(Displaying 1–5 of 100)</span>
+</div>
+<!-- Right: Memory & Buffer stats -->
+<div class="flex items-center space-x-3 text-textMuted">
+<span>Buffer: 42 KB</span>
+<span class="text-textDim">|</span>
+<span>Format: Table View</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- WORKBENCH BOTTOM SYSTEM STATUS BAR (Exact 24px Height) -->
+<footer class="h-6 bg-[#181818] border-t border-[#414141] px-3 flex items-center justify-between text-[11px] font-mono select-none">
+<div class="flex items-center space-x-3">
+<div class="flex items-center space-x-1.5">
+<span class="w-2 h-2 rounded-full bg-success"></span>
+<span class="text-textPrimary font-medium font-sans">Ready</span>
+</div>
+<span class="text-[#414141]">|</span>
+<span class="text-textSecondary">local-pg (SSL Active)</span>
+<span class="text-[#414141]">|</span>
+<span class="text-textSecondary">PostgreSQL 16.2</span>
+</div>
+<div class="flex items-center space-x-4 text-textSecondary">
+<span>UTF-8</span>
+<span class="text-[#414141]">|</span>
+<span>LF</span>
+<span class="text-[#414141]">|</span>
+<span>Ln 2, Col 27</span>
+<span class="text-[#414141]">|</span>
+<span class="text-accent font-semibold">12 ms latency</span>
+</div>
+</footer>
+</div>
+</section>
+<!-- ========================================================================= -->
+<!-- SECTION 02: COMPONENT STATE MATRIX (4-COLUMN ENGINEERING SPECIMENS)       -->
+<!-- ========================================================================= -->
+<section class="mt-8">
+<div class="flex items-center justify-between mb-3 border-b border-[#414141] pb-2">
+<div class="flex items-center space-x-2 font-sans">
+<span class="bg-accent/20 text-accent font-mono text-[10px] px-1.5 py-0.5 rounded-[4px] font-bold">02</span>
+<h2 class="text-xs font-semibold text-textPrimary tracking-wide uppercase">Component State Specimen Matrix</h2>
+<span class="text-[11px] text-textSecondary font-normal">— Individual interactive states, diagnostic behaviors, grid cells, and lifecycle states</span>
+</div>
+<span class="text-[11px] text-textMuted font-mono">Row height: 28px standard | Native planar structure</span>
+</div>
+<!-- 4-COLUMN ORDERLY SPECIMEN MATRIX -->
+<div class="grid grid-cols-4 gap-6">
+<!-- =================================================================== -->
+<!-- COLUMN 1: SQL EDITOR STATES & TOKENS                                -->
+<!-- =================================================================== -->
+<div class="space-y-6">
+<!-- Header -->
+<div class="border-b border-[#414141] pb-1.5 flex items-center justify-between font-sans">
+<span class="text-xs font-bold text-textPrimary uppercase tracking-wider">A. SQL Editor States</span>
+<span class="text-[10px] text-textMuted font-mono">5 key lifecycle states</span>
+</div>
+<!-- 1. Idle / Default State -->
+<div>
+<div class="text-[11px] font-mono text-textSecondary mb-1 flex justify-between">
+<span>State 1: Idle (Unfocused)</span>
+<span class="text-textMuted">border: #414141</span>
+</div>
+<div class="bg-[#181818] border border-[#414141] rounded-[4px] p-2.5 font-mono text-xs text-textSecondary">
+<span class="text-synKeyword">SELECT</span> id, email <span class="text-synKeyword">FROM</span> users;
+          </div>
+</div>
+<!-- 2. Focused with Caret & Active Line -->
+<div>
+<div class="text-[11px] font-mono text-textSecondary mb-1 flex justify-between">
+<span class="text-accent font-medium">State 2: Focused (Active Line)</span>
+<span class="text-accent font-mono">ring-1 ring-accent</span>
+</div>
+<div class="bg-[#181818] border border-accent rounded-[4px] p-2.5 font-mono text-xs relative overflow-hidden ring-1 ring-accent">
+<div class="absolute left-0 top-2 bottom-2 w-1 bg-accent"></div>
+<div class="pl-2">
+<span class="text-synKeyword font-semibold">SELECT</span> id, email
+              <span class="inline-block w-[2px] h-[14px] bg-accent ml-0.5 -mb-0.5 animate-pulse"></span>
+</div>
+</div>
+</div>
+<!-- 3. Query Running State -->
+<div>
+<div class="text-[11px] font-mono text-textSecondary mb-1 flex justify-between">
+<span class="text-warning font-medium">State 3: Query Running</span>
+<span class="text-textMuted font-sans">editor locked</span>
+</div>
+<div class="bg-[#181818] border border-warning/50 rounded-[4px] p-2.5 font-mono text-xs text-textMuted relative overflow-hidden">
+<div class="flex items-center space-x-2 mb-1">
+<span class="w-2 h-2 rounded-full bg-warning animate-ping"></span>
+<span class="text-warning text-[11px] font-sans font-medium">Executing query… 00:01.4</span>
+</div>
+<div class="opacity-40">
+<span class="text-synKeyword">SELECT</span> * <span class="text-synKeyword">FROM</span> large_dataset;
+            </div>
+</div>
+</div>
+<!-- 4. Read-Only State -->
+<div>
+<div class="text-[11px] font-mono text-textSecondary mb-1 flex justify-between">
+<span>State 4: Read-Only (Replica)</span>
+<span class="text-textMuted font-sans">🔒 locked</span>
+</div>
+<div class="bg-[#181818] border border-[#414141] rounded-[4px] p-2.5 font-mono text-xs text-textMuted flex items-center justify-between">
+<div>
+<span class="text-synKeyword opacity-60">SELECT</span> 1;
+            </div>
+<span class="text-[10px] bg-[#2A2A2A] text-textSecondary px-1.5 py-0.5 rounded-[2px] font-sans border border-[#414141]">Read-Only</span>
+</div>
+</div>
+<!-- 5. Syntax Error with Diagnostic Squiggle -->
+<div>
+<div class="text-[11px] font-mono text-danger mb-1 flex justify-between">
+<span class="font-medium">State 5: Syntax Error</span>
+<span class="text-danger font-mono">wavy underline</span>
+</div>
+<div class="bg-[#181818] border border-danger/50 rounded-[4px] p-2.5 font-mono text-xs">
+<div>
+<span class="text-synKeyword">SELECT</span> * <span class="text-synKeyword">FROM</span> <span class="diag-error text-danger font-semibold">user_profilles</span>;
+            </div>
+<div class="mt-2 text-[11px] text-danger bg-danger/15 border border-danger/30 p-2 rounded-[2px] flex items-start space-x-1.5 font-sans">
+<span class="font-bold">✕</span>
+<span>Query failed: relation public.user_profiles does not exist</span>
+</div>
+</div>
+</div>
+<!-- Syntax Tokens Specimen -->
+<div class="pt-2 border-t border-[#414141]">
+<div class="text-[11px] font-sans text-textSecondary mb-2 font-medium">Syntax Palette Distinct from UI Accent (#339CFF):</div>
+<div class="grid grid-cols-2 gap-2 text-xs font-mono">
+<div class="p-2 bg-[#181818] border border-[#414141] rounded-[4px]"><span class="text-synKeyword font-bold">Keyword:</span> #C792EA</div>
+<div class="p-2 bg-[#181818] border border-[#414141] rounded-[4px]"><span class="text-synFunc font-bold">Function:</span> #82AAFF</div>
+<div class="p-2 bg-[#181818] border border-[#414141] rounded-[4px]"><span class="text-synString font-bold">String:</span> #C3E88D</div>
+<div class="p-2 bg-[#181818] border border-[#414141] rounded-[4px]"><span class="text-synConst font-bold">Constant:</span> #F78C6C</div>
+</div>
+</div>
+</div>
+<!-- =================================================================== -->
+<!-- COLUMN 2: TOOLBAR CONTROLS & TAB STATES                             -->
+<!-- =================================================================== -->
+<div class="space-y-6 font-sans">
+<!-- Header -->
+<div class="border-b border-[#414141] pb-1.5 flex items-center justify-between">
+<span class="text-xs font-bold text-textPrimary uppercase tracking-wider">B. Toolbar, Tabs &amp; Gutter</span>
+<span class="text-[10px] text-textMuted font-mono">36px / 28px standard</span>
+</div>
+<!-- Toolbar Buttons Variants (Run / Stop / Explain / Format) -->
+<div>
+<div class="text-[11px] text-textSecondary mb-2">Query Execution Action Bar (36px high):</div>
+<div class="bg-[#212121] border border-[#414141] rounded-[4px] p-3 space-y-3">
+<!-- Default Actions -->
+<div class="flex items-center space-x-2">
+<button class="h-7 px-3 bg-accent text-[#0E0E0E] font-semibold text-xs rounded-[4px] flex items-center space-x-1 hover:bg-accent/90">
+<span>▶</span> <span>Run</span>
+</button>
+<button class="h-7 px-3 bg-danger text-white font-semibold text-xs rounded-[4px] flex items-center space-x-1 hover:bg-danger/90">
+<span>■</span> <span>Stop</span>
+</button>
+<button class="h-7 px-2.5 bg-[#2A2A2A] hover:bg-[#303030] border border-[#414141] text-textPrimary text-xs rounded-[4px]">
+                ⚡ Explain
+              </button>
+<button class="h-7 px-2.5 bg-[#2A2A2A] hover:bg-[#303030] border border-[#414141] text-textPrimary text-xs rounded-[4px]">
+                ≡ Format
+              </button>
+</div>
+<!-- Hover & Active States -->
+<div class="text-[10px] text-textMuted mt-1">Hover &amp; Keyboard Focus Rings:</div>
+<div class="flex items-center space-x-2">
+<button class="h-7 px-3 bg-accent text-[#0E0E0E] font-semibold text-xs rounded-[4px] ring-2 ring-accent/50">
+                ▶ Run (Hover)
+              </button>
+<button class="h-7 px-2.5 bg-[#303030] border border-accent text-accent text-xs rounded-[4px] ring-1 ring-accent">
+                ⚡ Explain (Focus)
+              </button>
+</div>
+<!-- Disabled states -->
+<div class="flex items-center space-x-2 opacity-50">
+<button class="h-7 px-3 bg-[#2A2A2A] border border-[#414141] text-textMuted text-xs rounded-[4px] cursor-not-allowed">
+                ▶ Run (Disabled)
+              </button>
+<button class="h-7 px-3 bg-[#2A2A2A] border border-[#414141] text-textMuted text-xs rounded-[4px] cursor-not-allowed">
+                ■ Stop (Inactive)
+              </button>
+</div>
+</div>
+</div>
+<!-- Editor Tab States -->
+<div>
+<div class="text-[11px] text-textSecondary mb-2">Tab Component States (Height 28px):</div>
+<div class="bg-[#212121] border border-[#414141] rounded-[4px] p-3 space-y-2">
+<!-- Active Tab -->
+<div class="flex items-center justify-between bg-[#181818] border-t-2 border-accent px-3 py-1 text-xs font-mono rounded-t-[4px]">
+<span class="text-textPrimary font-semibold">active_tab.sql</span>
+<span class="text-[10px] text-accent font-sans ml-2">Active</span>
+</div>
+<!-- Active Dirty Tab (Unsaved) -->
+<div class="flex items-center justify-between bg-[#181818] border-t-2 border-accent px-3 py-1 text-xs font-mono rounded-t-[4px]">
+<div class="flex items-center space-x-1.5">
+<span class="w-2 h-2 rounded-full bg-accent"></span>
+<span class="text-textPrimary font-semibold">query_users.sql</span>
+</div>
+<span class="text-[10px] text-accent font-sans">Active + Dirty</span>
+</div>
+<!-- Inactive Tab -->
+<div class="flex items-center justify-between bg-[#2A2A2A] hover:bg-[#303030] px-3 py-1 text-xs font-mono rounded-[4px] cursor-pointer">
+<span class="text-textSecondary">migration_04.sql</span>
+<span class="text-[10px] text-textMuted font-sans">Inactive</span>
+</div>
+<!-- Inactive Dirty Tab -->
+<div class="flex items-center justify-between bg-[#2A2A2A] px-3 py-1 text-xs font-mono rounded-[4px]">
+<div class="flex items-center space-x-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-warning"></span>
+<span class="text-textSecondary">schema_dump.sql</span>
+</div>
+<span class="text-[10px] text-warning font-sans">Inactive + Dirty</span>
+</div>
+</div>
+</div>
+<!-- Gutter & Line Number Elements -->
+<div>
+<div class="text-[11px] text-textSecondary mb-2">Gutter Specimens (Width 44px):</div>
+<div class="bg-[#181818] border border-[#414141] rounded-[4px] flex font-mono text-xs overflow-hidden">
+<div class="w-[44px] bg-[#2A2A2A]/50 border-r border-[#333333] py-2 text-right pr-2 space-y-1 text-textDim">
+<div>1</div>
+<div class="text-accent font-bold bg-accent/20 -mr-2 pr-2">2</div>
+<div>3</div>
+<div class="text-danger font-bold bg-danger/20 -mr-2 pr-2">4</div>
+</div>
+<div class="p-2 space-y-1 text-textSecondary">
+<div>Normal line</div>
+<div class="text-textPrimary font-semibold">Current active line with caret</div>
+<div>Normal line</div>
+<div class="text-danger font-medium">Line with diagnostic error</div>
+</div>
+</div>
+</div>
+</div>
+<!-- =================================================================== -->
+<!-- COLUMN 3: DATA GRID CELL TYPES & INTERACTIVE STATES                 -->
+<!-- =================================================================== -->
+<div class="space-y-6">
+<!-- Header -->
+<div class="border-b border-[#414141] pb-1.5 flex items-center justify-between font-sans">
+<span class="text-xs font-bold text-textPrimary uppercase tracking-wider">C. Results Grid Cells</span>
+<span class="text-[10px] text-textMuted font-mono">Row height: 28px</span>
+</div>
+<!-- Grid Cell Specimens List -->
+<div class="bg-[#181818] border border-[#414141] rounded-[0px] divide-y divide-[#333333] font-mono text-xs overflow-hidden">
+<!-- Normal cell -->
+<div class="grid-cell justify-between">
+<span class="text-textPrimary">Normal text / integer</span>
+<span class="text-[10px] text-textMuted font-sans">Default</span>
+</div>
+<!-- Selected / Focused cell (1px ring-accent) -->
+<div class="grid-cell justify-between bg-accent/20 ring-1 ring-inset ring-accent font-medium">
+<span class="text-textPrimary">Focused cell value</span>
+<span class="text-[10px] text-accent font-sans">Focused (Ring)</span>
+</div>
+<!-- Active Inline Editable Cell -->
+<div class="h-7 px-1 flex items-center bg-[#212121]">
+<input class="w-full h-5 bg-[#181818] px-2 text-textPrimary border border-accent rounded-none outline-none font-mono text-xs ring-1 ring-accent" type="text" value="edit_in_place_value"/>
+</div>
+<!-- NULL value cell -->
+<div class="grid-cell justify-between">
+<span class="text-warning italic bg-warning/15 px-1 rounded-[2px] text-[11px] font-medium">NULL</span>
+<span class="text-[10px] text-textMuted font-sans">Nullable Type</span>
+</div>
+<!-- Boolean True -->
+<div class="grid-cell justify-between">
+<span class="text-success bg-success/15 px-1.5 py-0.5 rounded-[2px] text-[11px] font-bold">true</span>
+<span class="text-[10px] text-textMuted font-sans">Bool True</span>
+</div>
+<!-- Boolean False -->
+<div class="grid-cell justify-between">
+<span class="text-danger bg-danger/15 px-1.5 py-0.5 rounded-[2px] text-[11px] font-bold">false</span>
+<span class="text-[10px] text-textMuted font-sans">Bool False</span>
+</div>
+<!-- Selected Full Row specimen -->
+<div class="grid-cell justify-between bg-accent/15 border-l-2 border-l-accent">
+<span class="text-textPrimary font-semibold">Row Selection State</span>
+<span class="text-[10px] text-accent font-sans">Row Active</span>
+</div>
+<!-- Loading Skeleton Cell -->
+<div class="grid-cell items-center space-x-2">
+<div class="h-3 bg-[#303030] rounded-[2px] animate-pulse w-24"></div>
+<div class="h-3 bg-[#303030] rounded-[2px] animate-pulse w-12"></div>
+<span class="text-[10px] text-textMuted font-sans ml-auto">Skeleton</span>
+</div>
+</div>
+<!-- Sortable / Resizable Column Header Specimens -->
+<div class="font-sans">
+<div class="text-[11px] text-textSecondary mb-2 font-mono">Column Header States (28px height):</div>
+<div class="bg-[#2A2A2A] border border-[#414141] rounded-[0px] divide-y divide-[#414141] text-xs font-mono">
+<!-- Unsorted -->
+<div class="h-7 px-3 flex items-center justify-between hover:bg-[#303030] cursor-pointer">
+<span class="text-textPrimary font-sans">column_name (text)</span>
+<span class="text-textMuted text-[10px] font-sans">Unsorted</span>
+</div>
+<!-- Sorted Ascending -->
+<div class="h-7 px-3 flex items-center justify-between bg-[#303030] text-accent font-semibold">
+<div class="flex items-center space-x-1 font-sans">
+<span>id (int8)</span>
+<span class="text-accent">▲</span>
+</div>
+<span class="text-[10px] font-sans text-accent">Sorted ASC</span>
+</div>
+<!-- Sorted Descending -->
+<div class="h-7 px-3 flex items-center justify-between bg-[#303030] text-accent font-semibold">
+<div class="flex items-center space-x-1 font-sans">
+<span>created_at (timestamp)</span>
+<span class="text-accent">▼</span>
+</div>
+<span class="text-[10px] font-sans text-accent">Sorted DESC</span>
+</div>
+<!-- Resizing active divider specimen -->
+<div class="h-7 px-3 flex items-center justify-between relative font-sans">
+<span class="text-textPrimary">email (text)</span>
+<div class="absolute right-0 top-0 bottom-0 w-1 bg-accent cursor-col-resize" title="Active resizing"></div>
+<span class="text-[10px] text-accent mr-2">Col Resize Indicator</span>
+</div>
+</div>
+</div>
+</div>
+<!-- =================================================================== -->
+<!-- COLUMN 4: SPECIAL GRID STATES & STATUS BAR LIFECYCLE                -->
+<!-- =================================================================== -->
+<div class="space-y-6">
+<!-- Header -->
+<div class="border-b border-[#414141] pb-1.5 flex items-center justify-between font-sans">
+<span class="text-xs font-bold text-textPrimary uppercase tracking-wider">D. Empty, Errors &amp; Status Bar</span>
+<span class="text-[10px] text-textMuted font-mono">Feedback &amp; lifecycle</span>
+</div>
+<!-- 1. Grid Empty State Specimen -->
+<div>
+<div class="text-[11px] font-sans text-textSecondary mb-1 font-medium">Grid Empty Result Specimen:</div>
+<div class="bg-[#212121] border border-[#414141] rounded-[4px] p-4 text-center font-sans">
+<div class="text-textMuted text-base mb-1">∅</div>
+<div class="text-xs font-semibold text-textPrimary">Query returned no rows</div>
+<div class="text-[11px] text-textSecondary mt-0.5">Edit the filter and run again</div>
+</div>
+</div>
+<!-- 2. Grid Query Error State Specimen -->
+<div>
+<div class="text-[11px] font-sans text-danger mb-1 font-medium">Query Error Result Specimen:</div>
+<div class="bg-danger/15 border border-danger/30 rounded-[4px] p-3 font-mono text-xs">
+<div class="flex items-center space-x-1.5 text-danger font-semibold mb-1 font-sans">
+<span>✕</span>
+<span>Execution Failed (SQLSTATE 42P01)</span>
+</div>
+<p class="text-[11px] text-textPrimary leading-normal">Query failed: relation public.user_profiles does not exist</p>
+<div class="text-[10px] text-textSecondary mt-2 font-sans flex justify-between">
+<span>Duration: 8 ms</span>
+<span class="text-accent underline cursor-pointer">Open Postgres Docs ↗</span>
+</div>
+</div>
+</div>
+<!-- 3. Query Status Bar Lifecycle States (24px height each) -->
+<div>
+<div class="text-[11px] font-sans text-textSecondary mb-2 font-medium">Query Status Bar Lifecycle (24px high):</div>
+<div class="border border-[#414141] rounded-[4px] divide-y divide-[#414141] font-mono text-[11px] overflow-hidden">
+<!-- Ready State -->
+<div class="h-6 bg-[#2A2A2A] px-2.5 flex items-center justify-between">
+<div class="flex items-center space-x-1.5 font-sans">
+<span class="w-2 h-2 rounded-full bg-success"></span>
+<span class="text-textPrimary font-medium">Ready</span>
+</div>
+<span class="text-textMuted text-[10px] font-sans">Session idle</span>
+</div>
+<!-- Running State with Stop Trigger -->
+<div class="h-6 bg-[#181818] border-l-2 border-l-accent px-2.5 flex items-center justify-between text-accent">
+<div class="flex items-center space-x-2 font-sans">
+<span class="w-2 h-2 rounded-full bg-accent animate-ping"></span>
+<span class="font-semibold text-textPrimary">Executing query… 00:01.4</span>
+</div>
+<button class="px-2 py-0.5 bg-danger text-white rounded-[2px] text-[10px] font-sans font-semibold hover:bg-danger/90">
+                ■ Stop
+              </button>
+</div>
+<!-- Succeeded State -->
+<div class="h-6 bg-[#2A2A2A] px-2.5 flex items-center justify-between text-success">
+<div class="flex items-center space-x-1.5 font-mono">
+<span>✓</span>
+<span class="font-medium text-textPrimary font-sans">100 rows fetched</span>
+<span class="text-textDim">·</span>
+<span class="text-textSecondary">12 ms</span>
+</div>
+<span class="text-[10px] text-success font-sans">Succeeded</span>
+</div>
+<!-- Failed State -->
+<div class="h-6 bg-danger/20 px-2.5 flex items-center justify-between text-danger">
+<div class="flex items-center space-x-1.5 font-sans">
+<span>✕</span>
+<span class="font-medium">Query failed</span>
+</div>
+<span class="text-[10px] text-danger font-sans">Failed</span>
+</div>
+<!-- Cancelled State -->
+<div class="h-6 bg-[#2A2A2A] px-2.5 flex items-center justify-between text-warning">
+<div class="flex items-center space-x-1.5 font-sans">
+<span>⚠</span>
+<span class="text-textSecondary">Query cancelled by user</span>
+</div>
+<span class="text-[10px] text-warning font-sans">Cancelled</span>
+</div>
+</div>
+</div>
+<!-- 4. Schema Tree Expand/Collapse States -->
+<div>
+<div class="text-[11px] font-sans text-textSecondary mb-2 font-medium">Schema Tree Component States:</div>
+<div class="bg-[#2A2A2A] border border-[#414141] rounded-[4px] p-2 font-mono text-xs space-y-1">
+<div class="flex items-center space-x-1 text-textSecondary hover:bg-[#303030] px-1.5 py-0.5 rounded-[2px] cursor-pointer">
+<span class="text-textDim text-[10px]">►</span>
+<span>📁</span>
+<span>collapsed_schema</span>
+<span class="text-textMuted text-[10px] ml-auto font-sans">Collapsed</span>
+</div>
+<div class="flex items-center space-x-1 text-textPrimary hover:bg-[#303030] px-1.5 py-0.5 rounded-[2px] cursor-pointer">
+<span class="text-textDim text-[10px]">▼</span>
+<span>📂</span>
+<span class="font-semibold">expanded_schema</span>
+<span class="text-textMuted text-[10px] ml-auto font-sans">Expanded</span>
+</div>
+<div class="flex items-center space-x-1 text-accent bg-accent/20 px-1.5 py-0.5 rounded-[2px] border-l-2 border-accent">
+<span class="text-accent text-[10px]">▼</span>
+<span>▦</span>
+<span class="font-bold text-textPrimary">selected_table</span>
+<span class="text-accent text-[10px] ml-auto font-sans">Selected</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Specimen Footer Details -->
+<footer class="mt-8 pt-4 border-t border-[#414141] flex items-center justify-between text-textMuted text-[11px] font-sans">
+<div>DB Pro Native Desktop Design System · Rust/egui Component Baseline · 2560x2048 Reference</div>
+<div class="flex space-x-4 font-mono">
+<span>Tokens: planar structural</span>
+<span>No card-per-row</span>
+<span>Inter UI + JetBrains Mono</span>
+</div>
+</footer>
+</body></html>

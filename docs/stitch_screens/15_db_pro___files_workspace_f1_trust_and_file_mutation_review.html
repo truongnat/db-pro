@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DB Pro — Files Workspace (F1 Trust & File Mutation Review)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            app: '#212121',
+            panel: '#2A2A2A',
+            editor: '#181818',
+            elevated: '#303030',
+            elevatedHover: '#383838',
+            borderBase: '#323232',
+            borderMid: '#414141',
+            borderStrong: '#505050',
+            textPrimary: '#ECECEC',
+            textSecondary: '#B9B9B9',
+            textMuted: '#8D8D8D',
+            textDim: '#666666',
+            accent: '#339CFF',
+            accentDim: 'rgba(51, 156, 255, 0.15)',
+            warning: '#F59E0B',
+            warningDim: 'rgba(245, 158, 11, 0.12)',
+            danger: '#EF4444',
+            dangerDim: 'rgba(239, 68, 68, 0.14)',
+            success: '#22C55E',
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-size: 16px;
+      line-height: 1;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      vertical-align: middle;
+    }
+    .material-symbols-outlined.fill {
+      font-variation-settings: 'FILL' 1;
+    }
+    /* Native desktop scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #212121;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #383838;
+      border: 2px solid #212121;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4a4a;
+    }
+    /* Selection highlight */
+    ::selection {
+      background: #339CFF;
+      color: #FFFFFF;
+    }
+  </style>
+</head>
+<body class="bg-app text-textPrimary font-sans text-xs antialiased select-none overflow-hidden h-screen w-screen flex flex-col justify-between" style="min-width: 1440px; min-height: 900px;">
+
+  <!-- APP SHELL CONTAINER -->
+  <div class="flex-1 flex flex-col h-full w-full overflow-hidden">
+
+    <!-- TOP TITLEBAR & APP HEADER (Height 36px) -->
+    <header class="h-9 bg-panel border-b border-borderMid flex items-center justify-between px-3 shrink-0 text-textSecondary text-xs">
+      <!-- Left: App Brand & Native Context -->
+      <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-2">
+          <span class="font-semibold text-textPrimary tracking-tight">DB PRO</span>
+          <span class="text-textDim text-[11px] font-mono">native workstation</span>
+        </div>
+        <div class="h-3 w-px bg-borderMid"></div>
+        <div class="flex items-center space-x-1.5 text-textSecondary">
+          <span class="material-symbols-outlined text-textMuted text-[15px]">folder_special</span>
+          <span class="font-medium text-textPrimary">Files Workspace</span>
+          <span class="text-textDim">/</span>
+          <span class="font-mono text-textMuted text-[11px]">~/work/db-pro</span>
+        </div>
+      </div>
+
+      <!-- Center: Target Workspace Scope Breadcrumb -->
+      <div class="flex items-center space-x-2 bg-app px-2.5 py-1 rounded border border-borderBase font-mono text-[11px] text-textSecondary">
+        <span class="text-textDim">workspace:</span>
+        <span class="text-textPrimary font-medium">db-pro</span>
+        <span class="text-textDim">·</span>
+        <span class="text-textMuted">target-state design spec (2026-09-24)</span>
+      </div>
+
+      <!-- Right: Window / System Status Controls -->
+      <div class="flex items-center space-x-3 text-textMuted">
+        <div class="flex items-center space-x-1 text-[11px]">
+          <span class="w-1.5 h-1.5 rounded-full bg-warning"></span>
+          <span class="text-textSecondary font-mono">Local-only</span>
+        </div>
+        <div class="h-3 w-px bg-borderMid"></div>
+        <button class="hover:text-textPrimary p-0.5 text-textMuted" title="Help & Documentation">
+          <span class="material-symbols-outlined text-[16px]">help_outline</span>
+        </button>
+        <button class="hover:text-textPrimary p-0.5 text-textMuted" title="Settings">
+          <span class="material-symbols-outlined text-[16px]">settings</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN BODY: Activity Rail + Workspace Content -->
+    <div class="flex-1 flex overflow-hidden">
+
+      <!-- NATIVE ACTIVITY RAIL (Width 44px) -->
+      <nav class="w-11 bg-panel border-r border-borderMid flex flex-col justify-between py-2 shrink-0 items-center">
+        <!-- Top Rail Items -->
+        <div class="flex flex-col space-y-2 w-full items-center">
+          <!-- Files (Active) -->
+          <button class="relative w-8 h-8 rounded flex items-center justify-center text-accent bg-elevated border border-borderStrong shadow-sm" title="Files Workspace (Active)">
+            <div class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-accent rounded-r"></div>
+            <span class="material-symbols-outlined text-[18px]">folder</span>
+          </button>
+          <!-- Schema Explorer -->
+          <button class="w-8 h-8 rounded flex items-center justify-center text-textMuted hover:text-textPrimary hover:bg-elevated transition-colors" title="Schemas">
+            <span class="material-symbols-outlined text-[18px]">schema</span>
+          </button>
+          <!-- SQL Editor / Query Console -->
+          <button class="w-8 h-8 rounded flex items-center justify-center text-textMuted hover:text-textPrimary hover:bg-elevated transition-colors" title="SQL Query">
+            <span class="material-symbols-outlined text-[18px]">code</span>
+          </button>
+          <!-- Data Activity -->
+          <button class="w-8 h-8 rounded flex items-center justify-center text-textMuted hover:text-textPrimary hover:bg-elevated transition-colors" title="Data Activity">
+            <span class="material-symbols-outlined text-[18px]">table_rows</span>
+          </button>
+          <!-- ER Diagram -->
+          <button class="w-8 h-8 rounded flex items-center justify-center text-textMuted hover:text-textPrimary hover:bg-elevated transition-colors" title="ER Diagram">
+            <span class="material-symbols-outlined text-[18px]">hub</span>
+          </button>
+        </div>
+
+        <!-- Bottom Rail Items -->
+        <div class="flex flex-col space-y-2 w-full items-center">
+          <button class="w-8 h-8 rounded flex items-center justify-center text-textMuted hover:text-textPrimary hover:bg-elevated transition-colors" title="Terminal / Logs">
+            <span class="material-symbols-outlined text-[18px]">terminal</span>
+          </button>
+          <button class="w-8 h-8 rounded flex items-center justify-center text-textMuted hover:text-textPrimary hover:bg-elevated transition-colors" title="Preferences">
+            <span class="material-symbols-outlined text-[18px]">tune</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- WORKSPACE CENTER: Left File Explorer Pane (Width 320px) -->
+      <section class="w-80 bg-panel border-r border-borderMid flex flex-col shrink-0 overflow-hidden">
+
+        <!-- Workspace Root Header -->
+        <div class="h-9 px-3 border-b border-borderMid flex items-center justify-between bg-panel shrink-0">
+          <div class="flex items-center space-x-1.5 overflow-hidden">
+            <span class="material-symbols-outlined text-textMuted text-[15px]">inventory_2</span>
+            <span class="font-medium text-textPrimary truncate">db-pro</span>
+            <span class="text-textDim font-mono text-[11px] truncate">~/work/db-pro</span>
+          </div>
+
+          <!-- Trust Badge Indicator -->
+          <div class="flex items-center space-x-1 bg-elevated border border-borderMid px-1.5 py-0.5 rounded text-[11px]">
+            <span class="w-1.5 h-1.5 rounded-full bg-warning"></span>
+            <span class="text-warning font-medium">Untrusted</span>
+            <button class="text-textMuted hover:text-textPrimary ml-0.5" title="Trust Policy Details">
+              <span class="material-symbols-outlined text-[12px]">help</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Secondary Toolbar: Navigation Tabs -->
+        <div class="flex border-b border-borderMid bg-app px-2 pt-1 text-[11px] shrink-0 overflow-x-auto">
+          <!-- Files Tab (Active) -->
+          <button class="px-2.5 py-1.5 border-b-2 border-accent text-textPrimary font-medium flex items-center space-x-1 shrink-0">
+            <span>Files</span>
+          </button>
+          <button class="px-2.5 py-1.5 border-b-2 border-transparent text-textMuted hover:text-textSecondary flex items-center space-x-1 shrink-0">
+            <span>Search</span>
+          </button>
+          <!-- Migrate Tab: Filename list only, unknown status -->
+          <button class="px-2.5 py-1.5 border-b-2 border-transparent text-textMuted hover:text-textSecondary flex items-center space-x-1 shrink-0" title="Local filename list only · Unknown execution status">
+            <span>Migrate</span>
+            <span class="text-[9px] bg-elevated px-1 py-0.2 rounded text-textDim border border-borderBase">list</span>
+          </button>
+          <button class="px-2.5 py-1.5 border-b-2 border-transparent text-textMuted hover:text-textSecondary flex items-center space-x-1 shrink-0">
+            <span>Tasks</span>
+          </button>
+          <button class="px-2.5 py-1.5 border-b-2 border-transparent text-textMuted hover:text-textSecondary flex items-center space-x-1 shrink-0">
+            <span>Graph</span>
+          </button>
+          <button class="px-2.5 py-1.5 border-b-2 border-transparent text-textMuted hover:text-textSecondary flex items-center space-x-1 shrink-0">
+            <span>Git</span>
+          </button>
+        </div>
+
+        <!-- Filter / Quick Action Bar -->
+        <div class="h-8 px-2.5 border-b border-borderMid flex items-center justify-between bg-panel shrink-0">
+          <div class="flex items-center space-x-1.5 text-textMuted w-full">
+            <span class="material-symbols-outlined text-[14px]">filter_list</span>
+            <input type="text" placeholder="Filter files in workspace..." class="bg-transparent border-none outline-none text-textPrimary text-xs placeholder:text-textDim w-full font-mono text-[11px]" readonly value="archive/">
+            <span class="text-[10px] text-textDim font-mono">ESC</span>
+          </div>
+          <div class="flex items-center space-x-1 shrink-0 text-textMuted">
+            <button class="p-1 hover:text-textPrimary hover:bg-elevated rounded" title="New file">
+              <span class="material-symbols-outlined text-[14px]">note_add</span>
+            </button>
+            <button class="p-1 hover:text-textPrimary hover:bg-elevated rounded" title="New folder">
+              <span class="material-symbols-outlined text-[14px]">create_new_folder</span>
+            </button>
+            <button class="p-1 hover:text-textPrimary hover:bg-elevated rounded" title="Refresh file tree">
+              <span class="material-symbols-outlined text-[14px]">refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- FILE TREE (Dense 24px rows) -->
+        <div class="flex-1 overflow-y-auto py-1 font-mono text-[11px]">
+          <!-- Root item db-pro -->
+          <div class="h-6 flex items-center px-2 text-textSecondary hover:bg-elevated cursor-default">
+            <span class="material-symbols-outlined text-[14px] text-textMuted mr-1">keyboard_arrow_down</span>
+            <span class="material-symbols-outlined text-[15px] text-textMuted mr-1.5">folder_open</span>
+            <span class="font-medium text-textPrimary">db-pro</span>
+          </div>
+
+          <!-- migrations/ folder (collapsed) -->
+          <div class="h-6 flex items-center pl-6 pr-2 text-textSecondary hover:bg-elevated cursor-default">
+            <span class="material-symbols-outlined text-[14px] text-textMuted mr-1">keyboard_arrow_right</span>
+            <span class="material-symbols-outlined text-[15px] text-textMuted mr-1.5">folder</span>
+            <span>migrations/</span>
+            <span class="ml-auto text-[10px] text-textDim font-sans">Unknown status</span>
+          </div>
+
+          <!-- queries/ folder (expanded) -->
+          <div class="h-6 flex items-center pl-6 pr-2 text-textSecondary hover:bg-elevated cursor-default">
+            <span class="material-symbols-outlined text-[14px] text-textMuted mr-1">keyboard_arrow_down</span>
+            <span class="material-symbols-outlined text-[15px] text-textMuted mr-1.5">folder_open</span>
+            <span>queries/</span>
+          </div>
+
+          <!-- queries/users.sql -->
+          <div class="h-6 flex items-center pl-10 pr-2 text-textMuted hover:text-textPrimary hover:bg-elevated cursor-default">
+            <span class="material-symbols-outlined text-[14px] text-[#339CFF] mr-1.5">description</span>
+            <span>users.sql</span>
+            <span class="ml-auto text-[10px] text-textDim">1.2 KB</span>
+          </div>
+
+          <!-- sql/ folder (expanded) -->
+          <div class="h-6 flex items-center pl-6 pr-2 text-textSecondary hover:bg-elevated cursor-default">
+            <span class="material-symbols-outlined text-[14px] text-textMuted mr-1">keyboard_arrow_down</span>
+            <span class="material-symbols-outlined text-[15px] text-textMuted mr-1.5">folder_open</span>
+            <span class="text-textPrimary font-medium">sql/</span>
+          </div>
+
+          <!-- sql/V001__create_users.sql -->
+          <div class="h-6 flex items-center pl-10 pr-2 text-textSecondary hover:text-textPrimary hover:bg-elevated cursor-default">
+            <span class="material-symbols-outlined text-[14px] text-[#339CFF] mr-1.5">description</span>
+            <span>V001__create_users.sql</span>
+            <span class="ml-auto text-[10px] text-textDim">3.4 KB</span>
+          </div>
+
+          <!-- sql/archive/ folder (expanded) -->
+          <div class="h-6 flex items-center pl-10 pr-2 text-textSecondary hover:bg-elevated cursor-default">
+            <span class="material-symbols-outlined text-[14px] text-textMuted mr-1">keyboard_arrow_down</span>
+            <span class="material-symbols-outlined text-[15px] text-textMuted mr-1.5">folder_open</span>
+            <span class="text-textPrimary font-medium">archive/</span>
+          </div>
+
+          <!-- sql/archive/legacy_cleanup.sql (TARGET SELECTED FILE) -->
+          <div class="h-6 flex items-center pl-14 pr-2 bg-elevated border-l-2 border-accent text-accent font-medium cursor-default">
+            <span class="material-symbols-outlined text-[14px] text-accent mr-1.5">description</span>
+            <span class="truncate">legacy_cleanup.sql</span>
+            <span class="ml-auto text-[10px] text-danger border border-danger/30 bg-danger/10 px-1 py-0.2 rounded font-sans">Delete requested</span>
+          </div>
+
+          <!-- Other files -->
+          <div class="h-6 flex items-center pl-14 pr-2 text-textMuted hover:text-textPrimary hover:bg-elevated cursor-default">
+            <span class="material-symbols-outlined text-[14px] text-[#339CFF] mr-1.5">description</span>
+            <span>deprecated_views.sql</span>
+          </div>
+
+          <div class="h-6 flex items-center pl-6 pr-2 text-textSecondary hover:bg-elevated cursor-default">
+            <span class="material-symbols-outlined text-[14px] text-textMuted mr-1">keyboard_arrow_right</span>
+            <span class="material-symbols-outlined text-[15px] text-textMuted mr-1.5">folder</span>
+            <span>tasks/</span>
+          </div>
+
+          <div class="h-6 flex items-center pl-6 pr-2 text-textMuted hover:text-textPrimary hover:bg-elevated cursor-default">
+            <span class="material-symbols-outlined text-[14px] text-textMuted mr-1.5">settings</span>
+            <span>dbpro.toml</span>
+          </div>
+        </div>
+
+        <!-- Trust & Safety Footer Note in Pane -->
+        <div class="p-2.5 bg-app border-t border-borderMid text-[11px] text-textMuted">
+          <div class="flex items-center space-x-1.5 text-textSecondary mb-1 font-medium">
+            <span class="material-symbols-outlined text-warning text-[14px]">shield</span>
+            <span>Local SQL-project scope</span>
+          </div>
+          <p class="text-[10px] text-textDim leading-relaxed">
+            Local workspace changes are file mutations on disk. Operations do not run database transactions or SQL execution.
+          </p>
+        </div>
+      </section>
+
+      <!-- WORKSPACE RIGHT: Editor / Preview Pane -->
+      <section class="flex-1 bg-editor flex flex-col overflow-hidden relative">
+
+        <!-- Editor Toolbar & Breadcrumb (Height 36px) -->
+        <div class="h-9 bg-panel border-b border-borderMid flex items-center justify-between px-3 shrink-0">
+          <div class="flex items-center space-x-2 text-xs">
+            <!-- Active File Tab -->
+            <div class="flex items-center space-x-1.5 bg-editor border-t-2 border-accent border-x border-borderMid px-2.5 py-1 text-textPrimary rounded-t text-xs font-mono">
+              <span class="material-symbols-outlined text-accent text-[14px]">description</span>
+              <span>legacy_cleanup.sql</span>
+              <span class="text-[10px] text-textDim ml-1 font-sans">Read-only preview</span>
+              <button class="hover:text-danger ml-1 p-0.5 text-textDim" title="Close preview">
+                <span class="material-symbols-outlined text-[12px]">close</span>
+              </button>
+            </div>
+            <!-- Path breadcrumb -->
+            <div class="flex items-center space-x-1 font-mono text-[11px] text-textMuted pl-2">
+              <span class="text-textDim">path:</span>
+              <span>db-pro</span>
+              <span class="text-textDim">/</span>
+              <span>sql</span>
+              <span class="text-textDim">/</span>
+              <span>archive</span>
+              <span class="text-textDim">/</span>
+              <span class="text-textPrimary">legacy_cleanup.sql</span>
+            </div>
+          </div>
+
+          <!-- Preview-only indicator (No Run SQL, No Task Execute) -->
+          <div class="flex items-center space-x-2 text-[11px]">
+            <span class="px-2 py-0.5 rounded bg-elevated border border-borderMid text-textMuted font-mono">SQL Text Preview</span>
+            <span class="text-textDim font-sans">Execution disabled in file viewer</span>
+          </div>
+        </div>
+
+        <!-- SQL EDITOR PREVIEW SURFACE -->
+        <div class="flex-1 flex overflow-hidden font-mono text-[12px] leading-5">
+          <!-- Line Numbers Gutter (44px) -->
+          <div class="w-11 bg-panel border-r border-borderBase text-textDim select-none py-3 text-right pr-2 shrink-0 flex flex-col space-y-0.5 text-[11px]">
+            <div>1</div>
+            <div>2</div>
+            <div>3</div>
+            <div>4</div>
+            <div>5</div>
+            <div>6</div>
+            <div>7</div>
+            <div>8</div>
+          </div>
+
+          <!-- Editor Body (Read-only SQL display) -->
+          <div class="flex-1 p-3 text-textPrimary overflow-y-auto">
+            <div class="text-textDim italic">-- archived query</div>
+            <div class="mt-1">
+              <span class="text-[#C792EA] font-medium">SELECT</span>
+              <span class="text-textPrimary"> id, email </span>
+              <span class="text-[#C792EA] font-medium">FROM</span>
+              <span class="text-[#82AAFF]"> users</span><span class="text-textMuted">;</span>
+            </div>
+            <div class="mt-4 text-textDim text-[11px] font-sans border-l-2 border-borderMid pl-2.5 py-0.5">
+              Targeted for deletion: This file is located in the local directory <code class="font-mono text-textMuted">~/work/db-pro/sql/archive/legacy_cleanup.sql</code>.
+            </div>
+          </div>
+        </div>
+
+        <!-- SECONDARY SPECIMEN OVERLAY: Small Trust Policy Popover (Adjacent specimen) -->
+        <div class="absolute top-12 right-6 w-80 bg-elevated border border-borderStrong rounded-md shadow-xl p-3 z-10 text-xs">
+          <div class="flex items-center justify-between pb-2 border-b border-borderMid mb-2">
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-warning"></span>
+              <span class="font-medium text-textPrimary">Workspace Policy: Untrusted</span>
+            </div>
+            <span class="text-[10px] text-textMuted font-mono">policy_v1</span>
+          </div>
+          <div class="space-y-1.5 text-[11px]">
+            <div class="flex items-center justify-between py-0.5">
+              <span class="text-textSecondary">Browse / open</span>
+              <span class="text-success font-mono font-medium">allowed</span>
+            </div>
+            <div class="flex items-center justify-between py-0.5">
+              <span class="text-textSecondary">Create / delete</span>
+              <span class="text-warning font-mono font-medium">confirm each change</span>
+            </div>
+            <div class="flex items-center justify-between py-0.5">
+              <span class="text-textSecondary">Replace all / run task</span>
+              <span class="text-danger font-mono font-medium">blocked while untrusted</span>
+            </div>
+            <div class="flex items-center justify-between py-0.5">
+              <span class="text-textSecondary">Send to Agent</span>
+              <span class="text-textMuted font-mono">review context before sending</span>
+            </div>
+          </div>
+          <div class="mt-2.5 pt-2 border-t border-borderMid text-[10px] text-textDim leading-tight">
+            Trust does not grant OS access or database execution authority.
+          </div>
+        </div>
+
+        <!-- SPECIMEN MATRIX STRIP: Destructive State Variants & Error Failure Sample -->
+        <div class="border-t border-borderMid bg-panel p-2.5 shrink-0 z-10 flex space-x-4">
+          <!-- State Strip: Acknowledged Variant Specimen -->
+          <div class="flex-1 bg-app border border-borderMid rounded p-2 text-xs">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-textMuted font-mono text-[10px]">SPECIMEN A · ACKNOWLEDGED CONFIRMATION STATE</span>
+              <span class="text-[10px] text-success">Button enabled</span>
+            </div>
+            <div class="flex items-center justify-between bg-elevated px-2 py-1.5 rounded border border-borderBase">
+              <div class="flex items-center space-x-2">
+                <input type="checkbox" checked class="accent-accent w-3.5 h-3.5" readonly>
+                <span class="text-[11px] text-textPrimary">I understand this cannot be undone</span>
+              </div>
+              <div class="flex items-center space-x-1.5">
+                <span class="text-textMuted text-[11px] px-2">Cancel</span>
+                <button class="bg-danger hover:bg-red-600 text-white font-medium px-2.5 py-1 rounded text-[11px] flex items-center space-x-1 shadow-sm">
+                  <span class="material-symbols-outlined text-[13px]">delete</span>
+                  <span>Delete file</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- State Strip: Failure State Sample -->
+          <div class="flex-1 bg-app border border-borderMid rounded p-2 text-xs">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-textMuted font-mono text-[10px]">SPECIMEN B · MUTATION FAILURE (SHOWN SEPARATELY)</span>
+              <span class="text-[10px] text-danger font-mono">ERR_EACCES</span>
+            </div>
+            <div class="bg-dangerDim border border-danger/40 px-2.5 py-1.5 rounded flex items-center justify-between">
+              <div class="flex items-center space-x-2 overflow-hidden mr-2">
+                <span class="material-symbols-outlined text-danger text-[16px] shrink-0">error</span>
+                <span class="text-[11px] text-textPrimary truncate">
+                  Could not delete <code class="font-mono text-danger text-[11px]">~/work/db-pro/sql/archive/legacy_cleanup.sql</code> — permission denied
+                </span>
+              </div>
+              <div class="flex items-center space-x-1.5 shrink-0">
+                <button class="bg-elevated hover:bg-elevatedHover border border-borderStrong text-textPrimary px-2 py-0.5 rounded text-[11px]">Retry</button>
+                <button class="text-textMuted hover:text-textPrimary px-2 py-0.5 text-[11px]">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL OVERLAY: FOCUSED DESTRUCTIVE CONFIRMATION DIALOG (~480px) -->
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center z-30 p-4">
+          <div class="w-[480px] bg-elevated border border-borderStrong rounded-md shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100">
+            
+            <!-- Dialog Header -->
+            <div class="h-10 px-4 border-b border-borderMid flex items-center justify-between bg-panel shrink-0">
+              <div class="flex items-center space-x-2">
+                <span class="material-symbols-outlined text-danger text-[18px]">warning</span>
+                <span class="font-semibold text-textPrimary text-xs">Delete file?</span>
+              </div>
+              <button class="text-textMuted hover:text-textPrimary p-1 rounded" title="Close dialog (Escape)">
+                <span class="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+
+            <!-- Dialog Body -->
+            <div class="p-4 space-y-3.5 text-xs">
+              <!-- Exact Type & Exact Target Path (Readable and Copyable) -->
+              <div class="bg-app border border-borderMid rounded p-2.5 space-y-1.5">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="text-textMuted">Target item type:</span>
+                  <span class="font-mono text-textPrimary bg-elevated px-1.5 py-0.2 rounded border border-borderBase font-medium">File</span>
+                </div>
+                <div class="flex flex-col space-y-1">
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-textMuted">Exact filesystem path:</span>
+                    <button class="text-accent hover:underline text-[10px] flex items-center space-x-1 font-mono" title="Copy full target path">
+                      <span class="material-symbols-outlined text-[11px]">content_copy</span>
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                  <div class="p-1.5 bg-editor border border-borderBase rounded font-mono text-[11px] text-textPrimary break-all select-all">
+                    ~/work/db-pro/sql/archive/legacy_cleanup.sql
+                  </div>
+                </div>
+              </div>
+
+              <!-- Scope Explanatory Line -->
+              <p class="text-textSecondary text-[11px] leading-relaxed">
+                This removes this file from the local workspace. It does not run or change database SQL.
+              </p>
+
+              <!-- Explicit Safety Notice -->
+              <div class="text-[10px] text-textDim flex items-start space-x-1.5 border-t border-borderBase pt-2">
+                <span class="material-symbols-outlined text-textMuted text-[13px] shrink-0 mt-0.5">info</span>
+                <span>DB Pro executes direct local filesystem deletion. No transactional rollback or database engine undo is available.</span>
+              </div>
+
+              <!-- Checkbox Acknowledgment -->
+              <label class="flex items-center space-x-2.5 pt-1 cursor-pointer select-none">
+                <input type="checkbox" class="w-4 h-4 rounded border-borderStrong bg-app accent-accent focus:ring-1 focus:ring-accent" id="ack-checkbox">
+                <span class="text-textPrimary text-xs font-medium">I understand this cannot be undone</span>
+              </label>
+            </div>
+
+            <!-- Dialog Footer Actions -->
+            <div class="h-11 px-4 border-t border-borderMid bg-panel flex items-center justify-between shrink-0">
+              <span class="text-[10px] text-textDim font-mono">Press ESC to dismiss</span>
+              <div class="flex items-center space-x-2">
+                <button class="h-7 px-3 bg-app hover:bg-elevated border border-borderMid rounded text-textSecondary hover:text-textPrimary font-medium text-xs transition-colors">
+                  Cancel
+                </button>
+                <!-- Disabled by default until checkbox is checked -->
+                <button disabled class="h-7 px-3 bg-elevated text-textDim border border-borderBase rounded font-medium text-xs cursor-not-allowed flex items-center space-x-1.5" title="Acknowledge prompt above to enable deletion">
+                  <span class="material-symbols-outlined text-[14px]">delete</span>
+                  <span>Delete file</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+
+    <!-- PERSISTENT STATUS BAR (Height 24px) -->
+    <footer class="h-6 bg-panel border-t border-borderMid flex items-center justify-between px-3 text-[11px] text-textMuted shrink-0 font-mono">
+      <!-- Left: Engine & Workspace Status -->
+      <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-1.5">
+          <span class="w-2 h-2 rounded-full bg-success"></span>
+          <span class="text-textSecondary">Ready</span>
+        </div>
+        <span class="text-borderStrong">|</span>
+        <div>Workspace: <span class="text-textPrimary">db-pro</span></div>
+        <span class="text-borderStrong">|</span>
+        <div>Trust: <span class="text-warning">Untrusted (F1 policy)</span></div>
+        <span class="text-borderStrong">|</span>
+        <div>Active: <span class="text-textSecondary">~/work/db-pro/sql/archive/legacy_cleanup.sql</span></div>
+      </div>
+
+      <!-- Right: Safety Invariants & Encoding -->
+      <div class="flex items-center space-x-3">
+        <div class="text-textDim">FS Mutations: <span class="text-textSecondary">Explicit review required</span></div>
+        <span class="text-borderStrong">|</span>
+        <div>Encoding: <span class="text-textSecondary">UTF-8</span></div>
+        <span class="text-borderStrong">|</span>
+        <div>Line: <span class="text-textSecondary">1, Col: 1</span></div>
+      </div>
+    </footer>
+
+  </div>
+
+</body>
+</html>

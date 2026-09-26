@@ -2,6 +2,7 @@ use egui::{Align, Frame, Margin, Response, RichText, Rounding, Stroke, TextEdit,
 
 use super::config::INPUT_ROUNDING;
 use super::layout::paint_field_chrome;
+use crate::components::interact::text_input_info;
 use crate::tokens::LABEL_HELPER_GAP;
 use crate::DbProTheme;
 
@@ -85,6 +86,8 @@ impl<'a> Textarea<'a> {
 
             let edit_response = frame_output.inner;
             let frame_rect = frame_output.response.rect;
+            let info_label = self.label.unwrap_or(self.placeholder);
+            edit_response.widget_info(|| text_input_info(true, info_label));
 
             paint_field_chrome(
                 ui,

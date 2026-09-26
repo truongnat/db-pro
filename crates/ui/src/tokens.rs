@@ -1,7 +1,7 @@
 //! Design Token System for DB Pro (Native Shell).
 //!
-//! Implements the Warm Minimalism + Editorial UI + Developer Tool Aesthetic
-//! specified in `open-api-style.md`.
+//! Implements the Stitch Native Design System specification (`docs/DESIGN.md`)
+//! retrieved from Stitch project `projects/1651725598433404641`.
 //! Single source of truth for typography, spacing, radius, stroke, icons, motion, and elevations.
 
 use egui::{FontFamily, FontId, Vec2};
@@ -43,20 +43,20 @@ pub const RADIUS_XL: f32 = 16.0;
 pub const RADIUS_2XL: f32 = 24.0;
 pub const RADIUS_FULL: f32 = 999.0;
 
-// Semantic Radius Mappings
-pub const RADIUS_BUTTON: f32 = RADIUS_MD; // 8.0
-pub const RADIUS_ICON_BUTTON: f32 = RADIUS_SM; // 6.0
-pub const RADIUS_INPUT: f32 = RADIUS_MD; // 8.0
-pub const RADIUS_DROPDOWN: f32 = 10.0;
-pub const RADIUS_POPOVER: f32 = RADIUS_LG; // 12.0
-pub const RADIUS_CARD: f32 = RADIUS_LG; // 12.0
-pub const RADIUS_DIALOG: f32 = RADIUS_XL; // 16.0
-pub const RADIUS_COMPOSER: f32 = 20.0;
+// Semantic Radius Mappings (Stitch Native Spec: 4px controls/cards, 6px dialogs/popovers)
+pub const RADIUS_BUTTON: f32 = RADIUS_XS; // 4.0
+pub const RADIUS_ICON_BUTTON: f32 = RADIUS_XS; // 4.0
+pub const RADIUS_INPUT: f32 = RADIUS_XS; // 4.0
+pub const RADIUS_DROPDOWN: f32 = RADIUS_SM; // 6.0
+pub const RADIUS_POPOVER: f32 = RADIUS_SM; // 6.0
+pub const RADIUS_CARD: f32 = RADIUS_XS; // 4.0
+pub const RADIUS_DIALOG: f32 = RADIUS_SM; // 6.0
+pub const RADIUS_COMPOSER: f32 = RADIUS_SM; // 6.0
+pub const RADIUS_BADGE: f32 = RADIUS_XS; // 4.0
 pub const RADIUS_BADGE_PILL: f32 = RADIUS_FULL; // 999.0
-pub const RADIUS_TOAST: f32 = 10.0;
-pub const RADIUS_CODE_BLOCK: f32 = RADIUS_MD; // 8.0
-
-// ── 3. Typography Scale & Font Helpers ───────────────────────────────────────
+pub const RADIUS_TOAST: f32 = RADIUS_SM; // 6.0
+pub const RADIUS_CODE_BLOCK: f32 = RADIUS_XS; // 4.0
+                                              // ── 3. Typography Scale & Font Helpers ───────────────────────────────────────
 
 pub const FONT_SIZE_DISPLAY: f32 = 32.0;
 pub const FONT_SIZE_PAGE_TITLE: f32 = 24.0;

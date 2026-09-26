@@ -16,6 +16,8 @@ pub(crate) struct WorkspaceShellState {
     pub(crate) agent_width: f32,
     pub(crate) bottom_panel_open: bool,
     pub(crate) bottom_panel_height: f32,
+    pub(crate) output_dock_position: OutputDockPosition,
+    pub(crate) right_dock_width: f32,
     pub(crate) sidebar_open_before_agent: Option<bool>,
     pub(crate) pending_navigation_action: Option<PendingNavigationAction>,
     pub(crate) split_editor_secondary: Option<usize>,
@@ -33,6 +35,8 @@ impl Default for WorkspaceShellState {
             agent_width: 360.0,
             bottom_panel_open: false,
             bottom_panel_height: 180.0,
+            output_dock_position: OutputDockPosition::Bottom,
+            right_dock_width: 480.0,
             sidebar_open_before_agent: None,
             pending_navigation_action: None,
             split_editor_secondary: None,
@@ -51,6 +55,10 @@ impl WorkspaceShellState {
 
     pub(crate) fn set_bottom_panel_height(&mut self, height: f32) {
         self.bottom_panel_height = height.clamp(OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
+    }
+
+    pub(crate) fn set_right_dock_width(&mut self, width: f32) {
+        self.right_dock_width = width.clamp(240.0, 1200.0);
     }
 }
 

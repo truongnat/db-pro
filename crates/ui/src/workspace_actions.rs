@@ -431,6 +431,15 @@ impl DbProApp {
         self.workspace.agent_open = true;
     }
 
+    /// Capture helper: open the native Component Gallery in its canonical dark theme.
+    pub fn open_component_gallery_for_capture(&mut self) {
+        self.preferences.dark_mode = true;
+        self.theme = DbProTheme::dark();
+        self.gallery_state = ComponentGalleryState::default();
+        self.gallery_state.category = component_gallery_view::GalleryCategory::Badges;
+        self.workspace.active_tab = WorkspaceTab::ComponentGallery;
+    }
+
     pub(crate) fn request_close_workspace_tab(&mut self, tab: WorkspaceTab) {
         match tab {
             WorkspaceTab::Table => {
