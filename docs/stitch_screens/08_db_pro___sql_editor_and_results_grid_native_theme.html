@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=2560, initial-scale=1.0" name="viewport"/>
+<title>DB Pro Component Library — SQL Editor &amp; Results Grid</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            app: '#212121',
+            panel: '#2A2A2A',
+            editor: '#181818',
+            surfaceElevated: '#303030',
+            borderDefault: '#414141',
+            borderSubtle: '#333333',
+            textPrimary: '#ECECEC',
+            textMuted: '#8D8D8D',
+            textDim: '#5A5A5A',
+            accent: '#339CFF',
+            accentMuted: '#1E3A5F',
+            success: '#22C55E',
+            danger: '#EF4444',
+            warning: '#F59E0B',
+            // Syntax tokens
+            synKeyword: '#C792EA',
+            synFunc: '#82AAFF',
+            synString: '#C3E88D',
+            synConst: '#F78C6C',
+            synComment: '#676E95',
+            synIdent: '#EEFFFF',
+            synPunct: '#89DDFF',
+            synType: '#FFCB6B',
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #131313;
+      color: #ECECEC;
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      width: 2560px;
+      min-height: 2048px;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #181818;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #3A3A3A;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #4F4F4F;
+    }
+    .diag-error {
+      text-decoration: underline wavy #EF4444;
+      text-underline-offset: 3px;
+    }
+    .diag-warning {
+      text-decoration: underline wavy #F59E0B;
+      text-underline-offset: 3px;
+    }
+    .grid-cell {
+      height: 28px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      border-bottom: 1px solid #333333;
+      border-right: 1px solid #333333;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+  </style>
+</head>
+<body class="p-6 bg-[#212121] text-textPrimary select-none text-[12px] leading-tight font-sans antialiased"></body>
+</html>

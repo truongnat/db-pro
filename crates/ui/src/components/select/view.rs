@@ -3,7 +3,7 @@ use lucide_icons::Icon;
 use std::borrow::Cow;
 
 use crate::components::animation::{hover_t, lerp_color};
-use crate::components::interact::{paint_focus_ring, text_input_info};
+use crate::components::interact::{combo_box_info, paint_focus_ring};
 use crate::components::overlay::{floating_surface, screen_rect};
 use crate::DbProTheme;
 
@@ -64,7 +64,9 @@ impl<'a> Select<'a> {
     pub fn show(self, ui: &mut Ui) -> Response {
         let width = self.width.unwrap_or_else(|| ui.available_width());
 
-        ui.vertical(|ui| {
+        ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+            ui.set_width(width);
+            ui.set_max_width(width);
             if let Some(ref lbl) = self.label {
                 ui.label(
                     RichText::new(lbl.as_ref())
@@ -91,24 +93,36 @@ impl<'a> Select<'a> {
                 ..Default::default()
             }
             .show(ui, |ui| {
-                ui.set_min_width((width - 20.0).max(80.0));
+                let content_width = (width - 20.0).min(ui.available_width()).max(80.0);
+                ui.set_width(content_width);
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new(current_text).size(13.0).color(self.theme.text_primary));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let icon = if is_open { Icon::ChevronUp } else { Icon::ChevronDown };
-                        ui.label(
-                            RichText::new(char::from(icon).to_string())
-                                .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
-                                .color(self.theme.text_muted),
-                        );
-                    });
+                    let icon = if is_open { Icon::ChevronUp } else { Icon::ChevronDown };
+                    let text_width = (ui.available_width() - 22.0).max(32.0);
+                    ui.add_sized(
+                        [text_width, 18.0],
+                        egui::Label::new(RichText::new(current_text).size(13.0).color(self.theme.text_primary))
+                            .truncate(),
+                    )
+                    .on_hover_text(current_text);
+                    ui.label(
+                        RichText::new(char::from(icon).to_string())
+                            .font(FontId::new(13.0, FontFamily::Name("lucide".into())))
+                            .color(self.theme.text_muted),
+                    );
                 });
             })
             .response;
 
             let response = trigger_btn.interact(Sense::click());
-            response.widget_info(|| text_input_info(true, current_text));
-            if response.clicked() {
+            let info_label = self
+                .label
+                .as_deref()
+                .map(|label| format!("{label}: {current_text}"))
+                .unwrap_or_else(|| current_text.to_owned());
+            response.widget_info(|| combo_box_info(true, &info_label));
+            let keyboard_open = response.has_focus()
+                && ui.input(|input| input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::Space));
+            if response.clicked() || keyboard_open {
                 ui.memory_mut(|mem| mem.toggle_popup(popup_id));
             }
 

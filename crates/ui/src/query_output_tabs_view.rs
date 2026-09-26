@@ -9,9 +9,10 @@ pub(super) struct QueryOutputTabsContext<'a> {
     pub(super) session: &'a QuerySessionState,
     pub(super) editor: &'a mut QueryEditorState,
     pub(super) bottom_panel_open: &'a mut bool,
+    pub(super) dock_position: Option<&'a mut OutputDockPosition>,
 }
 
-/// Output tab strip. When `dock_chrome` is true, close/maximize sit on the same row.
+/// Output tab strip. When `dock_chrome` is true, close/maximize and dock position toggle sit on the same row.
 pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mut egui::Ui, dock_chrome: bool) {
     ui.add_space(SPACE_XS);
     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -46,6 +47,26 @@ pub(super) fn draw_output_tabs(context: &mut QueryOutputTabsContext<'_>, ui: &mu
                 .clicked()
             {
                 context.editor.query_output_dock_maximized = !context.editor.query_output_dock_maximized;
+            }
+            if let Some(pos) = context.dock_position.as_deref_mut() {
+                let (toggle_tip, toggle_icon) = match *pos {
+                    OutputDockPosition::Bottom => ("Dock to right", Icon::PanelRight),
+                    OutputDockPosition::Right => ("Dock to bottom", Icon::PanelBottom),
+                };
+                if Button::new(context.theme)
+                    .icon(toggle_icon)
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::IconSm)
+                    .tooltip(toggle_tip)
+                    .show(ui)
+                    .clicked()
+                {
+                    *pos = match *pos {
+                        OutputDockPosition::Bottom => OutputDockPosition::Right,
+                        OutputDockPosition::Right => OutputDockPosition::Bottom,
+                    };
+                    context.editor.query_output_dock_maximized = false;
+                }
             }
         }
         if let Some(request_id) = context.session.active_explain_request() {

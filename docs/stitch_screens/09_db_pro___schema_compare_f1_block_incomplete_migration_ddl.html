@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DB Pro — Schema Compare (F1 Block Incomplete Migration DDL)</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-tint": "#a1c9ff",
+            "outline": "#8a919e",
+            "primary-container": "#339cff",
+            "surface-container": "#202020",
+            "on-tertiary-fixed": "#1c1b1b",
+            "error-container": "#93000a",
+            "secondary": "#c8c6c5",
+            "error": "#ffb4ab",
+            "secondary-fixed": "#e4e2e1",
+            "on-primary-fixed-variant": "#004880",
+            "secondary-fixed-dim": "#c8c6c5",
+            "primary-fixed": "#d3e4ff",
+            "surface-container-low": "#1b1c1c",
+            "on-tertiary-fixed-variant": "#474746",
+            "on-surface": "#e5e2e1",
+            "on-background": "#e5e2e1",
+            "surface-bright": "#393939",
+            "on-secondary": "#303030",
+            "surface": "#131313",
+            "on-secondary-fixed": "#1b1c1c",
+            "tertiary": "#c8c6c5",
+            "primary": "#a1c9ff",
+            "tertiary-container": "#9a9898",
+            "on-secondary-fixed-variant": "#474746",
+            "secondary-container": "#474746",
+            "on-secondary-container": "#b6b5b4",
+            "surface-container-highest": "#353535",
+            "primary-fixed-dim": "#a1c9ff",
+            "on-tertiary-container": "#313131",
+            "outline-variant": "#404752",
+            "on-error": "#690005",
+            "surface-variant": "#353535",
+            "inverse-surface": "#e5e2e1",
+            "tertiary-fixed": "#e5e2e1",
+            "on-primary": "#00325b",
+            "on-primary-fixed": "#001c38",
+            "on-surface-variant": "#c0c7d5",
+            "tertiary-fixed-dim": "#c8c6c5",
+            "on-primary-container": "#00325b",
+            "inverse-on-surface": "#303030",
+            "surface-container-lowest": "#0e0e0e",
+            "surface-container-high": "#2a2a2a",
+            "background": "#131313",
+            "surface-dim": "#131313",
+            "inverse-primary": "#0060a8",
+            "on-error-container": "#ffdad6",
+            "on-tertiary": "#313030"
+          },
+          borderRadius: {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          spacing: {
+            "space-lg": "1rem",
+            "space-xl": "1.25rem",
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem",
+            "margin": "0.75rem",
+            "space-md": "0.75rem",
+            "gutter": "0.75rem"
+          },
+          fontFamily: {
+            "caption": ["Inter"],
+            "label": ["Inter"],
+            "code-small": ["JetBrains Mono"],
+            "code": ["JetBrains Mono"],
+            "body-strong": ["Inter"],
+            "body": ["Inter"],
+            "title": ["Inter"],
+            "display": ["Inter"],
+            "heading": ["Inter"]
+          },
+          fontSize: {
+            "caption": ["11px", { lineHeight: "16px", fontWeight: "400" }],
+            "label": ["12px", { lineHeight: "16px", fontWeight: "500" }],
+            "code-small": ["11px", { lineHeight: "16px", fontWeight: "400" }],
+            "code": ["12px", { lineHeight: "20px", fontWeight: "400" }],
+            "body-strong": ["13px", { lineHeight: "20px", fontWeight: "600" }],
+            "body": ["13px", { lineHeight: "20px", fontWeight: "400" }],
+            "title": ["18px", { lineHeight: "24px", fontWeight: "600" }],
+            "display": ["24px", { lineHeight: "32px", fontWeight: "600" }],
+            "heading": ["14px", { lineHeight: "20px", fontWeight: "600" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 16px;
+      line-height: 1;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    /* Custom scrollbar for dense workstation view */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1b1c1c;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #404752;
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #8a919e;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface antialiased select-none overflow-hidden h-screen flex flex-col font-body text-body">
+<!-- 1. Window Chrome & Global Header (36px) -->
+<header class="h-9 w-full bg-surface-container-high border-b border-outline-variant flex items-center justify-between px-3 shrink-0">
+<div class="flex items-center gap-2">
+<!-- Native macOS Window Controls -->
+<div class="flex items-center gap-1.5 mr-2">
+<span class="w-3 h-3 rounded-full bg-error-container block opacity-80 hover:opacity-100"></span>
+<span class="w-3 h-3 rounded-full bg-surface-bright block opacity-80 hover:opacity-100"></span>
+<span class="w-3 h-3 rounded-full bg-secondary block opacity-80 hover:opacity-100"></span>
+</div>
+<!-- Brand & Activity Breadcrumb -->
+<div class="flex items-center gap-1.5 font-label text-label">
+<span class="font-heading text-heading tracking-tight text-on-surface">DB Pro</span>
+<span class="text-outline">/</span>
+<span class="text-secondary font-body text-body">native workstation</span>
+<span class="text-outline">/</span>
+<span class="text-primary font-body-strong text-body-strong">Schema Compare</span>
+</div>
+<!-- Spec & Safety invariant badge -->
+<div class="ml-2 px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span class="font-caption text-caption text-primary">F1 Target State (Safety Invariant)</span>
+</div>
+</div>
+<!-- Center/Right: Active Connection Badge & Settings -->
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-container-low border border-outline-variant font-code-small text-code-small">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span class="text-on-surface font-medium">staging-pg</span>
+<span class="text-outline">·</span>
+<span class="text-secondary">PostgreSQL</span>
+</div>
+<div class="flex items-center gap-1 text-secondary">
+<button class="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-variant text-secondary hover:text-on-surface">
+<span class="material-symbols-outlined">terminal</span>
+</button>
+<button class="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-variant text-secondary hover:text-on-surface">
+<span class="material-symbols-outlined">keyboard</span>
+</button>
+<button class="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-variant text-secondary hover:text-on-surface">
+<span class="material-symbols-outlined">tune</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Secondary Tab Bar (28px) -->
+<div class="h-7 w-full bg-surface-container-low border-b border-outline-variant flex items-center justify-between px-2 shrink-0">
+<div class="flex items-center h-full">
+<!-- Inactive tab -->
+<div class="h-full px-3 flex items-center gap-2 border-r border-outline-variant text-secondary hover:text-on-surface hover:bg-surface-variant/40 cursor-pointer font-label text-label">
+<span class="material-symbols-outlined text-outline">table_view</span>
+<span>users</span>
+<span class="material-symbols-outlined text-outline text-[12px] hover:text-on-surface">close</span>
+</div>
+<!-- Active tab -->
+<div class="h-full px-3 flex items-center gap-2 border-r border-outline-variant bg-surface text-primary border-t-2 border-t-primary-container font-label text-label">
+<span class="material-symbols-outlined text-primary">account_tree</span>
+<span class="font-medium text-on-surface">Schema Compare</span>
+<span class="w-1.5 h-1.5 rounded-full bg-error-container"></span>
+<span class="material-symbols-outlined text-outline text-[12px] hover:text-on-surface ml-1 cursor-pointer">close</span>
+</div>
+</div>
+<!-- Tab Trailing Action -->
+<div class="flex items-center gap-2 pr-1">
+<button class="h-5 px-2 rounded bg-surface-container border border-outline-variant font-caption text-caption text-secondary hover:text-on-surface hover:bg-surface-variant flex items-center gap-1">
+<span>Close comparison</span>
+<span class="font-code-small text-outline">⌘W</span>
+</button>
+</div>
+</div>
+<!-- Main Workstation Layout: Rail + Left Sidebar + Main Panes -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Activity Icon Rail (44px) -->
+<div class="w-11 bg-surface-container-low border-r border-outline-variant flex flex-col justify-between py-2 items-center shrink-0">
+<div class="flex flex-col gap-2 items-center">
+<button class="w-8 h-8 rounded flex items-center justify-center text-secondary hover:bg-surface-variant hover:text-on-surface" title="Explorer">
+<span class="material-symbols-outlined">folder</span>
+</button>
+<button class="w-8 h-8 rounded flex items-center justify-center text-secondary hover:bg-surface-variant hover:text-on-surface" title="Query Console">
+<span class="material-symbols-outlined">code</span>
+</button>
+<button class="w-8 h-8 rounded flex items-center justify-center bg-secondary-container text-primary border-l-2 border-primary" title="Schema Compare">
+<span class="material-symbols-outlined">account_tree</span>
+</button>
+<button class="w-8 h-8 rounded flex items-center justify-center text-secondary hover:bg-surface-variant hover:text-on-surface" title="Data Grids">
+<span class="material-symbols-outlined">table_view</span>
+</button>
+<button class="w-8 h-8 rounded flex items-center justify-center text-secondary hover:bg-surface-variant hover:text-on-surface" title="History">
+<span class="material-symbols-outlined">history</span>
+</button>
+</div>
+<div class="flex flex-col gap-2 items-center">
+<button class="w-8 h-8 rounded flex items-center justify-center text-secondary hover:bg-surface-variant hover:text-on-surface" title="Shortcuts">
+<span class="material-symbols-outlined">keyboard</span>
+</button>
+<button class="w-8 h-8 rounded flex items-center justify-center text-secondary hover:bg-surface-variant hover:text-on-surface" title="Terminal">
+<span class="material-symbols-outlined">terminal</span>
+</button>
+<button class="w-8 h-8 rounded flex items-center justify-center text-secondary hover:bg-surface-variant hover:text-on-surface" title="Settings">
+<span class="material-symbols-outlined">tune</span>
+</button>
+</div>
+</div>
+<!-- Sidebar Sub-Panel: SCHEMA COMPARE (240px) -->
+<aside class="w-60 bg-surface-container-high border-r border-outline-variant flex flex-col justify-between shrink-0 select-none overflow-y-auto">
+<div>
+<!-- Sidebar Panel Header -->
+<div class="h-8 px-3 border-b border-outline-variant flex items-center justify-between bg-surface-container-low">
+<span class="font-heading text-caption uppercase tracking-wider text-outline">Schema Compare</span>
+<span class="material-symbols-outlined text-outline cursor-pointer hover:text-on-surface">tune</span>
+</div>
+<!-- Snapshot & Analysis Metadata -->
+<div class="p-3 border-b border-outline-variant flex flex-col gap-3 font-caption text-caption">
+<div>
+<div class="text-outline uppercase text-[10px] tracking-wider mb-1">Origin Snapshot</div>
+<div class="font-code-small text-code-small text-on-surface font-medium">prod-pg</div>
+<div class="text-secondary font-code-small">app_db.public</div>
+<div class="text-outline mt-0.5">Captured: 2026-09-24 14:02:11</div>
+</div>
+<div>
+<div class="text-outline uppercase text-[10px] tracking-wider mb-1">Diff Analysis</div>
+<div class="flex items-center gap-2">
+<span class="px-1.5 py-0.5 rounded bg-surface-variant border border-outline-variant font-code-small text-on-surface">2 diffs</span>
+<span class="text-secondary">structural differences</span>
+</div>
+</div>
+<div>
+<div class="text-outline uppercase text-[10px] tracking-wider mb-1">Migration Plan</div>
+<div class="flex items-center gap-1.5 text-error">
+<span class="material-symbols-outlined text-[14px]">lock</span>
+<span class="font-medium">Draft (Target mismatch)</span>
+</div>
+</div>
+</div>
+<!-- Target Binding Inspector -->
+<div class="p-3 bg-surface-container-low border-b border-outline-variant flex flex-col gap-2">
+<div class="font-heading text-caption uppercase tracking-wider text-outline flex items-center justify-between">
+<span>Target Binding</span>
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+</div>
+<div class="space-y-1.5 font-caption text-caption">
+<div>
+<span class="text-outline block text-[10px]">RECORDED PLAN TARGET</span>
+<span class="font-code-small text-code-small text-secondary">prod-pg / app_db / public</span>
+</div>
+<div>
+<span class="text-outline block text-[10px]">ACTIVE SESSION TARGET</span>
+<span class="font-code-small text-code-small text-primary">staging-pg / app_db / public</span>
+</div>
+</div>
+<div class="mt-1 p-1.5 rounded bg-error-container/20 border border-error-container text-error font-caption text-caption flex items-start gap-1.5">
+<span class="material-symbols-outlined text-[14px] shrink-0 mt-0.5">warning</span>
+<span>MISMATCH: Plan cannot execute against divergent target.</span>
+</div>
+</div>
+</div>
+<!-- Sidebar Footer Action -->
+<div class="p-2 border-t border-outline-variant bg-surface-container-low">
+<button class="w-full h-7 rounded bg-surface-container border border-outline-variant text-on-surface hover:bg-surface-variant font-label text-label flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-[14px]">refresh</span>
+<span>Re-inspect Both Catalogs</span>
+</button>
+</div>
+</aside>
+<!-- Center Workstation: Schema Compare Workbench -->
+<div class="flex-1 flex flex-col min-w-0 bg-surface">
+<!-- 2. Schema Compare Header & Safety Direction Banner -->
+<section class="border-b border-outline-variant bg-surface-container-high p-3 flex flex-col gap-2.5 shrink-0">
+<!-- Direction Row: Origin -> Target -->
+<div class="flex items-center justify-between flex-wrap gap-2">
+<div class="flex items-center gap-3">
+<!-- Origin Box -->
+<div class="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-container border border-outline-variant">
+<span class="font-caption text-caption uppercase text-outline">Origin:</span>
+<span class="font-code text-code text-on-surface font-medium">prod-pg / app_db / public</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-container-highest font-code-small text-code-small text-secondary">PostgreSQL</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-bright font-caption text-caption text-on-surface-variant">Immutable reference</span>
+</div>
+<!-- Directional Vector Arrow -->
+<div class="flex items-center text-primary">
+<span class="material-symbols-outlined">arrow_forward</span>
+</div>
+<!-- Target Box -->
+<div class="flex items-center gap-2 px-2.5 py-1 rounded bg-surface-container border border-primary-container">
+<span class="font-caption text-caption uppercase text-primary">Target:</span>
+<span class="font-code text-code text-on-surface font-medium">staging-pg / app_db / public</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-container-highest font-code-small text-code-small text-secondary">PostgreSQL</span>
+<span class="px-1.5 py-0.2 rounded bg-primary-container text-on-primary font-caption text-caption font-medium">Target</span>
+</div>
+</div>
+<!-- Explicit invariant statement -->
+<div class="font-caption text-caption text-secondary flex items-center gap-1.5 bg-surface-container-low px-2 py-1 rounded border border-outline-variant">
+<span class="material-symbols-outlined text-outline">info</span>
+<span>Target would be changed to match the captured Origin snapshot.</span>
+</div>
+</div>
+<!-- Mismatch & Blocker Notification Bar -->
+<div class="rounded p-2.5 bg-error-container/20 border border-error-container flex items-center justify-between gap-4">
+<div class="flex items-start gap-2.5 min-w-0">
+<span class="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">error</span>
+<div class="min-w-0">
+<div class="font-body-strong text-body-strong text-error flex items-center gap-2">
+<span>2 operations blocked · Target mismatch detected</span>
+<span class="font-caption text-caption px-1.5 rounded bg-error-container text-on-error font-medium">SAFETY LOCK F1</span>
+</div>
+<p class="font-caption text-caption text-secondary mt-0.5 leading-normal">
+                Recorded plan target was <span class="font-code text-code text-on-surface font-medium">prod-pg</span>, but active session target is <span class="font-code text-code text-primary font-medium">staging-pg</span> (Target changed since preview). In addition, 2 migration DDL statements contain incomplete definitions.
+              </p>
+</div>
+</div>
+<!-- Dual Resolution Actions -->
+<div class="flex items-center gap-2 shrink-0">
+<button class="h-7 px-2.5 rounded border border-primary text-primary hover:bg-primary/10 font-label text-label flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[14px]">sync_problem</span>
+<span>Re-diff for staging-pg</span>
+</button>
+<button class="h-7 px-2.5 rounded bg-surface-container border border-outline-variant text-on-surface hover:bg-surface-variant font-label text-label flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[14px]">swap_horiz</span>
+<span>Switch to prod-pg</span>
+</button>
+</div>
+</div>
+</section>
+<!-- 4. Main Workbench Split (2 Panes: Left 380px, Right Remaining) -->
+<div class="flex-1 flex min-h-0">
+<!-- Left Pane: STRUCTURAL DIFF (380px) -->
+<section class="w-[380px] border-r border-outline-variant flex flex-col bg-surface-container-low shrink-0">
+<!-- Pane Header & Filter Bar -->
+<div class="p-2 border-b border-outline-variant flex flex-col gap-2 bg-surface-container-high">
+<div class="flex items-center justify-between">
+<span class="font-heading text-caption uppercase tracking-wider text-outline">Structural Diff</span>
+<div class="flex items-center gap-1 font-caption text-caption">
+<span class="px-1.5 py-0.2 rounded bg-surface-bright text-on-surface border border-outline-variant font-code-small">1 Added</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-bright text-on-surface border border-outline-variant font-code-small">1 Changed</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-container text-outline border border-outline-variant font-code-small">0 Removed</span>
+</div>
+</div>
+<!-- Search / Filter Input (28px) -->
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2 top-1.5 text-outline text-[16px]">filter_list</span>
+<input class="w-full h-7 pl-7 pr-2 rounded bg-surface border border-outline-variant text-on-surface font-body text-caption placeholder-outline focus:outline-none focus:border-primary" placeholder="Filter diff objects..." type="text"/>
+</div>
+</div>
+<!-- Diff Objects Tree / List -->
+<div class="flex-1 overflow-y-auto divide-y divide-outline-variant/40">
+<!-- Item 1: audit_log (Selected) -->
+<div class="p-2.5 bg-surface-container border-l-2 border-l-error cursor-pointer">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="font-code-small text-code-small font-semibold text-primary-container">+</span>
+<span class="material-symbols-outlined text-outline text-[16px]">table</span>
+<span class="font-code text-code text-on-surface font-semibold">audit_log</span>
+<span class="text-outline font-caption text-caption">(Table)</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-error-container text-on-error font-caption text-caption font-medium">Blocked</span>
+</div>
+<div class="mt-1 text-secondary font-caption text-caption pl-4">
+                Incomplete schema in snapshot · Column metrics absent
+              </div>
+</div>
+<!-- Item 2: users (Modified) -->
+<div class="p-2.5 hover:bg-surface-container/60 cursor-pointer">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="font-code-small text-code-small font-semibold text-secondary">~</span>
+<span class="material-symbols-outlined text-outline text-[16px]">table</span>
+<span class="font-code text-code text-on-surface font-semibold">users</span>
+<span class="text-outline font-caption text-caption">(Table)</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-surface-variant text-secondary border border-outline-variant font-caption text-caption">Blocked</span>
+</div>
+<div class="mt-1 text-secondary font-caption text-caption pl-4 flex items-center gap-1.5">
+<span>Modified columns:</span>
+<span class="font-code-small text-code-small text-primary">+ email</span>
+</div>
+</div>
+</div>
+<!-- Selected Item Detail Note -->
+<div class="p-3 bg-surface-container border-t border-outline-variant">
+<div class="font-label text-label text-on-surface flex items-center gap-1.5 mb-1">
+<span class="material-symbols-outlined text-outline text-[14px]">info</span>
+<span>Diff Diagnostic Note</span>
+</div>
+<p class="font-caption text-caption text-secondary leading-relaxed">
+              Snapshot metadata is insufficient to generate complete columns and constraints. Live provider validation is required before DDL can be drafted.
+            </p>
+</div>
+</section>
+<!-- Right Pane: MIGRATION PLAN & DDL PREVIEW -->
+<section class="flex-1 flex flex-col min-w-0 bg-surface">
+<!-- Top Action Bar (36px) -->
+<div class="h-9 px-3 border-b border-outline-variant bg-surface-container-high flex items-center justify-between shrink-0">
+<div class="flex items-center gap-2">
+<span class="font-heading text-label text-on-surface">Planned Migration DDL</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-container-lowest text-outline font-code-small text-code-small border border-outline-variant">2 operations</span>
+</div>
+<div class="flex items-center gap-3">
+<!-- Destructive Safeguard (Disabled Checkbox) -->
+<label class="flex items-center gap-1.5 font-caption text-caption text-outline cursor-not-allowed opacity-75">
+<input class="rounded bg-surface-container border-outline-variant text-outline cursor-not-allowed w-3.5 h-3.5" disabled="" type="checkbox"/>
+<span>Allow destructive operations (insufficient to permit apply)</span>
+</label>
+<!-- Apply Migration Button (Heavily Disabled) -->
+<div class="relative group">
+<button class="h-7 px-3 rounded bg-surface-container-highest text-outline font-label text-label border border-outline-variant cursor-not-allowed flex items-center gap-1.5 opacity-50" disabled="">
+<span class="material-symbols-outlined text-[14px]">lock</span>
+<span>Apply migration</span>
+</button>
+<!-- Tooltip Reason -->
+<div class="absolute right-0 top-8 w-64 p-2 rounded bg-surface-container-highest border border-outline-variant font-caption text-caption text-on-surface shadow-lg hidden group-hover:block z-20">
+                  Re-diff for the selected target and resolve incomplete DDL first.
+                </div>
+</div>
+</div>
+</div>
+<!-- DDL Preview Workstation (Editor Surface) -->
+<div class="flex-1 overflow-y-auto p-3 space-y-4 bg-[#181818] font-code text-code">
+<!-- Operation 1 Card -->
+<div class="rounded border border-outline-variant bg-surface-container-low overflow-hidden">
+<div class="h-8 px-3 bg-surface-container flex items-center justify-between border-b border-outline-variant">
+<div class="flex items-center gap-2">
+<span class="text-outline font-caption text-caption">01</span>
+<span class="font-code text-code text-on-surface font-medium">CREATE TABLE audit_log</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="px-2 py-0.5 rounded bg-error-container/30 border border-error-container text-error font-caption text-caption flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">block</span>
+<span>Blocked · Incomplete definition</span>
+</span>
+</div>
+</div>
+<!-- SQL Code View with Gutter -->
+<div class="p-3 bg-[#181818] font-code text-code overflow-x-auto flex">
+<!-- Line Numbers -->
+<div class="pr-3 text-outline select-none text-right font-code-small text-code-small leading-5 opacity-40">
+                  1<br/>2<br/>3<br/>4<br/>5<br/>6
+                </div>
+<!-- Code Area -->
+<pre class="leading-5 text-secondary min-w-0"><code><span class="text-outline">-- Placeholder DDL — blocked: incomplete definition</span>
+<span class="text-outline">-- Origin snapshot lacks full column definitions and index metadata</span>
+<span class="text-primary-container font-semibold">CREATE TABLE</span> <span class="text-on-surface">audit_log</span> (
+    <span class="text-on-surface">id</span> <span class="text-primary-fixed">INTEGER</span> <span class="text-primary-container font-semibold">PRIMARY KEY</span>
+    <span class="text-error font-body italic text-caption">/* INCOMPLETE: 4 columns omitted due to partial snapshot metadata */</span>
+);</code></pre>
+</div>
+<!-- Diagnostic Inline Notice -->
+<div class="px-3 py-2 bg-error-container/10 border-t border-error-container/30 flex items-center gap-2 font-caption text-caption text-error">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+<span>Snapshot metadata is insufficient to generate complete columns/types. Provider validation required.</span>
+</div>
+</div>
+<!-- Operation 2 Card -->
+<div class="rounded border border-outline-variant bg-surface-container-low overflow-hidden">
+<div class="h-8 px-3 bg-surface-container flex items-center justify-between border-b border-outline-variant">
+<div class="flex items-center gap-2">
+<span class="text-outline font-caption text-caption">02</span>
+<span class="font-code text-code text-on-surface font-medium">ALTER TABLE users ADD COLUMN email</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="px-2 py-0.5 rounded bg-surface-variant text-secondary border border-outline-variant font-caption text-caption flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">tune</span>
+<span>Blocked · Placeholder type</span>
+</span>
+</div>
+</div>
+<!-- SQL Code View with Gutter -->
+<div class="p-3 bg-[#181818] font-code text-code overflow-x-auto flex">
+<!-- Line Numbers -->
+<div class="pr-3 text-outline select-none text-right font-code-small text-code-small leading-5 opacity-40">
+                  1<br/>2<br/>3
+                </div>
+<!-- Code Area -->
+<pre class="leading-5 text-secondary min-w-0"><code><span class="text-outline">-- Placeholder DDL — blocked: placeholder type</span>
+<span class="text-outline">-- Data type 'TEXT' inferred without collation or nullability constraint</span>
+<span class="text-primary-container font-semibold">ALTER TABLE</span> <span class="text-on-surface">users</span> <span class="text-primary-container font-semibold">ADD COLUMN</span> <span class="text-on-surface">email</span> <span class="text-primary-fixed">TEXT</span>;</code></pre>
+</div>
+<!-- Diagnostic Inline Notice -->
+<div class="px-3 py-2 bg-surface-variant/30 border-t border-outline-variant flex items-center gap-2 font-caption text-caption text-secondary">
+<span class="material-symbols-outlined text-outline text-[14px]">info</span>
+<span>Data type requires target provider dialect verification. Automatic conversion rejected.</span>
+</div>
+</div>
+</div>
+<!-- 5. Diagnostic State Matrix Specimen Strip -->
+<div class="border-t border-outline-variant bg-surface-container-high p-2.5 shrink-0">
+<div class="flex items-center justify-between mb-2">
+<span class="font-heading text-caption uppercase tracking-wider text-outline">Introspection &amp; Lifecycle Diagnostics</span>
+<span class="font-caption text-caption text-outline">Simulation Matrix (Read-only specimens)</span>
+</div>
+<div class="grid grid-cols-3 gap-2">
+<!-- State A: Re-introspecting -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant flex flex-col gap-1">
+<div class="flex items-center justify-between font-label text-caption text-primary">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined animate-spin text-[12px]">progress_activity</span>
+<span>State A: Introspecting</span>
+</span>
+<span class="text-outline font-code-small">running</span>
+</div>
+<div class="font-caption text-caption text-secondary leading-snug">
+                  Fetching catalog schema for staging-pg...
+                </div>
+<div class="w-full bg-surface-container-lowest h-1 rounded overflow-hidden mt-1">
+<div class="bg-primary h-full w-2/3"></div>
+</div>
+</div>
+<!-- State B: Introspection Failed -->
+<div class="p-2 rounded bg-surface-container border border-error-container flex flex-col gap-1">
+<div class="flex items-center justify-between font-label text-caption text-error">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">error</span>
+<span>State B: Failed</span>
+</span>
+<button class="font-code-small text-error hover:underline">Retry</button>
+</div>
+<div class="font-caption text-caption text-secondary leading-snug">
+                  Could not verify target schema. Apply remains blocked.
+                </div>
+</div>
+<!-- State C: Zero Changes State -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant flex flex-col gap-1 opacity-70">
+<div class="flex items-center justify-between font-label text-caption text-secondary">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">check_circle</span>
+<span>State C: Specimen Sync</span>
+</span>
+<span class="text-outline font-code-small">idle</span>
+</div>
+<div class="font-caption text-caption text-outline leading-snug">
+                  Schemas in sync · 0 operations needed (hypothetical reference).
+                </div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+<!-- 6. Persistent Native Status Bar (24px) -->
+<footer class="h-6 w-full bg-surface-container-lowest border-t border-outline-variant flex items-center justify-between px-3 shrink-0 font-code-small text-code-small select-none text-secondary">
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span class="text-on-surface">Ready</span>
+</div>
+<span class="text-outline-variant">|</span>
+<div class="flex items-center gap-1">
+<span class="text-outline">Active Target:</span>
+<span class="text-on-surface font-medium">staging-pg</span>
+<span class="text-outline">(app_db / public)</span>
+</div>
+<span class="text-outline-variant">|</span>
+<div class="flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[13px]">shield</span>
+<span>F1 Target Protection: ACTIVE (Execution barred on mismatch)</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1 text-error">
+<span class="text-outline">Plan Binding:</span>
+<span class="font-medium">prod-pg (MISMATCH)</span>
+</div>
+<span class="text-outline-variant">|</span>
+<div class="flex items-center gap-1 text-outline">
+<span>Auto-apply:</span>
+<span class="text-secondary font-medium">DISABLED (Strict)</span>
+</div>
+<span class="text-outline-variant">|</span>
+<span class="text-outline">UTF-8</span>
+</div>
+</footer>
+</body></html>

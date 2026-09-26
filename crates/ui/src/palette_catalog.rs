@@ -238,7 +238,7 @@ fn workspace_analysis_items() -> Vec<PaletteItem> {
         catalog_item(
             Icon::Palette,
             "Open Component Gallery",
-            "Preview DB Pro common UI design system",
+            "Browse DB Pro workstation primitives",
             None,
             PaletteAction::ComponentGallery,
         ),

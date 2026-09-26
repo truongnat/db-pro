@@ -1,4 +1,4 @@
-use crate::tokens::{SPACE_MD, SPACE_SM, SPACE_XXS};
+use crate::tokens::{CARD_INNER_PAD, RADIUS_CARD, SPACE_MD, SPACE_SM, SPACE_XXS};
 use crate::DbProTheme;
 use egui::{FontFamily, FontId, Frame, Margin, Pos2, RichText, Rounding, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
@@ -16,14 +16,9 @@ impl Card {
         Frame {
             fill: self.theme.surface_elevated,
             stroke: Stroke::new(1.0, self.theme.border_subtle),
-            inner_margin: Margin::same(16.0),
-            rounding: Rounding::same(8.0),
-            shadow: egui::epaint::Shadow {
-                offset: egui::vec2(0.0, 2.0),
-                blur: 8.0,
-                spread: 0.0,
-                color: egui::Color32::from_black_alpha(10),
-            },
+            inner_margin: Margin::same(CARD_INNER_PAD),
+            rounding: Rounding::same(RADIUS_CARD),
+            shadow: Default::default(),
             ..Default::default()
         }
     }

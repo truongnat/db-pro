@@ -89,6 +89,7 @@ impl<'a> PasswordInput<'a> {
                             .color(self.theme.text_secondary),
                     );
                     if self.required {
+                        ui.add_space(LABEL_HELPER_GAP);
                         ui.label(RichText::new("*").size(12.0).strong().color(self.theme.danger));
                     }
                 });
@@ -134,12 +135,17 @@ impl<'a> PasswordInput<'a> {
                     );
 
                     let eye_icon = if *self.show_password { Icon::EyeOff } else { Icon::Eye };
+                    let eye_label = if *self.show_password {
+                        "Hide password"
+                    } else {
+                        "Show password"
+                    };
                     if Button::new(self.theme)
                         .icon(eye_icon)
                         .size(ButtonSize::IconSm)
                         .variant(ButtonVariant::Ghost)
-                        .focusable(false)
-                        .tooltip(if *self.show_password { "Hide" } else { "Show" })
+                        .access_label(eye_label)
+                        .tooltip(eye_label)
                         .show(ui)
                         .clicked()
                     {
@@ -153,8 +159,15 @@ impl<'a> PasswordInput<'a> {
 
             let edit_response = frame_output.inner;
             let frame_rect = frame_output.response.rect;
-            let info_label = self.label.as_deref().unwrap_or("Password");
-            edit_response.widget_info(|| text_input_info(true, info_label));
+            let mut info_label = self.label.as_deref().unwrap_or("Password").to_string();
+            if self.required {
+                info_label.push_str(", required");
+            }
+            if let Some(error) = self.error_text.as_deref() {
+                info_label.push_str(". Error: ");
+                info_label.push_str(error);
+            }
+            edit_response.widget_info(|| text_input_info(true, &info_label));
 
             // NOTE: do NOT register `frame.interact(Sense::click())` here. That call lands on
             // top of the children added inside the frame (the `TextEdit` and the eye button),

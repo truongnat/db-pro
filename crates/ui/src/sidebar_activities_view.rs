@@ -160,8 +160,20 @@ impl DbProApp {
     fn apply_sidebar_query_library_action(&mut self, ui: &mut egui::Ui, action: SidebarQueryLibraryAction) {
         match action {
             SidebarQueryLibraryAction::NewQuery => self.new_query_document(),
-            SidebarQueryLibraryAction::OpenQuery(sql) | SidebarQueryLibraryAction::OpenHistory(sql) => {
+            SidebarQueryLibraryAction::OpenQuery(sql) => {
+                let mut doc = crate::query::query_document::QueryDocument::new("query", "Saved Query", sql);
+                doc.connection_id = self.connection.lifecycle.active_connection_id().map(str::to_owned);
+                doc.schema = Some(self.active_schema().to_owned());
+                self.query.session.documents.push(doc);
+                self.query.session.active_document_index = self.query.session.documents.len().saturating_sub(1);
+                self.workspace.active_tab = WorkspaceTab::Query;
+            }
+            SidebarQueryLibraryAction::OpenHistory(sql) => {
                 self.set_active_query_text(sql);
+                self.workspace.active_tab = WorkspaceTab::Query;
+            }
+            SidebarQueryLibraryAction::InsertSql(sql) => {
+                self.insert_snippet(&sql);
                 self.workspace.active_tab = WorkspaceTab::Query;
             }
             SidebarQueryLibraryAction::CopySql { name, sql } => {

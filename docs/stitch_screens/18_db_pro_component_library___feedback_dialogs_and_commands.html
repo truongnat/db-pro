@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DB Pro Component Library — Feedback, Dialogs & Commands</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        },
+        colors: {
+          surface: {
+            DEFAULT: '#0e0e0e',
+            dim: '#0b0b0b',
+            bright: '#242424',
+            panel: '#141414',
+            subtle: '#181818',
+            hover: '#202020',
+            active: '#272727',
+          },
+          border: {
+            hairline: '#282828',
+            subtle: '#333333',
+            strong: '#444444',
+          },
+          accent: {
+            DEFAULT: '#339CFF',
+            hover: '#208cf3',
+            muted: 'rgba(51, 156, 255, 0.12)',
+            border: 'rgba(51, 156, 255, 0.35)',
+          },
+          status: {
+            success: '#22c55e',
+            'success-bg': 'rgba(34, 197, 94, 0.1)',
+            'success-border': 'rgba(34, 197, 94, 0.25)',
+            warning: '#f59e0b',
+            'warning-bg': 'rgba(245, 158, 11, 0.1)',
+            'warning-border': 'rgba(245, 158, 11, 0.25)',
+            error: '#ef4444',
+            'error-bg': 'rgba(239, 68, 68, 0.1)',
+            'error-border': 'rgba(239, 68, 68, 0.25)',
+            info: '#339CFF',
+            'info-bg': 'rgba(51, 156, 255, 0.1)',
+            'info-border': 'rgba(51, 156, 255, 0.25)',
+            running: '#60a5fa',
+            disabled: '#666666',
+          }
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body {
+    background-color: #0b0b0b;
+    color: #dedede;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: -0.011em;
+  }
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .kbd-key {
+    background: #1f1f1f;
+    border: 1px solid #383838;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #a8a8a8;
+  }
+  .focus-ring {
+    outline: 1px solid #339CFF;
+    outline-offset: -1px;
+  }
+  .focus-ring-outer {
+    box-shadow: 0 0 0 1px #339CFF;
+  }
+  /* Custom scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #101010;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2b2b2b;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3a3a3a;
+  }
+  .material-symbols-outlined {
+    font-size: 16px;
+    line-height: 1;
+    display: inline-block;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body class="w-[2560px] min-h-[2048px] bg-[#0c0d0e] text-[#d6d8db] text-[12px] leading-tight select-none">
+
+  <!-- IDE Chrome / Top System Nav -->
+  <header class="h-[36px] bg-[#121314] border-b border-[#242628] flex items-center justify-between px-4 sticky top-0 z-50">
+    <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-1.5 pr-2 border-r border-[#27292b]">
+        <div class="w-3 h-3 rounded-full bg-[#ff5f56]/80 border border-[#e0443e]"></div>
+        <div class="w-3 h-3 rounded-full bg-[#ffbd2e]/80 border border-[#dea123]"></div>
+        <div class="w-3 h-3 rounded-full bg-[#27c93f]/80 border border-[#1aab29]"></div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="font-bold text-[13px] tracking-tight text-white flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-[2px] bg-[#339CFF]"></span>
+          DB PRO
+        </span>
+        <span class="text-[#5b6167]">/</span>
+        <span class="text-[#888e96] font-medium text-[12px]">Design Reference Board</span>
+        <span class="text-[#5b6167]">/</span>
+        <span class="bg-[#1a1c1e] text-[#8fa0b5] border border-[#2b3036] px-1.5 py-0.5 rounded text-[11px] font-mono">v2.4-native</span>
+      </div>
+    </div>
+
+    <!-- Tab navigation across component catalog -->
+    <nav class="flex items-center space-x-1">
+      <a href="#" class="px-2.5 py-1 text-[#80868f] hover:text-[#d0d4dc] hover:bg-[#191b1d] rounded text-[12px]">Colors & Type</a>
+      <a href="#" class="px-2.5 py-1 text-[#80868f] hover:text-[#d0d4dc] hover:bg-[#191b1d] rounded text-[12px]">Inputs & Navigation</a>
+      <a href="#" class="px-2.5 py-1 text-[#80868f] hover:text-[#d0d4dc] hover:bg-[#191b1d] rounded text-[12px]">SQL Editor & Results Grid</a>
+      <a href="#" class="px-2.5 py-1 bg-[#1e2329] text-[#339CFF] font-medium border border-[#2f3944] rounded text-[12px]">Feedback, Dialogs & Commands</a>
+      <a href="#" class="px-2.5 py-1 text-[#80868f] hover:text-[#d0d4dc] hover:bg-[#191b1d] rounded text-[12px]">Data Grid Pro</a>
+    </nav>
+
+    <!-- Cluster status badge & config -->
+    <div class="flex items-center space-x-3 text-[11px]">
+      <div class="flex items-center space-x-2 bg-[#17191b] border border-[#26292d] px-2.5 py-1 rounded">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#22c55e]"></span>
+        <span class="font-mono text-[#a5abb3]">local-pg : 5432</span>
+        <span class="text-[#646a73]">postgres</span>
+      </div>
+      <div class="flex items-center bg-[#17191b] border border-[#26292d] rounded px-1.5 py-0.5 text-[#888e96]">
+        <span class="material-symbols-outlined !text-[14px] mr-1 text-[#339CFF]">dark_mode</span>
+        <span>Dark Workstation Specimen</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Title & Token Specimen Header Bar -->
+  <div class="px-8 pt-6 pb-5 border-b border-[#212326] bg-[#0f1012] flex items-end justify-between">
+    <div>
+      <div class="flex items-center space-x-2 mb-1">
+        <span class="bg-[#339CFF]/15 text-[#339CFF] font-mono text-[10px] font-semibold px-2 py-0.5 rounded tracking-wide uppercase border border-[#339CFF]/30">Specimen Board 04</span>
+        <span class="text-[#555a62] font-mono text-[11px]">Rust/egui Planar Geometry Tokens</span>
+      </div>
+      <h1 class="text-[22px] font-bold text-white tracking-tight flex items-center gap-3">
+        Feedback, dialogs & commands
+        <span class="text-[14px] font-normal text-[#868d96] font-sans">· Errors are actionable · states are explicit</span>
+      </h1>
+    </div>
+
+    <!-- Metrics summary badges -->
+    <div class="flex items-center gap-2 text-[11px] font-mono">
+      <div class="bg-[#15171a] border border-[#25282d] px-3 py-1.5 rounded flex items-center gap-2">
+        <span class="text-[#727982]">Control H:</span>
+        <span class="text-[#339CFF] font-medium">28px standard</span>
+      </div>
+      <div class="bg-[#15171a] border border-[#25282d] px-3 py-1.5 rounded flex items-center gap-2">
+        <span class="text-[#727982]">Dialog Radius:</span>
+        <span class="text-[#a5acb5]">6px</span>
+      </div>
+      <div class="bg-[#15171a] border border-[#25282d] px-3 py-1.5 rounded flex items-center gap-2">
+        <span class="text-[#727982]">Border Hairline:</span>
+        <span class="text-[#a5acb5]">1px planar</span>
+      </div>
+      <div class="bg-[#15171a] border border-[#25282d] px-3 py-1.5 rounded flex items-center gap-2">
+        <span class="text-[#727982]">Theme Accent:</span>
+        <span class="flex items-center gap-1.5 text-white">
+          <span class="w-2.5 h-2.5 rounded-[2px] bg-[#339CFF]"></span> #339CFF
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Grid Canvas: 2560px width dense layout -->
+  <main class="p-8 space-y-6">
+
+    <!-- 01 ROW: TOP STATUS BADGES & INLINE ALERTS MATRIX -->
+    <section class="bg-[#131416] border border-[#232528] rounded-[4px] p-5">
+      <div class="flex items-center justify-between pb-3.5 mb-4 border-b border-[#212326]">
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-[11px] text-[#339CFF] font-semibold">01</span>
+          <h2 class="text-[13px] font-semibold uppercase tracking-wider text-white">Status Badges & Inline Alert Matrix</h2>
+          <span class="text-[#686e76] text-[11px]">· Text + icon + semantic color (zero color-only states)</span>
+        </div>
+        <div class="text-[11px] text-[#717780] font-mono">Tokens: bg-opacity 10%, border-opacity 25%, radius 3px</div>
+      </div>
+
+      <div class="grid grid-cols-12 gap-6">
+        <!-- Status Badges Group (5 cols) -->
+        <div class="col-span-5 bg-[#0e0f11] border border-[#1f2124] rounded-[4px] p-4 flex flex-col justify-between">
+          <div>
+            <div class="text-[11px] font-medium text-[#8f96a0] mb-3 flex items-center justify-between">
+              <span>STATUS BADGES (HEIGHT 20PX / 22PX)</span>
+              <span class="font-mono text-[10px] text-[#555a60]">Inter 11px · JetBrains Mono codes</span>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-2.5">
+              <!-- Success -->
+              <div class="flex items-center gap-1.5 px-2 py-1 rounded-[3px] bg-[#22c55e]/10 border border-[#22c55e]/25 text-[#4ade80]">
+                <span class="material-symbols-outlined !text-[13px]">check_circle</span>
+                <span class="font-medium text-[11px]">Success</span>
+              </div>
+
+              <!-- Warning -->
+              <div class="flex items-center gap-1.5 px-2 py-1 rounded-[3px] bg-[#f59e0b]/10 border border-[#f59e0b]/25 text-[#fbbf24]">
+                <span class="material-symbols-outlined !text-[13px]">warning</span>
+                <span class="font-medium text-[11px]">Warning</span>
+              </div>
+
+              <!-- Error -->
+              <div class="flex items-center gap-1.5 px-2 py-1 rounded-[3px] bg-[#ef4444]/10 border border-[#ef4444]/25 text-[#f87171]">
+                <span class="material-symbols-outlined !text-[13px]">error</span>
+                <span class="font-medium text-[11px]">Error</span>
+              </div>
+
+              <!-- Info -->
+              <div class="flex items-center gap-1.5 px-2 py-1 rounded-[3px] bg-[#339CFF]/10 border border-[#339CFF]/25 text-[#60a5fa]">
+                <span class="material-symbols-outlined !text-[13px]">info</span>
+                <span class="font-medium text-[11px]">Info</span>
+              </div>
+
+              <!-- Running -->
+              <div class="flex items-center gap-1.5 px-2 py-1 rounded-[3px] bg-[#2563eb]/10 border border-[#3b82f6]/30 text-[#93c5fd]">
+                <svg class="animate-spin w-3 h-3 text-[#60a5fa]" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="font-medium text-[11px]">Running</span>
+              </div>
+
+              <!-- Disabled / Inactive -->
+              <div class="flex items-center gap-1.5 px-2 py-1 rounded-[3px] bg-[#222428]/40 border border-[#35383f] text-[#717782]">
+                <span class="material-symbols-outlined !text-[13px]">block</span>
+                <span class="font-medium text-[11px]">Disabled</span>
+              </div>
+            </div>
+
+            <!-- Contextual badges with counts & timestamps -->
+            <div class="mt-4 pt-3 border-t border-[#1a1c1e]">
+              <div class="text-[10px] text-[#697079] uppercase font-mono mb-2">Contextual Workstation Variants</div>
+              <div class="flex flex-wrap gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[3px] bg-[#16181b] border border-[#282c32] text-[#9ba3ae] text-[11px]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#22c55e]"></span>
+                  <span>Connected to local-pg</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[3px] bg-[#16181b] border border-[#282c32] text-[#9ba3ae] text-[11px]">
+                  <span class="material-symbols-outlined !text-[13px] text-[#f59e0b]">lock_clock</span>
+                  <span>Read-only TX</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[3px] bg-[#16181b] border border-[#282c32] text-[#9ba3ae] text-[11px]">
+                  <span class="font-mono text-[#339CFF] font-semibold">100 rows</span>
+                  <span class="text-[#555a60]">·</span>
+                  <span class="text-[#7d848f]">12 ms</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[3px] bg-[#ef4444]/15 border border-[#ef4444]/30 text-[#fca5a5] text-[11px] font-mono">
+                  <span>SQLSTATE 42P01</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="text-[10px] text-[#555a60] font-mono mt-3">Spec: Strict foreground luminance contrast &gt; 4.5:1 on dark surfaces</div>
+        </div>
+
+        <!-- Inline Alert Matrix (7 cols) -->
+        <div class="col-span-7 bg-[#0e0f11] border border-[#1f2124] rounded-[4px] p-4 space-y-2.5">
+          <div class="text-[11px] font-medium text-[#8f96a0] flex items-center justify-between">
+            <span>INLINE ALERTS (ACTIONABLE NOTIFICATIONS)</span>
+            <span class="font-mono text-[10px] text-[#555a60]">Hairline 1px border · Left color indicator</span>
+          </div>
+
+          <!-- Alert: Info with action -->
+          <div class="flex items-center justify-between p-2.5 bg-[#339CFF]/8 border-l-[3px] border-l-[#339CFF] border border-[#339CFF]/20 rounded-r-[3px]">
+            <div class="flex items-center gap-2.5">
+              <span class="material-symbols-outlined text-[#339CFF] !text-[16px]">info</span>
+              <div>
+                <span class="text-white font-medium">Session auto-commit disabled.</span>
+                <span class="text-[#96a0ad] ml-1">Transactions require explicit <code class="font-mono text-[#339CFF] text-[11px]">COMMIT</code> or <code class="font-mono text-[#339CFF] text-[11px]">ROLLBACK</code>.</span>
+              </div>
+            </div>
+            <button class="px-2 py-0.5 text-[11px] bg-[#339CFF]/15 hover:bg-[#339CFF]/25 text-[#339CFF] border border-[#339CFF]/30 rounded font-medium transition-colors">
+              Enable Auto-Commit
+            </button>
+          </div>
+
+          <!-- Alert: Success -->
+          <div class="flex items-center justify-between p-2.5 bg-[#22c55e]/8 border-l-[3px] border-l-[#22c55e] border border-[#22c55e]/20 rounded-r-[3px]">
+            <div class="flex items-center gap-2.5">
+              <span class="material-symbols-outlined text-[#22c55e] !text-[16px]">check_circle</span>
+              <div>
+                <span class="text-white font-medium">Migration 04_user_profiles.sql applied.</span>
+                <span class="text-[#96a0ad] ml-1">Query succeeded · 100 rows affected · 12 ms latency.</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-mono text-[#67707c]">Buffer: 3.4 KB</span>
+              <button class="text-[#8e98a5] hover:text-white material-symbols-outlined !text-[14px]">close</button>
+            </div>
+          </div>
+
+          <!-- Alert: Warning with action -->
+          <div class="flex items-center justify-between p-2.5 bg-[#f59e0b]/8 border-l-[3px] border-l-[#f59e0b] border border-[#f59e0b]/20 rounded-r-[3px]">
+            <div class="flex items-center gap-2.5">
+              <span class="material-symbols-outlined text-[#f59e0b] !text-[16px]">lock_clock</span>
+              <div>
+                <span class="text-white font-medium">Read-only transaction mode active.</span>
+                <span class="text-[#96a0ad] ml-1">Write operations (INSERT, UPDATE, DROP) will be rejected on this replica.</span>
+              </div>
+            </div>
+            <button class="px-2 py-0.5 text-[11px] bg-[#f59e0b]/15 hover:bg-[#f59e0b]/25 text-[#fbbf24] border border-[#f59e0b]/30 rounded font-medium transition-colors">
+              Switch to Primary
+            </button>
+          </div>
+
+          <!-- Alert: Error with actionable resolution -->
+          <div class="flex items-center justify-between p-2.5 bg-[#ef4444]/8 border-l-[3px] border-l-[#ef4444] border border-[#ef4444]/20 rounded-r-[3px]">
+            <div class="flex items-center gap-2.5">
+              <span class="material-symbols-outlined text-[#ef4444] !text-[16px]">cancel</span>
+              <div>
+                <span class="text-[#fca5a5] font-medium">Query failed:</span>
+                <span class="text-white font-mono ml-1 text-[11px]">relation "public.user_profiles" does not exist</span>
+                <span class="text-[#7d8591] text-[11px] block mt-0.5">LINE 1: SELECT * FROM public.user_profiles LIMIT 50;</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="px-2 py-0.5 text-[11px] bg-[#ef4444]/15 hover:bg-[#ef4444]/25 text-[#f87171] border border-[#ef4444]/30 rounded font-medium transition-colors">
+                Open query
+              </button>
+              <button class="text-[#8e98a5] hover:text-white material-symbols-outlined !text-[14px]">close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 ROW: DENSE TWO-COLUMN SPLIT (FEEDBACK & PATTERNS LEFT / DIALOGS & OVERLAYS RIGHT) -->
+    <div class="grid grid-cols-12 gap-6">
+
+      <!-- LEFT COLUMN (6 COLS): TOASTS, PROGRESS/RUNNING, SKELETONS, EMPTY/STATE PANELS -->
+      <div class="col-span-6 space-y-6">
+
+        <!-- SUBSECTION A: TOAST NOTIFICATIONS SPECIMENS -->
+        <div class="bg-[#131416] border border-[#232528] rounded-[4px] p-5">
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-[#212326]">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-[11px] text-[#339CFF] font-semibold">02.A</span>
+              <h3 class="text-[13px] font-semibold uppercase tracking-wider text-white">Toast Notification System</h3>
+              <span class="text-[#686e76] text-[11px]">· Floating stacked notifications (bottom-right anchor)</span>
+            </div>
+            <span class="text-[11px] font-mono text-[#717780]">Elevation: 8px shadow · Width 360px</span>
+          </div>
+
+          <div class="space-y-3 bg-[#0d0e10] p-4 rounded-[4px] border border-[#1d1f22]">
+            <!-- Toast 1: Success -->
+            <div class="w-full max-w-[480px] bg-[#17191c] border border-[#282c32] rounded-[5px] p-3 shadow-xl flex items-start justify-between gap-3 border-l-4 border-l-[#22c55e]">
+              <div class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-[#22c55e] !text-[18px] mt-0.5">check_circle</span>
+                <div>
+                  <div class="text-[12px] font-semibold text-white">Connection verified</div>
+                  <div class="text-[11px] text-[#939ba6] mt-0.5">Connected to local-pg (PostgreSQL 16.2 on x86_64) in 12ms.</div>
+                </div>
+              </div>
+              <button class="text-[#656c76] hover:text-white material-symbols-outlined !text-[15px]">close</button>
+            </div>
+
+            <!-- Toast 2: Error with Retry action -->
+            <div class="w-full max-w-[480px] bg-[#17191c] border border-[#282c32] rounded-[5px] p-3 shadow-xl flex items-start justify-between gap-3 border-l-4 border-l-[#ef4444]">
+              <div class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-[#ef4444] !text-[18px] mt-0.5">error</span>
+                <div>
+                  <div class="text-[12px] font-semibold text-white">Connection timed out</div>
+                  <div class="text-[11px] text-[#939ba6] mt-0.5">Connection timed out. Check host and port.</div>
+                  <div class="flex items-center gap-2 mt-2">
+                    <button class="px-2 py-0.5 text-[11px] bg-[#ef4444]/15 hover:bg-[#ef4444]/25 text-[#f87171] border border-[#ef4444]/30 rounded font-medium">
+                      Retry Connection
+                    </button>
+                    <button class="px-2 py-0.5 text-[11px] text-[#868f9a] hover:text-white">
+                      Edit Parameters
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button class="text-[#656c76] hover:text-white material-symbols-outlined !text-[15px]">close</button>
+            </div>
+
+            <!-- Toast 3: In-flight query dismissable -->
+            <div class="w-full max-w-[480px] bg-[#17191c] border border-[#282c32] rounded-[5px] p-3 shadow-xl flex items-start justify-between gap-3 border-l-4 border-l-[#339CFF]">
+              <div class="flex items-start gap-2.5">
+                <svg class="animate-spin w-4 h-4 text-[#339CFF] mt-0.5" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <div class="flex-1">
+                  <div class="text-[12px] font-semibold text-white flex items-center justify-between">
+                    <span>Exporting query results...</span>
+                    <span class="font-mono text-[11px] text-[#339CFF]">45%</span>
+                  </div>
+                  <div class="text-[11px] text-[#939ba6] mt-0.5">Streaming 24,000 / 52,800 rows to `users_dump.parquet`</div>
+                  <div class="w-full bg-[#22252a] h-1.5 rounded-full mt-2 overflow-hidden">
+                    <div class="bg-[#339CFF] h-full rounded-full w-[45%]"></div>
+                  </div>
+                </div>
+              </div>
+              <button class="text-[#656c76] hover:text-white material-symbols-outlined !text-[15px] ml-2">close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBSECTION B: INLINE PROGRESS, QUERY RUNNING & LOADING SKELETONS -->
+        <div class="bg-[#131416] border border-[#232528] rounded-[4px] p-5">
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-[#212326]">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-[11px] text-[#339CFF] font-semibold">02.B</span>
+              <h3 class="text-[13px] font-semibold uppercase tracking-wider text-white">Inline Progress & Loading Skeletons</h3>
+              <span class="text-[#686e76] text-[11px]">· Non-disruptive feedback during background query execution</span>
+            </div>
+            <span class="text-[11px] font-mono text-[#717780]">Height: 28px bar / planar shimmer</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <!-- Query Running Bar Specimen -->
+            <div class="bg-[#0e0f11] border border-[#1f2124] rounded-[4px] p-3.5 space-y-3">
+              <div class="text-[11px] font-semibold text-[#8b929c] flex items-center justify-between">
+                <span>IN-FLIGHT QUERY STATUS BAR</span>
+                <span class="font-mono text-[10px] text-[#339CFF]">timer: 00:01.4</span>
+              </div>
+
+              <!-- Bar 1: Connecting -->
+              <div class="h-[28px] bg-[#16181b] border border-[#272b31] rounded-[3px] px-2.5 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <svg class="animate-spin w-3.5 h-3.5 text-[#339CFF]" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span class="text-[11px] text-[#e0e3e7]">Connecting to local-pg…</span>
+                </div>
+                <button class="px-2 py-0.5 text-[10px] bg-[#22262c] hover:bg-[#2b3038] text-[#a0a8b3] rounded font-medium border border-[#343a44]">
+                  Cancel
+                </button>
+              </div>
+
+              <!-- Bar 2: Executing Query with Cancel Action -->
+              <div class="h-[28px] bg-[#16181b] border border-[#272b31] rounded-[3px] px-2.5 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-2 h-2 rounded-full bg-[#f59e0b] animate-pulse"></div>
+                  <span class="text-[11px] text-[#e0e3e7]">Executing: <code class="font-mono text-[#339CFF] text-[11px]">EXPLAIN ANALYZE SELECT...</code></span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-[10px] text-[#868d98]">00:04.82</span>
+                  <button class="px-2 py-0.5 text-[10px] bg-[#ef4444]/15 hover:bg-[#ef4444]/25 text-[#f87171] border border-[#ef4444]/30 rounded font-medium flex items-center gap-1">
+                    <span class="material-symbols-outlined !text-[11px]">stop</span>
+                    Cancel (ESC)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Indeterminate Linear Progress -->
+              <div class="space-y-1">
+                <div class="flex justify-between text-[10px] font-mono text-[#747b85]">
+                  <span>Linear Stream Progress</span>
+                  <span>14.2 MB / s</span>
+                </div>
+                <div class="w-full bg-[#1b1d20] h-1.5 rounded-full overflow-hidden border border-[#25282d]">
+                  <div class="bg-[#339CFF] h-full w-[65%] rounded-full"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Table Row Loading Skeletons -->
+            <div class="bg-[#0e0f11] border border-[#1f2124] rounded-[4px] p-3.5 space-y-2">
+              <div class="text-[11px] font-semibold text-[#8b929c] flex items-center justify-between">
+                <span>RESULTS GRID SKELETON SPECIMEN</span>
+                <span class="font-mono text-[10px] text-[#555a60]">Row H: 24px · Planar Pulse</span>
+              </div>
+
+              <div class="border border-[#202226] rounded-[3px] overflow-hidden">
+                <!-- Skeleton Header -->
+                <div class="h-[24px] bg-[#16181b] border-b border-[#202226] px-2 flex items-center gap-4 text-[10px] font-mono text-[#5b616b]">
+                  <div class="w-6">#</div>
+                  <div class="w-24">id (int8)</div>
+                  <div class="w-36">email (text)</div>
+                  <div class="w-24">is_active (bool)</div>
+                  <div class="flex-1">created_at (timestamp)</div>
+                </div>
+
+                <!-- Skeleton Rows (3) -->
+                <div class="divide-y divide-[#181a1d] bg-[#0c0d0f]">
+                  <div class="h-[24px] px-2 flex items-center gap-4 animate-pulse">
+                    <div class="w-6 h-2.5 bg-[#1e2024] rounded"></div>
+                    <div class="w-20 h-2.5 bg-[#1e2024] rounded"></div>
+                    <div class="w-32 h-2.5 bg-[#1e2024] rounded"></div>
+                    <div class="w-16 h-2.5 bg-[#1e2024] rounded"></div>
+                    <div class="w-28 h-2.5 bg-[#1e2024] rounded"></div>
+                  </div>
+                  <div class="h-[24px] px-2 flex items-center gap-4 animate-pulse">
+                    <div class="w-6 h-2.5 bg-[#1e2024] rounded"></div>
+                    <div class="w-16 h-2.5 bg-[#1e2024] rounded"></div>
+                    <div class="w-36 h-2.5 bg-[#1e2024] rounded"></div>
+                    <div class="w-16 h-2.5 bg-[#1e2024] rounded"></div>
+                    <div class="w-32 h-2.5 bg-[#1e2024] rounded"></div>
+                  </div>
+                  <div class="h-[24px] px-2 flex items-center gap-4 animate-pulse">
+                    <div class="w-6 h-2.5 bg-[#1e2024] rounded"></div>
+                    <div class="w-24 h-2.5 bg-[#1e2024] rounded"></div>
+                    <div class="w-28 h-2.5 bg-[#1e2024] rounded"></div>
+                    <div class="w-16 h-2.5 bg-[#1e2024] rounded"></div>
+                    <div class="w-24 h-2.5 bg-[#1e2024] rounded"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="text-[10px] text-[#5c626b] font-mono">Placeholder shimmer preserves column layout and prevents layout shift.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBSECTION C: EMPTY, ERROR & SUCCESS PATTERN PANELS -->
+        <div class="bg-[#131416] border border-[#232528] rounded-[4px] p-5">
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-[#212326]">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-[11px] text-[#339CFF] font-semibold">02.C</span>
+              <h3 class="text-[13px] font-semibold uppercase tracking-wider text-white">Empty, Error & Success State Panels</h3>
+              <span class="text-[#686e76] text-[11px]">· Workstation placeholder canvases with actionable next steps</span>
+            </div>
+            <span class="text-[11px] font-mono text-[#717780]">Zero dead ends</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-4">
+            <!-- Empty State -->
+            <div class="bg-[#0e0f11] border border-[#1f2124] rounded-[4px] p-4 text-center flex flex-col items-center justify-between min-h-[190px]">
+              <div class="w-8 h-8 rounded bg-[#181a1d] border border-[#282b30] flex items-center justify-center text-[#7e8794] mt-1">
+                <span class="material-symbols-outlined !text-[18px]">dns</span>
+              </div>
+              <div class="my-2">
+                <div class="text-[12px] font-semibold text-white">No saved connections</div>
+                <div class="text-[11px] text-[#838b97] mt-1 leading-normal max-w-[190px]">
+                  Configure your first PostgreSQL or SQLite connection profile.
+                </div>
+              </div>
+              <button class="h-[28px] px-3 bg-[#339CFF] hover:bg-[#208cf3] text-white rounded-[4px] font-medium text-[11px] flex items-center gap-1.5 transition-colors">
+                <span class="material-symbols-outlined !text-[14px]">add</span>
+                Add connection
+              </button>
+            </div>
+
+            <!-- Error State Panel -->
+            <div class="bg-[#0e0f11] border border-[#1f2124] rounded-[4px] p-4 text-center flex flex-col items-center justify-between min-h-[190px]">
+              <div class="w-8 h-8 rounded bg-[#ef4444]/10 border border-[#ef4444]/25 flex items-center justify-center text-[#ef4444] mt-1">
+                <span class="material-symbols-outlined !text-[18px]">sync_problem</span>
+              </div>
+              <div class="my-2">
+                <div class="text-[12px] font-semibold text-[#fca5a5]">Execution Failed (42P01)</div>
+                <div class="text-[11px] text-[#838b97] mt-1 leading-normal max-w-[200px]">
+                  Table <code class="font-mono text-white text-[10px]">public.user_profiles</code> was not found in schema cache.
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="h-[28px] px-2.5 bg-[#1b1d20] hover:bg-[#24272c] border border-[#2c3037] text-[#c0c5cc] rounded-[4px] font-medium text-[11px]">
+                  Refresh schema
+                </button>
+                <button class="h-[28px] px-2.5 bg-[#ef4444]/15 hover:bg-[#ef4444]/25 border border-[#ef4444]/30 text-[#f87171] rounded-[4px] font-medium text-[11px]">
+                  Open query
+                </button>
+              </div>
+            </div>
+
+            <!-- Success State Panel -->
+            <div class="bg-[#0e0f11] border border-[#1f2124] rounded-[4px] p-4 text-center flex flex-col items-center justify-between min-h-[190px]">
+              <div class="w-8 h-8 rounded bg-[#22c55e]/10 border border-[#22c55e]/25 flex items-center justify-center text-[#22c55e] mt-1">
+                <span class="material-symbols-outlined !text-[18px]">done_all</span>
+              </div>
+              <div class="my-2">
+                <div class="text-[12px] font-semibold text-white">100 rows fetched</div>
+                <div class="text-[11px] text-[#838b97] mt-1 leading-normal max-w-[190px]">
+                  Query succeeded in <span class="text-[#22c55e] font-mono">12 ms</span> with 0 warnings.
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="h-[28px] px-2.5 bg-[#1b1d20] hover:bg-[#24272c] border border-[#2c3037] text-[#c0c5cc] rounded-[4px] font-medium text-[11px] flex items-center gap-1">
+                  <span class="material-symbols-outlined !text-[13px]">file_download</span>
+                  Export CSV
+                </button>
+                <button class="h-[28px] px-2.5 bg-[#1b1d20] hover:bg-[#24272c] border border-[#2c3037] text-[#c0c5cc] rounded-[4px] font-medium text-[11px]">
+                  View Schema
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN (6 COLS): DIALOGS, CONFIRMATION, COMMAND PALETTE, CONTEXT MENU -->
+      <div class="col-span-6 space-y-6">
+
+        <!-- SUBSECTION D: CONNECTION DIALOG (POSTGRESQL SPECIMEN & VALIDATION) -->
+        <div class="bg-[#131416] border border-[#232528] rounded-[4px] p-5">
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-[#212326]">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-[11px] text-[#339CFF] font-semibold">02.D</span>
+              <h3 class="text-[13px] font-semibold uppercase tracking-wider text-white">Modal Dialogs — Connection & Confirmation</h3>
+              <span class="text-[#686e76] text-[11px]">· 6px corner radius, hairline planar borders, explicit validation</span>
+            </div>
+            <span class="text-[11px] font-mono text-[#717780]">Specimen: 460px Modal Shell</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-5">
+            <!-- Modal 1: Connect to PostgreSQL (with validation error) -->
+            <div class="bg-[#141618] border border-[#282c32] rounded-[6px] shadow-2xl overflow-hidden flex flex-col justify-between">
+              <!-- Dialog Header -->
+              <div class="h-[38px] bg-[#181a1d] border-b border-[#25282d] px-3.5 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[#339CFF] !text-[16px]">database</span>
+                  <span class="font-semibold text-white text-[12px]">Connect to PostgreSQL</span>
+                </div>
+                <button class="text-[#6b7380] hover:text-white material-symbols-outlined !text-[16px]">close</button>
+              </div>
+
+              <!-- Dialog Body / Form -->
+              <div class="p-3.5 space-y-3 bg-[#111214]">
+                <!-- Driver Selector -->
+                <div>
+                  <label class="block text-[11px] font-medium text-[#8f96a2] mb-1">Database Driver</label>
+                  <div class="h-[28px] bg-[#17191c] border border-[#2a2e35] rounded-[4px] px-2.5 flex items-center justify-between text-[11px] text-white">
+                    <span class="flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#339CFF]"></span>
+                      PostgreSQL 14 / 15 / 16 (libpq native)
+                    </span>
+                    <span class="material-symbols-outlined !text-[14px] text-[#6b7280]">expand_more</span>
+                  </div>
+                </div>
+
+                <!-- Host & Port Row -->
+                <div class="grid grid-cols-3 gap-2">
+                  <div class="col-span-2">
+                    <label class="block text-[11px] font-medium text-[#8f96a2] mb-1">Host</label>
+                    <input type="text" value="localhost" class="w-full h-[28px] bg-[#17191c] border border-[#2a2e35] rounded-[4px] px-2.5 text-[11px] font-mono text-white focus:outline-none focus:border-[#339CFF]" />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-medium text-[#8f96a2] mb-1">Port</label>
+                    <input type="text" value="5432" class="w-full h-[28px] bg-[#17191c] border border-[#2a2e35] rounded-[4px] px-2.5 text-[11px] font-mono text-white focus:outline-none focus:border-[#339CFF]" />
+                  </div>
+                </div>
+
+                <!-- Database Name -->
+                <div>
+                  <label class="block text-[11px] font-medium text-[#8f96a2] mb-1">Database</label>
+                  <input type="text" value="app_db" class="w-full h-[28px] bg-[#17191c] border border-[#2a2e35] rounded-[4px] px-2.5 text-[11px] font-mono text-white focus:outline-none focus:border-[#339CFF]" />
+                </div>
+
+                <!-- Explicit Error Alert Banner Inside Dialog -->
+                <div class="p-2 bg-[#ef4444]/10 border border-[#ef4444]/25 rounded-[4px] flex items-start gap-2">
+                  <span class="material-symbols-outlined text-[#ef4444] !text-[15px] mt-0.5">error</span>
+                  <div class="text-[11px] text-[#fca5a5]">
+                    Connection timed out. Check host and port.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Dialog Footer / Actions -->
+              <div class="h-[42px] bg-[#17191c] border-t border-[#25282d] px-3.5 flex items-center justify-between">
+                <button class="h-[28px] px-2.5 bg-[#1d2024] hover:bg-[#25282e] border border-[#2c3139] text-[#a9b0ba] hover:text-white rounded-[4px] text-[11px] font-medium transition-colors">
+                  Test connection
+                </button>
+                <div class="flex items-center gap-2">
+                  <button class="h-[28px] px-2.5 text-[#858d98] hover:text-white text-[11px] font-medium">
+                    Cancel
+                  </button>
+                  <button class="h-[28px] px-3.5 bg-[#339CFF] hover:bg-[#208cf3] text-white rounded-[4px] text-[11px] font-medium transition-colors flex items-center gap-1.5 shadow-sm">
+                    Connect
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Modal 2: Destructive Confirmation (Drop table) -->
+            <div class="bg-[#141618] border border-[#282c32] rounded-[6px] shadow-2xl overflow-hidden flex flex-col justify-between">
+              <!-- Dialog Header -->
+              <div class="h-[38px] bg-[#181a1d] border-b border-[#25282d] px-3.5 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[#ef4444] !text-[16px]">warning</span>
+                  <span class="font-semibold text-white text-[12px]">Confirm Drop Table</span>
+                </div>
+                <button class="text-[#6b7380] hover:text-white material-symbols-outlined !text-[16px]">close</button>
+              </div>
+
+              <!-- Dialog Body -->
+              <div class="p-4 bg-[#111214] space-y-3">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded bg-[#ef4444]/10 border border-[#ef4444]/25 flex items-center justify-center text-[#ef4444] flex-shrink-0">
+                    <span class="material-symbols-outlined !text-[18px]">delete_forever</span>
+                  </div>
+                  <div>
+                    <h4 class="text-[13px] font-semibold text-white">Drop table public.orders?</h4>
+                    <p class="text-[11px] text-[#9ba3ae] mt-1 leading-relaxed">
+                      This permanently deletes the table and its data. All foreign key constraints and dependent views will be invalidated.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="bg-[#16181b] border border-[#272a30] p-2.5 rounded-[4px] font-mono text-[11px] text-[#e06c75]">
+                  DROP TABLE "public"."orders" CASCADE;
+                </div>
+
+                <div class="flex items-center gap-2 text-[11px] text-[#8b929c]">
+                  <input type="checkbox" id="cascade" class="rounded bg-[#1a1c1f] border-[#31363e] text-[#ef4444] focus:ring-0" />
+                  <label for="cascade">Include CASCADE dependent objects (2 views)</label>
+                </div>
+              </div>
+
+              <!-- Dialog Footer -->
+              <div class="h-[42px] bg-[#17191c] border-t border-[#25282d] px-3.5 flex items-center justify-end gap-2">
+                <button class="h-[28px] px-3 text-[#8a929e] hover:text-white text-[11px] font-medium">
+                  Cancel
+                </button>
+                <button class="h-[28px] px-3.5 bg-[#ef4444] hover:bg-[#dc2626] text-white rounded-[4px] text-[11px] font-medium transition-colors flex items-center gap-1 shadow-sm">
+                  <span class="material-symbols-outlined !text-[14px]">delete</span>
+                  Drop table
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBSECTION E: COMMAND PALETTE SPECIMEN (FILTERED & EMPTY STATES) -->
+        <div class="bg-[#131416] border border-[#232528] rounded-[4px] p-5">
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-[#212326]">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-[11px] text-[#339CFF] font-semibold">02.E</span>
+              <h3 class="text-[13px] font-semibold uppercase tracking-wider text-white">Command Palette (⌘K) & Search Overlay</h3>
+              <span class="text-[#686e76] text-[11px]">· Fast fuzzy filter · keyboard selected highlight · no-result specimen</span>
+            </div>
+            <span class="text-[11px] font-mono text-[#717780]">Height: 34px input · 28px items</span>
+          </div>
+
+          <div class="grid grid-cols-12 gap-5">
+            <!-- Palette Active / Filtered (7 cols) -->
+            <div class="col-span-7 bg-[#141619] border border-[#2b3038] rounded-[6px] shadow-2xl overflow-hidden">
+              <!-- Search Input Bar -->
+              <div class="h-[38px] px-3 bg-[#181a1d] border-b border-[#25282e] flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#339CFF] !text-[16px]">search</span>
+                <input type="text" value="qu" class="bg-transparent flex-1 text-[12px] text-white focus:outline-none placeholder-[#5d6470]" />
+                <span class="kbd-key">ESC</span>
+              </div>
+
+              <!-- List with Grouping -->
+              <div class="p-1.5 space-y-0.5">
+                <div class="px-2 py-1 text-[10px] font-mono text-[#666d77] uppercase">Query Actions</div>
+
+                <!-- Keyboard Selected Item (Focus State) -->
+                <div class="h-[28px] px-2.5 rounded-[3px] bg-[#339CFF]/15 border border-[#339CFF]/35 flex items-center justify-between text-[11px] text-white">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#339CFF] !text-[14px]">play_arrow</span>
+                    <span class="font-medium">Run <mark class="bg-transparent text-[#339CFF] font-bold">qu</mark>ery</span>
+                    <span class="text-[#6e7784] text-[10px]">· Current active editor</span>
+                  </div>
+                  <div class="flex items-center gap-1 font-mono">
+                    <span class="kbd-key">⌘↵</span>
+                  </div>
+                </div>
+
+                <!-- Item 2 -->
+                <div class="h-[28px] px-2.5 rounded-[3px] hover:bg-[#1a1c20] flex items-center justify-between text-[11px] text-[#c9ced6]">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#727a85] !text-[14px]">cable</span>
+                    <span>Open connection</span>
+                  </div>
+                  <div class="flex items-center gap-1 font-mono">
+                    <span class="kbd-key">⌘K</span>
+                  </div>
+                </div>
+
+                <!-- Item 3 -->
+                <div class="h-[28px] px-2.5 rounded-[3px] hover:bg-[#1a1c20] flex items-center justify-between text-[11px] text-[#c9ced6]">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#727a85] !text-[14px]">code</span>
+                    <span>Format SQL</span>
+                  </div>
+                  <div class="flex items-center gap-1 font-mono">
+                    <span class="kbd-key">⇧⌥F</span>
+                  </div>
+                </div>
+
+                <div class="px-2 pt-2 pb-1 text-[10px] font-mono text-[#666d77] uppercase">Recent Buffers</div>
+
+                <!-- Item 4 -->
+                <div class="h-[28px] px-2.5 rounded-[3px] hover:bg-[#1a1c20] flex items-center justify-between text-[11px] text-[#a5abb5]">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#727a85] !text-[14px]">description</span>
+                    <span><mark class="bg-transparent text-[#339CFF]">qu</mark>ery_users_v2.sql</span>
+                  </div>
+                  <span class="text-[10px] text-[#555b64] font-mono">local-pg:5432</span>
+                </div>
+              </div>
+
+              <!-- Footer tip -->
+              <div class="h-[24px] bg-[#101113] border-t border-[#1f2226] px-3 flex items-center justify-between text-[10px] text-[#5e6570] font-mono">
+                <span>Navigate ↑↓ · Select ↵</span>
+                <span>Actions: 4</span>
+              </div>
+            </div>
+
+            <!-- Palette No Results Specimen (5 cols) -->
+            <div class="col-span-5 bg-[#141619] border border-[#2b3038] rounded-[6px] shadow-2xl overflow-hidden flex flex-col justify-between">
+              <div>
+                <div class="h-[38px] px-3 bg-[#181a1d] border-b border-[#25282e] flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[#737a85] !text-[16px]">search</span>
+                  <input type="text" value="vacuumx" class="bg-transparent flex-1 text-[12px] text-white focus:outline-none" />
+                  <span class="kbd-key">ESC</span>
+                </div>
+                <div class="py-8 px-4 text-center">
+                  <div class="text-[#676f7a] material-symbols-outlined !text-[24px] mb-1">search_off</div>
+                  <div class="text-[11px] text-[#8e96a2] font-medium">No commands match <code class="font-mono text-[#339CFF]">vacuumx</code></div>
+                  <div class="text-[10px] text-[#585e68] mt-1">Try searching for "vacuum", "analyze", or "optimize"</div>
+                </div>
+              </div>
+              <div class="h-[24px] bg-[#101113] border-t border-[#1f2226] px-3 flex items-center justify-between text-[10px] text-[#5e6570] font-mono">
+                <span>Press ESC to dismiss</span>
+                <span>0 results</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBSECTION F: CONTEXT MENUS & TOOLTIP SPECIMENS -->
+        <div class="bg-[#131416] border border-[#232528] rounded-[4px] p-5">
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-[#212326]">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-[11px] text-[#339CFF] font-semibold">02.F</span>
+              <h3 class="text-[13px] font-semibold uppercase tracking-wider text-white">Context Menus & Precise Tooltips</h3>
+              <span class="text-[#686e76] text-[11px]">· Compact 24px rows · hover/focus states · destructive items · instant tooltips</span>
+            </div>
+            <span class="text-[11px] font-mono text-[#717780]">Specimen: Right-click Menu & Micro-tooltips</span>
+          </div>
+
+          <div class="grid grid-cols-12 gap-5 items-start">
+            <!-- Context Menu (6 cols) -->
+            <div class="col-span-6 bg-[#16181b] border border-[#292d34] rounded-[5px] shadow-2xl p-1 w-[260px]">
+              <div class="px-2 py-1 text-[10px] font-mono text-[#616872] uppercase">Table: public.orders</div>
+
+              <!-- Item 1: Hover/active -->
+              <div class="h-[24px] px-2 rounded-[3px] bg-[#339CFF] text-white flex items-center justify-between text-[11px] cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined !text-[13px]">table_rows</span>
+                  <span>Select Top 100 Rows</span>
+                </div>
+                <span class="font-mono text-[10px] text-white/80">⌘↵</span>
+              </div>
+
+              <!-- Item 2 -->
+              <div class="h-[24px] px-2 rounded-[3px] hover:bg-[#202328] text-[#c5c9d1] flex items-center justify-between text-[11px]">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined !text-[13px] text-[#78808c]">edit_note</span>
+                  <span>Generate DDL Script</span>
+                </div>
+                <span class="font-mono text-[10px] text-[#636a75]">⌥D</span>
+              </div>
+
+              <!-- Item 3 -->
+              <div class="h-[24px] px-2 rounded-[3px] hover:bg-[#202328] text-[#c5c9d1] flex items-center justify-between text-[11px]">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined !text-[13px] text-[#78808c]">filter_alt</span>
+                  <span>Filter Rows...</span>
+                </div>
+                <span class="font-mono text-[10px] text-[#636a75]">⌘F</span>
+              </div>
+
+              <div class="my-1 border-t border-[#23262c]"></div>
+
+              <!-- Item 4: Destructive Menu Item -->
+              <div class="h-[24px] px-2 rounded-[3px] hover:bg-[#ef4444]/15 text-[#ef4444] flex items-center justify-between text-[11px]">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined !text-[13px]">delete</span>
+                  <span>Drop table...</span>
+                </div>
+                <span class="font-mono text-[10px] text-[#ef4444]/70">⌫</span>
+              </div>
+            </div>
+
+            <!-- Tooltips & Keyboard Hint Specimens (6 cols) -->
+            <div class="col-span-6 space-y-3">
+              <!-- Tooltip 1: Standard Toolbar tooltip -->
+              <div>
+                <div class="text-[10px] text-[#6b727d] font-mono mb-1.5 uppercase">Toolbar Tooltip (Instant, Delay 200ms)</div>
+                <div class="inline-flex items-center gap-2 bg-[#1b1d20] border border-[#2c3036] px-2.5 py-1 rounded shadow-lg">
+                  <span class="text-white text-[11px]">Execute selected query</span>
+                  <span class="kbd-key">⌘↵</span>
+                </div>
+              </div>
+
+              <!-- Tooltip 2: Truncation Cell Tooltip with Copy -->
+              <div>
+                <div class="text-[10px] text-[#6b727d] font-mono mb-1.5 uppercase">Grid Cell Overflow Tooltip</div>
+                <div class="inline-block bg-[#1b1d20] border border-[#2c3036] p-2 rounded shadow-lg max-w-[280px]">
+                  <div class="text-[10px] font-mono text-[#339CFF] mb-0.5">TEXT (length: 48)</div>
+                  <div class="text-[11px] font-mono text-white break-all">sarah.chen@analytics.cloud.infrastructure.internal</div>
+                </div>
+              </div>
+
+              <!-- Focus Ring & Disabled Examples -->
+              <div>
+                <div class="text-[10px] text-[#6b727d] font-mono mb-1.5 uppercase">Focus Ring & Disabled State Specimen</div>
+                <div class="flex items-center gap-3">
+                  <button class="h-[28px] px-3 bg-[#181a1d] border border-[#339CFF] focus-ring-outer text-white rounded text-[11px] font-medium">
+                    Focused Button
+                  </button>
+                  <button disabled class="h-[28px] px-3 bg-[#131416] border border-[#222428] text-[#555a62] rounded text-[11px] font-medium cursor-not-allowed flex items-center gap-1.5">
+                    <span class="material-symbols-outlined !text-[13px]">block</span>
+                    Disabled Action
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 03 ROW: BOTTOM STRIP — STATUS BAR VARIANTS (READY, RUNNING, FAILED, TX OPEN, DISCONNECTED) -->
+    <section class="bg-[#131416] border border-[#232528] rounded-[4px] p-5">
+      <div class="flex items-center justify-between pb-3.5 mb-4 border-b border-[#212326]">
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-[11px] text-[#339CFF] font-semibold">03</span>
+          <h2 class="text-[13px] font-semibold uppercase tracking-wider text-white">Status Bar Variant Strip (Height 24px Specimen)</h2>
+          <span class="text-[#686e76] text-[11px]">· Native bottom dock states: Ready, Running, Failed, Read-only TX, Disconnected</span>
+        </div>
+        <div class="text-[11px] text-[#717780] font-mono">Docked 24px · Inter + JetBrains Mono · 1px hairline border</div>
+      </div>
+
+      <div class="space-y-2.5">
+        <!-- Variant 1: Ready / Idle -->
+        <div class="h-[24px] bg-[#111214] border border-[#222528] px-3 rounded-[3px] flex items-center justify-between font-mono text-[11px] text-[#939ba6]">
+          <div class="flex items-center space-x-3">
+            <span class="inline-flex items-center gap-1.5 text-[#22c55e] font-sans font-medium">
+              <span class="w-2 h-2 rounded-full bg-[#22c55e]"></span>
+              Ready
+            </span>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#d8dce2]">local-pg (SSL Active)</span>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#7e8692]">PostgreSQL 16.2</span>
+          </div>
+          <div class="flex items-center space-x-4 text-[10px]">
+            <span>100 rows fetched</span>
+            <span class="text-[#3a3f47]">|</span>
+            <span>12 ms latency</span>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#abb3bf]">UTF-8</span>
+            <span class="text-[#3a3f47]">|</span>
+            <span>LF</span>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#339CFF]">Ln 2, Col 27</span>
+          </div>
+        </div>
+
+        <!-- Variant 2: Query Running / In-Flight -->
+        <div class="h-[24px] bg-[#111316] border border-[#242b35] px-3 rounded-[3px] flex items-center justify-between font-mono text-[11px] text-[#939ba6]">
+          <div class="flex items-center space-x-3">
+            <span class="inline-flex items-center gap-1.5 text-[#60a5fa] font-sans font-medium">
+              <svg class="animate-spin w-2.5 h-2.5 text-[#339CFF]" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Executing query...
+            </span>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#f59e0b]">00:01.4 elapsed</span>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#848c97]">Buffer: 48 KB streamed</span>
+          </div>
+          <div class="flex items-center space-x-3 text-[10px]">
+            <button class="px-1.5 py-0.2 bg-[#ef4444]/20 hover:bg-[#ef4444]/30 text-[#f87171] border border-[#ef4444]/35 rounded text-[10px] font-sans flex items-center gap-1">
+              <span class="material-symbols-outlined !text-[11px]">stop</span> Stop Query (ESC)
+            </button>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#abb3bf]">UTF-8</span>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#339CFF]">Ln 14, Col 1</span>
+          </div>
+        </div>
+
+        <!-- Variant 3: Failed / Execution Error -->
+        <div class="h-[24px] bg-[#161112] border border-[#382325] px-3 rounded-[3px] flex items-center justify-between font-mono text-[11px] text-[#939ba6]">
+          <div class="flex items-center space-x-3">
+            <span class="inline-flex items-center gap-1.5 text-[#ef4444] font-sans font-medium">
+              <span class="material-symbols-outlined !text-[13px]">cancel</span>
+              Query Failed: 42P01
+            </span>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#fca5a5]">relation "public.user_profiles" does not exist</span>
+          </div>
+          <div class="flex items-center space-x-3 text-[10px]">
+            <button class="text-[#339CFF] hover:underline font-sans">Open Docs ↗</button>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#7e8692]">Duration: 8 ms</span>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#ef4444]">Error at Line 1</span>
+          </div>
+        </div>
+
+        <!-- Variant 4: Transaction Open (Read-Only Warning) -->
+        <div class="h-[24px] bg-[#161410] border border-[#383120] px-3 rounded-[3px] flex items-center justify-between font-mono text-[11px] text-[#939ba6]">
+          <div class="flex items-center space-x-3">
+            <span class="inline-flex items-center gap-1.5 text-[#f59e0b] font-sans font-medium">
+              <span class="material-symbols-outlined !text-[13px]">lock_clock</span>
+              TX In Progress (Read-Only)
+            </span>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#e2e6ed]">postgres-replica-02</span>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#848c97]">Isolation: READ COMMITTED</span>
+          </div>
+          <div class="flex items-center space-x-3 text-[10px]">
+            <button class="px-1.5 py-0.2 bg-[#202328] hover:bg-[#2b2f36] text-[#c3c8d1] border border-[#32363e] rounded font-sans">
+              ROLLBACK
+            </button>
+            <span class="text-[#3a3f47]">|</span>
+            <span>Ping: 18ms</span>
+            <span class="text-[#3a3f47]">|</span>
+            <span class="text-[#abb3bf]">UTF-8</span>
+          </div>
+        </div>
+
+        <!-- Variant 5: Disconnected / Offline -->
+        <div class="h-[24px] bg-[#121315] border border-[#27292d] px-3 rounded-[3px] flex items-center justify-between font-mono text-[11px] text-[#6b727f]">
+          <div class="flex items-center space-x-3">
+            <span class="inline-flex items-center gap-1.5 text-[#7a818c] font-sans font-medium">
+              <span class="w-2 h-2 rounded-full bg-[#666c75]"></span>
+              Disconnected
+            </span>
+            <span class="text-[#2b2e33]">|</span>
+            <span>No active socket connection</span>
+          </div>
+          <div class="flex items-center space-x-3 text-[10px]">
+            <button class="text-[#339CFF] hover:underline font-sans flex items-center gap-1">
+              <span class="material-symbols-outlined !text-[12px]">refresh</span> Reconnect
+            </button>
+            <span class="text-[#2b2e33]">|</span>
+            <span>Last active: 14 mins ago</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Specimen Footer Details -->
+  <footer class="px-8 py-4 border-t border-[#1e2023] bg-[#0c0d0f] flex items-center justify-between text-[11px] text-[#676e79] font-mono">
+    <div>DB Pro Native Desktop Design System · Rust/egui Component Baseline · 2560x2048 Reference</div>
+    <div class="flex items-center space-x-4">
+      <span>Tokens: planar structural · No card-per-row</span>
+      <span>Inter UI + JetBrains Mono</span>
+      <span class="text-[#339CFF]">Specimen 04 Complete</span>
+    </div>
+  </footer>
+
+</body>
+</html>

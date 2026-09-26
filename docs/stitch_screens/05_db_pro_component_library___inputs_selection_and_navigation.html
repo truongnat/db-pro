@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DB Pro Component Library — Inputs, Selection & Navigation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            app: '#0e0e0e',
+            panel: '#131313',
+            surface: '#18191a',
+            surfaceHighlight: '#222325',
+            border: '#27282b',
+            borderSubtle: '#1f2022',
+            borderFocus: '#339cff',
+            accent: '#339cff',
+            accentHover: '#2688e8',
+            accentMuted: '#1a324b',
+            textPrimary: '#eeeeee',
+            textSecondary: '#9ca3af',
+            textMuted: '#6b7280',
+            danger: '#ef4444',
+            dangerMuted: '#381616',
+            success: '#22c55e',
+            warning: '#f59e0b',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0e0e0e;
+      color: #eeeeee;
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .material-symbols-outlined {
+      font-size: 15px;
+      line-height: 1;
+      width: 15px;
+      height: 15px;
+    }
+    .spec-table th, .spec-table td {
+      border-color: #27282b;
+    }
+    .focus-ring {
+      outline: 1px solid #339cff;
+      outline-offset: -1px;
+      box-shadow: 0 0 0 1px #339cff;
+    }
+    /* custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0e0e0e;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27282b;
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #37383c;
+    }
+  </style>
+</head>
+<body class="bg-app min-h-screen text-textPrimary text-xs selection:bg-accent/30 flex flex-col antialiased">
+
+  <!-- Desktop IDE Chrome Topbar -->
+  <header class="h-9 bg-panel border-b border-border flex items-center justify-between px-3 select-none flex-shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-1.5 pr-2 border-r border-border">
+        <span class="w-2.5 h-2.5 rounded-full bg-[#37383c] inline-block"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-[#37383c] inline-block"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-[#37383c] inline-block"></span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="font-semibold text-xs tracking-wide text-white uppercase flex items-center gap-1.5">
+          <span class="text-accent font-bold">DB</span> PRO
+        </span>
+        <span class="text-border text-[11px]">/</span>
+        <span class="text-textSecondary text-[11px] font-medium">Design Reference Board</span>
+        <span class="px-1.5 py-0.5 rounded bg-surfaceHighlight border border-border text-[10px] text-textMuted font-mono">v2.4-native</span>
+      </div>
+    </div>
+
+    <!-- IDE Tab Menu in chrome -->
+    <nav class="flex items-center space-x-1 text-[11px]">
+      <a href="#" class="px-2.5 py-1 text-textMuted hover:text-textPrimary rounded hover:bg-surfaceHighlight">Colors & Type</a>
+      <a href="#" class="px-2.5 py-1 text-accent font-medium rounded bg-accentMuted/40 border border-accent/20">Inputs & Navigation</a>
+      <a href="#" class="px-2.5 py-1 text-textMuted hover:text-textPrimary rounded hover:bg-surfaceHighlight">Data Grid</a>
+      <a href="#" class="px-2.5 py-1 text-textMuted hover:text-textPrimary rounded hover:bg-surfaceHighlight">SQL Editor</a>
+      <a href="#" class="px-2.5 py-1 text-textMuted hover:text-textPrimary rounded hover:bg-surfaceHighlight">Dialogs & Sheets</a>
+    </nav>
+
+    <!-- Right utility status -->
+    <div class="flex items-center space-x-2 text-[11px]">
+      <div class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface border border-border text-textSecondary font-mono">
+        <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+        <span>local-pg : 5432</span>
+      </div>
+      <div class="flex items-center border border-border rounded overflow-hidden">
+        <span class="px-2 py-0.5 bg-accent/20 text-accent font-medium flex items-center gap-1 text-[10px]">
+          <span class="material-symbols-outlined text-[13px]">dark_mode</span> Dark
+        </span>
+        <span class="px-2 py-0.5 bg-surface text-textMuted hover:text-textPrimary flex items-center gap-1 text-[10px]">
+          <span class="material-symbols-outlined text-[13px]">light_mode</span> Light
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Subheader / Spec Title Bar -->
+  <div class="border-b border-border bg-[#101011] px-5 py-3 flex items-center justify-between flex-shrink-0">
+    <div>
+      <div class="flex items-center gap-2">
+        <h1 class="text-sm font-semibold text-white tracking-tight">Inputs, selection & navigation</h1>
+        <span class="text-textMuted text-xs">·</span>
+        <span class="text-textSecondary text-xs">Reusable controls · interaction states</span>
+      </div>
+      <p class="text-textMuted text-[11px] mt-0.5 font-normal">
+        Specimen catalog for Rust/egui desktop workstation. Standard control height: <span class="font-mono text-textSecondary">28px</span>, tree rows: <span class="font-mono text-textSecondary">24px</span>, corner radius: <span class="font-mono text-textSecondary">4px</span>, base grid: <span class="font-mono text-textSecondary">4px</span>.
+      </p>
+    </div>
+
+    <!-- Sizing Spec Badge Key -->
+    <div class="flex items-center gap-2 text-[11px] font-mono">
+      <div class="px-2.5 py-1 rounded bg-surface border border-border flex items-center gap-2">
+        <span class="text-textMuted">Control H:</span>
+        <span class="text-accent font-medium">28px</span>
+        <span class="text-border">|</span>
+        <span class="text-textMuted">Compact H:</span>
+        <span class="text-textPrimary">24px</span>
+      </div>
+      <div class="px-2.5 py-1 rounded bg-surface border border-border flex items-center gap-2">
+        <span class="text-textMuted">Tree Row:</span>
+        <span class="text-textPrimary">24px</span>
+        <span class="text-border">|</span>
+        <span class="text-textMuted">Radius:</span>
+        <span class="text-textPrimary">4px / 2px</span>
+      </div>
+      <div class="px-2.5 py-1 rounded bg-surface border border-border flex items-center gap-2">
+        <span class="text-textMuted">Accent:</span>
+        <span class="w-2.5 h-2.5 rounded-sm bg-[#339cff] inline-block border border-white/20"></span>
+        <span class="text-textPrimary">#339CFF</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main 2-Column Specimen Sheet Board -->
+  <main class="flex-1 p-5 grid grid-cols-2 gap-5 overflow-auto max-w-[2560px] mx-auto w-full">
+
+    <!-- ========================================== -->
+    <!-- LEFT COLUMN: INPUTS, FORMS, SELECTIONS    -->
+    <!-- ========================================== -->
+    <div class="space-y-5 flex flex-col">
+
+      <!-- Section 1: Text Inputs & Variants -->
+      <section class="border border-border rounded bg-panel overflow-hidden">
+        <div class="h-8 bg-surface border-b border-border px-3 flex items-center justify-between select-none">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-[10px] text-accent font-semibold px-1 rounded bg-accentMuted/60">01</span>
+            <span class="font-medium text-white text-xs">Text Fields & Interaction States</span>
+          </div>
+          <span class="text-[10px] text-textMuted font-mono">Height: 28px · Font: Inter 12px · Value: JetBrains Mono</span>
+        </div>
+
+        <div class="p-3.5 space-y-4">
+          <!-- Text field state matrix grid -->
+          <div class="grid grid-cols-2 gap-3">
+
+            <!-- 1. Default / Empty -->
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <label class="font-medium text-textSecondary">Connection name <span class="text-danger">*</span></label>
+                <span class="font-mono text-textMuted">State: Empty / Default</span>
+              </div>
+              <div class="h-7 w-full px-2 rounded bg-surface border border-border flex items-center text-textMuted font-sans">
+                <span>e.g. analytics-replica</span>
+              </div>
+              <div class="text-[10px] text-textMuted">Descriptive nickname for cluster connection</div>
+            </div>
+
+            <!-- 2. Populated -->
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <label class="font-medium text-textSecondary">Connection name</label>
+                <span class="font-mono text-textMuted">State: Populated</span>
+              </div>
+              <div class="h-7 w-full px-2 rounded bg-surface border border-border flex items-center text-textPrimary font-mono">
+                <span>local-pg</span>
+              </div>
+              <div class="text-[10px] text-textMuted">Active profile target identifier</div>
+            </div>
+
+            <!-- 3. Focused (Active Ring) -->
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <label class="font-medium text-textPrimary">Host</label>
+                <span class="font-mono text-accent">State: Focused (Active)</span>
+              </div>
+              <div class="h-7 w-full px-2 rounded bg-surface border border-accent focus-ring flex items-center justify-between text-textPrimary font-mono">
+                <div class="flex items-center">
+                  <span>localhost</span>
+                  <span class="w-[1.5px] h-3.5 bg-accent ml-0.5 animate-pulse"></span>
+                </div>
+                <span class="text-[10px] text-textMuted font-sans">IPv4</span>
+              </div>
+              <div class="text-[10px] text-textMuted">Hostname or IPv4/IPv6 socket</div>
+            </div>
+
+            <!-- 4. Invalid / Validation error -->
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <label class="font-medium text-danger">Port</label>
+                <span class="font-mono text-danger">State: Invalid / Error</span>
+              </div>
+              <div class="h-7 w-full px-2 rounded bg-surface border border-danger flex items-center justify-between text-danger font-mono">
+                <span>99999</span>
+                <span class="material-symbols-outlined text-danger text-xs">error</span>
+              </div>
+              <div class="text-[10px] text-danger flex items-center gap-1 font-sans">
+                <span>Port must be between 1 and 65535</span>
+              </div>
+            </div>
+
+            <!-- 5. Disabled -->
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <label class="font-medium text-textMuted">Database</label>
+                <span class="font-mono text-textMuted">State: Disabled</span>
+              </div>
+              <div class="h-7 w-full px-2 rounded bg-[#101011] border border-borderSubtle flex items-center text-textMuted/60 font-mono cursor-not-allowed select-none">
+                <span>app_db</span>
+              </div>
+              <div class="text-[10px] text-textMuted/60">Configured in session bootstrap profile</div>
+            </div>
+
+            <!-- 6. Read-Only -->
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <label class="font-medium text-textSecondary">Cluster Version</label>
+                <span class="font-mono text-textMuted">State: Read-only</span>
+              </div>
+              <div class="h-7 w-full px-2 rounded bg-surfaceHighlight/50 border border-border flex items-center justify-between text-textSecondary font-mono select-all">
+                <span>PostgreSQL 16.2 on x86_64</span>
+                <span class="material-symbols-outlined text-textMuted text-[13px]">lock</span>
+              </div>
+              <div class="text-[10px] text-textMuted">Read directly from backend connection probe</div>
+            </div>
+
+          </div>
+
+          <!-- Section Divider within Card -->
+          <div class="border-t border-border pt-3">
+            <div class="text-[10px] font-mono text-textSecondary uppercase tracking-wider mb-2.5">Composite Fields: Search & Password</div>
+            <div class="grid grid-cols-2 gap-3">
+
+              <!-- Search Field with Clear Button -->
+              <div class="space-y-1">
+                <div class="flex justify-between items-center text-[10px]">
+                  <label class="font-medium text-textSecondary">Find table or action</label>
+                  <span class="font-mono text-textMuted">Search with Clear</span>
+                </div>
+                <div class="h-7 w-full px-2 rounded bg-surface border border-border flex items-center gap-1.5 focus-within:border-accent">
+                  <span class="material-symbols-outlined text-textMuted">search</span>
+                  <input type="text" value="users" readonly class="bg-transparent text-textPrimary font-mono w-full focus:outline-none text-xs" />
+                  <button class="w-4 h-4 rounded-sm hover:bg-surfaceHighlight text-textMuted hover:text-white flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[13px]">close</span>
+                  </button>
+                  <span class="text-[9px] font-mono px-1 rounded bg-surfaceHighlight border border-border text-textMuted">⌘K</span>
+                </div>
+                <div class="text-[10px] text-textMuted">Fuzzy matches schemas, tables, and views</div>
+              </div>
+
+              <!-- Password with Reveal Toggle -->
+              <div class="space-y-1">
+                <div class="flex justify-between items-center text-[10px]">
+                  <label class="font-medium text-textSecondary">Password</label>
+                  <span class="font-mono text-textMuted">Password (Revealed)</span>
+                </div>
+                <div class="h-7 w-full px-2 rounded bg-surface border border-border flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-textMuted">key</span>
+                  <input type="text" value="••••••••••••" readonly class="bg-transparent text-textPrimary font-mono w-full focus:outline-none text-xs tracking-widest" />
+                  <button class="w-5 h-5 rounded hover:bg-surfaceHighlight text-accent flex items-center justify-center" title="Toggle visibility">
+                    <span class="material-symbols-outlined text-[14px]">visibility</span>
+                  </button>
+                </div>
+                <div class="text-[10px] text-textMuted">Credentials are stored securely</div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Dropdowns, Comboboxes & Options -->
+      <section class="border border-border rounded bg-panel overflow-hidden">
+        <div class="h-8 bg-surface border-b border-border px-3 flex items-center justify-between select-none">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-[10px] text-accent font-semibold px-1 rounded bg-accentMuted/60">02</span>
+            <span class="font-medium text-white text-xs">Select & Searchable Comboboxes</span>
+          </div>
+          <span class="text-[10px] text-textMuted font-mono">Standard select & interactive popover states</span>
+        </div>
+
+        <div class="p-3.5 space-y-4">
+          <div class="grid grid-cols-2 gap-3 items-start">
+
+            <!-- Closed Native Select -->
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <label class="font-medium text-textSecondary">Driver Type</label>
+                <span class="font-mono text-textMuted">Closed State</span>
+              </div>
+              <div class="h-7 w-full px-2 rounded bg-surface border border-border flex items-center justify-between cursor-pointer hover:border-textMuted">
+                <div class="flex items-center gap-1.5 font-mono text-xs text-textPrimary">
+                  <span class="w-2 h-2 rounded-full bg-accent"></span>
+                  <span>PostgreSQL</span>
+                </div>
+                <span class="material-symbols-outlined text-textMuted">expand_more</span>
+              </div>
+              <div class="text-[10px] text-textMuted">Native libpq / wire protocol v3</div>
+            </div>
+
+            <!-- Open Combobox with Results -->
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <label class="font-medium text-accent">Active Database</label>
+                <span class="font-mono text-accent">Open State (Filtered)</span>
+              </div>
+              <div class="h-7 w-full px-2 rounded-t bg-surface border-t border-x border-accent flex items-center justify-between">
+                <div class="flex items-center gap-1.5 font-mono text-xs text-textPrimary">
+                  <span class="material-symbols-outlined text-textMuted text-xs">search</span>
+                  <span>app_</span>
+                </div>
+                <span class="material-symbols-outlined text-accent">expand_less</span>
+              </div>
+              <!-- Floating Dropdown Panel -->
+              <div class="border-b border-x border-border rounded-b bg-[#151618] shadow-2xl p-1 space-y-0.5">
+                <div class="px-2 py-1 rounded-sm bg-accent/20 border border-accent/30 text-accent font-mono text-[11px] flex items-center justify-between">
+                  <div class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-xs">database</span>
+                    <span class="font-semibold">app_db</span>
+                  </div>
+                  <span class="text-[9px] uppercase px-1 rounded bg-accent/30 text-accent font-sans">Active</span>
+                </div>
+                <div class="px-2 py-1 rounded-sm hover:bg-surfaceHighlight text-textSecondary hover:text-textPrimary font-mono text-[11px] flex items-center justify-between">
+                  <div class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-textMuted text-xs">database</span>
+                    <span>app_testing</span>
+                  </div>
+                  <span class="text-[10px] text-textMuted font-sans">34 MB</span>
+                </div>
+                <div class="px-2 py-1 rounded-sm hover:bg-surfaceHighlight text-textSecondary hover:text-textPrimary font-mono text-[11px] flex items-center justify-between">
+                  <div class="flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-textMuted text-xs">database</span>
+                    <span>app_staging</span>
+                  </div>
+                  <span class="text-[10px] text-textMuted font-sans">1.2 GB</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Disabled Select -->
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <label class="font-medium text-textMuted">SSL Mode</label>
+                <span class="font-mono text-textMuted">Disabled Select</span>
+              </div>
+              <div class="h-7 w-full px-2 rounded bg-[#101011] border border-borderSubtle flex items-center justify-between text-textMuted/60 cursor-not-allowed">
+                <span class="font-mono text-xs">require (verified)</span>
+                <span class="material-symbols-outlined text-[13px]">lock</span>
+              </div>
+              <div class="text-[10px] text-textMuted/60">Enforced by organizational policy</div>
+            </div>
+
+            <!-- Combobox: Empty / No Results -->
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <label class="font-medium text-textSecondary">Target Schema</label>
+                <span class="font-mono text-textMuted">No Results State</span>
+              </div>
+              <div class="h-7 w-full px-2 rounded-t bg-surface border-t border-x border-border flex items-center justify-between">
+                <span class="font-mono text-xs text-textPrimary">warehouse_xyz</span>
+                <span class="material-symbols-outlined text-textMuted">close</span>
+              </div>
+              <div class="border-b border-x border-border rounded-b bg-[#151618] p-3 text-center space-y-1">
+                <span class="material-symbols-outlined text-textMuted text-base mx-auto block">table_rows_narrow</span>
+                <div class="text-[11px] text-textSecondary font-medium">No matching tables</div>
+                <div class="text-[10px] text-textMuted">Schema not found in catalog cache</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Selection Controls (Checkboxes, Radios, Toggles, Segmented) -->
+      <section class="border border-border rounded bg-panel overflow-hidden flex-1">
+        <div class="h-8 bg-surface border-b border-border px-3 flex items-center justify-between select-none">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-[10px] text-accent font-semibold px-1 rounded bg-accentMuted/60">03</span>
+            <span class="font-medium text-white text-xs">Selection Controls & Toggles</span>
+          </div>
+          <span class="text-[10px] text-textMuted font-mono">Explicit state indicators · keyboard focusable</span>
+        </div>
+
+        <div class="p-3.5 space-y-4">
+
+          <!-- Checkboxes & Radios Grid -->
+          <div class="grid grid-cols-2 gap-4">
+
+            <!-- Checkbox Group -->
+            <div class="space-y-2">
+              <div class="text-[10px] font-mono text-textSecondary uppercase tracking-wider">Checkboxes (3-State)</div>
+              
+              <!-- Checked -->
+              <div class="flex items-center gap-2">
+                <div class="w-3.5 h-3.5 rounded-sm bg-accent border border-accent flex items-center justify-center text-black">
+                  <span class="material-symbols-outlined text-[13px] font-bold">check</span>
+                </div>
+                <span class="text-xs text-textPrimary">Auto-commit transactions</span>
+                <span class="text-[10px] font-mono text-accent ml-auto">Checked</span>
+              </div>
+
+              <!-- Unchecked -->
+              <div class="flex items-center gap-2">
+                <div class="w-3.5 h-3.5 rounded-sm bg-surface border border-border hover:border-textMuted flex items-center justify-center"></div>
+                <span class="text-xs text-textSecondary">Read-only connection mode</span>
+                <span class="text-[10px] font-mono text-textMuted ml-auto">Unchecked</span>
+              </div>
+
+              <!-- Indeterminate -->
+              <div class="flex items-center gap-2">
+                <div class="w-3.5 h-3.5 rounded-sm bg-accent/80 border border-accent flex items-center justify-center text-white">
+                  <span class="w-2 h-0.5 bg-white rounded-xs"></span>
+                </div>
+                <span class="text-xs text-textPrimary">Select all columns (4/12 selected)</span>
+                <span class="text-[10px] font-mono text-accent ml-auto">Indeterminate</span>
+              </div>
+
+              <!-- Disabled Checked -->
+              <div class="flex items-center gap-2 opacity-50 cursor-not-allowed">
+                <div class="w-3.5 h-3.5 rounded-sm bg-surfaceHighlight border border-borderSubtle flex items-center justify-center text-textMuted">
+                  <span class="material-symbols-outlined text-[13px]">check</span>
+                </div>
+                <span class="text-xs text-textMuted">Verify server SSL certificates</span>
+                <span class="text-[10px] font-mono text-textMuted ml-auto">Disabled</span>
+              </div>
+            </div>
+
+            <!-- Radio Button Group -->
+            <div class="space-y-2">
+              <div class="text-[10px] font-mono text-textSecondary uppercase tracking-wider">Radio Selection</div>
+
+              <!-- Selected -->
+              <div class="flex items-center gap-2">
+                <div class="w-3.5 h-3.5 rounded-full bg-surface border border-accent flex items-center justify-center">
+                  <div class="w-1.5 h-1.5 rounded-full bg-accent"></div>
+                </div>
+                <span class="text-xs text-textPrimary font-medium">Standard result grid pagination</span>
+                <span class="text-[10px] font-mono text-accent ml-auto">Selected</span>
+              </div>
+
+              <!-- Unselected -->
+              <div class="flex items-center gap-2">
+                <div class="w-3.5 h-3.5 rounded-full bg-surface border border-border hover:border-textMuted flex items-center justify-center"></div>
+                <span class="text-xs text-textSecondary">Stream unlimited rows</span>
+                <span class="text-[10px] font-mono text-textMuted ml-auto">Unselected</span>
+              </div>
+
+              <!-- Focused (Keyboard) -->
+              <div class="flex items-center gap-2">
+                <div class="w-3.5 h-3.5 rounded-full bg-surface border border-accent focus-ring flex items-center justify-center">
+                  <div class="w-1.5 h-1.5 rounded-full bg-accent"></div>
+                </div>
+                <span class="text-xs text-textPrimary">Virtual scroll windowing</span>
+                <span class="text-[10px] font-mono text-accent ml-auto">Focused</span>
+              </div>
+
+              <!-- Disabled Unselected -->
+              <div class="flex items-center gap-2 opacity-50 cursor-not-allowed">
+                <div class="w-3.5 h-3.5 rounded-full bg-surfaceHighlight border border-borderSubtle flex items-center justify-center"></div>
+                <span class="text-xs text-textMuted">Export directly to parquet</span>
+                <span class="text-[10px] font-mono text-textMuted ml-auto">Disabled</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Section Divider: Toggles & Segmented Controls -->
+          <div class="border-t border-border pt-3">
+            <div class="grid grid-cols-2 gap-4 items-center">
+
+              <!-- Toggle Switches -->
+              <div class="space-y-2">
+                <div class="text-[10px] font-mono text-textSecondary uppercase tracking-wider">Switches / Toggles</div>
+                
+                <!-- Toggle ON -->
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-textPrimary">Auto-format SQL on execute</span>
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono text-[10px] text-accent">ON</span>
+                    <div class="w-8 h-4 rounded-full bg-accent p-0.5 cursor-pointer flex items-center justify-end">
+                      <div class="w-3 h-3 rounded-full bg-black shadow-xs"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Toggle OFF -->
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-textSecondary">Syntax error sound alert</span>
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono text-[10px] text-textMuted">OFF</span>
+                    <div class="w-8 h-4 rounded-full bg-surfaceHighlight border border-border p-0.5 cursor-pointer flex items-center justify-start">
+                      <div class="w-3 h-3 rounded-full bg-textMuted shadow-xs"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Toggle Disabled -->
+                <div class="flex items-center justify-between opacity-50 cursor-not-allowed">
+                  <span class="text-xs text-textMuted">Hardware acceleration</span>
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono text-[10px] text-textMuted">DISABLED</span>
+                    <div class="w-8 h-4 rounded-full bg-borderSubtle p-0.5 flex items-center justify-start">
+                      <div class="w-3 h-3 rounded-full bg-border"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Segmented Controls -->
+              <div class="space-y-2">
+                <div class="text-[10px] font-mono text-textSecondary uppercase tracking-wider">Segmented Controls (24px / 28px)</div>
+
+                <!-- 28px standard segmented -->
+                <div class="space-y-1">
+                  <div class="flex justify-between text-[10px]">
+                    <span class="text-textSecondary">Execution View</span>
+                    <span class="font-mono text-textMuted">Standard 28px</span>
+                  </div>
+                  <div class="h-7 p-0.5 rounded bg-surface border border-border grid grid-cols-3 gap-0.5 font-mono text-xs select-none">
+                    <button class="rounded-sm bg-accent text-black font-semibold flex items-center justify-center gap-1 shadow-xs">
+                      <span>Table</span>
+                    </button>
+                    <button class="rounded-sm text-textSecondary hover:text-textPrimary flex items-center justify-center gap-1 hover:bg-surfaceHighlight">
+                      <span>JSON</span>
+                    </button>
+                    <button class="rounded-sm text-textSecondary hover:text-textPrimary flex items-center justify-center gap-1 hover:bg-surfaceHighlight">
+                      <span>Raw Text</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 24px compact segmented -->
+                <div class="space-y-1">
+                  <div class="flex justify-between text-[10px]">
+                    <span class="text-textSecondary">Results Layout</span>
+                    <span class="font-mono text-textMuted">Compact 24px</span>
+                  </div>
+                  <div class="h-6 p-0.5 rounded bg-[#101011] border border-border grid grid-cols-2 gap-0.5 font-mono text-[11px] select-none">
+                    <button class="rounded-xs bg-surfaceHighlight text-textPrimary border border-border flex items-center justify-center gap-1">
+                      <span class="material-symbols-outlined text-xs">horizontal_split</span> Split Horiz
+                    </button>
+                    <button class="rounded-xs text-textMuted hover:text-textPrimary flex items-center justify-center gap-1 hover:bg-surfaceHighlight">
+                      <span class="material-symbols-outlined text-xs">vertical_split</span> Split Vert
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- RIGHT COLUMN: BUTTONS, TABS, NAV & TREE   -->
+    <!-- ========================================== -->
+    <div class="space-y-5 flex flex-col">
+
+      <!-- Section 4: Buttons & Icon Actions Matrix -->
+      <section class="border border-border rounded bg-panel overflow-hidden">
+        <div class="h-8 bg-surface border-b border-border px-3 flex items-center justify-between select-none">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-[10px] text-accent font-semibold px-1 rounded bg-accentMuted/60">04</span>
+            <span class="font-medium text-white text-xs">Button Variants & Interactive States</span>
+          </div>
+          <span class="text-[10px] text-textMuted font-mono">Height: 28px · Padding: 8px · Radius: 4px</span>
+        </div>
+
+        <div class="p-3.5 space-y-3.5">
+
+          <!-- Matrix Table -->
+          <div class="border border-border rounded overflow-hidden">
+            <table class="w-full text-left text-xs spec-table">
+              <thead class="bg-surface text-[10px] font-mono text-textSecondary uppercase tracking-wider border-b border-border">
+                <tr>
+                  <th class="py-1.5 px-2.5 font-medium">Variant</th>
+                  <th class="py-1.5 px-2.5 font-medium">Default</th>
+                  <th class="py-1.5 px-2.5 font-medium">Hover</th>
+                  <th class="py-1.5 px-2.5 font-medium">Focused (Ring)</th>
+                  <th class="py-1.5 px-2.5 font-medium">Disabled</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border bg-[#111112]">
+                <!-- Primary Variant -->
+                <tr>
+                  <td class="py-2 px-2.5 font-mono text-textSecondary text-[11px]">Primary</td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-3 rounded bg-accent text-black font-semibold text-xs flex items-center gap-1.5 hover:bg-accentHover">
+                      <span class="material-symbols-outlined text-xs">play_arrow</span> Execute
+                    </button>
+                  </td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-3 rounded bg-accentHover text-black font-semibold text-xs flex items-center gap-1.5">
+                      <span class="material-symbols-outlined text-xs">play_arrow</span> Execute
+                    </button>
+                  </td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-3 rounded bg-accent text-black font-semibold text-xs flex items-center gap-1.5 focus-ring">
+                      <span class="material-symbols-outlined text-xs">play_arrow</span> Execute
+                    </button>
+                  </td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-3 rounded bg-surfaceHighlight text-textMuted/60 text-xs flex items-center gap-1.5 cursor-not-allowed border border-borderSubtle">
+                      <span class="material-symbols-outlined text-xs">play_arrow</span> Execute
+                    </button>
+                  </td>
+                </tr>
+
+                <!-- Secondary Variant -->
+                <tr>
+                  <td class="py-2 px-2.5 font-mono text-textSecondary text-[11px]">Secondary</td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-3 rounded bg-surface border border-border text-textPrimary text-xs flex items-center gap-1.5 hover:bg-surfaceHighlight">
+                      <span class="material-symbols-outlined text-xs">lan</span> Connect
+                    </button>
+                  </td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-3 rounded bg-surfaceHighlight border border-textSecondary text-white text-xs flex items-center gap-1.5">
+                      <span class="material-symbols-outlined text-xs">lan</span> Connect
+                    </button>
+                  </td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-3 rounded bg-surface border border-accent focus-ring text-textPrimary text-xs flex items-center gap-1.5">
+                      <span class="material-symbols-outlined text-xs">lan</span> Connect
+                    </button>
+                  </td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-3 rounded bg-[#101011] border border-borderSubtle text-textMuted/50 text-xs flex items-center gap-1.5 cursor-not-allowed">
+                      <span class="material-symbols-outlined text-xs">lan</span> Connect
+                    </button>
+                  </td>
+                </tr>
+
+                <!-- Ghost Variant -->
+                <tr>
+                  <td class="py-2 px-2.5 font-mono text-textSecondary text-[11px]">Ghost</td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-2.5 rounded text-textSecondary hover:text-textPrimary hover:bg-surface text-xs flex items-center gap-1.5">
+                      <span>Format SQL</span>
+                    </button>
+                  </td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-2.5 rounded text-white bg-surfaceHighlight text-xs flex items-center gap-1.5">
+                      <span>Format SQL</span>
+                    </button>
+                  </td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-2.5 rounded text-accent bg-accentMuted/40 focus-ring text-xs flex items-center gap-1.5">
+                      <span>Format SQL</span>
+                    </button>
+                  </td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-2.5 rounded text-textMuted/40 text-xs flex items-center gap-1.5 cursor-not-allowed">
+                      <span>Format SQL</span>
+                    </button>
+                  </td>
+                </tr>
+
+                <!-- Destructive Variant -->
+                <tr>
+                  <td class="py-2 px-2.5 font-mono text-textSecondary text-[11px]">Destructive</td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-3 rounded bg-dangerMuted border border-danger/40 text-danger text-xs flex items-center gap-1.5 hover:bg-danger hover:text-white">
+                      <span class="material-symbols-outlined text-xs">delete</span> Drop Table
+                    </button>
+                  </td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-3 rounded bg-danger text-white text-xs flex items-center gap-1.5 shadow-sm">
+                      <span class="material-symbols-outlined text-xs">delete</span> Drop Table
+                    </button>
+                  </td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-3 rounded bg-dangerMuted border border-danger text-danger text-xs flex items-center gap-1.5 outline outline-1 outline-danger">
+                      <span class="material-symbols-outlined text-xs">delete</span> Drop Table
+                    </button>
+                  </td>
+                  <td class="py-2 px-2.5">
+                    <button class="h-7 px-3 rounded bg-[#141010] border border-borderSubtle text-textMuted/40 text-xs flex items-center gap-1.5 cursor-not-allowed">
+                      <span class="material-symbols-outlined text-xs">delete</span> Drop Table
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Icon Buttons & Compact Actions -->
+          <div class="flex items-center justify-between border-t border-border pt-2.5 text-[11px]">
+            <div class="flex items-center gap-2">
+              <span class="text-textSecondary font-mono">Icon Buttons (24px):</span>
+              <button class="w-6 h-6 rounded bg-surface border border-border text-textSecondary hover:text-textPrimary flex items-center justify-center" title="Refresh">
+                <span class="material-symbols-outlined text-xs">refresh</span>
+              </button>
+              <button class="w-6 h-6 rounded bg-surfaceHighlight border border-textSecondary text-white flex items-center justify-center" title="Hovered filter">
+                <span class="material-symbols-outlined text-xs">filter_list</span>
+              </button>
+              <button class="w-6 h-6 rounded bg-accent text-black flex items-center justify-center font-bold" title="Active pin">
+                <span class="material-symbols-outlined text-xs">push_pin</span>
+              </button>
+              <button class="w-6 h-6 rounded bg-[#101011] border border-borderSubtle text-textMuted/40 flex items-center justify-center cursor-not-allowed" title="Disabled">
+                <span class="material-symbols-outlined text-xs">download</span>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span class="text-textSecondary font-mono">Button Group:</span>
+              <div class="inline-flex rounded border border-border bg-surface overflow-hidden">
+                <button class="h-6 px-2 text-[11px] font-mono border-r border-border hover:bg-surfaceHighlight text-textPrimary">Prev</button>
+                <button class="h-6 px-2 text-[11px] font-mono border-r border-border bg-surfaceHighlight text-accent font-semibold">1</button>
+                <button class="h-6 px-2 text-[11px] font-mono border-r border-border hover:bg-surfaceHighlight text-textSecondary">2</button>
+                <button class="h-6 px-2 text-[11px] font-mono hover:bg-surfaceHighlight text-textPrimary">Next</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Section 5: Workspace Tabs & Navigation Components -->
+      <section class="border border-border rounded bg-panel overflow-hidden">
+        <div class="h-8 bg-surface border-b border-border px-3 flex items-center justify-between select-none">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-[10px] text-accent font-semibold px-1 rounded bg-accentMuted/60">05</span>
+            <span class="font-medium text-white text-xs">Workspace Tabs, Nav Rails & Selectors</span>
+          </div>
+          <span class="text-[10px] text-textMuted font-mono">States: Active · Inactive · Dirty (Unsaved) · Hover</span>
+        </div>
+
+        <div class="p-3.5 space-y-4">
+
+          <!-- Tab Bar Specimen -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between items-center text-[10px]">
+              <span class="font-mono text-textSecondary uppercase tracking-wider">Workspace Tabs Bar (Height: 28px)</span>
+              <span class="text-textMuted font-mono">Dirty indicator: 6px accent dot</span>
+            </div>
+            
+            <div class="h-7 bg-[#101011] border border-border rounded-t flex items-center px-1 space-x-1 select-none overflow-x-auto">
+              
+              <!-- Tab 1: Active with dirty state -->
+              <div class="h-6 px-2.5 rounded-t bg-panel border-t-2 border-accent border-x border-border flex items-center gap-1.5 text-white font-mono text-[11px]">
+                <span class="w-1.5 h-1.5 rounded-full bg-accent" title="Dirty (Unsaved changes)"></span>
+                <span class="font-medium">query_users_v2.sql</span>
+                <button class="w-3.5 h-3.5 rounded hover:bg-surfaceHighlight text-textMuted hover:text-white flex items-center justify-center ml-1">
+                  <span class="material-symbols-outlined text-[11px]">close</span>
+                </button>
+              </div>
+
+              <!-- Tab 2: Inactive Regular -->
+              <div class="h-6 px-2.5 rounded-t hover:bg-surface text-textSecondary hover:text-textPrimary flex items-center gap-1.5 font-mono text-[11px] cursor-pointer">
+                <span class="material-symbols-outlined text-[12px] text-textMuted">table_chart</span>
+                <span>public.orders</span>
+                <button class="w-3.5 h-3.5 rounded hover:bg-surfaceHighlight text-textMuted hover:text-white flex items-center justify-center ml-1">
+                  <span class="material-symbols-outlined text-[11px]">close</span>
+                </button>
+              </div>
+
+              <!-- Tab 3: Inactive Dirty -->
+              <div class="h-6 px-2.5 rounded-t hover:bg-surface text-textSecondary hover:text-textPrimary flex items-center gap-1.5 font-mono text-[11px] cursor-pointer">
+                <span class="w-1.5 h-1.5 rounded-full bg-warning" title="Dirty (Unsaved schema changes)"></span>
+                <span>migration_04.sql</span>
+                <button class="w-3.5 h-3.5 rounded hover:bg-surfaceHighlight text-textMuted hover:text-white flex items-center justify-center ml-1">
+                  <span class="material-symbols-outlined text-[11px]">close</span>
+                </button>
+              </div>
+
+              <!-- Tab 4: Add New Query Button -->
+              <button class="h-6 w-6 rounded hover:bg-surface text-textMuted hover:text-textPrimary flex items-center justify-center" title="New Tab">
+                <span class="material-symbols-outlined text-xs">add</span>
+              </button>
+            </div>
+            <!-- Sub-tab panel preview border line -->
+            <div class="h-2 bg-panel border-b border-x border-border rounded-b"></div>
+          </div>
+
+          <!-- Vertical Navigation Rail & Connection Selector -->
+          <div class="grid grid-cols-2 gap-4 pt-1">
+
+            <!-- Vertical Rail Specimen -->
+            <div class="space-y-1.5">
+              <div class="text-[10px] font-mono text-textSecondary uppercase tracking-wider">Vertical Activity Rail (44px)</div>
+              <div class="w-full bg-[#101011] border border-border rounded p-1 flex items-center justify-around">
+                <!-- Selected -->
+                <div class="w-8 h-8 rounded bg-accentMuted/60 border border-accent/40 text-accent flex flex-col items-center justify-center cursor-pointer relative" title="Explorer (Active)">
+                  <span class="material-symbols-outlined text-sm">account_tree</span>
+                  <div class="absolute left-0 top-1 bottom-1 w-0.5 bg-accent rounded-r"></div>
+                </div>
+                <!-- Hovered -->
+                <div class="w-8 h-8 rounded bg-surfaceHighlight text-textPrimary flex flex-col items-center justify-center cursor-pointer" title="Query Console">
+                  <span class="material-symbols-outlined text-sm">terminal</span>
+                </div>
+                <!-- Default -->
+                <div class="w-8 h-8 rounded hover:bg-surface text-textMuted hover:text-textSecondary flex flex-col items-center justify-center cursor-pointer" title="Data Grids">
+                  <span class="material-symbols-outlined text-sm">table_view</span>
+                </div>
+                <!-- Disabled -->
+                <div class="w-8 h-8 rounded text-textMuted/30 flex flex-col items-center justify-center cursor-not-allowed" title="Git Branching (Disabled)">
+                  <span class="material-symbols-outlined text-sm">fork_right</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Connection Selector Dropdown -->
+            <div class="space-y-1.5">
+              <div class="text-[10px] font-mono text-textSecondary uppercase tracking-wider">Connection Selector Specimen</div>
+              <div class="h-8 px-2.5 rounded bg-surface border border-border flex items-center justify-between cursor-pointer hover:border-textMuted">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-success"></span>
+                  <div class="flex flex-col text-left">
+                    <span class="font-mono text-xs text-textPrimary font-semibold leading-tight">postgres-prod-01</span>
+                    <span class="text-[9px] text-textMuted font-mono leading-tight">localhost:5432 · db: app_db</span>
+                  </div>
+                </div>
+                <span class="material-symbols-outlined text-textMuted">unfold_more</span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Section 6: Schema Browser Tree & Context Action Menu -->
+      <section class="border border-border rounded bg-panel overflow-hidden flex-1">
+        <div class="h-8 bg-surface border-b border-border px-3 flex items-center justify-between select-none">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-[10px] text-accent font-semibold px-1 rounded bg-accentMuted/60">06</span>
+            <span class="font-medium text-white text-xs">Schema Browser Tree & Context Menu</span>
+          </div>
+          <span class="text-[10px] text-textMuted font-mono">Row height: 24px · Hierarchy: Connection &gt; DB &gt; Schema &gt; Tables</span>
+        </div>
+
+        <div class="p-3.5 grid grid-cols-2 gap-4">
+
+          <!-- Left: Schema Tree Hierarchy with All States -->
+          <div class="border border-border rounded bg-[#101011] p-1.5 font-mono text-[11px] space-y-0.5 select-none">
+            <div class="text-[9px] uppercase tracking-wider text-textMuted px-2 py-0.5">Database Catalog Tree</div>
+            
+            <!-- Level 1: Connection (Expanded) -->
+            <div class="h-6 px-1.5 rounded flex items-center gap-1.5 text-textPrimary hover:bg-surface cursor-pointer">
+              <span class="material-symbols-outlined text-textMuted text-[13px]">arrow_drop_down</span>
+              <span class="material-symbols-outlined text-success text-[14px]">dns</span>
+              <span class="font-semibold text-white">local-pg</span>
+              <span class="text-[9px] text-textMuted font-sans ml-auto">5432</span>
+            </div>
+
+            <!-- Level 2: Database (Expanded) -->
+            <div class="h-6 pl-4 pr-1.5 rounded flex items-center gap-1.5 text-textPrimary hover:bg-surface cursor-pointer">
+              <span class="material-symbols-outlined text-textMuted text-[13px]">arrow_drop_down</span>
+              <span class="material-symbols-outlined text-accent text-[14px]">database</span>
+              <span>app_db</span>
+            </div>
+
+            <!-- Level 3: Schema (Expanded) -->
+            <div class="h-6 pl-7 pr-1.5 rounded flex items-center gap-1.5 text-textPrimary hover:bg-surface cursor-pointer">
+              <span class="material-symbols-outlined text-textMuted text-[13px]">arrow_drop_down</span>
+              <span class="material-symbols-outlined text-textSecondary text-[14px]">schema</span>
+              <span class="text-textSecondary">public</span>
+            </div>
+
+            <!-- Level 4: Tables Group (Expanded) -->
+            <div class="h-6 pl-10 pr-1.5 rounded flex items-center gap-1.5 text-textPrimary hover:bg-surface cursor-pointer">
+              <span class="material-symbols-outlined text-textMuted text-[13px]">arrow_drop_down</span>
+              <span class="material-symbols-outlined text-textMuted text-[14px]">folder</span>
+              <span class="text-textSecondary">Tables (24)</span>
+            </div>
+
+            <!-- Level 5: Table Item - SELECTED with Focus Ring -->
+            <div class="h-6 pl-13 pr-1.5 rounded bg-accent/20 border border-accent/40 text-accent flex items-center gap-1.5 cursor-pointer">
+              <span class="w-3 inline-block"></span>
+              <span class="material-symbols-outlined text-accent text-[14px]">table_chart</span>
+              <span class="font-medium text-white">users</span>
+              <span class="text-[9px] px-1 rounded bg-accent/30 text-accent ml-auto font-sans">Selected</span>
+            </div>
+
+            <!-- Level 5: Table Item - Default / Unselected -->
+            <div class="h-6 pl-13 pr-1.5 rounded text-textSecondary hover:text-textPrimary hover:bg-surface flex items-center gap-1.5 cursor-pointer">
+              <span class="w-3 inline-block"></span>
+              <span class="material-symbols-outlined text-textMuted text-[14px]">table_chart</span>
+              <span>orders</span>
+              <span class="text-[9px] text-textMuted ml-auto">128k rows</span>
+            </div>
+
+            <!-- Level 4: Schema Loading State -->
+            <div class="h-6 pl-7 pr-1.5 rounded text-textMuted flex items-center gap-1.5">
+              <span class="w-3 inline-block"></span>
+              <span class="material-symbols-outlined text-accent text-[14px] animate-spin">progress_activity</span>
+              <span class="text-textSecondary">audit_logs</span>
+              <span class="text-[9px] text-accent ml-auto font-sans">Loading metadata…</span>
+            </div>
+
+            <!-- Level 4: Error State -->
+            <div class="h-6 pl-7 pr-1.5 rounded text-danger flex items-center gap-1.5 bg-dangerMuted/30">
+              <span class="w-3 inline-block"></span>
+              <span class="material-symbols-outlined text-danger text-[14px]">error</span>
+              <span>pg_temp (access denied)</span>
+              <span class="text-[9px] text-danger ml-auto font-sans">Error 403</span>
+            </div>
+
+            <!-- Collapsed Database node -->
+            <div class="h-6 pl-4 pr-1.5 rounded flex items-center gap-1.5 text-textMuted hover:text-textSecondary hover:bg-surface cursor-pointer">
+              <span class="material-symbols-outlined text-textMuted text-[13px]">arrow_right</span>
+              <span class="material-symbols-outlined text-textMuted text-[14px]">database</span>
+              <span>analytics_lake</span>
+              <span class="text-[9px] text-textMuted ml-auto font-sans">Collapsed</span>
+            </div>
+
+          </div>
+
+          <!-- Right: Context Action Menu Specimen -->
+          <div class="space-y-2">
+            <div class="text-[10px] font-mono text-textSecondary uppercase tracking-wider">Context Menu Specimen (Right Click on Table)</div>
+            
+            <div class="w-full bg-[#18191c] border border-border rounded shadow-2xl p-1 font-sans text-xs space-y-0.5 select-none">
+              
+              <!-- Menu Header context -->
+              <div class="px-2 py-1 border-b border-border/80 text-[10px] font-mono text-textMuted flex items-center justify-between">
+                <span>TABLE: public.users</span>
+                <span class="text-accent">PostgreSQL</span>
+              </div>
+
+              <!-- Menu Item: Open Table (Active/Hovered) -->
+              <div class="px-2 py-1.5 rounded-sm bg-accent text-black font-semibold flex items-center justify-between cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                  <span>Open table</span>
+                </div>
+                <span class="text-[10px] font-mono font-normal">⌘↵</span>
+              </div>
+
+              <!-- Menu Item: Generate SELECT -->
+              <div class="px-2 py-1.5 rounded-sm hover:bg-surfaceHighlight text-textPrimary flex items-center justify-between cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-textMuted text-[14px]">code</span>
+                  <span>Generate SELECT</span>
+                </div>
+                <span class="text-[10px] font-mono text-textMuted">⌘G</span>
+              </div>
+
+              <!-- Menu Item: Filter & Sort -->
+              <div class="px-2 py-1.5 rounded-sm hover:bg-surfaceHighlight text-textPrimary flex items-center justify-between cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-textMuted text-[14px]">filter_alt</span>
+                  <span>Filter rows…</span>
+                </div>
+                <span class="text-[10px] font-mono text-textMuted">⌘F</span>
+              </div>
+
+              <!-- Divider -->
+              <div class="border-t border-border my-0.5"></div>
+
+              <!-- Menu Item: Copy Name -->
+              <div class="px-2 py-1.5 rounded-sm hover:bg-surfaceHighlight text-textPrimary flex items-center justify-between cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-textMuted text-[14px]">content_copy</span>
+                  <span>Copy name</span>
+                </div>
+                <span class="text-[10px] font-mono text-textMuted">⌘C</span>
+              </div>
+
+              <!-- Menu Item: Copy DDL -->
+              <div class="px-2 py-1.5 rounded-sm hover:bg-surfaceHighlight text-textPrimary flex items-center justify-between cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-textMuted text-[14px]">integration_instructions</span>
+                  <span>Copy DDL as CREATE</span>
+                </div>
+                <span class="text-[10px] font-mono text-textMuted">⇧⌘C</span>
+              </div>
+
+              <!-- Divider -->
+              <div class="border-t border-border my-0.5"></div>
+
+              <!-- Menu Item: Destructive Action -->
+              <div class="px-2 py-1.5 rounded-sm hover:bg-danger hover:text-white text-danger flex items-center justify-between cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[14px]">delete_forever</span>
+                  <span>Drop table…</span>
+                </div>
+                <span class="text-[10px] font-mono text-danger hover:text-white">⌘⌫</span>
+              </div>
+
+            </div>
+
+            <!-- Keyboard focus annotation note -->
+            <div class="p-2 rounded bg-surface border border-border text-[10px] text-textMuted space-y-1">
+              <div class="font-mono text-textSecondary uppercase font-medium">Keyboard Access Note</div>
+              <p>All menus support full ArrowUp/Down traversal, <kbd class="px-1 py-0.5 rounded bg-surfaceHighlight border border-border font-mono text-[9px] text-textPrimary">Esc</kbd> dismissal, and quick mnemonic search keys.</p>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- Persistent Desktop Status Bar -->
+  <footer class="h-6 bg-panel border-t border-border px-3 flex items-center justify-between text-[11px] text-textMuted font-mono select-none flex-shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="flex items-center gap-1.5 text-textSecondary">
+        <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+        <span>Ready</span>
+      </div>
+      <span class="text-border">|</span>
+      <span>local-pg (SSL Active)</span>
+      <span class="text-border">|</span>
+      <span>PostgreSQL 16.2</span>
+    </div>
+    <div class="flex items-center space-x-4">
+      <span>Spec Resolution: 2560×2048 Reference</span>
+      <span class="text-border">|</span>
+      <span>UTF-8</span>
+      <span class="text-border">|</span>
+      <span class="text-accent">12 ms latency</span>
+    </div>
+  </footer>
+
+</body>
+</html>

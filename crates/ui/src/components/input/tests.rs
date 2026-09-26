@@ -280,6 +280,108 @@ fn tab_moves_between_inputs_in_horizontal_form_row() {
 }
 
 #[test]
+fn tab_follows_row_order_across_form_columns() {
+    use super::Input;
+    use crate::DbProTheme;
+    use egui::{CentralPanel, Context, Event, Key, Modifiers, Pos2, RawInput, Rect, Response, Vec2};
+
+    fn show_form(
+        ctx: &Context,
+        values: &mut [String; 4],
+        raw_input: RawInput,
+        auto_focus_first: bool,
+    ) -> Vec<Response> {
+        let mut responses = Vec::with_capacity(values.len());
+        let _ = ctx.run(raw_input, |ctx| {
+            CentralPanel::default().show(ctx, |ui| {
+                ui.columns(2, |columns| {
+                    responses.push(
+                        Input::new(&mut values[0], "Name", DbProTheme::dark())
+                            .id_salt("form.name")
+                            .auto_focus(auto_focus_first)
+                            .show(&mut columns[0]),
+                    );
+                    responses.push(
+                        Input::new(&mut values[1], "Database", DbProTheme::dark())
+                            .id_salt("form.database")
+                            .show(&mut columns[1]),
+                    );
+                });
+                ui.add_space(16.0);
+                ui.columns(2, |columns| {
+                    responses.push(
+                        Input::new(&mut values[2], "Host", DbProTheme::dark())
+                            .id_salt("form.host")
+                            .show(&mut columns[0]),
+                    );
+                    responses.push(
+                        Input::new(&mut values[3], "Password", DbProTheme::dark())
+                            .id_salt("form.password")
+                            .show(&mut columns[1]),
+                    );
+                });
+            });
+        });
+        responses
+    }
+
+    fn tab_event() -> Event {
+        Event::Key {
+            key: Key::Tab,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::default(),
+        }
+    }
+
+    let ctx = Context::default();
+    DbProTheme::install_fonts(&ctx);
+    let mut values = std::array::from_fn(|_| String::new());
+    let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(800.0, 320.0));
+    let initial = show_form(
+        &ctx,
+        &mut values,
+        RawInput {
+            screen_rect: Some(screen),
+            ..Default::default()
+        },
+        true,
+    );
+    assert!(
+        initial[0].has_focus(),
+        "the first form field should receive initial focus"
+    );
+
+    let second = show_form(
+        &ctx,
+        &mut values,
+        RawInput {
+            screen_rect: Some(screen),
+            events: vec![tab_event()],
+            ..Default::default()
+        },
+        false,
+    );
+    assert!(second[1].has_focus(), "Tab should advance across the first visual row");
+
+    let third = show_form(
+        &ctx,
+        &mut values,
+        RawInput {
+            screen_rect: Some(screen),
+            events: vec![tab_event()],
+            ..Default::default()
+        },
+        false,
+    );
+    assert!(
+        third[2].has_focus(),
+        "Tab should continue at the start of the next visual row"
+    );
+}
+
+#[test]
 fn password_eye_toggles_when_clicked() {
     // Regression guard for the same frame-click-steal bug, but through `PasswordInput`. The eye
     // toggle button lives inside the field's `Frame`, immediately right of the text edit. If the
@@ -356,9 +458,9 @@ fn password_eye_toggles_when_clicked() {
 #[test]
 fn input_margin_and_rounding_tokens_match_theme_tokens() {
     use super::config::{FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_ROUNDING};
-    use crate::tokens::{RADIUS_SM, SPACE_SM, SPACE_XS};
+    use crate::tokens::{RADIUS_XS, SPACE_SM, SPACE_XS};
 
     assert_eq!(FIELD_INNER_MARGIN_X, SPACE_SM);
     assert_eq!(FIELD_INNER_MARGIN_Y, SPACE_XS);
-    assert_eq!(INPUT_ROUNDING, RADIUS_SM);
+    assert_eq!(INPUT_ROUNDING, RADIUS_XS);
 }

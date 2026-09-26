@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DB Pro — SQL Editor &amp; Results Grid Component Library</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            app: '#212121',
+            panel: '#2A2A2A',
+            editor: '#181818',
+            surfaceElevated: '#303030',
+            borderDefault: '#414141',
+            borderSubtle: '#333333',
+            textPrimary: '#ECECEC',
+            textSecondary: '#B9B9B9',
+            textMuted: '#8D8D8D',
+            textDim: '#5A5A5A',
+            accent: '#339CFF',
+            accentMuted: '#1E3A5F',
+            success: '#22C55E',
+            danger: '#EF4444',
+            warning: '#F59E0B',
+            synKeyword: '#C792EA',
+            synFunc: '#82AAFF',
+            synString: '#C3E88D',
+            synConst: '#F78C6C',
+            synComment: '#676E95',
+            synIdent: '#EEFFFF',
+            synPunct: '#89DDFF',
+            synType: '#FFCB6B',
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      background-color: #212121;
+      color: #ECECEC;
+      font-family: 'Inter', -apple-system, sans-serif;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #181818;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #3A3A3A;
+      border-radius: 3px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #4F4F4F;
+    }
+    .diag-error {
+      text-decoration: underline wavy #EF4444;
+      text-underline-offset: 3px;
+    }
+    .diag-warning {
+      text-decoration: underline wavy #F59E0B;
+      text-underline-offset: 3px;
+    }
+    .grid-cell {
+      height: 28px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      border-bottom: 1px solid #333333;
+      border-right: 1px solid #333333;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 16px;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#212121] text-textPrimary select-none text-[12px] leading-tight font-sans antialiased p-6">
+<!-- TOP HEADER / APP CHROME -->
+<header class="flex items-center justify-between bg-panel border border-borderDefault px-4 py-2 mb-6 rounded-none">
+<div class="flex items-center space-x-3">
+<div class="w-6 h-6 bg-accent rounded flex items-center justify-center text-white font-bold text-xs tracking-tighter">
+        DB
+      </div>
+<div class="flex items-baseline space-x-2">
+<span class="font-bold text-textPrimary text-sm tracking-tight">DB Pro</span>
+<span class="text-textMuted text-xs">/ System Spec: SQL Editor &amp; Results Grid v2.4</span>
+</div>
+<span class="bg-[#1E3A5F] text-[#339CFF] px-2 py-0.5 rounded text-[11px] font-mono font-medium border border-[#2b5282]">SCREEN_16 / 19</span>
+</div>
+<!-- Active Connection pill -->
+<div class="flex items-center space-x-4">
+<div class="flex items-center space-x-2 bg-[#1c1c1c] border border-borderDefault px-2.5 py-1 rounded text-xs">
+<span class="w-2 h-2 rounded-full bg-success"></span>
+<span class="text-textSecondary font-mono text-[11px]">local-pg : 5432</span>
+<span class="text-textMuted text-[11px]">/</span>
+<span class="text-textPrimary font-mono text-[11px] font-medium">postgres</span>
+<span class="bg-surfaceElevated text-textMuted text-[10px] px-1 py-0.2 rounded font-mono">dev</span>
+</div>
+<div class="flex items-center bg-[#1c1c1c] border border-borderDefault rounded p-0.5 text-xs">
+<button class="px-2.5 py-1 bg-surfaceElevated text-textPrimary rounded font-medium text-[11px]">Component Specs</button>
+<button class="px-2.5 py-1 text-textMuted hover:text-textSecondary text-[11px]">Interactive Prototype</button>
+</div>
+</div>
+</header>
+<!-- SECTION 01: INTEGRATED 3-PANE WORKBENCH -->
+<section class="mb-10">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center space-x-2">
+<span class="text-accent font-mono text-xs font-semibold">SECTION 01</span>
+<h2 class="text-sm font-semibold tracking-wide uppercase text-textPrimary">Integrated SQL Workbench</h2>
+<span class="text-textMuted text-xs">— 3-Pane Topology (Schema Tree, Editor &amp; Telemetry, Resizable Results Grid)</span>
+</div>
+<div class="text-xs text-textMuted font-mono">100% Planar Borders (0px blur, no drop shadow)</div>
+</div>
+<!-- Workbench Container -->
+<div class="border border-borderDefault bg-[#181818] grid grid-cols-12 overflow-hidden" style="height: 640px;">
+<!-- Pane 1: Schema Browser Sidebar (Cols: 3) -->
+<aside class="col-span-3 bg-panel border-r border-borderDefault flex flex-col h-full">
+<!-- Sidebar Header -->
+<div class="h-9 px-3 border-b border-borderDefault flex items-center justify-between bg-[#262626]">
+<div class="flex items-center space-x-1.5 text-xs font-medium text-textSecondary uppercase tracking-wider">
+<span class="material-symbols-outlined text-textMuted">database</span>
+<span>Schema Explorer</span>
+</div>
+<div class="flex items-center space-x-1">
+<button class="p-1 hover:bg-surfaceElevated rounded text-textMuted hover:text-textPrimary" title="Refresh">
+<span class="material-symbols-outlined text-[14px]">refresh</span>
+</button>
+<button class="p-1 hover:bg-surfaceElevated rounded text-textMuted hover:text-textPrimary" title="Filter schema">
+<span class="material-symbols-outlined text-[14px]">filter_list</span>
+</button>
+</div>
+</div>
+<!-- Schema Tree Search -->
+<div class="p-2 border-b border-borderSubtle bg-[#232323]">
+<div class="flex items-center bg-[#1c1c1c] border border-borderSubtle rounded px-2 h-7">
+<span class="material-symbols-outlined text-textMuted mr-1.5 text-[14px]">search</span>
+<input class="bg-transparent border-0 outline-none text-xs text-textPrimary placeholder-textMuted w-full p-0 font-sans" placeholder="Filter tables, views, procs..." type="text" value="public"/>
+</div>
+</div>
+<!-- Schema Tree Items -->
+<div class="flex-1 overflow-y-auto custom-scrollbar p-2 font-mono text-[12px] space-y-0.5">
+<div class="flex items-center space-x-1.5 py-1 px-1.5 text-textSecondary hover:bg-surfaceElevated rounded cursor-pointer">
+<span class="material-symbols-outlined text-textMuted text-[14px]">expand_more</span>
+<span class="material-symbols-outlined text-accent text-[15px]">folder</span>
+<span class="font-sans font-medium text-textPrimary">public</span>
+<span class="text-textDim text-[11px] ml-auto">schema</span>
+</div>
+<!-- Tables group -->
+<div class="pl-4 space-y-0.5">
+<div class="flex items-center space-x-1.5 py-0.5 px-1.5 text-textMuted hover:text-textSecondary cursor-pointer">
+<span class="material-symbols-outlined text-[14px]">expand_more</span>
+<span class="text-textSecondary font-sans font-medium">Tables (8)</span>
+</div>
+<!-- Table items -->
+<div class="pl-4 space-y-0.5">
+<div class="flex items-center space-x-1.5 py-1 px-1.5 bg-[#333e4d] text-accent rounded cursor-pointer border border-[#375a7f]">
+<span class="material-symbols-outlined text-[14px]">table_chart</span>
+<span class="font-semibold text-textPrimary">users</span>
+<span class="text-textMuted text-[10px] ml-auto">12.4k</span>
+</div>
+<!-- Column list under active table -->
+<div class="pl-5 space-y-1 py-1 border-l border-borderSubtle ml-2 my-0.5 text-[11px]">
+<div class="flex items-center space-x-1 text-textMuted">
+<span class="material-symbols-outlined text-warning text-[12px]">key</span>
+<span class="text-textPrimary font-mono">id</span>
+<span class="text-textDim">int8 PK</span>
+</div>
+<div class="flex items-center space-x-1 text-textMuted">
+<span class="w-3"></span>
+<span class="text-textSecondary font-mono">email</span>
+<span class="text-textDim">text NOT NULL</span>
+</div>
+<div class="flex items-center space-x-1 text-textMuted">
+<span class="w-3"></span>
+<span class="text-textSecondary font-mono">full_name</span>
+<span class="text-textDim">varchar(255)</span>
+</div>
+<div class="flex items-center space-x-1 text-textMuted">
+<span class="w-3"></span>
+<span class="text-textSecondary font-mono">is_active</span>
+<span class="text-textDim">bool</span>
+</div>
+<div class="flex items-center space-x-1 text-textMuted">
+<span class="w-3"></span>
+<span class="text-textSecondary font-mono">created_at</span>
+<span class="text-textDim">timestamptz</span>
+</div>
+</div>
+<div class="flex items-center space-x-1.5 py-0.5 px-1.5 text-textSecondary hover:bg-surfaceElevated rounded cursor-pointer">
+<span class="material-symbols-outlined text-textMuted text-[14px]">table_chart</span>
+<span>accounts</span>
+<span class="text-textDim text-[10px] ml-auto">1.2k</span>
+</div>
+<div class="flex items-center space-x-1.5 py-0.5 px-1.5 text-textSecondary hover:bg-surfaceElevated rounded cursor-pointer">
+<span class="material-symbols-outlined text-textMuted text-[14px]">table_chart</span>
+<span>audit_logs</span>
+<span class="text-textDim text-[10px] ml-auto">250k</span>
+</div>
+<div class="flex items-center space-x-1.5 py-0.5 px-1.5 text-textSecondary hover:bg-surfaceElevated rounded cursor-pointer">
+<span class="material-symbols-outlined text-textMuted text-[14px]">table_chart</span>
+<span>invoices</span>
+<span class="text-textDim text-[10px] ml-auto">4.1k</span>
+</div>
+</div>
+<!-- Views group -->
+<div class="flex items-center space-x-1.5 py-0.5 px-1.5 text-textMuted hover:text-textSecondary cursor-pointer pt-1">
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-textSecondary font-sans font-medium">Views (3)</span>
+</div>
+<!-- Functions group -->
+<div class="flex items-center space-x-1.5 py-0.5 px-1.5 text-textMuted hover:text-textSecondary cursor-pointer">
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-textSecondary font-sans font-medium">Functions (14)</span>
+</div>
+</div>
+</div>
+<!-- Sidebar Footer Connection Info -->
+<div class="h-7 px-3 border-t border-borderDefault bg-[#242424] flex items-center justify-between text-[11px] text-textMuted font-mono">
+<span>PostgreSQL 16.2</span>
+<span>SSL: Verify-Full</span>
+</div>
+</aside>
+<!-- Pane 2 & 3: Editor Top + Results Bottom (Cols: 9) -->
+<main class="col-span-9 flex flex-col h-full bg-editor">
+<!-- Tab Bar -->
+<div class="h-9 bg-[#1f1f1f] border-b border-borderDefault flex items-center justify-between px-2">
+<div class="flex items-center space-x-1 h-full pt-1">
+<!-- Active Tab -->
+<div class="flex items-center space-x-2 bg-editor px-3 h-8 border-t-2 border-accent border-x border-borderDefault rounded-t text-xs font-sans text-textPrimary">
+<span class="material-symbols-outlined text-accent text-[14px]">code</span>
+<span class="font-medium">query_users.sql</span>
+<span class="w-1.5 h-1.5 rounded-full bg-warning" title="Unsaved changes"></span>
+<button class="hover:bg-surfaceElevated rounded p-0.5 text-textMuted hover:text-textPrimary">
+<span class="material-symbols-outlined text-[12px]">close</span>
+</button>
+</div>
+<!-- Inactive Tab -->
+<div class="flex items-center space-x-2 bg-[#262626] px-3 h-7 border border-transparent rounded-t text-xs font-sans text-textMuted hover:text-textSecondary cursor-pointer">
+<span class="material-symbols-outlined text-[14px]">code</span>
+<span>migration_v2.sql</span>
+<button class="hover:bg-surfaceElevated rounded p-0.5 text-textDim hover:text-textMuted">
+<span class="material-symbols-outlined text-[12px]">close</span>
+</button>
+</div>
+<!-- Add Tab Button -->
+<button class="p-1 hover:bg-[#2A2A2A] rounded text-textMuted hover:text-textPrimary" title="New Query Tab">
+<span class="material-symbols-outlined text-[15px]">add</span>
+</button>
+</div>
+<!-- Quick Actions / Layout Toggle -->
+<div class="flex items-center space-x-2 text-xs">
+<span class="text-textDim font-mono text-[11px]">UTF-8</span>
+<span class="text-borderDefault">|</span>
+<button class="text-textMuted hover:text-textPrimary p-1" title="Format SQL (Shift+Alt+F)">
+<span class="material-symbols-outlined text-[15px]">format_align_left</span>
+</button>
+<button class="text-textMuted hover:text-textPrimary p-1" title="Split Editor Right">
+<span class="material-symbols-outlined text-[15px]">vertical_split</span>
+</button>
+</div>
+</div>
+<!-- Query Action Toolbar (36px) -->
+<div class="h-9 bg-panel border-b border-borderDefault px-3 flex items-center justify-between">
+<div class="flex items-center space-x-2">
+<!-- Run button -->
+<button class="h-7 px-3 bg-accent hover:bg-[#2087eb] active:bg-[#1572cc] text-white rounded text-xs font-medium flex items-center space-x-1.5 transition-colors">
+<span class="material-symbols-outlined text-[14px] fill-current">play_arrow</span>
+<span>Run (⌘↵)</span>
+</button>
+<!-- Stop button (disabled) -->
+<button class="h-7 px-2.5 bg-surfaceElevated text-textDim rounded text-xs font-medium flex items-center space-x-1 cursor-not-allowed border border-borderSubtle" disabled="">
+<span class="material-symbols-outlined text-[14px]">stop</span>
+<span>Stop</span>
+</button>
+<!-- Explain button -->
+<button class="h-7 px-2.5 bg-surfaceElevated hover:bg-[#383838] text-textSecondary rounded text-xs font-medium flex items-center space-x-1 border border-borderDefault">
+<span class="material-symbols-outlined text-[14px]">account_tree</span>
+<span>Explain</span>
+</button>
+<div class="h-4 w-[1px] bg-borderDefault mx-1"></div>
+<!-- Limit selector -->
+<div class="flex items-center space-x-1 text-xs text-textMuted">
+<span>Limit:</span>
+<select class="bg-editor border border-borderDefault text-textPrimary rounded px-2 h-7 text-xs font-mono focus:border-accent outline-none py-0">
+<option>100 rows</option>
+<option selected="">500 rows</option>
+<option>1,000 rows</option>
+<option>No limit</option>
+</select>
+</div>
+</div>
+<!-- Right telemetry / transaction state -->
+<div class="flex items-center space-x-3 text-xs">
+<span class="flex items-center space-x-1 text-success font-mono text-[11px]">
+<span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+<span>AUTOCOMMIT: ON</span>
+</span>
+<div class="h-4 w-[1px] bg-borderDefault"></div>
+<span class="text-textMuted font-mono text-[11px]">Selected: <strong class="text-textSecondary font-normal">lines 1-7</strong></span>
+</div>
+</div>
+<!-- SQL Editor Workspace Area -->
+<div class="h-[210px] bg-editor flex custom-scrollbar overflow-y-auto font-mono text-[12px] leading-5">
+<!-- Gutter / Line Numbers -->
+<div class="w-12 bg-[#141414] border-r border-borderSubtle text-textDim py-2 text-right pr-3 select-none space-y-0.5">
+<div>1</div>
+<div>2</div>
+<div>3</div>
+<div class="text-accent font-semibold">4</div>
+<div>5</div>
+<div>6</div>
+<div>7</div>
+<div>8</div>
+<div>9</div>
+</div>
+<!-- Code Content with syntax highlighting -->
+<div class="flex-1 py-2 px-3 text-textPrimary font-mono space-y-0.5 relative">
+<div>
+<span class="text-synComment">-- Fetch active user cohort with account linkage</span>
+</div>
+<div>
+<span class="text-synKeyword font-medium">SELECT</span>
+</div>
+<div class="pl-4">
+<span class="text-synIdent">u.id</span><span class="text-synPunct">,</span>
+<span class="text-synIdent">u.email</span><span class="text-synPunct">,</span>
+<span class="text-synIdent">u.full_name</span><span class="text-synPunct">,</span>
+<span class="text-synIdent">u.is_active</span><span class="text-synPunct">,</span>
+<span class="text-synIdent">u.created_at</span>
+</div>
+<div class="bg-[#242c38] -mx-3 px-3 py-0 border-l-2 border-accent flex items-center">
+<span class="text-synKeyword font-medium">FROM</span>
+<span class="text-textPrimary ml-1.5">users u</span>
+<span class="w-2 h-4 bg-accent inline-block ml-1 animate-pulse" title="Cursor"></span>
+</div>
+<div>
+<span class="text-synKeyword font-medium">WHERE</span>
+<span class="text-synIdent ml-1.5">u.is_active</span>
+<span class="text-synPunct">=</span>
+<span class="text-synConst">TRUE</span>
+</div>
+<div class="pl-4">
+<span class="text-synKeyword font-medium">AND</span>
+<span class="text-synIdent ml-1.5">u.created_at</span>
+<span class="text-synPunct">&gt;=</span>
+<span class="text-synFunc">NOW()</span>
+<span class="text-synPunct">-</span>
+<span class="text-synKeyword font-medium">INTERVAL</span>
+<span class="text-synString ml-1.5">'90 days'</span>
+</div>
+<div>
+<span class="text-synKeyword font-medium">ORDER BY</span>
+<span class="text-synIdent ml-1.5">u.created_at</span>
+<span class="text-synKeyword font-medium ml-1.5">DESC</span>
+</div>
+<div>
+<span class="text-synKeyword font-medium">LIMIT</span>
+<span class="text-synConst ml-1.5">500</span><span class="text-synPunct">;</span>
+</div>
+<div><br/></div>
+</div>
+</div>
+<!-- Split Resizer & Results Tab Bar -->
+<div class="h-8 bg-[#232323] border-y border-borderDefault flex items-center justify-between px-3 cursor-row-resize">
+<div class="flex items-center space-x-4 h-full">
+<button class="h-full border-b-2 border-accent text-textPrimary text-xs font-semibold flex items-center space-x-1.5 px-1">
+<span class="material-symbols-outlined text-[14px] text-accent">table_view</span>
+<span>Result 1</span>
+<span class="bg-[#181818] border border-borderDefault text-textSecondary text-[10px] px-1.5 rounded font-mono">5 rows</span>
+</button>
+<button class="h-full text-textMuted hover:text-textSecondary text-xs font-medium flex items-center space-x-1.5 px-1">
+<span class="material-symbols-outlined text-[14px]">terminal</span>
+<span>Messages</span>
+</button>
+<button class="h-full text-textMuted hover:text-textSecondary text-xs font-medium flex items-center space-x-1.5 px-1">
+<span class="material-symbols-outlined text-[14px]">query_stats</span>
+<span>Query Execution Plan</span>
+</button>
+</div>
+<!-- Execution Telemetry Badge -->
+<div class="flex items-center space-x-3 font-mono text-[11px] text-textMuted">
+<span class="flex items-center space-x-1">
+<span class="material-symbols-outlined text-success text-[14px]">check_circle</span>
+<span class="text-textSecondary">5 rows</span>
+</span>
+<span>•</span>
+<span>Query: <strong class="text-textPrimary font-normal">14.2 ms</strong></span>
+<span>•</span>
+<span>Fetch: <strong class="text-textPrimary font-normal">2.1 ms</strong></span>
+<div class="h-3 w-[1px] bg-borderDefault"></div>
+<button class="text-textMuted hover:text-textPrimary p-0.5" title="Export CSV">
+<span class="material-symbols-outlined text-[14px]">download</span>
+</button>
+</div>
+</div>
+<!-- Results Data Grid Area -->
+<div class="flex-1 bg-[#1a1a1a] overflow-x-auto custom-scrollbar flex flex-col">
+<!-- Grid Header Row (28px) -->
+<div class="flex bg-[#262626] border-b border-borderDefault sticky top-0 z-10 font-sans text-[11px] text-textSecondary font-semibold">
+<div class="w-12 h-7 px-2 border-r border-borderSubtle flex items-center justify-center text-textDim font-mono">#</div>
+<div class="w-28 h-7 px-2 border-r border-borderSubtle flex items-center justify-between hover:bg-[#2d2d2d] cursor-pointer">
+<div class="flex items-center space-x-1 overflow-hidden">
+<span class="text-textPrimary font-mono">id</span>
+<span class="text-textDim text-[10px] font-mono">int8</span>
+</div>
+<span class="material-symbols-outlined text-[12px] text-accent">arrow_upward</span>
+</div>
+<div class="w-64 h-7 px-2 border-r border-borderSubtle flex items-center justify-between hover:bg-[#2d2d2d] cursor-pointer">
+<div class="flex items-center space-x-1 overflow-hidden">
+<span class="text-textPrimary font-mono">email</span>
+<span class="text-textDim text-[10px] font-mono">text</span>
+</div>
+<span class="material-symbols-outlined text-[12px] text-textDim">unfold_more</span>
+</div>
+<div class="w-48 h-7 px-2 border-r border-borderSubtle flex items-center justify-between hover:bg-[#2d2d2d] cursor-pointer">
+<div class="flex items-center space-x-1 overflow-hidden">
+<span class="text-textPrimary font-mono">full_name</span>
+<span class="text-textDim text-[10px] font-mono">varchar</span>
+</div>
+<span class="material-symbols-outlined text-[12px] text-textDim">unfold_more</span>
+</div>
+<div class="w-28 h-7 px-2 border-r border-borderSubtle flex items-center justify-between hover:bg-[#2d2d2d] cursor-pointer">
+<div class="flex items-center space-x-1 overflow-hidden">
+<span class="text-textPrimary font-mono">is_active</span>
+<span class="text-textDim text-[10px] font-mono">bool</span>
+</div>
+<span class="material-symbols-outlined text-[12px] text-textDim">unfold_more</span>
+</div>
+<div class="w-56 h-7 px-2 border-r border-borderSubtle flex items-center justify-between hover:bg-[#2d2d2d] cursor-pointer">
+<div class="flex items-center space-x-1 overflow-hidden">
+<span class="text-textPrimary font-mono">created_at</span>
+<span class="text-textDim text-[10px] font-mono">timestamptz</span>
+</div>
+<span class="material-symbols-outlined text-[12px] text-textDim">unfold_more</span>
+</div>
+<div class="flex-1 h-7 bg-[#262626]"></div>
+</div>
+<!-- Grid Rows (28px each) -->
+<div class="divide-y divide-[#282828] font-mono text-[12px]">
+<!-- Row 1 -->
+<div class="flex hover:bg-[#232323] transition-colors">
+<div class="w-12 h-7 px-2 bg-[#202020] border-r border-borderSubtle flex items-center justify-center text-textDim text-[11px]">1</div>
+<div class="w-28 grid-cell text-textPrimary">104921</div>
+<div class="w-64 grid-cell text-textPrimary">sarah.connor@cyberdyne.io</div>
+<div class="w-48 grid-cell text-textSecondary">Sarah Connor</div>
+<div class="w-28 grid-cell">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-sans font-medium bg-[#132d1e] text-[#4ade80] border border-[#166534]">TRUE</span>
+</div>
+<div class="w-56 grid-cell text-textMuted">2024-03-29 18:22:04.118+00</div>
+<div class="flex-1 border-b border-[#333333]"></div>
+</div>
+<!-- Row 2 (with Selected Cell state) -->
+<div class="flex bg-[#222a35] hover:bg-[#25303d] transition-colors">
+<div class="w-12 h-7 px-2 bg-[#1b232e] border-r border-borderSubtle flex items-center justify-center text-accent text-[11px]">2</div>
+<div class="w-28 grid-cell text-textPrimary">104922</div>
+<!-- Selected Cell outline -->
+<div class="w-64 grid-cell text-white font-medium bg-[#1d324c] ring-1 ring-inset ring-accent">
+                alex.murphy@omnicorp.detroit
+              </div>
+<div class="w-48 grid-cell text-textSecondary">Alex J. Murphy</div>
+<div class="w-28 grid-cell">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-sans font-medium bg-[#132d1e] text-[#4ade80] border border-[#166534]">TRUE</span>
+</div>
+<div class="w-56 grid-cell text-textMuted">2024-03-29 18:45:12.802+00</div>
+<div class="flex-1 border-b border-[#333333]"></div>
+</div>
+<!-- Row 3 -->
+<div class="flex hover:bg-[#232323] transition-colors">
+<div class="w-12 h-7 px-2 bg-[#202020] border-r border-borderSubtle flex items-center justify-center text-textDim text-[11px]">3</div>
+<div class="w-28 grid-cell text-textPrimary">104923</div>
+<div class="w-64 grid-cell text-textPrimary">elena.rostova@soviet.net</div>
+<div class="w-48 grid-cell text-textDim italic font-sans text-[11px]">
+<span class="bg-[#292929] px-1 py-0.5 rounded text-textMuted border border-borderSubtle font-mono text-[10px] not-italic">NULL</span>
+</div>
+<div class="w-28 grid-cell">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-sans font-medium bg-[#132d1e] text-[#4ade80] border border-[#166534]">TRUE</span>
+</div>
+<div class="w-56 grid-cell text-textMuted">2024-03-30 02:11:59.004+00</div>
+<div class="flex-1 border-b border-[#333333]"></div>
+</div>
+<!-- Row 4 -->
+<div class="flex hover:bg-[#232323] transition-colors">
+<div class="w-12 h-7 px-2 bg-[#202020] border-r border-borderSubtle flex items-center justify-center text-textDim text-[11px]">4</div>
+<div class="w-28 grid-cell text-textPrimary">104924</div>
+<div class="w-64 grid-cell text-textPrimary">deckard.rick@tyrell.corp</div>
+<div class="w-48 grid-cell text-textSecondary">Rick Deckard</div>
+<div class="w-28 grid-cell">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-sans font-medium bg-[#311717] text-[#f87171] border border-[#991b1b]">FALSE</span>
+</div>
+<div class="w-56 grid-cell text-textMuted">2024-03-30 09:14:33.740+00</div>
+<div class="flex-1 border-b border-[#333333]"></div>
+</div>
+<!-- Row 5 -->
+<div class="flex hover:bg-[#232323] transition-colors">
+<div class="w-12 h-7 px-2 bg-[#202020] border-r border-borderSubtle flex items-center justify-center text-textDim text-[11px]">5</div>
+<div class="w-28 grid-cell text-textPrimary">104925</div>
+<div class="w-64 grid-cell text-textPrimary">case.henry@sprawl.matrix</div>
+<div class="w-48 grid-cell text-textSecondary">Henry Dorsett Case</div>
+<div class="w-28 grid-cell">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-sans font-medium bg-[#132d1e] text-[#4ade80] border border-[#166534]">TRUE</span>
+</div>
+<div class="w-56 grid-cell text-textMuted">2024-03-30 11:05:48.910+00</div>
+<div class="flex-1 border-b border-[#333333]"></div>
+</div>
+</div>
+</div>
+<!-- Workbench Docked Status Bar (24px) -->
+<footer class="h-6 bg-[#1a1a1a] border-t border-borderDefault px-3 flex items-center justify-between text-[11px] font-mono text-textMuted">
+<div class="flex items-center space-x-3">
+<span class="flex items-center space-x-1 text-textSecondary">
+<span class="material-symbols-outlined text-[12px] text-accent">dns</span>
+<span>local-pg/postgres (PID: 48921)</span>
+</span>
+<span>•</span>
+<span>Encoding: UTF8</span>
+<span>•</span>
+<span>Collation: en_US.UTF-8</span>
+</div>
+<div class="flex items-center space-x-3">
+<span>Ln 4, Col 19</span>
+<span>Spaces: 2</span>
+<span class="text-success font-medium">Ready</span>
+</div>
+</footer>
+</main>
+</div>
+</section>
+<!-- SECTION 02: COMPONENT STATE MATRIX -->
+<section class="space-y-6">
+<div class="flex items-center space-x-2 border-b border-borderDefault pb-2">
+<span class="text-accent font-mono text-xs font-semibold">SECTION 02</span>
+<h2 class="text-sm font-semibold tracking-wide uppercase text-textPrimary">DB Pro Native Component State Matrix</h2>
+<span class="text-textMuted text-xs">— Exhaustive Behavioral Specifications</span>
+</div>
+<!-- Matrix Grid: 4 columns or 2x2 grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- CARD A: SQL EDITOR STATES -->
+<div class="bg-panel border border-borderDefault p-3.5 flex flex-col space-y-3">
+<div class="flex items-center justify-between border-b border-borderSubtle pb-2">
+<span class="font-sans font-semibold text-textPrimary text-xs uppercase tracking-wide">A. Editor States</span>
+<span class="font-mono text-[10px] text-textMuted">5 Specs</span>
+</div>
+<!-- State 1: Idle -->
+<div class="bg-editor border border-borderSubtle p-2 space-y-1">
+<div class="flex items-center justify-between text-[11px] text-textMuted">
+<span class="font-sans font-medium text-textSecondary">1. Idle / Blurred</span>
+<span class="font-mono text-[10px]">#181818</span>
+</div>
+<div class="font-mono text-[11px] text-textMuted">
+<span class="text-synKeyword">SELECT</span> * <span class="text-synKeyword">FROM</span> orders;
+          </div>
+</div>
+<!-- State 2: Focused with Active Line -->
+<div class="bg-editor border border-accent p-2 space-y-1">
+<div class="flex items-center justify-between text-[11px]">
+<span class="font-sans font-medium text-accent">2. Focused &amp; Active Line</span>
+<span class="font-mono text-[10px] text-accent">border-accent</span>
+</div>
+<div class="bg-[#242c38] px-1 py-0.5 font-mono text-[11px] text-textPrimary flex items-center">
+<span class="text-synKeyword">SELECT</span> count(*) <span class="text-synKeyword">FROM</span> users;
+            <span class="w-1.5 h-3.5 bg-accent ml-1 animate-pulse"></span>
+</div>
+</div>
+<!-- State 3: Query Running / Disabled -->
+<div class="bg-[#141414] border border-dashed border-borderDefault p-2 space-y-1 opacity-85">
+<div class="flex items-center justify-between text-[11px] text-warning">
+<span class="font-sans font-medium flex items-center space-x-1">
+<span class="material-symbols-outlined text-[13px] animate-spin">progress_activity</span>
+<span>3. Running Query...</span>
+</span>
+<span class="font-mono text-[10px]">Read-only lock</span>
+</div>
+<div class="font-mono text-[11px] text-textDim italic">
+            Executing query on remote replica (1.8s elapsed)...
+          </div>
+</div>
+<!-- State 4: Read-Only Replica Indicator -->
+<div class="bg-[#1a1914] border border-[#6b561e] p-2 space-y-1">
+<div class="flex items-center justify-between text-[11px] text-warning">
+<span class="font-sans font-medium flex items-center space-x-1">
+<span class="material-symbols-outlined text-[13px]">lock</span>
+<span>4. Read-Only Replica</span>
+</span>
+<span class="font-mono text-[10px] bg-[#332a10] px-1 rounded">MUTATIONS BLOCKED</span>
+</div>
+<div class="font-mono text-[11px] text-textSecondary">
+            UPDATE users SET active = FALSE; <span class="text-danger text-[10px] font-sans">[Permission Denied]</span>
+</div>
+</div>
+<!-- State 5: Syntax Diagnostic Error -->
+<div class="bg-editor border border-danger/40 p-2 space-y-1">
+<div class="flex items-center justify-between text-[11px] text-danger">
+<span class="font-sans font-medium flex items-center space-x-1">
+<span class="material-symbols-outlined text-[13px]">error</span>
+<span>5. Syntax Diagnostics</span>
+</span>
+<span class="font-mono text-[10px]">Wavy underline</span>
+</div>
+<div class="font-mono text-[11px]">
+<span class="text-synKeyword">SELECT</span> * <span class="diag-error text-danger font-medium">FORM</span> users;
+          </div>
+<div class="text-[10px] text-danger bg-[#2f1414] px-1.5 py-0.5 rounded font-sans">
+            Syntax error at or near "FORM" (expected FROM)
+          </div>
+</div>
+</div>
+<!-- CARD B: TOOLBAR, TABS & GUTTER SPEC -->
+<div class="bg-panel border border-borderDefault p-3.5 flex flex-col space-y-3">
+<div class="flex items-center justify-between border-b border-borderSubtle pb-2">
+<span class="font-sans font-semibold text-textPrimary text-xs uppercase tracking-wide">B. Toolbar, Tabs &amp; Gutter</span>
+<span class="font-mono text-[10px] text-textMuted">Metrics &amp; States</span>
+</div>
+<!-- Button states (28px height standard) -->
+<div class="space-y-1.5">
+<span class="text-[11px] font-medium text-textMuted font-sans">Button Tokens (Height: 28px, Radius: 4px)</span>
+<div class="grid grid-cols-2 gap-1.5">
+<button class="h-7 px-2.5 bg-accent hover:bg-[#2087eb] text-white rounded text-xs font-medium flex items-center justify-center space-x-1">
+<span class="material-symbols-outlined text-[13px]">play_arrow</span>
+<span>Accent Run</span>
+</button>
+<button class="h-7 px-2.5 bg-surfaceElevated hover:bg-[#3b3b3b] text-textPrimary rounded text-xs font-medium flex items-center justify-center space-x-1 border border-borderDefault">
+<span class="material-symbols-outlined text-[13px]">save</span>
+<span>Secondary</span>
+</button>
+<button class="h-7 px-2.5 bg-surfaceElevated text-textDim rounded text-xs font-medium flex items-center justify-center space-x-1 cursor-not-allowed border border-borderSubtle opacity-60" disabled="">
+<span class="material-symbols-outlined text-[13px]">block</span>
+<span>Disabled</span>
+</button>
+<button class="h-7 px-2.5 bg-[#3b1919] hover:bg-[#4f2121] text-danger rounded text-xs font-medium flex items-center justify-center space-x-1 border border-danger/30">
+<span class="material-symbols-outlined text-[13px]">cancel</span>
+<span>Danger Cancel</span>
+</button>
+</div>
+</div>
+<!-- Tab states -->
+<div class="space-y-1.5 pt-1">
+<span class="text-[11px] font-medium text-textMuted font-sans">Editor Tabs (Height: 32px, Planar)</span>
+<div class="space-y-1">
+<!-- Active Tab -->
+<div class="flex items-center justify-between bg-editor px-2.5 h-7 border-t border-accent border-x border-borderDefault rounded-t text-xs">
+<span class="text-textPrimary font-medium flex items-center space-x-1">
+<span class="material-symbols-outlined text-[13px] text-accent">description</span>
+<span>active_query.sql</span>
+</span>
+<span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
+</div>
+<!-- Dirty / Unsaved Tab -->
+<div class="flex items-center justify-between bg-[#262626] px-2.5 h-7 border border-borderSubtle rounded-t text-xs">
+<span class="text-textSecondary flex items-center space-x-1">
+<span class="material-symbols-outlined text-[13px] text-warning">edit</span>
+<span>mutation.sql</span>
+</span>
+<span class="w-2 h-2 rounded-full bg-warning" title="Dirty / Unsaved"></span>
+</div>
+<!-- Inactive Tab -->
+<div class="flex items-center justify-between bg-[#222222] px-2.5 h-7 text-textMuted rounded-t text-xs">
+<span class="flex items-center space-x-1">
+<span class="material-symbols-outlined text-[13px]">draft</span>
+<span>reports_2023.sql</span>
+</span>
+<span class="material-symbols-outlined text-[12px]">close</span>
+</div>
+</div>
+</div>
+<!-- Gutter & Line Markers -->
+<div class="space-y-1.5 pt-1">
+<span class="text-[11px] font-medium text-textMuted font-sans">Gutter Markers (JetBrains Mono)</span>
+<div class="bg-[#141414] border border-borderSubtle p-2 font-mono text-[11px] space-y-1">
+<div class="flex items-center space-x-2">
+<span class="w-6 text-right text-textDim">12</span>
+<span class="w-2.5 h-2.5 rounded-full bg-danger inline-block" title="Breakpoint / Error"></span>
+<span class="text-textSecondary">SELECT * FROM raw_data</span>
+</div>
+<div class="flex items-center space-x-2 bg-[#202020]">
+<span class="w-6 text-right text-accent font-bold">13</span>
+<span class="material-symbols-outlined text-warning text-[12px]" title="Warning">warning</span>
+<span class="text-textPrimary">WHERE user_id IN (1, 2)</span>
+</div>
+<div class="flex items-center space-x-2">
+<span class="w-6 text-right text-textDim">14</span>
+<span class="w-2.5"></span>
+<span class="text-synComment">-- execution target</span>
+</div>
+</div>
+</div>
+</div>
+<!-- CARD C: RESULTS GRID CELLS SPEC -->
+<div class="bg-panel border border-borderDefault p-3.5 flex flex-col space-y-3">
+<div class="flex items-center justify-between border-b border-borderSubtle pb-2">
+<span class="font-sans font-semibold text-textPrimary text-xs uppercase tracking-wide">C. Results Grid Cells</span>
+<span class="font-mono text-[10px] text-textMuted">Row H: 28px</span>
+</div>
+<!-- Cell 1: Default Text -->
+<div class="space-y-1">
+<span class="text-[11px] font-sans text-textMuted">Default Monospace Text Cell</span>
+<div class="h-7 bg-[#1c1c1c] border border-borderSubtle px-2 flex items-center font-mono text-xs text-textPrimary">
+            john.doe@enterprise.com
+          </div>
+</div>
+<!-- Cell 2: Focused / Selected Cell Ring -->
+<div class="space-y-1">
+<span class="text-[11px] font-sans text-accent font-medium">Focused Cell (Active Ring &amp; Edit In-Place)</span>
+<div class="h-7 bg-[#1e293b] border border-accent ring-1 ring-accent px-2 flex items-center justify-between font-mono text-xs text-white">
+<span>john.doe@enterprise.com</span>
+<span class="w-1.5 h-3.5 bg-accent animate-pulse"></span>
+</div>
+</div>
+<!-- Cell 3: NULL Token -->
+<div class="space-y-1">
+<span class="text-[11px] font-sans text-textMuted">SQL NULL Value Representation</span>
+<div class="h-7 bg-[#1c1c1c] border border-borderSubtle px-2 flex items-center">
+<span class="bg-[#2a2a2a] text-textMuted border border-borderDefault px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold">
+              NULL
+            </span>
+</div>
+</div>
+<!-- Cell 4: Boolean Badges (TRUE / FALSE) -->
+<div class="space-y-1">
+<span class="text-[11px] font-sans text-textMuted">Boolean Pill Badges</span>
+<div class="grid grid-cols-2 gap-2">
+<div class="h-7 bg-[#1c1c1c] border border-borderSubtle px-2 flex items-center justify-center">
+<span class="px-2 py-0.5 rounded text-[10px] font-sans font-semibold bg-[#132d1e] text-[#4ade80] border border-[#166534]">
+                TRUE
+              </span>
+</div>
+<div class="h-7 bg-[#1c1c1c] border border-borderSubtle px-2 flex items-center justify-center">
+<span class="px-2 py-0.5 rounded text-[10px] font-sans font-semibold bg-[#311717] text-[#f87171] border border-[#991b1b]">
+                FALSE
+              </span>
+</div>
+</div>
+</div>
+<!-- Cell 5: Column Sort Headers -->
+<div class="space-y-1">
+<span class="text-[11px] font-sans text-textMuted">Column Header Sort States</span>
+<div class="grid grid-cols-2 gap-2">
+<div class="h-7 bg-[#292929] border border-borderDefault px-2 flex items-center justify-between text-[11px] font-medium text-textPrimary">
+<span class="font-mono">created_at</span>
+<span class="material-symbols-outlined text-[13px] text-accent">arrow_downward</span>
+</div>
+<div class="h-7 bg-[#292929] border border-borderDefault px-2 flex items-center justify-between text-[11px] font-medium text-textMuted">
+<span class="font-mono">email</span>
+<span class="material-symbols-outlined text-[13px] text-textDim">unfold_more</span>
+</div>
+</div>
+</div>
+</div>
+<!-- CARD D: EMPTY, ERRORS & STATUS BAR SPEC -->
+<div class="bg-panel border border-borderDefault p-3.5 flex flex-col space-y-3">
+<div class="flex items-center justify-between border-b border-borderSubtle pb-2">
+<span class="font-sans font-semibold text-textPrimary text-xs uppercase tracking-wide">D. Empty &amp; Diagnostics</span>
+<span class="font-mono text-[10px] text-textMuted">Specimen Spec</span>
+</div>
+<!-- Grid Empty State -->
+<div class="bg-editor border border-borderSubtle p-3 text-center space-y-1 rounded">
+<span class="material-symbols-outlined text-textDim text-[22px]">inbox</span>
+<div class="text-xs font-semibold text-textSecondary font-sans">0 rows returned</div>
+<div class="text-[11px] text-textMuted font-mono">Statement executed in 11.4 ms with 0 mutations.</div>
+</div>
+<!-- Query Error Box (SQLSTATE 42P01) -->
+<div class="bg-[#241717] border border-danger/60 p-2.5 rounded space-y-1">
+<div class="flex items-center space-x-1.5 text-danger font-semibold text-xs">
+<span class="material-symbols-outlined text-[15px]">error_outline</span>
+<span>Query Failed (42P01)</span>
+</div>
+<div class="text-[11px] font-mono text-[#fca5a5] leading-snug">
+            ERROR: relation "usrs" does not exist
+          </div>
+<div class="text-[10px] font-mono text-textMuted">
+            LINE 3: FROM usrs WHERE active = true;
+          </div>
+<div class="text-[10px] font-sans text-danger bg-[#331818] px-1.5 py-0.5 rounded mt-1 border border-danger/30">
+            Hint: Perhaps you meant to reference the table "users"?
+          </div>
+</div>
+<!-- Query Status Bar Lifecycle States -->
+<div class="space-y-1 pt-1">
+<span class="text-[11px] font-sans text-textMuted">Status Bar Lifecycle States (Height: 24px)</span>
+<div class="space-y-1 font-mono text-[10px]">
+<div class="h-6 bg-[#1a1a1a] border border-borderSubtle px-2 flex items-center justify-between text-success">
+<span class="flex items-center space-x-1">
+<span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+<span>STATUS: SUCCESS</span>
+</span>
+<span class="text-textDim">ROWS: 540 | 18ms</span>
+</div>
+<div class="h-6 bg-[#1a1a1a] border border-borderSubtle px-2 flex items-center justify-between text-warning">
+<span class="flex items-center space-x-1">
+<span class="w-1.5 h-1.5 rounded-full bg-warning animate-ping"></span>
+<span>STATUS: EXECUTING...</span>
+</span>
+<span class="text-textDim">CANCEL (ESC)</span>
+</div>
+<div class="h-6 bg-[#1a1a1a] border border-borderSubtle px-2 flex items-center justify-between text-danger">
+<span class="flex items-center space-x-1">
+<span class="w-1.5 h-1.5 rounded-full bg-danger"></span>
+<span>STATUS: ROLLBACK</span>
+</span>
+<span class="text-textDim">ERROR 42P01</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</body></html>

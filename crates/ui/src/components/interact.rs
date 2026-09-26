@@ -24,3 +24,7 @@ pub fn radio_info(enabled: bool, selected: bool, label: &str) -> WidgetInfo {
 pub fn text_input_info(enabled: bool, label: &str) -> WidgetInfo {
     WidgetInfo::labeled(WidgetType::TextEdit, enabled, label)
 }
+
+pub fn combo_box_info(enabled: bool, label: &str) -> WidgetInfo {
+    WidgetInfo::labeled(WidgetType::ComboBox, enabled, label)
+}

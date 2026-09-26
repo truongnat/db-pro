@@ -49,7 +49,7 @@ impl<'a> ExplorerSchemaObjectsView<'a> {
             .count_by_schema(&self.explorer.schema.views, schema, |view| &view.schema);
         actions.extend(
             SchemaObjectFoldersView::new(self.theme, &*self.explorer)
-                .draw_views(ui, schema, view_count)
+                .draw_views(ui, schema, &search_query, view_count)
                 .into_iter()
                 .map(ExplorerSchemaObjectsAction::SchemaObject),
         );
@@ -60,7 +60,7 @@ impl<'a> ExplorerSchemaObjectsView<'a> {
                 .count_by_schema(&self.explorer.schema.functions, schema, |function| &function.schema);
             actions.extend(
                 SchemaObjectFoldersView::new(self.theme, &*self.explorer)
-                    .draw_functions(ui, schema, function_count)
+                    .draw_functions(ui, schema, &search_query, function_count)
                     .into_iter()
                     .map(ExplorerSchemaObjectsAction::SchemaObject),
             );
@@ -71,7 +71,7 @@ impl<'a> ExplorerSchemaObjectsView<'a> {
             .count_by_schema(&self.explorer.schema.triggers, schema, |trigger| &trigger.schema);
         actions.extend(
             SchemaObjectFoldersView::new(self.theme, &*self.explorer)
-                .draw_triggers(ui, schema, trigger_count)
+                .draw_triggers(ui, schema, &search_query, trigger_count)
                 .into_iter()
                 .map(ExplorerSchemaObjectsAction::SchemaObject),
         );

@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+
+<html class="dark h-full" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DB Pro — Data Activity (F1 Stable Table Reference Identity)</title>
+<!-- Google Fonts: Inter & JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Theme Configuration -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "primary": "#a1c9ff",
+            "inverse-primary": "#0060a8",
+            "on-secondary-container": "#b6b5b4",
+            "primary-container": "#339cff",
+            "on-tertiary-container": "#313131",
+            "tertiary-fixed-dim": "#c8c6c5",
+            "outline-variant": "#404752",
+            "background": "#131313",
+            "on-error-container": "#ffdad6",
+            "on-error": "#690005",
+            "surface-bright": "#393939",
+            "tertiary-fixed": "#e5e2e1",
+            "on-tertiary-fixed": "#1c1b1b",
+            "on-secondary-fixed": "#1b1c1c",
+            "on-secondary": "#303030",
+            "on-primary": "#00325b",
+            "outline": "#8a919e",
+            "surface-dim": "#131313",
+            "secondary-fixed-dim": "#c8c6c5",
+            "surface-tint": "#a1c9ff",
+            "surface-variant": "#353535",
+            "error": "#ffb4ab",
+            "on-surface-variant": "#c0c7d5",
+            "secondary": "#c8c6c5",
+            "on-primary-fixed-variant": "#004880",
+            "secondary-fixed": "#e4e2e1",
+            "primary-fixed": "#d3e4ff",
+            "secondary-container": "#474746",
+            "surface-container-low": "#1b1c1c",
+            "surface-container-highest": "#353535",
+            "tertiary-container": "#9a9898",
+            "on-primary-container": "#00325b",
+            "on-background": "#e5e2e1",
+            "on-primary-fixed": "#001c38",
+            "surface": "#131313",
+            "inverse-on-surface": "#303030",
+            "inverse-surface": "#e5e2e1",
+            "surface-container": "#202020",
+            "error-container": "#93000a",
+            "on-tertiary": "#313030",
+            "tertiary": "#c8c6c5",
+            "on-surface": "#e5e2e1",
+            "on-secondary-fixed-variant": "#474746",
+            "surface-container-lowest": "#0e0e0e",
+            "surface-container-high": "#2a2a2a",
+            "primary-fixed-dim": "#a1c9ff",
+            "on-tertiary-fixed-variant": "#474746"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "space-xs": "0.25rem",
+            "margin": "0.75rem",
+            "space-lg": "1rem",
+            "gutter": "0.75rem",
+            "space-xl": "1.25rem",
+            "space-md": "0.75rem",
+            "space-sm": "0.5rem"
+          },
+          "fontFamily": {
+            "code": ["JetBrains Mono", "monospace"],
+            "heading": ["Inter", "sans-serif"],
+            "title": ["Inter", "sans-serif"],
+            "display": ["Inter", "sans-serif"],
+            "caption": ["Inter", "sans-serif"],
+            "body-strong": ["Inter", "sans-serif"],
+            "code-small": ["JetBrains Mono", "monospace"],
+            "body": ["Inter", "sans-serif"],
+            "label": ["Inter", "sans-serif"]
+          },
+          "fontSize": {
+            "code": ["12px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "heading": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "title": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "display": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+            "caption": ["11px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "body-strong": ["13px", { "lineHeight": "20px", "fontWeight": "600" }],
+            "code-small": ["11px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "body": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "label": ["12px", { "lineHeight": "16px", "fontWeight": "500" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-size: 16px;
+      line-height: 1;
+      width: 16px;
+      height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+    }
+    /* Custom scrollbars for native IDE appearance */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #181818;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #353535;
+      border: 1px solid #202020;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #474746;
+    }
+  </style>
+</head>
+<body class="h-full bg-surface text-on-surface antialiased overflow-hidden select-none font-body text-body">
+<div class="flex flex-col h-screen w-screen overflow-hidden">
+<!-- Top Chrome / App Header (36px, docked full-width top-0 h-9) -->
+<header class="h-9 min-h-[36px] bg-[#212121] border-b border-[#323232] flex items-center justify-between px-3 z-30 select-none">
+<!-- Left: Logo & Session Selector & Navigation tabs -->
+<div class="flex items-center space-x-3 h-full overflow-hidden">
+<!-- DB Pro Brand Anchor -->
+<div class="flex items-center gap-1.5 shrink-0 pr-2 border-r border-[#323232] h-5">
+<span class="font-heading text-xs font-semibold text-on-surface tracking-normal uppercase">DB Pro</span>
+<span class="font-code text-[10px] text-secondary bg-[#2a2a2a] px-1 py-0.2 rounded border border-[#393939]">v2.4-native</span>
+</div>
+<!-- Active Session Connection Selector -->
+<div class="flex items-center gap-1.5 px-2 py-0.5 bg-[#2a2a2a] hover:bg-[#353535] rounded cursor-pointer border border-[#353535] text-xs transition-colors shrink-0">
+<span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+<span class="font-code text-xs text-on-surface font-medium">local-pg</span>
+<span class="text-[11px] text-secondary">· PostgreSQL 16</span>
+<span class="material-symbols-outlined text-secondary ml-1" data-icon="expand_more">expand_more</span>
+</div>
+<!-- Workspace Tabs (28px) -->
+<div class="flex items-end h-full gap-0.5 overflow-x-auto">
+<!-- Inactive Query Tab -->
+<div class="h-7 px-2.5 flex items-center gap-1.5 bg-[#1b1c1c] text-secondary hover:text-on-surface border-t border-l border-r border-[#323232] rounded-t text-xs cursor-pointer group transition-colors">
+<span class="material-symbols-outlined text-secondary text-[14px]" data-icon="terminal">terminal</span>
+<span class="font-code text-code-small">query_orders.sql</span>
+<span class="material-symbols-outlined text-[13px] opacity-0 group-hover:opacity-100 hover:text-on-surface ml-0.5" data-icon="close">close</span>
+</div>
+<!-- Active Table Tab: Users (F1 Stable Reference Identity) -->
+<div class="h-7 px-2.5 flex items-center gap-1.5 bg-[#181818] text-primary border-t-2 border-t-primary-container border-l border-r border-[#323232] rounded-t text-xs cursor-default font-medium">
+<span class="material-symbols-outlined text-primary-container text-[14px]" data-icon="table_chart">table_chart</span>
+<span class="font-code text-code-small text-on-surface font-semibold">users</span>
+<span class="font-code text-[10px] px-1 py-0.2 bg-[#2a2a2a] text-secondary rounded border border-[#393939]">staging-pg · audit</span>
+<span class="material-symbols-outlined text-[13px] text-secondary hover:text-on-surface cursor-pointer ml-1" data-icon="close">close</span>
+</div>
+<!-- New Tab Button -->
+<button class="h-7 w-7 flex items-center justify-center text-secondary hover:text-on-surface hover:bg-[#2a2a2a] rounded-t transition-colors" title="New Tab">
+<span class="material-symbols-outlined text-[15px]" data-icon="add">add</span>
+</button>
+</div>
+</div>
+<!-- Right: Trailing Quick Actions & Status -->
+<div class="flex items-center gap-2 shrink-0">
+<!-- Latency Indicator -->
+<div class="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#1b1c1c] border border-[#323232] font-code text-code-small text-secondary">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+<span>local-pg : 5432</span>
+<span class="text-neutral-500">·</span>
+<span>12 ms</span>
+</div>
+<div class="h-4 w-[1px] bg-[#323232] mx-1"></div>
+<!-- Trailing Icon Buttons -->
+<button class="h-6 px-1.5 flex items-center gap-1 text-secondary hover:text-on-surface hover:bg-[#353535] rounded text-xs transition-colors" title="Terminal">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+</button>
+<button class="h-6 px-1.5 flex items-center gap-1 text-secondary hover:text-on-surface hover:bg-[#353535] rounded text-xs transition-colors" title="Keyboard Shortcuts">
+<span class="material-symbols-outlined" data-icon="keyboard">keyboard</span>
+</button>
+<button class="h-6 px-1.5 flex items-center gap-1 text-secondary hover:text-on-surface hover:bg-[#353535] rounded text-xs transition-colors" title="Settings">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-5 w-5 rounded-full bg-[#353535] border border-[#404752] flex items-center justify-center text-[10px] font-semibold text-secondary ml-1" title="Database Admin Avatar">
+          DA
+        </div>
+</div>
+</header>
+<!-- Main Native Body Viewport: Activity Rail + Data Sidebar + Workspace -->
+<div class="flex-1 flex overflow-hidden">
+<!-- 1. Vertical Activity Rail (36px width, bg #1B1C1C, border-r #323232) -->
+<aside class="w-10 min-w-[40px] bg-surface-container-low border-r border-[#323232] flex flex-col justify-between items-center py-2 select-none z-20">
+<!-- Top Tool Icons -->
+<div class="flex flex-col gap-1 w-full items-center">
+<!-- Explorer (Inactive) -->
+<button class="w-8 h-8 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-[#2a2a2a] transition-colors relative" title="Explorer">
+<span class="material-symbols-outlined" data-icon="folder">folder</span>
+</button>
+<!-- Data (ACTIVE / SELECTED with left accent line) -->
+<button class="w-8 h-8 flex items-center justify-center rounded bg-[#2a2a2a] text-primary relative transition-colors" title="Data (Pinned &amp; Recent Tables)">
+<span class="absolute left-0 top-1.5 bottom-1.5 w-[2px] bg-primary-container rounded-r"></span>
+<span class="material-symbols-outlined" data-icon="table_view" data-weight="fill" style="font-variation-settings: 'FILL' 1;">table_view</span>
+</button>
+<!-- Queries (Inactive) -->
+<button class="w-8 h-8 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-[#2a2a2a] transition-colors" title="Query Console">
+<span class="material-symbols-outlined" data-icon="code">code</span>
+</button>
+<!-- Schema Tree -->
+<button class="w-8 h-8 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-[#2a2a2a] transition-colors" title="Schema Tree">
+<span class="material-symbols-outlined" data-icon="account_tree">account_tree</span>
+</button>
+<!-- History -->
+<button class="w-8 h-8 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-[#2a2a2a] transition-colors" title="Execution History">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+</button>
+</div>
+<!-- Bottom Utilities -->
+<div class="flex flex-col gap-1 w-full items-center">
+<button class="w-8 h-8 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-[#2a2a2a] transition-colors" title="Shortcuts">
+<span class="material-symbols-outlined" data-icon="keyboard">keyboard</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-[#2a2a2a] transition-colors" title="Terminal Panel">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-secondary hover:text-on-surface hover:bg-[#2a2a2a] transition-colors" title="Preferences">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+</button>
+</div>
+</aside>
+<!-- 2. Data Sidebar (320px width, bg #2A2A2A, border-r #323232) -->
+<section class="w-80 min-w-[320px] max-w-[320px] bg-[#2a2a2a] border-r border-[#323232] flex flex-col justify-between select-none z-10">
+<div class="flex flex-col flex-1 overflow-y-auto">
+<!-- Sidebar Header -->
+<div class="px-3 pt-3 pb-2 border-b border-[#323232]">
+<div class="flex items-center justify-between">
+<div>
+<h2 class="font-heading text-xs font-semibold text-on-surface tracking-tight">Pinned &amp; Recent</h2>
+<p class="font-caption text-caption text-secondary">Saved table targets</p>
+</div>
+<button class="px-2 py-1 bg-surface-container hover:bg-surface-variant text-secondary hover:text-on-surface rounded border border-[#3d3d3d] text-[11px] font-medium flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[13px]" data-icon="add">add</span>
+<span>Pin Active</span>
+</button>
+</div>
+<!-- Search input (28px height, bg #181818) -->
+<div class="mt-2.5 relative flex items-center">
+<span class="material-symbols-outlined absolute left-2 text-[#8a919e] text-[14px]" data-icon="search">search</span>
+<input class="w-full h-7 pl-7 pr-7 bg-[#181818] border border-[#414141] focus:border-primary-container focus:ring-1 focus:ring-primary-container rounded text-xs text-on-surface placeholder:text-[#8a919e] font-body transition-all outline-none" placeholder="Filter pinned and recent…" type="text" value=""/>
+<span class="absolute right-2 font-code text-[10px] text-secondary bg-[#262626] px-1 py-0.5 rounded border border-[#393939]">ESC</span>
+</div>
+</div>
+<!-- Non-blocking architectural helper notice box -->
+<div class="m-2.5 p-2 bg-[#212121] rounded border border-[#353535] flex items-start gap-2">
+<span class="material-symbols-outlined text-primary-container text-[15px] shrink-0 mt-0.5" data-icon="info">info</span>
+<p class="font-caption text-[11px] text-[#b9b9b9] leading-4">
+              Saved targets record connection and schema. Reopening never falls back to an unrelated same-name table.
+            </p>
+</div>
+<!-- SECTION 1: PINNED (2) -->
+<div class="px-2 py-1">
+<div class="flex items-center justify-between px-1.5 py-1">
+<span class="font-label text-[10px] font-semibold text-secondary uppercase tracking-wider">PINNED (2)</span>
+<span class="material-symbols-outlined text-secondary text-[14px] cursor-pointer hover:text-on-surface" data-icon="more_horiz">more_horiz</span>
+</div>
+<!-- Row 1: Selected & Open in Table Workspace (staging-pg.audit.users) -->
+<div class="mt-1 p-2 bg-[#303030] rounded border-l-2 border-primary-container border-y border-r border-[#383838] cursor-pointer group shadow-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="material-symbols-outlined text-primary-container text-[14px]" data-icon="push_pin" data-weight="fill" style="font-variation-settings: 'FILL' 1;">push_pin</span>
+<span class="font-code text-xs font-semibold text-primary truncate">users</span>
+</div>
+<span class="font-caption text-[10px] bg-[#1b1c1c] text-primary-container px-1.5 py-0.2 rounded border border-[#339cff]/30 shrink-0 font-medium">
+                  Active in Workspace
+                </span>
+</div>
+<div class="mt-1 flex items-center justify-between text-[11px]">
+<span class="font-code text-[11px] text-[#b9b9b9] truncate">staging-pg · app_db · audit</span>
+<span class="font-caption text-[10px] text-secondary">SSL replica</span>
+</div>
+</div>
+<!-- Row 2: Same name 'users' but Different Connection/Schema (local-pg.public.users) with Keyboard Ring -->
+<div class="mt-1.5 p-2 bg-[#2a2a2a] hover:bg-[#323232] rounded border border-primary-container/80 ring-1 ring-primary-container cursor-pointer group transition-colors">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="material-symbols-outlined text-primary-container text-[14px]" data-icon="push_pin" data-weight="fill" style="font-variation-settings: 'FILL' 1;">push_pin</span>
+<span class="font-code text-xs font-medium text-on-surface truncate">users</span>
+</div>
+<span class="font-code text-[10px] text-[#8a919e] group-hover:text-on-surface transition-colors">⏎ Open</span>
+</div>
+<div class="mt-1 flex items-center justify-between text-[11px]">
+<span class="font-code text-[11px] text-[#8a919e] group-hover:text-[#b9b9b9] truncate">local-pg · app_db · public</span>
+<span class="font-caption text-[10px] text-secondary">dev-local</span>
+</div>
+</div>
+</div>
+<!-- SECTION 2: RECENT (3) -->
+<div class="px-2 py-2 mt-1 border-t border-[#323232]">
+<div class="flex items-center justify-between px-1.5 py-1">
+<span class="font-label text-[10px] font-semibold text-secondary uppercase tracking-wider">RECENT (3)</span>
+<button class="font-caption text-[10px] text-secondary hover:text-on-surface transition-colors">Clear</button>
+</div>
+<!-- Row 3: orders (Default) -->
+<div class="mt-1 p-2 bg-transparent hover:bg-[#323232] rounded border border-transparent hover:border-[#383838] cursor-pointer group transition-colors">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="material-symbols-outlined text-[#8a919e] group-hover:text-on-surface text-[14px]" data-icon="table_chart">table_chart</span>
+<span class="font-code text-xs text-on-surface truncate">orders</span>
+</div>
+<span class="font-caption text-[10px] text-[#8a919e]">2h ago</span>
+</div>
+<div class="mt-0.5 flex items-center justify-between">
+<span class="font-code text-[11px] text-[#8a919e] truncate">local-pg · app_db · public</span>
+<span class="material-symbols-outlined text-[13px] text-[#8a919e] opacity-0 group-hover:opacity-100 hover:text-primary-container" data-icon="push_pin" title="Pin Target">push_pin</span>
+</div>
+</div>
+<!-- Row 4: events (STALE / UNAVAILABLE STATE) -->
+<div class="mt-1.5 p-2 bg-[#212121] rounded border border-amber-900/40 relative">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="material-symbols-outlined text-amber-500 text-[14px]" data-icon="warning">warning</span>
+<span class="font-code text-xs text-[#8d8d8d] line-through truncate">events</span>
+</div>
+<span class="font-caption text-[10px] bg-amber-500/10 text-amber-400 px-1 py-0.2 rounded border border-amber-500/30 font-medium">
+                  Unavailable
+                </span>
+</div>
+<div class="mt-0.5">
+<span class="font-code text-[11px] text-[#8d8d8d] truncate block">warehouse.db · main · SQLite</span>
+<span class="font-caption text-[10px] text-amber-300/80 block mt-0.5">File moved or database offline</span>
+</div>
+<!-- Reconnect / Rebind actions -->
+<div class="mt-2 pt-1.5 border-t border-[#2e2e2e] flex items-center gap-1.5">
+<button class="h-6 px-2 bg-[#2a2a2a] hover:bg-[#353535] text-on-surface rounded border border-[#3d3d3d] text-[10px] font-medium flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[12px] text-amber-400" data-icon="refresh">refresh</span>
+<span>Reconnect</span>
+</button>
+<button class="h-6 px-2 bg-[#2a2a2a] hover:bg-[#353535] text-secondary hover:text-on-surface rounded border border-[#3d3d3d] text-[10px] font-medium flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[12px]" data-icon="link">link</span>
+<span>Rebind target</span>
+</button>
+</div>
+</div>
+<!-- Row 5: invoices (Hovered simulation) -->
+<div class="mt-1.5 p-2 bg-[#363636] rounded border border-[#414141] cursor-pointer group">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="material-symbols-outlined text-on-surface text-[14px]" data-icon="table_chart">table_chart</span>
+<span class="font-code text-xs text-on-surface truncate">invoices</span>
+</div>
+<span class="font-caption text-[10px] text-[#b9b9b9]">Yesterday</span>
+</div>
+<div class="mt-0.5 flex items-center justify-between">
+<span class="font-code text-[11px] text-[#b9b9b9] truncate">staging-pg · app_db · billing</span>
+<span class="material-symbols-outlined text-[13px] text-primary-container" data-icon="push_pin" title="Pin Target">push_pin</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Sidebar Docked Footer -->
+<div class="p-2 border-t border-[#323232] bg-[#212121] flex items-center justify-between text-[11px] text-secondary">
+<span class="font-body text-caption flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span>Target Binding: Strict</span>
+</span>
+<button class="hover:text-on-surface flex items-center gap-0.5 transition-colors">
+<span>Audit Logs</span>
+<span class="material-symbols-outlined text-[12px]" data-icon="open_in_new">open_in_new</span>
+</button>
+</div>
+</section>
+<!-- 3. Central Canonical Table Workspace (Never rendered inside sidebar) -->
+<main class="flex-1 bg-[#181818] flex flex-col overflow-hidden">
+<!-- Identity Breadcrumb & Header Bar -->
+<div class="bg-[#2a2a2a] border-b border-[#323232] px-3 py-2 flex flex-col md:flex-row md:items-center justify-between gap-2 shrink-0">
+<div class="flex items-center gap-2 flex-wrap">
+<!-- Breadcrumbs -->
+<div class="flex items-center gap-1 font-body text-xs text-secondary">
+<span class="flex items-center gap-1 hover:text-on-surface cursor-pointer">
+<span class="material-symbols-outlined text-[14px]" data-icon="dns">dns</span>
+<span class="font-code">staging-pg</span>
+</span>
+<span class="text-[#555]">/</span>
+<span class="font-code hover:text-on-surface cursor-pointer">app_db</span>
+<span class="text-[#555]">/</span>
+<span class="font-code hover:text-on-surface cursor-pointer">audit</span>
+<span class="text-[#555]">/</span>
+<div class="flex items-center gap-1 text-on-surface font-semibold bg-[#1f1f1f] px-1.5 py-0.5 rounded border border-[#383838]">
+<span class="material-symbols-outlined text-primary-container text-[14px]" data-icon="table_chart">table_chart</span>
+<span class="font-code text-primary">users</span>
+</div>
+</div>
+<!-- Provenance & Stable Identity verification badge -->
+<div class="flex items-center gap-1.5">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 border border-primary/30 font-code text-[11px] text-primary">
+<span class="material-symbols-outlined text-[12px]" data-icon="verified">verified</span>
+<span>Target: staging-pg.audit.users (PostgreSQL 16.2)</span>
+</span>
+<span class="hidden xl:inline-block font-caption text-[11px] text-[#8d8d8d] px-2 py-0.5 rounded bg-[#212121] border border-[#323232]">
+                Target bound to connection profile 'staging-pg' (SSL, read-replica)
+              </span>
+</div>
+</div>
+<!-- Session Alert contrast badge -->
+<div class="flex items-center gap-2 shrink-0">
+<span class="font-caption text-[11px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/30 flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]" data-icon="lock_open">lock_open</span>
+<span>Workspace independent of session (local-pg)</span>
+</span>
+</div>
+</div>
+<!-- Table Workspace Sub-Tabs (28px height) -->
+<div class="h-7 bg-[#212121] border-b border-[#323232] flex items-center px-2 gap-1 shrink-0 select-none">
+<button class="h-full px-3 flex items-center gap-1.5 text-xs text-on-surface font-medium border-b-2 border-primary-container transition-colors">
+<span class="material-symbols-outlined text-[14px] text-primary" data-icon="table_rows">table_rows</span>
+<span>Data</span>
+</button>
+<button class="h-full px-3 flex items-center gap-1.5 text-xs text-secondary hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[14px]" data-icon="schema">schema</span>
+<span>Structure (Columns &amp; Types)</span>
+</button>
+<button class="h-full px-3 flex items-center gap-1.5 text-xs text-secondary hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[14px]" data-icon="key">key</span>
+<span>Indexes &amp; Keys (3)</span>
+</button>
+<button class="h-full px-3 flex items-center gap-1.5 text-xs text-secondary hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[14px]" data-icon="account_tree">account_tree</span>
+<span>Foreign Keys (1)</span>
+</button>
+<button class="h-full px-3 flex items-center gap-1.5 text-xs text-secondary hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[14px]" data-icon="code">code</span>
+<span>DDL Script</span>
+</button>
+</div>
+<!-- Table Grid Toolbar (36px, bg #212121) -->
+<div class="h-9 min-h-[36px] bg-[#212121] border-b border-[#323232] px-3 flex items-center justify-between gap-3 shrink-0">
+<!-- Left: Filter bar & Actions -->
+<div class="flex items-center gap-2 flex-1 max-w-2xl">
+<!-- Filter Bar -->
+<div class="flex-1 relative flex items-center">
+<span class="absolute left-2 font-code text-[11px] text-primary font-semibold">WHERE</span>
+<input class="w-full h-7 pl-16 pr-3 bg-[#181818] border border-[#414141] focus:border-primary-container focus:ring-1 focus:ring-primary-container rounded font-code text-xs text-on-surface outline-none" type="text" value="is_active = true"/>
+</div>
+<!-- Sort -->
+<button class="h-7 px-2 bg-[#2a2a2a] hover:bg-[#353535] text-on-surface rounded border border-[#3d3d3d] text-xs flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[14px] text-secondary" data-icon="sort">sort</span>
+<span class="font-code text-code-small">id ASC</span>
+</button>
+<!-- Refresh -->
+<button class="h-7 w-7 flex items-center justify-center bg-[#2a2a2a] hover:bg-[#353535] text-on-surface rounded border border-[#3d3d3d] transition-colors" title="Reload Dataset">
+<span class="material-symbols-outlined text-[14px]" data-icon="refresh">refresh</span>
+</button>
+<!-- Limit -->
+<div class="flex items-center gap-1 text-xs text-secondary">
+<span class="font-caption text-caption">Limit:</span>
+<span class="font-code text-code-small text-on-surface bg-[#181818] px-1.5 py-0.5 rounded border border-[#323232]">100</span>
+</div>
+</div>
+<!-- Right: Grid Controls & Exports -->
+<div class="flex items-center gap-1.5 shrink-0">
+<button class="h-7 px-2 bg-[#2a2a2a] hover:bg-[#353535] text-secondary hover:text-on-surface rounded border border-[#3d3d3d] text-xs flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[14px]" data-icon="download">download</span>
+<span>Export CSV</span>
+</button>
+<button class="h-7 px-2 bg-[#2a2a2a] hover:bg-[#353535] text-secondary hover:text-on-surface rounded border border-[#3d3d3d] text-xs flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[14px]" data-icon="content_copy">content_copy</span>
+<span>Copy</span>
+</button>
+<div class="h-4 w-[1px] bg-[#323232] mx-0.5"></div>
+<button class="h-7 px-2 bg-[#2a2a2a] text-primary rounded border border-primary-container/40 text-xs flex items-center gap-1 font-medium">
+<span class="material-symbols-outlined text-[14px]" data-icon="view_column">view_column</span>
+<span>Columns (5)</span>
+</button>
+</div>
+</div>
+<!-- High-Density Data Grid (28px row height, JetBrains Mono font) -->
+<div class="flex-1 overflow-auto bg-[#181818]">
+<table class="w-full border-collapse font-code text-xs text-left">
+<!-- Table Header Row -->
+<thead class="sticky top-0 bg-[#212121] z-10 border-b border-[#323232]">
+<tr class="h-7 text-secondary text-[11px]">
+<th class="w-10 px-2 text-center border-r border-[#323232] font-normal text-neutral-500">#</th>
+<th class="px-3 border-r border-[#323232] font-medium text-on-surface">
+<div class="flex items-center justify-between">
+<span>id</span>
+<span class="flex items-center text-[10px] text-primary">
+<span>int8</span>
+<span class="material-symbols-outlined text-[12px] ml-0.5" data-icon="arrow_upward">arrow_upward</span>
+</span>
+</div>
+</th>
+<th class="px-3 border-r border-[#323232] font-medium text-on-surface">
+<div class="flex items-center justify-between">
+<span>email</span>
+<span class="text-[10px] text-secondary">text</span>
+</div>
+</th>
+<th class="px-3 border-r border-[#323232] font-medium text-on-surface">
+<div class="flex items-center justify-between">
+<span>is_active</span>
+<span class="text-[10px] text-secondary">bool</span>
+</div>
+</th>
+<th class="px-3 border-r border-[#323232] font-medium text-on-surface">
+<div class="flex items-center justify-between">
+<span>created_at</span>
+<span class="text-[10px] text-secondary">timestamptz</span>
+</div>
+</th>
+<th class="px-3 border-r border-[#323232] font-medium text-on-surface">
+<div class="flex items-center justify-between">
+<span>last_login</span>
+<span class="text-[10px] text-secondary">timestamptz</span>
+</div>
+</th>
+</tr>
+</thead>
+<!-- Data Rows (28px height, alternating planar rows) -->
+<tbody class="divide-y divide-[#262626]">
+<!-- Row 1 (Selected Row simulation) -->
+<tr class="h-7 bg-[#242b35] hover:bg-[#2b3340] border-l-2 border-primary-container transition-colors">
+<td class="px-2 text-center border-r border-[#323232] text-[#8d8d8d] text-[11px] bg-[#1d222a]">1</td>
+<td class="px-3 border-r border-[#323232] text-primary font-medium">42</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">sam@example.dev</td>
+<td class="px-3 border-r border-[#323232]">
+<span class="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">true</span>
+</td>
+<td class="px-3 border-r border-[#323232] text-[#c0c7d5]">2025-01-14 09:12:04+00</td>
+<td class="px-3 border-r border-[#323232] text-[#c0c7d5]">2025-02-01 18:22:10+00</td>
+</tr>
+<!-- Row 2 -->
+<tr class="h-7 bg-[#181818] hover:bg-[#202020] transition-colors">
+<td class="px-2 text-center border-r border-[#323232] text-[#8d8d8d] text-[11px] bg-[#161616]">2</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">43</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">alex.chen@infra.internal</td>
+<td class="px-3 border-r border-[#323232]">
+<span class="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">true</span>
+</td>
+<td class="px-3 border-r border-[#323232] text-[#8d8d8d]">2025-01-14 10:04:19+00</td>
+<td class="px-3 border-r border-[#323232] text-[#8d8d8d]">2025-02-01 19:40:02+00</td>
+</tr>
+<!-- Row 3 (NULL last_login with italic representation) -->
+<tr class="h-7 bg-[#1b1c1c] hover:bg-[#222222] transition-colors">
+<td class="px-2 text-center border-r border-[#323232] text-[#8d8d8d] text-[11px] bg-[#161616]">3</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">44</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">elena.rostova@staging.cloud</td>
+<td class="px-3 border-r border-[#323232]">
+<span class="px-1.5 py-0.2 rounded bg-[#2a2a2a] text-[#8d8d8d] border border-[#393939] text-[10px]">false</span>
+</td>
+<td class="px-3 border-r border-[#323232] text-[#8d8d8d]">2025-01-15 14:32:00+00</td>
+<td class="px-3 border-r border-[#323232]">
+<span class="italic text-amber-500/90 font-code text-[11px] px-1 bg-amber-500/5 rounded">NULL</span>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="h-7 bg-[#181818] hover:bg-[#202020] transition-colors">
+<td class="px-2 text-center border-r border-[#323232] text-[#8d8d8d] text-[11px] bg-[#161616]">4</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">45</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">dev-operator@staging.cloud</td>
+<td class="px-3 border-r border-[#323232]">
+<span class="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">true</span>
+</td>
+<td class="px-3 border-r border-[#323232] text-[#8d8d8d]">2025-01-16 08:00:12+00</td>
+<td class="px-3 border-r border-[#323232] text-[#8d8d8d]">2025-02-02 04:11:45+00</td>
+</tr>
+<!-- Row 5 -->
+<tr class="h-7 bg-[#1b1c1c] hover:bg-[#222222] transition-colors">
+<td class="px-2 text-center border-r border-[#323232] text-[#8d8d8d] text-[11px] bg-[#161616]">5</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">46</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">marcus.wright@sys.io</td>
+<td class="px-3 border-r border-[#323232]">
+<span class="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">true</span>
+</td>
+<td class="px-3 border-r border-[#323232] text-[#8d8d8d]">2025-01-17 11:25:30+00</td>
+<td class="px-3 border-r border-[#323232] text-[#8d8d8d]">2025-02-02 09:15:22+00</td>
+</tr>
+<!-- Row 6 -->
+<tr class="h-7 bg-[#181818] hover:bg-[#202020] transition-colors">
+<td class="px-2 text-center border-r border-[#323232] text-[#8d8d8d] text-[11px] bg-[#161616]">6</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">47</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">qa_bot_regression@test.org</td>
+<td class="px-3 border-r border-[#323232]">
+<span class="px-1.5 py-0.2 rounded bg-[#2a2a2a] text-[#8d8d8d] border border-[#393939] text-[10px]">false</span>
+</td>
+<td class="px-3 border-r border-[#323232] text-[#8d8d8d]">2025-01-18 16:45:00+00</td>
+<td class="px-3 border-r border-[#323232] text-[#8d8d8d]">2025-01-20 12:00:00+00</td>
+</tr>
+<!-- Row 7 (Ghost / padding rows for desktop realism) -->
+<tr class="h-7 bg-[#1b1c1c] hover:bg-[#222222] transition-colors">
+<td class="px-2 text-center border-r border-[#323232] text-[#8d8d8d] text-[11px] bg-[#161616]">7</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">48</td>
+<td class="px-3 border-r border-[#323232] text-on-surface">billing-sync@customer.io</td>
+<td class="px-3 border-r border-[#323232]">
+<span class="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">true</span>
+</td>
+<td class="px-3 border-r border-[#323232] text-[#8d8d8d]">2025-01-19 02:11:00+00</td>
+<td class="px-3 border-r border-[#323232] text-[#8d8d8d]">2025-02-02 11:05:00+00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</main>
+</div>
+<!-- Docked Bottom Status Bar (24px, bg #212121, border-t #323232) -->
+<footer class="h-6 min-h-[24px] bg-[#212121] border-t border-[#323232] px-3 flex items-center justify-between font-caption text-caption text-secondary select-none z-30">
+<!-- Left: Engine & Target Provenance -->
+<div class="flex items-center gap-2">
+<span class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+<span class="font-medium text-on-surface">Ready</span>
+</span>
+<span class="text-[#414141]">|</span>
+<span class="font-code text-code-small text-on-surface">Target: <span class="text-primary font-medium">staging-pg.audit.users</span></span>
+<span class="text-[#414141]">|</span>
+<span class="font-code text-code-small text-[#8d8d8d]">Session: local-pg (Active)</span>
+</div>
+<!-- Middle: Architectural Invariant Message -->
+<div class="hidden md:flex items-center gap-1 text-[#8d8d8d] text-[11px]">
+<span class="material-symbols-outlined text-[13px] text-primary" data-icon="lock">lock</span>
+<span>Opening a saved target uses its recorded connection and schema.</span>
+</div>
+<!-- Right: Performance & Metadata Metrics -->
+<div class="flex items-center gap-3 font-code text-code-small">
+<span>100 rows</span>
+<span class="text-[#414141]">·</span>
+<span>8 ms</span>
+<span class="text-[#414141]">·</span>
+<span>UTF-8</span>
+<span class="text-[#414141]">·</span>
+<span class="text-[#8d8d8d]">Read-only Replica</span>
+<span class="text-[#414141]">·</span>
+<span class="text-emerald-400">Ping: 14ms</span>
+</div>
+</footer>
+</div>
+</body></html>

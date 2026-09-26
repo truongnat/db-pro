@@ -139,20 +139,20 @@ fn draw_rail_icon_button(
     if active {
         ui.painter().rect_filled(
             rect,
-            egui::Rounding::same(RADIUS_SM),
+            egui::Rounding::same(crate::tokens::RADIUS_BUTTON),
             theme.surface_active,
         );
-        // Left accent indicator pill on the panel edge
+        // Left accent indicator pill on the panel edge (Stitch 2px active pill)
         let bar_left = ui.max_rect().left();
         let bar_rect = egui::Rect::from_min_max(
-            egui::pos2(bar_left, rect.center().y - 8.0),
-            egui::pos2(bar_left + 2.5, rect.center().y + 8.0),
+            egui::pos2(bar_left, rect.center().y - 9.0),
+            egui::pos2(bar_left + 2.0, rect.center().y + 9.0),
         );
-        ui.painter().rect_filled(bar_rect, egui::Rounding::same(1.25), theme.accent);
+        ui.painter().rect_filled(bar_rect, egui::Rounding::same(1.0), theme.accent);
     } else if hovered {
         ui.painter().rect_filled(
             rect,
-            egui::Rounding::same(RADIUS_SM),
+            egui::Rounding::same(crate::tokens::RADIUS_BUTTON),
             theme.surface_hover,
         );
     }

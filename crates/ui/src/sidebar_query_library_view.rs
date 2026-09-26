@@ -6,6 +6,7 @@ use lucide_icons::Icon;
 pub(super) enum SidebarQueryLibraryAction {
     NewQuery,
     OpenQuery(String),
+    InsertSql(String),
     CopySql { name: String, sql: String },
     Rename(UiSavedQuerySummary),
     RequestDelete(String),
@@ -167,14 +168,28 @@ impl SidebarQueryLibraryContext<'_> {
         context_action_menu(ui, response, self.theme, |ui, close_menu| {
             if ctx_menu_item(
                 ui,
-                Some(Icon::Play),
-                "Open in Editor",
-                None,
+                Some(Icon::FileCode2),
+                "Open as new query",
+                Some("⏎"),
                 self.theme.text_primary,
                 self.theme,
             )
             .clicked()
             {
+                actions.push(SidebarQueryLibraryAction::OpenQuery(query.sql.clone()));
+                *close_menu = true;
+            }
+            if ctx_menu_item(
+                ui,
+                Some(Icon::ArrowRight),
+                "Insert into current query",
+                Some("⌥⏎"),
+                self.theme.text_primary,
+                self.theme,
+            )
+            .clicked()
+            {
+                actions.push(SidebarQueryLibraryAction::InsertSql(query.sql.clone()));
                 *close_menu = true;
             }
             if ctx_menu_item(

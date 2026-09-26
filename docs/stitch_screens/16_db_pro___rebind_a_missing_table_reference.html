@@ -1,0 +1,597 @@
+<!DOCTYPE html><html lang="en" class="dark" style=""><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DB Pro — Rebind a Missing Table Reference</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            app: '#212121',
+            panel: '#2A2A2A',
+            editor: '#181818',
+            elevated: '#303030',
+            'border-planar': '#414141',
+            'border-hover': '#505050',
+            'text-primary': '#ECECEC',
+            'text-secondary': '#B9B9B9',
+            'text-muted': '#8D8D8D',
+            accent: '#339CFF',
+            'accent-dim': '#1E3A5F',
+            success: '#22C55E',
+            warning: '#F59E0B',
+            danger: '#EF4444',
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    /* Desktop Native Precision Rules */
+    * {
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+    body {
+      background-color: #212121;
+      color: #ECECEC;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      width: 1440px;
+      height: 900px;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #212121;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #414141;
+      border-radius: 2px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #505050;
+    }
+  </style>
+</head>
+<body class="relative flex flex-col w-[1440px] h-[900px] bg-[#212121] text-[#ECECEC] overflow-hidden select-none">
+
+  <!-- ================= TOP WINDOW HEADER & STATUS CHROME ================= -->
+  <header class="h-9 min-h-[36px] bg-[#212121] border-b border-[#414141] flex items-center justify-between px-3 z-10">
+    <!-- Left: App Brand & Global Connection Switcher -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <span class="font-semibold tracking-tight text-xs text-[#ECECEC]">DB PRO</span>
+        <span class="text-[10px] text-[#8D8D8D] bg-[#2A2A2A] px-1.5 py-0.5 rounded-[3px] border border-[#414141] font-mono">v2.4-native</span>
+      </div>
+
+      <div class="h-3.5 w-px bg-[#414141]"></div>
+
+      <!-- Active Connection Selector (stays local-pg, never silently changed) -->
+      <div class="flex items-center gap-2 px-2 py-1 bg-[#2A2A2A] border border-[#414141] rounded-[4px] hover:border-[#505050] transition-colors cursor-pointer text-xs">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+        <span class="font-mono text-xs font-medium text-[#ECECEC]">local-pg</span>
+        <span class="text-[#8D8D8D] text-[11px] font-sans">· PostgreSQL 16</span>
+        <svg class="w-3 h-3 text-[#8D8D8D]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+        </svg>
+      </div>
+
+      <div class="flex items-center gap-1.5 text-[11px] text-[#8D8D8D] pl-1 font-mono">
+        <span class="">5432</span>
+        <span class="">·</span>
+        <span class="text-[#22C55E]">12 ms</span>
+      </div>
+    </div>
+
+    <!-- Center: Window Tabs -->
+    <div class="flex items-center h-full gap-0.5">
+      <div class="flex items-center h-7 px-3 bg-[#2A2A2A] border border-[#414141] rounded-t-[4px] text-xs font-mono text-[#8D8D8D] hover:text-[#ECECEC] cursor-pointer">
+        <span class="">query_orders.sql</span>
+      </div>
+      <div class="flex items-center h-7 px-3 bg-[#181818] border-t border-x border-[#414141] rounded-t-[4px] text-xs font-mono text-[#339CFF] font-medium border-b-0">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#EF4444] mr-2" title="Unavailable target reference"></span>
+        <span class="">users</span>
+        <span class="ml-1 text-[10px] text-[#8D8D8D] bg-[#2A2A2A] px-1 rounded-[2px] border border-[#414141]">staging-pg · audit</span>
+        <button class="ml-2 text-[#8D8D8D] hover:text-[#ECECEC]">×</button>
+      </div>
+      <div class="flex items-center justify-center w-6 h-6 text-[#8D8D8D] hover:bg-[#2A2A2A] rounded-[3px] cursor-pointer ml-1">
+        +
+      </div>
+    </div>
+
+    <!-- Right: Window Utility Controls -->
+    <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1 px-2 py-1 text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#2A2A2A] rounded-[3px] cursor-pointer text-[11px]">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        <span class="">Audit Logs</span>
+      </div>
+      <div class="h-3.5 w-px bg-[#414141]"></div>
+      <button class="w-6 h-6 flex items-center justify-center text-[#8D8D8D] hover:text-[#ECECEC] rounded hover:bg-[#2A2A2A]">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+      </button>
+      <div class="w-5 h-5 rounded-full bg-[#1E3A5F] text-[#339CFF] flex items-center justify-center font-semibold text-[10px]">
+        DA
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= MAIN WORKBENCH BODY (BACKGROUND) ================= -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- Activity Rail (Far Left, 44px) -->
+    <aside class="w-11 min-w-[44px] bg-[#212121] border-r border-[#414141] flex flex-col items-center py-2.5 gap-2 z-10">
+      <!-- Database explorer icon -->
+      <button class="w-8 h-8 rounded-[4px] text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#2A2A2A] flex items-center justify-center" title="Connection Explorer">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+      </button>
+
+      <!-- Data Activity Icon (ACTIVE / SELECTED) -->
+      <button class="w-8 h-8 rounded-[4px] bg-[#303030] text-[#339CFF] border-l-2 border-[#339CFF] flex items-center justify-center relative" title="Data Activity (Pinned &amp; Recent Tables)">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+      </button>
+
+      <!-- SQL Query Console -->
+      <button class="w-8 h-8 rounded-[4px] text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#2A2A2A] flex items-center justify-center" title="Query Console">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+      </button>
+
+      <!-- Schema Tree -->
+      <button class="w-8 h-8 rounded-[4px] text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#2A2A2A] flex items-center justify-center" title="Schema Graph &amp; Relations">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg>
+      </button>
+
+      <!-- History -->
+      <button class="w-8 h-8 rounded-[4px] text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#2A2A2A] flex items-center justify-center" title="Execution History">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      </button>
+
+      <div class="mt-auto flex flex-col gap-2 items-center">
+        <button class="w-8 h-8 rounded-[4px] text-[#8D8D8D] hover:text-[#ECECEC] flex items-center justify-center" title="Shortcuts">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Data Activity Sidebar (260px) -->
+    <section class="w-64 min-w-[256px] max-w-[260px] bg-[#2A2A2A] border-r border-[#414141] flex flex-col z-10">
+      <!-- Sidebar Header -->
+      <div class="p-3 border-b border-[#414141] flex items-center justify-between">
+        <div>
+          <h2 class="text-xs font-semibold text-[#ECECEC]">Pinned &amp; Recent</h2>
+          <p class="text-[11px] text-[#8D8D8D]">Saved table targets</p>
+        </div>
+        <button class="h-6 px-2 bg-[#212121] hover:bg-[#303030] text-[#ECECEC] border border-[#414141] rounded-[4px] text-[11px] flex items-center gap-1 font-medium transition-colors">
+          <span class="">+ Pin Active</span>
+        </button>
+      </div>
+
+      <!-- Quick Filter -->
+      <div class="p-2 border-b border-[#414141]">
+        <div class="relative flex items-center">
+          <svg class="w-3.5 h-3.5 absolute left-2 text-[#8D8D8D]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          <input type="text" placeholder="Filter pinned and recent..." value="users" readonly="" class="w-full h-7 pl-7 pr-7 bg-[#212121] border border-[#414141] rounded-[4px] text-xs text-[#ECECEC] focus:outline-none">
+          <span class="absolute right-2 text-[10px] text-[#8D8D8D] font-mono">ESC</span>
+        </div>
+      </div>
+
+      <!-- Target Reference Notice Banner -->
+      <div class="p-2.5 mx-2 my-2 bg-[#212121] border border-[#414141] rounded-[4px] text-[11px] text-[#8D8D8D] flex items-start gap-2">
+        <svg class="w-3.5 h-3.5 text-[#339CFF] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span class="">Saved targets record connection and schema. Reopening never falls back to an unrelated same-name table.</span>
+      </div>
+
+      <!-- Pinned Section -->
+      <div class="flex-1 overflow-y-auto custom-scrollbar px-2 space-y-1">
+        <div class="flex items-center justify-between pt-2 pb-1 px-1 text-[11px] text-[#8D8D8D] font-medium tracking-wide">
+          <span class="">PINNED (2)</span>
+          <button class="hover:text-[#ECECEC]">···</button>
+        </div>
+
+        <!-- STALE TARGET IN SIDEBAR (Selected / Triggering Rebind Flow) -->
+        <div class="p-2 bg-[#212121] border border-[#F59E0B] rounded-[4px] relative">
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-1.5 font-mono text-xs font-semibold text-[#ECECEC]">
+              <svg class="w-3 h-3 text-[#339CFF]" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"></path></svg>
+              <span class="">users</span>
+            </div>
+            <span class="text-[10px] font-sans font-medium px-1.5 py-0.5 bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/30 rounded-[3px]">
+              Unavailable
+            </span>
+          </div>
+          <div class="font-mono text-[11px] text-[#8D8D8D] truncate">
+            staging-pg · app_db · audit
+          </div>
+          <div class="text-[10px] text-[#F59E0B] mt-1 font-sans">
+            Target connection offline
+          </div>
+          <!-- Action row in item -->
+          <div class="mt-2 pt-1.5 border-t border-[#414141] flex items-center justify-between">
+            <span class="text-[10px] text-[#8D8D8D]">SSL replica</span>
+            <button class="text-[11px] font-sans font-medium text-[#339CFF] hover:underline flex items-center gap-1">
+              <span class="">Rebind target</span>
+              <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Another Pinned Item (Local healthy item) -->
+        <div class="p-2 hover:bg-[#212121] border border-transparent hover:border-[#414141] rounded-[4px] transition-colors cursor-pointer">
+          <div class="flex items-center justify-between mb-0.5">
+            <div class="flex items-center gap-1.5 font-mono text-xs text-[#ECECEC]">
+              <svg class="w-3 h-3 text-[#8D8D8D]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>
+              <span class="">users</span>
+            </div>
+            <span class="text-[10px] text-[#8D8D8D]">dev-local</span>
+          </div>
+          <div class="font-mono text-[11px] text-[#8D8D8D]">
+            local-pg · app_db · public
+          </div>
+        </div>
+
+        <!-- Recent Section -->
+        <div class="flex items-center justify-between pt-3 pb-1 px-1 text-[11px] text-[#8D8D8D] font-medium tracking-wide">
+          <span class="">RECENT (3)</span>
+          <button class="hover:text-[#ECECEC]">Clear</button>
+        </div>
+
+        <div class="p-2 hover:bg-[#212121] border border-transparent hover:border-[#414141] rounded-[4px] cursor-pointer">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-xs text-[#ECECEC]">orders</span>
+            <span class="text-[10px] text-[#8D8D8D]">2h ago</span>
+          </div>
+          <div class="font-mono text-[11px] text-[#8D8D8D]">local-pg · app_db · public</div>
+        </div>
+
+        <div class="p-2 hover:bg-[#212121] border border-transparent hover:border-[#414141] rounded-[4px] cursor-pointer">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-xs text-[#ECECEC]">invoices</span>
+            <span class="text-[10px] text-[#8D8D8D]">Yesterday</span>
+          </div>
+          <div class="font-mono text-[11px] text-[#8D8D8D]">staging-pg · app_db · billing</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Center Neutral Workbench (Table Structure & Grid, behind dim overlay) -->
+    <main class="flex-1 flex flex-col bg-[#181818] overflow-hidden">
+      <!-- Breadcrumb Bar & Identity Target Header -->
+      <div class="h-9 px-3 border-b border-[#414141] bg-[#212121] flex items-center justify-between">
+        <div class="flex items-center gap-1.5 text-xs font-mono text-[#8D8D8D]">
+          <span class="">staging-pg</span>
+          <span class="">/</span>
+          <span class="">app_db</span>
+          <span class="">/</span>
+          <span class="">audit</span>
+          <span class="">/</span>
+          <span class="text-[#ECECEC] font-semibold flex items-center gap-1 bg-[#2A2A2A] px-1.5 py-0.5 rounded border border-[#414141]">
+            <svg class="w-3 h-3 text-[#339CFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            users
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 bg-[#F59E0B]/10 border border-[#F59E0B]/40 text-[#F59E0B] rounded-[3px] text-[11px] flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#F59E0B]"></span>
+            <span class="">Target connection offline</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Action Toolbar -->
+      <div class="h-9 px-3 border-b border-[#414141] bg-[#212121] flex items-center justify-between">
+        <!-- Sub-tabs -->
+        <div class="flex items-center gap-1">
+          <button class="h-7 px-3 bg-[#181818] border-b-2 border-[#339CFF] text-[#ECECEC] text-xs font-medium">Data</button>
+          <button class="h-7 px-3 text-[#8D8D8D] hover:text-[#ECECEC] text-xs">Structure (Columns)</button>
+          <button class="h-7 px-3 text-[#8D8D8D] hover:text-[#ECECEC] text-xs">Indexes &amp; Keys (3)</button>
+          <button class="h-7 px-3 text-[#8D8D8D] hover:text-[#ECECEC] text-xs">DDL Script</button>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="flex items-center gap-2">
+          <div class="h-6 px-2 bg-[#2A2A2A] border border-[#414141] rounded-[3px] text-[11px] font-mono text-[#8D8D8D] flex items-center">
+            <span class="text-[#339CFF] mr-1">WHERE</span> is_active = true
+          </div>
+          <button class="h-6 px-2 bg-[#2A2A2A] border border-[#414141] text-[#8D8D8D] rounded-[3px] text-[11px]">Export CSV</button>
+        </div>
+      </div>
+
+      <!-- Table View Content (Neutral background mock grid) -->
+      <div class="flex-1 bg-[#181818] overflow-hidden flex flex-col font-mono text-xs">
+        <!-- Table Column Headers -->
+        <div class="h-7 bg-[#212121] border-b border-[#414141] flex items-center text-[11px] text-[#8D8D8D] font-medium px-2">
+          <div class="w-8 text-center text-[#505050]">#</div>
+          <div class="w-16 px-2 text-[#ECECEC] flex items-center gap-1">id <span class="text-[10px] text-[#8D8D8D]">int8</span></div>
+          <div class="w-64 px-2">email <span class="text-[10px] text-[#8D8D8D]">text</span></div>
+          <div class="w-24 px-2">is_active <span class="text-[10px] text-[#8D8D8D]">bool</span></div>
+          <div class="w-48 px-2">created_at <span class="text-[10px] text-[#8D8D8D]">timestamptz</span></div>
+          <div class="w-48 px-2">last_login <span class="text-[10px] text-[#8D8D8D]">timestamptz</span></div>
+        </div>
+
+        <!-- Rows (Stale cached or previous snapshot lines) -->
+        <div class="flex-1 overflow-y-auto divide-y divide-[#2A2A2A] text-xs opacity-40">
+          <div class="h-7 flex items-center px-2 hover:bg-[#212121]">
+            <div class="w-8 text-center text-[#505050]">1</div>
+            <div class="w-16 px-2 text-[#339CFF]">42</div>
+            <div class="w-64 px-2 text-[#ECECEC]">sam@example.dev</div>
+            <div class="w-24 px-2 text-[#22C55E]">true</div>
+            <div class="w-48 px-2 text-[#8D8D8D]">2025-01-14 09:12:04+00</div>
+            <div class="w-48 px-2 text-[#8D8D8D]">2025-02-01 18:22:10+00</div>
+          </div>
+          <div class="h-7 flex items-center px-2 hover:bg-[#212121]">
+            <div class="w-8 text-center text-[#505050]">2</div>
+            <div class="w-16 px-2 text-[#339CFF]">43</div>
+            <div class="w-64 px-2 text-[#ECECEC]">alex.chen@infra.internal</div>
+            <div class="w-24 px-2 text-[#22C55E]">true</div>
+            <div class="w-48 px-2 text-[#8D8D8D]">2025-01-14 10:04:19+00</div>
+            <div class="w-48 px-2 text-[#8D8D8D]">2025-02-01 19:40:02+00</div>
+          </div>
+          <div class="h-7 flex items-center px-2 hover:bg-[#212121]">
+            <div class="w-8 text-center text-[#505050]">3</div>
+            <div class="w-16 px-2 text-[#339CFF]">44</div>
+            <div class="w-64 px-2 text-[#ECECEC]">elena.rostova@staging.cloud</div>
+            <div class="w-24 px-2 text-[#EF4444]">false</div>
+            <div class="w-48 px-2 text-[#8D8D8D]">2025-01-15 14:32:00+00</div>
+            <div class="w-48 px-2 text-[#F59E0B]">NULL</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ================= BOTTOM STATUS BAR (24px) ================= -->
+  <footer class="h-6 min-h-[24px] bg-[#212121] border-t border-[#414141] flex items-center justify-between px-3 text-[11px] font-mono text-[#8D8D8D] z-10">
+    <div class="flex items-center gap-3">
+      <span class="flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+        <span class="text-[#ECECEC]">Ready</span>
+      </span>
+      <span class="">·</span>
+      <span class="text-[#ECECEC] font-sans">Active Session:</span>
+      <span class="text-[#339CFF]">local-pg</span>
+      <span class="text-[#505050]">(PostgreSQL 16.2)</span>
+      <span class="">·</span>
+      <span class="text-[#F59E0B] font-sans flex items-center gap-1">
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        Rebind required for saved pin: staging-pg.audit.users
+      </span>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <span class="">Auto-fallback: <strong class="text-[#EF4444] font-normal">DISABLED (Strict)</strong></span>
+      <span class="">·</span>
+      <span class="">UTF-8</span>
+      <span class="">·</span>
+      <span class="">Ping: 12ms</span>
+    </div>
+  </footer>
+
+  <!-- ================= MODAL BACKDROP (DIM OVERLAY) ================= -->
+  <div class="absolute inset-0 bg-black/65 backdrop-blur-[0.5px] z-50 flex items-center justify-center p-4">
+
+    <!-- Container holding both the primary dialog and the candidate state strip -->
+    <div class="flex flex-col items-center">
+
+      <!-- ================= REBIND SAVED TABLE MODAL (560px) ================= -->
+      <div class="w-[560px] bg-[#303030] border border-[#505050] rounded-[6px] shadow-2xl flex flex-col overflow-hidden text-[#ECECEC] font-sans">
+        
+        <!-- Modal Header -->
+        <div class="h-10 px-4 bg-[#2A2A2A] border-b border-[#414141] flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <!-- Table Link / Rebind Icon -->
+            <div class="w-5 h-5 rounded-[4px] bg-[#1E3A5F] text-[#339CFF] flex items-center justify-center">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+              </svg>
+            </div>
+            <h3 class="text-xs font-semibold text-[#ECECEC] tracking-normal">Rebind saved table</h3>
+            <span class="text-[10px] text-[#8D8D8D] font-mono bg-[#212121] px-1.5 py-0.5 rounded border border-[#414141]">F1 Recovery</span>
+          </div>
+
+          <button class="w-6 h-6 rounded-[3px] text-[#8D8D8D] hover:text-[#ECECEC] hover:bg-[#303030] flex items-center justify-center transition-colors" title="Close (Esc)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Modal Body Content -->
+        <div class="p-4 space-y-3.5">
+
+          <!-- 1. Warning Summary Banner -->
+          <div class="px-3 py-2 bg-[#212121] border border-[#F59E0B]/50 rounded-[4px] flex items-start gap-2.5">
+            <svg class="w-4 h-4 text-[#F59E0B] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <div class="flex-1 text-xs">
+              <div class="font-medium text-[#ECECEC]">Original target is unavailable</div>
+              <div class="text-[#B9B9B9] text-[11px] mt-0.5 leading-relaxed">
+                DB Pro records exact connection, database, and schema identities. To prevent accidental queries against wrong databases, missing targets are never silently remapped.
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Immutable Source Reference (Read-Only) -->
+          <div>
+            <div class="text-[11px] font-medium text-[#8D8D8D] mb-1.5 uppercase tracking-wide">Original Saved Reference</div>
+            <div class="p-2.5 bg-[#212121] border border-[#414141] rounded-[4px] space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] text-[#8D8D8D]">Target Path:</span>
+                <span class="font-mono text-xs font-semibold text-[#ECECEC] bg-[#2A2A2A] px-2 py-0.5 rounded border border-[#414141]">
+                  staging-pg / app_db / audit / users
+                </span>
+              </div>
+              <div class="flex items-center justify-between text-[11px]">
+                <div class="flex items-center gap-1.5 text-[#8D8D8D]">
+                  <span class="">Provider:</span>
+                  <span class="text-[#ECECEC] font-mono">PostgreSQL (libpq)</span>
+                </div>
+                <div class="flex items-center gap-1.5 text-[#8D8D8D]">
+                  <span class="">Status:</span>
+                  <span class="text-[#EF4444] font-medium flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#EF4444]"></span>
+                    Connection unavailable
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Explicit Replacement Picker -->
+          <div class="space-y-2 pt-1">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-medium text-[#8D8D8D] uppercase tracking-wide">Choose Replacement Target</span>
+              <span class="text-[10px] text-[#8D8D8D]">Step: Select verified connection &amp; schema</span>
+            </div>
+
+            <!-- Two Filter Selectors (Connection & Database) -->
+            <div class="grid grid-cols-2 gap-2">
+              <!-- Connection Selector -->
+              <div>
+                <label class="block text-[11px] text-[#8D8D8D] mb-1">Connection</label>
+                <div class="h-7 px-2 bg-[#212121] border border-[#414141] rounded-[4px] flex items-center justify-between text-xs text-[#ECECEC] cursor-pointer hover:border-[#505050]">
+                  <div class="flex items-center gap-1.5 font-mono truncate">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+                    <span class="">local-pg</span>
+                    <span class="text-[#8D8D8D] font-sans text-[11px]">· PostgreSQL</span>
+                  </div>
+                  <svg class="w-3 h-3 text-[#8D8D8D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+              </div>
+
+              <!-- Database Selector -->
+              <div>
+                <label class="block text-[11px] text-[#8D8D8D] mb-1">Database</label>
+                <div class="h-7 px-2 bg-[#212121] border border-[#414141] rounded-[4px] flex items-center justify-between text-xs text-[#ECECEC] cursor-pointer hover:border-[#505050]">
+                  <span class="font-mono truncate">app_db</span>
+                  <svg class="w-3 h-3 text-[#8D8D8D] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Candidate Tables List -->
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-[11px] text-[#8D8D8D]">Candidate Tables in Target Database (2 found)</label>
+                <span class="text-[10px] text-[#8D8D8D] font-mono">Neither candidate is preselected</span>
+              </div>
+
+              <div class="border border-[#414141] rounded-[4px] bg-[#212121] overflow-hidden divide-y divide-[#2A2A2A]">
+                
+                <!-- Candidate Row 1: public.users (Unselected) -->
+                <div class="p-2.5 flex items-center justify-between hover:bg-[#2A2A2A] transition-colors cursor-pointer group">
+                  <div class="flex items-start gap-2.5">
+                    <div class="w-4 h-4 rounded border border-[#505050] group-hover:border-[#339CFF] flex items-center justify-center mt-0.5 bg-[#212121]">
+                      <!-- Unchecked radio -->
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-mono text-xs font-semibold text-[#ECECEC]">public.users</span>
+                        <span class="text-[10px] text-[#8D8D8D] bg-[#2A2A2A] px-1 rounded border border-[#414141] font-mono">BASE TABLE</span>
+                      </div>
+                      <div class="text-[11px] text-[#8D8D8D] mt-0.5 font-mono">
+                        local-pg · app_db · public · users
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <span class="text-[10px] text-[#8D8D8D] block font-mono">7 columns</span>
+                    <span class="text-[10px] text-[#8D8D8D] block">public schema</span>
+                  </div>
+                </div>
+
+                <!-- Candidate Row 2: audit.users (Unselected in default state) -->
+                <div class="p-2.5 flex items-center justify-between hover:bg-[#2A2A2A] transition-colors cursor-pointer group">
+                  <div class="flex items-start gap-2.5">
+                    <div class="w-4 h-4 rounded border border-[#505050] group-hover:border-[#339CFF] flex items-center justify-center mt-0.5 bg-[#212121]">
+                      <!-- Unchecked radio -->
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-mono text-xs font-semibold text-[#ECECEC]">audit.users</span>
+                        <span class="text-[10px] text-[#8D8D8D] bg-[#2A2A2A] px-1 rounded border border-[#414141] font-mono">BASE TABLE</span>
+                        <span class="text-[10px] text-[#339CFF] bg-[#1E3A5F]/60 px-1 rounded border border-[#339CFF]/30 font-sans">Matching schema</span>
+                      </div>
+                      <div class="text-[11px] text-[#8D8D8D] mt-0.5 font-mono">
+                        local-pg · app_db · audit · users
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <span class="text-[10px] text-[#8D8D8D] block font-mono">11 columns</span>
+                    <span class="text-[10px] text-[#8D8D8D] block">audit schema</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Explicit Inline Caution -->
+            <div class="px-2.5 py-1.5 bg-[#212121]/70 border-l-2 border-[#F59E0B] text-[11px] text-[#B9B9B9] flex items-start gap-2">
+              <svg class="w-3.5 h-3.5 text-[#F59E0B] flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span class="">A matching table name is not proof that this is the same object. Review connection and schema before rebinding.</span>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="h-12 px-4 bg-[#2A2A2A] border-t border-[#414141] flex items-center justify-between">
+          <!-- Destructive text action -->
+          <button class="text-xs text-[#EF4444] hover:text-[#EF4444]/80 hover:underline flex items-center gap-1 font-medium transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+            <span class="">Remove saved reference</span>
+          </button>
+
+          <!-- Standard Actions -->
+          <div class="flex items-center gap-2">
+            <button class="h-7 px-3 bg-[#212121] hover:bg-[#303030] border border-[#414141] text-[#ECECEC] rounded-[4px] text-xs font-medium transition-colors">
+              Cancel
+            </button>
+            <!-- Disabled Primary (until candidate is selected) -->
+            <button disabled="" class="h-7 px-3 bg-[#339CFF]/30 text-[#8D8D8D] border border-[#414141] rounded-[4px] text-xs font-medium cursor-not-allowed flex items-center gap-1.5" title="Select a candidate table above to enable rebinding">
+              <span class="">Rebind to selected table</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ================= COMPONENT STATE STRIP (BELOW MODAL) ================= -->
+      <!-- Depicts candidate selected variant & enabled state without spawning separate dialogs -->
+      <div class="w-[560px] mt-3 bg-[#2A2A2A] border border-[#414141] rounded-[6px] p-2.5 shadow-lg flex items-center justify-between text-xs"><div class="flex items-center gap-2.5"><span class="text-[10px] font-mono text-[#8D8D8D] uppercase px-1.5 py-0.5 bg-[#212121] rounded border border-[#414141]">Active Selection State</span><div class="flex items-center gap-1.5 font-mono text-xs"><span class="text-[#8D8D8D]">When user selects:</span><span class="text-[#339CFF] font-semibold">audit.users</span></div></div><div class="flex items-center gap-3"><span class="text-[11px] text-[#22C55E] flex items-center gap-1 font-sans font-medium"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Action enabled</span><button class="h-7 px-3 bg-[#339CFF] hover:bg-[#2a87df] text-[#212121] font-semibold rounded-[4px] text-xs transition-colors shadow-sm flex items-center justify-center">Rebind to selected table</button></div></div>
+
+    </div>
+
+  </div>
+
+
+
+
+
+</body></html>

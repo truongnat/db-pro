@@ -21,16 +21,27 @@ impl DbProApp {
 
     /// Results grid plus its row-count / export header.
     pub(super) fn draw_results_pane(&mut self, ui: &mut egui::Ui, result: Option<&UiQueryResult>) {
-        let active_result_index = self
+        let (active_result_index, result_names, pinned_results) = if let Some(active_doc) = self
             .query
             .session
             .documents
             .get(self.query.session.active_document_index)
-            .map_or(0, |document| document.active_result_index);
+        {
+            (
+                active_doc.active_result_index,
+                active_doc.query_result_names.clone(),
+                active_doc.pinned_results.clone(),
+            )
+        } else {
+            (0, std::collections::HashMap::new(), std::collections::BTreeSet::new())
+        };
+
         let context = query_results_surface_view::QueryResultsSurfaceContext {
             theme: self.theme,
             result_count: self.query.session.active_result_count(),
             active_result_index,
+            result_names: &result_names,
+            pinned_results: &pinned_results,
             result,
         };
         if let Some(action) = query_results_surface_view::draw_results(&context, ui, |ui, result| {
@@ -39,6 +50,34 @@ impl DbProApp {
             match action {
                 query_results_surface_view::QueryResultsSurfaceAction::SelectResult(index) => {
                     self.set_active_query_result(index);
+                }
+                query_results_surface_view::QueryResultsSurfaceAction::TogglePin(index) => {
+                    if let Some(doc) = self.query.session.documents.get_mut(self.query.session.active_document_index) {
+                        if !doc.pinned_results.remove(&index) {
+                            doc.pinned_results.insert(index);
+                        }
+                    }
+                }
+                query_results_surface_view::QueryResultsSurfaceAction::CloseResult(index) => {
+                    if let Some(doc) = self.query.session.documents.get_mut(self.query.session.active_document_index) {
+                        if index < doc.query_results.len() {
+                            doc.query_results.remove(index);
+                            if doc.active_result_index >= doc.query_results.len() && !doc.query_results.is_empty() {
+                                doc.active_result_index = doc.query_results.len() - 1;
+                            }
+                        }
+                    }
+                }
+                query_results_surface_view::QueryResultsSurfaceAction::CloseOtherResults(keep_index) => {
+                    if let Some(doc) = self.query.session.documents.get_mut(self.query.session.active_document_index) {
+                        if keep_index < doc.query_results.len() {
+                            let kept = doc.query_results.remove(keep_index);
+                            doc.query_results = vec![kept];
+                            doc.active_result_index = 0;
+                            doc.pinned_results.clear();
+                            doc.query_result_names.clear();
+                        }
+                    }
                 }
                 query_results_surface_view::QueryResultsSurfaceAction::OpenExport => {
                     self.overlay.export_open = true;

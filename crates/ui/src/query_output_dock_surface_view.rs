@@ -27,13 +27,12 @@ pub(super) struct QueryOutputDockContext<'a> {
 
 impl QueryOutputDockContext<'_> {
     pub(super) fn draw_chrome(&mut self, ui: &mut egui::Ui, dock_height: f32) -> f32 {
-        // The chrome (resize grip + tab strip) must consume only its own height so the
-        // caller can allocate the remaining dock budget to the result pane. The tab row
-        // is bounded to `DOCK_TAB_STRIP_HEIGHT` because an unconstrained `right_to_left`
-        // row grows to fill the whole dock height, which previously pushed the pane below
-        // the visible clip and left the grid blank.
         let chrome_top = ui.cursor().top();
-        self.draw_resize_grip(ui);
+        if self.workspace.output_dock_position == OutputDockPosition::Bottom {
+            self.draw_vertical_resize_grip(ui);
+        }
+        let bottom_panel_open = &mut self.workspace.shell.bottom_panel_open;
+        let dock_position = &mut self.workspace.shell.output_dock_position;
         ui.allocate_ui_with_layout(
             egui::vec2(ui.available_width(), DOCK_TAB_STRIP_HEIGHT),
             Layout::top_down(Align::Min),
@@ -43,7 +42,8 @@ impl QueryOutputDockContext<'_> {
                     output: self.output,
                     session: self.session,
                     editor: self.editor,
-                    bottom_panel_open: &mut self.workspace.bottom_panel_open,
+                    bottom_panel_open,
+                    dock_position: Some(dock_position),
                 };
                 query_output_tabs_view::draw_output_tabs(&mut tabs_context, ui, true);
             },
@@ -52,11 +52,34 @@ impl QueryOutputDockContext<'_> {
         Self::body_height(dock_height, chrome_height)
     }
 
+    pub(super) fn draw_horizontal_splitter(&mut self, ui: &mut egui::Ui, height: f32) {
+        let (grip_rect, grip_response) = ui.allocate_exact_size(
+            egui::vec2(RESIZE_GRIP_HIT_HEIGHT, height),
+            egui::Sense::drag(),
+        );
+        let color = if grip_response.hovered() || grip_response.dragged() {
+            self.theme.border_strong
+        } else {
+            self.theme.border_subtle
+        };
+        let line_rect = egui::Rect::from_center_size(
+            grip_rect.center(),
+            egui::vec2(RESIZE_GRIP_LINE_THICKNESS, height),
+        );
+        ui.painter().rect_filled(line_rect, 0.0, color);
+        if grip_response.dragged() {
+            let next_width = self.workspace.right_dock_width - grip_response.drag_delta().x;
+            self.workspace.set_right_dock_width(next_width);
+            self.editor.query_output_dock_maximized = false;
+        }
+        grip_response.on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
+    }
+
     fn body_height(dock_height: f32, chrome_height: f32) -> f32 {
         (dock_height - chrome_height).max(0.0)
     }
 
-    fn draw_resize_grip(&mut self, ui: &mut egui::Ui) {
+    fn draw_vertical_resize_grip(&mut self, ui: &mut egui::Ui) {
         let (grip_rect, grip_response) = ui.allocate_exact_size(
             egui::vec2(ui.available_width(), RESIZE_GRIP_HIT_HEIGHT),
             egui::Sense::drag(),
@@ -66,8 +89,6 @@ impl QueryOutputDockContext<'_> {
         } else {
             self.theme.border_subtle
         };
-        // Paint a thin line centered in the taller grab band so the divider stays visually
-        // subtle while remaining easy to grab.
         let line_rect = egui::Rect::from_center_size(
             grip_rect.center(),
             egui::vec2(grip_rect.width(), RESIZE_GRIP_LINE_THICKNESS),

@@ -352,6 +352,13 @@ pub(crate) enum OutputTab {
     History,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub(crate) enum OutputDockPosition {
+    #[default]
+    Bottom,
+    Right,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum SchemaObjectSelection {
     View(String),

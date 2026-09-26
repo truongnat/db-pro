@@ -1,14 +1,15 @@
+use crate::tokens::{RADIUS_BADGE, STROKE_THIN};
 use crate::DbProTheme;
 use egui::{Color32, FontFamily, FontId, Pos2, Response, Rounding, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
-/// Codex/ChatGPT status badge: 12px / 500, padding 2×8, radius-full.
+/// Dense workstation badge: 12px / 500, padding 2×8, 4px radius.
 const BADGE_FONT_SIZE: f32 = 12.0;
-const BADGE_ICON_SIZE: f32 = 11.0;
+const BADGE_ICON_SIZE: f32 = 12.0;
 const BADGE_PAD_X: f32 = 8.0;
 const BADGE_PAD_Y: f32 = 2.0;
-const BADGE_GAP: f32 = 4.0;
-const BADGE_DOT: f32 = 5.0;
+const BADGE_GAP: f32 = 6.0;
+const BADGE_DOT: f32 = 6.0;
 const BADGE_MIN_HEIGHT: f32 = 20.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,43 +48,43 @@ impl BadgePalette {
             BadgeVariant::Default => Self {
                 fill: theme.accent_soft,
                 text_color: theme.accent,
-                border_stroke: Stroke::NONE,
+                border_stroke: Stroke::new(STROKE_THIN, theme.accent),
                 dot_color: theme.accent,
             },
             BadgeVariant::Secondary => Self {
-                fill: theme.surface_hover,
+                fill: theme.surface_elevated,
                 text_color: theme.text_secondary,
-                border_stroke: Stroke::NONE,
-                dot_color: theme.text_secondary,
+                border_stroke: Stroke::new(STROKE_THIN, theme.border_default),
+                dot_color: theme.text_tertiary,
             },
             BadgeVariant::Outline => Self {
                 fill: Color32::TRANSPARENT,
                 text_color: theme.text_primary,
-                border_stroke: Stroke::new(1.0, theme.border_default),
-                dot_color: theme.text_muted,
+                border_stroke: Stroke::new(STROKE_THIN, theme.border_default),
+                dot_color: theme.text_tertiary,
             },
             BadgeVariant::Destructive => Self {
-                fill: theme.danger.linear_multiply(0.15),
+                fill: theme.danger_soft(),
                 text_color: theme.danger,
-                border_stroke: Stroke::NONE,
+                border_stroke: Stroke::new(STROKE_THIN, theme.danger.linear_multiply(0.5)),
                 dot_color: theme.danger,
             },
             BadgeVariant::Success => Self {
-                fill: theme.success.linear_multiply(0.15),
+                fill: theme.success_soft(),
                 text_color: theme.success,
-                border_stroke: Stroke::NONE,
+                border_stroke: Stroke::new(STROKE_THIN, theme.success.linear_multiply(0.4)),
                 dot_color: theme.success,
             },
             BadgeVariant::Warning => Self {
-                fill: theme.warning.linear_multiply(0.15),
+                fill: theme.warning_soft(),
                 text_color: theme.warning,
-                border_stroke: Stroke::NONE,
+                border_stroke: Stroke::new(STROKE_THIN, theme.warning.linear_multiply(0.5)),
                 dot_color: theme.warning,
             },
             BadgeVariant::Info => Self {
-                fill: theme.info.linear_multiply(0.15),
+                fill: theme.info_soft(),
                 text_color: theme.info,
-                border_stroke: Stroke::NONE,
+                border_stroke: Stroke::new(STROKE_THIN, theme.info.linear_multiply(0.5)),
                 dot_color: theme.info,
             },
         }
@@ -111,7 +112,7 @@ impl BadgeMetrics {
                 min_height: 18.0,
                 dot_size: 4.0,
                 icon_size: 9.5,
-                gap: BADGE_GAP,
+                gap: 4.0,
             }
         } else {
             Self {
@@ -197,7 +198,7 @@ impl<'a> Badge<'a> {
 }
 
 fn paint_badge_background(ui: &Ui, rect: egui::Rect, palette: &BadgePalette) {
-    let rounding = Rounding::same(rect.height() * 0.5);
+    let rounding = Rounding::same(RADIUS_BADGE);
     ui.painter().rect_filled(rect, rounding, palette.fill);
     if palette.border_stroke != Stroke::NONE {
         ui.painter().rect_stroke(rect, rounding, palette.border_stroke);
@@ -244,7 +245,7 @@ mod tests {
     use crate::DbProTheme;
 
     #[test]
-    fn badge_pill_is_compact_like_codex_status_chip() {
+    fn badge_uses_compact_workstation_metrics() {
         let theme = DbProTheme::light();
         let ctx = egui::Context::default();
         DbProTheme::install_fonts(&ctx);
@@ -264,6 +265,26 @@ mod tests {
             (BADGE_MIN_HEIGHT..=22.0).contains(&height),
             "badge height {height} should stay near 20px"
         );
-        assert!(width > height, "pill should be wider than tall");
+        assert!(width > height, "badge should be wider than tall");
+    }
+
+    #[test]
+    fn semantic_badges_keep_a_visible_boundary() {
+        let theme = DbProTheme::dark();
+        for variant in [
+            BadgeVariant::Default,
+            BadgeVariant::Secondary,
+            BadgeVariant::Destructive,
+            BadgeVariant::Success,
+            BadgeVariant::Warning,
+            BadgeVariant::Info,
+        ] {
+            let palette = BadgePalette::from_variant(variant, &theme);
+            assert_ne!(
+                palette.border_stroke,
+                Stroke::NONE,
+                "{variant:?} lost its status boundary"
+            );
+        }
     }
 }

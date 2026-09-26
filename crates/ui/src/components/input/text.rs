@@ -10,6 +10,7 @@ use crate::DbProTheme;
 
 pub struct Input<'a> {
     label: Option<Cow<'a, str>>,
+    access_label: Option<Cow<'a, str>>,
     value: &'a mut String,
     placeholder: Cow<'a, str>,
     helper_text: Option<Cow<'a, str>>,
@@ -27,6 +28,7 @@ impl<'a> Input<'a> {
     pub fn new(value: &'a mut String, placeholder: impl Into<Cow<'a, str>>, theme: DbProTheme) -> Self {
         Self {
             label: None,
+            access_label: None,
             value,
             placeholder: placeholder.into(),
             helper_text: None,
@@ -43,6 +45,11 @@ impl<'a> Input<'a> {
 
     pub fn label(mut self, label: impl Into<Cow<'a, str>>) -> Self {
         self.label = Some(label.into());
+        self
+    }
+
+    pub fn access_label(mut self, label: impl Into<Cow<'a, str>>) -> Self {
+        self.access_label = Some(label.into());
         self
     }
 
@@ -193,7 +200,11 @@ impl<'a> Input<'a> {
                 edit_response.request_focus();
             }
             let frame_rect = frame_output.response.rect;
-            let info_label = self.label.as_deref().unwrap_or(self.placeholder.as_ref());
+            let info_label = self
+                .access_label
+                .as_deref()
+                .or(self.label.as_deref())
+                .unwrap_or(self.placeholder.as_ref());
             edit_response.widget_info(|| text_input_info(self.enabled, info_label));
 
             // NOTE: do NOT register `frame.interact(Sense::click())` here. That call lands on

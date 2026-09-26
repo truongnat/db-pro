@@ -1,5 +1,8 @@
 use super::*;
-use egui::{RichText, Ui};
+use egui::{Response, RichText, Ui};
+
+const FORM_TWO_COLUMN_MIN_WIDTH: f32 = 680.0;
+const FORM_INLINE_ACTIONS_MIN_WIDTH: f32 = 520.0;
 
 impl DbProApp {
     pub(super) fn draw_gallery_inputs_section(&mut self, ui: &mut Ui) {
@@ -7,53 +10,15 @@ impl DbProApp {
         self.draw_section_heading(
             ui,
             "Form Handling & Validation",
-            "Production form with React Hook Form semantics: schema rules, touched/dirty tracking, real-time validation, and inline error states.",
+            "Responsive connection form with explicit labels, keyboard navigation, validation summary, and inline recovery.",
         );
 
         Card::new(theme).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.vertical(|ui| {
-                    ui.label(
-                        RichText::new("New connection")
-                            .size(15.0)
-                            .strong()
-                            .color(theme.text_primary),
-                    );
-                    ui.add_space(2.0);
-                    ui.label(
-                        RichText::new("Saved connections appear in the explorer after a successful test.")
-                            .size(12.0)
-                            .color(theme.text_secondary),
-                    );
-                });
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let mut mode_idx = match self.gallery_state.form_state.mode {
-                        ValidationMode::OnTouched => 0,
-                        ValidationMode::OnChange => 1,
-                        ValidationMode::OnBlur => 2,
-                        ValidationMode::OnSubmit => 3,
-                    };
-                    let modes = ["onTouched", "onChange", "onBlur", "onSubmit"];
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            RichText::new("Mode:")
-                                .font(DbProTheme::ui_medium_font(11.5))
-                                .color(theme.text_muted),
-                        );
-                        SegmentedTabs::new(&mut mode_idx, &modes, theme).show(ui);
-                    });
-                    self.gallery_state.form_state.mode = match mode_idx {
-                        0 => ValidationMode::OnTouched,
-                        1 => ValidationMode::OnChange,
-                        2 => ValidationMode::OnBlur,
-                        _ => ValidationMode::OnSubmit,
-                    };
-                });
-            });
-            ui.add_space(16.0);
+            self.draw_gallery_form_header(ui);
+            ui.add_space(SPACE_LG);
 
-            if let Some(err) = self.gallery_state.form_error.clone() {
-                if let Some(dismiss) = Alert::new("Form validation error", &err, theme)
+            if let Some(error) = self.gallery_state.form_error.clone() {
+                if let Some(dismiss) = Alert::new("Connection details need attention", &error, theme)
                     .variant(AlertVariant::Destructive)
                     .dismissable(true)
                     .show(ui)
@@ -62,166 +27,12 @@ impl DbProApp {
                         self.gallery_state.form_error = None;
                     }
                 }
-                ui.add_space(12.0);
+                ui.add_space(SPACE_MD);
             }
 
-            ui.columns(2, |columns| {
-                // Column 1
-                let ui = &mut columns[0];
+            self.draw_gallery_connection_fields(ui);
 
-                // Field 1: Display Name
-                let name_err = self.gallery_state.form_state.get_error("form_name");
-                let show_name_err = self.gallery_state.form_state.should_show_error("form_name");
-                let mut name_field = FormField::new(
-                    "Display name",
-                    &mut self.gallery_state.form_name,
-                    "Production replica",
-                    theme,
-                )
-                .required(self.gallery_state.form_state.is_required("form_name"))
-                .helper_text("Shown in the sidebar and command palette.");
-                if show_name_err {
-                    if let Some(err) = name_err {
-                        name_field = name_field.error_text(err);
-                    }
-                }
-                let resp = name_field.show(ui);
-                if resp.changed() {
-                    self.gallery_state.form_state.set_dirty("form_name");
-                    self.gallery_state
-                        .form_state
-                        .validate_field("form_name", &self.gallery_state.form_name);
-                }
-                if resp.lost_focus() {
-                    self.gallery_state.form_state.touch("form_name");
-                    self.gallery_state
-                        .form_state
-                        .validate_field("form_name", &self.gallery_state.form_name);
-                }
-
-                ui.add_space(12.0);
-
-                // Field 2: Host
-                let host_err = self.gallery_state.form_state.get_error("form_host");
-                let show_host_err = self.gallery_state.form_state.should_show_error("form_host");
-                let mut host_field = FormField::new("Host", &mut self.gallery_state.form_host, "db.internal", theme)
-                    .required(self.gallery_state.form_state.is_required("form_host"))
-                    .helper_text("Domain name or IPv4/IPv6 address.");
-                if show_host_err {
-                    if let Some(err) = host_err {
-                        host_field = host_field.error_text(err);
-                    }
-                }
-                let resp = host_field.show(ui);
-                if resp.changed() {
-                    self.gallery_state.form_state.set_dirty("form_host");
-                    self.gallery_state
-                        .form_state
-                        .validate_field("form_host", &self.gallery_state.form_host);
-                }
-                if resp.lost_focus() {
-                    self.gallery_state.form_state.touch("form_host");
-                    self.gallery_state
-                        .form_state
-                        .validate_field("form_host", &self.gallery_state.form_host);
-                }
-
-                ui.add_space(12.0);
-
-                // Field 3: Port
-                let port_err = self.gallery_state.form_state.get_error("form_port");
-                let show_port_err = self.gallery_state.form_state.should_show_error("form_port");
-                let mut port_field = FormField::new("Port", &mut self.gallery_state.form_port, "5432", theme)
-                    .required(self.gallery_state.form_state.is_required("form_port"))
-                    .helper_text("TCP port 1–65535.");
-                if show_port_err {
-                    if let Some(err) = port_err {
-                        port_field = port_field.error_text(err);
-                    }
-                }
-                let resp = port_field.show(ui);
-                if resp.changed() {
-                    self.gallery_state.form_state.set_dirty("form_port");
-                    self.gallery_state
-                        .form_state
-                        .validate_field("form_port", &self.gallery_state.form_port);
-                }
-                if resp.lost_focus() {
-                    self.gallery_state.form_state.touch("form_port");
-                    self.gallery_state
-                        .form_state
-                        .validate_field("form_port", &self.gallery_state.form_port);
-                }
-
-                // Column 2
-                let ui = &mut columns[1];
-
-                // Field 4: Database
-                let db_err = self.gallery_state.form_state.get_error("form_database");
-                let show_db_err = self.gallery_state.form_state.should_show_error("form_database");
-                let mut db_field = FormField::new("Database", &mut self.gallery_state.form_database, "app_prod", theme)
-                    .required(self.gallery_state.form_state.is_required("form_database"))
-                    .helper_text("Default catalog database.");
-                if show_db_err {
-                    if let Some(err) = db_err {
-                        db_field = db_field.error_text(err);
-                    }
-                }
-                let resp = db_field.show(ui);
-                if resp.changed() {
-                    self.gallery_state.form_state.set_dirty("form_database");
-                    self.gallery_state
-                        .form_state
-                        .validate_field("form_database", &self.gallery_state.form_database);
-                }
-                if resp.lost_focus() {
-                    self.gallery_state.form_state.touch("form_database");
-                    self.gallery_state
-                        .form_state
-                        .validate_field("form_database", &self.gallery_state.form_database);
-                }
-
-                ui.add_space(12.0);
-
-                // Field 5: Password
-                let pass_err = self.gallery_state.form_state.get_error("form_password");
-                let show_pass_err = self.gallery_state.form_state.should_show_error("form_password");
-                let mut pass_field = PasswordInput::new(
-                    &mut self.gallery_state.password_text,
-                    "Enter password…",
-                    &mut self.gallery_state.show_password,
-                    theme,
-                )
-                .label("Password")
-                .required(self.gallery_state.form_state.is_required("form_password"))
-                .helper_text("Must be at least 6 characters.");
-                if show_pass_err {
-                    if let Some(err) = pass_err {
-                        pass_field = pass_field.error_text(err);
-                    }
-                }
-                let resp = pass_field.show(ui);
-                if resp.changed() {
-                    self.gallery_state.form_state.set_dirty("form_password");
-                    self.gallery_state
-                        .form_state
-                        .validate_field("form_password", &self.gallery_state.password_text);
-                }
-                if resp.lost_focus() {
-                    self.gallery_state.form_state.touch("form_password");
-                    self.gallery_state
-                        .form_state
-                        .validate_field("form_password", &self.gallery_state.password_text);
-                }
-
-                ui.add_space(12.0);
-                Switch::new(&mut self.gallery_state.form_ssl, theme)
-                    .label("Require SSL / TLS")
-                    .description("Refuse unencrypted plaintext connections.")
-                    .show(ui);
-            });
-
-            ui.add_space(12.0);
+            ui.add_space(SPACE_LG);
             let loaded = self
                 .gallery_state
                 .select_loaded
@@ -234,7 +45,7 @@ impl DbProApp {
                 &self.gallery_state.select_options[..loaded],
             )
             .theme(theme)
-            .label("Cluster Pool")
+            .label("Cluster pool")
             .has_more(has_more)
             .load_more(&mut load_more)
             .show(ui);
@@ -242,81 +53,307 @@ impl DbProApp {
                 self.gallery_state.select_loaded = (loaded + 12).min(self.gallery_state.select_options.len());
             }
 
-            ui.add_space(12.0);
+            ui.add_space(SPACE_LG);
             Textarea::new(&mut self.gallery_state.form_notes, "Optional notes…", theme)
-                .label("Connection Notes")
+                .label("Connection notes")
                 .min_rows(3)
+                .max_chars(500)
                 .show(ui);
 
-            ui.add_space(16.0);
-            let is_form_valid = self.gallery_state.form_state.check_validity(&[
-                ("form_name", &self.gallery_state.form_name),
-                ("form_host", &self.gallery_state.form_host),
-                ("form_port", &self.gallery_state.form_port),
-                ("form_database", &self.gallery_state.form_database),
-                ("form_password", &self.gallery_state.password_text),
-            ]) && self.gallery_state.form_state.is_valid();
-
-            ui.horizontal(|ui| {
-                let mut submit_btn = Button::new(theme)
-                    .text("Save connection")
-                    .enabled(is_form_valid)
-                    .show(ui);
-
-                if !is_form_valid {
-                    submit_btn =
-                        submit_btn.on_hover_text("Form contains invalid fields. Please resolve errors to save.");
-                }
-
-                if is_form_valid && submit_btn.clicked() {
-                    let fields = [
-                        ("form_name", self.gallery_state.form_name.as_str()),
-                        ("form_host", self.gallery_state.form_host.as_str()),
-                        ("form_port", self.gallery_state.form_port.as_str()),
-                        ("form_database", self.gallery_state.form_database.as_str()),
-                        ("form_password", self.gallery_state.password_text.as_str()),
-                    ];
-                    let is_valid = self.gallery_state.form_state.handle_submit(&fields, || {
-                        self.gallery_state.form_error = None;
-                        self.gallery_state
-                            .toasts
-                            .success("Connection validated & saved successfully", ToastPosition::BottomRight);
-                    });
-                    if !is_valid {
-                        self.gallery_state.form_error =
-                            Some("Please correct the highlighted validation errors above.".to_owned());
-                    }
-                }
-                if Button::new(theme)
-                    .text("Test connection")
-                    .variant(ButtonVariant::Outline)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.gallery_state.toasts.show_with_action(
-                        "Ping: reached host in 38ms (SSL verified)",
-                        ToastVariant::Default,
-                        ToastPosition::BottomRight,
-                        "Details",
-                    );
-                }
-                if Button::new(theme)
-                    .text("Clear form")
-                    .variant(ButtonVariant::Ghost)
-                    .show(ui)
-                    .clicked()
-                {
-                    self.gallery_state.form_name.clear();
-                    self.gallery_state.form_host.clear();
-                    self.gallery_state.form_port.clear();
-                    self.gallery_state.form_database.clear();
-                    self.gallery_state.password_text.clear();
-                    self.gallery_state.form_notes.clear();
-                    self.gallery_state.form_error = None;
-                    self.gallery_state.form_state.reset();
-                }
-            });
+            ui.add_space(SPACE_LG);
+            ui.separator();
+            ui.add_space(SPACE_MD);
+            self.draw_gallery_form_actions(ui);
         });
+    }
+
+    fn draw_gallery_form_header(&self, ui: &mut Ui) {
+        let theme = self.theme;
+        let draw_title = |ui: &mut Ui| {
+            ui.vertical(|ui| {
+                ui.label(
+                    RichText::new("Connection profile")
+                        .font(font_ui_label())
+                        .color(theme.text_primary),
+                );
+                ui.add_space(SPACE_XXS);
+                ui.label(
+                    RichText::new("Fields resize with the workspace; errors appear next to the affected control.")
+                        .font(font_caption())
+                        .color(theme.text_secondary),
+                );
+            });
+        };
+
+        if ui.available_width() >= FORM_TWO_COLUMN_MIN_WIDTH {
+            ui.horizontal(|ui| {
+                draw_title(ui);
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    Badge::new("Required fields marked *", theme)
+                        .variant(BadgeVariant::Secondary)
+                        .show(ui);
+                });
+            });
+        } else {
+            draw_title(ui);
+            ui.add_space(SPACE_SM);
+            Badge::new("Required fields marked *", theme)
+                .variant(BadgeVariant::Secondary)
+                .show(ui);
+        }
+    }
+
+    fn draw_gallery_connection_fields(&mut self, ui: &mut Ui) {
+        ui.scope(|ui| {
+            ui.spacing_mut().item_spacing.x = SPACE_LG;
+            if ui.available_width() >= FORM_TWO_COLUMN_MIN_WIDTH {
+                ui.columns(2, |columns| {
+                    self.draw_gallery_name_field(&mut columns[0]);
+                    self.draw_gallery_database_field(&mut columns[1]);
+                });
+                ui.add_space(SPACE_LG);
+                ui.columns(2, |columns| {
+                    self.draw_gallery_host_field(&mut columns[0]);
+                    self.draw_gallery_password_field(&mut columns[1]);
+                });
+                ui.add_space(SPACE_LG);
+                ui.columns(2, |columns| {
+                    self.draw_gallery_port_field(&mut columns[0]);
+                    Switch::new(&mut self.gallery_state.form_ssl, self.theme)
+                        .label("Require SSL / TLS")
+                        .description("Refuse unencrypted plaintext connections.")
+                        .show(&mut columns[1]);
+                });
+            } else {
+                self.draw_gallery_name_field(ui);
+                ui.add_space(SPACE_LG);
+                self.draw_gallery_host_field(ui);
+                ui.add_space(SPACE_LG);
+                self.draw_gallery_port_field(ui);
+                ui.add_space(SPACE_LG);
+                self.draw_gallery_database_field(ui);
+                ui.add_space(SPACE_LG);
+                self.draw_gallery_password_field(ui);
+                ui.add_space(SPACE_LG);
+                Switch::new(&mut self.gallery_state.form_ssl, self.theme)
+                    .label("Require SSL / TLS")
+                    .description("Refuse unencrypted plaintext connections.")
+                    .show(ui);
+            }
+        });
+    }
+
+    fn draw_gallery_name_field(&mut self, ui: &mut Ui) {
+        let error = self.gallery_state.form_state.get_error("form_name");
+        let show_error = self.gallery_state.form_state.should_show_error("form_name");
+        let mut field = FormField::new(
+            "Display name",
+            &mut self.gallery_state.form_name,
+            "Production replica",
+            self.theme,
+        )
+        .required(self.gallery_state.form_state.is_required("form_name"))
+        .helper_text("Shown in the sidebar and command palette.");
+        if show_error {
+            if let Some(error) = error {
+                field = field.error_text(error);
+            }
+        }
+        let response = field.show(ui);
+        Self::track_gallery_form_field(
+            &mut self.gallery_state.form_state,
+            "form_name",
+            &self.gallery_state.form_name,
+            &response,
+        );
+    }
+
+    fn draw_gallery_host_field(&mut self, ui: &mut Ui) {
+        let error = self.gallery_state.form_state.get_error("form_host");
+        let show_error = self.gallery_state.form_state.should_show_error("form_host");
+        let mut field = FormField::new("Host", &mut self.gallery_state.form_host, "db.internal", self.theme)
+            .required(self.gallery_state.form_state.is_required("form_host"))
+            .helper_text("Domain name or IPv4/IPv6 address.");
+        if show_error {
+            if let Some(error) = error {
+                field = field.error_text(error);
+            }
+        }
+        let response = field.show(ui);
+        Self::track_gallery_form_field(
+            &mut self.gallery_state.form_state,
+            "form_host",
+            &self.gallery_state.form_host,
+            &response,
+        );
+    }
+
+    fn draw_gallery_port_field(&mut self, ui: &mut Ui) {
+        let error = self.gallery_state.form_state.get_error("form_port");
+        let show_error = self.gallery_state.form_state.should_show_error("form_port");
+        let mut field = FormField::new("Port", &mut self.gallery_state.form_port, "5432", self.theme)
+            .required(self.gallery_state.form_state.is_required("form_port"))
+            .helper_text("TCP port 1–65535.");
+        if show_error {
+            if let Some(error) = error {
+                field = field.error_text(error);
+            }
+        }
+        let response = field.show(ui);
+        Self::track_gallery_form_field(
+            &mut self.gallery_state.form_state,
+            "form_port",
+            &self.gallery_state.form_port,
+            &response,
+        );
+    }
+
+    fn draw_gallery_database_field(&mut self, ui: &mut Ui) {
+        let error = self.gallery_state.form_state.get_error("form_database");
+        let show_error = self.gallery_state.form_state.should_show_error("form_database");
+        let mut field = FormField::new(
+            "Database",
+            &mut self.gallery_state.form_database,
+            "app_prod",
+            self.theme,
+        )
+        .required(self.gallery_state.form_state.is_required("form_database"))
+        .helper_text("Default catalog database.");
+        if show_error {
+            if let Some(error) = error {
+                field = field.error_text(error);
+            }
+        }
+        let response = field.show(ui);
+        Self::track_gallery_form_field(
+            &mut self.gallery_state.form_state,
+            "form_database",
+            &self.gallery_state.form_database,
+            &response,
+        );
+    }
+
+    fn draw_gallery_password_field(&mut self, ui: &mut Ui) {
+        let error = self.gallery_state.form_state.get_error("form_password");
+        let show_error = self.gallery_state.form_state.should_show_error("form_password");
+        let mut field = PasswordInput::new(
+            &mut self.gallery_state.password_text,
+            "Enter password…",
+            &mut self.gallery_state.show_password,
+            self.theme,
+        )
+        .id_salt("gallery.form.password")
+        .label("Password")
+        .required(self.gallery_state.form_state.is_required("form_password"))
+        .helper_text("Stored securely; minimum 6 characters.");
+        if show_error {
+            if let Some(error) = error {
+                field = field.error_text(error);
+            }
+        }
+        let response = field.show(ui);
+        Self::track_gallery_form_field(
+            &mut self.gallery_state.form_state,
+            "form_password",
+            &self.gallery_state.password_text,
+            &response,
+        );
+    }
+
+    fn track_gallery_form_field(
+        form_state: &mut FormState,
+        field_name: &str,
+        value: &str,
+        response: &Response,
+    ) {
+        if response.changed() {
+            form_state.set_dirty(field_name);
+            form_state.validate_field(field_name, value);
+        }
+        if response.lost_focus() {
+            form_state.touch(field_name);
+            form_state.validate_field(field_name, value);
+        }
+    }
+
+    fn draw_gallery_form_actions(&mut self, ui: &mut Ui) {
+        let full_width = ui.available_width() < FORM_INLINE_ACTIONS_MIN_WIDTH;
+        let (save, test, clear) = if full_width {
+            ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing.y = SPACE_MD;
+                self.draw_gallery_form_action_buttons(ui, true)
+            })
+            .inner
+        } else {
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing.x = SPACE_MD;
+                self.draw_gallery_form_action_buttons(ui, false)
+            })
+            .inner
+        };
+
+        if save {
+            let fields = [
+                ("form_name", self.gallery_state.form_name.as_str()),
+                ("form_host", self.gallery_state.form_host.as_str()),
+                ("form_port", self.gallery_state.form_port.as_str()),
+                ("form_database", self.gallery_state.form_database.as_str()),
+                ("form_password", self.gallery_state.password_text.as_str()),
+            ];
+            if self.gallery_state.form_state.handle_submit(&fields, || {}) {
+                self.gallery_state.form_error = None;
+                self.gallery_state
+                    .toasts
+                    .success("Connection validated and saved", ToastPosition::BottomRight);
+            } else {
+                self.gallery_state.form_error =
+                    Some("Correct the highlighted fields, then save again.".to_owned());
+            }
+        }
+
+        if test {
+            self.gallery_state.toasts.show_with_action(
+                "Reached host in 38 ms · TLS verified",
+                ToastVariant::Default,
+                ToastPosition::BottomRight,
+                "Details",
+            );
+        }
+
+        if clear {
+            self.gallery_state.form_name.clear();
+            self.gallery_state.form_host.clear();
+            self.gallery_state.form_port.clear();
+            self.gallery_state.form_database.clear();
+            self.gallery_state.password_text.clear();
+            self.gallery_state.form_notes.clear();
+            self.gallery_state.form_error = None;
+            self.gallery_state.form_state.reset();
+        }
+    }
+
+    fn draw_gallery_form_action_buttons(&self, ui: &mut Ui, full_width: bool) -> (bool, bool, bool) {
+        let save = Button::new(self.theme)
+            .text("Save connection")
+            .size(ButtonSize::Sm)
+            .full_width(full_width)
+            .show(ui)
+            .clicked();
+        let test = Button::new(self.theme)
+            .text("Test connection")
+            .variant(ButtonVariant::Outline)
+            .size(ButtonSize::Sm)
+            .full_width(full_width)
+            .show(ui)
+            .clicked();
+        let clear = Button::new(self.theme)
+            .text("Clear form")
+            .variant(ButtonVariant::Ghost)
+            .size(ButtonSize::Sm)
+            .full_width(full_width)
+            .show(ui)
+            .clicked();
+        (save, test, clear)
     }
 
     pub(super) fn draw_gallery_selection_section(&mut self, ui: &mut Ui) {
