@@ -1,7 +1,6 @@
 use super::*;
 use egui::{Response, RichText, Ui};
 
-const FORM_TWO_COLUMN_MIN_WIDTH: f32 = 680.0;
 const FORM_INLINE_ACTIONS_MIN_WIDTH: f32 = 520.0;
 
 impl DbProApp {
@@ -85,60 +84,31 @@ impl DbProApp {
             });
         };
 
-        if ui.available_width() >= FORM_TWO_COLUMN_MIN_WIDTH {
-            ui.horizontal(|ui| {
-                draw_title(ui);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    Badge::new("Required fields marked *", theme)
-                        .variant(BadgeVariant::Secondary)
-                        .show(ui);
-                });
-            });
-        } else {
+        ui.horizontal_wrapped(|ui| {
             draw_title(ui);
             ui.add_space(SPACE_SM);
             Badge::new("Required fields marked *", theme)
                 .variant(BadgeVariant::Secondary)
                 .show(ui);
-        }
+        });
     }
 
     fn draw_gallery_connection_fields(&mut self, ui: &mut Ui) {
-        ui.scope(|ui| {
-            ui.spacing_mut().item_spacing.x = SPACE_LG;
-            if ui.available_width() >= FORM_TWO_COLUMN_MIN_WIDTH {
-                ui.columns(2, |columns| {
-                    self.draw_gallery_name_field(&mut columns[0]);
-                    self.draw_gallery_database_field(&mut columns[1]);
-                });
-                ui.add_space(SPACE_LG);
-                ui.columns(2, |columns| {
-                    self.draw_gallery_host_field(&mut columns[0]);
-                    self.draw_gallery_password_field(&mut columns[1]);
-                });
-                ui.add_space(SPACE_LG);
-                ui.columns(2, |columns| {
-                    self.draw_gallery_port_field(&mut columns[0]);
+        let grid = ResponsiveGrid::new(280.0).gap(SPACE_LG).max_columns(2);
+        let form_fields = [0_u8, 1, 2, 3, 4, 5];
+        grid.show(ui, form_fields, |cell, field| {
+            match field {
+                0 => self.draw_gallery_name_field(cell),
+                1 => self.draw_gallery_database_field(cell),
+                2 => self.draw_gallery_host_field(cell),
+                3 => self.draw_gallery_password_field(cell),
+                4 => self.draw_gallery_port_field(cell),
+                _ => {
                     Switch::new(&mut self.gallery_state.form_ssl, self.theme)
                         .label("Require SSL / TLS")
                         .description("Refuse unencrypted plaintext connections.")
-                        .show(&mut columns[1]);
-                });
-            } else {
-                self.draw_gallery_name_field(ui);
-                ui.add_space(SPACE_LG);
-                self.draw_gallery_host_field(ui);
-                ui.add_space(SPACE_LG);
-                self.draw_gallery_port_field(ui);
-                ui.add_space(SPACE_LG);
-                self.draw_gallery_database_field(ui);
-                ui.add_space(SPACE_LG);
-                self.draw_gallery_password_field(ui);
-                ui.add_space(SPACE_LG);
-                Switch::new(&mut self.gallery_state.form_ssl, self.theme)
-                    .label("Require SSL / TLS")
-                    .description("Refuse unencrypted plaintext connections.")
-                    .show(ui);
+                        .show(cell);
+                }
             }
         });
     }
@@ -527,35 +497,37 @@ impl DbProApp {
                 ui.add_space(8.0);
 
                 Collapsible::new(&mut self.gallery_state.collapsible_open, theme)
-                    .title("Advanced Connection Pool Settings")
-                    .icon(Icon::Settings)
-                    .badge("3 active")
+                    .title("Advanced connection pool settings")
                     .show(ui, |ui| {
                         ui.label(
-                            RichText::new("Max Connections: 50 | Timeout: 30s | Idle: 10s")
+                            RichText::new("Manage the connection pool settings for this profile.")
                                 .size(11.5)
                                 .color(theme.text_secondary),
+                        );
+                        ui.add_space(6.0);
+                        ui.label(
+                            RichText::new("Max connections: 50")
+                                .size(11.5)
+                                .color(theme.text_muted),
                         );
                     });
 
                 ui.add_space(12.0);
                 let acc = Accordion::new(theme);
                 let acc_item_1 = AccordionItem::new("acc-1", "SSL / TLS Encryption")
-                    .icon(Icon::ShieldCheck)
                     .badge("Enforced");
                 acc.show_single(ui, acc_item_1, &mut self.gallery_state.accordion_open, true, |ui| {
                     ui.label(
-                        RichText::new("Mode: verify-full\nCA: /etc/ssl/certs/db-root.crt")
+                        RichText::new("Configure the TLS mode and certificate authority for this connection.")
                             .size(11.5)
                             .color(theme.text_secondary),
                     );
                 });
 
-                let acc_item_2 = AccordionItem::new("acc-2", "SSH Bastion Tunnel")
-                    .icon(Icon::Server);
+                let acc_item_2 = AccordionItem::new("acc-2", "SSH Bastion Tunnel");
                 acc.show_single(ui, acc_item_2, &mut self.gallery_state.accordion_open, true, |ui| {
                     ui.label(
-                        RichText::new("Host: jump.internal:22 | User: deploy")
+                        RichText::new("Route this connection through a secure SSH bastion host.")
                             .size(11.5)
                             .color(theme.text_secondary),
                     );

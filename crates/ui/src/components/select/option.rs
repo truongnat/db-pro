@@ -1,7 +1,7 @@
 use super::config::ITEM_HEIGHT;
 use crate::components::animation::{hover_t, lerp_color};
 use crate::DbProTheme;
-use egui::{Color32, FontFamily, FontId, Pos2, Rect, Response, RichText, Rounding, Sense, Ui, Vec2};
+use egui::{Color32, FontFamily, FontId, Pos2, Rect, Response, Rounding, Sense, Ui, Vec2};
 use lucide_icons::Icon;
 
 pub struct SelectOption<'a> {
@@ -26,12 +26,20 @@ pub fn paint_option(ui: &mut Ui, option: SelectOption<'_>) -> Response {
     } else {
         rect.right() - 8.0
     };
-    ui.put(
-        Rect::from_min_max(
-            Pos2::new(rect.left() + 8.0, rect.top()),
-            Pos2::new(text_right, rect.bottom()),
-        ),
-        egui::Label::new(RichText::new(label).font(FontId::proportional(13.0)).color(text_color)).truncate(),
+    let text_rect = Rect::from_min_max(
+        Pos2::new(rect.left() + 8.0, rect.top()),
+        Pos2::new(text_right, rect.bottom()),
+    );
+    let galley = ui.painter().layout(
+        label.to_owned(),
+        FontId::proportional(13.0),
+        text_color,
+        text_rect.width(),
+    );
+    ui.painter().galley(
+        Pos2::new(text_rect.left(), text_rect.center().y - galley.size().y * 0.5),
+        galley,
+        text_color,
     );
     if selected {
         ui.painter().text(
@@ -42,5 +50,5 @@ pub fn paint_option(ui: &mut Ui, option: SelectOption<'_>) -> Response {
             theme.accent,
         );
     }
-    response
+    response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }

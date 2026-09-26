@@ -3,20 +3,30 @@ use crate::components::animation::{hover_t, lerp_color};
 use crate::DbProTheme;
 use egui::{Id, Rect, Rounding, Stroke, Ui};
 
-/// Explicit min/max width contract for form fields: a field fills its container by
-/// default, a requested width never exceeds the container (long labels or values cannot
-/// spill out of dialogs, sheets or split panes), and the result never drops below
-/// [`INPUT_MIN_WIDTH`] so a field stays editable even in a very narrow parent.
+/// Fields fill their container by default. Requested widths are capped to the available
+/// space; the preferred minimum only applies when the parent can accommodate it.
 pub fn resolve_field_width(requested: Option<f32>, available: f32) -> f32 {
+    let available = available.max(0.0);
     requested
         .unwrap_or(available)
-        .clamp(INPUT_MIN_WIDTH, available.max(INPUT_MIN_WIDTH))
+        .clamp(INPUT_MIN_WIDTH.min(available), available)
 }
 
-pub fn paint_field_chrome(ui: &Ui, id: Id, rect: Rect, focused: bool, hovered: bool, enabled: bool, theme: DbProTheme) {
+pub fn paint_field_chrome(
+    ui: &Ui,
+    id: Id,
+    rect: Rect,
+    focused: bool,
+    hovered: bool,
+    enabled: bool,
+    theme: DbProTheme,
+    has_error: bool,
+) {
     // Keep the border inside the field's own rect (not on or around it) so no container
     // can clip it, and so we do not stack a gray Frame border under a blue outline.
-    let stroke = if focused {
+    let stroke = if has_error {
+        Stroke::new(1.5, theme.danger)
+    } else if focused {
         Stroke::new(1.5, theme.accent)
     } else if !enabled {
         return;

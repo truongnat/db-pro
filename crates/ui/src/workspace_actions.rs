@@ -436,7 +436,19 @@ impl DbProApp {
         self.preferences.dark_mode = true;
         self.theme = DbProTheme::dark();
         self.gallery_state = ComponentGalleryState::default();
-        self.gallery_state.category = component_gallery_view::GalleryCategory::Badges;
+        self.gallery_state.category = match std::env::var("DB_PRO_CAPTURE_GALLERY_SECTION").as_deref() {
+            Ok("form") | Ok("form-error") => component_gallery_view::GalleryCategory::Inputs,
+            Ok("selection") => component_gallery_view::GalleryCategory::Selection,
+            _ => component_gallery_view::GalleryCategory::Badges,
+        };
+        if std::env::var("DB_PRO_CAPTURE_GALLERY_SECTION").as_deref() == Ok("form-error") {
+            self.gallery_state.form_name.clear();
+            self.gallery_state.form_host.clear();
+            self.gallery_state.form_error = Some("Correct the highlighted fields, then save again.".to_owned());
+            self.gallery_state.form_state.submitted = true;
+            self.gallery_state.form_state.validate_field("form_name", "");
+            self.gallery_state.form_state.validate_field("form_host", "");
+        }
         self.workspace.active_tab = WorkspaceTab::ComponentGallery;
     }
 

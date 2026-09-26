@@ -230,15 +230,13 @@ impl DbProApp {
                     .show(ui, |ui| {
                         ui.set_min_width(ui.available_width());
                         ui.add_space(SPACE_MD);
-                        ui.horizontal(|ui| {
-                            ui.add_space(SPACE_LG);
-                            ui.vertical(|ui| {
-                                ui.set_max_width(1120.0);
+                        Container::new()
+                            .gutter(SPACE_LG)
+                            .max_width(1120.0)
+                            .show(ui, |ui| {
                                 self.draw_selected_gallery_category(ui);
                                 ui.add_space(SPACE_2XL);
                             });
-                            ui.add_space(SPACE_LG);
-                        });
                     });
             });
         });
@@ -392,6 +390,7 @@ impl DbProApp {
                 })
                 .size(ButtonSize::Sm)
                 .full_width(true)
+                .left_aligned()
                 .show(ui)
                 .clicked()
             {

@@ -132,6 +132,7 @@ impl<'a> SearchInput<'a> {
             frame_output.response.hovered() || edit_response.hovered(),
             true,
             self.theme,
+            false,
         );
 
         edit_response

@@ -118,11 +118,7 @@ impl<'a> Input<'a> {
 
             let frame = Frame {
                 fill,
-                stroke: if has_error {
-                    Stroke::new(1.5, self.theme.danger)
-                } else {
-                    Stroke::NONE
-                },
+                stroke: Stroke::NONE,
                 inner_margin: Margin::symmetric(FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y),
                 rounding: Rounding::same(INPUT_ROUNDING),
                 ..Default::default()
@@ -219,8 +215,9 @@ impl<'a> Input<'a> {
                 frame_rect,
                 edit_response.has_focus(),
                 frame_output.response.hovered() || edit_response.hovered(),
-                self.enabled && !has_error,
+                self.enabled,
                 self.theme,
+                has_error,
             );
 
             if let Some(err) = &self.error_text {

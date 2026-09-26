@@ -39,6 +39,7 @@ pub struct Button<'a> {
     pub(crate) enabled: bool,
     pub(crate) loading: bool,
     pub(crate) full_width: bool,
+    pub(crate) left_aligned: bool,
     pub(crate) access_label: Option<Cow<'a, str>>,
     pub(crate) tooltip: Option<Cow<'a, str>>,
     pub(crate) focusable: bool,
@@ -69,6 +70,8 @@ struct LoadingLayout {
     border_stroke: Stroke,
     content_w: f32,
     text_galley: Option<std::sync::Arc<egui::Galley>>,
+    left_aligned: bool,
+    horizontal_padding: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -195,6 +198,7 @@ impl<'a> Button<'a> {
             enabled: true,
             loading: false,
             full_width: false,
+            left_aligned: false,
             access_label: None,
             tooltip: None,
             focusable: true,
@@ -234,6 +238,12 @@ impl<'a> Button<'a> {
 
     pub fn full_width(mut self, full_width: bool) -> Self {
         self.full_width = full_width;
+        self
+    }
+
+    /// Align the button's icon and label to its leading edge.
+    pub fn left_aligned(mut self) -> Self {
+        self.left_aligned = true;
         self
     }
 
@@ -339,6 +349,8 @@ impl<'a> Button<'a> {
             border_stroke,
             content_w,
             text_galley,
+            left_aligned: self.left_aligned,
+            horizontal_padding: tokens.padding.x,
         };
         self.paint_loading(ui, &layout, tokens);
 
@@ -353,7 +365,11 @@ impl<'a> Button<'a> {
         if layout.border_stroke != Stroke::NONE {
             ui.painter().rect_stroke(layout.rect, rounding, layout.border_stroke);
         }
-        let start_x = layout.rect.center().x - layout.content_w * 0.5;
+        let start_x = if layout.left_aligned {
+            layout.rect.left() + layout.horizontal_padding
+        } else {
+            layout.rect.center().x - layout.content_w * 0.5
+        };
         animation::paint_spinner(
             ui.painter(),
             Pos2::new(start_x + tokens.icon_size * 0.5, layout.rect.center().y),
@@ -412,7 +428,16 @@ impl<'a> Button<'a> {
         let scale = press_scale(press);
         let paint_rect = Rect::from_center_size(rect.center(), rect.size() * scale);
 
-        paint_interactive_surface(ui, paint_rect, fill, stroke, &galley, palette.text_color);
+        paint_interactive_surface(
+            ui,
+            paint_rect,
+            fill,
+            stroke,
+            &galley,
+            palette.text_color,
+            self.left_aligned,
+            tokens.padding.x,
+        );
 
         if response.has_focus() {
             paint_focus_ring(ui, rect, BUTTON_ROUNDING, self.theme);
@@ -433,6 +458,8 @@ fn paint_interactive_surface(
     stroke: Stroke,
     galley: &std::sync::Arc<egui::Galley>,
     text_color: Color32,
+    left_aligned: bool,
+    horizontal_padding: f32,
 ) {
     let rounding = Rounding::same(BUTTON_ROUNDING);
     ui.painter().rect_filled(paint_rect, rounding, fill);
@@ -440,10 +467,12 @@ fn paint_interactive_surface(
         ui.painter().rect_stroke(paint_rect, rounding, stroke);
     }
 
-    let text_pos = Pos2::new(
-        paint_rect.center().x - galley.size().x * 0.5,
-        paint_rect.center().y - galley.size().y * 0.5,
-    );
+    let text_x = if left_aligned {
+        paint_rect.left() + horizontal_padding
+    } else {
+        paint_rect.center().x - galley.size().x * 0.5
+    };
+    let text_pos = Pos2::new(text_x, paint_rect.center().y - galley.size().y * 0.5);
     ui.painter().galley(text_pos, std::sync::Arc::clone(galley), text_color);
 }
 

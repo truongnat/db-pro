@@ -1,4 +1,4 @@
-use crate::components::button::{Button, ButtonSize, ButtonVariant};
+use crate::components::button::{Button, ButtonVariant};
 use crate::DbProTheme;
 use egui::{Color32, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
@@ -96,9 +96,7 @@ impl<'a> Alert<'a> {
         };
 
         let icon = self.icon.unwrap_or(default_icon);
-        let mut dismiss_response = None;
-
-        Frame {
+        let alert = Frame {
             fill,
             stroke: Stroke::new(1.0, border_color),
             inner_margin: Margin::symmetric(14.0, 12.0),
@@ -115,7 +113,7 @@ impl<'a> Alert<'a> {
                 );
                 ui.add_space(8.0);
                 let text_avail = if self.dismissable {
-                    (ui.available_width() - 36.0).max(120.0)
+                    (ui.available_width() - 48.0).max(120.0)
                 } else {
                     ui.available_width()
                 };
@@ -143,22 +141,33 @@ impl<'a> Alert<'a> {
                         }
                     },
                 );
-
-                if self.dismissable {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-                        let resp = Button::new(self.theme)
-                            .icon(Icon::X)
-                            .size(ButtonSize::Icon)
-                            .variant(ButtonVariant::Secondary)
-                            .access_label("Dismiss")
-                            .show(ui);
-                        dismiss_response = Some(resp);
-                    });
-                }
             });
         });
 
-        dismiss_response
+        if !self.dismissable {
+            return None;
+        }
+
+        let close_rect = egui::Rect::from_min_size(
+            egui::Pos2::new(
+                alert.response.rect.right().min(ui.clip_rect().right()) - 46.0,
+                alert.response.rect.top() + 12.0,
+            ),
+            Vec2::splat(32.0),
+        );
+        let response = ui
+            .put(
+                close_rect,
+                egui::Button::new(
+                    RichText::new(char::from(Icon::X).to_string())
+                        .font(FontId::new(15.0, FontFamily::Name("lucide".into())))
+                        .color(self.theme.text_secondary),
+                )
+                .frame(false),
+            )
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        response.widget_info(|| crate::components::interact::button_info(true, "Dismiss"));
+        Some(response)
     }
 }
 

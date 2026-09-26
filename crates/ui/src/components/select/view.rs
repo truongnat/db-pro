@@ -68,10 +68,13 @@ impl<'a> Select<'a> {
             ui.set_width(width);
             ui.set_max_width(width);
             if let Some(ref lbl) = self.label {
-                ui.label(
-                    RichText::new(lbl.as_ref())
-                        .font(DbProTheme::ui_medium_font(12.0))
-                        .color(self.theme.text_secondary),
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(lbl.as_ref())
+                            .font(DbProTheme::ui_medium_font(12.0))
+                            .color(self.theme.text_secondary),
+                    )
+                    .halign(egui::Align::Min),
                 );
                 ui.add_space(4.0);
             }
@@ -98,12 +101,19 @@ impl<'a> Select<'a> {
                 ui.horizontal(|ui| {
                     let icon = if is_open { Icon::ChevronUp } else { Icon::ChevronDown };
                     let text_width = (ui.available_width() - 22.0).max(32.0);
-                    ui.add_sized(
-                        [text_width, 18.0],
-                        egui::Label::new(RichText::new(current_text).size(13.0).color(self.theme.text_primary))
-                            .truncate(),
-                    )
-                    .on_hover_text(current_text);
+                    let text_response = ui.allocate_ui_with_layout(
+                        egui::vec2(text_width, 18.0),
+                        egui::Layout::left_to_right(egui::Align::Center),
+                        |text_ui| {
+                            text_ui.set_min_width(text_width);
+                            text_ui.add(
+                                egui::Label::new(RichText::new(current_text).size(13.0).color(self.theme.text_primary))
+                                    .halign(egui::Align::Min)
+                                    .truncate(),
+                            )
+                        },
+                    );
+                    text_response.inner.on_hover_text(current_text);
                     ui.label(
                         RichText::new(char::from(icon).to_string())
                             .font(FontId::new(13.0, FontFamily::Name("lucide".into())))

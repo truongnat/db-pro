@@ -28,6 +28,7 @@ pub mod logs;
 pub mod nav;
 pub mod overlay;
 pub mod radio_group;
+pub mod responsive_layout;
 pub mod scroll_area;
 pub mod select;
 pub mod selection;
@@ -74,6 +75,7 @@ pub use overlay::{
     ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant, Tooltip, TooltipPosition,
 };
 pub use radio_group::{RadioGroup, RadioGroupOption};
+pub use responsive_layout::{container_width, grid_metrics, Container, ContainerWidth, GridMetrics, ResponsiveGrid};
 pub use scroll_area::ScrollArea;
 pub use select::{dropdown_should_open_above, Select};
 pub use selection::{Checkbox, Radio, Slider, Switch};
@@ -102,13 +104,15 @@ mod tests {
             .size(ButtonSize::Lg)
             .enabled(false)
             .loading(true)
-            .full_width(true);
+            .full_width(true)
+            .left_aligned();
 
         assert_eq!(btn.variant, ButtonVariant::Destructive);
         assert_eq!(btn.size, ButtonSize::Lg);
         assert!(!btn.enabled);
         assert!(btn.loading);
         assert!(btn.full_width);
+        assert!(btn.left_aligned);
     }
 
     #[test]

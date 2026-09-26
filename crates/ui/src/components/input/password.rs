@@ -100,11 +100,7 @@ impl<'a> PasswordInput<'a> {
             let frame_w = (width - FIELD_INNER_MARGIN_X * 2.0).max(60.0);
             let frame_output = Frame {
                 fill: self.theme.surface_editor,
-                stroke: if has_error {
-                    Stroke::new(1.5, self.theme.danger)
-                } else {
-                    Stroke::NONE
-                },
+                stroke: Stroke::NONE,
                 inner_margin: Margin::symmetric(FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y),
                 rounding: Rounding::same(INPUT_ROUNDING),
                 ..Default::default()
@@ -120,7 +116,10 @@ impl<'a> PasswordInput<'a> {
                     );
                     ui.add_space(SPACE_XS);
 
-                    let edit_w = (ui.available_width() - 26.0).max(40.0);
+                    // Reserve the eye button and the spacing egui inserts before it;
+                    // omitting item_spacing lets the frame grow wider than sibling inputs.
+                    let toggle_and_gap = 26.0 + ui.spacing().item_spacing.x;
+                    let edit_w = (ui.available_width() - toggle_and_gap).max(40.0);
                     let mut text_edit = TextEdit::singleline(self.value).password(!*self.show_password);
                     if let Some(id_salt) = self.id_salt {
                         text_edit = text_edit.id_salt(id_salt);
@@ -182,8 +181,9 @@ impl<'a> PasswordInput<'a> {
                 frame_rect,
                 edit_response.has_focus(),
                 frame_output.response.hovered() || edit_response.hovered(),
-                !has_error,
+                true,
                 self.theme,
+                has_error,
             );
 
             if let Some(err) = &self.error_text {

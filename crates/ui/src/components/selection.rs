@@ -118,8 +118,8 @@ impl<'a> Checkbox<'a> {
                 ui.painter().galley(desc_pos, desc_galley, Color32::PLACEHOLDER);
             }
 
-            if self.enabled {
-                response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
+            if self.enabled && response.hovered() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
 
             response
@@ -239,6 +239,10 @@ impl<'a> Switch<'a> {
             ui.painter().galley(text_pos, description_galley, Color32::PLACEHOLDER);
         }
 
+        if self.enabled {
+            response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
+        }
+
         response
     }
 }
@@ -292,7 +296,7 @@ impl<'a> Radio<'a> {
             );
             let row_width = (size + spacing + text_galley.size().x).max(size + spacing + 60.0);
 
-            let (rect, mut response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
+            let (rect, response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
             response.widget_info(|| radio_info(self.enabled, self.selected, self.label));
 
             let center_y = if self.description.is_some() {
@@ -338,8 +342,8 @@ impl<'a> Radio<'a> {
                 ui.painter().galley(desc_pos, desc_galley, Color32::PLACEHOLDER);
             }
 
-            if self.enabled {
-                response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
+            if self.enabled && response.hovered() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
 
             response
@@ -390,9 +394,11 @@ impl<'a> Slider<'a> {
         ui.vertical(|ui| {
             if self.label.is_some() || self.show_value {
                 ui.horizontal(|ui| {
-                    if let Some(lbl) = self.label {
-                        ui.label(RichText::new(lbl).size(12.0).strong().color(self.theme.text_secondary));
-                    }
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                        if let Some(lbl) = self.label {
+                            ui.label(RichText::new(lbl).size(12.0).strong().color(self.theme.text_secondary));
+                        }
+                    });
                     if self.show_value {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             ui.label(
@@ -474,5 +480,65 @@ impl<'a> Slider<'a> {
             response
         })
         .inner
+    }
+}
+
+#[cfg(test)]
+mod cursor_tests {
+    use super::{Checkbox, Radio};
+    use crate::DbProTheme;
+    use egui::{CentralPanel, Context, CursorIcon, Event, Pos2, RawInput, Rect, Vec2};
+    use std::cell::Cell;
+
+    fn hovered_cursor(enabled: bool, radio: bool) -> CursorIcon {
+        let ctx = Context::default();
+        DbProTheme::install_fonts(&ctx);
+        let screen_rect = Rect::from_min_size(Pos2::ZERO, Vec2::new(400.0, 200.0));
+        let mut checked = false;
+        let control_rect = Cell::new(Rect::NOTHING);
+        let mut show = |ctx: &Context| {
+            CentralPanel::default().show(ctx, |ui| {
+                control_rect.set(if radio {
+                    Radio::new(false, "Option", DbProTheme::dark())
+                        .enabled(enabled)
+                        .show(ui)
+                        .rect
+                } else {
+                    Checkbox::new(&mut checked, "Option", DbProTheme::dark())
+                        .enabled(enabled)
+                        .show(ui)
+                        .rect
+                });
+            });
+        };
+        let _ = ctx.run(
+            RawInput {
+                screen_rect: Some(screen_rect),
+                ..Default::default()
+            },
+            |ctx| show(ctx),
+        );
+        ctx.run(
+            RawInput {
+                screen_rect: Some(screen_rect),
+                events: vec![Event::PointerMoved(control_rect.get().center())],
+                ..Default::default()
+            },
+            |ctx| show(ctx),
+        )
+        .platform_output
+        .cursor_icon
+    }
+
+    #[test]
+    fn enabled_selection_controls_use_pointing_hand() {
+        assert_eq!(hovered_cursor(true, false), CursorIcon::PointingHand);
+        assert_eq!(hovered_cursor(true, true), CursorIcon::PointingHand);
+    }
+
+    #[test]
+    fn disabled_selection_controls_do_not_use_pointing_hand() {
+        assert_ne!(hovered_cursor(false, false), CursorIcon::PointingHand);
+        assert_ne!(hovered_cursor(false, true), CursorIcon::PointingHand);
     }
 }
