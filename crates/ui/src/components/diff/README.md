@@ -13,9 +13,10 @@ Monospace line-by-line diff inspector component for SQL migrations, schema modif
 
 ## Behavior & Constraints
 
-- Header bar displays the file or migration target title along with aggregate additions and deletions stats (e.g. `+3  -1`).
+- Header bar displays the file or migration target title along with aggregate additions and deletions stats (e.g. `+3  -1`); the viewer exposes the title as its accessible label.
+- Empty input shows a centered “No changes to display.” label instead of a blank body.
 - Line types render distinct background highlights using semantic soft tokens (`theme.success_soft()`, `theme.danger_soft()`) and marker symbols (`+`, `-`, ` `) so that state is not communicated by color alone.
-- Monospace line number columns (old / new) align vertically with 3-character padding.
+- Monospace line-number columns (old / new) share a three-character minimum gutter that expands for larger line numbers.
 - Theme borders, stroke tokens (`STROKE_THIN`), and radii follow the design system foundations.
 
 ## Usage Example

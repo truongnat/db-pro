@@ -1,7 +1,10 @@
 use crate::DbProTheme;
 use egui::Color32;
 
-use super::config::{DIFF_LINE_NUM_CHAR_WIDTH, DIFF_LINE_NUM_COLUMN_GAP, DIFF_MARKER_COLUMN_WIDTH, DIFF_OLD_NUM_INSET};
+use super::config::{
+    DIFF_CONTENT_RIGHT_PADDING, DIFF_LINE_NUM_CHAR_WIDTH, DIFF_LINE_NUM_COLUMN_GAP, DIFF_MARKER_COLUMN_WIDTH,
+    DIFF_OLD_NUM_INSET,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiffLineType {
@@ -98,6 +101,7 @@ pub fn format_diff_stats(added: usize, removed: usize) -> String {
 }
 
 pub fn line_num_chars(lines: &[DiffLine]) -> usize {
+    // Keep ordinary diffs aligned to a stable three-column gutter, including empty diffs and line zero.
     lines
         .iter()
         .flat_map(|line| [line.old_line_num, line.new_line_num])
@@ -123,6 +127,11 @@ pub fn diff_geometry(lines: &[DiffLine]) -> DiffGeometry {
         marker_offset_x,
         content_offset_x,
     }
+}
+
+pub(super) fn diff_content_width(line_widths: impl IntoIterator<Item = f32>, content_offset_x: f32) -> f32 {
+    let widest_line = line_widths.into_iter().fold(0.0, f32::max);
+    content_offset_x + widest_line + DIFF_CONTENT_RIGHT_PADDING
 }
 
 pub fn format_line_num_col(num: Option<usize>, width: usize) -> String {
@@ -196,6 +205,11 @@ mod tests {
         assert_eq!(geometry.line_num_chars, 5);
         assert!(geometry.new_num_offset_x > geometry.old_num_offset_x);
         assert!(geometry.content_offset_x > geometry.marker_offset_x);
+    }
+
+    #[test]
+    fn diff_content_width_reserves_the_longest_line_and_right_padding() {
+        assert_eq!(diff_content_width([20.0, 80.0], 86.0), 174.0);
     }
 
     #[test]

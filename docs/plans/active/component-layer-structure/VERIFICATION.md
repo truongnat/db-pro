@@ -189,3 +189,13 @@ No database providers are affected.
 - Targeted verification: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::dialog::` PASS (11 passed, 0 failed); `cargo check -p db-pro-ui` PASS; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS; `git diff --check` PASS. An initial clippy run found two `drop_non_drop` errors in the compile-surface test; lexical scopes replaced explicit drops, and the final clippy run passed.
 - Final UI suite: `cargo test -p db-pro-ui --quiet` PASS (854 passed, 0 failed, 0 ignored; 0 doc-tests). `cargo fmt --all -- --check`, `cargo check -p db-pro-ui`, `cargo clippy -p db-pro-ui --all-targets -- -D warnings`, `cargo build --release --locked -p db-pro-native`, and `git diff --check` PASS.
 - No database/provider impact. Source runtime evidence remains outstanding.
+
+## Diff batch
+- Source baseline SHA: `2fd5702d556854fe68ad59e7b517c369e4e4260b`; implementation is in the dirty worktree pending commit.
+- Preserved `DiffViewer`, `DiffLine` constructors/types, root/component re-exports, semantic marker colors, horizontal scroll behavior, and dynamic line-number gutter.
+- Moved measured-width aggregation into the pure handler calculation; documented local header/row offsets; kept egui measurements and painting in `ui.rs`.
+- Fixed product-review findings: content uses the per-line theme visual color; empty input displays a centered accessible “No changes to display.” message; the viewer response exposes its title label.
+- UI Product Review v3 follow-up: ACCEPT WITH P2; introduced P0=0/P1=0/P2=1, inherited P0=0/P1=0/P2=0. Remaining P2: summary stats may be clipped at extremely narrow header widths. Runtime screenshots/accessibility evidence were not collected.
+- Targeted verification: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::diff::` PASS (8 passed, 0 failed); `cargo check -p db-pro-ui` PASS; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS; `git diff --check` PASS.
+- Final UI suite/native build: `cargo test -p db-pro-ui` PASS (855 passed, 0 failed, 0 ignored; 0 doc-tests); `cargo fmt --all -- --check`, `cargo check -p db-pro-ui`, `cargo clippy -p db-pro-ui --all-targets -- -D warnings`, `cargo build --release --locked -p db-pro-native`, and `git diff --check` PASS.
+- No provider/database impact. Native runtime evidence remains outstanding.

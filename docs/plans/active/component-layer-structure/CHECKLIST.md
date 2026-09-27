@@ -28,7 +28,8 @@
 - [x] AspectRatio: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
 - [x] Card, Chrome, Code, Command, Database, DevTools, Dialog.
 - [x] Collapsible: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
-- [ ] Diff, Explain, Feedback, Form, HoverCard, Input, Logs, Navigation.
+- [x] Diff: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
+- [ ] Explain, Feedback, Form, HoverCard, Input, Logs, Navigation.
 - [ ] Overlay, RadioGroup, ResponsiveLayout, ScrollArea, Selection, SqlEditor.
 - [x] Separator: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
 - [ ] Table, Tabs, Toggle, Transaction, Tree, Workspace.
@@ -103,6 +104,14 @@
 - [x] Add tests for topmost dismissal, inside/outside backdrop decisions, Escape precedence, focus-anchor fallback/preservation, and public compatibility paths.
 - [x] Complete source-only UI review and address Sheet overlay-stack P1; backdrop non-dismissal is documented. Runtime screenshots/accessibility traversal remain pending.
 - [x] Run targeted fmt/test/check/clippy/diff gates; record in `VERIFICATION.md`.
+
+## Diff verification
+- [x] Preserve `DiffViewer`, `DiffLine`, line constructors, summary, theme mapping, and root/component re-exports.
+- [x] Keep galley measurement and egui painting in `ui.rs`; move pure content-width geometry into `handler.rs`.
+- [x] Document Diff-owned header/row layout offsets and keep theme colors/stroke values on canonical tokens.
+- [x] Preserve the >4-digit line-number gutter test and test width calculation with right padding.
+- [x] Complete UI Product Review v3; fix content color, empty state, and accessible viewer labeling. Retain the very-narrow-header stats clipping P2 and runtime evidence limitation.
+- [x] Run targeted fmt/test/check/clippy/diff gates and full UI/native gates; record outcomes in `VERIFICATION.md`.
 
 ## Database verification
 - [x] Preserve driver/status/action public types, connection-card builders, badge API, and re-exports.

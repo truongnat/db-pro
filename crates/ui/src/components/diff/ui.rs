@@ -1,13 +1,16 @@
 use crate::tokens::STROKE_THIN;
 use crate::DbProTheme;
-use egui::{Color32, FontId, Pos2, Response, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
+use egui::{Color32, FontId, Pos2, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
 
 use super::config::{
-    DIFF_BOTTOM_PADDING_Y, DIFF_CONTENT_FONT_SIZE, DIFF_CONTENT_RIGHT_PADDING, DIFF_CORNER_RADIUS, DIFF_HEADER_HEIGHT,
-    DIFF_LINE_HEIGHT, DIFF_LINE_NUM_FONT_SIZE, DIFF_MARKER_FONT_SIZE, DIFF_STATS_FONT_SIZE, DIFF_TITLE_FONT_SIZE,
+    DIFF_BOTTOM_PADDING_Y, DIFF_CONTENT_FONT_SIZE, DIFF_CORNER_RADIUS, DIFF_HEADER_HEIGHT,
+    DIFF_HEADER_STATS_RIGHT_INSET, DIFF_HEADER_STATS_TEXT_Y_OFFSET, DIFF_HEADER_TITLE_LEFT_INSET,
+    DIFF_HEADER_TITLE_STATS_GAP, DIFF_HEADER_TITLE_TEXT_Y_OFFSET, DIFF_LINE_HEIGHT, DIFF_LINE_NUM_FONT_SIZE,
+    DIFF_MARKER_FONT_SIZE, DIFF_ROW_TEXT_TOP_OFFSET, DIFF_STATS_FONT_SIZE, DIFF_TITLE_FONT_SIZE,
 };
 use super::handler::{
-    count_diff_changes, diff_geometry, diff_line_visual, format_diff_stats, format_line_num_col, DiffLine,
+    count_diff_changes, diff_content_width, diff_geometry, diff_line_visual, format_diff_stats, format_line_num_col,
+    DiffLine,
 };
 
 pub struct DiffViewer<'a> {
@@ -61,13 +64,13 @@ impl<'a> DiffViewer<'a> {
                     self.theme.text_secondary,
                 );
                 let stats_pos = Pos2::new(
-                    header_rect.right() - stats_galley.size().x - 14.0,
-                    header_rect.center().y - 6.5,
+                    header_rect.right() - stats_galley.size().x - DIFF_HEADER_STATS_RIGHT_INSET,
+                    header_rect.center().y - DIFF_HEADER_STATS_TEXT_Y_OFFSET,
                 );
 
                 // File / target title clips before the stats badge so narrow headers never overlap.
-                let title_left = header_rect.left() + 12.0;
-                let title_right = (stats_pos.x - 10.0).max(title_left);
+                let title_left = header_rect.left() + DIFF_HEADER_TITLE_LEFT_INSET;
+                let title_right = (stats_pos.x - DIFF_HEADER_TITLE_STATS_GAP).max(title_left);
                 let title_clip = egui::Rect::from_min_max(
                     Pos2::new(title_left, header_rect.top()),
                     Pos2::new(title_right, header_rect.bottom()),
@@ -78,7 +81,7 @@ impl<'a> DiffViewer<'a> {
                     self.theme.text_primary,
                 );
                 ui.painter().with_clip_rect(title_clip).galley(
-                    Pos2::new(title_left, header_rect.center().y - 7.0),
+                    Pos2::new(title_left, header_rect.center().y - DIFF_HEADER_TITLE_TEXT_Y_OFFSET),
                     title_galley,
                     Color32::PLACEHOLDER,
                 );
@@ -86,20 +89,22 @@ impl<'a> DiffViewer<'a> {
                     .with_clip_rect(header_rect)
                     .galley(stats_pos, stats_galley, Color32::PLACEHOLDER);
 
-                // Shape each line once; reuse the galleys for width measurement and painting.
-                let line_galleys: Vec<_> = self
+                // Shape each line once; reuse its theme-aware visual and galley for width measurement and painting.
+                let line_rows: Vec<_> = self
                     .lines
                     .iter()
                     .map(|line| {
-                        ui.painter().layout_no_wrap(
+                        let visual = diff_line_visual(line.line_type, &self.theme);
+                        let galley = ui.painter().layout_no_wrap(
                             line.content.clone(),
                             FontId::monospace(DIFF_CONTENT_FONT_SIZE),
-                            self.theme.text_primary,
-                        )
+                            visual.content_color,
+                        );
+                        (galley, visual)
                     })
                     .collect();
                 let content_width = diff_content_width(
-                    line_galleys.iter().map(|galley| galley.size().x),
+                    line_rows.iter().map(|(galley, _)| galley.size().x),
                     geometry.content_offset_x,
                 );
 
@@ -108,12 +113,25 @@ impl<'a> DiffViewer<'a> {
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         let row_width = ui.available_width().max(content_width);
-                        for (line, content_galley) in self.lines.iter().zip(&line_galleys) {
+                        if self.lines.is_empty() {
+                            ui.allocate_ui_with_layout(
+                                Vec2::new(row_width, DIFF_LINE_HEIGHT * 2.0),
+                                egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
+                                |ui| {
+                                    ui.label(
+                                        RichText::new("No changes to display.")
+                                            .font(FontId::proportional(DIFF_CONTENT_FONT_SIZE))
+                                            .color(self.theme.text_muted),
+                                    );
+                                },
+                            );
+                            return;
+                        }
+
+                        for (line, (content_galley, visual)) in self.lines.iter().zip(&line_rows) {
                             let (row_rect, row_resp) =
                                 ui.allocate_exact_size(Vec2::new(row_width, DIFF_LINE_HEIGHT), Sense::hover());
                             row_resp.widget_info(|| WidgetInfo::labeled(WidgetType::Other, true, &line.content));
-
-                            let visual = diff_line_visual(line.line_type, &self.theme);
 
                             if visual.bg_color != Color32::TRANSPARENT {
                                 ui.painter().rect_filled(row_rect, Rounding::ZERO, visual.bg_color);
@@ -127,7 +145,10 @@ impl<'a> DiffViewer<'a> {
                                 self.theme.text_tertiary,
                             );
                             ui.painter().galley(
-                                Pos2::new(row_rect.left() + geometry.old_num_offset_x, row_rect.top() + 2.0),
+                                Pos2::new(
+                                    row_rect.left() + geometry.old_num_offset_x,
+                                    row_rect.top() + DIFF_ROW_TEXT_TOP_OFFSET,
+                                ),
                                 old_galley,
                                 Color32::PLACEHOLDER,
                             );
@@ -140,7 +161,10 @@ impl<'a> DiffViewer<'a> {
                                 self.theme.text_tertiary,
                             );
                             ui.painter().galley(
-                                Pos2::new(row_rect.left() + geometry.new_num_offset_x, row_rect.top() + 2.0),
+                                Pos2::new(
+                                    row_rect.left() + geometry.new_num_offset_x,
+                                    row_rect.top() + DIFF_ROW_TEXT_TOP_OFFSET,
+                                ),
                                 new_galley,
                                 Color32::PLACEHOLDER,
                             );
@@ -152,16 +176,22 @@ impl<'a> DiffViewer<'a> {
                                 visual.marker_color,
                             );
                             ui.painter().galley(
-                                Pos2::new(row_rect.left() + geometry.marker_offset_x, row_rect.top() + 2.0),
+                                Pos2::new(
+                                    row_rect.left() + geometry.marker_offset_x,
+                                    row_rect.top() + DIFF_ROW_TEXT_TOP_OFFSET,
+                                ),
                                 prefix_galley,
                                 Color32::PLACEHOLDER,
                             );
 
                             // Line Content
                             ui.painter().galley(
-                                Pos2::new(row_rect.left() + geometry.content_offset_x, row_rect.top() + 2.0),
+                                Pos2::new(
+                                    row_rect.left() + geometry.content_offset_x,
+                                    row_rect.top() + DIFF_ROW_TEXT_TOP_OFFSET,
+                                ),
                                 content_galley.clone(),
-                                Color32::PLACEHOLDER,
+                                visual.content_color,
                             );
                         }
 
@@ -170,13 +200,9 @@ impl<'a> DiffViewer<'a> {
             })
             .response;
 
+        response.widget_info(|| WidgetInfo::labeled(WidgetType::Other, true, self.title));
         response
     }
-}
-
-fn diff_content_width(line_widths: impl IntoIterator<Item = f32>, content_offset_x: f32) -> f32 {
-    let widest_line = line_widths.into_iter().fold(0.0, f32::max);
-    content_offset_x + widest_line + DIFF_CONTENT_RIGHT_PADDING
 }
 
 #[cfg(test)]
@@ -185,8 +211,18 @@ mod tests {
     use crate::DbProTheme;
 
     #[test]
-    fn diff_content_width_reserves_the_longest_line_and_columns() {
-        assert_eq!(diff_content_width([20.0, 80.0], 86.0), 174.0);
+    fn empty_diff_renders_a_labeled_state() {
+        let theme = DbProTheme::light();
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+
+        let _ = ctx.run(Default::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let response = DiffViewer::new("migration.sql", &[], theme).show(ui);
+                assert!(response.rect.width() > 0.0);
+                assert!(response.rect.height() > 0.0);
+            });
+        });
     }
 
     #[test]
