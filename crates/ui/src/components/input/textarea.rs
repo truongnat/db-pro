@@ -1,7 +1,7 @@
 use egui::{Align, Frame, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
 
 use super::config::INPUT_ROUNDING;
-use super::layout::paint_field_chrome;
+use super::layout::{paint_field_chrome, FieldChromeState};
 use crate::components::interact::text_input_info;
 use crate::tokens::LABEL_HELPER_GAP;
 use crate::DbProTheme;
@@ -93,11 +93,13 @@ impl<'a> Textarea<'a> {
                 ui,
                 edit_response.id,
                 frame_rect,
-                edit_response.has_focus(),
-                frame_output.response.hovered() || edit_response.hovered(),
-                true,
+                FieldChromeState {
+                    focused: edit_response.has_focus(),
+                    hovered: frame_output.response.hovered() || edit_response.hovered(),
+                    enabled: true,
+                    has_error: false,
+                },
                 self.theme,
-                false,
             );
 
             edit_response

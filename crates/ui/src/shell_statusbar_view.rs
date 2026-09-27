@@ -45,6 +45,7 @@ impl ShellStatusbarContext<'_> {
                             .variant(ButtonVariant::Ghost)
                             .size(ButtonSize::IconSm)
                             .tooltip("Toggle output panel")
+                            .access_label("Toggle output panel")
                             .show(ui)
                             .clicked()
                         {

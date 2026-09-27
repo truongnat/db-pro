@@ -48,6 +48,7 @@ pub(super) fn draw_pagination(
             .size(ButtonSize::IconSm)
             .enabled(context.paging.has_next && !context.has_staged_changes)
             .tooltip("Next page")
+            .access_label("Next page")
             .show(ui)
             .clicked()
             && !context.has_staged_changes
@@ -68,6 +69,7 @@ pub(super) fn draw_pagination(
             .size(ButtonSize::IconSm)
             .enabled(context.paging.has_previous && !context.has_staged_changes)
             .tooltip("Previous page")
+            .access_label("Previous page")
             .show(ui)
             .clicked()
             && !context.has_staged_changes

@@ -89,11 +89,9 @@ Nguyên tắc vàng: **code được đọc nhiều hơn được viết gấp ~
 
 ## 4. Sử dụng nhận xét (Comments)
 
-- Code tốt tự giải thích; comment giải thích **tại sao (why)**, không giải thích **cái gì (what)**.
-- **Comment hợp lệ**: lý do của quyết định thiết kế bất thường, cảnh báo hệ quả, invariant, `TODO(owner/issue)`,
-  doc comment cho public API (`///` Rust, JSDoc cho hàm export dùng chung).
-- **Comment rác**: diễn giải lại code, code cũ bị comment (dùng Git), banner trang trí, comment sai lệch với code,
-  ghi chú tác giả/ngày (Git đã có).
+- Code tốt tự giải thích; comment giải thích **tại sao (why)**, không giải thích **cái gì (what)**. Ngoại lệ có chủ đích: mọi khai báo Rust `const`, `static` và associated constant bắt buộc có comment tiếng Anh ngắn, nêu ý nghĩa ngữ nghĩa (không chỉ lặp tên/giá trị).
+- Viết comment source bằng **tiếng Anh** (trừ quy ước repo khác); cải thiện code trước, chỉ ghi lý do không hiển nhiên, ràng buộc/invariant, trade-off, workaround hoặc refactor nguy hiểm. Doc comment mô tả hợp đồng API, không lặp chữ ký.
+- `TODO/FIXME/HACK/WORKAROUND` phải có hành động và tham chiếu/owner phù hợp; đặt comment cạnh code và giữ cập nhật. Không viết comment-out, banner, lịch sử hay lời tường thuật công việc/AI.
 
 → Chi tiết + ví dụ: `references/comments.md`
 

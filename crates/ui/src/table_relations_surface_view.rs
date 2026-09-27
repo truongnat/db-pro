@@ -61,6 +61,7 @@ impl TableRelationsContext<'_> {
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
                     .tooltip("Clear filter")
+                    .access_label("Clear filter")
                     .show(ui)
                     .clicked()
             {
@@ -167,6 +168,7 @@ impl TableRelationsContext<'_> {
                         .variant(ButtonVariant::Ghost)
                         .size(ButtonSize::IconSm)
                         .tooltip("Open referenced table")
+                        .access_label("Open referenced table")
                         .show(ui)
                         .clicked()
                     {

@@ -59,6 +59,7 @@ impl TableIndexesContext<'_> {
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
                     .tooltip("Clear filter")
+                    .access_label("Clear filter")
                     .show(ui)
                     .clicked()
             {

@@ -285,6 +285,11 @@ impl DbProApp {
                             } else {
                                 "Preview dark theme"
                             })
+                            .access_label(if self.preferences.dark_mode {
+                                "Preview light theme"
+                            } else {
+                                "Preview dark theme"
+                            })
                             .show(ui)
                             .clicked()
                         {

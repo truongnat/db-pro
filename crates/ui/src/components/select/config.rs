@@ -1,23 +1,18 @@
-use crate::tokens::{ICON_TEXT_GAP, RADIUS_DROPDOWN, SPACE_SM, SPACE_XL, SPACE_XS, TABLE_ROW_HEIGHT_COMPACT};
+use crate::tokens::INPUT_HEIGHT_DEFAULT;
 
-pub const ITEM_HEIGHT: f32 = TABLE_ROW_HEIGHT_COMPACT;
-pub const OPTION_INDICATOR_WIDTH: f32 = crate::tokens::ICON_LG;
-pub const OPTION_INDICATOR_INSET: f32 = SPACE_SM;
+/// Maximum number of option rows shown before the menu must scroll.
 pub const MAX_VISIBLE_ITEMS: usize = 8;
-pub const MENU_PAD: f32 = RADIUS_DROPDOWN;
-pub const LABEL_GAP: f32 = SPACE_XS;
-pub const ICON_GAP: f32 = ICON_TEXT_GAP;
-pub const MIN_TRIGGER_WIDTH: f32 = crate::tokens::INPUT_HEIGHT_DEFAULT * 2.0;
+/// Minimum trigger width, in egui points, set to twice the standard input height for usable controls.
+pub const MIN_TRIGGER_WIDTH: f32 = INPUT_HEIGHT_DEFAULT * 2.0;
+/// Minimum space for trigger text, in egui points, allowing roughly two small body-font ems.
 pub const MIN_TRIGGER_TEXT_WIDTH: f32 = crate::tokens::FONT_SIZE_BODY_SM * 2.0;
-pub const TRIGGER_HORIZONTAL_INSET: f32 = SPACE_XL;
+/// Trigger width reserved for trailing icon and its text gap, in egui points.
 pub const TRIGGER_TEXT_RESERVED_WIDTH: f32 = crate::tokens::ICON_SM + crate::tokens::ICON_TEXT_GAP;
-pub const MENU_MIN_WIDTH: f32 = crate::tokens::INPUT_HEIGHT_DEFAULT * 4.0;
-pub const MENU_SCREEN_INSET: f32 = SPACE_SM;
-pub const MENU_MIN_SCREEN_WIDTH: f32 = crate::tokens::INPUT_HEIGHT_DEFAULT * 2.0;
-pub const MENU_HEIGHT_GUTTER: f32 = SPACE_XS;
-pub const OPTION_TEXT_SIZE: f32 = crate::tokens::FONT_SIZE_UI_LABEL;
-pub const SELECT_LABEL_SIZE: f32 = crate::tokens::FONT_SIZE_CAPTION;
-pub const CHECK_ICON_SIZE: f32 = crate::tokens::ICON_XS;
-pub const TRIGGER_TEXT_HEIGHT: f32 = crate::tokens::FONT_SIZE_SECTION_TITLE;
+/// Minimum popup width, in egui points, set to four standard input heights for readable options.
+pub const MENU_MIN_WIDTH: f32 = INPUT_HEIGHT_DEFAULT * 4.0;
+/// Smallest popup width allowed after screen constraints, in egui points, set to two input heights.
+pub const MENU_MIN_SCREEN_WIDTH: f32 = INPUT_HEIGHT_DEFAULT * 2.0;
+/// Multiplier placing half a measured text height above its vertical center.
 pub const VERTICAL_CENTER_FACTOR: f32 = 0.5;
+/// Multiplier for symmetric dimensions such as two-sided padding and screen insets.
 pub const DOUBLE_FACTOR: f32 = 2.0;

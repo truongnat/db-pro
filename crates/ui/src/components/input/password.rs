@@ -5,7 +5,7 @@ use lucide_icons::Icon;
 use std::borrow::Cow;
 
 use super::config::{FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_ROUNDING};
-use super::layout::{paint_field_chrome, resolve_field_width};
+use super::layout::{paint_field_chrome, resolve_field_width, FieldChromeState};
 use crate::components::interact::text_input_info;
 use crate::tokens::{LABEL_HELPER_GAP, SPACE_XS};
 use crate::DbProTheme;
@@ -179,11 +179,13 @@ impl<'a> PasswordInput<'a> {
                 ui,
                 edit_response.id,
                 frame_rect,
-                edit_response.has_focus(),
-                frame_output.response.hovered() || edit_response.hovered(),
-                true,
+                FieldChromeState {
+                    focused: edit_response.has_focus(),
+                    hovered: frame_output.response.hovered() || edit_response.hovered(),
+                    enabled: true,
+                    has_error,
+                },
                 self.theme,
-                has_error,
             );
 
             if let Some(err) = &self.error_text {

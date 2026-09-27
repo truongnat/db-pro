@@ -52,7 +52,9 @@ pub use aspect_ratio::AspectRatio;
 pub use badge::{Badge, BadgeVariant};
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonVariant};
 pub use calendar::{day_of_week, days_in_month, is_leap_year, Calendar, DatePicker, SimpleDate};
-pub use card::{card_content, card_footer, card_header, Card, MetricCard, MetricTrend};
+pub use card::{
+    card_content, card_footer, card_header, Card, MetricCard, MetricTrend, MetricTrendDirection, MetricTrendTone,
+};
 pub use chrome::{toolbar_button, Avatar, AvatarShape, AvatarSize, AvatarStatus, EmptyState, Skeleton, Toolbar};
 pub use code::{CodeBlock, InlineCode};
 pub use collapsible::Collapsible;

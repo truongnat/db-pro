@@ -50,6 +50,7 @@ Example layering: `select/ui/option.rs` obtains the text bounds and galley size 
 - `mod.rs` is the only public component entry/exporter and public API remains compatible through `components` re-exports.
 - UI files focus on egui rendering/layout and call typed handler functions for behavior/calculation.
 - Component-specific settings are kept in config; shared spacing/colors use canonical tokens/theme.
+- Rust component refactors include detailed English comments for non-obvious logic and UI flow, explaining behavior step by step (inputs/events → handlers/state/outcomes → rendering). Comments focus on intent and rationale, not merely restating code.
 - Rust formatting, workspace checks, clippy, tests and native release build are executed and recorded.
 
 ## Decisions / risks

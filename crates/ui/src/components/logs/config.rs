@@ -1,0 +1,10 @@
+use crate::tokens::{FONT_SIZE_CAPTION, FONT_SIZE_MONO_SM, RADIUS_CARD, SPACE_MD, SPACE_SM, SPACE_XXS, STROKE_THIN};
+
+pub const EMPTY_MESSAGE: &str = "No execution logs recorded.";
+pub const LOG_FONT_SIZE: f32 = FONT_SIZE_MONO_SM;
+pub const EMPTY_FONT_SIZE: f32 = FONT_SIZE_CAPTION;
+pub const FRAME_RADIUS: f32 = RADIUS_CARD;
+pub const FRAME_STROKE: f32 = STROKE_THIN;
+pub const FRAME_MARGIN_X: f32 = SPACE_MD;
+pub const FRAME_MARGIN_Y: f32 = SPACE_SM;
+pub const ROW_GAP: f32 = SPACE_XXS;

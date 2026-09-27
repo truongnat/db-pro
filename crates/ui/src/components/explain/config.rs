@@ -1,0 +1,10 @@
+pub const EXPLAIN_ROW_INDENT: f32 = 18.0;
+pub const EXPLAIN_BAR_WIDTH: f32 = 44.0;
+pub const EXPLAIN_BAR_HEIGHT: f32 = 5.0;
+pub const EXPLAIN_BAR_ROUNDING: f32 = 2.0;
+pub const EXPLAIN_BADGE_HEIGHT: f32 = 16.0;
+pub const EXPLAIN_BADGE_PAD_X: f32 = 8.0;
+pub const EXPLAIN_BADGE_PAD_Y: f32 = 2.0;
+pub const EXPLAIN_BADGE_TEXT_PAD_X: f32 = 4.0;
+pub const EXPLAIN_SKEW_BADGE_TEXT_PAD_X: f32 = 3.0;
+pub const EXPLAIN_FINDING_INDENT_OFFSET: f32 = 24.0;

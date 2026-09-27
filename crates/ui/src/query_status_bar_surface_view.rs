@@ -60,6 +60,7 @@ fn draw_right_controls(context: &QueryStatusBarContext<'_>, ui: &mut egui::Ui) -
             .icon(Icon::PanelBottom)
             .variant(ButtonVariant::Ghost)
             .size(ButtonSize::IconSm)
+            .access_label("Show output")
             .tooltip("Show output")
             .show(ui)
             .clicked()

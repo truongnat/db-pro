@@ -52,6 +52,7 @@ impl FilesGitContext<'_> {
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
                     .tooltip("Refresh git status")
+                    .access_label("Refresh git status")
                     .show(ui)
                     .clicked()
                 {

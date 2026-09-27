@@ -304,6 +304,7 @@ pub fn close_icon_button(ui: &mut Ui, theme: DbProTheme) -> Response {
         .size(ButtonSize::Icon)
         .variant(ButtonVariant::Ghost)
         .tooltip("Close (Esc)")
+        .access_label("Close (Esc)")
         .show(ui)
 }
 

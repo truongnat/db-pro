@@ -532,6 +532,7 @@ impl DbProApp {
                     .icon(Icon::RefreshCw)
                     .size(ButtonSize::IconSm)
                     .variant(ButtonVariant::Ghost)
+                    .access_label("Refresh table")
                     .show(ui);
             });
             ui.add_space(12.0);

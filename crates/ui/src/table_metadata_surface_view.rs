@@ -267,6 +267,7 @@ impl TableMetadataContext<'_> {
                 .icon(Icon::X)
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::IconSm)
+                .access_label("Clear filter")
                 .tooltip("Clear filter")
                 .show(ui)
                 .clicked()
@@ -393,6 +394,7 @@ fn draw_dependency_cell(
                         .variant(ButtonVariant::Ghost)
                         .size(ButtonSize::IconSm)
                         .tooltip("Open table workspace")
+                        .access_label("Open table workspace")
                         .show(ui)
                         .clicked()
                 {

@@ -46,6 +46,7 @@ impl FilesSurfaceContext<'_> {
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
                     .tooltip("Add / open folder")
+                    .access_label("Add / open folder")
                     .show(ui)
                     .clicked()
                 {
@@ -57,6 +58,7 @@ impl FilesSurfaceContext<'_> {
                         .variant(ButtonVariant::Ghost)
                         .size(ButtonSize::IconSm)
                         .tooltip("Refresh tree")
+                        .access_label("Refresh tree")
                         .show(ui)
                         .clicked()
                 {
@@ -136,6 +138,7 @@ impl FilesSurfaceContext<'_> {
                         .variant(ButtonVariant::Ghost)
                         .size(ButtonSize::IconSm)
                         .tooltip("Close workspace")
+                        .access_label("Close workspace")
                         .show(ui)
                         .clicked()
                     {
@@ -147,6 +150,7 @@ impl FilesSurfaceContext<'_> {
                             .variant(ButtonVariant::Ghost)
                             .size(ButtonSize::IconSm)
                             .tooltip("Remove active root")
+                            .access_label("Remove active root")
                             .show(ui)
                             .clicked()
                     {

@@ -186,11 +186,11 @@ impl DbProApp {
         ui.add_space(12.0);
         ui.columns(2, |columns| {
             MetricCard::new("Slow query rate", "0.42%", theme)
-                .change("−0.15% vs last week", true)
+                .trend("−0.15% vs last week", MetricTrendDirection::Down, MetricTrendTone::Positive)
                 .icon(Icon::Gauge)
                 .show(&mut columns[0]);
             MetricCard::new("Staged mutations", "3", theme)
-                .change("Needs review", false)
+                .trend("Needs review", MetricTrendDirection::Unspecified, MetricTrendTone::Warning)
                 .icon(Icon::FileEdit)
                 .show(&mut columns[1]);
         });

@@ -41,6 +41,7 @@ where
                     .icon(if is_pinned { Icon::PinOff } else { Icon::Pin })
                     .variant(if is_pinned { ButtonVariant::Secondary } else { ButtonVariant::Ghost })
                     .size(ButtonSize::IconSm)
+                    .access_label(if is_pinned { "Unpin result tab" } else { "Pin result tab" })
                     .tooltip(if is_pinned { "Unpin result tab" } else { "Pin result tab" })
                     .show(ui)
                     .clicked()
