@@ -4,6 +4,11 @@ use crate::tokens::*;
 use crate::DbProTheme;
 use egui::{Id, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
 
+struct PlanRenderBudget {
+    nodes_rendered: usize,
+    truncation_notice_shown: bool,
+}
+
 pub struct ExplainPlanTree<'a> {
     root: &'a PlanNode,
     total_time_ms: f32,
@@ -37,6 +42,15 @@ impl<'a> ExplainPlanTree<'a> {
         // Seed semantic IDs once; descendant indices keep painter-only labels unique and stable per tree.
         let tree_id = ui.auto_id_with("explain_plan_tree");
         ui.skip_ahead_auto_ids(1);
+        // Preserve PlanNode's public Vec<String> findings API; the shared sentinel prevents duplicate notices.
+        let mut budget = PlanRenderBudget {
+            nodes_rendered: 0,
+            truncation_notice_shown: self
+                .root
+                .findings
+                .iter()
+                .any(|finding| finding == db_pro_core::domain::explain_plan::PLAN_TRUNCATION_MESSAGE),
+        };
         let frame = egui::Frame::none()
             .fill(self.theme.surface_panel)
             .stroke(Stroke::new(STROKE_THIN, self.theme.border_default))
@@ -108,12 +122,16 @@ impl<'a> ExplainPlanTree<'a> {
 
                 egui::ScrollArea::both()
                     .auto_shrink([false, false])
-                    .show(ui, |ui| self.render_node(ui, self.root, 0, tree_id));
+                    .show(ui, |ui| self.render_node(ui, self.root, 0, tree_id, &mut budget));
             })
             .response
     }
 
-    fn render_node(&self, ui: &mut Ui, node: &PlanNode, depth: usize, node_id: Id) {
+    fn render_node(&self, ui: &mut Ui, node: &PlanNode, depth: usize, node_id: Id, budget: &mut PlanRenderBudget) {
+        if budget.nodes_rendered >= db_pro_core::domain::explain_plan::MAX_EXPLAIN_PLAN_NODES {
+            return;
+        }
+        budget.nodes_rendered += 1;
         let indent = depth as f32 * EXPLAIN_ROW_INDENT;
 
         // Calculate cost / time percentage for Flame Tree bar
@@ -281,7 +299,23 @@ impl<'a> ExplainPlanTree<'a> {
         ui.add_space(SPACE_XXS);
 
         for (child_index, child) in node.children.iter().enumerate() {
-            self.render_node(ui, child, depth + 1, node_id.with(child_index));
+            if depth + 1 >= db_pro_core::domain::explain_plan::MAX_EXPLAIN_PLAN_DEPTH
+                || budget.nodes_rendered >= db_pro_core::domain::explain_plan::MAX_EXPLAIN_PLAN_NODES
+            {
+                if !budget.truncation_notice_shown {
+                    ui.horizontal(|ui| {
+                        ui.add_space(indent + EXPLAIN_FINDING_INDENT_OFFSET);
+                        ui.label(
+                            RichText::new(db_pro_core::domain::explain_plan::PLAN_TRUNCATION_MESSAGE)
+                                .size(FONT_SIZE_CAPTION)
+                                .color(self.theme.text_tertiary),
+                        );
+                    });
+                    budget.truncation_notice_shown = true;
+                }
+                return;
+            }
+            self.render_node(ui, child, depth + 1, node_id.with(child_index), budget);
         }
     }
 }
@@ -295,6 +329,22 @@ fn label_painted_badge(ui: &mut Ui, rect: Rect, id: Id, label: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explain_tree_truncates_manually_built_deep_plans() {
+        let mut root = PlanNode::new("Seq Scan", 1.0, 1.0, 1);
+        for _ in 0..db_pro_core::domain::explain_plan::MAX_EXPLAIN_PLAN_DEPTH {
+            root = PlanNode::new("Nested Loop", 1.0, 1.0, 1).with_child(root);
+        }
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+
+        let _ = ctx.run(Default::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                ExplainPlanTree::new(&root, 1.0, DbProTheme::light()).show(ui);
+            });
+        });
+    }
 
     #[test]
     fn explain_tree_renders_runtime_badges_without_panicking() {

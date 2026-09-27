@@ -25,7 +25,9 @@ ExplainPlanTree::new(&root_node, 15.4, theme)
 
 ## Behavior
 
-- PostgreSQL `EXPLAIN ANALYZE` actual time and row counts are averages per loop. `PlanNode::from_query_plan` aggregates actual and planned rows plus actual time across the reported loop count, and the UI displays that count beside the totals.
+- PostgreSQL `EXPLAIN ANALYZE` actual time and row counts are averages per loop. `PlanNode::from_query_plan` aggregates actual and planned rows plus actual time across valid positive integer loop counts, and the UI displays that count beside the totals. Invalid counts use a one-pass fallback; oversized aggregates saturate the legacy display types.
+- Parsing, adaptation, and rendering enforce shared depth/node budgets (`MAX_EXPLAIN_PLAN_DEPTH`, `MAX_EXPLAIN_PLAN_NODES`) and show one shared truncation warning instead of traversing unbounded input.
+- The current query-output bridge consumes PostgreSQL EXPLAIN JSON; SQLite plan normalization is not added by this component migration.
 - Cost-only plans keep estimated cost/rows and do not invent runtime measurements. Row-skew labels use a lower-bound marker when a very small ratio would otherwise round upward misleadingly.
 - Flame bars compare each node's metric with the plan total; node times are inclusive, so percentages are per-node comparisons and are not mutually exclusive or expected to sum to 100%.
 - Painter-rendered EXPLAIN ANALYZE, hotspot, skew, and flame-bar cues expose matching egui accessibility labels; the tree is read-only.

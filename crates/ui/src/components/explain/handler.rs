@@ -56,13 +56,40 @@ impl PlanNode {
 
     /// Adapts PostgreSQL plan metrics, which report actual rows and time as per-loop averages.
     pub fn from_query_plan(node: &db_pro_core::domain::explain_plan::QueryPlanNode) -> Self {
+        let mut nodes_seen = 0;
+        Self::from_query_plan_at(node, 0, &mut nodes_seen)
+    }
+
+    fn from_query_plan_at(
+        node: &db_pro_core::domain::explain_plan::QueryPlanNode,
+        depth: usize,
+        nodes_seen: &mut usize,
+    ) -> Self {
+        *nodes_seen += 1;
+        let depth_limited =
+            depth + 1 >= db_pro_core::domain::explain_plan::MAX_EXPLAIN_PLAN_DEPTH && !node.children.is_empty();
+        let mut children = Vec::new();
+        let mut truncated = depth_limited;
+        if !depth_limited {
+            for child in &node.children {
+                if *nodes_seen >= db_pro_core::domain::explain_plan::MAX_EXPLAIN_PLAN_NODES {
+                    truncated = true;
+                    break;
+                }
+                children.push(Self::from_query_plan_at(child, depth + 1, nodes_seen));
+            }
+        }
         let is_bottleneck = node.findings.iter().any(|finding| {
             matches!(
                 finding.severity,
                 db_pro_core::domain::explain_plan::PlanFindingSeverity::Hotspot
             )
         });
-        let findings = node.findings.iter().map(|finding| finding.message.clone()).collect();
+        let mut findings: Vec<String> = node.findings.iter().map(|finding| finding.message.clone()).collect();
+        let truncation_already_reported = node.findings.iter().any(|finding| finding.code == "plan.truncated");
+        if truncated && !truncation_already_reported {
+            findings.push(db_pro_core::domain::explain_plan::PLAN_TRUNCATION_MESSAGE.to_owned());
+        }
         let actual_loops = normalized_actual_loops(node.actual_loops);
         let loop_count = actual_loops.map(|loops| loops as f64).unwrap_or(1.0);
         let actual_time_ms = node
@@ -83,9 +110,9 @@ impl PlanNode {
             node_type: node.node_type.clone(),
             relation: node.relation.clone(),
             index_name: node.index_name.clone(),
-            cost_estimate: node.total_cost.unwrap_or(0.0) as f32,
-            startup_cost: node.startup_cost.map(|cost| cost as f32),
-            total_cost: node.total_cost.map(|cost| cost as f32),
+            cost_estimate: node.total_cost.map(bounded_display_f32).unwrap_or(0.0),
+            startup_cost: node.startup_cost.map(bounded_display_f32),
+            total_cost: node.total_cost.map(bounded_display_f32),
             actual_time_ms: actual_time_ms.unwrap_or(0.0),
             actual_startup_ms: node
                 .actual_startup_ms
@@ -94,11 +121,11 @@ impl PlanNode {
             rows_actual: aggregate_display_rows(actual_rows, loop_count),
             rows_planned: planned_rows.map(bounded_row_count),
             actual_loops,
-            shared_hit_blocks: node.shared_hit_blocks.map(|blocks| blocks.max(0.0) as usize),
-            shared_read_blocks: node.shared_read_blocks.map(|blocks| blocks.max(0.0) as usize),
+            shared_hit_blocks: node.shared_hit_blocks.map(bounded_row_count),
+            shared_read_blocks: node.shared_read_blocks.map(bounded_row_count),
             is_bottleneck,
             findings,
-            children: node.children.iter().map(Self::from_query_plan).collect(),
+            children,
         };
         if actual_time_ms.is_none() {
             // Cost-only plans lack runtime duration; retain the existing cost proxy for display callers.
@@ -136,15 +163,37 @@ fn normalized_actual_loops(loops: Option<f64>) -> Option<usize> {
 }
 
 fn aggregate_display_time(per_loop_ms: f64, loops: f64) -> f32 {
-    (per_loop_ms.max(0.0) * loops).min(f32::MAX as f64) as f32
+    let total_ms = per_loop_ms.max(0.0) * loops;
+    if total_ms.is_infinite() {
+        f32::MAX
+    } else {
+        bounded_display_f32(total_ms)
+    }
+}
+
+fn bounded_display_f32(value: f64) -> f32 {
+    if !value.is_finite() || value <= 0.0 {
+        return 0.0;
+    }
+
+    // The bound prevents overflow in the legacy f32 PlanNode representation.
+    value.min(f32::MAX as f64) as f32
 }
 
 fn aggregate_display_rows(per_loop_rows: f64, loops: f64) -> usize {
-    bounded_row_count(per_loop_rows.max(0.0) * loops)
+    let total_rows = per_loop_rows.max(0.0) * loops;
+    if total_rows.is_infinite() {
+        usize::MAX
+    } else {
+        bounded_row_count(total_rows)
+    }
 }
 
 // Legacy `usize` fields saturate explicitly instead of wrapping/truncating huge aggregates.
 fn bounded_row_count(rows: f64) -> usize {
+    if !rows.is_finite() || rows <= 0.0 {
+        return 0;
+    }
     if rows >= usize::MAX as f64 {
         return usize::MAX;
     }
@@ -356,6 +405,23 @@ mod tests {
     }
 
     #[test]
+    fn query_plan_adapter_sanitizes_costs_and_buffer_counts() {
+        let mut canonical = query_node(Vec::new(), Vec::new());
+        canonical.startup_cost = Some(-2.0);
+        canonical.total_cost = Some(f64::MAX);
+        canonical.shared_hit_blocks = Some(f64::INFINITY);
+        canonical.shared_read_blocks = Some(-1.0);
+
+        let adapted = PlanNode::from_query_plan(&canonical);
+
+        assert_eq!(adapted.cost_estimate, f32::MAX);
+        assert_eq!(adapted.startup_cost, Some(0.0));
+        assert_eq!(adapted.total_cost, Some(f32::MAX));
+        assert_eq!(adapted.shared_hit_blocks, Some(0));
+        assert_eq!(adapted.shared_read_blocks, Some(0));
+    }
+
+    #[test]
     fn query_plan_adapter_ignores_invalid_loop_counts() {
         for invalid_loops in [-2.0, 0.0, 1.5, f64::INFINITY] {
             let mut canonical = query_node(Vec::new(), Vec::new());
@@ -368,6 +434,53 @@ mod tests {
             assert_eq!(adapted.rows_actual, 10);
             assert_eq!(adapted.rows_planned, Some(20));
         }
+    }
+
+    #[test]
+    fn query_plan_adapter_truncates_manually_built_deep_trees() {
+        let mut canonical = query_node(Vec::new(), Vec::new());
+        for _ in 0..db_pro_core::domain::explain_plan::MAX_EXPLAIN_PLAN_DEPTH {
+            canonical = query_node(vec![canonical], Vec::new());
+        }
+
+        let adapted = PlanNode::from_query_plan(&canonical);
+        let mut depth = 1;
+        let mut node = &adapted;
+        while let Some(child) = node.children.first() {
+            depth += 1;
+            node = child;
+        }
+
+        assert_eq!(depth, db_pro_core::domain::explain_plan::MAX_EXPLAIN_PLAN_DEPTH);
+        assert!(node.findings.iter().any(|finding| finding.contains("truncated")));
+    }
+
+    #[test]
+    fn query_plan_adapter_truncates_wide_trees_at_shared_node_budget() {
+        let child = query_node(Vec::new(), Vec::new());
+        let canonical = query_node(
+            vec![child; db_pro_core::domain::explain_plan::MAX_EXPLAIN_PLAN_NODES],
+            vec![db_pro_core::domain::explain_plan::PlanFinding {
+                code: "plan.truncated".to_owned(),
+                message: db_pro_core::domain::explain_plan::PLAN_TRUNCATION_MESSAGE.to_owned(),
+                severity: db_pro_core::domain::explain_plan::PlanFindingSeverity::Warning,
+            }],
+        );
+
+        let adapted = PlanNode::from_query_plan(&canonical);
+
+        assert_eq!(
+            adapted.children.len() + 1,
+            db_pro_core::domain::explain_plan::MAX_EXPLAIN_PLAN_NODES
+        );
+        assert_eq!(
+            adapted
+                .findings
+                .iter()
+                .filter(|finding| finding.as_str() == db_pro_core::domain::explain_plan::PLAN_TRUNCATION_MESSAGE)
+                .count(),
+            1
+        );
     }
 
     #[test]
