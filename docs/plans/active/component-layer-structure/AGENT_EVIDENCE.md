@@ -337,3 +337,59 @@ Source date: 2026-09-16. Exact commit HEAD: `81238b4df2b173e6faa15180eddecddbbc3
 
 ### 6. Tổng kết bằng tiếng Việt
 Đã sửa lỗi P1 semantics của Card: thêm `MetricTrendDirection` và `MetricTrendTone`, bổ sung `.trend(...)`, giữ `.change(...)` với mapping legacy được ghi rõ. Icon và màu được xử lý độc lập; `Unspecified` không hiển thị icon; trend row có `WidgetInfo`; gallery đã dùng `Down + Positive` cho slow-query rate và `Unspecified + Warning` cho staged mutations. Các lệnh fmt, test Card (3 passed), check và diff check đều đạt; không thực hiện UI review hoặc commit. Tiếp theo là Card.
+
+# Agent evidence — component-layer migration commit
+
+## 1. Claim
+| Field | Value |
+|---|---|
+| Agent identity | Pi lead · implementation, test, and self-review lane |
+| Issue(s) | Continue component-layer-structure plan; migrate Chrome and commit the accumulated component migration batch. |
+| Task state | Review (committed implementation; overall plan remains IMPLEMENTING) |
+| Baseline SHA | `81238b4df2b173e6faa15180eddecddbbc36bdf2` |
+| Branch / PR | `feature/component-layer-structure` / no PR |
+| Scope interpretation | Commit the accumulated component-layer migration, preserve public exports, finish Chrome layering, fix review/test/compiler findings, and record evidence. |
+| Out of scope | Marking the full plan complete; native runtime screenshots/accessibility verification; PostgreSQL/SQLite changes. |
+
+## 2. Progress checkpoint
+- Current implementation SHA: `e902818d2166b3ee1a4b002c055c1e95f1496382`.
+- Completed: component folders/layers and usage READMEs for migrated families; Chrome UI/handler/config split; accessible Avatar label fallback; invalid Skeleton geometry normalization; transaction config warnings removed; input chrome state typed and shared; workspace layout tests corrected to `SPACE_MD` token semantics.
+- Remaining: component inventory rows still unchecked in `CHECKLIST.md`; `cargo check --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace` not run; native runtime screenshots/accessibility evidence not collected.
+- Findings / risks: P0=0 and P1=0 from source reviews performed for Chrome and the final cleanup. P2 remains for required runtime/UI interaction evidence; shimmer idle-performance evidence is also pending.
+- Tests run on implementation tree: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui` PASS (839 passed, 0 failed, 0 ignored; 0 doc-tests); `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS (0 warnings); `cargo check -p db-pro-ui` PASS (0 warnings); `cargo build --release --locked -p db-pro-native` PASS; `git diff --cached --check && git diff --check` PASS.
+- Dependency / blocker changes: none.
+
+## 3. Implementation handoff / review request
+| Field | Value |
+|---|---|
+| Exact SHA | `e902818d2166b3ee1a4b002c055c1e95f1496382` |
+| Commit list | `e902818d refactor(ui): organize component layers` |
+| File / surface inventory | 192 files: component folder migrations and READMEs, component exports/callers, UI component gallery/surfaces, component-layer plan/evidence, clean-code comment guidance, and coding checklist. |
+| Acceptance mapping | Chrome five-file structure/API → `crates/ui/src/components/chrome/`; public exports → `components/mod.rs`; handler boundaries/tests → component handlers; plan progress → `CHECKLIST.md` and `VERIFICATION.md`. |
+| Commands and counts | UI suite: 839 passed / 0 failed; targeted Chrome: 8 passed / 0 failed; UI clippy/check/fmt/native release build and diff checks all passed. |
+| CI run IDs / status | not run |
+| Known limitations | Runtime screenshot/accessibility evidence at required viewport sizes was not collected; plan remains `IMPLEMENTING`. |
+| Migrations / config implications | UI-only; no provider/database or persisted-state changes. |
+| Out-of-scope changes | none identified in the committed component-layer batch. |
+
+## 4. Review outcome
+| Field | Value |
+|---|---|
+| Reviewed SHA | `e902818d2166b3ee1a4b002c055c1e95f1496382` (source code commit; evidence doc follows in a documentation-only commit) |
+| Verdict | ACCEPT WITH P2 |
+| P0 / P1 / P2 counts | 0 / 0 / P2 runtime evidence pending |
+| Findings | Chrome source review found no actionable P1/P2 after fixes; native runtime/interaction/performance evidence remains unknown. Final cleanup review found no blocker; visibility/test expectation suggestions were addressed. |
+| CI disposition | Local package checks passed; workspace-wide gates and CI were not run. |
+| Next task(s) unblocked | Continue remaining public component inventory; collect runtime UI evidence before plan completion. |
+
+## 5. Research / audit handoff
+- Source date: 2026-09-16.
+- Source references: `docs/plans/active/component-layer-structure/{PLAN.md,CHECKLIST.md,VERIFICATION.md}`, `crates/ui/src/components/chrome/`, `crates/ui/src/components/input/layout.rs`, `crates/ui/src/components/transaction/`, and `crates/ui/src/components/workspace/config.rs`.
+- Factual findings at implementation SHA `e902818d2166b3ee1a4b002c055c1e95f1496382`: UI crate tests, clippy, check, formatting and native release build passed; no warnings remained in `db-pro-ui`; runtime screenshots were not captured.
+- Inference: folder/module layering preserves the `components::chrome` and root component re-export paths; source review and compilation support this, but visual/runtime behavior still requires native verification.
+- Decision / recommendation: retain plan state `IMPLEMENTING`; do not move it to completed until remaining inventory and runtime gates are satisfied.
+- Unresolved questions: keyboard/accessibility behavior and visual fidelity at 1280×800, 1440×900, and 1920×1080; shimmer idle CPU impact.
+- Downstream tasks activated: next unchecked component migration from `CHECKLIST.md`; runtime UI verification.
+
+## 6. Tổng kết bằng tiếng Việt
+Đã commit batch refactor component-layer tại `e902818d` (192 files), hoàn tất Chrome theo cấu trúc `mod/ui/handler/config/README`, sửa các vấn đề review và clippy, đồng thời giữ plan ở trạng thái `IMPLEMENTING`. UI tests 839/839, clippy, check, fmt, native release build đều đạt. Chưa chạy workspace-wide gates và chưa có screenshot/accessibility runtime; tiếp tục component còn thiếu và thu thập bằng chứng UI trước khi hoàn tất plan.
