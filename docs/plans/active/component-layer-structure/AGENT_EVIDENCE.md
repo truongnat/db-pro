@@ -505,3 +505,59 @@ Source date: 2026-09-16. Exact commit HEAD: `81238b4df2b173e6faa15180eddecddbbc3
 
 ## 6. Tổng kết bằng tiếng Việt
 Đã migrate Database và commit tại `5ff99485`, giữ API/re-export, thay màu placeholder bằng token theme, thêm semantics accessibility, xử lý tràn text, chặn Connect lặp khi Connecting và đổi nhãn Error thành Retry nhưng vẫn trả action Connect cũ. UI suite 848/848, clippy/check/fmt/native release đều đạt. UI review còn P2 ở chiều rộng cực hẹp; chưa có runtime screenshot/accessibility, nên plan tiếp tục `IMPLEMENTING`.
+
+# Agent evidence — Dialog component-layer migration
+
+## 1. Claim
+| Field | Value |
+|---|---|
+| Agent identity | Senior Software Engineering Agent · implementation lane |
+| Issue(s) | Active plan `component-layer-structure`, Dialog acceptance rows |
+| Task state | Done (Dialog batch only) |
+| Baseline SHA | `1b8dd2b78fec9d0d58610da13f3e30ca0b5d03c1` |
+| Branch / PR | `feature/component-layer-structure` / PR not opened |
+| Scope interpretation | Separate Dialog/Sheet presentation from typed dismissal decisions, preserve established exports/behavior, and fix source-review findings. |
+| Out of scope | Remaining component migrations, native runtime screenshot capture, database/provider behavior. |
+
+## 2. Progress checkpoint
+- Current implementation SHA: `25b832c3bcfe04f0e92391697b18c5f325d38d59`.
+- Completed acceptance rows: Dialog `ui.rs`/`handler.rs`/`README.md`; preserved Dialog/Sheet public paths; shared Sheet modal registration, topmost Escape, focus trap, and layer ordering; added dismissal, focus, and API compatibility tests.
+- Remaining acceptance rows: other unchecked components in `CHECKLIST.md`; runtime screenshots/accessibility evidence at 1280×800, 1440×900, and 1920×1080.
+- Findings / risks at SHA `25b832c3bcfe04f0e92391697b18c5f325d38d59`: P2 automated coverage does not drive Sheet backdrop pointer events or a complete Tab traversal (`components/dialog/sheet.rs`, `tests.rs`); P0/P1 none.
+- Tests already run: `cargo test -p db-pro-ui components::dialog::` — 11 passed, 0 failed, exit 0; `cargo test -p db-pro-ui --quiet` — 854 passed, 0 failed, exit 0; formatting/check/clippy/native release/diff checks all exit 0 (details below).
+- Dependency / blocker changes: no external blocker; native runtime evidence is not collected in this environment.
+
+## 3. Implementation handoff / review request
+| Field | Value |
+|---|---|
+| Exact SHA | `25b832c3bcfe04f0e92391697b18c5f325d38d59` |
+| Commit list | `25b832c3 refactor(ui): migrate dialog components` |
+| File / surface inventory | `dialog/modal.rs`→`dialog/ui.rs` (95% rename; existing Dialog render API); `dialog/handler.rs` (typed dismissal decision and tests); `dialog/sheet.rs` (shared stack/focus and separate layers); `dialog/modal_guard.rs` (focus tests); `dialog/config.rs` (semantic constant comments); `dialog/mod.rs` (preserved re-exports and modal compatibility path); `dialog/tests.rs` (public-path compile test); `dialog/README.md` (API/behavior contract); plan `CHECKLIST.md` and `VERIFICATION.md`. |
+| Acceptance mapping | Preserve API → root and `dialog::modal::*` exports plus compile test; preserve modal rules → handler tests; correct Sheet stack/focus → shared `modal_guard` use and focus tests; document intended non-dismissable Sheet backdrop → README/source comment; architecture → Dialog painter in `ui.rs`, shared decision handler in `handler.rs`. |
+| Commands and counts | `cargo fmt --all -- --check` PASS/exit 0; `cargo test -p db-pro-ui components::dialog::` 11 passed/0 failed/exit 0; `cargo test -p db-pro-ui --quiet` 854 passed/0 failed/exit 0; `cargo check -p db-pro-ui` PASS/exit 0; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS/exit 0; `cargo build --release --locked -p db-pro-native` PASS/exit 0; `git diff --check` PASS/exit 0. |
+| CI run IDs / status | not run |
+| Known limitations | P2: Sheet backdrop pointer behavior and full keyboard Tab cycle lack widget-level tests; native runtime screenshots/accessibility evidence absent. |
+| Migrations / config implications | UI-only; no persisted-state, provider, database, environment, or key changes. |
+| Out-of-scope changes | No behavior change to Sheet backdrop dismissal (it remains disabled); no database/backend behavior changed. |
+
+## 4. Review outcome
+| Field | Value |
+|---|---|
+| Reviewed SHA | `25b832c3bcfe04f0e92391697b18c5f325d38d59` |
+| Verdict | ACCEPT WITH P2 |
+| P0 / P1 / P2 counts | Introduced: 0 / 0 / 1; inherited: 0 / 0 / 0 |
+| Findings | P2: no widget-level Sheet backdrop-pointer or full Tab-cycle test; required runtime visuals/accessibility remain unverified. No P0/P1. |
+| CI disposition | Local focused/full UI tests, check, clippy, fmt, native release build, and diff check passed; CI not run. Runtime screenshots not collected. |
+| Next task(s) unblocked | Continue next unchecked component migration; runtime verification remains a plan-level gate. |
+
+## 5. Research / audit handoff
+- Source date: 2026-09-16.
+- Source references: `crates/ui/src/components/dialog/{mod.rs,ui.rs,handler.rs,sheet.rs,modal_guard.rs,tests.rs,config.rs,README.md}` and `docs/plans/active/component-layer-structure/{CHECKLIST.md,VERIFICATION.md}` at SHA `25b832c3bcfe04f0e92391697b18c5f325d38d59`.
+- Factual findings at that SHA: Dialog and Sheet both register with shared modal guard; Escape is restricted to topmost; Sheet has a layer-scoped focus anchor and ordered dim/panel layers; public root and `modal::*` paths compile; full UI suite has 854 passing tests; reviewer found no P0/P1.
+- Inference: shared registration and layer ordering make stacked Sheet/Dialog keyboard ownership consistent; source/runtime testing remains needed for complete focus traversal and pointer interactions.
+- Decision / recommendation: keep the plan `IMPLEMENTING`; retain P2 and runtime-evidence limitations rather than marking the plan complete.
+- Unresolved questions: widget-level Sheet backdrop test/full Tab cycle; runtime screenshots/accessibility evidence across required sizes and states.
+- Downstream tasks activated: next component migration and native runtime verification.
+
+## 6. Tổng kết (Vietnamese summary)
+Đã chuyển Dialog sang `ui.rs`, tách quyết định đóng modal vào handler có kiểu, giữ các API cũ và đưa Sheet vào chung modal stack/focus/layer ordering. Commit `25b832c3`; UI suite 854/854, fmt/check/clippy/native release đều đạt. Review ACCEPT WITH P2: còn thiếu test tương tác backdrop và Tab đầy đủ; runtime screenshot/accessibility chưa có. Tiếp tục component kế tiếp, chưa đóng plan.
