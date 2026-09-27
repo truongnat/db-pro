@@ -189,6 +189,12 @@ fn json_f64(value: Option<&Value>) -> Option<f64> {
 
 /// Deterministic heuristics: seq scans, misestimates, cost/time hotspots, sorts/hashes.
 pub fn apply_heuristics(plan: &mut QueryPlan) {
+    let previously_truncated = plan.findings.iter().any(|finding| finding.code == "plan.truncated")
+        || plan
+            .root
+            .findings
+            .iter()
+            .any(|finding| finding.code == "plan.truncated");
     let root_cost = nonnegative_finite(plan.root.total_cost);
     let root_time = nonnegative_finite(plan.root.actual_total_ms);
     let mut truncated = false;
@@ -202,7 +208,7 @@ pub fn apply_heuristics(plan: &mut QueryPlan) {
         &mut nodes_seen,
         &mut truncated,
     );
-    if truncated {
+    if truncated || previously_truncated {
         plan.root.findings.push(plan_truncation_finding());
     }
     plan.findings = collect_findings(&plan.root);
@@ -416,7 +422,7 @@ mod tests {
         }
         let plan_json = json!([{"Plan": nested}]);
 
-        let plan = parse_postgres_explain_json(&plan_json).expect("parse");
+        let mut plan = parse_postgres_explain_json(&plan_json).expect("parse");
         let mut depth = 1;
         let mut node = &plan.root;
         while let Some(child) = node.children.first() {
@@ -431,6 +437,23 @@ mod tests {
             .findings
             .iter()
             .any(|finding| finding.code == "plan.truncated"));
+
+        apply_heuristics(&mut plan);
+        assert_eq!(
+            plan.findings
+                .iter()
+                .filter(|finding| finding.code == "plan.truncated")
+                .count(),
+            1
+        );
+        assert_eq!(
+            plan.root
+                .findings
+                .iter()
+                .filter(|finding| finding.code == "plan.truncated")
+                .count(),
+            1
+        );
     }
 
     #[test]
