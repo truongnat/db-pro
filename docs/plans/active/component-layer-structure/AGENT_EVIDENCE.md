@@ -561,3 +561,59 @@ Source date: 2026-09-16. Exact commit HEAD: `81238b4df2b173e6faa15180eddecddbbc3
 
 ## 6. Tổng kết (Vietnamese summary)
 Đã chuyển Dialog sang `ui.rs`, tách quyết định đóng modal vào handler có kiểu, giữ các API cũ và đưa Sheet vào chung modal stack/focus/layer ordering. Commit `25b832c3`; UI suite 854/854, fmt/check/clippy/native release đều đạt. Review ACCEPT WITH P2: còn thiếu test tương tác backdrop và Tab đầy đủ; runtime screenshot/accessibility chưa có. Tiếp tục component kế tiếp, chưa đóng plan.
+
+# Agent evidence — Diff component-layer refinement
+
+## 1. Claim
+| Field | Value |
+|---|---|
+| Agent identity | Senior Software Engineering Agent · implementation lane |
+| Issue(s) | Active plan `component-layer-structure`, Diff acceptance rows |
+| Task state | Done (Diff batch only) |
+| Baseline SHA | `2fd5702d556854fe68ad59e7b517c369e4e4260b` |
+| Branch / PR | `feature/component-layer-structure` / PR not opened |
+| Scope interpretation | Complete the Diff migration contract with a minimal handler/UI separation, documented local layout constants, accessibility/empty-state fixes, and source review. |
+| Out of scope | Remaining component migrations, UI redesign, native runtime screenshot capture, database/provider changes. |
+
+## 2. Progress checkpoint
+- Current implementation SHA: `23c3aac9913fabf618b5140715bc07ba6cb71278`.
+- Completed acceptance rows: Diff public entry/API preserved; measured width and stats offset calculations are pure handler helpers; egui measurement/painting remains in `ui.rs`; local offsets are documented; empty state/title semantics are exposed; tests cover narrow header geometry and >4-digit gutters.
+- Remaining acceptance rows: next unchecked component is Explain; required runtime screenshots/accessibility evidence remain pending.
+- Findings / risks at SHA `23c3aac9913fabf618b5140715bc07ba6cb71278`: P2 stats text can still truncate when its full galley is wider than the header (`components/diff/ui.rs`, `handler.rs`); P0/P1 none.
+- Tests already run: `cargo test -p db-pro-ui components::diff::` — 9 passed, 0 failed, exit 0; `cargo test -p db-pro-ui` — 856 passed, 0 failed, exit 0; fmt/check/clippy/native release/diff checks exit 0.
+- Dependency / blocker changes: none; runtime evidence not collected.
+
+## 3. Implementation handoff / review request
+| Field | Value |
+|---|---|
+| Exact SHA | `23c3aac9913fabf618b5140715bc07ba6cb71278` |
+| Commit list | `166f0cd1 refactor(ui): finish diff component layering`; `23c3aac9 fix(ui): clamp diff stats in narrow headers` |
+| File / surface inventory | `diff/config.rs`: semantic comments and header/row spacing constants; `diff/handler.rs`: pure content-width/stats-offset geometry and tests; `diff/ui.rs`: theme-aware content galley, empty state, viewer label, handler-driven width/position; `diff/README.md`: behavior/API constraints; component plan `CHECKLIST.md`/`VERIFICATION.md`. |
+| Acceptance mapping | Public API compatibility → unchanged `mod.rs` and existing constructor/render tests; pure geometry → handler helpers/tests; design tokens → semantic `DbProTheme`/shared stroke; empty/accessibility behavior → egui label/widget-info plus render test; comment/constants → documented config and gutter invariant comment. |
+| Commands and counts | `cargo fmt --all -- --check` PASS/exit 0; `cargo test -p db-pro-ui components::diff::` 9 passed/0 failed/exit 0; `cargo test -p db-pro-ui` 856 passed/0 failed/exit 0; `cargo check -p db-pro-ui` PASS/exit 0; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS/exit 0; `cargo build --release --locked -p db-pro-native` PASS/exit 0; `git diff --check` PASS/exit 0; clean-code scan PASS (11 pass, 5 warning, 0 fail). |
+| CI run IDs / status | not run |
+| Known limitations | P2: full summary cannot fit in an arbitrarily narrow header; origin is clamped so leading text stays in the clip area. Native screenshots/accessibility evidence absent. |
+| Migrations / config implications | UI-only; no persisted state, DB, provider, environment, or key changes. |
+| Out-of-scope changes | No public API/behavior redesign; no database/provider behavior touched. |
+
+## 4. Review outcome
+| Field | Value |
+|---|---|
+| Reviewed SHA | `23c3aac9913fabf618b5140715bc07ba6cb71278` |
+| Verdict | ACCEPT WITH P2 |
+| P0 / P1 / P2 counts | Introduced: 0 / 0 / 1; inherited: 0 / 0 / 0 |
+| Findings | P2: trailing stats glyphs may clip if the complete summary is wider than the available header; no P0/P1. |
+| CI disposition | Local focused/full UI suite, fmt, check, clippy, native release build, and diff check passed; CI not run. Runtime screenshots absent. |
+| Next task(s) unblocked | Explain component migration. |
+
+## 5. Research / audit handoff
+- Source date: 2026-09-16.
+- Source references: `crates/ui/src/components/diff/{mod.rs,ui.rs,handler.rs,config.rs,README.md}`, component callers/tests, and active plan files at SHA `23c3aac9913fabf618b5140715bc07ba6cb71278`.
+- Factual findings at that SHA: Diff exports remain stable; line gutter expands beyond four digits; empty input renders an accessible label; viewer response exposes title; all 856 UI tests pass; final source review found one narrow-width P2 and no P0/P1.
+- Inference: clamping the summary origin preserves its leading glyphs at narrow widths, but cannot make a longer summary fit a physically smaller header.
+- Decision / recommendation: keep the P2 documented, do not redesign the expert diff surface without runtime evidence; proceed to Explain.
+- Unresolved questions: desired narrow-header summary policy; runtime UI/accessibility evidence across required sizes and states.
+- Downstream tasks activated: Explain component migration.
+
+## 6. Tổng kết (Vietnamese summary)
+Đã hoàn thiện Diff theo layer plan; giữ API, chuyển phép tính chiều rộng/gutter sang handler, thêm empty state/accessibility label, sửa màu nội dung theo theme và clamp vị trí stats. Hai commit `166f0cd1` và `23c3aac9`; UI suite 856/856, focused Diff 9/9, fmt/check/clippy/native build đạt. Review ACCEPT WITH P2 do stats vẫn có thể bị cắt khi header hẹp hơn nội dung. Tiếp tục Explain; runtime evidence vẫn thiếu.

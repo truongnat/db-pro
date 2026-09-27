@@ -191,11 +191,11 @@ No database providers are affected.
 - No database/provider impact. Source runtime evidence remains outstanding.
 
 ## Diff batch
-- Source baseline SHA: `2fd5702d556854fe68ad59e7b517c369e4e4260b`; initial implementation commit `166f0cd1e110d14f406bfc69bd8a9911592b79cd`; narrow-header follow-up is in the dirty worktree pending commit.
+- Source baseline SHA: `2fd5702d556854fe68ad59e7b517c369e4e4260b`; implementation commits: `166f0cd1e110d14f406bfc69bd8a9911592b79cd` (`refactor(ui): finish diff component layering`) and `23c3aac9913fabf618b5140715bc07ba6cb71278` (`fix(ui): clamp diff stats in narrow headers`).
 - Preserved `DiffViewer`, `DiffLine` constructors/types, root/component re-exports, semantic marker colors, horizontal scroll behavior, and dynamic line-number gutter.
 - Moved measured-width aggregation into the pure handler calculation; documented local header/row offsets; kept egui measurements and painting in `ui.rs`.
 - Fixed product-review findings: content uses the per-line theme visual color; empty input displays a centered accessible “No changes to display.” message; the viewer response exposes its title label.
-- UI Product Review v3 follow-up: ACCEPT WITH P2; introduced P0=0/P1=0/P2=1, inherited P0=0/P1=0/P2=0. The stats origin is clamped into the header and tested, but trailing glyphs can still clip when the stats galley itself exceeds the available width; runtime screenshots/accessibility evidence were not collected.
+- UI Product Review v3 follow-up at SHA `23c3aac9913fabf618b5140715bc07ba6cb71278`: ACCEPT WITH P2; introduced P0=0/P1=0/P2=1, inherited P0=0/P1=0/P2=0. The stats origin is clamped into the header and tested, but trailing glyphs can still clip when the stats galley itself exceeds the available width; runtime screenshots/accessibility evidence were not collected.
 - Targeted verification: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::diff::` PASS (9 passed, 0 failed); `cargo check -p db-pro-ui` PASS; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS; `git diff --check` PASS.
 - Final UI suite/native build: `cargo test -p db-pro-ui` PASS (856 passed, 0 failed, 0 ignored; 0 doc-tests); `cargo fmt --all -- --check`, `cargo check -p db-pro-ui`, `cargo clippy -p db-pro-ui --all-targets -- -D warnings`, `cargo build --release --locked -p db-pro-native`, and `git diff --check` PASS.
 - Clean-code scan `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (11 pass, 5 warning, 0 fail); warnings are pre-existing branch baseline debt, including the unchanged bounded `u32`→`usize` digit-count cast.
