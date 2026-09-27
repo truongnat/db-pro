@@ -51,10 +51,22 @@ pub struct QueryPlan {
 }
 
 impl QueryPlan {
-    /// Total time preference: execution time → root actual → root cost proxy.
+    /// Total time preference: execution time → root actual across loops → root cost proxy.
     pub fn display_total_ms(&self) -> f64 {
+        let loops = self
+            .root
+            .actual_loops
+            .filter(|count| count.is_finite() && *count > 0.0 && count.fract() == 0.0 && *count < usize::MAX as f64)
+            .unwrap_or(1.0);
+
         self.execution_time_ms
-            .or(self.root.actual_total_ms)
+            .filter(|time| time.is_finite())
+            .or_else(|| {
+                self.root
+                    .actual_total_ms
+                    .filter(|time| time.is_finite())
+                    .map(|time_per_loop| (time_per_loop.max(0.0) * loops).min(f64::MAX))
+            })
             .or(self.root.total_cost)
             .unwrap_or(0.0)
     }
@@ -290,6 +302,35 @@ mod tests {
             .children
             .iter()
             .any(|c| c.node_type == "Seq Scan" && !c.findings.is_empty()));
+    }
+
+    #[test]
+    fn display_total_time_aggregates_root_per_loop_time_when_execution_total_is_missing() {
+        let value = json!([{
+            "Plan": {
+                "Node Type": "Nested Loop",
+                "Actual Total Time": 2.5,
+                "Actual Loops": 4.0,
+                "Total Cost": 20.0
+            }
+        }]);
+        let plan = parse_postgres_explain_json(&value).expect("parse");
+
+        assert_eq!(plan.display_total_ms(), 10.0);
+    }
+
+    #[test]
+    fn display_total_time_ignores_invalid_loop_counts() {
+        let value = json!([{
+            "Plan": {
+                "Node Type": "Nested Loop",
+                "Actual Total Time": 2.5,
+                "Actual Loops": 0.0
+            }
+        }]);
+        let plan = parse_postgres_explain_json(&value).expect("parse");
+
+        assert_eq!(plan.display_total_ms(), 2.5);
     }
 
     #[test]
