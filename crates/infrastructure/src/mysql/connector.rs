@@ -491,7 +491,10 @@ mod tests {
     async fn execute_batch_reports_error_on_unknown_handle() {
         let connector = MySqlConnector::new();
         let handle = ConnectionHandle::new(999);
-        let statements = vec!["INSERT INTO foo VALUES (1)".to_string(), "INSERT INTO foo VALUES (2)".to_string()];
+        let statements = vec![
+            "INSERT INTO foo VALUES (1)".to_string(),
+            "INSERT INTO foo VALUES (2)".to_string(),
+        ];
 
         let error = connector
             .execute_batch(&handle, &statements)
