@@ -168,3 +168,13 @@ No database providers are affected.
 - Targeted verification: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::command::` PASS (5 passed, 0 failed, 839 filtered); `cargo check -p db-pro-ui` PASS; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS; `git diff --check` PASS.
 - Final full UI suite/native build: `cargo test -p db-pro-ui` PASS (844 passed, 0 failed, 0 ignored; 0 doc-tests); `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS (0 warnings); `cargo check -p db-pro-ui` PASS; `cargo build --release --locked -p db-pro-native` PASS; formatting and diff checks PASS.
 - Native runtime screenshots/accessibility-tree evidence have not been collected; this batch remains within the active plan.
+
+## Database batch
+- Source baseline SHA: `7cd4c6ca8f7ed47e392e14d2fbd7eecfa0b41782`; implementation is in the dirty worktree pending commit.
+- Migrated `database.rs` to `database/{mod.rs,ui.rs,handler.rs,config.rs,README.md}`; preserved public driver/status/action/card/badge types and re-exports, including the legacy `Delete` variant even though no button emits it.
+- Extracted provider names/icons, status text/colors, action-state mapping, and content-width budgeting into tested handlers; reused semantic `DbProTheme`/shared tokens and documented local geometry constants.
+- Fixed review findings: SSL label color now uses theme text token; provider badge exposes label metadata; long connection identity/host fields truncate with tooltips; Connecting shows disabled pending action; Error action reads Retry while returning legacy Connect action.
+- UI Product Review v3 follow-up: ACCEPT WITH P2; P0=0/P1=0. Remaining P2: extremely narrow cards can be narrower than fixed status/SSL affordances. No runtime screenshots/accessibility tree captured.
+- Targeted checks: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::database::` PASS (4 passed); `cargo check -p db-pro-ui` PASS; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS; `git diff --check` PASS.
+- Final full UI suite/native build: `cargo test -p db-pro-ui` PASS (848 passed, 0 failed, 0 ignored; 0 doc-tests); `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS (0 warnings); `cargo check -p db-pro-ui` PASS; `cargo build --release --locked -p db-pro-native` PASS; formatting and diff checks PASS.
+- No provider/database backend behavior changed. This batch's implementation SHA will be added to the evidence handoff after commit.

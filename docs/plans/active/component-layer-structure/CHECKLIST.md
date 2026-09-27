@@ -26,7 +26,7 @@
 - [x] Calendar UI Product Review v3 completed; P1 disabled-popup issue fixed. Native keyboard, popup placement and interaction lifecycle evidence remain pending.
 - [x] Button: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
 - [x] AspectRatio: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
-- [x] Card, Chrome, Code, Command, DevTools; [ ] Database, Dialog.
+- [x] Card, Chrome, Code, Command, Database, DevTools; [ ] Dialog.
 - [x] Collapsible: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
 - [ ] Diff, Explain, Feedback, Form, HoverCard, Input, Logs, Navigation.
 - [ ] Overlay, RadioGroup, ResponsiveLayout, ScrollArea, Selection, SqlEditor.
@@ -95,6 +95,14 @@
 - [x] Add handler tests.
 - [x] Add/verify Select README usage example.
 - [x] Add explanatory English comments for non-obvious Select UI flow and geometry helpers.
+
+## Database verification
+- [x] Preserve driver/status/action public types, connection-card builders, badge API, and re-exports.
+- [x] Separate status/action/name/icon decisions and test all mappings; keep egui presentation in `ui.rs` and documented local geometry in `config.rs`.
+- [x] Replace placeholder SSL text color with semantic theme color and expose provider/SSL accessible labels.
+- [x] Prevent repeat Connect while Connecting, label Error recovery as Retry (still emits legacy Connect action), and truncate long identity/host labels with hover text.
+- [x] Complete source-only UI Product Review v3; record the remaining extreme narrow-width P2 and runtime evidence limitation.
+- [x] Run focused tests, UI crate check/clippy/fmt, and diff checks; full crate/native gates recorded in `VERIFICATION.md`.
 
 ## Command verification
 - [x] Preserve `CommandInput`, `CommandItem`, `CommandGroup`, and `CommandEmpty` APIs/re-exports and their existing response/disabled semantics.
