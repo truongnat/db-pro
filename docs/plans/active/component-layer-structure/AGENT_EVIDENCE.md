@@ -449,3 +449,59 @@ Source date: 2026-09-16. Exact commit HEAD: `81238b4df2b173e6faa15180eddecddbbc3
 
 ## 6. Tổng kết bằng tiếng Việt
 Đã migrate Command và commit tại `d733360a`, giữ API/re-export cùng contract disabled/selected/response; bổ sung accessible metadata, clipping trước vùng shortcut, handler tests và README. UI suite 844/844, clippy, check, fmt và native release build đều đạt. UI review không còn P1/P2 actionable; runtime screenshots/accessibility vẫn thiếu, plan tiếp tục `IMPLEMENTING`.
+
+# Agent evidence — Database component migration
+
+## 1. Claim
+| Field | Value |
+|---|---|
+| Agent identity | Pi lead · implementation, verification, and UI product review lane |
+| Issue(s) | Continue the next unchecked component in component-layer-structure: Database. |
+| Task state | Review (component committed; overall feature plan remains IMPLEMENTING) |
+| Baseline SHA | `7cd4c6ca8f7ed47e392e14d2fbd7eecfa0b41782` |
+| Branch / PR | `feature/component-layer-structure` / no PR |
+| Scope interpretation | Migrate connection card and provider badge, preserve public API, and fix actionable UI-review risks without introducing database/runtime mutation behavior. |
+| Out of scope | Runtime command/service integration; removing legacy `Delete` API variant; provider/database behavior; completing remaining inventory or collecting screenshots. |
+
+## 2. Progress checkpoint
+- Current implementation SHA: `5ff99485b3205dc58369714e2c76ea31c9e51bb5`.
+- Completed: `database/{mod.rs,ui.rs,handler.rs,config.rs,README.md}`; existing re-exports retained; status/provider/action mappings tested; SSL uses semantic theme color; provider/SSL accessibility metadata added; long identity/host labels truncate with hover text; Connecting action is disabled and Error presents Retry while emitting existing Connect action.
+- Remaining: extremely narrow cards may not fit fixed status/SSL affordances; native runtime screenshots/accessibility tree and broader workspace gates remain pending.
+- Findings / risks: P0=0/P1=0; source-only UI review verdict ACCEPT WITH P2 for extreme narrow-width budgeting. No runtime visuals were collected.
+- Tests: focused Database handler tests 4 passed; full `cargo test -p db-pro-ui` 848 passed / 0 failed / 0 ignored; doc-tests 0; fmt, UI crate check, UI crate clippy `-D warnings`, locked native release build, and diff checks all passed without warnings.
+- Dependency / blocker changes: none.
+
+## 3. Implementation handoff / review request
+| Field | Value |
+|---|---|
+| Exact SHA | `5ff99485b3205dc58369714e2c76ea31c9e51bb5` |
+| Commit list | `5ff99485 refactor(ui): migrate database components` |
+| File / surface inventory | `components/database.rs` moved to `components/database/{ui.rs,handler.rs,config.rs,mod.rs,README.md}`; plan checklist/verification updated. |
+| Acceptance mapping | Public driver/status/action/card/badge API → module re-exports; pure names/icons/status/action/width decisions → handler tests; theme/layout/tooltip behavior → `ui.rs`; local dimensions/comments → `config.rs`; caller ownership and legacy Delete contract → README. |
+| Commands and counts | Database focused tests 4 passed; UI suite 848 passed; fmt/check/clippy/native release build/diff checks all PASS. |
+| CI run IDs / status | not run |
+| Known limitations | Runtime screenshot and accessibility-tree evidence absent; extreme narrow-width P2 remains documented. |
+| Migrations / config implications | UI-only; no persisted-state, provider, or database mutations. |
+| Out-of-scope changes | none |
+
+## 4. Review outcome
+| Field | Value |
+|---|---|
+| Reviewed SHA | `5ff99485b3205dc58369714e2c76ea31c9e51bb5` (review inspected matching dirty worktree based on parent `7cd4c6ca`; no later code edits) |
+| Verdict | ACCEPT WITH P2 |
+| P0 / P1 / P2 counts | 0 / 0 / 1 |
+| Findings | P2: extremely narrow available width can be less than the fixed status/SSL region; runtime visuals at required viewports remain unverified. Initial long-text overflow and duplicate-connect findings were fixed. |
+| CI disposition | Local UI suite/check/clippy/native release build passed; workspace-wide gates and CI not run. |
+| Next task(s) unblocked | Continue next unchecked component from `CHECKLIST.md`; evaluate remaining P2 and runtime evidence. |
+
+## 5. Research / audit handoff
+- Source date: 2026-09-16.
+- Source references: `components/database/{ui.rs,handler.rs,config.rs,README.md}`, gallery caller, component plan checklist/verification.
+- Factual findings at SHA `5ff99485b3205dc58369714e2c76ea31c9e51bb5`: provider/status/action helpers have focused coverage; full UI suite 848 tests passes; UI check/clippy and native release build pass; source UI review found no P0/P1; screenshots were not captured.
+- Inference: reserving measured status and SSL widths should prevent long labels from displacing normal affordances; rendering at runtime is still needed to verify visual balance.
+- Decision / recommendation: retain plan state `IMPLEMENTING`; preserve `Delete` public variant until an explicit API deprecation/breaking change is approved.
+- Unresolved questions: minimum supported card width; whether connecting lifecycle is guaranteed to refresh status promptly; required viewport screenshot/accessibility evidence.
+- Downstream tasks activated: next component migration and native runtime verification.
+
+## 6. Tổng kết bằng tiếng Việt
+Đã migrate Database và commit tại `5ff99485`, giữ API/re-export, thay màu placeholder bằng token theme, thêm semantics accessibility, xử lý tràn text, chặn Connect lặp khi Connecting và đổi nhãn Error thành Retry nhưng vẫn trả action Connect cũ. UI suite 848/848, clippy/check/fmt/native release đều đạt. UI review còn P2 ở chiều rộng cực hẹp; chưa có runtime screenshot/accessibility, nên plan tiếp tục `IMPLEMENTING`.
