@@ -158,3 +158,13 @@ No database providers are affected.
 - Clippy-discovered issues were fixed rather than suppressed: elided an unnecessary lifetime, grouped input chrome booleans into a typed internal state, and removed a test that only asserted a compile-time constant.
 - Workspace layout regression expectations were corrected to the canonical `SPACE_MD` token (12 egui points), matching the pre-migration implementation: activity rows start at top + 12 and status items advance by item width + 12.
 - No provider/database impact. This batch's implementation commit SHA is recorded in the evidence handoff after commit.
+
+## Command batch
+- Source baseline SHA: `747e7f7b2e6a3a9f1818e8dc03e1056f6586aeee`; implementation is in the dirty worktree pending commit.
+- Migrated `command.rs` to `command/{mod.rs,ui.rs,handler.rs,config.rs,README.md}` and preserved the public types, fields, builders, defaults, `components::command` module path, and root re-exports.
+- Preserved disabled hover-only/no-click behavior, caller-owned selection/dispatch, `CommandInput` response union, and the currently inert `CommandItem::id` metadata contract.
+- Added tested handler decisions/geometry, accessible button metadata for title/subtitle/shortcut, clipping before the shortcut slot, and non-active styling for disabled selected rows. Constants are documented with semantic purpose/units; README documents the interaction boundary.
+- UI Product Review v3 source-only verdict after fixes: ACCEPT; no actionable P1/P2 remains. Runtime screenshots/accessibility-tree evidence remains pending.
+- Targeted verification: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::command::` PASS (5 passed, 0 failed, 839 filtered); `cargo check -p db-pro-ui` PASS; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS; `git diff --check` PASS.
+- Final full UI suite/native build: `cargo test -p db-pro-ui` PASS (844 passed, 0 failed, 0 ignored; 0 doc-tests); `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS (0 warnings); `cargo check -p db-pro-ui` PASS; `cargo build --release --locked -p db-pro-native` PASS; formatting and diff checks PASS.
+- Native runtime screenshots/accessibility-tree evidence have not been collected; this batch remains within the active plan.

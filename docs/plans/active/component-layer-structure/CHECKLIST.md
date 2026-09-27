@@ -26,7 +26,7 @@
 - [x] Calendar UI Product Review v3 completed; P1 disabled-popup issue fixed. Native keyboard, popup placement and interaction lifecycle evidence remain pending.
 - [x] Button: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
 - [x] AspectRatio: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
-- [x] Card, Chrome; [ ] Code, Command, Database, DevTools, Dialog.
+- [x] Card, Chrome, Code, Command, DevTools; [ ] Database, Dialog.
 - [x] Collapsible: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
 - [ ] Diff, Explain, Feedback, Form, HoverCard, Input, Logs, Navigation.
 - [ ] Overlay, RadioGroup, ResponsiveLayout, ScrollArea, Selection, SqlEditor.
@@ -95,6 +95,14 @@
 - [x] Add handler tests.
 - [x] Add/verify Select README usage example.
 - [x] Add explanatory English comments for non-obvious Select UI flow and geometry helpers.
+
+## Command verification
+- [x] Preserve `CommandInput`, `CommandItem`, `CommandGroup`, and `CommandEmpty` APIs/re-exports and their existing response/disabled semantics.
+- [x] Split egui presentation from tested hover/selection/color and geometry decisions; keep component-specific defaults in documented config constants.
+- [x] Add usage README describing caller-owned filtering/dispatch and the inert `CommandItem::id` contract.
+- [x] Expose accessible button labels/selected/disabled metadata, clip row text before the shortcut slot, and avoid active styling for disabled selected rows.
+- [x] Complete source-only UI Product Review v3 and address all actionable findings; native runtime evidence remains pending.
+- [x] Run targeted formatting, tests, crate check/clippy, and diff checks; record outcomes in `VERIFICATION.md`.
 
 ## Chrome verification
 - [x] Preserve `Avatar`, `AvatarSize`, `AvatarShape`, `AvatarStatus`, `Skeleton`, `EmptyState`, `Toolbar`, and `toolbar_button` public APIs and re-exports.
