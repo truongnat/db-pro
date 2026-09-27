@@ -393,3 +393,59 @@ Source date: 2026-09-16. Exact commit HEAD: `81238b4df2b173e6faa15180eddecddbbc3
 
 ## 6. Tổng kết bằng tiếng Việt
 Đã commit batch refactor component-layer tại `e902818d` (192 files), hoàn tất Chrome theo cấu trúc `mod/ui/handler/config/README`, sửa các vấn đề review và clippy, đồng thời giữ plan ở trạng thái `IMPLEMENTING`. UI tests 839/839, clippy, check, fmt, native release build đều đạt. Chưa chạy workspace-wide gates và chưa có screenshot/accessibility runtime; tiếp tục component còn thiếu và thu thập bằng chứng UI trước khi hoàn tất plan.
+
+# Agent evidence — Command component migration
+
+## 1. Claim
+| Field | Value |
+|---|---|
+| Agent identity | Pi lead · implementation and UI product-review coordination |
+| Issue(s) | Continue the next unchecked component in the component-layer-structure plan: Command. |
+| Task state | Review (component committed; overall plan remains IMPLEMENTING) |
+| Baseline SHA | `747e7f7b2e6a3a9f1818e8dc03e1056f6586aeee` |
+| Branch / PR | `feature/component-layer-structure` / no PR |
+| Scope interpretation | Migrate Command into named layers, preserve its API/interaction contract, address source-review findings, and verify the native build path. |
+| Out of scope | Command filtering/dispatch/keyboard navigation; changing the inert `CommandItem::id` contract; runtime screenshot capture; database/provider behavior. |
+
+## 2. Progress checkpoint
+- Current implementation SHA: `d733360a684ff01ee0f91ee62db0d3dc80ffe5d0`.
+- Completed acceptance rows: public API/reexports preserved; `ui/handler/config/README` structure added; disabled/selected/response semantics retained/documented; accessible row metadata and text clipping added; handler tests added; source-only UI review findings addressed.
+- Remaining: native runtime screenshots/accessibility-tree evidence; other plan inventory and workspace-wide gates.
+- Findings / risks: source-only UI review verdict ACCEPT; P0=0/P1=0/P2 actionable findings resolved. Runtime visual/clipping/accessibility evidence remains pending.
+- Tests run: targeted Command tests 5 passed / 0 failed; full UI crate suite 844 passed / 0 failed / 0 ignored; doc-tests 0; fmt, crate check, clippy `-D warnings`, native release build, and diff checks all passed.
+- Dependency / blocker changes: none.
+
+## 3. Implementation handoff / review request
+| Field | Value |
+|---|---|
+| Exact SHA | `d733360a684ff01ee0f91ee62db0d3dc80ffe5d0` |
+| Commit list | `d733360a refactor(ui): migrate command components` |
+| File / surface inventory | `components/command.rs` moved into `components/command/{mod.rs,ui.rs,handler.rs,config.rs,README.md}`; plan checklist and verification updated. |
+| Acceptance mapping | Existing Command types/builders and exports → `mod.rs`; egui presentation → `ui.rs`; state/color/geometry/accessibility-label decisions → tested `handler.rs`; documented local dimensions → `config.rs`; interaction/API contract → `README.md`. |
+| Commands and counts | `cargo test -p db-pro-ui`: 844 passed; `cargo test -p db-pro-ui components::command::`: 5 passed; UI clippy/check/fmt/native release build/diff checks PASS. |
+| CI run IDs / status | not run |
+| Known limitations | No native screenshots or runtime accesskit-tree evidence; plan remains active. |
+| Migrations / config implications | UI-only; no persisted state or database impact. |
+| Out-of-scope changes | none |
+
+## 4. Review outcome
+| Field | Value |
+|---|---|
+| Reviewed SHA | `d733360a684ff01ee0f91ee62db0d3dc80ffe5d0` (source migration reviewed in dirty tree based on parent `747e7f7b`; no code changes after review other than commit) |
+| Verdict | ACCEPT WITH P2 |
+| P0 / P1 / P2 counts | 0 / 0 / P2 runtime evidence pending |
+| Findings | Initial review findings for shortcut overlap, missing row semantics, and disabled-selected appearance were fixed; follow-up found no actionable P1/P2. |
+| CI disposition | Local checks/build passed; CI not run. |
+| Next task(s) unblocked | Continue the next unchecked component from `CHECKLIST.md`; collect native UI evidence. |
+
+## 5. Research / audit handoff
+- Source date: 2026-09-16.
+- Source references: `components/command/{ui.rs,handler.rs,config.rs,README.md}`, component gallery caller, and `docs/plans/active/component-layer-structure/{CHECKLIST.md,PLAN.md,VERIFICATION.md}`.
+- Factual findings at `d733360a684ff01ee0f91ee62db0d3dc80ffe5d0`: five handler tests pass; full UI suite has 844 passing tests; crate check/clippy and locked native release build passed; runtime screenshots were not collected.
+- Inference: title/subtitle clipping prevents text from painting into the shortcut slot; actual visual truncation/keyboard/accessibility behavior still requires runtime observation.
+- Decision / recommendation: accept source and automated evidence for the component migration; keep the overall feature plan in `IMPLEMENTING`.
+- Unresolved questions: narrow-window clipping and actual accesskit behavior at the required viewports.
+- Downstream tasks activated: next unchecked component and native runtime verification.
+
+## 6. Tổng kết bằng tiếng Việt
+Đã migrate Command và commit tại `d733360a`, giữ API/re-export cùng contract disabled/selected/response; bổ sung accessible metadata, clipping trước vùng shortcut, handler tests và README. UI suite 844/844, clippy, check, fmt và native release build đều đạt. UI review không còn P1/P2 actionable; runtime screenshots/accessibility vẫn thiếu, plan tiếp tục `IMPLEMENTING`.
