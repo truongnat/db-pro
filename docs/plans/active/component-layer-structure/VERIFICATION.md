@@ -178,3 +178,14 @@ No database providers are affected.
 - Targeted checks: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::database::` PASS (4 passed); `cargo check -p db-pro-ui` PASS; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS; `git diff --check` PASS.
 - Final full UI suite/native build: `cargo test -p db-pro-ui` PASS (848 passed, 0 failed, 0 ignored; 0 doc-tests); `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS (0 warnings); `cargo check -p db-pro-ui` PASS; `cargo build --release --locked -p db-pro-native` PASS; formatting and diff checks PASS.
 - No PostgreSQL/SQLite backend behavior changed; no runtime/provider operations were introduced.
+
+## Dialog batch
+- Source baseline SHA: `1b8dd2b78fec9d0d58610da13f3e30ca0b5d03c1`; implementation is in the dirty worktree pending commit.
+- Added `handler.rs`, `ui.rs`, and `README.md` while retaining `Dialog`, `Sheet`, `DialogFrame`, existing config/layout/frame/sheet modules, and the `dialog::modal::*` compatibility path.
+- Extracted typed dismissal decisions for topmost-only Escape/backdrop behavior. Dialog continues to own focus/stack state and UI painting; Sheet now registers in the same modal stack, traps focus to its layer, and orders its dim/sheet layers explicitly.
+- Preserved Sheet's existing no-backdrop-dismiss behavior and documented it; configuration constants now carry semantic unit comments.
+- Initial UI Product Review v3 found P1 because Sheet bypassed topmost routing/focus trapping; addressed by shared registry, focus anchor/trap, and layer ordering. Added tests for focus-anchor fallback/preservation and public compatibility paths.
+- UI Product Review v3 follow-up: ACCEPT WITH P2; P0=0/P1=0. Remaining P2: tests do not drive actual Sheet backdrop pointer events or a full Tab cycle; tests cover compatibility exports, topmost routing, the backdrop decision helper, and focus redirection/preservation. P3: required native runtime screenshots/accessibility evidence remain absent.
+- Targeted verification: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::dialog::` PASS (11 passed, 0 failed); `cargo check -p db-pro-ui` PASS; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS; `git diff --check` PASS. An initial clippy run found two `drop_non_drop` errors in the compile-surface test; lexical scopes replaced explicit drops, and the final clippy run passed.
+- Final UI suite: `cargo test -p db-pro-ui --quiet` PASS (854 passed, 0 failed, 0 ignored; 0 doc-tests). `cargo fmt --all -- --check`, `cargo check -p db-pro-ui`, `cargo clippy -p db-pro-ui --all-targets -- -D warnings`, `cargo build --release --locked -p db-pro-native`, and `git diff --check` PASS.
+- No database/provider impact. Source runtime evidence remains outstanding.

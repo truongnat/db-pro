@@ -12,6 +12,7 @@ use super::config::{
     DIALOG_WIDTH,
 };
 use super::frame::DialogFrame;
+use super::handler::{modal_dismissal, ModalDismissal};
 use super::layout::{overlay_widget_id, paint_dim, screen_rect_fallback, OverlayPaint};
 
 pub struct Dialog<'a> {
@@ -91,7 +92,8 @@ impl<'a> Dialog<'a> {
         let anchor_id = id.with("focus_anchor");
 
         if is_topmost {
-            if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+            let escape_pressed = ctx.input(|input| input.key_pressed(egui::Key::Escape));
+            if modal_dismissal(true, escape_pressed, false, None, None) == Some(ModalDismissal::Escape) {
                 *self.open = false;
             }
             // Run before the card content is drawn so an explicit request_focus inside
@@ -181,14 +183,11 @@ impl<'a> Dialog<'a> {
             m.areas_mut().move_to_top(card_layer);
         });
 
-        if is_topmost && backdrop_clicked {
-            if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
-                if !card_rect.is_some_and(|r| r.contains(pos)) {
-                    *open = false;
-                }
-            } else {
-                *open = false;
-            }
+        let pointer_position = ctx.input(|input| input.pointer.interact_pos());
+        if modal_dismissal(is_topmost, false, backdrop_clicked, pointer_position, card_rect)
+            == Some(ModalDismissal::Backdrop)
+        {
+            *open = false;
         }
 
         inner

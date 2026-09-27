@@ -26,7 +26,7 @@
 - [x] Calendar UI Product Review v3 completed; P1 disabled-popup issue fixed. Native keyboard, popup placement and interaction lifecycle evidence remain pending.
 - [x] Button: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
 - [x] AspectRatio: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
-- [x] Card, Chrome, Code, Command, Database, DevTools; [ ] Dialog.
+- [x] Card, Chrome, Code, Command, Database, DevTools, Dialog.
 - [x] Collapsible: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
 - [ ] Diff, Explain, Feedback, Form, HoverCard, Input, Logs, Navigation.
 - [ ] Overlay, RadioGroup, ResponsiveLayout, ScrollArea, Selection, SqlEditor.
@@ -95,6 +95,14 @@
 - [x] Add handler tests.
 - [x] Add/verify Select README usage example.
 - [x] Add explanatory English comments for non-obvious Select UI flow and geometry helpers.
+
+## Dialog verification
+- [x] Add the component-layer `ui.rs`, meaningful typed modal dismissal handler, README, and locally documented configuration while retaining `Dialog`, `Sheet`, `DialogFrame`, and compatibility exports.
+- [x] Keep `Dialog`/`Sheet` rendering in UI modules and preserve caller-owned `open` state, body/footer layout, animation, and existing backdrop policy.
+- [x] Route Sheet through shared modal topmost registration, Escape ownership, focus trap, and backdrop/card layer ordering.
+- [x] Add tests for topmost dismissal, inside/outside backdrop decisions, Escape precedence, focus-anchor fallback/preservation, and public compatibility paths.
+- [x] Complete source-only UI review and address Sheet overlay-stack P1; backdrop non-dismissal is documented. Runtime screenshots/accessibility traversal remain pending.
+- [x] Run targeted fmt/test/check/clippy/diff gates; record in `VERIFICATION.md`.
 
 ## Database verification
 - [x] Preserve driver/status/action public types, connection-card builders, badge API, and re-exports.

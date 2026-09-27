@@ -161,4 +161,41 @@ mod tests {
         );
         assert!(!existing_topmost, "only one dialog is topmost at a time");
     }
+
+    #[test]
+    fn focus_outside_overlay_is_redirected_to_its_anchor() {
+        let ctx = egui::Context::default();
+        let outside_widget = Id::new("outside_widget");
+        let anchor = Id::new("overlay_focus_anchor");
+        let overlay_layer = LayerId::new(egui::Order::Foreground, Id::new("overlay_layer"));
+
+        ctx.memory_mut(|memory| memory.request_focus(outside_widget));
+        trap_focus(&ctx, overlay_layer, anchor);
+
+        assert_eq!(ctx.memory(|memory| memory.focused()), Some(anchor));
+    }
+
+    #[test]
+    fn focus_inside_overlay_layer_is_preserved() {
+        let ctx = egui::Context::default();
+        let overlay_id = Id::new("overlay_with_focus");
+        let overlay_layer = LayerId::new(egui::Order::Foreground, overlay_id);
+        let anchor = overlay_id.with("focus_anchor");
+        let mut focused_widget = None;
+
+        let _ = ctx.run(Default::default(), |ctx| {
+            egui::Area::new(overlay_id)
+                .order(egui::Order::Foreground)
+                .show(ctx, |ui| {
+                    let response = ui.button("Inside overlay");
+                    response.request_focus();
+                    focused_widget = Some(response.id);
+                });
+        });
+
+        let focused_widget = focused_widget.expect("overlay content should register its focusable widget");
+        assert_eq!(ctx.memory(|memory| memory.focused()), Some(focused_widget));
+        trap_focus(&ctx, overlay_layer, anchor);
+        assert_eq!(ctx.memory(|memory| memory.focused()), Some(focused_widget));
+    }
 }
