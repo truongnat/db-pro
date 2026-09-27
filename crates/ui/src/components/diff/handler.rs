@@ -134,6 +134,11 @@ pub(super) fn diff_content_width(line_widths: impl IntoIterator<Item = f32>, con
     content_offset_x + widest_line + DIFF_CONTENT_RIGHT_PADDING
 }
 
+/// Keep the summary's leading count visible when a narrow header cannot honor its trailing inset.
+pub(super) fn diff_stats_left_offset(header_width: f32, stats_width: f32, right_inset: f32) -> f32 {
+    (header_width - stats_width - right_inset).max(0.0)
+}
+
 pub fn format_line_num_col(num: Option<usize>, width: usize) -> String {
     num.map(|n| format!("{n:>width$}")).unwrap_or_else(|| " ".repeat(width))
 }
@@ -210,6 +215,12 @@ mod tests {
     #[test]
     fn diff_content_width_reserves_the_longest_line_and_right_padding() {
         assert_eq!(diff_content_width([20.0, 80.0], 86.0), 174.0);
+    }
+
+    #[test]
+    fn narrow_header_keeps_stats_origin_inside_the_clip_area() {
+        assert_eq!(diff_stats_left_offset(200.0, 40.0, 14.0), 146.0);
+        assert_eq!(diff_stats_left_offset(10.0, 40.0, 14.0), 0.0);
     }
 
     #[test]

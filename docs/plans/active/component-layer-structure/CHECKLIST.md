@@ -110,7 +110,7 @@
 - [x] Keep galley measurement and egui painting in `ui.rs`; move pure content-width geometry into `handler.rs`.
 - [x] Document Diff-owned header/row layout offsets and keep theme colors/stroke values on canonical tokens.
 - [x] Preserve the >4-digit line-number gutter test and test width calculation with right padding.
-- [x] Complete UI Product Review v3; fix content color, empty state, and accessible viewer labeling. Retain the very-narrow-header stats clipping P2 and runtime evidence limitation.
+- [x] Complete UI Product Review v3; fix content color, empty state, accessible viewer labeling, and clamp stats origin. Retain P2 when stats text is wider than the header and runtime evidence limitation.
 - [x] Run targeted fmt/test/check/clippy/diff gates and full UI/native gates; record outcomes in `VERIFICATION.md`.
 
 ## Database verification

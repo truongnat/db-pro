@@ -9,8 +9,8 @@ use super::config::{
     DIFF_MARKER_FONT_SIZE, DIFF_ROW_TEXT_TOP_OFFSET, DIFF_STATS_FONT_SIZE, DIFF_TITLE_FONT_SIZE,
 };
 use super::handler::{
-    count_diff_changes, diff_content_width, diff_geometry, diff_line_visual, format_diff_stats, format_line_num_col,
-    DiffLine,
+    count_diff_changes, diff_content_width, diff_geometry, diff_line_visual, diff_stats_left_offset, format_diff_stats,
+    format_line_num_col, DiffLine,
 };
 
 pub struct DiffViewer<'a> {
@@ -63,10 +63,13 @@ impl<'a> DiffViewer<'a> {
                     FontId::monospace(DIFF_STATS_FONT_SIZE),
                     self.theme.text_secondary,
                 );
-                let stats_pos = Pos2::new(
-                    header_rect.right() - stats_galley.size().x - DIFF_HEADER_STATS_RIGHT_INSET,
-                    header_rect.center().y - DIFF_HEADER_STATS_TEXT_Y_OFFSET,
-                );
+                let stats_left = header_rect.left()
+                    + diff_stats_left_offset(
+                        header_rect.width(),
+                        stats_galley.size().x,
+                        DIFF_HEADER_STATS_RIGHT_INSET,
+                    );
+                let stats_pos = Pos2::new(stats_left, header_rect.center().y - DIFF_HEADER_STATS_TEXT_Y_OFFSET);
 
                 // File / target title clips before the stats badge so narrow headers never overlap.
                 let title_left = header_rect.left() + DIFF_HEADER_TITLE_LEFT_INSET;
