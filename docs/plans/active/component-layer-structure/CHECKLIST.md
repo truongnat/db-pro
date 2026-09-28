@@ -145,6 +145,16 @@
 - [x] Add focused direction/tone mapping coverage and update the Card README/re-exports.
 - [x] Run the targeted Card verification commands recorded in `VERIFICATION.md`.
 
+## Explain verification
+- [x] Preserve `ExplainPlanTree`, `PlanNode` builders, public helpers, and component re-exports; move model/adaptation decisions to `handler.rs` while keeping egui rendering in `ui.rs`.
+- [x] Document Explain-owned geometry/thresholds and provider/metric behavior; keep shared colors and typography on theme tokens.
+- [x] Aggregate PostgreSQL per-loop actual time/rows and planned rows consistently, display valid loop counts, and preserve zero-vs-missing runtime semantics.
+- [x] Bound plan parsing, heuristics, adaptation, and rendering by depth/node budgets; expose one truncation finding and sanitize extreme/non-finite metrics.
+- [x] Add regression tests for per-loop metrics, invalid/extreme values, depth/wide trees, warning persistence, and accessible UI rendering.
+- [x] Complete source-only UI Product Review v3 at `fc1c4f815887c25696bbad13fd72bc9d6b1ae17d`; no open P0/P1/P2 findings. SQLite EXPLAIN normalization remains outside this migration.
+- [x] Run targeted/full UI tests, core Explain tests, query output metric test, fmt/check/clippy/native build, and diff checks; record exact outcomes in `VERIFICATION.md`.
+- [ ] Capture native runtime screenshots/accessibility evidence at 1280×800, 1440×900, and 1920×1080, including applicable normal/loading/error/empty states.
+
 ## Quality gates before completion
 - [x] `cargo fmt --all -- --check`
 - [ ] `cargo check --workspace`

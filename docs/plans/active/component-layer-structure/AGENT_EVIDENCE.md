@@ -617,3 +617,59 @@ Source date: 2026-09-16. Exact commit HEAD: `81238b4df2b173e6faa15180eddecddbbc3
 
 ## 6. Tổng kết (Vietnamese summary)
 Đã hoàn thiện Diff theo layer plan; giữ API, chuyển phép tính chiều rộng/gutter sang handler, thêm empty state/accessibility label, sửa màu nội dung theo theme và clamp vị trí stats. Hai commit `166f0cd1` và `23c3aac9`; UI suite 856/856, focused Diff 9/9, fmt/check/clippy/native build đạt. Review ACCEPT WITH P2 do stats vẫn có thể bị cắt khi header hẹp hơn nội dung. Tiếp tục Explain; runtime evidence vẫn thiếu.
+
+# Agent evidence — Explain component layering and correctness review
+
+## 1. Claim
+| Field | Value |
+|---|---|
+| Agent identity | Senior Software Engineering Agent · implementation lane |
+| Issue(s) | Active plan `component-layer-structure`, Explain acceptance rows |
+| Task state | Done (Explain batch); overall plan remains In Progress |
+| Baseline SHA | `809d51b98f9a44675fc88767200c55e7499d88be` |
+| Branch / PR | `feature/component-layer-structure` / no PR opened |
+| Scope interpretation | Layer Explain model/adaptation/calculations from egui rendering, preserve public exports/builders, correct PostgreSQL per-loop display semantics, and bound hostile/pathological plan traversal. |
+| Out of scope | SQLite EXPLAIN normalization, database/runtime command changes, remaining component batches, workspace-wide gates, and native runtime screenshots. |
+
+## 2. Progress checkpoint
+- Current source HEAD: `fc1c4f815887c25696bbad13fd72bc9d6b1ae17d`.
+- Completed acceptance rows: public API/re-exports preserved; `PlanNode` adapter and pure decisions in handler; config constants/comments and README added; per-loop totals/rows, invalid/extreme metric handling, accessible painted cues, bounded plan parsing/rendering, tests and independent source review completed.
+- Remaining acceptance rows: capture native runtime screenshots/accessibility evidence at the plan-required viewports/states; continue remaining component inventory.
+- Findings / risks: final source review ACCEPT, P0=0/P1=0/P2=0 observed. Runtime evidence is uncollected. PostgreSQL EXPLAIN JSON is the existing supported parser path; SQLite normalization remains unsupported/pending and unchanged.
+- Tests already run: focused core Explain 7/0; focused UI Explain 16/0; query-output metric test 1/0; full UI crate 869/0; fmt/check/clippy/native release build/diff checks PASS.
+- Dependency / blocker changes: none. An initial uncached chained/build run timed out while recompiling; isolated reruns passed, including the required release command after the build cache completed.
+
+## 3. Implementation handoff / review request
+| Field | Value |
+|---|---|
+| Exact SHA | `fc1c4f815887c25696bbad13fd72bc9d6b1ae17d` |
+| Commit list | `64096e67453c1fb68bd925fe3c511007453ab601` — `refactor(ui): layer explain plan component`; `49791a986fc273db677b53b24b3e0788d5d7087d` — `fix(ui): bound explain plan traversal`; `fc1c4f815887c25696bbad13fd72bc9d6b1ae17d` — `fix(core): preserve explain truncation findings` |
+| File / surface inventory | `crates/core/src/domain/explain_plan.rs` — per-loop total fallback, depth/node budgets, iterative finding collection, finite heuristics, persistent truncation finding; `crates/ui/src/components/explain/{README.md,config.rs,handler.rs,mod.rs,ui.rs}` — component layers, conversions, accessible labels, shared budgets and usage docs; `crates/ui/src/query_output_actions_view.rs` — bounded f64→f32 presentation and one truncation summary path. |
+| Acceptance mapping | API/re-exports → unchanged public facade and builders; per-loop totals/skew → handler and core tests; extreme values → bounded conversion tests; deep/wide safety → depth/node budget tests; warning persistence → repeated-heuristics regression test; accessibility → WidgetInfo and render test; limits/provider notes → Explain README. |
+| Commands and counts | `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-core domain::explain_plan::` 7 passed/0 failed; `cargo test -p db-pro-ui components::explain::` 16/0; `cargo test -p db-pro-ui query_output_actions_view::` 1/0; `cargo test -p db-pro-ui` 869/0 (0 doc-tests); `cargo check -p db-pro-ui` PASS; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS; `cargo build --release --locked -p db-pro-native` PASS; `git diff --check` PASS; clean-code scan PASS (11 pass, 5 warnings, 0 fail). |
+| CI run IDs / status | not run |
+| Known limitations | Runtime screenshots/accessibility traversal absent. SQLite explain parsing/normalization not added. Initial uncached builds timed out during recompilation; final standalone gates passed. |
+| Migrations / config implications | Additive public Explain limit/message constants; no persisted-state, database mutation, provider driver, environment, or key changes. |
+| Out-of-scope changes | SQLite EXPLAIN support and all unrelated component/runtime behavior. |
+
+## 4. Review outcome
+| Field | Value |
+|---|---|
+| Reviewed SHA | `fc1c4f815887c25696bbad13fd72bc9d6b1ae17d` |
+| Verdict | ACCEPT |
+| P0 / P1 / P2 counts | Introduced: 0 / 0 / 0; inherited: 0 / 0 / 0 observed |
+| Findings | No source-level P0/P1/P2. Earlier loop-semantics, unbounded traversal, invalid metrics, duplicate/persistent truncation warnings were fixed and retested. |
+| CI disposition | Local focused/full UI tests, core tests, fmt, check, clippy, release build, diff check passed; CI not run. Runtime screenshots not collected. |
+| Next task(s) unblocked | Continue next unchecked component; runtime evidence remains a plan-level gate. |
+
+## 5. Research / audit handoff
+- Source date: 2026-09-17.
+- Source references: `crates/core/src/domain/explain_plan.rs`, `crates/ui/src/components/explain/{README.md,config.rs,handler.rs,mod.rs,ui.rs}`, `crates/ui/src/query_output_actions_view.rs`, checklist and verification files at source SHA `fc1c4f815887c25696bbad13fd72bc9d6b1ae17d`.
+- Factual findings: PostgreSQL actual time/rows are aggregated across validated loop counts; depth is capped at 128 and total nodes at 10,000; truncation warnings survive repeated heuristics; display conversion bounds non-finite/extreme metrics; final reviewer ACCEPT at the exact source SHA.
+- Inference: bounded truncation keeps pathological plan trees from driving unbounded parser/adapter/render traversal; runtime usability at the required native viewports remains unverified.
+- Decision / recommendation: keep the overall plan active; proceed to the next component while leaving runtime evidence and workspace gates open.
+- Unresolved questions: required viewport/state screenshots and accessibility traversal; whether/when SQLite EXPLAIN normalization is added.
+- Downstream tasks activated: next unchecked component migration and plan-level native runtime verification.
+
+## 6. Tổng kết bằng tiếng Việt
+Đã migrate Explain theo layer, giữ API, sửa số liệu PostgreSQL theo loop, giới hạn cây sâu/rộng và bảo vệ chuyển đổi metric; cảnh báo truncate được giữ qua lần phân tích lại. Ba commit `64096e67`, `49791a98`, `fc1c4f81`; core 7 test, Explain UI 16 test, full UI 869 test đều đạt; fmt/check/clippy/release build đạt. Review ACCEPT, không còn P0/P1/P2 ở source. Còn thiếu runtime screenshot/accessibility evidence; SQLite Explain vẫn ngoài phạm vi.
