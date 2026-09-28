@@ -673,3 +673,60 @@ Source date: 2026-09-16. Exact commit HEAD: `81238b4df2b173e6faa15180eddecddbbc3
 
 ## 6. Tổng kết bằng tiếng Việt
 Đã migrate Explain theo layer, giữ API, sửa số liệu PostgreSQL theo loop, giới hạn cây sâu/rộng và bảo vệ chuyển đổi metric; cảnh báo truncate được giữ qua lần phân tích lại. Ba commit `64096e67`, `49791a98`, `fc1c4f81`; core 7 test, Explain UI 16 test, full UI 869 test đều đạt; fmt/check/clippy/release build đạt. Review ACCEPT, không còn P0/P1/P2 ở source. Còn thiếu runtime screenshot/accessibility evidence; SQLite Explain vẫn ngoài phạm vi.
+
+# Agent evidence — Feedback review follow-up
+
+## 1. Claim
+| Field | Value |
+|---|---|
+| Agent identity | Senior Software Engineering Agent · implementation/review lane |
+| Issue(s) | Active plan `component-layer-structure`, Feedback inventory reconciliation and UI review fixes |
+| Task state | Done (Feedback batch); overall plan remains In Progress |
+| Baseline SHA | `072a39ee2a0364c6ae8bc7eb2a52cade6d7f0b9d` |
+| Branch / PR | `feature/component-layer-structure` / no PR opened |
+| Scope interpretation | Verify the already-layered Feedback module, preserve existing APIs, close source-level invalid-input and accessibility findings, and reconcile plan evidence. |
+| Out of scope | Other component migrations, database/provider behavior, and native runtime screenshot capture. |
+
+## 2. Progress checkpoint
+- Current source SHA: `7a119f968ca2c4c14f21ded5fb2e9059de525583`.
+- The five-layer Feedback structure predates this batch (`e902818d2166b3ee1a4b002c055c1e95f1496382`); the plan inventory had not recorded it. This batch adds a source hardening follow-up and updates the inventory rather than duplicating the module structure.
+- Completed acceptance rows: preserve existing constructors/builders/re-exports/callers; sanitize non-finite fractions and invalid dimensions; safely bound beam geometry; expose accessible ProgressIndicator name/value semantics; document input/accessibility behavior; focused/full UI verification and source review completed.
+- Remaining acceptance rows: native runtime screenshots and actual accessibility tree evidence at required viewports/states; remaining public component migrations.
+- Findings / risks at source SHA `7a119f968ca2c4c14f21ded5fb2e9059de525583`: final source review ACCEPT, P0=0/P1=0/P2=0. Runtime evidence remains outstanding.
+- Tests already run: focused Feedback 7 passed/0 failed; full UI 873 passed/0 failed; fmt/check/clippy/native release build/diff checks PASS; clean-code scan 11 pass, 5 warning categories, 0 fail.
+- Dependency / blocker changes: none. No provider/database behavior changed.
+
+## 3. Implementation handoff / review request
+| Field | Value |
+|---|---|
+| Exact SHA | `7a119f968ca2c4c14f21ded5fb2e9059de525583` |
+| Commit list | `7a119f968ca2c4c14f21ded5fb2e9059de525583` — `fix(ui): harden feedback indicators` |
+| File / surface inventory | `crates/ui/src/components/feedback/handler.rs`: normalize progress inputs, create tested semantic payload, guard finite beam edges; `ui.rs`: additive `.label(...)` builders and `WidgetInfo` emission; `README.md`: document accessibility and normalization. |
+| Acceptance mapping | Existing API preservation → constructors/builders unchanged and labels additive; NaN/height handling → helper tests; ProgressIndicator semantics → labeled percentage/indeterminate tests; animation overflow → right-edge and extreme finite input tests; comments/docs → helper rationale and README. |
+| Commands and counts | `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::feedback::` 7 passed/0 failed; `cargo test -p db-pro-ui` 873 passed/0 failed/0 ignored (0 doc-tests); `cargo check -p db-pro-ui` PASS; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS; `cargo build --release --locked -p db-pro-native` PASS; `git diff --check` PASS; clean-code scan PASS (11 pass, 5 warning categories, 0 fail). |
+| CI run IDs / status | not run |
+| Known limitations | No native screenshot/accessibility-tree runtime evidence; workspace-wide gates remain plan-level. An intermediate exact-float test assertion failed due to f32 representation and was corrected to a tolerance assertion; final targeted/full test runs passed. |
+| Migrations / config implications | UI-only; additive label builders; no persisted state/provider/database changes. |
+| Out-of-scope changes | SQLite/backend behavior, other component modules, and runtime screenshot capture. |
+
+## 4. Review outcome
+| Field | Value |
+|---|---|
+| Reviewed SHA | `7a119f968ca2c4c14f21ded5fb2e9059de525583` |
+| Verdict | ACCEPT |
+| P0 / P1 / P2 counts | Introduced: 0 / 0 / 0; inherited: 0 / 0 / 0 observed |
+| Findings | Initial review found P2 for unsanitized progress accessibility values and finite-input overflow in the beam right edge. Both were fixed in the reviewed SHA and covered by tests. Final review found no remaining P0/P1/P2. |
+| CI disposition | Independent source review plus local focused/full tests, fmt, check, clippy, release build and diff checks passed; CI not run. Runtime screenshots/accessibility traversal absent. |
+| Next task(s) unblocked | Continue with Form (next unchecked migration); runtime evidence remains a plan-level gate. |
+
+## 5. Research / audit handoff
+- Source date: 2026-09-17.
+- Source references: `crates/ui/src/components/feedback/{README.md,config.rs,handler.rs,mod.rs,ui.rs}`, public re-exports/callers, and component plan files at source SHA `7a119f968ca2c4c14f21ded5fb2e9059de525583`.
+- Factual findings: determinate accessibility value is normalized to `0..=100`; indeterminate/spinner omit values but expose labels; invalid fraction/height and overflow geometry have regression coverage; all 873 UI tests pass at the reviewed patch.
+- Inference: source semantics now match egui ProgressIndicator expectations; actual native accesskit behavior still requires runtime evidence.
+- Decision / recommendation: mark Feedback and Explain inventory rows complete; retain viewport/accessibility and workspace gates; continue to Form.
+- Unresolved questions: runtime behavior at the required viewport sizes/scaling and accesskit tree traversal.
+- Downstream tasks activated: Form component migration and plan-level native runtime verification.
+
+## 6. Tổng kết bằng tiếng Việt
+Feedback đã có đủ năm layer từ trước; batch này cập nhật inventory và sửa hai P2: chuẩn hóa giá trị accessibility, bảo vệ overflow beam. Giữ API cũ, chỉ thêm builder nhãn. Commit `7a119f96`; Feedback 7/7, full UI 873/873, check/clippy/release build đạt. Review ACCEPT, không còn P0/P1/P2 ở source. Runtime screenshot/accessibility evidence vẫn thiếu; bước migration kế tiếp là Form.

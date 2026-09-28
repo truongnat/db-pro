@@ -29,7 +29,8 @@
 - [x] Card, Chrome, Code, Command, Database, DevTools, Dialog.
 - [x] Collapsible: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
 - [x] Diff: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
-- [ ] Explain, Feedback, Form, HoverCard, Input, Logs, Navigation.
+- [x] Explain, Feedback.
+- [ ] Form, HoverCard, Input, Logs, Navigation.
 - [ ] Overlay, RadioGroup, ResponsiveLayout, ScrollArea, Selection, SqlEditor.
 - [x] Separator: `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, `README.md`.
 - [ ] Table, Tabs, Toggle, Transaction, Tree, Workspace.
@@ -153,6 +154,15 @@
 - [x] Add regression tests for per-loop metrics, invalid/extreme values, depth/wide trees, warning persistence, and accessible UI rendering.
 - [x] Complete source-only UI Product Review v3 at `fc1c4f815887c25696bbad13fd72bc9d6b1ae17d`; no open P0/P1/P2 findings. SQLite EXPLAIN normalization remains outside this migration.
 - [x] Run targeted/full UI tests, core Explain tests, query output metric test, fmt/check/clippy/native build, and diff checks; record exact outcomes in `VERIFICATION.md`.
+- [ ] Capture native runtime screenshots/accessibility evidence at 1280×800, 1440×900, and 1920×1080, including applicable normal/loading/error/empty states.
+
+## Feedback verification
+- [x] Confirm the existing five-layer folder, public exports, and caller paths; preserve all existing constructors/builders and add only nonbreaking accessibility-label builders.
+- [x] Normalize non-finite progress fractions and invalid heights before animation/allocation; guard beam-edge overflow and extreme finite animation inputs.
+- [x] Expose labeled `WidgetType::ProgressIndicator` metadata, report determinate values as percentages, and omit values for indeterminate indicators/spinners.
+- [x] Keep geometry/normalization/accessibility data in tested handlers; update comments and README for non-obvious input and semantic behavior.
+- [x] Complete source-only UI Product Review v3 at `7a119f968ca2c4c14f21ded5fb2e9059de525583`; no P0/P1/P2 findings remain.
+- [x] Run focused/full UI tests, fmt/check/clippy/native release build, diff check, and clean-code scan; record exact results in `VERIFICATION.md`.
 - [ ] Capture native runtime screenshots/accessibility evidence at 1280×800, 1440×900, and 1920×1080, including applicable normal/loading/error/empty states.
 
 ## Quality gates before completion
