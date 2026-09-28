@@ -1,4 +1,31 @@
 use super::config::*;
+use egui::{WidgetInfo, WidgetType};
+
+pub(super) fn normalize_progress_fraction(fraction: f32) -> f32 {
+    // `f32::clamp` preserves NaN, which would otherwise propagate into animation and paint geometry.
+    if !fraction.is_finite() {
+        return 0.0;
+    }
+    fraction.clamp(0.0, 1.0)
+}
+
+pub(super) fn normalize_progress_height(height: f32) -> f32 {
+    // Keep invalid dimensions out of egui allocation while preserving explicit zero-height bars.
+    if !height.is_finite() || height < 0.0 {
+        return PROGRESS_DEFAULT_HEIGHT;
+    }
+    height
+}
+
+/// Builds the semantic payload shared by determinate, indeterminate, and spinner indicators.
+pub(super) fn progress_indicator_info(fraction: f32, indeterminate: bool, label: &str, enabled: bool) -> WidgetInfo {
+    let mut info = WidgetInfo::labeled(WidgetType::ProgressIndicator, enabled, label);
+    if !indeterminate {
+        // egui exposes progress indicator values on a 0–100 scale; sanitize even if called outside the UI path.
+        info.value = Some(normalize_progress_fraction(fraction) as f64 * 100.0);
+    }
+    info
+}
 
 pub fn calculate_separator_line_width(total_width: f32, text_width: f32) -> f32 {
     let available = total_width - text_width - SEPARATOR_PADDING_EXTRA;
@@ -21,6 +48,10 @@ pub fn calculate_beam_geometry(rect_left: f32, rect_width: f32, tail: f32, head:
     }
 
     let right = rect_left + rect_width;
+    if !right.is_finite() {
+        // Finite inputs can still overflow when combined; return an empty finite beam for egui painting.
+        return (rect_left, 0.0);
+    }
     let tail = if tail.is_finite() { tail } else { 0.0 };
     let head = if head.is_finite() { head } else { 1.0 };
     let start = (rect_left + rect_width * tail).clamp(rect_left, right);
@@ -34,6 +65,56 @@ pub fn calculate_beam_geometry(rect_left: f32, rect_width: f32, tail: f32, head:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_normalize_progress_inputs() {
+        assert_eq!(normalize_progress_fraction(f32::NAN), 0.0);
+        assert_eq!(normalize_progress_fraction(f32::INFINITY), 0.0);
+        assert_eq!(normalize_progress_fraction(-0.2), 0.0);
+        assert_eq!(normalize_progress_fraction(1.2), 1.0);
+        assert_eq!(normalize_progress_fraction(0.4), 0.4);
+
+        assert_eq!(normalize_progress_height(f32::NAN), PROGRESS_DEFAULT_HEIGHT);
+        assert_eq!(normalize_progress_height(f32::NEG_INFINITY), PROGRESS_DEFAULT_HEIGHT);
+        assert_eq!(normalize_progress_height(-1.0), PROGRESS_DEFAULT_HEIGHT);
+        assert_eq!(normalize_progress_height(0.0), 0.0);
+        assert_eq!(normalize_progress_height(12.0), 12.0);
+    }
+
+    #[test]
+    fn progress_indicator_info_exposes_label_and_percentage() {
+        let info = progress_indicator_info(0.42, false, "Import progress", true);
+
+        assert_eq!(info.typ, WidgetType::ProgressIndicator);
+        assert_eq!(info.label.as_deref(), Some("Import progress"));
+        assert!(matches!(info.value, Some(value) if (value - 42.0).abs() < 0.001));
+        assert!(info.enabled);
+    }
+
+    #[test]
+    fn progress_indicator_info_sanitizes_non_finite_and_out_of_range_values() {
+        for (fraction, expected) in [
+            (f32::NAN, 0.0),
+            (f32::INFINITY, 0.0),
+            (f32::NEG_INFINITY, 0.0),
+            (-0.5, 0.0),
+            (1.5, 100.0),
+        ] {
+            let info = progress_indicator_info(fraction, false, "Progress", true);
+            assert_eq!(info.value, Some(expected));
+        }
+    }
+
+    #[test]
+    fn indeterminate_progress_and_spinner_omit_accessible_value() {
+        let progress = progress_indicator_info(0.0, true, "Loading schema", true);
+        let spinner = progress_indicator_info(0.0, true, "Loading", true);
+
+        assert_eq!(progress.label.as_deref(), Some("Loading schema"));
+        assert_eq!(progress.value, None);
+        assert_eq!(spinner.label.as_deref(), Some("Loading"));
+        assert_eq!(spinner.value, None);
+    }
 
     #[test]
     fn test_calculate_separator_line_width() {
@@ -71,5 +152,11 @@ mod tests {
 
         let (negative_width_start, negative_width) = calculate_beam_geometry(10.0, -1.0, 0.0, 1.0);
         assert_eq!((negative_width_start, negative_width), (10.0, 0.0));
+
+        let (overflow_start, overflow_width) = calculate_beam_geometry(f32::MAX / 2.0, f32::MAX, 0.0, 1.0);
+        assert_eq!((overflow_start, overflow_width), (f32::MAX / 2.0, 0.0));
+
+        let (extreme_start, extreme_width) = calculate_beam_geometry(10.0, 100.0, f32::MAX, -f32::MAX);
+        assert_eq!((extreme_start, extreme_width), (98.0, PROGRESS_MIN_BEAM_WIDTH));
     }
 }

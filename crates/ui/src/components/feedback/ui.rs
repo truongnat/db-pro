@@ -10,16 +10,18 @@ pub struct Progress {
     pub(crate) animated: bool,
     pub(crate) indeterminate: bool,
     pub(crate) theme: DbProTheme,
+    pub(crate) accessible_label: String,
 }
 
 impl Progress {
     pub fn new(fraction: f32, theme: DbProTheme) -> Self {
         Self {
-            fraction: fraction.clamp(0.0, 1.0),
+            fraction: normalize_progress_fraction(fraction),
             height: PROGRESS_DEFAULT_HEIGHT,
             animated: true,
             indeterminate: false,
             theme,
+            accessible_label: "Progress".to_owned(),
         }
     }
 
@@ -30,11 +32,18 @@ impl Progress {
             animated: true,
             indeterminate: true,
             theme,
+            accessible_label: "Loading".to_owned(),
         }
     }
 
+    /// Sets the accessibility label without changing the visual API.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.accessible_label = label.into();
+        self
+    }
+
     pub fn height(mut self, height: f32) -> Self {
-        self.height = height;
+        self.height = normalize_progress_height(height);
         self
     }
 
@@ -52,6 +61,14 @@ impl Progress {
     pub fn show(self, ui: &mut Ui) -> f32 {
         let width = ui.available_width();
         let (rect, response) = ui.allocate_exact_size(Vec2::new(width, self.height), egui::Sense::hover());
+        response.widget_info(|| {
+            progress_indicator_info(
+                self.fraction,
+                self.indeterminate,
+                &self.accessible_label,
+                ui.is_enabled(),
+            )
+        });
         let rounding = Rounding::same(self.height * 0.5);
 
         ui.painter().rect_filled(rect, rounding, self.theme.surface_hover);
@@ -89,6 +106,7 @@ pub struct Spinner {
     size: f32,
     color: Option<Color32>,
     theme: DbProTheme,
+    accessible_label: String,
 }
 
 impl Spinner {
@@ -97,7 +115,14 @@ impl Spinner {
             size: SPINNER_DEFAULT_SIZE,
             color: None,
             theme,
+            accessible_label: "Loading".to_owned(),
         }
+    }
+
+    /// Sets the accessibility label without changing the visual API.
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.accessible_label = label.into();
+        self
     }
 
     pub fn size(mut self, size: f32) -> Self {
@@ -116,7 +141,8 @@ impl Spinner {
         } else {
             SPINNER_MIN_SIZE
         };
-        let (rect, _) = ui.allocate_exact_size(Vec2::splat(size), egui::Sense::hover());
+        let (rect, response) = ui.allocate_exact_size(Vec2::splat(size), egui::Sense::hover());
+        response.widget_info(|| progress_indicator_info(0.0, true, &self.accessible_label, ui.is_enabled()));
         let center = rect.center();
         let radius = calculate_spinner_radius(size);
         let color = self.color.unwrap_or(self.theme.accent);
