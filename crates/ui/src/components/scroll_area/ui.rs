@@ -7,6 +7,8 @@ pub struct ScrollArea {
     vertical: bool,
     auto_shrink: [bool; 2],
     max_height: Option<f32>,
+    // Retained as part of the stable constructor contract; ScrollArea currently uses egui's
+    // native visuals directly and has no theme-specific paint decisions.
     #[allow(dead_code)]
     theme: DbProTheme,
 }
@@ -45,12 +47,16 @@ impl ScrollArea {
     }
 
     pub fn show<R>(self, ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
-        let mut area = egui::ScrollArea::new([self.horizontal, self.vertical])
+        // The handler owns the axis-ordering decision; this layer only constructs and
+        // renders egui's native scroll container with the selected presentation settings.
+        let mut area = egui::ScrollArea::new(handler::scroll_axes(self.horizontal, self.vertical))
             .auto_shrink(self.auto_shrink)
             .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded);
         if let Some(max_height) = self.max_height {
             area = area.max_height(max_height);
         }
+        // Scrollbar rendering temporarily changes clip policy. Always restore the caller's
+        // visuals after egui has rendered the child, preserving style state across siblings.
         let previous = handler::apply_scrollbar_visuals(ui);
         let output = area.show(ui, add_contents);
         handler::restore_visuals(ui, previous);

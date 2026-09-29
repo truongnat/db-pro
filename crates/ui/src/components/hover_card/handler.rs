@@ -1,5 +1,28 @@
-use super::config::{MIN_VISIBLE_HEIGHT, MIN_WIDTH, SCREEN_EDGE_INSET, TRIGGER_GAP};
+use super::config::{MAX_TIMER_DELAY_SECS, MIN_VISIBLE_HEIGHT, MIN_WIDTH, SCREEN_EDGE_INSET, TRIGGER_GAP};
 use egui::{Pos2, Rect};
+use std::time::Duration;
+
+/// Returns a safe timer delay in seconds.
+///
+/// Invalid public inputs mean no delay. Large finite values are bounded so the
+/// same sanitized value is safe to pass to `Duration::from_secs_f64`.
+pub fn sanitize_delay(delay: f64) -> f64 {
+    if !delay.is_finite() || delay < 0.0 {
+        return 0.0;
+    }
+
+    delay.min(MAX_TIMER_DELAY_SECS)
+}
+
+/// Converts a public timer delay into a panic-free repaint duration.
+pub fn timer_duration(delay: f64) -> Duration {
+    Duration::from_secs_f64(sanitize_delay(delay))
+}
+
+/// Whether an Escape press should dismiss the card and suppress reopening.
+pub fn escape_dismissed(escape_pressed: bool, is_open: bool) -> bool {
+    escape_pressed && is_open
+}
 
 /// Computes the open/closed state and updated timer state for the hover card.
 ///
@@ -13,8 +36,11 @@ pub fn compute_open_state(
     open_delay: f64,
     close_delay: f64,
 ) -> (bool, Option<f64>, Option<f64>) {
-    let mut next_hover_start = hover_start;
-    let mut next_leave_start = leave_start;
+    let open_delay = sanitize_delay(open_delay);
+    let close_delay = sanitize_delay(close_delay);
+    let now = if now.is_finite() { now } else { 0.0 };
+    let mut next_hover_start = hover_start.filter(|start| start.is_finite());
+    let mut next_leave_start = leave_start.filter(|start| start.is_finite());
 
     if is_active {
         next_leave_start = None;
@@ -92,6 +118,38 @@ mod tests {
     use super::*;
     use crate::components::hover_card::config::{DEFAULT_CLOSE_DELAY, DEFAULT_OPEN_DELAY};
     use egui::Vec2;
+
+    #[test]
+    fn invalid_delays_are_sanitized_to_immediate() {
+        let (open, _, _) = compute_open_state(true, false, None, None, 1.0, f64::NAN, f64::INFINITY);
+        assert!(open);
+        assert_eq!(sanitize_delay(-1.0), 0.0);
+        assert_eq!(sanitize_delay(f64::INFINITY), 0.0);
+        assert_eq!(sanitize_delay(f64::NEG_INFINITY), 0.0);
+    }
+
+    #[test]
+    fn finite_delays_are_clamped_to_safe_timer_bound() {
+        assert_eq!(sanitize_delay(MAX_TIMER_DELAY_SECS), MAX_TIMER_DELAY_SECS);
+        assert_eq!(sanitize_delay(f64::MAX), MAX_TIMER_DELAY_SECS);
+        assert_eq!(timer_duration(f64::MAX), Duration::from_secs(60));
+        assert_eq!(timer_duration(f64::NAN), Duration::ZERO);
+    }
+
+    #[test]
+    fn escape_only_dismisses_an_open_card() {
+        assert!(escape_dismissed(true, true));
+        assert!(!escape_dismissed(true, false));
+        assert!(!escape_dismissed(false, true));
+    }
+
+    #[test]
+    fn measured_height_controls_flip_decision() {
+        let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(800.0, 500.0));
+        let trigger = Rect::from_min_size(Pos2::new(100.0, 300.0), Vec2::new(80.0, 30.0));
+        let pos = calculate_card_position(trigger, 300.0, 100.0, screen);
+        assert_eq!(pos.y, 336.0);
+    }
 
     #[test]
     fn hover_timer_opens_after_delay() {

@@ -34,3 +34,5 @@
 - [x] 3-way conflict resolution UI (Original / Local Staged / Database Current) with Keep Mine, Use Database, Retry, and Discard actions.
 - [x] Composite PK targeted reload tests and insert-delete removal tests.
 - [x] Record remaining P0/P1/P2 and known limitations.
+- [x] Refactor the shared Table component into typed geometry/state, config,
+      UI, and test layers while preserving public exports and interactions.

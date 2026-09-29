@@ -1,16 +1,18 @@
 use std::sync::Arc;
 
-/// Validation execution triggers, inspired by React Hook Form.
+/// Controls when callers may reveal errors after invoking validation.
+///
+/// The mode does not run validators itself; callers choose when to call `validate_field` and update touch/dirty state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ValidationMode {
-    /// Validate on change once field has been touched, or on blur (Default & recommended UX).
+    /// Reveal an error after the caller marks the field touched or submits the form (default).
     #[default]
     OnTouched,
-    /// Validate on every keystroke/change.
+    /// Reveal an error after the caller marks the field dirty or submits the form.
     OnChange,
-    /// Validate only when a field loses focus.
+    /// Reveal an error after the caller marks blur as touched; uses the same touched flag as `OnTouched`.
     OnBlur,
-    /// Validate only when the form submission is triggered.
+    /// Reveal errors only after the caller submits the form.
     OnSubmit,
 }
 

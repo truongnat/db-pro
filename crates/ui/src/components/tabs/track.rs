@@ -4,7 +4,8 @@
 //! resize) does not look like a selection change.
 
 use super::config::{
-    TAB_TRANSITION_SECS, UNDERLINE_INDICATOR_HEIGHT, UNDERLINE_INDICATOR_INSET_X, UNDERLINE_INDICATOR_MIN_WIDTH,
+    TAB_REPAINT_INTERVAL_MS, TAB_TRANSITION_SECS, UNDERLINE_INDICATOR_HEIGHT, UNDERLINE_INDICATOR_INSET_X,
+    UNDERLINE_INDICATOR_MIN_WIDTH,
 };
 use egui::{Rect, Vec2};
 
@@ -20,7 +21,7 @@ impl TabTrackerAnimation {
         let x = track_origin_x + rel_x;
 
         if (rel_x - target_rel_x).abs() > 0.5 || (w - target.width()).abs() > 0.5 {
-            ctx.request_repaint_after(std::time::Duration::from_millis(16));
+            ctx.request_repaint_after(std::time::Duration::from_millis(TAB_REPAINT_INTERVAL_MS));
         }
         (x, w)
     }

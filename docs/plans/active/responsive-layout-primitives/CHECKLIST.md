@@ -9,7 +9,7 @@
 
 ## Implementation
 
-- [ ] Add pure responsive measurement helpers and boundary tests.
+- [x] Normalize responsive layout into `components/responsive_layout/{mod.rs,ui.rs,handler.rs,config.rs,README.md}` while preserving public exports and tests.
 - [ ] Add Container primitive with bounded fluid/max-width behavior and gutter.
 - [ ] Add Row/Col or equivalent responsive Grid API; document wrapping/span semantics.
 - [ ] Export primitives from `crates/ui/src/components/mod.rs`.

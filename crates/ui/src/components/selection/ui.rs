@@ -3,6 +3,8 @@ use crate::components::interact::{checkbox_info, paint_focus_ring, radio_info};
 use crate::DbProTheme;
 use egui::{Color32, FontId, Pos2, Rect, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
 
+use super::{config, handler};
+
 pub struct Checkbox<'a> {
     pub(crate) checked: &'a mut bool,
     pub(crate) label: &'a str,
@@ -44,8 +46,7 @@ impl<'a> Checkbox<'a> {
         let spacing = 8.0;
 
         ui.horizontal(|ui| {
-            let desc_extra = if self.description.is_some() { 16.0 } else { 0.0 };
-            let total_height = 20.0 + desc_extra;
+            let total_height = handler::checkbox_row_height(self.description.is_some());
 
             let text_font = FontId::proportional(13.0);
             let text_galley = ui.painter().layout_no_wrap(
@@ -163,9 +164,9 @@ impl<'a> Switch<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let width = 36.0;
-        let height: f32 = 20.0;
-        let spacing = 8.0;
+        let width = config::SWITCH_WIDTH;
+        let height = config::SWITCH_HEIGHT;
+        let spacing = config::CONTROL_SPACING;
         let text_width = (ui.available_width() - width - spacing).max(32.0);
         let text_color = if self.enabled {
             self.theme.text_primary
@@ -194,7 +195,7 @@ impl<'a> Switch<'a> {
 
         let keyboard_toggle = response.has_focus()
             && ui.input(|input| input.key_pressed(egui::Key::Space) || input.key_pressed(egui::Key::Enter));
-        if self.enabled && (response.clicked() || keyboard_toggle) {
+        if handler::switch_toggle_requested(self.enabled, response.clicked(), keyboard_toggle) {
             *self.on = !*self.on;
             response.mark_changed();
         }
@@ -281,8 +282,7 @@ impl<'a> Radio<'a> {
         let spacing = 8.0;
 
         ui.horizontal(|ui| {
-            let desc_extra = if self.description.is_some() { 16.0 } else { 0.0 };
-            let total_height = 20.0 + desc_extra;
+            let total_height = handler::checkbox_row_height(self.description.is_some());
 
             let text_font = FontId::proportional(13.0);
             let text_galley = ui.painter().layout_no_wrap(
@@ -413,7 +413,7 @@ impl<'a> Slider<'a> {
                 ui.add_space(4.0);
             }
 
-            let height = 20.0;
+            let height = config::SLIDER_HEIGHT;
             let (rect, mut response) = ui.allocate_exact_size(Vec2::new(width, height), Sense::click_and_drag());
 
             let min = *self.range.start();
@@ -467,14 +467,18 @@ impl<'a> Slider<'a> {
             } else {
                 Color32::WHITE
             };
-            ui.painter().circle_filled(thumb_center, 7.0, thumb_color);
+            ui.painter()
+                .circle_filled(thumb_center, config::SLIDER_THUMB_RADIUS, thumb_color);
             ui.painter()
                 .circle_stroke(thumb_center, 7.0, Stroke::new(1.5, self.theme.accent));
 
             // Focus ring around thumb
             if response.has_focus() {
-                ui.painter()
-                    .circle_stroke(thumb_center, 9.5, Stroke::new(2.0, self.theme.accent));
+                ui.painter().circle_stroke(
+                    thumb_center,
+                    config::SLIDER_FOCUS_RADIUS,
+                    Stroke::new(2.0, self.theme.accent),
+                );
             }
 
             response

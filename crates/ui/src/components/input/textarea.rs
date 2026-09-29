@@ -1,7 +1,9 @@
 use egui::{Align, Frame, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
 
-use super::config::INPUT_ROUNDING;
-use super::layout::{paint_field_chrome, FieldChromeState};
+use crate::components::input::config::{
+    FIELD_INNER_MARGIN_X, INPUT_AUX_FONT_SIZE, INPUT_LABEL_FONT_SIZE, INPUT_ROUNDING, TEXTAREA_INNER_MARGIN_Y,
+};
+use crate::components::input::layout::{paint_field_chrome, FieldChromeState};
 use crate::components::interact::text_input_info;
 use crate::tokens::LABEL_HELPER_GAP;
 use crate::DbProTheme;
@@ -48,15 +50,15 @@ impl<'a> Textarea<'a> {
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new(label)
-                            .size(12.0)
+                            .size(INPUT_LABEL_FONT_SIZE)
                             .strong()
                             .color(self.theme.text_secondary),
                     );
                     if let Some(max) = self.max_chars {
                         ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
                             ui.label(
-                                RichText::new(format!("{}/{}", self.value.len(), max))
-                                    .size(11.0)
+                                RichText::new(super::super::handler::character_count(self.value, max))
+                                    .size(INPUT_AUX_FONT_SIZE)
                                     .color(self.theme.text_muted),
                             );
                         });
@@ -68,7 +70,7 @@ impl<'a> Textarea<'a> {
             let frame_output = Frame {
                 fill: self.theme.surface_editor,
                 stroke: Stroke::NONE,
-                inner_margin: Margin::symmetric(8.0, 6.0),
+                inner_margin: Margin::symmetric(FIELD_INNER_MARGIN_X, TEXTAREA_INNER_MARGIN_Y),
                 rounding: Rounding::same(INPUT_ROUNDING),
                 ..Default::default()
             }

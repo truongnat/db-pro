@@ -1,5 +1,28 @@
 # Component UI Layer Structure — Verification
 
+## Historical Input batch verification (isolated snapshot; superseded below)
+- Baseline SHA: `41d731b53cab93514ee8fe992f888d7db673664f` (worktree was clean at inspection).
+- Source changes are limited to `crates/ui/src/components/input/**` and this plan directory. Public `Input`, `PasswordInput`, `SearchInput`, and `Textarea` exports remain unchanged.
+- `cargo fmt --all`: FAILED before formatting because pre-existing `crates/ui/src/components/form/mod.rs` declares missing `config`, `handler`, and `ui` modules; that unrelated file was not touched.
+- `cargo test -p db-pro-ui components::input --lib`: FAILED for the same pre-existing missing `components/form` modules during crate compilation; input tests could not start.
+- Native screenshots/runtime evidence at 1280×800, 1440×900, and 1920×1080, including loading/error/empty states: PENDING; no runtime evidence is claimed.
+
+
+## HoverCard UI Product Review batch
+- Baseline HEAD SHA: `5b38eb6543d5fa66783fe7f772e52b97665183a6`; implementation remains uncommitted. Existing independent dirty Form files/docs were preserved.
+- Product review evidence: source-level review found that egui `Area` could re-constrain placement using its prior-frame size after `calculate_card_position` had already accounted for viewport bounds. `.constrain(false)` leaves placement to the tested handler calculation. No API or database/provider behavior changed.
+- The first added geometry test was found by independent testing to assert only that two card positions were below the trigger. It was replaced with an assertion that the settled `Area` top matches `trigger.bottom() + TRIGGER_GAP`, directly covering the prior-frame displacement regression. The handler separately tests measured-height flip decisions.
+- `cargo fmt --all -- --check`: PASS (exit 0).
+- `cargo test -p db-pro-ui hover_card --lib`: PASS (14 passed, 0 failed, 0 ignored; exit 0).
+- `cargo check -p db-pro-ui`: PASS (exit 0).
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS (exit 0).
+- `cargo build --release --locked -p db-pro-native`: PASS (exit 0).
+- `git diff --check`: PASS (exit 0).
+- UI runtime screenshots at 1280×800, 1440×900, and 1920×1080: UNKNOWN/PENDING; source review does not establish runtime behavior.
+- Reviewer outcome: initial review BLOCK (the old `Area` constraint placed the short card at y=200 instead of below the trigger at y=338). After `.constrain(false)`, independent test review identified an inadequate assertion; the final geometry assertion now requires the exact calculated trigger-bottom-plus-gap position. Final reviewer: ACCEPT WITH P2; no P0/P1. P2: runtime visuals/interaction/accessibility and oversized first-frame content have not been verified.
+- P0/P1/P2 open: P0=0, P1=0, P2=2 (runtime evidence/accessibility unknown; oversized first-frame content placement not directly covered).
+- State: IMPLEMENTING.
+
 Baseline SHA: `2fb54db03fd98bc17f16309efe6b4169febbb478`.
 
 ## Select batch
@@ -94,10 +117,27 @@ Baseline SHA: `2fb54db03fd98bc17f16309efe6b4169febbb478`.
 - UI Product Review v3 follow-up: no P0/P1 remains; P2 runtime focus/accessibility verification and dynamic-list ID behavior remain unverified; the source contract now documents unique IDs.
 - Targeted verification: `cargo fmt --all -- --check`: PASS; `cargo test -p db-pro-ui components::collapsible::`: PASS (5 passed); `cargo check -p db-pro-ui`: PASS; `git diff --check`: PASS.
 
-## Remaining gates
+## Historical Toggle and ScrollArea worker verification (superseded by integrated results below)
+- Baseline SHA: `6cedac0a0ff0492133d101f8272c0b801fd2e28f`; implementation is uncommitted in this isolated worktree.
+- Scope is limited to `crates/ui/src/components/toggle.rs`, `crates/ui/src/components/toggle/**`, `crates/ui/src/components/scroll_area/**`, and this plan directory. Toggle's flat module was moved to `toggle/{mod.rs,ui.rs,handler.rs,config.rs,README.md}`; public exports remain unchanged.
+- Source verification: handlers cover toggle dimensions, intrinsic width, pressed/selection transitions, appearance, group rounding, and ScrollArea axis ordering/style restoration. Toggle click mutation now goes through handler transitions; UI retains egui measurement/allocation/painting. No PostgreSQL/SQLite impact.
+- `rustfmt --edition 2021 --check crates/ui/src/components/toggle/{mod,ui,handler,config}.rs crates/ui/src/components/scroll_area/{mod,ui,handler,config}.rs`: PASS.
+- `git diff --check`: PASS.
+- `cargo fmt --all -- --check`: BLOCKED by pre-existing missing `form/{config,handler,ui}.rs` modules declared by `crates/ui/src/components/form/mod.rs`.
+- `cargo test -p db-pro-ui components::toggle --lib` and `cargo test -p db-pro-ui components::scroll_area --lib`: BLOCKED before component tests by the same pre-existing missing Form modules and missing `input/{handler,ui}.rs` modules.
+- `cargo check -p db-pro-ui`: BLOCKED by the same pre-existing missing Form/Input modules.
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: BLOCKED by the same pre-existing missing Form/Input modules (plus the resulting duplicate-module diagnostic).
+- Native runtime screenshots/accessibility evidence at 1280×800, 1440×900, and 1920×1080 were not collected.
+
+## Historical Button gate checkpoint (superseded by integrated results below)
 - Button UI Product Review v3: fixed disabled palette and loading foreground contrast; added Link underline on hover/focus and named grouped-spacing token; documented compact desktop icon target sizes.
 - Added explicit `access_label` to production icon-only buttons across audited UI callers and a shared toolbar helper; added a debug assertion plus render test so future tooltip-only icon buttons fail in development. A final scan found and fixed `result_grid_toolbar_view.rs`; no other production violations were reported by the latest audit.
-- Targeted verification after these updates: `cargo fmt --all -- --check`, `cargo test -p db-pro-ui components::button::`, `cargo check -p db-pro-ui`, `git diff --check` PASS before the final caller/test change; rerun pending.
+- Historical targeted verification before final caller/test change: `cargo fmt --all -- --check`, `cargo test -p db-pro-ui components::button::`, `cargo check -p db-pro-ui`, `git diff --check` PASS. Current integrated gates, including workspace tests/check/clippy/build, are recorded at the end of this document.
+
+## Form batch follow-up (current dirty base)
+- Prior independent-review P3 suggestions are addressed additively: blank helper/error context is omitted from accessibility labels, and `FormField::id_salt(impl Hash)` allows unique IDs while preserving label-based defaults.
+- Source changes are uncommitted on base HEAD `5b38eb65`; no new commit SHA exists. Independent final review may need to rerun.
+- Verification: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::form::` PASS (9 tests); `cargo check -p db-pro-ui` PASS; `git diff --check` PASS. Native runtime evidence remains pending.
 - Remaining P2: visual contrast across themes and compact target size are source-reviewed but need runtime evidence; icon-only callers must continue to provide accessible names.
 - UI runtime screenshots/accessibility tree inspection have not been collected for the affected components, including AgentComposer.
 
@@ -129,6 +169,15 @@ No database providers are affected.
 - UI Product Review v3 (source-only): initial report `subagent_1790484235125_4z5oy`; follow-up `subagent_1790485435090_24tbq`: ACCEPT WITH P2, P0=0, P1=0. Remaining P2: no focus trap/restoration; same-title concurrent dialogs need caller `.id_salt`; extremely narrow viewport behavior and actual keyboard traversal need runtime verification.
 - Verification: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::alert::` PASS (8 passed, 0 failed, 820 filtered); `cargo check -p db-pro-ui` PASS with ongoing transaction unused-import/dead-code warnings; `git diff --check` PASS.
 - No native runtime screenshots/accessibility-tree evidence collected. PostgreSQL/SQLite unaffected; no commit created.
+
+## Historical Logs/Nav worker verification (superseded by integrated results below)
+- Added focused log-level policy coverage and centralized navigation page-count normalization in `handler.rs`; preserved public APIs and documented caller-owned log input in `logs/README.md`.
+- `rustfmt --edition 2021 --check crates/ui/src/components/logs/handler.rs crates/ui/src/components/nav/handler.rs crates/ui/src/components/nav/config.rs`: PASS.
+- `cargo fmt --all -- --check`: BLOCKED by pre-existing missing `form/config.rs`, `form/handler.rs`, `form/ui.rs` and `input/handler.rs`, `input/ui.rs` module files.
+- `cargo test -p db-pro-ui components::logs::handler::tests --lib`: BLOCKED by the same pre-existing missing modules (the changed log assertions compile past their prior Icon comparison issue).
+- `cargo check -p db-pro-ui`: BLOCKED by the same missing modules.
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: BLOCKED by the same missing modules plus the resulting duplicate-module diagnostic.
+- At that historical snapshot, workspace check/test/clippy were not yet run. Current integrated results are recorded at the end of this document; native runtime evidence remains pending.
 
 ## Calendar batch
 - Baseline/HEAD SHA: `81238b4df2b173e6faa15180eddecddbbc36bdf2`; changes remain uncommitted.
@@ -190,6 +239,15 @@ No database providers are affected.
 - Final UI suite: `cargo test -p db-pro-ui --quiet` PASS (854 passed, 0 failed, 0 ignored; 0 doc-tests). `cargo fmt --all -- --check`, `cargo check -p db-pro-ui`, `cargo clippy -p db-pro-ui --all-targets -- -D warnings`, `cargo build --release --locked -p db-pro-native`, and `git diff --check` PASS.
 - No database/provider impact. Source runtime evidence remains outstanding.
 
+## Form batch
+- Source baseline SHA: `5b38eb6543d5fa66783fe7f772e52b97665183a6`; implementation remains uncommitted in the working tree.
+- Migrated Form presentation to `form/ui.rs`, kept validation visibility policy in typed `form/handler.rs`, added component-owned label sizing in `form/config.rs`, and retained `form::field::*` plus `components::{FormField, Label}` compatibility paths.
+- Preserved existing builders and runtime behavior. Input accessibility labels include required and displayed helper/error context; error takes precedence, whitespace-only context is omitted. Added optional `FormField::id_salt(...)` for duplicate labels while preserving label-based IDs by default. `PasswordInput` remains out of scope. Focused pure-helper/API tests cover validation modes, context composition, blank context, compatibility exports and custom IDs.
+- Independent final Form UI source review verdict: ACCEPT; introduced P0=0/P1=0/P2=0/P3=0. Runtime screenshots and accessibility traversal were not collected and remain a plan-level gate.
+- Current dirty-worktree caveat: `HEAD` is the base SHA `5b38eb6543d5fa66783fe7f772e52b97665183a6`; this Form patch has no new commit SHA.
+- Independent verification: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::form::` PASS (9 passed, 0 failed, 0 ignored); `cargo check -p db-pro-ui` PASS; `git diff --check` PASS.
+- No PostgreSQL/SQLite/provider impact and no commit created.
+
 ## Diff batch
 - Source baseline SHA: `2fd5702d556854fe68ad59e7b517c369e4e4260b`; implementation commits: `166f0cd1e110d14f406bfc69bd8a9911592b79cd` (`refactor(ui): finish diff component layering`) and `23c3aac9913fabf618b5140715bc07ba6cb71278` (`fix(ui): clamp diff stats in narrow headers`).
 - Preserved `DiffViewer`, `DiffLine` constructors/types, root/component re-exports, semantic marker colors, horizontal scroll behavior, and dynamic line-number gutter.
@@ -217,4 +275,50 @@ No database providers are affected.
 - Initial source review of the patch found P2s for unsanitized progress accessibility values and overflow of the beam right edge; both were fixed with helper-level guards and regression tests. Final UI Product Review v3 at source commit `7a119f968ca2c4c14f21ded5fb2e9059de525583`: **ACCEPT**, introduced P0=0/P1=0/P2=0; inherited P0=0/P1=0/P2=0 observed. The independent review was performed against base `072a39ee2a0364c6ae8bc7eb2a52cade6d7f0b9d` plus the worktree patch that became this commit.
 - Verification: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::feedback::` PASS (7 passed, 0 failed); `cargo test -p db-pro-ui` PASS (873 passed, 0 failed, 0 ignored; 0 doc-tests); `cargo check -p db-pro-ui` PASS; `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS; `cargo build --release --locked -p db-pro-native` PASS; `git diff --check` PASS.
 - Clean-code scan `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (11 pass, 5 warning categories, 0 fail). Reviewed the new four-input pure accessibility-info helper warning; kept the direct cohesive arguments instead of adding an options struct for a one-use projection. An intermediate exact-float assertion failed due to `0.42f32` representation; replaced with a tolerance assertion and final focused/full suites passed.
-- Scope/provider impact: native UI only; no database/provider behavior or persisted state changed. Screenshots/accessibility runtime evidence at required viewports/states remain outstanding; workspace-wide check/clippy/test gates remain open.
+- Scope/provider impact: native UI only; no database/provider behavior or persisted state changed. This historical batch snapshot predates integrated workspace-wide gate execution; screenshots/accessibility runtime evidence at required viewports/states remain outstanding.
+
+## Historical RadioGroup worker verification (superseded by integrated results below)
+- Source SHA: `9d285fff861f5eff1f3b44841cbac747513c3d72` (worktree changes uncommitted).
+- Preserved the public API and behavior. Centralized the zero cross-axis spacing value as `NO_ITEM_GAP` in `config.rs`; handler tests continue to cover orientation spacing and keyboard navigation, and the README documents the layer responsibility.
+- Verification: `git diff --check` PASS. `cargo fmt --all -- --check` BLOCKED by pre-existing missing `crates/ui/src/components/form/{config,handler,ui}.rs`; focused `cargo test -p db-pro-ui components::radio_group:: --lib` BLOCKED by the same missing form modules; `cargo check -p db-pro-ui` and clippy were likewise blocked by those baseline module errors. No runtime evidence collected.
+
+## Historical Tree worker verification (superseded by integrated results below)
+- Source baseline SHA: `ed5ac6ac85f6d54510de97389e5ad42eef42c4c9`; implementation is an uncommitted worktree patch.
+- Migrated Tree to the plan layer convention in `crates/ui/src/components/tree/{mod.rs,ui.rs,handler.rs,config.rs,README.md}`. Removed the partial `geometry.rs`/`traversal.rs` split from the module graph while preserving public re-exports for `DatabaseTreeNode`, `TreeNodeKind`, and `reveal_children`.
+- Handler/config now own icon mapping, row/background and expansion toggle decisions, chevron crossfade layer decisions, row geometry, reveal clipping math, named dimensions/thresholds/font sizes, and legacy animation/data ID salts. `TreeNodeKind::icon()` remains available and delegates to the handler mapping.
+- Animation/data ID semantics are preserved with named constants for `hover`, `chev_anim`, and `content_h`; `ui.rs` still invokes egui animation/painting and child clipping only.
+- Added focused handler tests for database glyph mapping, interaction decisions, legacy row positions, chevron crossfade thresholds, reveal clipping sanitation, and ID salt stability. README now documents usage, API, behavior constraints and layer responsibilities.
+- Verification executed:
+  - `rustfmt --edition 2021 crates/ui/src/components/tree/mod.rs crates/ui/src/components/tree/config.rs crates/ui/src/components/tree/handler.rs crates/ui/src/components/tree/ui.rs` PASS.
+  - `rustfmt --edition 2021 --check crates/ui/src/components/tree/mod.rs crates/ui/src/components/tree/config.rs crates/ui/src/components/tree/handler.rs crates/ui/src/components/tree/ui.rs` PASS.
+  - `git diff --check` PASS.
+  - `cargo fmt --all -- --check` FAIL/BLOCKED before Tree checks by pre-existing missing `crates/ui/src/components/form/config.rs` and related Form layer files.
+  - `cargo test -p db-pro-ui components::tree::` FAIL/BLOCKED before Tree tests by pre-existing missing `crates/ui/src/components/form/{config,handler,ui}.rs`, `crates/ui/src/components/input/{handler,ui}.rs`, and `crates/ui/src/components/toggle/mod.rs`/`toggle.rs`; after fixing local Tree compile errors, only those baseline module errors remained.
+  - `cargo check -p db-pro-ui` FAIL/BLOCKED by the same missing Form/Input/Toggle modules.
+  - `cargo clippy -p db-pro-ui --all-targets -- -D warnings` FAIL/BLOCKED by the same missing Form/Input/Toggle modules plus the derivative `clippy::duplicate_mod` report caused by unresolved module paths.
+- Provider/database impact: N/A. Native runtime screenshots/accessibility-tree evidence were not collected.
+
+## Current integrated continuation verification
+
+The following results supersede the historical isolated-worker blockers above. Commands ran on base HEAD `5b38eb6543d5fa66783fe7f772e52b97665183a6` plus the current uncommitted worktree changes.
+
+- `cargo test -p db-pro-ui --lib`: PASS (911 passed, 0 failed, 0 ignored).
+- `cargo test -p db-pro-ui responsive_layout --lib`: PASS (6 passed, 0 failed, 905 filtered out).
+- `cargo test --workspace --quiet`: PASS (1,566 passed, 0 failed, 41 ignored).
+- `cargo fmt --all -- --check`: PASS.
+- `cargo check --workspace`: PASS.
+- `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
+- `cargo build --release --locked -p db-pro-native`: PASS.
+- `git diff --check`: PASS.
+- Independent review of latest metric cleanup: PASS, no must-fix findings.
+- Runtime screenshot/accessibility evidence at 1280×800, 1440×900 and 1920×1080 remains pending; implementation gates do not close this requirement.
+
+## Common layer continuation on main
+
+- Remote sync: fetched `origin`; local `main` was fast-forwarded to `be1f8e68` (`fix: scroll in tree sidebar`) before continuing. Existing uncommitted component work was preserved; no component-layer changes were discarded.
+- Refactor scope: split the former `common_utils.rs` implementation into `components/common/{mod.rs,layout.rs,format.rs}`. `common_utils.rs` is now a compatibility facade, while `components/mod.rs` exposes explicit common re-exports. Dialog/sheet and table paging call sites use the named `components::common` module directly.
+- Behavior lock before the split: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::common_utils --lib` PASS (10 passed, 0 failed, 901 filtered out).
+- Focused verification after the split: `cargo test -p db-pro-ui 'components::common' --lib` PASS (11 passed, 0 failed, 903 filtered out); `cargo check -p db-pro-ui` PASS.
+- Final gates after the split: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui --lib` PASS (913 passed, 0 failed, 0 ignored); `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS (`clippy_exit=0`); `cargo build --release --locked -p db-pro-native` PASS; `cargo check --workspace` PASS; `cargo clippy --workspace --all-targets -- -D warnings` PASS; `cargo test --workspace --quiet` PASS; the final `db-pro-ui` crate segment reported 914 passed / 0 failed / 0 ignored, while other workspace crates also passed with provider/SSH fixtures ignored as reported by Cargo; `git diff --check` PASS; clean-code scan PASS (12 pass, 4 warning categories, 0 fail).
+- The first formatting check reported only rustfmt line wrapping in the two re-export lists; those lists were corrected before the final PASS.
+- Runtime screenshot/accessibility evidence remains pending. No PostgreSQL/SQLite behavior changed.

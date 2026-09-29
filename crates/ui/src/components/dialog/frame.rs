@@ -1,5 +1,7 @@
 use egui::Ui;
 
+use super::config::DIALOG_FOOTER_SPACING;
+
 pub struct DialogFrame<'a> {
     pub ui: &'a mut Ui,
     pub max_body_height: f32,
@@ -24,9 +26,9 @@ impl<'a> DialogFrame<'a> {
 
     /// Renders a fixed sticky footer at the bottom of the card, outside the scroll area.
     pub fn footer<F>(&mut self, add_footer: impl FnOnce(&mut Ui) -> F) -> F {
-        self.ui.add_space(8.0);
+        self.ui.add_space(DIALOG_FOOTER_SPACING);
         self.ui.separator();
-        self.ui.add_space(8.0);
+        self.ui.add_space(DIALOG_FOOTER_SPACING);
         add_footer(self.ui)
     }
 }

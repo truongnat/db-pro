@@ -1,153 +1,14 @@
-use crate::DbProTheme;
+use crate::components::table::config::{
+    CHECKBOX_SIZE, DIVIDER_STROKE_WIDTH, EMPTY_BODY_RECT_HEIGHT, EMPTY_BODY_TOP_SPACE, EMPTY_ICON_GAP, EMPTY_ICON_SIZE,
+    EMPTY_TEXT_SIZE, HEADER_INNER_RADIUS, HEADER_TEXT_SIZE, INNER_PADDING_X, SORT_ICON_GAP, SORT_ICON_SIZE,
+    TABLE_CORNER_RADIUS,
+};
+use crate::components::table::handler::{build_column_layout, select_all_state, SelectAllState, TableGeometry};
+use crate::components::table::{draw_crisp_checkmark, draw_crisp_minus, Table, TableColumnAlign};
 use egui::{Align, Color32, Frame, Layout, Margin, Pos2, Rect, RichText, Rounding, Stroke, Ui, Vec2};
 use lucide_icons::Icon;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TableColumnAlign {
-    Left,
-    Center,
-    Right,
-}
-
-pub struct TableColumn<'a> {
-    pub title: &'a str,
-    pub width: Option<f32>,
-    pub align: TableColumnAlign,
-    pub sortable: bool,
-}
-
-impl<'a> TableColumn<'a> {
-    pub fn new(title: &'a str) -> Self {
-        Self {
-            title,
-            width: None,
-            align: TableColumnAlign::Left,
-            sortable: false,
-        }
-    }
-
-    pub fn fixed(title: &'a str, width: f32) -> Self {
-        Self {
-            title,
-            width: Some(width),
-            align: TableColumnAlign::Left,
-            sortable: false,
-        }
-    }
-
-    pub fn width(mut self, width: f32) -> Self {
-        self.width = Some(width);
-        self
-    }
-
-    pub fn align(mut self, align: TableColumnAlign) -> Self {
-        self.align = align;
-        self
-    }
-
-    pub fn sortable(mut self, sortable: bool) -> Self {
-        self.sortable = sortable;
-        self
-    }
-}
-
-pub(crate) fn draw_crisp_checkmark(painter: &egui::Painter, center: Pos2, color: Color32) {
-    let p1 = Pos2::new(center.x - 3.8, center.y - 0.2);
-    let p2 = Pos2::new(center.x - 0.9, center.y + 2.8);
-    let p3 = Pos2::new(center.x + 3.8, center.y - 2.8);
-    painter.add(egui::epaint::PathShape::line(vec![p1, p2, p3], Stroke::new(1.8, color)));
-}
-
-pub(crate) fn draw_crisp_minus(painter: &egui::Painter, center: Pos2, color: Color32) {
-    let p1 = Pos2::new(center.x - 3.5, center.y);
-    let p2 = Pos2::new(center.x + 3.5, center.y);
-    painter.line_segment([p1, p2], Stroke::new(1.8, color));
-}
-
-pub struct Table<'a> {
-    columns: &'a [TableColumn<'a>],
-    theme: DbProTheme,
-    selectable: bool,
-    all_selected: bool,
-    indeterminate: bool,
-    sort_column: Option<usize>,
-    sort_desc: bool,
-    row_height: f32,
-    show_vertical_grid: bool,
-}
-
 impl<'a> Table<'a> {
-    pub fn new(columns: &'a [TableColumn<'a>], theme: DbProTheme) -> Self {
-        Self {
-            columns,
-            theme,
-            selectable: false,
-            all_selected: false,
-            indeterminate: false,
-            sort_column: None,
-            sort_desc: false,
-            row_height: 44.0,
-            show_vertical_grid: false,
-        }
-    }
-
-    pub fn selectable(mut self, selectable: bool, all_selected: bool) -> Self {
-        self.selectable = selectable;
-        self.all_selected = all_selected;
-        self
-    }
-
-    pub fn indeterminate(mut self, indeterminate: bool) -> Self {
-        self.indeterminate = indeterminate;
-        self
-    }
-
-    pub fn sort(mut self, sort_column: Option<usize>, sort_desc: bool) -> Self {
-        self.sort_column = sort_column;
-        self.sort_desc = sort_desc;
-        self
-    }
-
-    pub fn row_height(mut self, height: f32) -> Self {
-        self.row_height = height;
-        self
-    }
-
-    pub fn vertical_grid(mut self, show: bool) -> Self {
-        self.show_vertical_grid = show;
-        self
-    }
-
-    /// Table layout algorithm: distributes widths cleanly across available space
-    fn compute_column_widths(&self, available_width: f32) -> Vec<f32> {
-        let checkbox_width = if self.selectable { 42.0 } else { 0.0 };
-        let net_width = (available_width - checkbox_width - 2.0).max(100.0);
-
-        let mut fixed_sum = 0.0;
-        let mut flex_count = 0;
-
-        for col in self.columns {
-            if let Some(w) = col.width {
-                fixed_sum += w;
-            } else {
-                flex_count += 1;
-            }
-        }
-
-        if flex_count > 0 {
-            let flex_width = ((net_width - fixed_sum) / flex_count as f32).max(80.0);
-            self.columns.iter().map(|col| col.width.unwrap_or(flex_width)).collect()
-        } else if fixed_sum > 0.0 && fixed_sum < net_width {
-            let ratio = net_width / fixed_sum;
-            self.columns
-                .iter()
-                .map(|col| col.width.unwrap_or(100.0) * ratio)
-                .collect()
-        } else {
-            self.columns.iter().map(|col| col.width.unwrap_or(120.0)).collect()
-        }
-    }
-
     // allow: table widget receives distinct generic callbacks for each interaction (row selection,
     // sort, toggle) — bundling into an options struct would complicate generic lifetimes across all egui call sites.
     #[allow(clippy::too_many_arguments)]
@@ -164,31 +25,24 @@ impl<'a> Table<'a> {
         F: FnMut(&mut Ui, usize, usize),
     {
         let available_w = ui.available_width();
-        let widths = self.compute_column_widths(available_w);
-        let checkbox_w = if self.selectable { 42.0 } else { 0.0 };
-
-        // Precompute absolute column x offsets relative to the start of column 0
-        let mut col_x_offsets = Vec::with_capacity(self.columns.len());
-        let mut current_offset = 0.0;
-        for &w in &widths {
-            col_x_offsets.push(current_offset);
-            current_offset += w;
-        }
-        let total_cols_w = checkbox_w + current_offset;
-
-        let header_h = 36.0;
-        let total_rows_h = if row_count == 0 {
-            80.0
-        } else {
-            row_count as f32 * self.row_height
-        };
-        let total_table_h = header_h + 1.0 + total_rows_h;
+        let layout = build_column_layout(self.columns, available_w, self.selectable);
+        let geometry = TableGeometry::new(row_count, self.row_height);
+        let widths = &layout.widths;
+        let col_x_offsets = &layout.offsets;
+        let checkbox_w = layout.checkbox_width;
+        let total_cols_w = layout.total_width;
+        let header_h = geometry.header_height;
+        let total_rows_h = geometry.rows_height;
+        let total_table_h = geometry.total_height;
 
         // Allocate entire table frame rect to guarantee rigid coordinate space
         Frame {
             fill: self.theme.surface_panel,
-            stroke: Stroke::new(1.0, self.theme.border_default),
-            rounding: Rounding::same(8.0),
+            stroke: Stroke::new(
+                crate::components::table::config::DIVIDER_STROKE_WIDTH,
+                self.theme.border_default,
+            ),
+            rounding: Rounding::same(TABLE_CORNER_RADIUS),
             inner_margin: Margin::ZERO,
             ..Default::default()
         }
@@ -202,8 +56,8 @@ impl<'a> Table<'a> {
             ui.painter().rect_filled(
                 header_rect,
                 Rounding {
-                    nw: 7.0,
-                    ne: 7.0,
+                    nw: HEADER_INNER_RADIUS,
+                    ne: HEADER_INNER_RADIUS,
                     sw: 0.0,
                     se: 0.0,
                 },
@@ -217,23 +71,37 @@ impl<'a> Table<'a> {
                     .interact(cb_rect, ui.id().with("select_all"), egui::Sense::click())
                     .on_hover_cursor(egui::CursorIcon::PointingHand);
                 let center = cb_rect.center();
-                let box_rect = Rect::from_center_size(center, Vec2::splat(15.0));
+                let box_rect = Rect::from_center_size(center, Vec2::splat(CHECKBOX_SIZE));
 
-                if self.all_selected {
+                if matches!(
+                    select_all_state(self.all_selected, self.indeterminate),
+                    SelectAllState::Checked
+                ) {
                     let fill = if resp.hovered() {
                         self.theme.accent.linear_multiply(0.9)
                     } else {
                         self.theme.accent
                     };
-                    ui.painter().rect_filled(box_rect, Rounding::same(3.5), fill);
+                    ui.painter().rect_filled(
+                        box_rect,
+                        Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                        fill,
+                    );
                     draw_crisp_checkmark(ui.painter(), center, Color32::WHITE);
-                } else if self.indeterminate {
+                } else if matches!(
+                    select_all_state(self.all_selected, self.indeterminate),
+                    SelectAllState::Indeterminate
+                ) {
                     let fill = if resp.hovered() {
                         self.theme.accent.linear_multiply(0.9)
                     } else {
                         self.theme.accent
                     };
-                    ui.painter().rect_filled(box_rect, Rounding::same(3.5), fill);
+                    ui.painter().rect_filled(
+                        box_rect,
+                        Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                        fill,
+                    );
                     draw_crisp_minus(ui.painter(), center, Color32::WHITE);
                 } else {
                     let border_color = if resp.hovered() {
@@ -246,9 +114,16 @@ impl<'a> Table<'a> {
                     } else {
                         self.theme.surface_editor
                     };
-                    ui.painter().rect_filled(box_rect, Rounding::same(3.5), fill);
-                    ui.painter()
-                        .rect_stroke(box_rect, Rounding::same(3.5), Stroke::new(1.2, border_color));
+                    ui.painter().rect_filled(
+                        box_rect,
+                        Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                        fill,
+                    );
+                    ui.painter().rect_stroke(
+                        box_rect,
+                        Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                        Stroke::new(crate::components::table::config::CHECKBOX_STROKE_WIDTH, border_color),
+                    );
                 }
 
                 if resp.clicked() {
@@ -298,10 +173,12 @@ impl<'a> Table<'a> {
                 let icon_color = if is_sorted {
                     self.theme.accent
                 } else {
-                    self.theme.text_muted.linear_multiply(0.5)
+                    self.theme
+                        .text_muted
+                        .linear_multiply(crate::components::table::config::SORT_ICON_FADE)
                 };
 
-                let inner_rect = col_rect.shrink2(Vec2::new(12.0, 0.0));
+                let inner_rect = col_rect.shrink2(Vec2::new(INNER_PADDING_X, 0.0));
                 let align_layout = match col.align {
                     TableColumnAlign::Left => Layout::left_to_right(Align::Center),
                     TableColumnAlign::Center => Layout::centered_and_justified(egui::Direction::LeftToRight),
@@ -316,23 +193,29 @@ impl<'a> Table<'a> {
                         if show_sort && col.align == TableColumnAlign::Right {
                             ui.label(
                                 RichText::new(char::from(icon).to_string())
-                                    .font(egui::FontId::new(10.0, egui::FontFamily::Name("lucide".into())))
+                                    .font(egui::FontId::new(
+                                        SORT_ICON_SIZE,
+                                        egui::FontFamily::Name("lucide".into()),
+                                    ))
                                     .color(icon_color),
                             );
-                            ui.add_space(4.0);
+                            ui.add_space(SORT_ICON_GAP);
                         }
 
                         ui.label(
                             RichText::new(col.title)
-                                .font(crate::DbProTheme::ui_medium_font(13.0))
+                                .font(crate::DbProTheme::ui_medium_font(HEADER_TEXT_SIZE))
                                 .color(text_color),
                         );
 
                         if show_sort && col.align != TableColumnAlign::Right {
-                            ui.add_space(4.0);
+                            ui.add_space(SORT_ICON_GAP);
                             ui.label(
                                 RichText::new(char::from(icon).to_string())
-                                    .font(egui::FontId::new(10.0, egui::FontFamily::Name("lucide".into())))
+                                    .font(egui::FontId::new(
+                                        SORT_ICON_SIZE,
+                                        egui::FontFamily::Name("lucide".into()),
+                                    ))
                                     .color(icon_color),
                             );
                         }
@@ -349,26 +232,32 @@ impl<'a> Table<'a> {
             ui.painter().hline(
                 table_min.x..=table_min.x + table_w,
                 header_divider_y,
-                Stroke::new(1.0, self.theme.border_default),
+                Stroke::new(DIVIDER_STROKE_WIDTH, self.theme.border_default),
             );
 
             // ── 2. Data Rows (Rigorously placed at exact X coordinates) ─
-            let body_start_y = header_divider_y + 1.0;
+            let body_start_y = header_divider_y + DIVIDER_STROKE_WIDTH;
 
             if row_count == 0 {
-                let empty_rect = Rect::from_min_size(Pos2::new(table_min.x, body_start_y), Vec2::new(table_w, 90.0));
+                let empty_rect = Rect::from_min_size(
+                    Pos2::new(table_min.x, body_start_y),
+                    Vec2::new(table_w, EMPTY_BODY_RECT_HEIGHT),
+                );
                 ui.allocate_new_ui(egui::UiBuilder::new().max_rect(empty_rect), |ui| {
                     ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                        ui.add_space(20.0);
+                        ui.add_space(EMPTY_BODY_TOP_SPACE);
                         ui.label(
                             RichText::new(char::from(Icon::Inbox).to_string())
-                                .font(egui::FontId::new(20.0, egui::FontFamily::Name("lucide".into())))
+                                .font(egui::FontId::new(
+                                    EMPTY_ICON_SIZE,
+                                    egui::FontFamily::Name("lucide".into()),
+                                ))
                                 .color(self.theme.text_muted),
                         );
-                        ui.add_space(4.0);
+                        ui.add_space(EMPTY_ICON_GAP);
                         ui.label(
                             RichText::new("No matching rows found.")
-                                .size(13.0)
+                                .size(EMPTY_TEXT_SIZE)
                                 .color(self.theme.text_secondary),
                         );
                     });
@@ -436,7 +325,7 @@ impl<'a> Table<'a> {
                             .interact(cb_rect, ui.id().with(("row_cb", row_idx)), egui::Sense::click())
                             .on_hover_cursor(egui::CursorIcon::PointingHand);
                         let center = cb_rect.center();
-                        let box_rect = Rect::from_center_size(center, Vec2::splat(15.0));
+                        let box_rect = Rect::from_center_size(center, Vec2::splat(CHECKBOX_SIZE));
 
                         if is_selected {
                             let fill = if cb_resp.hovered() {
@@ -444,7 +333,11 @@ impl<'a> Table<'a> {
                             } else {
                                 self.theme.accent
                             };
-                            ui.painter().rect_filled(box_rect, Rounding::same(3.5), fill);
+                            ui.painter().rect_filled(
+                                box_rect,
+                                Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                                fill,
+                            );
                             draw_crisp_checkmark(ui.painter(), center, Color32::WHITE);
                         } else {
                             let border_color = if cb_resp.hovered() {
@@ -457,9 +350,16 @@ impl<'a> Table<'a> {
                             } else {
                                 self.theme.surface_editor
                             };
-                            ui.painter().rect_filled(box_rect, Rounding::same(3.5), fill);
-                            ui.painter()
-                                .rect_stroke(box_rect, Rounding::same(3.5), Stroke::new(1.2, border_color));
+                            ui.painter().rect_filled(
+                                box_rect,
+                                Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                                fill,
+                            );
+                            ui.painter().rect_stroke(
+                                box_rect,
+                                Rounding::same(crate::components::table::config::CHECKBOX_CORNER_RADIUS),
+                                Stroke::new(crate::components::table::config::CHECKBOX_STROKE_WIDTH, border_color),
+                            );
                         }
 
                         if cb_resp.clicked() {
@@ -472,7 +372,7 @@ impl<'a> Table<'a> {
                         let col_x = col_start_x + col_x_offsets[col_idx];
                         let col_w = widths[col_idx];
                         let cell_rect = Rect::from_min_size(Pos2::new(col_x, row_y), Vec2::new(col_w, self.row_height));
-                        let inner_rect = cell_rect.shrink2(Vec2::new(12.0, 0.0));
+                        let inner_rect = cell_rect.shrink2(Vec2::new(INNER_PADDING_X, 0.0));
 
                         let align_layout = match col.align {
                             TableColumnAlign::Left => Layout::left_to_right(Align::Center),
@@ -494,7 +394,7 @@ impl<'a> Table<'a> {
                         ui.painter().hline(
                             table_min.x..=table_min.x + table_w,
                             div_y,
-                            Stroke::new(1.0, self.theme.border_subtle),
+                            Stroke::new(DIVIDER_STROKE_WIDTH, self.theme.border_subtle),
                         );
                     }
                 }
@@ -509,7 +409,7 @@ impl<'a> Table<'a> {
                     ui.painter().vline(
                         col_start_x,
                         table_min.y..=grid_bottom,
-                        Stroke::new(1.0, self.theme.border_subtle),
+                        Stroke::new(DIVIDER_STROKE_WIDTH, self.theme.border_subtle),
                     );
                 }
 
@@ -519,7 +419,7 @@ impl<'a> Table<'a> {
                     ui.painter().vline(
                         col_x,
                         table_min.y..=grid_bottom,
-                        Stroke::new(1.0, self.theme.border_subtle),
+                        Stroke::new(DIVIDER_STROKE_WIDTH, self.theme.border_subtle),
                     );
                 }
             }

@@ -2,7 +2,7 @@
 
 ## State
 - **State:** IMPLEMENTING
-- **Branch:** `feature/component-layer-structure`
+- **Branch:** `main`
 - **Baseline SHA:** `2fb54db0`
 - **Surface:** `crates/ui/src/components/` native egui component library.
 

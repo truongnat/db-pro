@@ -1,13 +1,13 @@
 use egui::Vec2;
 
-use super::config::{HORIZONTAL_ITEM_GAP, VERTICAL_ITEM_GAP};
+use super::config::{HORIZONTAL_ITEM_GAP, NO_ITEM_GAP, VERTICAL_ITEM_GAP};
 
 /// Returns the item spacing vector depending on layout orientation.
 pub fn radio_group_item_spacing(horizontal: bool) -> Vec2 {
     if horizontal {
-        Vec2::new(HORIZONTAL_ITEM_GAP, 0.0)
+        Vec2::new(HORIZONTAL_ITEM_GAP, NO_ITEM_GAP)
     } else {
-        Vec2::new(0.0, VERTICAL_ITEM_GAP)
+        Vec2::new(NO_ITEM_GAP, VERTICAL_ITEM_GAP)
     }
 }
 
@@ -48,8 +48,14 @@ mod tests {
 
     #[test]
     fn radio_group_item_spacing_matches_orientation() {
-        assert_eq!(radio_group_item_spacing(true), Vec2::new(HORIZONTAL_ITEM_GAP, 0.0));
-        assert_eq!(radio_group_item_spacing(false), Vec2::new(0.0, VERTICAL_ITEM_GAP));
+        assert_eq!(
+            radio_group_item_spacing(true),
+            Vec2::new(HORIZONTAL_ITEM_GAP, NO_ITEM_GAP)
+        );
+        assert_eq!(
+            radio_group_item_spacing(false),
+            Vec2::new(NO_ITEM_GAP, VERTICAL_ITEM_GAP)
+        );
     }
 
     #[test]

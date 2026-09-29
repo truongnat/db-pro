@@ -4,6 +4,11 @@
 pub const DEFAULT_OPEN_DELAY: f64 = 0.20;
 /// Default delay, in seconds, before an open card closes after pointer/focus leaves.
 pub const DEFAULT_CLOSE_DELAY: f64 = 0.15;
+/// Maximum delay used by hover-card timers and repaint scheduling.
+///
+/// Invalid values (negative, NaN, or infinite) are treated as an immediate delay;
+/// finite values above this bound are clamped to it.
+pub const MAX_TIMER_DELAY_SECS: f64 = 60.0;
 /// Default card width in egui points.
 pub const DEFAULT_WIDTH: f32 = 300.0;
 /// Minimum card width in egui points when the viewport is narrower than the requested width.

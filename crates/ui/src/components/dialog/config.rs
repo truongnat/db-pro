@@ -19,3 +19,21 @@ pub const SHEET_TRANSLATE_PX: f32 = 16.0;
 /// it explicit prevents tall forms from consuming the viewport and making the
 /// dialog look top-aligned instead of centered.
 pub const DIALOG_CHROME_HEIGHT: f32 = 220.0;
+
+// Shared dialog content spacing, in egui points.
+pub const DIALOG_CONTENT_HORIZONTAL_PADDING: f32 = 24.0;
+pub const DIALOG_CONTENT_VERTICAL_PADDING: f32 = 20.0;
+pub const DIALOG_SECTION_SPACING: f32 = 12.0;
+pub const DIALOG_FOOTER_SPACING: f32 = 8.0;
+// The total horizontal padding on both sides of the dialog content.
+pub const DIALOG_TOTAL_HORIZONTAL_PADDING: f32 = 48.0;
+pub const DIALOG_CONTENT_MIN_SIZE: f32 = 80.0;
+pub const DIALOG_HEADER_MIN_HEIGHT: f32 = 40.0;
+
+// Sheet layout values, in egui points.
+pub const SHEET_PADDING: f32 = 16.0;
+pub const SHEET_TOTAL_PADDING: f32 = 32.0;
+pub const SHEET_CORNER_RADIUS: f32 = 12.0;
+pub const SHEET_CONTENT_MIN_SIZE: f32 = 80.0;
+pub const SHEET_CLOSE_WIDTH: f32 = 28.0;
+pub const SHEET_TITLE_GAP: f32 = 8.0;

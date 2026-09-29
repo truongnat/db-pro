@@ -13,14 +13,14 @@ pub fn resolve_field_width(requested: Option<f32>, available: f32) -> f32 {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct FieldChromeState {
+pub(crate) struct FieldChromeState {
     pub(super) focused: bool,
     pub(super) hovered: bool,
     pub(super) enabled: bool,
     pub(super) has_error: bool,
 }
 
-pub(super) fn paint_field_chrome(ui: &Ui, id: Id, rect: Rect, state: FieldChromeState, theme: DbProTheme) {
+pub(crate) fn paint_field_chrome(ui: &Ui, id: Id, rect: Rect, state: FieldChromeState, theme: DbProTheme) {
     // Keep the border inside the field's own rect (not on or around it) so no container
     // can clip it, and so we do not stack a gray Frame border under a blue outline.
     let stroke = if state.has_error {

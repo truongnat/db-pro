@@ -4,8 +4,8 @@ use egui::{Align2, Color32, Pos2, Response, RichText, Rounding, Sense, Stroke, U
 
 use super::config::{
     activity_accent_rect, activity_item_rect, activity_item_start_y, is_latency_warning, next_activity_item_y,
-    next_status_item_cursor, right_status_item_start, status_item_width, ACTIVITY_BAR_ITEMS, CONNECTION_DOT_BOX_SIZE,
-    CONNECTION_DOT_RADIUS, STATUS_BAR_ICON_SLOT_WIDTH,
+    next_status_item_cursor, right_status_item_start, status_item_width, status_text_top, ACTIVITY_ACCENT_RADIUS,
+    ACTIVITY_BAR_ITEMS, CONNECTION_DOT_BOX_SIZE, CONNECTION_DOT_RADIUS, STATUS_BAR_ICON_SLOT_WIDTH,
 };
 use super::handler::{connection_health_label, ActivityBarItemKind, ConnectionHealth, StatusBarItem};
 
@@ -87,7 +87,7 @@ impl<'a> StatusBar<'a> {
         let galley = ui.painter().layout_no_wrap(item.text.clone(), font_caption(), color);
         let w = galley.size().x;
         ui.painter().galley(
-            Pos2::new(cur_x, center_y - galley.size().y * 0.5),
+            Pos2::new(cur_x, status_text_top(center_y, galley.size().y)),
             galley,
             Color32::PLACEHOLDER,
         );
@@ -139,7 +139,7 @@ impl ActivityBar {
                 // Left accent bar
                 ui.painter().rect_filled(
                     activity_accent_rect(rect.left(), y),
-                    Rounding::same(1.0),
+                    Rounding::same(ACTIVITY_ACCENT_RADIUS),
                     self.theme.accent,
                 );
             }

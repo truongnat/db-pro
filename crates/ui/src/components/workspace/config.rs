@@ -6,6 +6,8 @@ use super::handler::ActivityBarItemKind;
 
 // Fixed icon advance used by status-bar text measurement and rendering, in egui points.
 pub(crate) const STATUS_BAR_ICON_SLOT_WIDTH: f32 = 16.0;
+// Galley placement uses the same center factor for every status-bar label.
+pub(crate) const STATUS_TEXT_VERTICAL_CENTER_FACTOR: f32 = 0.5;
 // Horizontal inset that centers each activity control in the rail, in egui points.
 pub(crate) const ACTIVITY_ITEM_LEFT_INSET: f32 = 6.0;
 // Square hit-target and background dimensions for activity items, in egui points.
@@ -18,6 +20,8 @@ pub(crate) const ACTIVITY_ACCENT_WIDTH: f32 = 2.5;
 pub(crate) const ACTIVITY_ACCENT_TOP_INSET: f32 = 8.0;
 // Height of the selected marker, in egui points.
 pub(crate) const ACTIVITY_ACCENT_HEIGHT: f32 = 20.0;
+// Corner radius of the selected activity marker, in egui points.
+pub(crate) const ACTIVITY_ACCENT_RADIUS: f32 = 1.0;
 // Square allocation reserved for the connection-state indicator, in egui points.
 pub(crate) const CONNECTION_DOT_BOX_SIZE: f32 = 8.0;
 // Painted connection-state dot radius, in egui points.
@@ -76,6 +80,10 @@ pub(crate) fn right_status_item_start(cursor: f32, item_width: f32) -> f32 {
     cursor - item_width
 }
 
+pub(crate) fn status_text_top(center_y: f32, text_height: f32) -> f32 {
+    center_y - text_height * STATUS_TEXT_VERTICAL_CENTER_FACTOR
+}
+
 pub(crate) fn activity_item_start_y(container_top: f32) -> f32 {
     container_top + SPACE_MD
 }
@@ -112,6 +120,7 @@ mod tests {
         assert_eq!(status_item_width(24.0, true), 40.0);
         assert_eq!(next_status_item_cursor(10.0, 40.0), 10.0 + 40.0 + SPACE_MD);
         assert_eq!(right_status_item_start(100.0, 40.0), 60.0);
+        assert_eq!(status_text_top(20.0, 10.0), 15.0);
     }
 
     #[test]

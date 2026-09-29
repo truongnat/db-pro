@@ -1,4 +1,6 @@
 mod config;
+
+pub use config::CARD_FRAME_STROKE_WIDTH;
 mod handler;
 mod ui;
 

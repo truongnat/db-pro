@@ -54,7 +54,7 @@ impl DbProApp {
         let total_known = self.table.data_query.total_rows.is_some();
         let total_rows = self.table.data_query.total_rows.unwrap_or(result.row_count);
         let paging = table_data_toolbar_surface_view::TableDataPaging {
-            page_range: crate::components::common_utils::format_page_range(
+            page_range: crate::components::common::format_page_range(
                 self.table.data_query.offset,
                 result.row_count,
                 self.table.data_query.total_rows,

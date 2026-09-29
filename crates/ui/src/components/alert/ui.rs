@@ -68,7 +68,7 @@ impl<'a> Alert<'a> {
         let mut dismiss_response = None;
         Frame {
             fill: style.fill,
-            stroke: Stroke::new(1.0, style.border),
+            stroke: Stroke::new(config::ALERT_BORDER_WIDTH, style.border),
             inner_margin: Margin::symmetric(config::ALERT_FRAME_PADDING_X, config::ALERT_FRAME_PADDING_Y),
             rounding: Rounding::same(config::ALERT_RADIUS),
             ..Default::default()
@@ -78,7 +78,7 @@ impl<'a> Alert<'a> {
             ui.horizontal_top(|ui| {
                 ui.label(
                     RichText::new(char::from(icon).to_string())
-                        .font(FontId::new(15.0, FontFamily::Name("lucide".into())))
+                        .font(FontId::new(config::ALERT_ICON_SIZE, FontFamily::Name("lucide".into())))
                         .color(style.icon),
                 );
                 ui.add_space(config::ALERT_ICON_GAP);
@@ -96,16 +96,18 @@ impl<'a> Alert<'a> {
                         ui.add(
                             egui::Label::new(
                                 RichText::new(self.title.as_ref())
-                                    .font(DbProTheme::ui_medium_font(13.0))
+                                    .font(DbProTheme::ui_medium_font(config::ALERT_TITLE_SIZE))
                                     .color(self.theme.text_primary),
                             )
                             .wrap(),
                         );
                         if let Some(desc) = &self.description {
-                            ui.add_space(3.0);
+                            ui.add_space(config::ALERT_DESCRIPTION_GAP);
                             ui.add(
                                 egui::Label::new(
-                                    RichText::new(desc.as_ref()).size(12.5).color(self.theme.text_secondary),
+                                    RichText::new(desc.as_ref())
+                                        .size(config::ALERT_DESCRIPTION_SIZE)
+                                        .color(self.theme.text_secondary),
                                 )
                                 .wrap(),
                             );
@@ -119,7 +121,7 @@ impl<'a> Alert<'a> {
                             Vec2::splat(config::DISMISS_TARGET_SIZE),
                             egui::Button::new(
                                 RichText::new(char::from(Icon::X).to_string())
-                                    .font(FontId::new(15.0, FontFamily::Name("lucide".into())))
+                                    .font(FontId::new(config::ALERT_ICON_SIZE, FontFamily::Name("lucide".into())))
                                     .color(self.theme.text_secondary),
                             )
                             .frame(false),
@@ -230,7 +232,7 @@ impl<'a> AlertDialog<'a> {
             .show(ctx, |ui| {
                 Frame {
                     fill: self.theme.surface_elevated,
-                    stroke: Stroke::new(1.0, self.theme.border_default),
+                    stroke: Stroke::new(config::DIALOG_BORDER_WIDTH, self.theme.border_default),
                     inner_margin: Margin::same(config::DIALOG_PADDING),
                     rounding: Rounding::same(config::DIALOG_RADIUS),
                     shadow: egui::epaint::Shadow {
@@ -247,21 +249,21 @@ impl<'a> AlertDialog<'a> {
                         // Title
                         ui.label(
                             RichText::new(self.title.as_ref())
-                                .font(DbProTheme::ui_medium_font(15.0))
+                                .font(DbProTheme::ui_medium_font(config::DIALOG_TITLE_SIZE))
                                 .color(self.theme.text_primary),
                         );
-                        ui.add_space(6.0);
+                        ui.add_space(config::DIALOG_TITLE_GAP);
 
                         // Description
                         ui.add(
                             egui::Label::new(
                                 RichText::new(self.description.as_ref())
-                                    .size(13.0)
+                                    .size(config::DIALOG_DESCRIPTION_SIZE)
                                     .color(self.theme.text_secondary),
                             )
                             .wrap(),
                         );
-                        ui.add_space(20.0);
+                        ui.add_space(config::DIALOG_ACTIONS_GAP);
 
                         // Buttons
                         ui.horizontal_wrapped(|ui| {

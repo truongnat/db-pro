@@ -4,6 +4,8 @@ use crate::tokens::{RADIUS_MD, RADIUS_SM, SPACE_XS};
 
 // Duration of the active tab transition, in seconds.
 pub(super) const TAB_TRANSITION_SECS: f32 = 0.200;
+// Repaint cadence while the active indicator is settling, in milliseconds.
+pub(super) const TAB_REPAINT_INTERVAL_MS: u64 = 16;
 
 // Segmented control item height, in egui points.
 pub(super) const SEGMENTED_ITEM_HEIGHT: f32 = 28.0;

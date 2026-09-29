@@ -1,3 +1,4 @@
+use super::handler::should_show_error;
 use super::rules::{FieldRule, ValidationMode};
 use std::collections::{HashMap, HashSet};
 
@@ -85,16 +86,8 @@ impl FormState {
     }
 
     pub fn should_show_error(&self, field: &str) -> bool {
-        if self.errors.contains_key(field) {
-            match self.mode {
-                ValidationMode::OnSubmit => self.submitted,
-                ValidationMode::OnBlur => self.is_touched(field) || self.submitted,
-                ValidationMode::OnChange => self.is_dirty(field) || self.submitted,
-                ValidationMode::OnTouched => self.is_touched(field) || self.submitted,
-            }
-        } else {
-            false
-        }
+        // Centralizing this policy keeps callers from displaying errors before their lifecycle trigger.
+        should_show_error(self, field)
     }
 
     pub fn is_valid(&self) -> bool {

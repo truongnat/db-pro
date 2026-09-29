@@ -8,8 +8,9 @@ use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use crate::DbProTheme;
 
 use super::config::{
-    DIALOG_CHROME_HEIGHT, DIALOG_HORIZONTAL_MARGIN, DIALOG_RADIUS, DIALOG_TRANSLATE_PX, DIALOG_VERTICAL_MARGIN,
-    DIALOG_WIDTH,
+    DIALOG_CHROME_HEIGHT, DIALOG_CONTENT_HORIZONTAL_PADDING, DIALOG_CONTENT_MIN_SIZE, DIALOG_CONTENT_VERTICAL_PADDING,
+    DIALOG_FOOTER_SPACING, DIALOG_HEADER_MIN_HEIGHT, DIALOG_HORIZONTAL_MARGIN, DIALOG_RADIUS, DIALOG_SECTION_SPACING,
+    DIALOG_TOTAL_HORIZONTAL_PADDING, DIALOG_TRANSLATE_PX, DIALOG_VERTICAL_MARGIN, DIALOG_WIDTH,
 };
 use super::frame::DialogFrame;
 use super::handler::{modal_dismissal, ModalDismissal};
@@ -109,7 +110,7 @@ impl<'a> Dialog<'a> {
         let open = self.open;
 
         let prev_height = ctx.data(|d| d.get_temp::<f32>(id.with("prev_height")));
-        let layout = crate::components::common_utils::calculate_dialog_layout(
+        let layout = crate::components::common::calculate_dialog_layout(
             screen,
             self.width,
             prev_height,
@@ -221,7 +222,7 @@ fn paint_dialog_card<R>(
     Frame {
         fill: theme.surface_floating,
         stroke: Stroke::new(1.0, theme.border_subtle),
-        inner_margin: Margin::symmetric(24.0, 20.0),
+        inner_margin: Margin::symmetric(DIALOG_CONTENT_HORIZONTAL_PADDING, DIALOG_CONTENT_VERTICAL_PADDING),
         rounding: Rounding::same(DIALOG_RADIUS),
         shadow: theme.floating_shadow(),
         ..Default::default()
@@ -236,15 +237,15 @@ fn paint_dialog_card<R>(
             egui::Sense::focusable_noninteractive(),
         );
 
-        let inner_w = (width - 48.0).max(80.0);
+        let inner_w = (width - DIALOG_TOTAL_HORIZONTAL_PADDING).max(DIALOG_CONTENT_MIN_SIZE);
         ui.set_width(inner_w);
         ui.set_max_width(inner_w);
 
         draw_dialog_header(ui, title, description, open, theme, inner_w);
 
-        ui.add_space(12.0);
+        ui.add_space(DIALOG_SECTION_SPACING);
         ui.separator();
-        ui.add_space(12.0);
+        ui.add_space(DIALOG_SECTION_SPACING);
 
         let mut frame = DialogFrame {
             ui,
@@ -265,7 +266,7 @@ fn draw_dialog_header(
     width: f32,
 ) {
     ui.allocate_ui_with_layout(
-        egui::vec2(width, ui.spacing().interact_size.y.max(40.0)),
+        egui::vec2(width, ui.spacing().interact_size.y.max(DIALOG_HEADER_MIN_HEIGHT)),
         egui::Layout::left_to_right(egui::Align::TOP),
         |ui| {
             ui.vertical(|ui| {
@@ -317,7 +318,7 @@ pub fn dialog_actions(ui: &mut Ui, theme: DbProTheme, labels: DialogActionLabels
     let mut primary_clicked = false;
     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
         primary_clicked = Button::new(theme).text(labels.primary).show(ui).clicked();
-        ui.add_space(8.0);
+        ui.add_space(DIALOG_FOOTER_SPACING);
         secondary_clicked = Button::new(theme)
             .text(labels.secondary)
             .variant(ButtonVariant::Ghost)

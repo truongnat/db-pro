@@ -6,6 +6,8 @@
 
 use egui::{Align, Layout, Response, Sense, Ui, UiBuilder, Vec2};
 
+use super::{config, handler};
+
 /// Bounded fluid content width, including optional horizontal gutters.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ContainerWidth {
@@ -18,7 +20,7 @@ pub struct ContainerWidth {
 /// Calculate a centered content width without exceeding the parent's available width.
 pub fn container_width(available_width: f32, max_width: Option<f32>, gutter: f32) -> ContainerWidth {
     let available = finite_nonnegative(available_width);
-    let gutter = finite_nonnegative(gutter).min(available * 0.5);
+    let gutter = handler::bounded_gutter(available, gutter);
     let inner = (available - 2.0 * gutter).max(0.0);
     let content_width = max_width
         .map(finite_nonnegative)
@@ -45,7 +47,7 @@ pub fn grid_metrics(available_width: f32, min_cell_width: f32, gap: f32, max_col
     let available = finite_nonnegative(available_width);
     let minimum = finite_nonnegative(min_cell_width);
     let gap = finite_nonnegative(gap);
-    let cap = max_columns.max(1);
+    let cap = handler::column_count(max_columns);
     let columns = if minimum == 0.0 {
         cap
     } else {
@@ -180,11 +182,7 @@ impl ResponsiveGrid {
 }
 
 fn finite_nonnegative(value: f32) -> f32 {
-    if value.is_finite() {
-        value.max(0.0)
-    } else {
-        0.0
-    }
+    config::finite_nonnegative(value)
 }
 
 #[cfg(test)]

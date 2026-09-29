@@ -19,7 +19,7 @@ Radio group component for selecting a single option from mutually exclusive choi
 - Space/Enter activates the focused option; arrow keys move focus and selection, wrapping while skipping disabled options.
 - Clicking an already selected option or a disabled option produces no mutation or change event.
 - Horizontal options wrap when the available viewport width is exhausted.
-- Layout spacing uses component constants for consistent horizontal (`16.0px`) and vertical (`8.0px`) rhythm.
+- Layout spacing uses component constants for consistent horizontal (`16.0px`) and vertical (`8.0px`) rhythm; the unused cross-axis gap is centralized as `NO_ITEM_GAP`.
 - Each option delegates visual rendering and option-level semantics to [`Radio`](../selection.rs); `.label(...)` supplies the group-level accessible name.
 
 ## Usage Example

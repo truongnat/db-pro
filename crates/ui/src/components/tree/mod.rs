@@ -1,7 +1,6 @@
 mod config;
-mod geometry;
-mod traversal;
+mod handler;
 mod ui;
 
-pub use traversal::reveal_children;
-pub use ui::{DatabaseTreeNode, TreeNodeKind};
+pub use handler::TreeNodeKind;
+pub use ui::{reveal_children, DatabaseTreeNode};

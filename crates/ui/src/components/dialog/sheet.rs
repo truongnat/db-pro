@@ -5,7 +5,10 @@ use crate::components::animation::overlay_t;
 use crate::components::overlay::screen_rect;
 use crate::DbProTheme;
 
-use super::config::{SHEET_TRANSLATE_PX, SHEET_WIDTH};
+use super::config::{
+    SHEET_CLOSE_WIDTH, SHEET_CONTENT_MIN_SIZE, SHEET_CORNER_RADIUS, SHEET_PADDING, SHEET_TITLE_GAP,
+    SHEET_TOTAL_PADDING, SHEET_TRANSLATE_PX, SHEET_WIDTH,
+};
 use super::handler::{modal_dismissal, ModalDismissal};
 use super::layout::{overlay_widget_id, paint_dim, OverlayPaint};
 use super::modal_guard;
@@ -67,12 +70,12 @@ impl<'a> Sheet<'a> {
         let theme = self.theme;
         let title = self.title;
         let open = self.open;
-        let (width, x) = crate::components::common_utils::calculate_sheet_layout(
+        let (width, x) = crate::components::common::calculate_sheet_layout(
             screen,
             self.width,
             progress,
             SHEET_TRANSLATE_PX,
-            16.0,
+            SHEET_PADDING,
         );
         let mut inner = None;
         let dim_layer = LayerId::new(Order::Foreground, dim_id);
@@ -105,29 +108,29 @@ impl<'a> Sheet<'a> {
                 Frame {
                     fill: theme.surface_floating,
                     stroke: Stroke::new(1.0, theme.border_subtle),
-                    inner_margin: Margin::same(16.0),
+                    inner_margin: Margin::same(SHEET_PADDING),
                     rounding: Rounding {
-                        nw: 12.0,
+                        nw: SHEET_CORNER_RADIUS,
                         ne: 0.0,
-                        sw: 12.0,
+                        sw: SHEET_CORNER_RADIUS,
                         se: 0.0,
                     },
                     shadow: theme.floating_shadow(),
                     ..Default::default()
                 }
                 .show(ui, |ui| {
-                    let inner_width = (width - 32.0).max(80.0);
+                    let inner_width = (width - SHEET_TOTAL_PADDING).max(SHEET_CONTENT_MIN_SIZE);
                     ui.set_width(inner_width);
                     ui.set_max_width(inner_width);
-                    ui.set_min_height((screen.height() - 32.0).max(80.0));
+                    ui.set_min_height((screen.height() - SHEET_TOTAL_PADDING).max(SHEET_CONTENT_MIN_SIZE));
                     ui.interact(
                         Rect::from_min_size(ui.cursor().min, egui::Vec2::ZERO),
                         anchor_id,
                         egui::Sense::focusable_noninteractive(),
                     );
                     ui.horizontal(|ui| {
-                        let close_width = 28.0;
-                        let title_width = (inner_width - close_width - 8.0).max(40.0);
+                        let close_width = SHEET_CLOSE_WIDTH;
+                        let title_width = (inner_width - close_width - SHEET_TITLE_GAP).max(40.0);
                         ui.allocate_ui_with_layout(
                             egui::vec2(title_width, 0.0),
                             egui::Layout::top_down(egui::Align::LEFT),
@@ -149,7 +152,7 @@ impl<'a> Sheet<'a> {
                             }
                         });
                     });
-                    ui.add_space(12.0);
+                    ui.add_space(super::config::DIALOG_SECTION_SPACING);
                     inner = Some(add_contents(ui));
                 });
             });

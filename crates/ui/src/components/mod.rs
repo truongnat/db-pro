@@ -12,6 +12,7 @@ pub mod chrome;
 pub mod code;
 pub mod collapsible;
 pub mod command;
+pub mod common;
 pub mod common_utils;
 pub mod database;
 pub mod dev_tools;
@@ -59,7 +60,10 @@ pub use chrome::{toolbar_button, Avatar, AvatarShape, AvatarSize, AvatarStatus, 
 pub use code::{CodeBlock, InlineCode};
 pub use collapsible::Collapsible;
 pub use command::{CommandEmpty, CommandGroup, CommandInput, CommandItem};
-pub use common_utils::*;
+pub use common::{
+    calculate_dialog_layout, calculate_sheet_layout, clamp_popup_to_screen, format_bytes, format_count_with_suffix,
+    format_duration_millis, format_page_range, format_percentage, truncate_ellipsis, DialogLayout,
+};
 pub use database::{ConnectionCard, ConnectionCardAction, ConnectionStatus, DatabaseDriver, DatabaseTypeBadge};
 pub use dev_tools::{ProgressRing, TerminalBlock};
 pub use dialog::{dialog_actions, Dialog, DialogActionLabels, Sheet};
@@ -73,8 +77,8 @@ pub use legacy::*;
 pub use logs::{LogEntry, LogLevel, LogViewer};
 pub use nav::{Breadcrumb, BreadcrumbItem, PageHeader, Pagination, SectionHeader};
 pub use overlay::{
-    context_action_menu, ctx_menu_item, is_context_menu_triggered, DropdownItem, DropdownMenu, Popover, Toast,
-    ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant, Tooltip, TooltipPosition,
+    context_action_menu, ctx_menu_item, floating_surface, is_context_menu_triggered, DropdownItem, DropdownMenu,
+    Popover, Toast, ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant, Tooltip, TooltipPosition,
 };
 pub use radio_group::{RadioGroup, RadioGroupOption};
 pub use responsive_layout::{container_width, grid_metrics, Container, ContainerWidth, GridMetrics, ResponsiveGrid};

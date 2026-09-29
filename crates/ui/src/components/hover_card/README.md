@@ -14,6 +14,8 @@ Floating overlay component for previewing rich contextual information when hover
 
 - **Accessibility & Focus**: Trigger responds to both pointer hover and keyboard focus (`trigger_resp.has_focus()`), ensuring keyboard users can inspect card content.
 - **Grace Period**: Moving the pointer between the trigger and the card within `close_delay` keeps the card open so interactive content inside the card can be clicked or selected.
+- **Escape dismissal**: Pressing Escape while the card is open closes it immediately, surrenders trigger focus, clears pending timers, and suppresses reopening while the trigger/card remains active. Reopening is allowed after the pointer and focus leave the card interaction.
+- **Delay bounds**: Negative, NaN, and infinite delays mean no delay; finite delays are clamped to the component's 60-second timer maximum. This also bounds repaint scheduling safely.
 - **Collision & Overflow**: The card clamps horizontally within the screen viewport (with `SCREEN_EDGE_INSET`). When space below the trigger is insufficient, it automatically flips upward above the trigger.
 - **Theme Tokens**: Floating surface styling uses `theme.surface_floating`, `theme.border_subtle`, standard shadow, and border radius.
 

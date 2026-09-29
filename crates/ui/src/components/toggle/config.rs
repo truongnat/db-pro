@@ -4,6 +4,14 @@ pub const TOGGLE_ROUNDING: f32 = 6.0;
 pub const ICON_TEXT_GAP: f32 = 6.0;
 /// Border width used by outline and grouped toggle controls.
 pub const OUTLINE_STROKE_WIDTH: f32 = 1.0;
+/// Minimum animated hover value that changes the rendered rest state.
+pub const HOVER_THRESHOLD: f32 = 0.001;
+/// Opacity multiplier used by the outline variant's hover fill.
+pub const OUTLINE_FILL_FACTOR: f32 = 0.5;
+/// Multiplier for applying horizontal padding on both sides of the content.
+pub const HORIZONTAL_PADDING_FACTOR: f32 = 2.0;
+/// Factor used to center measured toggle content inside its allocated rectangle.
+pub const CONTENT_CENTER_FACTOR: f32 = 0.5;
 
 /// Small toggle height, in egui points.
 pub const SM_HEIGHT: f32 = 28.0;
@@ -32,6 +40,3 @@ pub const SM_PADDING_X: f32 = 8.0;
 pub const DEFAULT_PADDING_X: f32 = 11.0;
 /// Large toggle horizontal padding, in egui points.
 pub const LG_PADDING_X: f32 = 14.0;
-
-/// Fallback accessibility label for icon-only toggles.
-pub const DEFAULT_TOGGLE_ACCESSIBLE_NAME: &str = "Toggle";

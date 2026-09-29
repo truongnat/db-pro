@@ -23,6 +23,86 @@ fn test_field_rules_validation() {
 }
 
 #[test]
+fn test_legacy_field_module_reexports_remain_available() {
+    let theme = crate::DbProTheme::light();
+    let _label = super::field::Label::new("Host", theme);
+    let mut value = String::new();
+    let _field = super::field::FormField::new("Host", &mut value, "db.internal", theme);
+}
+
+#[test]
+fn test_compose_access_label_includes_required_and_helper_context() {
+    assert_eq!(
+        super::handler::compose_access_label("Name", true, Some("Shown to users"), None),
+        "Name, required. Shown to users"
+    );
+}
+
+#[test]
+fn test_compose_access_label_error_takes_precedence_over_helper() {
+    assert_eq!(
+        super::handler::compose_access_label("Name", false, Some("Hint"), Some("Invalid")),
+        "Name. Error: Invalid"
+    );
+}
+
+#[test]
+fn test_compose_access_label_without_optional_context() {
+    assert_eq!(super::handler::compose_access_label("Name", false, None, None), "Name");
+}
+
+#[test]
+fn test_compose_access_label_omits_blank_context() {
+    assert_eq!(
+        super::handler::compose_access_label("Name", false, Some("  \t"), None),
+        "Name"
+    );
+    assert_eq!(
+        super::handler::compose_access_label("Name", false, Some("Hint"), Some("\n ")),
+        "Name. Hint"
+    );
+}
+
+#[test]
+fn test_form_field_supports_unique_id_salt() {
+    let theme = crate::DbProTheme::light();
+    let mut first = String::new();
+    let _field = super::ui::FormField::new("Name", &mut first, "", theme).id_salt("first");
+}
+
+#[test]
+fn test_should_show_error_all_validation_modes_and_states() {
+    for mode in [
+        super::rules::ValidationMode::OnTouched,
+        super::rules::ValidationMode::OnBlur,
+        super::rules::ValidationMode::OnChange,
+        super::rules::ValidationMode::OnSubmit,
+    ] {
+        let mut form = FormState::with_mode(mode);
+        form.errors.insert("name".into(), "Invalid".into());
+        assert!(!form.should_show_error("name"));
+        form.touched.insert("name".into());
+        assert_eq!(
+            form.should_show_error("name"),
+            matches!(
+                mode,
+                super::rules::ValidationMode::OnTouched | super::rules::ValidationMode::OnBlur
+            )
+        );
+        form.touched.clear();
+        form.dirty.insert("name".into());
+        assert_eq!(
+            form.should_show_error("name"),
+            matches!(mode, super::rules::ValidationMode::OnChange)
+        );
+        form.submitted = true;
+        assert!(form.should_show_error("name"));
+    }
+    let form = FormState::new();
+    assert!(!form.should_show_error("missing"));
+}
+
+#[test]
 fn test_form_state_lifecycle() {
     let mut form = FormState::new();
     form.register(

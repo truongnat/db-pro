@@ -1,3 +1,73 @@
+# Agent evidence — Input component layer refactor
+
+## 1. Claim
+- Agent identity: implementation subagent.
+- Task state: In Progress (source refactor complete; automated/runtime verification blocked or pending).
+- Baseline SHA: `41d731b53cab93514ee8fe992f888d7db673664f`.
+- Scope: `crates/ui/src/components/input/**` plus component-layer plan/evidence files only; existing unrelated work preserved.
+
+## 2. Evidence
+- Added `ui.rs`, `handler.rs`, and `README.md`; `mod.rs` remains the public entry point.
+- Moved pure accessible-label selection and Unicode textarea counter decisions into tested handler functions.
+- Public widget names and constructors remain unchanged.
+
+## 3. Verification
+- `cargo fmt --all`: FAILED due to pre-existing missing `crates/ui/src/components/form/{config,handler,ui}.rs` declarations.
+- `cargo test -p db-pro-ui components::input --lib`: FAILED at crate compilation for the same unrelated missing form modules.
+- Native UI runtime screenshots/states: PENDING; not claimed.
+
+## 4. Findings
+- P0=0, P1=0, P2=1 (runtime visual/accessibility gate pending).
+
+## 5. Tổng kết bằng tiếng Việt
+Đã tách lớp Input thành entry point, presentation, handler thuần, cấu hình và README; giữ nguyên API công khai. Kiểm thử bị chặn bởi module Form thiếu sẵn trong worktree và bằng chứng UI runtime vẫn chờ thu thập.
+
+---
+
+# Agent evidence — HoverCard UI Product Review batch
+
+## 1. Claim
+- Agent identity: lead implementation + independent reviewer/tester handoffs.
+- Task state: In Progress (source implementation and automated checks done; runtime verification pending).
+- Baseline SHA: `5b38eb6543d5fa66783fe7f772e52b97665183a6`.
+- Branch: `feature/component-layer-structure`; no commit/PR.
+- Scope: fix HoverCard placement after component sizing while preserving public API; no database/provider changes.
+- Out of scope: Form layer files and other component migrations; preserved existing dirty changes.
+
+## 2. Progress checkpoint
+- Current HEAD: `5b38eb6543d5fa66783fe7f772e52b97665183a6` (implementation is uncommitted).
+- Completed: HoverCard layer migration existed; `.constrain(false)` prevents egui Area from constraining with stale prior-frame geometry; UI regression test asserts calculated trigger-bottom-plus-gap placement.
+- Remaining: native visual/runtime verification at required viewport sizes; oversized first-frame content placement remains unverified.
+- Findings: P2 — runtime visuals, interaction/accessibility, and oversized first-frame geometry are not covered; see VERIFICATION.md.
+- Tests: `cargo test -p db-pro-ui hover_card --lib` → 14 passed / 0 failed / 0 ignored, exit 0.
+- Other gates: fmt, package check, package clippy, native release build and diff check passed; exact commands in VERIFICATION.md.
+
+## 3. Implementation handoff
+- Exact source SHA: dirty worktree based on `5b38eb6543d5fa66783fe7f772e52b97665183a6`; source diff is uncommitted.
+- Files: HoverCard `ui.rs`/handler/config/README changes already present in batch; this turn's code changes were in `ui.rs`. Plan evidence/checklist/verification updated.
+- Review: final reviewer verdict ACCEPT WITH P2; initial test issue fixed; no P0/P1. Independent tester reran gates.
+- Database/provider impact: N/A.
+- Limitation: screenshots/runtime evidence not collected. No commit made.
+
+## 4. Review outcome
+- Reviewed source SHA: `5b38eb6543d5fa66783fe7f772e52b97665183a6` plus dirty working-tree diff.
+- Verdict: ACCEPT WITH P2.
+- P0/P1/P2: introduced P0=0, P1=0; P2=2 (runtime state/evidence and oversized first-frame content placement unverified).
+- CI disposition: not run; local fmt/test/check/clippy/release build passed.
+- Next tasks: runtime UI validation and continue remaining public component migrations.
+
+## 5. Research / audit handoff
+- References: UI Product Reviewer evaluation model/design-system audit; component plan; `crates/ui/src/components/hover_card/{ui.rs,handler.rs,config.rs}`.
+- Observed failure before fix: egui Area constraint placed a short card at y=200 although trigger bottom was y=332 and calculated placement was y=338. Disabling the second, stale-size constraint restores handler-selected placement.
+- Independent tester flagged a weak first replacement assertion; final assertion now pins expected y to trigger bottom plus `TRIGGER_GAP`.
+- Inference/unknown: first-frame placement of oversized content and live keyboard/focus/viewport behavior need runtime evidence.
+- Provider impact: PostgreSQL/SQLite N/A.
+
+## 6. Tổng kết bằng tiếng Việt
+Đã sửa lỗi HoverCard bị egui Area dịch vị trí theo kích thước frame trước; test UI hiện kiểm tra tọa độ đúng theo trigger và gap, handler test riêng kiểm tra quyết định lật popup theo chiều cao đo được. 14 test, fmt, check, clippy và native release build đều đạt. Reviewer chấp nhận kèm P2; cần xác minh runtime/screenshot và trường hợp nội dung lớn ở frame đầu. Refactor các component còn lại vẫn tiếp tục.
+
+---
+
 # Agent evidence — accordion moved-value compile fix
 
 ## 1. Claim
@@ -730,3 +800,190 @@ Source date: 2026-09-16. Exact commit HEAD: `81238b4df2b173e6faa15180eddecddbbc3
 
 ## 6. Tổng kết bằng tiếng Việt
 Feedback đã có đủ năm layer từ trước; batch này cập nhật inventory và sửa hai P2: chuẩn hóa giá trị accessibility, bảo vệ overflow beam. Giữ API cũ, chỉ thêm builder nhãn. Commit `7a119f96`; Feedback 7/7, full UI 873/873, check/clippy/release build đạt. Review ACCEPT, không còn P0/P1/P2 ở source. Runtime screenshot/accessibility evidence vẫn thiếu; bước migration kế tiếp là Form.
+
+# Agent evidence — Form component batch
+
+## 1. Claim
+| Field | Value |
+|---|---|
+| Agent identity | Senior Software Engineering Subagent · implementation lane |
+| Issue(s) | Form component-layer structure batch |
+| Task state | Done |
+| Baseline SHA | `5b38eb6543d5fa66783fe7f772e52b97665183a6` |
+| Branch / PR | current worktree / no commit |
+| Scope interpretation | Finish the existing Form-only layering work while preserving public compatibility and runtime behavior. |
+| Out of scope | Other components, database providers, and native runtime screenshots. |
+
+## 2. Progress checkpoint
+- Current HEAD: `5b38eb6543d5fa66783fe7f772e52b97665183a6` (base only; worktree contains the Form batch and this uncommitted follow-up, so no new commit SHA exists).
+- Completed acceptance rows: Form compatibility exports/builders; typed handler decisions; component config; README; semantic accessibility context for required/helper/error text; focused tests and verification. `PasswordInput` remains out of scope.
+- Remaining acceptance rows: native runtime screenshot/accessibility evidence remains pending.
+- Findings / risks: final independent source review verdict is ACCEPT; introduced P0=0/P1=0/P2=0/P3=0. Native runtime screenshots/accessibility traversal remain unverified plan gates, not source-review findings.
+- Tests already run: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::form::` 9 passed / 0 failed / 0 ignored, exit 0; `cargo check -p db-pro-ui` PASS; `git diff --check` PASS.
+- Dependency / blocker changes: none.
+
+## 3. Implementation handoff / review request
+| Field | Value |
+|---|---|
+| Exact SHA | `5b38eb6543d5fa66783fe7f772e52b97665183a6` |
+| Commit list | none; changes remain uncommitted as required |
+| File / surface inventory | `crates/ui/src/components/form/{config.rs,handler.rs,ui.rs,README.md}` added; `field.rs`, `mod.rs`, `rules.rs`, `state.rs`, `tests.rs` updated for layering, compatibility, and focused coverage; plan checklist/verification updated. |
+| Acceptance mapping | Compatibility → `field.rs`/`mod.rs`; validation visibility and accessible label composition → `handler.rs` tests; UI/accessibility/disabled/error/helper behavior and caller-provided IDs → `ui.rs` and README; verification → targeted commands above. |
+| Commands and counts | `cargo fmt --all -- --check` exit 0; `cargo test -p db-pro-ui components::form::` 9/0/0 exit 0; `cargo check -p db-pro-ui` exit 0; `git diff --check` exit 0. |
+| CI run IDs / status | not run |
+| Known limitations | No native runtime screenshots or accessibility traversal collected. |
+| Migrations / config implications | none |
+| Out-of-scope changes | none |
+
+## 4. Review outcome
+| Field | Value |
+|---|---|
+| Reviewed SHA | Base HEAD `5b38eb6543d5fa66783fe7f772e52b97665183a6`; review covered the dirty Form patch, which has no commit SHA yet. |
+| Verdict | `ACCEPT` (source review only) |
+| P0 / P1 / P2 counts | introduced: 0 / 0 / 0; inherited: 0 / 0 / 0 |
+| Findings | No introduced source findings. Native screenshots and runtime accessibility traversal are still pending outside this source-review verdict. |
+| CI disposition | CI not run; local targeted gates passed as recorded above. |
+| Next task(s) unblocked | Continue next pending component batch; native runtime verification remains a plan-level gate. |
+
+## 5. Research / audit handoff
+- Source date: 2026-10-06
+- Source URLs / references: `crates/ui/src/components/form/**`; `/Users/truongdq/.agents/skills/ui-product-reviewer/SKILL.md` and its `references/evaluation-model.md`, `references/design-system-audit.md`; `docs/plans/active/component-layer-structure/PLAN.md` and `CHECKLIST.md`.
+- Factual findings: source review and targeted tests cover the Form patch on dirty worktree based on HEAD `5b38eb6543d5fa66783fe7f772e52b97665183a6`; runtime evidence was not collected.
+- Inference: none.
+- Decision / recommendation: ACCEPT source implementation; continue next pending component. Keep native runtime evidence gate open.
+- Unresolved questions: required native screenshots/accessibility traversal.
+- Downstream tasks activated: next pending component-layer batch.
+
+## 6. Tổng kết bằng tiếng Việt
+Đã hoàn tất batch Form trong phạm vi `crates/ui/src/components/form`, giữ API tương thích và thêm ID tùy chỉnh cùng ngữ cảnh accessibility cho required/helper/error. Bốn gate cục bộ đạt, 9 test Form thành công; independent source review ACCEPT, không có finding P0–P3. Chưa thu thập runtime screenshot/accessibility evidence; tiếp tục component tiếp theo, giữ gate runtime ở trạng thái pending.
+
+## Toggle and ScrollArea batch handoff
+
+### 1. Claim
+- Agent identity: implementation subagent.
+- Task state: In Progress.
+- Baseline SHA: `6cedac0a0ff0492133d101f8272c0b801fd2e28f`.
+- Scope: `crates/ui/src/components/toggle.rs`, `crates/ui/src/components/toggle/**`, `crates/ui/src/components/scroll_area/**`, and this plan directory only.
+
+### 2. Evidence
+- Toggle now has `mod.rs`, `ui.rs`, `handler.rs`, `config.rs`, and `README.md`; the public `Toggle`, `ToggleGroup`, `ToggleGroupItem`, `ToggleSize`, and `ToggleVariant` paths remain exported through `components::toggle` and `components`.
+- Toggle handlers own size tokens, intrinsic width, state transitions, appearance, grouped rounding, and selection decisions; egui measurement/allocation/painting remains in `ui.rs`. Click mutations are applied through typed handler functions rather than duplicated in the presentation layer.
+- ScrollArea handler owns axis ordering and the scrollbar visual save/restore lifecycle; the clip-margin value is named in `config.rs` and the README documents the behavior.
+- Focused handler tests were added for both components. No PostgreSQL/SQLite behavior is affected.
+
+### 3. Verification
+- `rustfmt --edition 2021 --check crates/ui/src/components/toggle/{mod,ui,handler,config}.rs crates/ui/src/components/scroll_area/{mod,ui,handler,config}.rs`: PASS.
+- `git diff --check`: PASS.
+- `cargo fmt --all -- --check`: BLOCKED by pre-existing missing Form layer modules.
+- `cargo test -p db-pro-ui components::toggle --lib` and `cargo test -p db-pro-ui components::scroll_area --lib`: BLOCKED by pre-existing missing Form/Input layer modules before component tests could run.
+- `cargo check -p db-pro-ui`: BLOCKED by the same pre-existing missing Form/Input modules.
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: BLOCKED by the same pre-existing missing Form/Input modules.
+- Native runtime screenshots/accessibility traversal were not collected.
+
+### 4. Review outcome
+| Field | Value |
+|---|---|
+| Reviewed SHA | Base HEAD `6cedac0a0ff0492133d101f8272c0b801fd2e28f`; dirty patch reviewed in this worktree. |
+| Verdict | `ACCEPT` (source review only) |
+| P0 / P1 / P2 counts | introduced: 0 / 0 / 0; inherited: 0 / 0 / 0 |
+| Findings | No source-level P0/P1/P2 finding in this focused batch. Automated crate gates are blocked by unrelated missing Form/Input layer files. |
+| Runtime disposition | Native runtime evidence remains pending. |
+
+### 5. Research / audit handoff
+- Source references: `crates/ui/src/components/toggle/**`, `crates/ui/src/components/scroll_area/**`, `docs/plans/active/component-layer-structure/{PLAN.md,CHECKLIST.md}`.
+- Provider impact: n/a; this is native UI architecture only.
+- Recommendation: restore the pre-existing Form/Input layer modules, then rerun the focused test/check/clippy commands and native UI evidence gates.
+- Unresolved questions: runtime screenshots/accessibility traversal at required viewports.
+
+### 6. Tổng kết bằng tiếng Việt
+Đã hoàn tất refactor Toggle và ScrollArea theo cấu trúc năm lớp, giữ nguyên API và hành vi hiện có, chuyển cả mutation click vào handler, thêm handler tests, README và hằng số có tên cho các giá trị giao diện. Rustfmt từng file và diff check đạt; các gate Cargo bị chặn bởi module Form/Input thiếu sẵn ngoài phạm vi, còn runtime evidence chưa thu thập.
+
+## Tree migration handoff
+
+### 1. Claim
+| Field | Value |
+|---|---|
+| Agent identity | Pi subagent · implementation |
+| Issue(s) | Continue component-layer refactor: Tree |
+| Task state | Review (source patch complete; Cargo gates blocked by baseline module errors) |
+| Baseline SHA | `ed5ac6ac85f6d54510de97389e5ad42eef42c4c9` |
+| Branch / PR | detached/worktree context; no PR info |
+| Scope interpretation | Refactor Tree only to plan-layer convention, preserve public API and animation ID semantics, add focused tests/docs/checklist/evidence. |
+| Out of scope | Other component migrations, missing Form/Input/Toggle modules, database/provider behavior, native runtime screenshots/accessibility evidence. |
+
+### 2. Progress checkpoint
+- Current HEAD: `ed5ac6ac85f6d54510de97389e5ad42eef42c4c9` plus uncommitted Tree/plan changes.
+- Completed acceptance rows: [x] Tree five-file shape; [x] public `DatabaseTreeNode`, `TreeNodeKind`, `TreeNodeKind::icon()`, `reveal_children` re-exports preserved; [x] icon mapping/interactions/geometry/reveal decisions moved to handler/config; [x] legacy `hover`, `chev_anim`, `content_h` salts preserved and tested; [x] README/checklist/verification updated for Tree.
+- Remaining acceptance rows: Cargo fmt/test/check/clippy cannot pass until pre-existing missing Form/Input/Toggle modules are restored; native runtime screenshots/accessibility evidence remains pending.
+- Findings / risks: no introduced P0/P1/P2 identified in Tree source; repo-level baseline module errors block automated Cargo verification.
+- Tests already run: `rustfmt --edition 2021 --check ...tree files` PASS; `git diff --check` PASS; `cargo fmt --all -- --check`, `cargo test -p db-pro-ui components::tree::`, `cargo check -p db-pro-ui`, and `cargo clippy -p db-pro-ui --all-targets -- -D warnings` all executed and blocked by pre-existing missing Form/Input/Toggle modules.
+- Dependency / blocker changes: none.
+
+### 3. Implementation handoff / review request
+| Field | Value |
+|---|---|
+| Exact SHA | `ed5ac6ac85f6d54510de97389e5ad42eef42c4c9` plus uncommitted diff |
+| Commit list | none |
+| File / surface inventory | `crates/ui/src/components/tree/{mod.rs,ui.rs,handler.rs,config.rs,README.md}`; removed `geometry.rs` and `traversal.rs` from Tree module graph. Plan updates in `CHECKLIST.md`, `VERIFICATION.md`, `AGENT_EVIDENCE.md`. |
+| Acceptance mapping | Layer convention → five Tree files; public API → unchanged `components::tree`/`components::*` re-exports; behavior extraction → handler tests for mapping/interactions/layout/reveal/ID salts; docs/evidence → README and plan files. |
+| Commands and counts | Focused rustfmt PASS; rustfmt check PASS; diff check PASS. Cargo gates executed but blocked before Tree tests by baseline missing modules; no test counts produced. |
+| CI run IDs / status | not run |
+| Known limitations | No native runtime evidence; automated Rust Cargo gates blocked outside Tree scope. |
+| Migrations / config implications | Tree-only config constants added for dimensions, thresholds, font sizes, and legacy animation/data ID salts; no shared token/theme duplication. |
+| Out-of-scope changes | Did not repair Form/Input/Toggle missing module declarations/files. |
+
+### 4. Review outcome
+| Field | Value |
+|---|---|
+| Reviewed SHA | n/a |
+| Verdict | n/a |
+| P0 / P1 / P2 counts | n/a |
+| Findings | n/a |
+| CI disposition | not run; local Cargo gates blocked as recorded |
+| Next task(s) unblocked | Restore/fix baseline missing Form/Input/Toggle modules, then rerun Tree focused Cargo tests/check/clippy and collect native runtime evidence. |
+
+### 5. Research / audit handoff
+- Source references: `crates/ui/src/components/tree/{mod.rs,ui.rs,handler.rs,config.rs,README.md}`, `docs/plans/active/component-layer-structure/{PLAN.md,CHECKLIST.md,VERIFICATION.md}`.
+- Provider impact: n/a; this is native UI component architecture only.
+- Runtime testability: source-only in this turn; native egui screenshots/accessibility traversal not collected.
+
+### 6. Tổng kết bằng tiếng Việt
+Đã refactor Tree theo cấu trúc năm lớp, giữ API công khai và salt animation/data cũ, đưa mapping icon/quyết định tương tác/hình học/reveal clipping vào handler/config, thêm test và README. Rustfmt từng file và diff check đạt; các lệnh Cargo đã chạy nhưng bị chặn bởi lỗi module Form/Input/Toggle thiếu sẵn ngoài phạm vi Tree.
+
+## Integrated multi-component continuation (baseline `5b38eb6543d5fa66783fe7f772e52b97665183a6`)
+
+- Task state: Review (source implementation/tests complete; native runtime gate remains pending).
+- Scope: integrated continuation across RadioGroup, Logs/Navigation, Toggle/ScrollArea, Tree/Workspace, Overlay/Selection, Tabs, ResponsiveLayout, Table, Calendar, Alert, Dialog, Input, Overlay Tooltip/Toast modules, and the `legacy::card_frame` compatibility helper. ResponsiveLayout is normalized to the standard component directory; component-owned metrics were centralized where repeated/semantic; Tooltip and Toast are extracted from the oversized Overlay UI module. Existing Form/HoverCard/Input changes were preserved.
+- Current HEAD: `5b38eb6543d5fa66783fe7f772e52b97665183a6` plus uncommitted worktree changes.
+- Verification in the integrated working tree based on HEAD `5b38eb6543d5fa66783fe7f772e52b97665183a6`: `cargo test -p db-pro-ui --lib` PASS (911 passed, 0 failed, 0 ignored); `cargo test --workspace --quiet` PASS (1,566 passed, 0 failed, 41 ignored); `cargo check --workspace` PASS; `cargo clippy --workspace --all-targets -- -D warnings` PASS; `cargo fmt --all -- --check` PASS; `cargo build --release --locked -p db-pro-native` PASS; `git diff --check` PASS.
+- Clean-code scan `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (12 pass, 4 warning categories, 0 fail). Warnings include heuristic long functions/files and numeric casts; Overlay Tooltip and Toast are split; context-menu extraction remains possible follow-up.
+- Review: independent source review findings about stale table/responsive verification claims and checklist/runtime gate status were addressed; historical blocked results are explicitly scoped to isolated snapshots and superseded by integrated results. Latest cleanup, Tooltip extraction, and Toast extraction reviews: PASS, no must-fix findings. Root export audit fixed the missing `floating_surface` root export; `common_utils::*` and `legacy::*` remain intentionally compatible pending caller migration.
+- Remaining: optional staged migration from `common_utils::*`/`legacy::*` compatibility exports and native runtime evidence at required sizes/states. The re-export audit itself is complete. No database/provider impact; no commit created.
+- Tổng kết bằng tiếng Việt: Đã tiếp tục refactor nhiều component, giữ API, chuẩn hóa ResponsiveLayout, và gom metric semantic cho Overlay, Selection, Calendar, Alert, Dialog và legacy card frame. UI có 911 test đạt; workspace có 1.566 test đạt và 41 ignored; fmt/check/clippy/native release build đều đạt. Review độc lập PASS. Đã sửa thiếu export `floating_surface`; còn compatibility wildcard migration và ảnh/runtime accessibility theo viewport yêu cầu. Kế hoạch chưa đủ điều kiện đóng.
+
+## Common layer continuation handoff
+
+### 1. Claim
+- Agent identity: implementation lane.
+- Issue: continue the component-layer refactor by moving shared `common_utils` behavior into a named common layer.
+- Task state: Review (source refactor and automated verification complete; runtime evidence remains pending).
+- Exact baseline/source context: `main` at `be1f8e68` after fetching `origin`; the component migration patch remains uncommitted in the worktree.
+- Scope: `crates/ui/src/components/common/**`, `common_utils.rs`, `components/mod.rs`, three direct call sites, component README, and component plan evidence.
+
+### 2. Evidence
+- `common/layout.rs` owns dialog, sheet and popup geometry; `common/format.rs` owns display formatting and Unicode-safe truncation.
+- `common_utils.rs` preserves the old module path as an explicit compatibility facade; root exports are explicit rather than a wildcard.
+- Dialog/sheet and table paging now call `components::common` directly; no behavior/API change is intended for existing callers.
+
+### 3. Verification
+- Before refactor: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui components::common_utils --lib` PASS (10/0/901 filtered).
+- After refactor: `cargo test -p db-pro-ui 'components::common' --lib` PASS (11/0/903 filtered); `cargo check -p db-pro-ui` PASS.
+- Final gates: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui --lib` PASS (913/0/0); `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS; `cargo build --release --locked -p db-pro-native` PASS; `cargo check --workspace` PASS; `cargo clippy --workspace --all-targets -- -D warnings` PASS; `cargo test --workspace --quiet` PASS; the final `db-pro-ui` crate segment reported 914 passed / 0 failed / 0 ignored, while provider/SSH fixture cases were ignored as reported by Cargo; `git diff --check` PASS; clean-code scan PASS (12 pass, 4 warning categories, 0 fail).
+- Runtime screenshots/accessibility traversal at required viewports: PENDING; no runtime claim made.
+
+### 4. Findings
+- P0=0, P1=0, P2=1 (native runtime evidence remains pending at initiative level).
+- No PostgreSQL/SQLite/provider impact.
+
+### 5. Tổng kết bằng tiếng Việt
+Đã đồng bộ `main` lên `be1f8e68` sau khi fetch, giữ nguyên toàn bộ thay đổi chưa commit. Đã tách `common_utils.rs` thành common layer có tên rõ ràng gồm `layout` và `format`, giữ facade tương thích và đổi các call site mới sang `components::common`. 10 test common trước và sau đều đạt; `cargo check -p db-pro-ui` đạt. Cần chạy lại fmt cuối cùng và vẫn thiếu screenshot/accessibility runtime.

@@ -2,9 +2,13 @@ use crate::DbProTheme;
 use egui::Color32;
 use lucide_icons::Icon;
 
+fn effective_page_count(page_count: usize) -> usize {
+    page_count.max(1)
+}
+
 /// Clamps the active page number within the 1-based range [1, page_count].
 pub fn clamp_page(page: usize, page_count: usize) -> usize {
-    let max_page = page_count.max(1);
+    let max_page = effective_page_count(page_count);
     page.clamp(1, max_page)
 }
 
@@ -15,7 +19,7 @@ pub fn can_navigate_prev(enabled: bool, page: usize) -> bool {
 
 /// Checks whether forward pagination navigation is possible.
 pub fn can_navigate_next(enabled: bool, page: usize, page_count: usize) -> bool {
-    enabled && page < page_count.max(1)
+    enabled && page < effective_page_count(page_count)
 }
 
 /// Decrements the page index by 1 (bounded to 1).
@@ -25,13 +29,13 @@ pub fn prev_page(page: usize) -> usize {
 
 /// Increments the page index by 1 (bounded to page_count).
 pub fn next_page(page: usize, page_count: usize) -> usize {
-    let max_page = page_count.max(1);
+    let max_page = effective_page_count(page_count);
     page.saturating_add(1).min(max_page)
 }
 
 /// Formats the current and total page count label (e.g., "1 / 10").
 pub fn format_page_label(page: usize, page_count: usize) -> String {
-    format!("{} / {}", page, page_count.max(1))
+    format!("{} / {}", page, effective_page_count(page_count))
 }
 
 /// Returns an accessible action label for the pagination chevron.

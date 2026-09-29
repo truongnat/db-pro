@@ -93,16 +93,16 @@ impl<'a> Calendar<'a> {
     pub fn show(self, ui: &mut Ui) -> Response {
         let cell_size = config::CELL_SIZE;
         let pad = config::CELL_GAP;
-        let total_width = (cell_size * 7.0) + (pad * 6.0) + 16.0;
+        let total_width = (cell_size * 7.0) + (pad * 6.0) + config::GRID_OUTER_PADDING;
 
         let frame = Frame {
             fill: self.theme.surface_floating,
             stroke: Stroke::new(1.0, self.theme.border_default),
             inner_margin: Margin::same(config::CALENDAR_INNER_MARGIN),
-            rounding: Rounding::same(8.0),
+            rounding: Rounding::same(config::SURFACE_RADIUS),
             shadow: egui::epaint::Shadow {
                 offset: egui::vec2(0.0, 2.0),
-                blur: 8.0,
+                blur: config::SHADOW_BLUR,
                 spread: 0.0,
                 color: Color32::from_black_alpha(20),
             },
@@ -120,7 +120,7 @@ impl<'a> Calendar<'a> {
                         if p_hover > 0.001 {
                             ui.painter().rect_filled(
                                 prev_resp.0,
-                                Rounding::same(4.0),
+                                Rounding::same(config::CONTROL_RADIUS),
                                 self.theme.surface_hover.linear_multiply(p_hover),
                             );
                         }
@@ -128,7 +128,7 @@ impl<'a> Calendar<'a> {
                             prev_resp.0.center(),
                             Align2::CENTER_CENTER,
                             char::from(Icon::ChevronLeft).to_string(),
-                            FontId::new(14.0, FontFamily::Name("lucide".into())),
+                            FontId::new(config::CALENDAR_ICON_SIZE, FontFamily::Name("lucide".into())),
                             self.theme.text_secondary,
                         );
                         if prev_resp.1.clicked() {
@@ -152,7 +152,7 @@ impl<'a> Calendar<'a> {
                         if n_hover > 0.001 {
                             ui.painter().rect_filled(
                                 next_resp.0,
-                                Rounding::same(4.0),
+                                Rounding::same(config::NAVIGATION_RADIUS),
                                 self.theme.surface_hover.linear_multiply(n_hover),
                             );
                         }
@@ -160,7 +160,7 @@ impl<'a> Calendar<'a> {
                             next_resp.0.center(),
                             Align2::CENTER_CENTER,
                             char::from(Icon::ChevronRight).to_string(),
-                            FontId::new(14.0, FontFamily::Name("lucide".into())),
+                            FontId::new(config::CALENDAR_ICON_SIZE, FontFamily::Name("lucide".into())),
                             self.theme.text_secondary,
                         );
                         if next_resp.1.clicked() {
@@ -168,13 +168,14 @@ impl<'a> Calendar<'a> {
                         }
                     });
 
-                    ui.add_space(8.0);
+                    ui.add_space(config::SECTION_GAP);
 
                     // Day of week headers
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing = Vec2::new(pad, 0.0);
                         for day_name in WEEKDAY_NAMES {
-                            let (rect, _) = ui.allocate_exact_size(Vec2::new(cell_size, 20.0), Sense::hover());
+                            let (rect, _) =
+                                ui.allocate_exact_size(Vec2::new(cell_size, config::DAY_ROW_HEIGHT), Sense::hover());
                             ui.painter().text(
                                 rect.center(),
                                 Align2::CENTER_CENTER,
@@ -185,7 +186,7 @@ impl<'a> Calendar<'a> {
                         }
                     });
 
-                    ui.add_space(4.0);
+                    ui.add_space(config::GRID_GAP);
 
                     // Day grid
                     let first_dow = day_of_week(*self.view_year, *self.view_month, 1);
@@ -212,7 +213,7 @@ impl<'a> Calendar<'a> {
                                         cell_rect.center(),
                                         Align2::CENTER_CENTER,
                                         d.to_string(),
-                                        FontId::proportional(12.0),
+                                        FontId::proportional(config::DAY_FONT_SIZE),
                                         self.theme.text_disabled,
                                     );
                                     if resp.clicked() {
@@ -230,12 +231,15 @@ impl<'a> Calendar<'a> {
                                         hover_t(ui.ctx(), resp.id.with("day_hover"), resp.hovered() && !is_selected);
 
                                     if is_selected {
-                                        ui.painter()
-                                            .rect_filled(cell_rect, Rounding::same(6.0), self.theme.accent);
+                                        ui.painter().rect_filled(
+                                            cell_rect,
+                                            Rounding::same(config::CONTROL_RADIUS),
+                                            self.theme.accent,
+                                        );
                                     } else if hover > 0.001 {
                                         ui.painter().rect_filled(
                                             cell_rect,
-                                            Rounding::same(6.0),
+                                            Rounding::same(config::CONTROL_RADIUS),
                                             self.theme.surface_hover.linear_multiply(hover),
                                         );
                                     }
@@ -252,7 +256,7 @@ impl<'a> Calendar<'a> {
                                         cell_rect.center(),
                                         Align2::CENTER_CENTER,
                                         day_num.to_string(),
-                                        FontId::proportional(12.5),
+                                        FontId::proportional(config::SELECTED_DAY_FONT_SIZE),
                                         text_color,
                                     );
 
@@ -266,7 +270,7 @@ impl<'a> Calendar<'a> {
                                         cell_rect.center(),
                                         Align2::CENTER_CENTER,
                                         d.to_string(),
-                                        FontId::proportional(12.0),
+                                        FontId::proportional(config::DAY_FONT_SIZE),
                                         self.theme.text_disabled,
                                     );
                                     if resp.clicked() {
@@ -345,10 +349,11 @@ impl<'a> DatePicker<'a> {
             self.theme.surface_panel
         };
 
-        ui.painter().rect_filled(rect, Rounding::same(6.0), fill);
+        ui.painter()
+            .rect_filled(rect, Rounding::same(config::CONTROL_RADIUS), fill);
         ui.painter().rect_stroke(
             rect,
-            Rounding::same(6.0),
+            Rounding::same(config::CONTROL_RADIUS),
             Stroke::new(
                 1.0,
                 if is_open {
@@ -362,12 +367,12 @@ impl<'a> DatePicker<'a> {
         );
 
         // Icon Calendar on left
-        let icon_pos = Pos2::new(rect.left() + 10.0, rect.center().y);
+        let icon_pos = Pos2::new(rect.left() + config::ICON_INSET, rect.center().y);
         ui.painter().text(
             icon_pos,
             Align2::LEFT_CENTER,
             char::from(Icon::Calendar).to_string(),
-            FontId::new(14.0, FontFamily::Name("lucide".into())),
+            FontId::new(config::CALENDAR_ICON_SIZE, FontFamily::Name("lucide".into())),
             if self.date.is_some() {
                 self.theme.accent
             } else {
@@ -376,7 +381,7 @@ impl<'a> DatePicker<'a> {
         );
 
         // Date text
-        let text_pos = Pos2::new(rect.left() + 32.0, rect.center().y);
+        let text_pos = Pos2::new(rect.left() + config::TEXT_INSET, rect.center().y);
         let (text, color) = if let Some(d) = self.date {
             (d.to_iso_string(), self.theme.text_primary)
         } else {
@@ -386,7 +391,7 @@ impl<'a> DatePicker<'a> {
             text_pos,
             Align2::LEFT_CENTER,
             text,
-            DbProTheme::ui_medium_font(12.5),
+            DbProTheme::ui_medium_font(config::SELECTED_DAY_FONT_SIZE),
             color,
         );
 
