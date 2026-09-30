@@ -14,8 +14,8 @@
 
 ## 2. Progress checkpoint
 
-- Current HEAD: `8470ea83148da517b7ac12be6da5ca8c97fe96ec`
-- Completed acceptance rows: [x] transparent rest state, [x] semantic hover/open surfaces, [x] shared geometry/focus/body inset, [x] clipped height + fade animation, [x] trailing badge/chevron spacing, [x] existing API/state/keyboard behavior preserved, [x] native capture, [x] full local gates.
+- Current HEAD: `4bf6bad4fdff253f3593ba125fcb636887aa750f`
+- Completed acceptance rows: [x] transparent rest state, [x] semantic hover/open surfaces, [x] shared geometry/focus/body inset, [x] clipped height + fade animation, [x] trailing badge/chevron spacing and contrast, [x] existing API/state/keyboard behavior preserved, [x] native capture, [x] full local gates.
 - Remaining acceptance rows: [ ] independent review; [ ] interactive hover/transition recording beyond the static capture.
 - Findings / risks: P2 F-1/F-2 in `FINDINGS.md:3-27` are addressed by `components/disclosure.rs:1-93`, `components/collapsible/ui.rs:72-135`, and `components/accordion/ui.rs:30-159`; no open P0/P1.
 - Tests already run: `cargo test --workspace` → 1583 passed / 0 failed / 41 ignored, exit 0.
@@ -25,10 +25,10 @@
 
 | Field | Value |
 |---|---|
-| Exact SHA | `8470ea83148da517b7ac12be6da5ca8c97fe96ec` |
-| Commit list | `bb5830ed refactor(ui): unify disclosure components`; `8470ea83 fix(ui): add space between accordion badge and chevron` |
-| File / surface inventory | `crates/ui/src/components/disclosure.rs` — shared disclosure style/body animation; `accordion/ui.rs` + `collapsible/ui.rs` — consume shared state and painting, with `SPACE_MD` badge/chevron separation; component config/handler/README files — remove duplicate contracts and document the new behavior; `components/mod.rs` — register shared module; `component_gallery_inputs.rs` + `workspace_actions.rs` — deterministic disclosure capture path; `settings_navigation_view.rs` — use existing Ghost/Secondary button variants for nav items; `docs/plans/active/disclosure-components-polish/` — plan, findings, checklist, verification, evidence, and capture; `docs/plans/STATUS.md` — lifecycle row.` |
-| Acceptance mapping | Rest/hover/open surface → `disclosure::paint_header_surface`; shared colors/focus/chevron → `disclosure.rs`; badge/chevron separation → `accordion/ui.rs` at `8470ea83148da517b7ac12be6da5ca8c97fe96ec`; clipped body height → `disclosure::show_body` using egui `CollapsingState`; state/keyboard behavior → existing handlers and component tests; visual evidence → `screenshots/disclosure-gallery-dark-1280x800.png`. |
+| Exact SHA | `4bf6bad4fdff253f3593ba125fcb636887aa750f` |
+| Commit list | `bb5830ed refactor(ui): unify disclosure components`; `8470ea83 fix(ui): add space between accordion badge and chevron`; `4bf6bad4 fix(ui): keep accordion badges visible on active headers` |
+| File / surface inventory | `crates/ui/src/components/disclosure.rs` — shared disclosure style/body animation; `accordion/ui.rs` + `collapsible/ui.rs` — consume shared state and painting, with `SPACE_MD` badge/chevron separation and shared secondary badge palette; component config/handler/README files — remove duplicate contracts and document the new behavior; `components/mod.rs` — register shared module; `component_gallery_inputs.rs` + `workspace_actions.rs` — deterministic disclosure capture path; `settings_navigation_view.rs` — use existing Ghost/Secondary button variants for nav items; `docs/plans/active/disclosure-components-polish/` — plan, findings, checklist, verification, evidence, and capture; `docs/plans/STATUS.md` — lifecycle row.` |
+| Acceptance mapping | Rest/hover/open surface → `disclosure::paint_header_surface`; shared colors/focus/chevron → `disclosure.rs`; badge spacing/contrast → `accordion/ui.rs` at `4bf6bad4fdff253f3593ba125fcb636887aa750f`; clipped body height → `disclosure::show_body` using egui `CollapsingState`; state/keyboard behavior → existing handlers and component tests; visual evidence → `screenshots/disclosure-gallery-dark-1280x800.png`. |
 | Commands and counts | `cargo fmt --all -- --check` → pass, exit 0; `cargo check --workspace` → pass, exit 0; `cargo clippy --workspace --all-targets -- -D warnings` → pass, exit 0; `cargo test --workspace` → 1583 passed / 0 failed / 41 ignored, exit 0; `cargo build --release --locked -p db-pro-native` → pass, exit 0; clean-code scan → 14 pass / 2 inherited warnings / 0 fail, exit 0.` |
 | CI run IDs / status | not run; local gates executed on the implementation SHA |
 | Known limitations | Static capture does not prove hover timing; independent review remains pending. |
@@ -39,7 +39,7 @@
 
 | Field | Value |
 |---|---|
-| Reviewed SHA | `8470ea83148da517b7ac12be6da5ca8c97fe96ec` |
+| Reviewed SHA | `4bf6bad4fdff253f3593ba125fcb636887aa750f` |
 | Verdict | `ACCEPT WITH P2` for self-review; independent review not run |
 | P0 / P1 / P2 counts | Introduced by this SHA: 0 / 0 / 2 addressed; inherited: 0 / 0 / 2 clean-code warnings |
 | Findings | No open P0/P1. P2: interactive transition capture and independent review remain. |
@@ -50,7 +50,7 @@
 
 - Source date: 2026-09-30.
 - Source URLs / references: `.impeccable.md`; `.skills/clean-code/SKILL.md`; egui `CollapsingState` implementation in the local cargo registry; existing component-gallery usage.
-- Factual findings: both components now consume the same header surface/color/focus/chevron helpers and the same clipped body helper; the Accordion trailing badge reserves `SPACE_MD` before the chevron at `8470ea83148da517b7ac12be6da5ca8c97fe96ec`.
+- Factual findings: both components now consume the same header surface/color/focus/chevron helpers and the same clipped body helper; the Accordion trailing badge reserves `SPACE_MD` before the chevron and uses the shared secondary badge palette at `4bf6bad4fdff253f3593ba125fcb636887aa750f`.
 - Inference: using egui's measured `CollapsingState` is safer than the previous opacity-only body because it preserves layout during open/close transitions.
 - Decision / recommendation: retain `RUNTIME_VERIFY` until independent review is complete.
 - Unresolved questions: none beyond the evidence limitation above.
