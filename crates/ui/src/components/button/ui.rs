@@ -261,7 +261,20 @@ impl<'a> Button<'a> {
                 accessible_name: &name,
             },
         );
-        let (hover, press) = interactive_animation_state(ui, &response, self.enabled);
+        let interaction_state = button_contract::resolve_interaction_state(
+            self.enabled,
+            self.loading,
+            response.is_pointer_button_down_on(),
+            response.has_focus(),
+            response.hovered(),
+        );
+        let has_emphasis = matches!(
+            interaction_state,
+            button_contract::InteractionState::Active
+                | button_contract::InteractionState::Focus
+                | button_contract::InteractionState::Hover
+        );
+        let (hover, press) = interactive_animation_state(ui, &response, has_emphasis);
 
         let (fill, stroke) = palette.resolve_state(hover);
         paint_interactive_surface(

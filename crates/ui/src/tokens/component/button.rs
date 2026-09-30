@@ -54,6 +54,39 @@ pub const BUTTON_ICON_SIZE_DEFAULT: Vec2 = Vec2::new(32.0, 32.0);
 pub const BUTTON_ICON_SIZE_SM: Vec2 = Vec2::new(26.0, 26.0);
 pub const BUTTON_ICON_SIZE_LG: Vec2 = Vec2::new(38.0, 38.0);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InteractionState {
+    Disabled,
+    Loading,
+    Active,
+    Focus,
+    Hover,
+    Default,
+}
+
+/// Resolves the button state in the contract order before painting.
+pub fn resolve_interaction_state(
+    enabled: bool,
+    loading: bool,
+    active: bool,
+    focused: bool,
+    hovered: bool,
+) -> InteractionState {
+    if !enabled {
+        InteractionState::Disabled
+    } else if loading {
+        InteractionState::Loading
+    } else if active {
+        InteractionState::Active
+    } else if focused {
+        InteractionState::Focus
+    } else if hovered {
+        InteractionState::Hover
+    } else {
+        InteractionState::Default
+    }
+}
+
 /// Whether the loading spinner may replace the interactive surface. `disabled`
 /// outranks `loading` in the state precedence, so a button that is both disabled
 /// and loading renders its disabled state instead of the spinner.
@@ -75,6 +108,34 @@ mod tests {
     fn loading_shows_only_for_enabled_buttons() {
         assert!(shows_loading(true, true));
         assert!(!shows_loading(true, false));
+    }
+
+    #[test]
+    fn interaction_state_follows_contract_precedence() {
+        assert_eq!(
+            resolve_interaction_state(false, true, true, true, true),
+            InteractionState::Disabled
+        );
+        assert_eq!(
+            resolve_interaction_state(true, true, true, true, true),
+            InteractionState::Loading
+        );
+        assert_eq!(
+            resolve_interaction_state(true, false, true, true, true),
+            InteractionState::Active
+        );
+        assert_eq!(
+            resolve_interaction_state(true, false, false, true, true),
+            InteractionState::Focus
+        );
+        assert_eq!(
+            resolve_interaction_state(true, false, false, false, true),
+            InteractionState::Hover
+        );
+        assert_eq!(
+            resolve_interaction_state(true, false, false, false, false),
+            InteractionState::Default
+        );
     }
 
     /// Existing rendered dimensions must not drift: these values were previously
