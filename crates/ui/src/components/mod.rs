@@ -18,6 +18,7 @@ pub mod database;
 pub mod dev_tools;
 pub mod dialog;
 pub mod diff;
+pub(crate) mod disclosure;
 pub mod explain;
 pub mod feedback;
 pub mod form;

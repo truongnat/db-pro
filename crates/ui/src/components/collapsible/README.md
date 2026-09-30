@@ -19,7 +19,7 @@ Native interactive disclosure widget that reveals or conceals custom nested cont
 - The bound boolean is controlled state: callers own its lifetime and should not replace it during rendering.
 - When `disabled(true)`, the header allocates `Sense::hover()`, ignores pointer and keyboard activation, and suppresses hover/focus styling.
 - The leading chevron automatically flips from `Icon::ChevronRight` to `Icon::ChevronDown` as animation progress crosses the threshold.
-- Content body rendering starts once `open_anim_t > OPEN_CONTENT_THRESHOLD` and uses animated opacity inside standard content margins; the parent layout allocates the body's full height immediately rather than animating height.
+- Content body rendering uses egui's shared `CollapsingState`: height is clipped and animated with the same openness value used by the chevron and header surface, while the body also fades inside standard content margins.
 
 ## Usage Example
 

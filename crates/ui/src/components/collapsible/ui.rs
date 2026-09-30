@@ -1,11 +1,9 @@
 use super::config::{
-    BADGE_TEXT_OFFSET_X, BADGE_TEXT_OFFSET_Y, CHEVRON_ADVANCE, CONTENT_MARGIN, HEADER_HEIGHT, HEADER_PAD_LEFT,
-    HEADER_TITLE_FONT_SIZE, HOVER_ALPHA_MULTIPLIER, ICON_ADVANCE, OPEN_ANIMATION_SECONDS, OPEN_CONTENT_THRESHOLD,
+    BADGE_TEXT_OFFSET_X, BADGE_TEXT_OFFSET_Y, CHEVRON_ADVANCE, HEADER_PAD_LEFT, HEADER_TITLE_FONT_SIZE, ICON_ADVANCE,
 };
-use super::handler::{apply_header_click, calculate_badge_rect, chevron_icon, resolve_header_colors};
-use crate::components::animation::hover_t;
-use crate::components::interact::paint_focus_ring;
-use crate::tokens::{font_icon, FONT_SIZE_BADGE, ICON_SM, ICON_TEXT_GAP, RADIUS_MD, RADIUS_SM};
+use super::handler::{apply_header_click, calculate_badge_rect};
+use crate::components::disclosure;
+use crate::tokens::{font_icon, FONT_SIZE_BADGE, ICON_SM, ICON_TEXT_GAP, RADIUS_MD};
 use crate::DbProTheme;
 use egui::{Align2, FontId, Id, Pos2, Rect, Response, Rounding, Sense, Ui, Vec2, WidgetInfo, WidgetType};
 use lucide_icons::Icon;
@@ -74,9 +72,6 @@ impl<'a> Collapsible<'a> {
     pub fn show<R>(self, ui: &mut Ui, content: impl FnOnce(&mut Ui) -> R) -> (Response, Option<R>) {
         let (id, rect) = self.allocate_header(ui);
         let response = self.interact_with_header(ui, id, rect);
-        let open_anim_t = ui
-            .ctx()
-            .animate_bool_with_time(id.with("open_anim"), *self.open, OPEN_ANIMATION_SECONDS);
         let keyboard_toggle = if self.disabled || !response.has_focus() {
             false
         } else {
@@ -87,6 +82,10 @@ impl<'a> Collapsible<'a> {
             })
         };
         apply_header_click(self.open, response.clicked() || keyboard_toggle, self.disabled);
+        let mut body_state =
+            egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id.with("body"), *self.open);
+        body_state.set_open(*self.open);
+        let open_anim_t = body_state.openness(ui.ctx());
         response.widget_info(|| {
             WidgetInfo::selected(
                 WidgetType::CollapsingHeader,
@@ -96,8 +95,12 @@ impl<'a> Collapsible<'a> {
             )
         });
 
-        self.paint_header_state(ui, id, &response);
-        let (icon_color, title_color) = resolve_header_colors(&self.theme, self.disabled, response.hovered());
+        let hover_t = disclosure::paint_header_surface(ui, id, &response, self.theme, open_anim_t, self.disabled);
+        let (icon_color, title_color) = disclosure::header_colors(disclosure::HeaderColorState {
+            theme: &self.theme,
+            disabled: self.disabled,
+            emphasized: hover_t > 0.01 || *self.open,
+        });
         let layout = HeaderLayout {
             rect,
             center_y: rect.center().y,
@@ -112,42 +115,18 @@ impl<'a> Collapsible<'a> {
         };
         layout.paint(ui);
 
-        let content_res = self.paint_content(ui, open_anim_t, content);
+        let content_res = disclosure::show_body(ui, &mut body_state, content);
         (response, content_res)
     }
 
     fn allocate_header(&self, ui: &mut Ui) -> (Id, egui::Rect) {
-        let (allocated_id, rect) = ui.allocate_space(Vec2::new(ui.available_width(), HEADER_HEIGHT));
+        let (allocated_id, rect) = ui.allocate_space(Vec2::new(ui.available_width(), disclosure::HEADER_HEIGHT));
         (self.stable_id.unwrap_or(allocated_id), rect)
     }
 
     fn interact_with_header(&self, ui: &mut Ui, id: Id, rect: egui::Rect) -> Response {
         let sense = if self.disabled { Sense::hover() } else { Sense::click() };
         ui.interact(rect, id, sense)
-    }
-
-    fn paint_header_state(&self, ui: &mut Ui, id: Id, response: &Response) {
-        let rect = response.rect;
-        let hover = hover_t(ui.ctx(), id.with("hover"), response.hovered() && !self.disabled);
-        if hover > 0.001 {
-            let fill = self.theme.surface_hover.linear_multiply(hover * HOVER_ALPHA_MULTIPLIER);
-            ui.painter().rect_filled(rect, Rounding::same(RADIUS_SM), fill);
-        }
-        if response.has_focus() && !self.disabled {
-            paint_focus_ring(ui, rect, RADIUS_SM, self.theme);
-        }
-    }
-
-    fn paint_content<R>(&self, ui: &mut Ui, open_anim_t: f32, content: impl FnOnce(&mut Ui) -> R) -> Option<R> {
-        if open_anim_t <= OPEN_CONTENT_THRESHOLD {
-            return None;
-        }
-        let mut result = None;
-        egui::Frame::none().inner_margin(CONTENT_MARGIN).show(ui, |ui| {
-            ui.set_opacity(open_anim_t);
-            result = Some(content(ui));
-        });
-        result
     }
 }
 
@@ -166,7 +145,16 @@ struct HeaderLayout<'a> {
 
 impl<'a> HeaderLayout<'a> {
     fn paint(mut self, ui: &mut Ui) {
-        self.paint_icon(ui, chevron_icon(self.open_anim_t), CHEVRON_ADVANCE);
+        disclosure::paint_chevron(
+            ui,
+            disclosure::ChevronPaint {
+                position: Pos2::new(self.left_x, self.center_y),
+                align: Align2::LEFT_CENTER,
+                color: self.icon_color,
+                open_t: self.open_anim_t,
+            },
+        );
+        self.left_x += CHEVRON_ADVANCE;
         if let Some(icon) = self.icon {
             self.paint_icon(ui, icon, ICON_ADVANCE);
         }

@@ -1,41 +1,11 @@
-use super::config::{BADGE_HEIGHT, BADGE_PAD_H, BADGE_RIGHT_MARGIN, CHEVRON_OPEN_THRESHOLD};
-use crate::DbProTheme;
-use egui::{Color32, Pos2, Rect, Vec2};
-use lucide_icons::Icon;
+use super::config::{BADGE_HEIGHT, BADGE_PAD_H, BADGE_RIGHT_MARGIN};
+use egui::{Pos2, Rect, Vec2};
 
 /// Toggles the collapsible state if clicked and not disabled.
 pub fn apply_header_click(open: &mut bool, clicked: bool, disabled: bool) {
     if clicked && !disabled {
         *open = !*open;
     }
-}
-
-/// Determines the chevron icon orientation based on animation progress.
-pub fn chevron_icon(open_anim_t: f32) -> Icon {
-    if open_anim_t > CHEVRON_OPEN_THRESHOLD {
-        Icon::ChevronDown
-    } else {
-        Icon::ChevronRight
-    }
-}
-
-/// Resolves semantic colors for header chevron/icon and title text.
-pub fn resolve_header_colors(theme: &DbProTheme, disabled: bool, hovered: bool) -> (Color32, Color32) {
-    let icon_color = if disabled {
-        theme.text_disabled
-    } else {
-        theme.text_secondary
-    };
-
-    let title_color = if disabled {
-        theme.text_disabled
-    } else if hovered {
-        theme.text_primary
-    } else {
-        theme.text_secondary
-    };
-
-    (icon_color, title_color)
 }
 
 /// Computes the layout bounding rectangle for the trailing badge pill.
@@ -71,38 +41,6 @@ mod tests {
 
         apply_header_click(&mut open, false, false);
         assert!(!open, "No toggle when not clicked");
-    }
-
-    #[test]
-    fn chevron_icon_flips_at_threshold() {
-        assert_eq!(char::from(chevron_icon(0.0)), char::from(Icon::ChevronRight));
-        assert_eq!(char::from(chevron_icon(0.5)), char::from(Icon::ChevronRight));
-        assert_eq!(char::from(chevron_icon(0.51)), char::from(Icon::ChevronDown));
-        assert_eq!(char::from(chevron_icon(1.0)), char::from(Icon::ChevronDown));
-    }
-
-    #[test]
-    fn resolve_header_colors_respects_disabled_and_hover_states() {
-        let theme = DbProTheme::light();
-
-        // Disabled state: both colors are text_disabled
-        let (icon_col, title_col) = resolve_header_colors(&theme, true, false);
-        assert_eq!(icon_col, theme.text_disabled);
-        assert_eq!(title_col, theme.text_disabled);
-
-        let (icon_col_hov, title_col_hov) = resolve_header_colors(&theme, true, true);
-        assert_eq!(icon_col_hov, theme.text_disabled);
-        assert_eq!(title_col_hov, theme.text_disabled);
-
-        // Enabled idle state: secondary colors
-        let (icon_col, title_col) = resolve_header_colors(&theme, false, false);
-        assert_eq!(icon_col, theme.text_secondary);
-        assert_eq!(title_col, theme.text_secondary);
-
-        // Enabled hovered state: title highlights to primary
-        let (icon_col, title_col) = resolve_header_colors(&theme, false, true);
-        assert_eq!(icon_col, theme.text_secondary);
-        assert_eq!(title_col, theme.text_primary);
     }
 
     #[test]

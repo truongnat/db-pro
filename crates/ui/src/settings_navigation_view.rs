@@ -1,7 +1,7 @@
 //! Settings navigation presentation and section-selection intents.
 
-use super::{font_body_sm, font_caption, font_icon, DbProTheme, SettingsSection, SPACE_LG, SPACE_MD, SPACE_SM, SPACE_XS};
-use eframe::egui::{self, Align2, Color32, RichText, Sense};
+use super::{font_caption, Button, ButtonSize, ButtonVariant, DbProTheme, SettingsSection, SPACE_LG, SPACE_MD, SPACE_XS};
+use eframe::egui::{self, RichText};
 use lucide_icons::Icon;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -82,40 +82,22 @@ impl SettingsNavigationContext {
     ) {
         for (section, icon) in sections {
             let selected = self.selected == *section;
-            let (rect, response) = ui.allocate_exact_size(
-                egui::vec2(ui.available_width(), 34.0),
-                Sense::click(),
-            );
-            let fill = if selected {
-                self.theme.surface_active
-            } else if response.hovered() {
-                self.theme.surface_hover
-            } else {
-                Color32::TRANSPARENT
-            };
-            ui.painter().rect_filled(rect, egui::Rounding::same(6.0), fill);
-            let color = if selected || response.hovered() {
-                self.theme.text_primary
-            } else {
-                self.theme.text_secondary
-            };
-            ui.painter().text(
-                egui::pos2(rect.left() + SPACE_SM, rect.center().y),
-                Align2::LEFT_CENTER,
-                char::from(*icon).to_string(),
-                font_icon(16.0),
-                color,
-            );
-            ui.painter().text(
-                egui::pos2(rect.left() + SPACE_SM + 24.0, rect.center().y),
-                Align2::LEFT_CENTER,
-                section.label(),
-                font_body_sm(),
-                color,
-            );
+            let response = Button::new(self.theme)
+                .text(section.label())
+                .icon(*icon)
+                .variant(if selected {
+                    ButtonVariant::Secondary
+                } else {
+                    ButtonVariant::Ghost
+                })
+                .size(ButtonSize::Default)
+                .full_width(true)
+                .left_aligned()
+                .show(ui);
             if response.clicked() {
                 actions.push(SettingsNavigationAction::SelectSection(*section));
             }
+            ui.add_space(SPACE_XS);
         }
     }
 }

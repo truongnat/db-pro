@@ -5,6 +5,13 @@ const FORM_INLINE_ACTIONS_MIN_WIDTH: f32 = 520.0;
 
 impl DbProApp {
     pub(super) fn draw_gallery_inputs_section(&mut self, ui: &mut Ui) {
+        if std::env::var("DB_PRO_CAPTURE_GALLERY_SECTION").as_deref() == Ok("disclosure") {
+            self.gallery_state.collapsible_open = true;
+            self.gallery_state.accordion_open = Some("acc-1".to_owned());
+            self.draw_gallery_disclosure_panel(ui);
+            return;
+        }
+
         let theme = self.theme;
         self.draw_section_heading(
             ui,

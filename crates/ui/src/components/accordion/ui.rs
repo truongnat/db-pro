@@ -1,10 +1,8 @@
 use super::{config, handler, AccordionItem};
-use crate::components::animation::hover_t;
-use crate::components::interact::paint_focus_ring;
-use crate::tokens::{FONT_SIZE_BADGE, FONT_SIZE_UI_LABEL, ICON_SM, ICON_TEXT_GAP, RADIUS_SM, SPACE_MD, SPACE_SM};
+use crate::components::disclosure;
+use crate::tokens::{FONT_SIZE_BADGE, FONT_SIZE_UI_LABEL, ICON_SM, ICON_TEXT_GAP, SPACE_MD, SPACE_SM};
 use crate::DbProTheme;
-use egui::{Align2, FontFamily, FontId, Pos2, Rect, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
-use lucide_icons::Icon;
+use egui::{Align2, FontFamily, FontId, Pos2, Rect, Rounding, Sense, Ui, Vec2, WidgetInfo, WidgetType};
 use std::collections::BTreeSet;
 
 pub struct Accordion {
@@ -32,13 +30,9 @@ impl Accordion {
         collapsible: bool,
         content: impl FnOnce(&mut Ui) -> R,
     ) -> Option<R> {
-        let is_open = selected_id.as_deref() == Some(item.id);
         let id = ui.id().with(("accordion_item", item.id));
-        let open_anim_t =
-            ui.ctx()
-                .animate_bool_with_time(id.with("open_anim"), is_open, config::OPEN_ANIMATION_SECONDS);
         let (rect, response) = ui.allocate_exact_size(
-            Vec2::new(ui.available_width(), config::HEADER_HEIGHT),
+            Vec2::new(ui.available_width(), disclosure::HEADER_HEIGHT),
             if item.disabled { Sense::hover() } else { Sense::click() },
         );
 
@@ -56,6 +50,13 @@ impl Accordion {
             handler::toggle_single(selected_id, item.id, collapsible);
         }
         let current_is_open = selected_id.as_deref() == Some(item.id);
+        let mut body_state = egui::collapsing_header::CollapsingState::load_with_default_open(
+            ui.ctx(),
+            id.with("body"),
+            current_is_open,
+        );
+        body_state.set_open(current_is_open);
+        let open_anim_t = body_state.openness(ui.ctx());
         response.widget_info(|| {
             WidgetInfo::selected(
                 WidgetType::CollapsingHeader,
@@ -65,43 +66,24 @@ impl Accordion {
             )
         });
 
-        let hover = hover_t(ui.ctx(), id.with("hover"), response.hovered() && !item.disabled);
-        if hover > 0.001 {
-            ui.painter().rect_filled(
-                rect,
-                Rounding::same(6.0),
-                self.theme.surface_hover.linear_multiply(hover),
-            );
-        }
-        if response.has_focus() && !item.disabled {
-            paint_focus_ring(ui, rect, RADIUS_SM, self.theme);
-        }
-        ui.painter().line_segment(
-            [
-                Pos2::new(rect.left(), rect.bottom() - config::HEADER_DIVIDER_INSET_Y),
-                Pos2::new(rect.right(), rect.bottom() - config::HEADER_DIVIDER_INSET_Y),
-            ],
-            Stroke::new(config::HEADER_DIVIDER_WIDTH, self.theme.border_subtle),
-        );
+        let hover_t = disclosure::paint_header_surface(ui, id, &response, self.theme, open_anim_t, item.disabled);
+        let (icon_color, title_color) = disclosure::header_colors(disclosure::HeaderColorState {
+            theme: &self.theme,
+            disabled: item.disabled,
+            emphasized: hover_t > 0.01 || current_is_open,
+        });
 
         let center_y = rect.center().y;
         let mut left_x = rect.left() + SPACE_MD;
 
         // Leading icon rendering
         if let Some(icon) = item.icon {
-            let color = if item.disabled {
-                self.theme.text_disabled
-            } else if current_is_open {
-                self.theme.accent
-            } else {
-                self.theme.text_secondary
-            };
             ui.painter().text(
                 Pos2::new(left_x, center_y),
                 Align2::LEFT_CENTER,
                 char::from(icon).to_string(),
                 FontId::new(ICON_SM, FontFamily::Name("lucide".into())),
-                color,
+                icon_color,
             );
             // Advance past the full icon box before painting the title; using only the
             // text gap makes icon-bearing headers visually overlap their labels.
@@ -129,13 +111,6 @@ impl Accordion {
             });
 
         // Title text rendering
-        let title_color = if item.disabled {
-            self.theme.text_disabled
-        } else if current_is_open || response.hovered() {
-            self.theme.text_primary
-        } else {
-            self.theme.text_secondary
-        };
         let title_rect = Rect::from_min_max(
             Pos2::new(left_x, rect.top()),
             Pos2::new(title_right.max(left_x), rect.bottom()),
@@ -166,39 +141,17 @@ impl Accordion {
         }
 
         // Trailing chevron indicator (down when opening, right when closed)
-        let chevron_color = if item.disabled {
-            self.theme.text_disabled
-        } else {
-            self.theme.text_secondary
-        };
-        let chevron = if open_anim_t > config::CHEVRON_OPEN_THRESHOLD {
-            Icon::ChevronDown
-        } else {
-            Icon::ChevronRight
-        };
-        ui.painter().text(
-            Pos2::new(chevron_x, center_y),
-            Align2::RIGHT_CENTER,
-            char::from(chevron).to_string(),
-            FontId::new(ICON_SM, FontFamily::Name("lucide".into())),
-            chevron_color,
+        disclosure::paint_chevron(
+            ui,
+            disclosure::ChevronPaint {
+                position: Pos2::new(chevron_x, center_y),
+                align: Align2::RIGHT_CENTER,
+                color: icon_color,
+                open_t: open_anim_t,
+            },
         );
 
-        // Content area rendering with smooth opacity transition
-        let mut result = None;
-        if open_anim_t > config::OPEN_CONTENT_THRESHOLD {
-            let margin = egui::Margin {
-                left: 12.0,
-                right: 12.0,
-                top: SPACE_SM,
-                bottom: SPACE_MD,
-            };
-            egui::Frame::none().inner_margin(margin).show(ui, |ui| {
-                ui.set_opacity(open_anim_t);
-                result = Some(content(ui));
-            });
-        }
-        result
+        disclosure::show_body(ui, &mut body_state, content)
     }
 
     /// Renders a multi-expansion accordion item.

@@ -439,7 +439,7 @@ impl DbProApp {
         self.theme = DbProTheme::dark();
         self.gallery_state = ComponentGalleryState::default();
         self.gallery_state.category = match std::env::var("DB_PRO_CAPTURE_GALLERY_SECTION").as_deref() {
-            Ok("form") | Ok("form-error") => component_gallery_view::GalleryCategory::Inputs,
+            Ok("form") | Ok("form-error") | Ok("disclosure") => component_gallery_view::GalleryCategory::Inputs,
             Ok("selection") => component_gallery_view::GalleryCategory::Selection,
             _ => component_gallery_view::GalleryCategory::Badges,
         };
