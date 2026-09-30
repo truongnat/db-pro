@@ -1,8 +1,9 @@
 use super::{config, handler, AccordionItem};
+use crate::components::badge::{BadgePalette, BadgeVariant};
 use crate::components::disclosure;
 use crate::tokens::{FONT_SIZE_BADGE, FONT_SIZE_UI_LABEL, ICON_SM, ICON_TEXT_GAP, SPACE_MD, SPACE_SM};
 use crate::DbProTheme;
-use egui::{Align2, FontFamily, FontId, Pos2, Rect, Rounding, Sense, Ui, Vec2, WidgetInfo, WidgetType};
+use egui::{Align2, FontFamily, FontId, Pos2, Rect, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo, WidgetType};
 use std::collections::BTreeSet;
 
 pub struct Accordion {
@@ -123,20 +124,26 @@ impl Accordion {
             title_color,
         );
 
-        // Optional badge pill rendering
+        // Optional badge pill rendering. Use the shared secondary badge palette so the
+        // status pill remains legible against the active header surface.
         if let Some((badge_rect, galley)) = badge_layout {
-            ui.painter().rect_filled(
-                badge_rect,
-                Rounding::same(config::BADGE_CORNER_RADIUS),
-                self.theme.surface_hover,
-            );
+            let palette = BadgePalette::from_variant(BadgeVariant::Secondary, &self.theme);
+            ui.painter()
+                .rect_filled(badge_rect, Rounding::same(config::BADGE_CORNER_RADIUS), palette.fill);
+            if palette.border_stroke != Stroke::NONE {
+                ui.painter().rect_stroke(
+                    badge_rect,
+                    Rounding::same(config::BADGE_CORNER_RADIUS),
+                    palette.border_stroke,
+                );
+            }
             ui.painter().with_clip_rect(badge_rect).galley(
                 Pos2::new(
                     badge_rect.left() + config::BADGE_TEXT_OFFSET_X,
                     badge_rect.top() + config::BADGE_TEXT_OFFSET_Y,
                 ),
                 galley,
-                self.theme.text_muted,
+                palette.text_color,
             );
         }
 
