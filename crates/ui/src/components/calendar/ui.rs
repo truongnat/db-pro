@@ -301,7 +301,7 @@ impl<'a> Calendar<'a> {
 }
 
 fn calendar_content_width() -> f32 {
-    (config::CELL_SIZE * 7.0) + (config::CELL_GAP * 6.0) + config::GRID_OUTER_PADDING
+    (config::CELL_SIZE * 7.0) + (config::CELL_GAP * 6.0)
 }
 
 fn calendar_frame_size() -> Vec2 {
@@ -496,7 +496,7 @@ mod tests {
 
     #[test]
     fn calendar_frame_size_is_intrinsic_and_includes_symmetric_margin() {
-        assert_eq!(calendar_content_width(), 264.0);
-        assert_eq!(calendar_frame_size(), Vec2::new(288.0, 292.0));
+        assert_eq!(calendar_content_width(), 248.0);
+        assert_eq!(calendar_frame_size(), Vec2::new(272.0, 292.0));
     }
 }

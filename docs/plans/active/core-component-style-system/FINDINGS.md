@@ -44,7 +44,7 @@
 
 ## Calendar & DatePicker follow-up
 - The large right-side blank area was caused by `Frame::show` inheriting the gallery column's full available width. The Calendar content had a fixed width, so the frame painted a wide surface around a left-aligned grid.
-- Calendar now allocates an intrinsic `288px` frame (`264px` content plus symmetric `12px` margins), keeping the seven-column grid and header inside the same compact surface. DatePicker uses the same measured size when clamping its foreground popup to the viewport.
+- Calendar now allocates an intrinsic `272px` frame (`248px` seven-column grid plus symmetric `12px` margins), removing the former one-sided `16px` width reserve. DatePicker uses the same measured size when clamping its foreground popup to the viewport.
 - Existing correctness coverage includes Gregorian leap/month lengths, strict ISO parsing, month/year wrapping, weekday math, normalized dates, current-date initialization, selection-close, Escape-close, disabled-popup cleanup, cross-month day selection, and click-outside close behavior in source.
 - Coverage is not complete for a production DatePicker: there is no keyboard focus/navigation path, direct editable text input, min/max or per-day disabled state, locale/week-start configuration, or clear/today action. Those are explicit follow-up scope rather than silently counted as covered.
 - Focused layout test: `calendar_frame_size_is_intrinsic_and_includes_symmetric_margin`. Runtime captures: `evidence/calendar-datepicker-1280x800.png`, `evidence/calendar-datepicker-1440x900.png`, and `evidence/calendar-datepicker-1920x1080.png`.
