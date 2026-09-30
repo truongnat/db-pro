@@ -17,6 +17,7 @@
 - [x] Recompose Disclosure & Choice into three compact panels without nested outer-card chrome.
 - [x] Show Calendar inline, persist gallery toggle/calendar state, and fix Accordion icon/title spacing.
 - [x] Keep Calendar surface at intrinsic width instead of stretching to the gallery column.
+- [x] Reflow the gallery and scale Calendar cells when the available column is narrower than the seven-column grid.
 - [x] Clamp DatePicker popup horizontally and flip it above the trigger when the viewport bottom is tight.
 - [x] Add focused Calendar layout coverage and a capture target for the affected surface.
 
