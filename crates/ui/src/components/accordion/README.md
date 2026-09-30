@@ -18,7 +18,7 @@ Native collapsible accordion component supporting single-item or multi-item disc
 - Disabled headers ignore click and keyboard activation events and retain disabled text styling.
 - In multi-expansion mode, toggling disabled items preserves their existing open/closed state.
 - Expanding and collapsing uses the shared disclosure openness animation: body height clips smoothly, body opacity follows the same progress, and the chevron crossfades between closed/open glyphs.
-- Badge and chevron space is reserved before title painting; long titles are clipped within remaining width without UTF-8 truncation.
+- Badge and chevron space is reserved with the shared medium spacing token before title painting; long titles are clipped within remaining width without UTF-8 truncation.
 
 ## Usage Example
 

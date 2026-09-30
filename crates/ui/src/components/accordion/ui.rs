@@ -99,7 +99,7 @@ impl Accordion {
             );
             let width = (galley.size().x + SPACE_MD).min((chevron_x - rect.left()).max(0.0));
             let badge_rect = Rect::from_center_size(
-                Pos2::new(chevron_x - ICON_TEXT_GAP - width * 0.5, center_y),
+                Pos2::new(chevron_x - SPACE_MD - width * 0.5, center_y),
                 Vec2::new(width, config::BADGE_HEIGHT),
             );
             (badge_rect, galley)
