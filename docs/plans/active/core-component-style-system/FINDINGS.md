@@ -42,5 +42,12 @@
 ## Runtime limitations
 - Loading/error/empty state traversal for this gallery subsection remains pending.
 
+## Calendar & DatePicker follow-up
+- The large right-side blank area was caused by `Frame::show` inheriting the gallery column's full available width. The Calendar content had a fixed width, so the frame painted a wide surface around a left-aligned grid.
+- Calendar now allocates an intrinsic `288px` frame (`264px` content plus symmetric `12px` margins), keeping the seven-column grid and header inside the same compact surface. DatePicker uses the same measured size when clamping its foreground popup to the viewport.
+- Existing correctness coverage includes Gregorian leap/month lengths, strict ISO parsing, month/year wrapping, weekday math, normalized dates, current-date initialization, selection-close, Escape-close, disabled-popup cleanup, cross-month day selection, and click-outside close behavior in source.
+- Coverage is not complete for a production DatePicker: there is no keyboard focus/navigation path, direct editable text input, min/max or per-day disabled state, locale/week-start configuration, or clear/today action. Those are explicit follow-up scope rather than silently counted as covered.
+- Focused layout test: `calendar_frame_size_is_intrinsic_and_includes_symmetric_margin`. Runtime captures: `evidence/calendar-datepicker-1280x800.png`, `evidence/calendar-datepicker-1440x900.png`, and `evidence/calendar-datepicker-1920x1080.png`.
+
 ## Tổng kết bằng tiếng Việt
 Đã làm lại đúng cụm bị phản hồi xấu: tách thành 3 panel có nhịp rõ ràng, rút gọn copy, hiển thị calendar inline, sửa lỗi icon Accordion đè lên title, bỏ Card lồng Card. Đã có evidence 1280×800, 1440×900 và 1920×1080; trạng thái loading/error/empty của gallery vẫn pending.

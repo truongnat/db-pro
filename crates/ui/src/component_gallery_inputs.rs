@@ -11,6 +11,10 @@ impl DbProApp {
             self.draw_gallery_disclosure_panel(ui);
             return;
         }
+        if std::env::var("DB_PRO_CAPTURE_GALLERY_SECTION").as_deref() == Ok("calendar") {
+            self.draw_gallery_calendar_panel(ui);
+            return;
+        }
 
         let theme = self.theme;
         self.draw_section_heading(
