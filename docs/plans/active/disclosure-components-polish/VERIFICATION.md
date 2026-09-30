@@ -4,8 +4,7 @@
 
 - Base SHA: `3b1cc99b4c389a574c05af66bc1d97d7e2592263`.
 - Working branch: local `main` per explicit owner workflow override.
-- Implementation commit: recorded in the follow-up evidence commit after the
-  source change is committed.
+- Implementation commit: `bb5830edf8a3775a3eb0d2e7b2087ffd952b582f`.
 
 ## Runtime evidence
 
