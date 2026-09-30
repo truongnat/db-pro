@@ -14,7 +14,7 @@
 
 ## 2. Progress checkpoint
 
-- Current HEAD (implementation checkpoint): `b8bf057b85fb849e58e7d99c5b9b93ca0a8f0a48`
+- Current HEAD (implementation checkpoint): `335f5012f21e7acc1bd73295067243241d25eac4`
 - Completed acceptance rows: `[x] intrinsic Calendar surface`, `[x] viewport-clamped DatePicker popup`, `[x] focused layout test`, `[x] runtime captures at the three requested viewport targets`
 - Remaining acceptance rows: `[ ] loading/error/empty gallery traversal`, `[ ] keyboard/accessibility interaction evidence`, `[ ] broader DatePicker feature coverage`
 - Findings / risks: `P2` — the component remains click-oriented and has no editable or keyboard DatePicker path; this is documented as follow-up in `FINDINGS.md` and was not silently counted as covered.
@@ -25,10 +25,10 @@
 
 | Field | Value |
 |---|---|
-| Exact SHA | `b8bf057b85fb849e58e7d99c5b9b93ca0a8f0a48` |
-| Commit list | `b8bf057b fix(ui): tighten calendar surface and popup placement` |
+| Exact SHA | `335f5012f21e7acc1bd73295067243241d25eac4` |
+| Commit list | `b8bf057b fix(ui): tighten calendar surface and popup placement`; `335f5012f fix(ui): remove calendar grid width reserve` |
 | File / surface inventory | `crates/ui/src/components/calendar/ui.rs` — intrinsic frame allocation, shared preferred size, popup clamping, focused size test; `crates/ui/src/components/calendar/config.rs` — popup screen margin; `crates/ui/src/component_gallery_inputs.rs` and `crates/ui/src/workspace_actions.rs` — focused Calendar capture route; `docs/plans/active/core-component-style-system/{CHECKLIST,FINDINGS,VERIFICATION}.md` — scope, findings, gates and evidence; `evidence/calendar-datepicker-*.png` — native captures. |
-| Acceptance mapping | Large right padding → `Calendar::show` now allocates a `288px` intrinsic frame instead of letting `Frame::show` inherit the gallery column; popup edge case → `clamp_popup_to_screen` with the same preferred size and an `8px` screen margin; coverage question → explicit covered/not-covered matrix in `FINDINGS.md`; visual acceptance → three committed PNG captures. |
+| Acceptance mapping | Large right padding → `Calendar::show` now allocates a `272px` intrinsic frame instead of letting `Frame::show` inherit the gallery column, with no one-sided grid reserve; popup edge case → `clamp_popup_to_screen` with the same preferred size and an `8px` screen margin; coverage question → explicit covered/not-covered matrix in `FINDINGS.md`; visual acceptance → three committed PNG captures. |
 | Commands and counts | `cargo fmt --all -- --check` → exit 0; `cargo check --workspace` → exit 0; `cargo clippy --workspace --all-targets -- -D warnings` → exit 0; `cargo test --workspace` → 1584 passed / 0 failed / 41 ignored, exit 0; `cargo build --release --locked -p db-pro-native` → exit 0; `cargo build --release --locked -p db-pro-native --features capture` → exit 0; `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci` → 14 pass / 0 fail / 2 warning categories, exit 0. |
 | CI run IDs / status | not run — local main workflow only |
 | Known limitations | The host produced 2560×1600 for the 1280×800 target, 2880×1676 for the 1440×900 target, and 3840×1676 for the 1920×1080 target; the latter two are host-height capped. Capture proves the static surface, not keyboard focus or pointer interaction. |
@@ -39,7 +39,7 @@
 
 | Field | Value |
 |---|---|
-| Reviewed SHA | `b8bf057b85fb849e58e7d99c5b9b93ca0a8f0a48` |
+| Reviewed SHA | `335f5012f21e7acc1bd73295067243241d25eac4` |
 | Verdict | ACCEPT WITH P2 |
 | P0 / P1 / P2 counts | introduced by this SHA: 0 / 0 / 1; inherited: 0 / 0 / 0 |
 | Findings | P2 follow-up only: keyboard/accessibility and richer DatePicker feature cases remain outside this focused layout fix. |
