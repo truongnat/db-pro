@@ -5,6 +5,7 @@
 - Base SHA: `bd0535fb`.
 - Working branch: local `main` per explicit user workflow override.
 - Implementation commit: `fb57eebf1426328078a5aefa13c0dcf5ce7b0c7c`.
+- Follow-up visual correction: `bb5830edf8a3775a3eb0d2e7b2087ffd952b582f` — Settings navigation now uses the shared `ButtonVariant::Ghost` / `ButtonVariant::Secondary` treatment, so inactive items stay transparent and the surface appears only on hover or active state.
 
 ## Runtime evidence
 
@@ -15,8 +16,9 @@
 | 1440×900 | 2880×1676 (Retina 2×, host-capped height) | Dark | `screenshots/settings-dark-1440x900-capped.png` |
 | 1920×1080 | 3840×1676 (Retina 2×, host-capped height) | Dark | `screenshots/settings-dark-1920x1080-capped.png` |
 
-The captures were visually inspected. They show the dedicated Settings surface,
-grouped navigation, active General pill, layered background, and existing
+The captures were visually inspected after the follow-up variant correction.
+They show the dedicated Settings surface, grouped navigation, a semantic active
+General pill, transparent inactive navigation, layered background, and existing
 General/Diagnostics content. The host capture path produces a 2× Retina
 framebuffer and caps logical height at approximately 838px, so the 1440×900
 and 1920×1080 artifacts are valid width checks but not exact-height evidence.
