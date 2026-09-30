@@ -446,11 +446,18 @@ impl DbProApp {
             "Connection state, view modes, and date filters.",
         );
 
-        ui.columns(3, |columns| {
-            self.draw_gallery_toggle_panel(&mut columns[0]);
-            self.draw_gallery_disclosure_panel(&mut columns[1]);
-            self.draw_gallery_calendar_panel(&mut columns[2]);
-        });
+        // Keep the calendar panel wide enough for its seven-column grid. A fixed
+        // three-column split can give the last panel less than the calendar's
+        // intrinsic width, which clips the grid instead of allowing the gallery
+        // to reflow at narrower windows.
+        ResponsiveGrid::new(320.0)
+            .gap(SPACE_LG)
+            .max_columns(3)
+            .show(ui, [0_u8, 1, 2], |cell, panel| match panel {
+                0 => self.draw_gallery_toggle_panel(cell),
+                1 => self.draw_gallery_disclosure_panel(cell),
+                _ => self.draw_gallery_calendar_panel(cell),
+            });
     }
 
     fn draw_gallery_toggle_panel(&mut self, ui: &mut Ui) {
