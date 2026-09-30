@@ -1,4 +1,23 @@
-use egui::{Color32, FontFamily, FontId, Margin, Rounding, Shadow, Stroke, TextStyle, Visuals};
+use egui::{Color32, FontFamily, FontId, Margin, Rounding, Shadow, Stroke, TextStyle, Vec2, Visuals};
+
+use crate::tokens::semantic::{subtle_wash, SemanticTokens};
+use crate::tokens::{
+    FONT_SIZE_BADGE, FONT_SIZE_MONO_UI, FONT_SIZE_UI_LABEL, RADIUS_BUTTON, RADIUS_DIALOG, RADIUS_POPOVER,
+    SHADOW_ALPHA_DARK, SHADOW_ALPHA_LIGHT, SHADOW_BLUR, SHADOW_OFFSET_Y, SPACE_2XL, SPACE_MD, SPACE_SM, SPACE_XS,
+    STROKE_THIN, WINDOW_SHADOW_ALPHA,
+};
+
+// Renderer adapter mapping: these translate design tokens into egui's own style
+// slots and are deliberately private to this adapter rather than public tokens.
+const RADIUS_EGUI_WINDOW: f32 = RADIUS_DIALOG;
+const RADIUS_EGUI_MENU: f32 = RADIUS_POPOVER;
+const RADIUS_EGUI_WIDGET: f32 = RADIUS_BUTTON;
+const EGUI_ITEM_SPACING: Vec2 = Vec2::new(SPACE_SM, SPACE_XS);
+const EGUI_BUTTON_PADDING: Vec2 = Vec2::new(10.0, SPACE_XS);
+const EGUI_INTERACT_SIZE: Vec2 = Vec2::new(SPACE_2XL, SPACE_2XL);
+const EGUI_WINDOW_MARGIN: f32 = SPACE_MD;
+const EGUI_MENU_MARGIN: f32 = 5.0;
+const EGUI_INDENT: f32 = 13.0;
 
 const INTER_REGULAR: &[u8] = include_bytes!("../assets/fonts/Inter-Regular.ttf");
 const INTER_REGULAR_EXT: &[u8] = include_bytes!("../assets/fonts/Inter-Regular-ext.ttf");
@@ -6,24 +25,39 @@ const INTER_MEDIUM: &[u8] = include_bytes!("../assets/fonts/Inter-Medium.ttf");
 const INTER_MEDIUM_EXT: &[u8] = include_bytes!("../assets/fonts/Inter-Medium-ext.ttf");
 
 /// Product-owned visual tokens for the native shell.
+///
+/// Flat compatibility facade over [`SemanticTokens`]: every field is built from
+/// the corresponding role, so existing callers keep working while the semantic
+/// layer stays authoritative.
 #[derive(Debug, Clone, Copy)]
 pub struct DbProTheme {
     pub dark_mode: bool,
+    /// Full role detail for callers that need more than one flat field at a time
+    /// (e.g. status fill/border pairs).
+    pub semantic: SemanticTokens,
     pub surface_app: Color32,
     pub surface_panel: Color32,
     pub surface_elevated: Color32,
     pub surface_floating: Color32,
     pub surface_editor: Color32,
     pub surface_hover: Color32,
+    /// Compatibility alias of `background.selected` — active/pressed widget and
+    /// selected-row wash.
     pub surface_active: Color32,
+    /// Compatibility alias of `background.subtle` (disabled fills, card icon
+    /// boxes); the semantic role is authoritative.
     pub surface_2: Color32,
     pub border_subtle: Color32,
     pub border_default: Color32,
     pub border_strong: Color32,
+    /// Focus ring color (`border.focus`); equals `accent` in the shipped themes.
+    pub border_focus: Color32,
     pub text_primary: Color32,
     pub text_secondary: Color32,
     pub text_tertiary: Color32,
     pub text_disabled: Color32,
+    /// Compatibility alias of `foreground.muted` (hints, status bars) — its own
+    /// role: light coincides with `text_tertiary`, dark deliberately differs.
     pub text_muted: Color32,
     pub text_inverse: Color32,
     pub accent: Color32,
@@ -54,121 +88,113 @@ impl Default for DbProTheme {
 
 impl DbProTheme {
     pub fn light() -> Self {
+        let semantic = SemanticTokens::light();
         Self {
             dark_mode: false,
-            // Open-api-style.md Warm Minimalism Light Tokens:
-            surface_app: Color32::from_rgb(255, 255, 255), // --background: #ffffff
-            surface_panel: Color32::from_rgb(247, 247, 247), // --surface: #f7f7f7
-            surface_elevated: Color32::from_rgb(255, 255, 255), // card / white surface
-            surface_floating: Color32::from_rgb(255, 255, 255), // dialog / popover
-            surface_editor: Color32::from_rgb(255, 255, 255), // flush with app — Zed/DBeaver blank buffer
-            surface_hover: Color32::from_rgb(238, 238, 238), // --surface-hover: #eeeeee
-            surface_active: Color32::from_rgb(232, 232, 232), // --surface-active: #e8e8e8
-            surface_2: Color32::from_rgb(243, 243, 243),   // --surface-2: #f3f3f3
-            border_subtle: Color32::from_rgb(238, 238, 238), // --border-subtle: #eeeeee
-            border_default: Color32::from_rgb(226, 226, 226), // --border-default: #e2e2e2
-            border_strong: Color32::from_rgb(210, 210, 210), // --border-strong: #d2d2d2
-            text_primary: Color32::from_rgb(13, 13, 13),   // --text-primary: #0d0d0d
-            text_secondary: Color32::from_rgb(95, 95, 95), // --text-secondary: #5f5f5f
-            text_tertiary: Color32::from_rgb(138, 138, 138), // --text-tertiary: #8a8a8a
-            text_disabled: Color32::from_rgb(148, 148, 148), // --text-disabled: #949494
-            text_muted: Color32::from_rgb(138, 138, 138),  // alias to tertiary
-            text_inverse: Color32::from_rgb(255, 255, 255),
-            accent: Color32::from_rgb(2, 133, 255), // --accent: #0285ff (Modern Blue)
-            accent_hover: Color32::from_rgb(1, 105, 204),
-            accent_soft: Color32::from_rgb(230, 242, 255), // slightly stronger for completion selection
-            accent_foreground: Color32::from_rgb(255, 255, 255), // #ffffff
-            success: Color32::from_rgb(22, 163, 74),       // --success: #16a34a
-            warning: Color32::from_rgb(217, 119, 6),       // --warning: #d97706
-            danger: Color32::from_rgb(220, 38, 38),        // --danger: #dc2626
-            info: Color32::from_rgb(37, 99, 235),          // --info: #2563eb
-            overlay: Color32::from_black_alpha(38),        // scrim ~0.15 so the dialog stays the brightest surface
-            // SQL syntax — restrained Zed-like light palette (not UI accent clones).
-            code_keyword: Color32::from_rgb(55, 65, 180),
-            code_string: Color32::from_rgb(15, 118, 70),
-            code_number: Color32::from_rgb(180, 83, 9),
-            code_comment: Color32::from_rgb(120, 120, 120),
-            code_type: Color32::from_rgb(126, 34, 206),
-            code_function: Color32::from_rgb(14, 116, 144),
-            code_operator: Color32::from_rgb(100, 100, 110),
-            code_punctuation: Color32::from_rgb(95, 95, 95),
-            code_variable: Color32::from_rgb(24, 24, 27),
+            semantic,
+            // Warm Minimalism roles; raw hex lives in `tokens::primitive::light`.
+            surface_app: semantic.background.canvas,
+            surface_panel: semantic.background.panel,
+            surface_elevated: semantic.background.elevated,
+            surface_floating: semantic.background.floating,
+            surface_editor: semantic.background.editor,
+            surface_hover: semantic.background.hover,
+            surface_active: semantic.background.selected,
+            surface_2: semantic.background.subtle,
+            border_subtle: semantic.border.subtle,
+            border_default: semantic.border.default,
+            border_strong: semantic.border.strong,
+            border_focus: semantic.border.focus,
+            text_primary: semantic.foreground.primary,
+            text_secondary: semantic.foreground.secondary,
+            text_tertiary: semantic.foreground.tertiary,
+            text_disabled: semantic.foreground.disabled,
+            text_muted: semantic.foreground.muted,
+            text_inverse: semantic.foreground.inverse,
+            accent: semantic.accent.solid,
+            accent_hover: semantic.accent.solid_hover,
+            accent_soft: semantic.accent.subtle,
+            accent_foreground: semantic.accent.foreground,
+            success: semantic.status.success.solid,
+            warning: semantic.status.warning.solid,
+            danger: semantic.status.danger.solid,
+            info: semantic.status.info.solid,
+            overlay: semantic.background.overlay,
+            code_keyword: semantic.syntax.keyword,
+            code_string: semantic.syntax.string,
+            code_number: semantic.syntax.number,
+            code_comment: semantic.syntax.comment,
+            code_type: semantic.syntax.type_,
+            code_function: semantic.syntax.function,
+            code_operator: semantic.syntax.operator,
+            code_punctuation: semantic.syntax.punctuation,
+            code_variable: semantic.syntax.variable,
         }
     }
     pub fn dark() -> Self {
+        let semantic = SemanticTokens::dark();
         Self {
             dark_mode: true,
-            // Dark database workstation tokens: quiet charcoal surfaces, crisp borders, and a restrained blue action accent.
-            surface_app: Color32::from_rgb(23, 25, 28),       // #17191c
-            surface_panel: Color32::from_rgb(29, 32, 36),     // #1d2024
-            surface_elevated: Color32::from_rgb(35, 39, 45),  // #23272d
-            surface_floating: Color32::from_rgb(32, 36, 42),  // #20242a
-            surface_editor: Color32::from_rgb(21, 23, 25),    // #151719
-            surface_hover: Color32::from_rgb(40, 46, 53),     // #282e35
-            surface_active: Color32::from_rgb(48, 57, 70),    // #303946
-            surface_2: Color32::from_rgb(36, 41, 47),         // #24292f
-            border_subtle: Color32::from_rgb(42, 48, 55),     // #2a3037
-            border_default: Color32::from_rgb(56, 65, 75),    // #38414b
-            border_strong: Color32::from_rgb(75, 88, 101),    // #4b5865
-            text_primary: Color32::from_rgb(241, 243, 245),   // #f1f3f5
-            text_secondary: Color32::from_rgb(180, 187, 196), // #b4bbc4
-            text_tertiary: Color32::from_rgb(130, 140, 151),  // #828c97
-            text_disabled: Color32::from_rgb(106, 116, 128),  // #6a7480
-            text_muted: Color32::from_rgb(140, 150, 160),     // #8c96a0
-            text_inverse: Color32::from_rgb(17, 19, 22),      // #111316
-            accent: Color32::from_rgb(79, 140, 255),          // #4f8cff
-            accent_hover: Color32::from_rgb(106, 160, 255),   // #6aa0ff
-            accent_soft: Color32::from_rgb(27, 49, 88),       // #1b3158
-            accent_foreground: Color32::from_rgb(255, 255, 255),
-            success: Color32::from_rgb(58, 197, 121), // #3ac579
-            warning: Color32::from_rgb(242, 180, 90), // #f2b45a
-            danger: Color32::from_rgb(239, 107, 115), // #ef6b73
-            info: Color32::from_rgb(88, 166, 255),    // #58a6ff
-            overlay: Color32::from_black_alpha(74),
-            code_keyword: Color32::from_rgb(199, 146, 234), // #C792EA (synKeyword)
-            code_string: Color32::from_rgb(195, 232, 141),  // #C3E88D (synString)
-            code_number: Color32::from_rgb(247, 140, 108),  // #F78C6C (synConst)
-            code_comment: Color32::from_rgb(103, 110, 149), // #676E95 (synComment)
-            code_type: Color32::from_rgb(255, 203, 107),    // #FFCB6B (synType)
-            code_function: Color32::from_rgb(130, 170, 255), // #82AAFF (synFunc)
-            code_operator: Color32::from_rgb(137, 221, 255), // #89DDFF (synPunct)
-            code_punctuation: Color32::from_rgb(137, 221, 255), // #89DDFF (synPunct)
-            code_variable: Color32::from_rgb(238, 255, 255), // #EEFFFF (synIdent)
+            semantic,
+            // Dark workstation roles; raw hex lives in `tokens::primitive::dark`.
+            surface_app: semantic.background.canvas,
+            surface_panel: semantic.background.panel,
+            surface_elevated: semantic.background.elevated,
+            surface_floating: semantic.background.floating,
+            surface_editor: semantic.background.editor,
+            surface_hover: semantic.background.hover,
+            surface_active: semantic.background.selected,
+            surface_2: semantic.background.subtle,
+            border_subtle: semantic.border.subtle,
+            border_default: semantic.border.default,
+            border_strong: semantic.border.strong,
+            border_focus: semantic.border.focus,
+            text_primary: semantic.foreground.primary,
+            text_secondary: semantic.foreground.secondary,
+            text_tertiary: semantic.foreground.tertiary,
+            text_disabled: semantic.foreground.disabled,
+            text_muted: semantic.foreground.muted,
+            text_inverse: semantic.foreground.inverse,
+            accent: semantic.accent.solid,
+            accent_hover: semantic.accent.solid_hover,
+            accent_soft: semantic.accent.subtle,
+            accent_foreground: semantic.accent.foreground,
+            success: semantic.status.success.solid,
+            warning: semantic.status.warning.solid,
+            danger: semantic.status.danger.solid,
+            info: semantic.status.info.solid,
+            overlay: semantic.background.overlay,
+            code_keyword: semantic.syntax.keyword,
+            code_string: semantic.syntax.string,
+            code_number: semantic.syntax.number,
+            code_comment: semantic.syntax.comment,
+            code_type: semantic.syntax.type_,
+            code_function: semantic.syntax.function,
+            code_operator: semantic.syntax.operator,
+            code_punctuation: semantic.syntax.punctuation,
+            code_variable: semantic.syntax.variable,
         }
     }
     /// Subtle tinted fill for badges, diff rows, and status cards (~10-12% opacity).
+    /// Recipe owned by the semantic layer so badges and status roles cannot drift.
     pub fn soft_tint(self, color: Color32) -> Color32 {
-        if self.dark_mode {
-            Color32::from_rgba_premultiplied(
-                (color.r() as f32 * 0.12) as u8,
-                (color.g() as f32 * 0.12) as u8,
-                (color.b() as f32 * 0.12) as u8,
-                25,
-            )
-        } else {
-            Color32::from_rgba_premultiplied(
-                (color.r() as f32 * 0.08) as u8,
-                (color.g() as f32 * 0.08) as u8,
-                (color.b() as f32 * 0.08) as u8,
-                18,
-            )
-        }
+        subtle_wash(color, self.dark_mode)
     }
 
     pub fn success_soft(self) -> Color32 {
-        self.soft_tint(self.success)
+        self.semantic.status.success.subtle
     }
 
     pub fn warning_soft(self) -> Color32 {
-        self.soft_tint(self.warning)
+        self.semantic.status.warning.subtle
     }
 
     pub fn danger_soft(self) -> Color32 {
-        self.soft_tint(self.danger)
+        self.semantic.status.danger.subtle
     }
 
     pub fn info_soft(self) -> Color32 {
-        self.soft_tint(self.info)
+        self.semantic.status.info.subtle
     }
 
     /// Quiet gutter wash behind line numbers (Zed/DBeaver density).
@@ -372,15 +398,15 @@ impl DbProTheme {
         // Selection stays a muted blue wash so the active cell is visible without
         // turning a dense result grid into a wall of saturated color.
         visuals.selection.bg_fill = self.accent_soft;
-        visuals.selection.stroke = Stroke::new(1.0, self.accent);
-        visuals.window_rounding = Rounding::same(6.0);
+        visuals.selection.stroke = Stroke::new(STROKE_THIN, self.accent);
+        visuals.window_rounding = Rounding::same(RADIUS_EGUI_WINDOW);
         visuals.window_shadow = Shadow {
-            offset: egui::vec2(0.0, 8.0),
-            blur: 24.0,
+            offset: egui::vec2(0.0, SHADOW_OFFSET_Y),
+            blur: SHADOW_BLUR,
             spread: 0.0,
-            color: Color32::from_black_alpha(28),
+            color: Color32::from_black_alpha(WINDOW_SHADOW_ALPHA),
         };
-        visuals.menu_rounding = Rounding::same(6.0);
+        visuals.menu_rounding = Rounding::same(RADIUS_EGUI_MENU);
         visuals.popup_shadow = visuals.window_shadow;
         // Buttons opt into their own emphasis. Bare icon/ghost controls should
         // read as actions in the workspace, not as a wall of outlined fields.
@@ -388,53 +414,65 @@ impl DbProTheme {
         visuals.collapsing_header_frame = false;
         visuals.striped = true;
         visuals.widgets.noninteractive.bg_fill = self.surface_panel;
-        visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, self.border_subtle);
-        visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, self.text_secondary);
-        visuals.widgets.noninteractive.rounding = Rounding::same(4.0);
+        visuals.widgets.noninteractive.bg_stroke = Stroke::new(STROKE_THIN, self.border_subtle);
+        visuals.widgets.noninteractive.fg_stroke = Stroke::new(STROKE_THIN, self.text_secondary);
+        visuals.widgets.noninteractive.rounding = Rounding::same(RADIUS_EGUI_WIDGET);
         visuals.widgets.inactive.bg_fill = self.surface_panel;
         visuals.widgets.inactive.weak_bg_fill = self.surface_panel;
         // Resting inputs stay quiet; hover/focus still provide the interaction boundary.
         visuals.widgets.inactive.bg_stroke = Stroke::NONE;
-        visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, self.text_secondary);
-        visuals.widgets.inactive.rounding = Rounding::same(4.0);
+        visuals.widgets.inactive.fg_stroke = Stroke::new(STROKE_THIN, self.text_secondary);
+        visuals.widgets.inactive.rounding = Rounding::same(RADIUS_EGUI_WIDGET);
         visuals.widgets.hovered.bg_fill = self.surface_hover;
         visuals.widgets.hovered.weak_bg_fill = self.surface_hover;
-        visuals.widgets.hovered.bg_stroke = Stroke::new(1.0, self.border_strong);
-        visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, self.accent);
-        visuals.widgets.hovered.rounding = Rounding::same(4.0);
+        visuals.widgets.hovered.bg_stroke = Stroke::new(STROKE_THIN, self.border_strong);
+        visuals.widgets.hovered.fg_stroke = Stroke::new(STROKE_THIN, self.accent);
+        visuals.widgets.hovered.rounding = Rounding::same(RADIUS_EGUI_WIDGET);
         visuals.widgets.active.bg_fill = self.surface_active;
         visuals.widgets.active.weak_bg_fill = self.surface_active;
-        visuals.widgets.active.bg_stroke = Stroke::new(1.0, self.accent_hover);
-        visuals.widgets.active.fg_stroke = Stroke::new(1.0, self.accent);
-        visuals.widgets.active.rounding = Rounding::same(4.0);
+        visuals.widgets.active.bg_stroke = Stroke::new(STROKE_THIN, self.accent_hover);
+        visuals.widgets.active.fg_stroke = Stroke::new(STROKE_THIN, self.accent);
+        visuals.widgets.active.rounding = Rounding::same(RADIUS_EGUI_WIDGET);
         visuals.widgets.open.bg_fill = self.surface_hover;
         visuals.widgets.open.weak_bg_fill = self.surface_hover;
-        visuals.widgets.open.bg_stroke = Stroke::new(1.0, self.border_strong);
-        visuals.widgets.open.fg_stroke = Stroke::new(1.0, self.text_primary);
-        visuals.widgets.open.rounding = Rounding::same(4.0);
-        visuals.window_stroke = Stroke::new(1.0, self.border_subtle);
+        visuals.widgets.open.bg_stroke = Stroke::new(STROKE_THIN, self.border_strong);
+        visuals.widgets.open.fg_stroke = Stroke::new(STROKE_THIN, self.text_primary);
+        visuals.widgets.open.rounding = Rounding::same(RADIUS_EGUI_WIDGET);
+        visuals.window_stroke = Stroke::new(STROKE_THIN, self.border_subtle);
         ctx.set_visuals(visuals);
 
         let mut style = (*ctx.style()).clone();
-        style.spacing.item_spacing = egui::vec2(8.0, 4.0);
-        style.spacing.button_padding = egui::vec2(10.0, 4.0);
-        style.spacing.interact_size = egui::vec2(24.0, 24.0);
-        style.spacing.window_margin = Margin::same(12.0);
-        style.spacing.menu_margin = Margin::same(5.0);
-        style.spacing.indent = 13.0;
-        style.text_styles.insert(TextStyle::Body, FontId::proportional(13.0));
-        style.text_styles.insert(TextStyle::Button, FontId::proportional(13.0));
-        style.text_styles.insert(TextStyle::Small, FontId::proportional(11.0));
-        style.text_styles.insert(TextStyle::Monospace, FontId::monospace(13.0));
+        style.spacing.item_spacing = EGUI_ITEM_SPACING;
+        style.spacing.button_padding = EGUI_BUTTON_PADDING;
+        style.spacing.interact_size = EGUI_INTERACT_SIZE;
+        style.spacing.window_margin = Margin::same(EGUI_WINDOW_MARGIN);
+        style.spacing.menu_margin = Margin::same(EGUI_MENU_MARGIN);
+        style.spacing.indent = EGUI_INDENT;
+        style
+            .text_styles
+            .insert(TextStyle::Body, FontId::proportional(FONT_SIZE_UI_LABEL));
+        style
+            .text_styles
+            .insert(TextStyle::Button, FontId::proportional(FONT_SIZE_UI_LABEL));
+        style
+            .text_styles
+            .insert(TextStyle::Small, FontId::proportional(FONT_SIZE_BADGE));
+        style
+            .text_styles
+            .insert(TextStyle::Monospace, FontId::monospace(FONT_SIZE_MONO_UI));
         ctx.set_style(style);
     }
 
     pub fn floating_shadow(self) -> Shadow {
         Shadow {
-            offset: egui::vec2(0.0, 8.0),
-            blur: 24.0,
+            offset: egui::vec2(0.0, SHADOW_OFFSET_Y),
+            blur: SHADOW_BLUR,
             spread: 0.0,
-            color: Color32::from_black_alpha(if self.dark_mode { 40 } else { 20 }),
+            color: Color32::from_black_alpha(if self.dark_mode {
+                SHADOW_ALPHA_DARK
+            } else {
+                SHADOW_ALPHA_LIGHT
+            }),
         }
     }
 }
@@ -472,6 +510,31 @@ mod tests {
         assert_eq!(theme.surface_panel, egui::Color32::from_rgb(29, 32, 36));
         assert_eq!(theme.surface_active, egui::Color32::from_rgb(48, 57, 70));
         assert_eq!(theme.accent, egui::Color32::from_rgb(79, 140, 255));
+    }
+
+    #[test]
+    fn flat_facade_fields_are_built_from_the_semantic_roles() {
+        for theme in [DbProTheme::light(), DbProTheme::dark()] {
+            assert_eq!(theme.surface_app, theme.semantic.background.canvas);
+            assert_eq!(theme.surface_2, theme.semantic.background.subtle);
+            assert_eq!(theme.surface_active, theme.semantic.background.selected);
+            assert_eq!(theme.border_focus, theme.semantic.border.focus);
+            assert_eq!(theme.text_muted, theme.semantic.foreground.muted);
+            assert_eq!(theme.accent, theme.semantic.accent.solid);
+            assert_eq!(theme.success, theme.semantic.status.success.solid);
+            assert_eq!(theme.success_soft(), theme.semantic.status.success.subtle);
+            assert_eq!(theme.overlay, theme.semantic.background.overlay);
+            // Focus ring color stays the accent color in both shipped themes.
+            assert_eq!(theme.border_focus, theme.accent);
+        }
+    }
+
+    #[test]
+    fn soft_tint_matches_the_semantic_wash_recipe() {
+        let light = DbProTheme::light();
+        let dark = DbProTheme::dark();
+        assert_eq!(light.soft_tint(light.danger), light.semantic.status.danger.subtle);
+        assert_eq!(dark.soft_tint(dark.warning), dark.semantic.status.warning.subtle);
     }
 
     #[test]

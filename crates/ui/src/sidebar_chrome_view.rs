@@ -111,7 +111,7 @@ impl SidebarChromeContext<'_> {
     }
 
     fn draw_new_query(&self, ui: &mut egui::Ui) -> Vec<SidebarChromeAction> {
-        const NEW_QUERY_HEIGHT: f32 = BUTTON_HEIGHT_SM;
+        const NEW_QUERY_HEIGHT: f32 = crate::tokens::component::button::BUTTON_HEIGHT_SM;
         let mut actions = Vec::new();
         let button_rect = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), NEW_QUERY_HEIGHT));
         let response = ui.allocate_rect(button_rect, Sense::click());

@@ -1,4 +1,4 @@
-use crate::tokens::INPUT_HEIGHT_DEFAULT;
+use crate::tokens::component::input::INPUT_HEIGHT_DEFAULT;
 
 /// Maximum number of option rows shown before the menu must scroll.
 pub const MAX_VISIBLE_ITEMS: usize = 8;

@@ -23,9 +23,9 @@ pub const ALERT_DESCRIPTION_GAP: f32 = 3.0;
 /// Compact alert icon size, in egui points.
 pub const ALERT_ICON_SIZE: f32 = 15.0;
 
-/// Opacity multipliers for semantic variant fills and borders.
-pub const VARIANT_FILL_OPACITY: f32 = 0.12;
-pub const VARIANT_BORDER_OPACITY: f32 = 0.40;
+/// Opacity multipliers for semantic variant fills and borders moved to
+/// `crate::tokens::semantic` (`STATUS_FILL_OPACITY`, `STATUS_BORDER_OPACITY`):
+/// they describe the status roles, not this component.
 
 /// Maximum dialog outer width, in egui points.
 pub const DIALOG_MAX_WIDTH: f32 = 440.0;

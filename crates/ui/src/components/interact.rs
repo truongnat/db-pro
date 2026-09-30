@@ -1,11 +1,14 @@
+use crate::tokens::STROKE_THICK;
 use crate::DbProTheme;
 use egui::{Rect, Rounding, Stroke, Ui, WidgetInfo, WidgetType};
 
+/// Shared focus ring: `border.focus` drawn at `STROKE_THICK`, expanded by the
+/// same amount so ring and rounding stay concentric.
 pub fn paint_focus_ring(ui: &Ui, rect: Rect, rounding: f32, theme: DbProTheme) {
     ui.painter().rect_stroke(
-        rect.expand(2.0),
-        Rounding::same(rounding + 2.0),
-        Stroke::new(2.0, theme.accent),
+        rect.expand(STROKE_THICK),
+        Rounding::same(rounding + STROKE_THICK),
+        Stroke::new(STROKE_THICK, theme.border_focus),
     );
 }
 

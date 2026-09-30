@@ -4,7 +4,8 @@ use super::config::{
     DOUBLE_FACTOR, MAX_VISIBLE_ITEMS, MENU_MIN_SCREEN_WIDTH, MENU_MIN_WIDTH, MIN_TRIGGER_TEXT_WIDTH, MIN_TRIGGER_WIDTH,
     TRIGGER_TEXT_RESERVED_WIDTH, VERTICAL_CENTER_FACTOR,
 };
-use crate::tokens::{ICON_LG, ICON_TEXT_GAP, RADIUS_DROPDOWN, SPACE_SM, SPACE_XL, SPACE_XS, TABLE_ROW_HEIGHT_COMPACT};
+use crate::tokens::component::table::TABLE_ROW_HEIGHT_COMPACT;
+use crate::tokens::{ICON_LG, ICON_TEXT_GAP, RADIUS_DROPDOWN, SPACE_SM, SPACE_XL, SPACE_XS};
 
 pub fn dropdown_should_open_above(space_below: f32, space_above: f32, menu_h: f32) -> bool {
     space_below < menu_h && space_above > space_below

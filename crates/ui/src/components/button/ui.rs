@@ -9,6 +9,8 @@ use egui::{
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
+use crate::tokens::component::button as button_contract;
+
 use super::config::{BUTTON_GROUP_ITEM_GAP, BUTTON_ROUNDING, ICON_TEXT_GAP, LINK_UNDERLINE_WIDTH};
 use super::handler::{centered_content_pos, leading_content_x, ButtonPalette, ButtonSize, ButtonVariant, SizeTokens};
 
@@ -165,7 +167,9 @@ impl<'a> Button<'a> {
         );
         let tokens = SizeTokens::from_size(self.size);
 
-        if self.loading {
+        // State precedence: disabled → loading. A disabled+loading button renders
+        // its disabled state, not the spinner (see `button_contract::shows_loading`).
+        if button_contract::shows_loading(self.enabled, self.loading) {
             self.show_loading(ui, &tokens)
         } else {
             self.show_interactive(ui, &tokens)
