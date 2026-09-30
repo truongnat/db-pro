@@ -7,6 +7,7 @@
 - Implementation commit: `bb5830edf8a3775a3eb0d2e7b2087ffd952b582f`.
 - Follow-up spacing correction: `8470ea83148da517b7ac12be6da5ca8c97fe96ec` — the trailing Accordion badge now reserves `SPACE_MD` between its pill and the chevron.
 - Follow-up contrast correction: `4bf6bad4fdff253f3593ba125fcb636887aa750f` — the custom badge now uses the shared secondary badge palette with an elevated fill, border, and secondary text.
+- Follow-up weight correction: `24ffabc756110cd3897304d21dbc2efd801d211b` — the custom badge keeps the elevated fill and secondary text but drops the heavy border, leaving separation to the spacing token.
 
 ## Runtime evidence
 
@@ -17,7 +18,8 @@
 The refreshed capture shows the closed SSH item without a background, while the
 open Pool and SSL items use the active semantic surface with aligned body
 content. The `Enforced` badge now has visible breathing room before the trailing
-chevron and remains legible on the active header surface. It is a static state
+chevron and remains legible on the active header surface without a heavy border.
+It is a static state
 capture; hover and transition timing still require interactive review.
 
 ## Automated gates
