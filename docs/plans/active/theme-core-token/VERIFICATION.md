@@ -6,23 +6,21 @@
 - Branch: `feature/theme-core-token` (created successfully this session — this
   corrects the previous record claiming `.git` was read-only and the branch
   creation was blocked; `.git` is writable in this environment).
-- Source slice commit: `8a188e84a3dc7b43663f952f5edc2be6024e3dac`
-  (`feat(ui): build core token contract (primitive → semantic → component)`),
-  20 files, +1211/−343.
+- Source slice commits: `8a188e84` (core contract) and
+  `f7cf6541bf0462544d8e9c2c041457337b68043e` (state-precedence fix).
 
 ## Commands (executed this session, results recorded verbatim)
 
 | Command | Result |
 |---|---|
-| `git status --short --branch` / `git rev-parse HEAD` | PASS — branch `feature/theme-core-token`, HEAD `bd787db1…` before the slice commit |
+| `git status --short --branch` / `git rev-parse HEAD` | PASS — branch `feature/theme-core-token`, source fix HEAD `f7cf6541…` |
 | `cargo fmt --all -- --check` | PASS (exit 0), run after the final edit |
-| `CARGO_TARGET_DIR=/tmp/db-pro-target cargo check -p db-pro-ui` | PASS (exit 0, 0 warnings) |
 | `CARGO_TARGET_DIR=/tmp/db-pro-target cargo check --workspace` | PASS (exit 0) — extra guard: no consumer outside `db-pro-ui` uses the moved tokens |
+| `CARGO_TARGET_DIR=/tmp/db-pro-target cargo clippy --workspace --all-targets -- -D warnings` | PASS (exit 0) |
+| `CARGO_TARGET_DIR=/tmp/db-pro-release-target cargo build --release --locked -p db-pro-native` | PASS (exit 0) |
 | `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci` | PASS — 13 ✓ / 3 ⚠ / 0 ✗, exit 0; warnings explained in FINDINGS |
 | `git diff --check` | PASS (exit 0) |
-| `CARGO_TARGET_DIR=/tmp/db-pro-target cargo test -p db-pro-ui --lib` | PASS — 927 passed / 0 failed / 0 ignored, exit 0 (17s) |
-
-Full workspace test suite was **not** run (not requested by the task).
+| `CARGO_BUILD_JOBS=2 CARGO_TARGET_DIR=/tmp/db-pro-target cargo test --workspace` | PASS — 928 passed / 0 failed / 0 ignored, exit 0 |
 
 ## Static contract checks
 
@@ -47,9 +45,9 @@ moves to `RUNTIME_VERIFY`/`COMPLETED`.
 
 Đã xác minh lại toàn bộ bằng chứng cho slice hợp đồng token ba lớp: `.git` có
 thể ghi được nên branch `feature/theme-core-token` đã được tạo (sửa lại ghi chú
-sai của lần trước), mã nguồn được commit tại `8a188e84`. Bốn gate theo yêu cầu
-đều PASS (fmt, check `db-pro-ui`, clean-code scan 13✓/3⚠/0✗, `git diff --check`),
-check thêm toàn workspace PASS, và 927 test của package `db-pro-ui` chạy xanh
+ sai của lần trước), mã nguồn được commit tại `f7cf6541`. Các gate bắt buộc
+đều PASS (fmt, workspace check, clippy, release build, clean-code scan,
+`git diff --check`), và 928 test toàn workspace chạy xanh
 100%. Các kiểm tra tĩnh (không thêm giá trị thô, đủ role light/dark, thứ tự
 state precedence, kích thước button giữ nguyên, không import chết) đều đạt.
 Bằng chứng runtime giao diện vẫn ở trạng thái **NOT VERIFIED** — cần một phiên

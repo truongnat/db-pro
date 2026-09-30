@@ -32,7 +32,7 @@
 - [x] Fix disabled input wearing focus/error borders (`resolve_chrome`).
 - [x] Focus ring painted from `border.focus` at `STROKE_THICK` (same values).
 - [x] Existing rendered values unchanged — pinned by theme/button/input tests
-  (927 tests pass in `db-pro-ui`).
+  (928 workspace tests pass).
 - [x] Gates: `cargo fmt --all -- --check`, `cargo check -p db-pro-ui`
   (+ `cargo check --workspace`), clean-code scan (0 failures),
   `git diff --check`.
