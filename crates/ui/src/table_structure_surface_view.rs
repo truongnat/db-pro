@@ -136,6 +136,7 @@ impl TableStructureContext<'_> {
                     .icon(Icon::X)
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
+                    .access_label("Clear filter")
                     .tooltip("Clear filter")
                     .show(ui)
                     .clicked()

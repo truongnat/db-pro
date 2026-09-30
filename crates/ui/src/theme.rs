@@ -71,7 +71,7 @@ impl DbProTheme {
             text_primary: Color32::from_rgb(13, 13, 13),   // --text-primary: #0d0d0d
             text_secondary: Color32::from_rgb(95, 95, 95), // --text-secondary: #5f5f5f
             text_tertiary: Color32::from_rgb(138, 138, 138), // --text-tertiary: #8a8a8a
-            text_disabled: Color32::from_rgb(179, 179, 179), // --text-disabled: #b3b3b3
+            text_disabled: Color32::from_rgb(148, 148, 148), // --text-disabled: #949494
             text_muted: Color32::from_rgb(138, 138, 138),  // alias to tertiary
             text_inverse: Color32::from_rgb(255, 255, 255),
             accent: Color32::from_rgb(2, 133, 255), // --accent: #0285ff (Modern Blue)
@@ -98,38 +98,38 @@ impl DbProTheme {
     pub fn dark() -> Self {
         Self {
             dark_mode: true,
-            // Stitch Design System Dark Tokens (docs/DESIGN.md / projects/1651725598433404641):
-            surface_app: Color32::from_rgb(33, 33, 33), // --background: #212121
-            surface_panel: Color32::from_rgb(42, 42, 42), // --surface: #2a2a2a
-            surface_elevated: Color32::from_rgb(48, 48, 48), // --surface-2: #303030
-            surface_floating: Color32::from_rgb(38, 38, 38), // popover slightly above editor
-            surface_editor: Color32::from_rgb(24, 24, 24), // deeper buffer plane (Zed-like)
-            surface_hover: Color32::from_rgb(54, 54, 54), // --surface-hover: #363636
-            surface_active: Color32::from_rgb(61, 61, 61), // --surface-active: #3d3d3d
-            surface_2: Color32::from_rgb(48, 48, 48),   // --surface-2: #303030
-            border_subtle: Color32::from_rgb(50, 50, 50), // --border-subtle: #323232
-            border_default: Color32::from_rgb(65, 65, 65), // --border-default: #414141
-            border_strong: Color32::from_rgb(80, 80, 80), // --border-strong: #505050
-            text_primary: Color32::from_rgb(236, 236, 236), // --text-primary: #ececec
-            text_secondary: Color32::from_rgb(185, 185, 185), // --text-secondary: #b9b9b9
-            text_tertiary: Color32::from_rgb(141, 141, 141), // --text-tertiary: #8d8d8d
-            text_disabled: Color32::from_rgb(102, 102, 102), // --text-disabled: #666666
-            text_muted: Color32::from_rgb(141, 141, 141), // alias to tertiary
-            text_inverse: Color32::from_rgb(17, 17, 17),
-            accent: Color32::from_rgb(51, 156, 255), // --accent: #339cff (Modern Blue)
-            accent_hover: Color32::from_rgb(102, 181, 255),
-            accent_soft: Color32::from_rgb(0, 40, 77), // soft blue tint
-            accent_foreground: Color32::from_rgb(255, 255, 255), // #ffffff
-            success: Color32::from_rgb(34, 197, 94),   // --success: #22c55e
-            warning: Color32::from_rgb(245, 158, 11),  // --warning: #f59e0b
-            danger: Color32::from_rgb(239, 68, 68),    // --danger: #ef4444
-            info: Color32::from_rgb(59, 130, 246),     // --info: #3b82f6
-            overlay: Color32::from_black_alpha(64),    // scrim ~0.25, card stays fully opaque on top
+            // Dark database workstation tokens: quiet charcoal surfaces, crisp borders, and a restrained blue action accent.
+            surface_app: Color32::from_rgb(23, 25, 28),       // #17191c
+            surface_panel: Color32::from_rgb(29, 32, 36),     // #1d2024
+            surface_elevated: Color32::from_rgb(35, 39, 45),  // #23272d
+            surface_floating: Color32::from_rgb(32, 36, 42),  // #20242a
+            surface_editor: Color32::from_rgb(21, 23, 25),    // #151719
+            surface_hover: Color32::from_rgb(40, 46, 53),     // #282e35
+            surface_active: Color32::from_rgb(48, 57, 70),    // #303946
+            surface_2: Color32::from_rgb(36, 41, 47),         // #24292f
+            border_subtle: Color32::from_rgb(42, 48, 55),     // #2a3037
+            border_default: Color32::from_rgb(56, 65, 75),    // #38414b
+            border_strong: Color32::from_rgb(75, 88, 101),    // #4b5865
+            text_primary: Color32::from_rgb(241, 243, 245),   // #f1f3f5
+            text_secondary: Color32::from_rgb(180, 187, 196), // #b4bbc4
+            text_tertiary: Color32::from_rgb(130, 140, 151),  // #828c97
+            text_disabled: Color32::from_rgb(106, 116, 128),  // #6a7480
+            text_muted: Color32::from_rgb(140, 150, 160),     // #8c96a0
+            text_inverse: Color32::from_rgb(17, 19, 22),      // #111316
+            accent: Color32::from_rgb(79, 140, 255),          // #4f8cff
+            accent_hover: Color32::from_rgb(106, 160, 255),   // #6aa0ff
+            accent_soft: Color32::from_rgb(27, 49, 88),       // #1b3158
+            accent_foreground: Color32::from_rgb(255, 255, 255),
+            success: Color32::from_rgb(58, 197, 121), // #3ac579
+            warning: Color32::from_rgb(242, 180, 90), // #f2b45a
+            danger: Color32::from_rgb(239, 107, 115), // #ef6b73
+            info: Color32::from_rgb(88, 166, 255),    // #58a6ff
+            overlay: Color32::from_black_alpha(74),
             code_keyword: Color32::from_rgb(199, 146, 234), // #C792EA (synKeyword)
-            code_string: Color32::from_rgb(195, 232, 141), // #C3E88D (synString)
-            code_number: Color32::from_rgb(247, 140, 108), // #F78C6C (synConst)
+            code_string: Color32::from_rgb(195, 232, 141),  // #C3E88D (synString)
+            code_number: Color32::from_rgb(247, 140, 108),  // #F78C6C (synConst)
             code_comment: Color32::from_rgb(103, 110, 149), // #676E95 (synComment)
-            code_type: Color32::from_rgb(255, 203, 107), // #FFCB6B (synType)
+            code_type: Color32::from_rgb(255, 203, 107),    // #FFCB6B (synType)
             code_function: Color32::from_rgb(130, 170, 255), // #82AAFF (synFunc)
             code_operator: Color32::from_rgb(137, 221, 255), // #89DDFF (synPunct)
             code_punctuation: Color32::from_rgb(137, 221, 255), // #89DDFF (synPunct)
@@ -369,11 +369,11 @@ impl DbProTheme {
         visuals.hyperlink_color = self.accent;
         visuals.warn_fg_color = self.warning;
         visuals.error_fg_color = self.danger;
-        // Selected rows/tabs in Codex stay neutral; blue is reserved for the
-        // interaction accent and the active indicator rather than large fills.
-        visuals.selection.bg_fill = self.surface_active;
+        // Selection stays a muted blue wash so the active cell is visible without
+        // turning a dense result grid into a wall of saturated color.
+        visuals.selection.bg_fill = self.accent_soft;
         visuals.selection.stroke = Stroke::new(1.0, self.accent);
-        visuals.window_rounding = Rounding::same(7.0);
+        visuals.window_rounding = Rounding::same(6.0);
         visuals.window_shadow = Shadow {
             offset: egui::vec2(0.0, 8.0),
             blur: 24.0,
@@ -465,13 +465,13 @@ mod tests {
     }
 
     #[test]
-    fn dark_tokens_follow_warm_minimalism_surface_contract() {
+    fn dark_tokens_follow_database_workstation_surface_contract() {
         let theme = DbProTheme::dark();
 
-        assert_eq!(theme.surface_app, egui::Color32::from_rgb(33, 33, 33));
-        assert_eq!(theme.surface_panel, egui::Color32::from_rgb(42, 42, 42));
-        assert_eq!(theme.surface_active, egui::Color32::from_rgb(61, 61, 61));
-        assert_eq!(theme.accent, egui::Color32::from_rgb(51, 156, 255));
+        assert_eq!(theme.surface_app, egui::Color32::from_rgb(23, 25, 28));
+        assert_eq!(theme.surface_panel, egui::Color32::from_rgb(29, 32, 36));
+        assert_eq!(theme.surface_active, egui::Color32::from_rgb(48, 57, 70));
+        assert_eq!(theme.accent, egui::Color32::from_rgb(79, 140, 255));
     }
 
     #[test]

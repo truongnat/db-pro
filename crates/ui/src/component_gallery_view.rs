@@ -85,7 +85,10 @@ pub struct ComponentGalleryState {
     pub db_card_status: ConnectionStatus,
     pub sql_editor_status: Option<String>,
     pub date_picker_val: Option<SimpleDate>,
+    pub calendar_view_year: i32,
+    pub calendar_view_month: u32,
     pub toggle_single: bool,
+    pub toggle_italic: bool,
     pub toggle_group_val: usize,
     pub accordion_open: Option<String>,
     pub collapsible_open: bool,
@@ -199,7 +202,10 @@ impl Default for ComponentGalleryState {
             db_card_status: ConnectionStatus::Connected,
             sql_editor_status: None,
             date_picker_val: Some(SimpleDate::new(2026, 9, 23)),
+            calendar_view_year: 2026,
+            calendar_view_month: 9,
             toggle_single: true,
+            toggle_italic: false,
             toggle_group_val: 1,
             accordion_open: Some("acc-1".to_string()),
             collapsible_open: true,
@@ -230,15 +236,13 @@ impl DbProApp {
                     .show(ui, |ui| {
                         ui.set_min_width(ui.available_width());
                         ui.add_space(SPACE_MD);
-                        ui.horizontal(|ui| {
-                            ui.add_space(SPACE_LG);
-                            ui.vertical(|ui| {
-                                ui.set_max_width(1120.0);
+                        Container::new()
+                            .gutter(SPACE_LG)
+                            .max_width(1120.0)
+                            .show(ui, |ui| {
                                 self.draw_selected_gallery_category(ui);
                                 ui.add_space(SPACE_2XL);
                             });
-                            ui.add_space(SPACE_LG);
-                        });
                     });
             });
         });
@@ -283,6 +287,11 @@ impl DbProApp {
                             .variant(ButtonVariant::Ghost)
                             .size(ButtonSize::IconSm)
                             .tooltip(if self.preferences.dark_mode {
+                                "Preview light theme"
+                            } else {
+                                "Preview dark theme"
+                            })
+                            .access_label(if self.preferences.dark_mode {
                                 "Preview light theme"
                             } else {
                                 "Preview dark theme"
@@ -392,6 +401,7 @@ impl DbProApp {
                 })
                 .size(ButtonSize::Sm)
                 .full_width(true)
+                .left_aligned()
                 .show(ui)
                 .clicked()
             {

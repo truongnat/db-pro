@@ -2,10 +2,13 @@ use egui::{FontFamily, FontId, Frame, Id, Margin, Response, RichText, Rounding, 
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
-use super::config::{FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_ROUNDING};
-use super::layout::{paint_field_chrome, resolve_field_width};
+use crate::components::input::config::{
+    FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_AUX_FONT_SIZE, INPUT_AUX_GAP, INPUT_ICON_GAP, INPUT_ICON_SIZE,
+    INPUT_LABEL_FONT_SIZE, INPUT_ROUNDING,
+};
+use crate::components::input::layout::{paint_field_chrome, resolve_field_width, FieldChromeState};
 use crate::components::interact::{button_info, text_input_info};
-use crate::tokens::{LABEL_HELPER_GAP, SPACE_XS};
+use crate::tokens::LABEL_HELPER_GAP;
 use crate::DbProTheme;
 
 pub struct Input<'a> {
@@ -102,7 +105,7 @@ impl<'a> Input<'a> {
             if let Some(label) = &self.label {
                 ui.label(
                     RichText::new(label.as_ref())
-                        .size(12.0)
+                        .size(INPUT_LABEL_FONT_SIZE)
                         .strong()
                         .color(self.theme.text_secondary),
                 );
@@ -118,11 +121,7 @@ impl<'a> Input<'a> {
 
             let frame = Frame {
                 fill,
-                stroke: if has_error {
-                    Stroke::new(1.5, self.theme.danger)
-                } else {
-                    Stroke::NONE
-                },
+                stroke: Stroke::NONE,
                 inner_margin: Margin::symmetric(FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y),
                 rounding: Rounding::same(INPUT_ROUNDING),
                 ..Default::default()
@@ -136,14 +135,14 @@ impl<'a> Input<'a> {
                     if let Some(icon) = self.leading_icon {
                         ui.label(
                             RichText::new(char::from(icon).to_string())
-                                .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
+                                .font(FontId::new(INPUT_ICON_SIZE, FontFamily::Name("lucide".into())))
                                 .color(if self.enabled {
                                     self.theme.text_muted
                                 } else {
                                     self.theme.border_subtle
                                 }),
                         );
-                        ui.add_space(SPACE_XS);
+                        ui.add_space(INPUT_ICON_GAP);
                     }
 
                     let has_text = !self.value.is_empty();
@@ -182,7 +181,7 @@ impl<'a> Input<'a> {
                             clear_rect.center(),
                             egui::Align2::CENTER_CENTER,
                             char::from(Icon::X).to_string(),
-                            FontId::new(12.0, FontFamily::Name("lucide".into())),
+                            FontId::new(INPUT_LABEL_FONT_SIZE, FontFamily::Name("lucide".into())),
                             self.theme.text_muted,
                         );
                         if clear_response.clicked() {
@@ -200,11 +199,11 @@ impl<'a> Input<'a> {
                 edit_response.request_focus();
             }
             let frame_rect = frame_output.response.rect;
-            let info_label = self
-                .access_label
-                .as_deref()
-                .or(self.label.as_deref())
-                .unwrap_or(self.placeholder.as_ref());
+            let info_label = super::super::handler::accessible_label(
+                self.access_label.as_deref(),
+                self.label.as_deref(),
+                self.placeholder.as_ref(),
+            );
             edit_response.widget_info(|| text_input_info(self.enabled, info_label));
 
             // NOTE: do NOT register `frame.interact(Sense::click())` here. That call lands on
@@ -217,9 +216,12 @@ impl<'a> Input<'a> {
                 ui,
                 edit_response.id,
                 frame_rect,
-                edit_response.has_focus(),
-                frame_output.response.hovered() || edit_response.hovered(),
-                self.enabled && !has_error,
+                FieldChromeState {
+                    focused: edit_response.has_focus(),
+                    hovered: frame_output.response.hovered() || edit_response.hovered(),
+                    enabled: self.enabled,
+                    has_error,
+                },
                 self.theme,
             );
 
@@ -231,12 +233,20 @@ impl<'a> Input<'a> {
                             .font(FontId::new(12.0, FontFamily::Name("lucide".into())))
                             .color(self.theme.danger),
                     );
-                    ui.add_space(2.0);
-                    ui.label(RichText::new(err.as_ref()).size(11.0).color(self.theme.danger));
+                    ui.add_space(INPUT_AUX_GAP);
+                    ui.label(
+                        RichText::new(err.as_ref())
+                            .size(INPUT_AUX_FONT_SIZE)
+                            .color(self.theme.danger),
+                    );
                 });
             } else if let Some(helper) = &self.helper_text {
-                ui.add_space(2.0);
-                ui.label(RichText::new(helper.as_ref()).size(11.0).color(self.theme.text_muted));
+                ui.add_space(INPUT_AUX_GAP);
+                ui.label(
+                    RichText::new(helper.as_ref())
+                        .size(INPUT_AUX_FONT_SIZE)
+                        .color(self.theme.text_muted),
+                );
             }
 
             edit_response

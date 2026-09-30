@@ -12,9 +12,9 @@ fn requested_width_never_exceeds_the_container() {
 }
 
 #[test]
-fn narrow_containers_keep_a_usable_floor() {
-    assert_eq!(resolve_field_width(None, 40.0), INPUT_MIN_WIDTH);
-    assert_eq!(resolve_field_width(Some(200.0), 40.0), INPUT_MIN_WIDTH);
+fn field_shrinks_to_fit_containers_narrower_than_the_preferred_minimum() {
+    assert_eq!(resolve_field_width(None, 40.0), 40.0);
+    assert_eq!(resolve_field_width(Some(200.0), 40.0), 40.0);
 }
 
 #[test]

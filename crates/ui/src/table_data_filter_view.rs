@@ -206,6 +206,7 @@ fn draw_clear_filter_button(context: &TableDataFilterContext<'_>, ui: &mut egui:
         .icon(Icon::X)
         .size(ButtonSize::IconSm)
         .variant(ButtonVariant::Ghost)
+        .access_label("Clear filter")
         .show(ui)
         .on_hover_text("Clear filter")
         .clicked()

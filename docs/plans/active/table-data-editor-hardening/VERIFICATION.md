@@ -106,6 +106,37 @@
   - `cargo fmt --all -- --check`: PASS.
   - `cargo check --workspace`: PASS.
   - `cargo clippy --workspace --all-targets -- -D warnings`: PASS (0 warnings).
-  - `cargo test --workspace`: PASS (571 unit and integration tests passing). **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Measured today: `cargo test --workspace` = **811 passed / 0 failed / 19 ignored**; `571` was a stale workspace total. The original claim is retained, unretracted.
+  - Historical `cargo test --workspace` total `571` was stale and is superseded by the V01-06 evidence audit: **811 passed / 0 failed / 19 ignored**. Do not treat 571 as a verified passing total.
   - `cargo build --release --locked -p db-pro-native`: PASS (39.6MB release binary).
   - `bash .skills/perf-audit/scripts/perf-scan.sh`: PASS (4 checks passed, 0 warnings).
+
+## Historical isolated Table refactor verification (worker snapshot after `6e866009`)
+
+The following blocked results describe only the isolated worker snapshot; they are not current integrated-tree results.
+
+- `rustfmt --edition 2021 --check crates/ui/src/components/table/mod.rs crates/ui/src/components/table/config.rs crates/ui/src/components/table/handler.rs crates/ui/src/components/table/ui.rs crates/ui/src/components/table/tests.rs`: PASS.
+- `cargo fmt --all -- --check`: BLOCKED by pre-existing missing modules in
+  `crates/ui/src/components/form`, `input`, `overlay`, `selection`, `toggle`,
+  and `tree`.
+- `cargo test -p db-pro-ui --lib`: BLOCKED by the same pre-existing missing
+  modules plus unrelated type-inference errors in existing UI files; no table
+  compiler error was reported.
+- `cargo check --workspace`: BLOCKED by the same pre-existing UI module and
+  type-inference errors.
+- `cargo clippy --workspace --all-targets -- -D warnings`: BLOCKED by the same
+  pre-existing UI module/type-inference errors and duplicate-module diagnostics.
+- `cargo test --workspace`: BLOCKED by the same pre-existing UI module and
+  type-inference errors.
+- At that isolated snapshot, focused table helper tests could not execute. This historical result is superseded by the integrated verification below.
+
+## Integrated component-refactor verification (baseline `5b38eb6543d5fa66783fe7f772e52b97665183a6`)
+
+- Verification context: base commit `5b38eb6543d5fa66783fe7f772e52b97665183a6` plus the uncommitted integrated working-tree diff; commands were run in that tree, not against a committed revision.
+- `cargo test -p db-pro-ui --lib`: PASS (913 UI library tests passed, 0 failed, 0 ignored).
+- `cargo test -p db-pro-ui components::table:: --lib`: PASS (6 passed, 0 failed; 907 filtered out).
+- `cargo check -p db-pro-ui`: PASS.
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
+- `cargo build --release --locked -p db-pro-native`: PASS.
+- `cargo fmt --all -- --check`: PASS.
+- `git diff --check`: PASS.
+- Native runtime screenshot/accessibility evidence at required viewport sizes remains pending.

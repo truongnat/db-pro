@@ -4,10 +4,13 @@ use crate::components::button::{Button, ButtonSize, ButtonVariant};
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
-use super::config::{FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_ROUNDING};
-use super::layout::{paint_field_chrome, resolve_field_width};
+use crate::components::input::config::{
+    FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_AUX_FONT_SIZE, INPUT_AUX_GAP, INPUT_ICON_GAP, INPUT_ICON_SIZE,
+    INPUT_LABEL_FONT_SIZE, INPUT_ROUNDING, PASSWORD_MIN_EDIT_WIDTH, PASSWORD_MIN_FRAME_WIDTH,
+};
+use crate::components::input::layout::{paint_field_chrome, resolve_field_width, FieldChromeState};
 use crate::components::interact::text_input_info;
-use crate::tokens::{LABEL_HELPER_GAP, SPACE_XS};
+use crate::tokens::LABEL_HELPER_GAP;
 use crate::DbProTheme;
 
 pub struct PasswordInput<'a> {
@@ -84,27 +87,28 @@ impl<'a> PasswordInput<'a> {
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new(label.as_ref())
-                            .size(12.0)
+                            .size(INPUT_LABEL_FONT_SIZE)
                             .strong()
                             .color(self.theme.text_secondary),
                     );
                     if self.required {
                         ui.add_space(LABEL_HELPER_GAP);
-                        ui.label(RichText::new("*").size(12.0).strong().color(self.theme.danger));
+                        ui.label(
+                            RichText::new("*")
+                                .size(INPUT_LABEL_FONT_SIZE)
+                                .strong()
+                                .color(self.theme.danger),
+                        );
                     }
                 });
                 ui.add_space(LABEL_HELPER_GAP);
             }
 
             let has_error = self.error_text.is_some();
-            let frame_w = (width - FIELD_INNER_MARGIN_X * 2.0).max(60.0);
+            let frame_w = (width - FIELD_INNER_MARGIN_X * 2.0).max(PASSWORD_MIN_FRAME_WIDTH);
             let frame_output = Frame {
                 fill: self.theme.surface_editor,
-                stroke: if has_error {
-                    Stroke::new(1.5, self.theme.danger)
-                } else {
-                    Stroke::NONE
-                },
+                stroke: Stroke::NONE,
                 inner_margin: Margin::symmetric(FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y),
                 rounding: Rounding::same(INPUT_ROUNDING),
                 ..Default::default()
@@ -115,12 +119,15 @@ impl<'a> PasswordInput<'a> {
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new(char::from(Icon::Lock).to_string())
-                            .font(FontId::new(14.0, FontFamily::Name("lucide".into())))
+                            .font(FontId::new(INPUT_ICON_SIZE, FontFamily::Name("lucide".into())))
                             .color(self.theme.text_muted),
                     );
-                    ui.add_space(SPACE_XS);
+                    ui.add_space(INPUT_ICON_GAP);
 
-                    let edit_w = (ui.available_width() - 26.0).max(40.0);
+                    // Reserve the eye button and the spacing egui inserts before it;
+                    // omitting item_spacing lets the frame grow wider than sibling inputs.
+                    let toggle_and_gap = 26.0 + ui.spacing().item_spacing.x;
+                    let edit_w = (ui.available_width() - toggle_and_gap).max(PASSWORD_MIN_EDIT_WIDTH);
                     let mut text_edit = TextEdit::singleline(self.value).password(!*self.show_password);
                     if let Some(id_salt) = self.id_salt {
                         text_edit = text_edit.id_salt(id_salt);
@@ -180,9 +187,12 @@ impl<'a> PasswordInput<'a> {
                 ui,
                 edit_response.id,
                 frame_rect,
-                edit_response.has_focus(),
-                frame_output.response.hovered() || edit_response.hovered(),
-                !has_error,
+                FieldChromeState {
+                    focused: edit_response.has_focus(),
+                    hovered: frame_output.response.hovered() || edit_response.hovered(),
+                    enabled: true,
+                    has_error,
+                },
                 self.theme,
             );
 
@@ -191,15 +201,23 @@ impl<'a> PasswordInput<'a> {
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new(char::from(Icon::AlertCircle).to_string())
-                            .font(FontId::new(12.0, FontFamily::Name("lucide".into())))
+                            .font(FontId::new(INPUT_LABEL_FONT_SIZE, FontFamily::Name("lucide".into())))
                             .color(self.theme.danger),
                     );
-                    ui.add_space(2.0);
-                    ui.label(RichText::new(err.as_ref()).size(11.0).color(self.theme.danger));
+                    ui.add_space(INPUT_AUX_GAP);
+                    ui.label(
+                        RichText::new(err.as_ref())
+                            .size(INPUT_AUX_FONT_SIZE)
+                            .color(self.theme.danger),
+                    );
                 });
             } else if let Some(helper) = &self.helper_text {
-                ui.add_space(2.0);
-                ui.label(RichText::new(helper.as_ref()).size(11.0).color(self.theme.text_muted));
+                ui.add_space(INPUT_AUX_GAP);
+                ui.label(
+                    RichText::new(helper.as_ref())
+                        .size(INPUT_AUX_FONT_SIZE)
+                        .color(self.theme.text_muted),
+                );
             }
 
             edit_response

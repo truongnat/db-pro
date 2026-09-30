@@ -73,6 +73,7 @@ pub(super) fn draw_editor_search_overlay(context: &mut QuerySearchContext<'_>, c
                                 .variant(ButtonVariant::Ghost)
                                 .size(ButtonSize::IconSm)
                                 .tooltip("Previous match (Shift+Enter)")
+                                .access_label("Previous match (Shift+Enter)")
                                 .show(ui)
                                 .clicked()
                             {
@@ -85,6 +86,7 @@ pub(super) fn draw_editor_search_overlay(context: &mut QuerySearchContext<'_>, c
                                 .variant(ButtonVariant::Ghost)
                                 .size(ButtonSize::IconSm)
                                 .tooltip("Next match (Enter)")
+                                .access_label("Next match (Enter)")
                                 .show(ui)
                                 .clicked()
                             {
@@ -98,6 +100,7 @@ pub(super) fn draw_editor_search_overlay(context: &mut QuerySearchContext<'_>, c
                             .variant(ButtonVariant::Ghost)
                             .size(ButtonSize::IconSm)
                             .tooltip("Close find (Esc)")
+                            .access_label("Close find (Esc)")
                             .show(ui)
                             .clicked()
                         {
@@ -172,6 +175,7 @@ pub(super) fn draw_editor_search_bar(context: &mut QuerySearchContext<'_>, ui: &
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
                     .tooltip("Previous match (Shift+Enter)")
+                    .access_label("Previous match (Shift+Enter)")
                     .show(ui)
                     .clicked()
                 {
@@ -184,6 +188,7 @@ pub(super) fn draw_editor_search_bar(context: &mut QuerySearchContext<'_>, ui: &
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
                     .tooltip("Next match (Enter)")
+                    .access_label("Next match (Enter)")
                     .show(ui)
                     .clicked()
                 {
@@ -197,6 +202,7 @@ pub(super) fn draw_editor_search_bar(context: &mut QuerySearchContext<'_>, ui: &
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::IconSm)
                 .tooltip("Close find bar (Esc)")
+                .access_label("Close find bar (Esc)")
                 .show(ui)
                 .clicked()
             {

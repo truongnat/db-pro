@@ -41,6 +41,7 @@ pub(super) fn draw_toolbar(
             if !context.data.grid_filter.is_empty()
                 && Button::new(context.theme)
                     .icon(Icon::X)
+                    .access_label("Clear filter")
                     .variant(ButtonVariant::Ghost)
                     .size(ButtonSize::IconSm)
                     .tooltip("Clear filter")

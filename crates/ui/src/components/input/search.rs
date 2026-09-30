@@ -1,13 +1,12 @@
 use egui::{Align, Button, Frame, Layout, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
 use lucide_icons::Icon;
 
-use super::config::{FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_ROUNDING};
-use super::layout::{paint_field_chrome, resolve_field_width};
-use crate::tokens::SPACE_XS;
+use crate::components::input::config::{
+    FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_ICON_GAP, INPUT_ICON_SIZE, INPUT_ROUNDING,
+    SEARCH_CLEAR_RESERVATION, SEARCH_SHORTCUT_RESERVATION,
+};
+use crate::components::input::layout::{paint_field_chrome, resolve_field_width, FieldChromeState};
 use crate::DbProTheme;
-
-/// Gap between the leading icon and the text field.
-const ICON_GAP: f32 = SPACE_XS;
 
 pub struct SearchInput<'a> {
     value: &'a mut String,
@@ -63,17 +62,27 @@ impl<'a> SearchInput<'a> {
             ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                 let icon = ui.label(
                     RichText::new(char::from(Icon::Search).to_string())
-                        .font(egui::FontId::new(14.0, egui::FontFamily::Name("lucide".into())))
+                        .font(egui::FontId::new(
+                            INPUT_ICON_SIZE,
+                            egui::FontFamily::Name("lucide".into()),
+                        ))
                         .color(self.theme.text_muted),
                 );
-                ui.add_space(ICON_GAP);
+                ui.add_space(INPUT_ICON_GAP);
 
-                let extra_width =
-                    if self.shortcut.is_some() { 36.0 } else { 0.0 } + if !self.value.is_empty() { 20.0 } else { 0.0 };
+                let extra_width = if self.shortcut.is_some() {
+                    SEARCH_SHORTCUT_RESERVATION
+                } else {
+                    0.0
+                } + if !self.value.is_empty() {
+                    SEARCH_CLEAR_RESERVATION
+                } else {
+                    0.0
+                };
 
                 // Reserve the icon, its gap and the inter-item spacing so the text
                 // field cannot push the frame past `width`.
-                let reserved = icon.rect.width() + ICON_GAP + ui.spacing().item_spacing.x * 2.0 + extra_width;
+                let reserved = icon.rect.width() + INPUT_ICON_GAP + ui.spacing().item_spacing.x * 2.0 + extra_width;
 
                 let edit = ui.add(
                     TextEdit::singleline(self.value)
@@ -128,9 +137,12 @@ impl<'a> SearchInput<'a> {
             ui,
             edit_response.id,
             frame_rect,
-            edit_response.has_focus(),
-            frame_output.response.hovered() || edit_response.hovered(),
-            true,
+            FieldChromeState {
+                focused: edit_response.has_focus(),
+                hovered: frame_output.response.hovered() || edit_response.hovered(),
+                enabled: true,
+                has_error: false,
+            },
             self.theme,
         );
 

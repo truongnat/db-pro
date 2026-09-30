@@ -58,6 +58,7 @@ impl SidebarChromeContext<'_> {
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::IconSm)
                 .tooltip(format!("New Connection ({})", self.new_connection_shortcut))
+                .access_label(format!("New Connection ({})", self.new_connection_shortcut))
                 .show(ui)
                 .clicked()
             {

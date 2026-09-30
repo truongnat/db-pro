@@ -1,4 +1,5 @@
-use crate::tokens::SPACE_XS;
+use crate::components::card::CARD_FRAME_STROKE_WIDTH;
+use crate::tokens::{CARD_INNER_PAD, SPACE_XS};
 use crate::DbProTheme;
 use egui::{
     text::{LayoutJob, TextFormat},
@@ -117,13 +118,15 @@ pub fn tab_frame(theme: DbProTheme, active: bool) -> Frame {
     }
 }
 
+const LEGACY_CARD_FRAME_RADIUS: f32 = 8.0;
+
 pub fn card_frame(theme: DbProTheme) -> Frame {
     Frame {
         fill: theme.surface_elevated,
-        inner_margin: Margin::same(14.0),
+        inner_margin: Margin::same(CARD_INNER_PAD),
         outer_margin: Margin::ZERO,
-        rounding: Rounding::same(8.0),
-        stroke: Stroke::new(1.0, theme.border_subtle),
+        rounding: Rounding::same(LEGACY_CARD_FRAME_RADIUS),
+        stroke: Stroke::new(CARD_FRAME_STROKE_WIDTH, theme.border_subtle),
         ..Default::default()
     }
 }

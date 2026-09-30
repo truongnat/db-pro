@@ -73,6 +73,7 @@ pub(super) fn draw_context_strip(context: &mut QueryContextViewContext<'_>, ui: 
                 .icon(Icon::MoreHorizontal)
                 .variant(ButtonVariant::Ghost)
                 .size(ButtonSize::IconSm)
+                .access_label("More query actions")
                 .tooltip("More query actions")
                 .show(ui);
             if more_response.clicked() {

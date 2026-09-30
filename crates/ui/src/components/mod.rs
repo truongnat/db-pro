@@ -12,6 +12,7 @@ pub mod chrome;
 pub mod code;
 pub mod collapsible;
 pub mod command;
+pub mod common;
 pub mod common_utils;
 pub mod database;
 pub mod dev_tools;
@@ -28,6 +29,7 @@ pub mod logs;
 pub mod nav;
 pub mod overlay;
 pub mod radio_group;
+pub mod responsive_layout;
 pub mod scroll_area;
 pub mod select;
 pub mod selection;
@@ -51,12 +53,17 @@ pub use aspect_ratio::AspectRatio;
 pub use badge::{Badge, BadgeVariant};
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonVariant};
 pub use calendar::{day_of_week, days_in_month, is_leap_year, Calendar, DatePicker, SimpleDate};
-pub use card::{card_content, card_footer, card_header, Card, MetricCard, MetricTrend};
+pub use card::{
+    card_content, card_footer, card_header, Card, MetricCard, MetricTrend, MetricTrendDirection, MetricTrendTone,
+};
 pub use chrome::{toolbar_button, Avatar, AvatarShape, AvatarSize, AvatarStatus, EmptyState, Skeleton, Toolbar};
 pub use code::{CodeBlock, InlineCode};
 pub use collapsible::Collapsible;
 pub use command::{CommandEmpty, CommandGroup, CommandInput, CommandItem};
-pub use common_utils::*;
+pub use common::{
+    calculate_dialog_layout, calculate_sheet_layout, clamp_popup_to_screen, format_bytes, format_count_with_suffix,
+    format_duration_millis, format_page_range, format_percentage, truncate_ellipsis, DialogLayout,
+};
 pub use database::{ConnectionCard, ConnectionCardAction, ConnectionStatus, DatabaseDriver, DatabaseTypeBadge};
 pub use dev_tools::{ProgressRing, TerminalBlock};
 pub use dialog::{dialog_actions, Dialog, DialogActionLabels, Sheet};
@@ -70,10 +77,11 @@ pub use legacy::*;
 pub use logs::{LogEntry, LogLevel, LogViewer};
 pub use nav::{Breadcrumb, BreadcrumbItem, PageHeader, Pagination, SectionHeader};
 pub use overlay::{
-    context_action_menu, ctx_menu_item, is_context_menu_triggered, DropdownItem, DropdownMenu, Popover, Toast,
-    ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant, Tooltip, TooltipPosition,
+    context_action_menu, ctx_menu_item, floating_surface, is_context_menu_triggered, DropdownItem, DropdownMenu,
+    Popover, Toast, ToastItem, ToastManager, ToastPosition, ToastResponse, ToastVariant, Tooltip, TooltipPosition,
 };
 pub use radio_group::{RadioGroup, RadioGroupOption};
+pub use responsive_layout::{container_width, grid_metrics, Container, ContainerWidth, GridMetrics, ResponsiveGrid};
 pub use scroll_area::ScrollArea;
 pub use select::{dropdown_should_open_above, Select};
 pub use selection::{Checkbox, Radio, Slider, Switch};
@@ -102,13 +110,15 @@ mod tests {
             .size(ButtonSize::Lg)
             .enabled(false)
             .loading(true)
-            .full_width(true);
+            .full_width(true)
+            .left_aligned();
 
         assert_eq!(btn.variant, ButtonVariant::Destructive);
         assert_eq!(btn.size, ButtonSize::Lg);
         assert!(!btn.enabled);
         assert!(btn.loading);
         assert!(btn.full_width);
+        assert!(btn.left_aligned);
     }
 
     #[test]

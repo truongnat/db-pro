@@ -18,6 +18,15 @@ pub(super) enum QueryOutputAction {
     OpenHistory(Box<UiQueryHistoryEntry>, bool),
 }
 
+fn bounded_explain_metric(value: f64) -> f32 {
+    if !value.is_finite() || value <= 0.0 {
+        return 0.0;
+    }
+
+    // ExplainPlanTree stores metrics as f32; clamp before narrowing the core f64 value.
+    value.min(f32::MAX as f64) as f32
+}
+
 pub(super) fn draw_explain_pane(
     context: &mut QueryOutputActionsContext<'_>,
     ui: &mut egui::Ui,
@@ -74,7 +83,8 @@ pub(super) fn draw_explain_pane(
             } else if let Some(plan) = db_pro_core::domain::explain_plan::parse_postgres_explain_str(plan_json) {
                 if !plan.findings.is_empty() {
                     ui.add_space(4.0);
-                    for finding in plan.findings.iter().take(8) {
+                    // The plan tree repeats this finding on its root row; avoid a duplicate summary label.
+                    for finding in plan.findings.iter().filter(|finding| finding.code != "plan.truncated").take(8) {
                         let color = match finding.severity {
                             db_pro_core::domain::explain_plan::PlanFindingSeverity::Hotspot => context.theme.danger,
                             db_pro_core::domain::explain_plan::PlanFindingSeverity::Warning => context.theme.warning,
@@ -86,9 +96,9 @@ pub(super) fn draw_explain_pane(
                 ui.add_space(6.0);
                 let tree = crate::components::explain::PlanNode::from_query_plan(&plan.root);
                 egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
-                    ExplainPlanTree::new(&tree, plan.display_total_ms() as f32, context.theme)
+                    ExplainPlanTree::new(&tree, bounded_explain_metric(plan.display_total_ms()), context.theme)
                         .has_runtime_stats(plan.has_runtime_stats)
-                        .planning_time(plan.planning_time_ms.map(|t| t as f32))
+                        .planning_time(plan.planning_time_ms.map(bounded_explain_metric))
                         .show(ui);
                 });
             } else {
@@ -235,4 +245,16 @@ pub(super) fn draw_history_pane(
         }
     });
     action
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bounded_explain_metric;
+
+    #[test]
+    fn explain_display_metrics_are_finite_and_bounded() {
+        assert_eq!(bounded_explain_metric(f64::MAX), f32::MAX);
+        assert_eq!(bounded_explain_metric(f64::NAN), 0.0);
+        assert_eq!(bounded_explain_metric(-1.0), 0.0);
+    }
 }

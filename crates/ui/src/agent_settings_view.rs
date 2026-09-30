@@ -51,6 +51,7 @@ impl AgentSettingsContext<'_> {
                         .variant(ButtonVariant::Ghost)
                         .size(ButtonSize::IconSm)
                         .tooltip("Cancel")
+                        .access_label("Cancel")
                         .show(ui)
                         .clicked()
                     {

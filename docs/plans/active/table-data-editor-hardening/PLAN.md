@@ -27,6 +27,9 @@ correctness, conflict recovery, and render-coordinate performance.
 - Provide compact staged-change review, cell diff/revert actions, expanded
   JSON/long-text editing, NULL/binary-safe rendering, and pagination controls.
 - Avoid linear coordinate lookup in visible-cell rendering.
+- Refactor the shared `Table` component into `config`, `handler`, `ui`, and test
+  layers without changing its public exports, callback contract, or layout and
+  interaction behavior.
 
 ## Out of scope for this slice
 

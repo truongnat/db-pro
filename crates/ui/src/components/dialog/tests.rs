@@ -17,3 +17,26 @@ fn screen_rect_fallback_returns_safe_size() {
     assert!(screen.width() >= 1280.0);
     assert!(screen.height() >= 800.0);
 }
+
+#[test]
+fn public_dialog_and_sheet_compatibility_paths_remain_available() {
+    let theme = crate::DbProTheme::light();
+    let mut open = true;
+
+    {
+        let _modal_dialog = super::modal::Dialog::new(&mut open, "Modal", theme);
+    }
+    {
+        let _root_dialog = super::Dialog::new(&mut open, "Modal", theme);
+    }
+    {
+        let _sheet_module = super::sheet::Sheet::new(&mut open, "Sheet", theme);
+    }
+    {
+        let _root_sheet = super::Sheet::new(&mut open, "Sheet", theme);
+    }
+
+    let _close_button: fn(&mut egui::Ui, crate::DbProTheme) -> egui::Response = super::close_icon_button;
+    let _actions: fn(&mut egui::Ui, crate::DbProTheme, super::DialogActionLabels<'_>) -> (bool, bool) =
+        super::dialog_actions;
+}

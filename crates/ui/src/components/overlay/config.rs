@@ -1,0 +1,40 @@
+//! Overlay-local layout constants.
+
+pub const DROPDOWN_RADIUS: f32 = 12.0;
+pub const DROPDOWN_ITEM_HEIGHT: f32 = 34.0;
+pub const POPOVER_RADIUS: f32 = 12.0;
+pub const TOAST_RADIUS: f32 = 10.0;
+pub const OPEN_TRANSLATE_PX: f32 = 4.0;
+
+pub const TOOLTIP_FONT_SIZE: f32 = 12.0;
+pub const TOOLTIP_HORIZONTAL_PADDING: f32 = 18.0;
+pub const TOOLTIP_VERTICAL_PADDING: f32 = 12.0;
+pub const TOOLTIP_MIN_HEIGHT: f32 = 24.0;
+pub const TOOLTIP_SHORTCUT_WIDTH: f32 = 38.0;
+pub const DROPDOWN_ITEM_RADIUS: f32 = 8.0;
+pub const DROPDOWN_ICON_SIZE: f32 = 14.0;
+pub const DROPDOWN_LABEL_SIZE: f32 = 13.0;
+pub const TOAST_ICON_SIZE: f32 = 14.0;
+pub const TOAST_MESSAGE_SIZE: f32 = 13.0;
+pub const TOAST_ACTION_SIZE: f32 = 12.0;
+pub const TOAST_CLOSE_SIZE: f32 = 11.0;
+pub const TOAST_ACCENT_WIDTH: f32 = 3.0;
+pub const TOAST_STACK_OFFSET: f32 = 54.0;
+pub const TOAST_SCREEN_MARGIN: f32 = 24.0;
+pub const TOAST_HORIZONTAL_PADDING: f32 = 14.0;
+pub const TOAST_VERTICAL_PADDING: f32 = 10.0;
+
+pub const CONTEXT_MENU_RADIUS: f32 = 10.0;
+pub const CONTEXT_MENU_SCREEN_INSET: f32 = 4.0;
+pub const CONTEXT_MENU_MAX_WIDTH: f32 = 230.0;
+pub const CONTEXT_MENU_MAX_HEIGHT: f32 = 340.0;
+pub const CONTEXT_MENU_MIN_WIDTH: f32 = 210.0;
+pub const CONTEXT_MENU_HORIZONTAL_PADDING: f32 = 4.0;
+pub const CONTEXT_MENU_VERTICAL_PADDING: f32 = 6.0;
+pub const CONTEXT_MENU_ITEM_HEIGHT: f32 = 26.0;
+pub const CONTEXT_MENU_ITEM_RADIUS: f32 = 6.0;
+pub const CONTEXT_MENU_ITEM_HORIZONTAL_PADDING: f32 = 8.0;
+pub const CONTEXT_MENU_ICON_SIZE: f32 = 12.5;
+pub const CONTEXT_MENU_LABEL_SIZE: f32 = 12.5;
+pub const CONTEXT_MENU_SHORTCUT_SIZE: f32 = 10.0;
+pub const CONTEXT_MENU_ICON_OFFSET: f32 = 22.0;

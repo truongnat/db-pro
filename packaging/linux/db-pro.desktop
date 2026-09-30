@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=DB Pro
+Comment=Native database IDE
+Exec=db-pro-native
+Icon=db-pro
+Terminal=false
+Categories=Development;Database;Utility;
+StartupWMClass=DB Pro

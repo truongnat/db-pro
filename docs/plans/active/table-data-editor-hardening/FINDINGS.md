@@ -47,4 +47,19 @@ recovery regressions listed in the plan.
   issuing SQL DELETE mutations.
 - Batch mutation failures roll back the entire transaction atomically, retain
   all staged changes intact in `ChangeSet`, and focus the failed cell.
-- All 571 workspace unit tests, clippy, check, fmt, and release builds PASS. **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Measured today: `cargo test --workspace` = **811 passed / 0 failed / 19 ignored**; `571` was a stale workspace total. The original claim is retained, unretracted.
+- Historical workspace total `571` was stale and is superseded. Evidence audit measured `cargo test --workspace` at **811 passed / 0 failed / 19 ignored**; do not use the stale total as a passing result.
+
+## Table component refactor evidence
+
+- Baseline source revision for this integrated batch: `5b38eb6543d5fa66783fe7f772e52b97665183a6`. At that baseline the
+  existing component was a single `crates/ui/src/components/table.rs` module;
+  the working tree now places its public builders in `table/mod.rs`, painting
+  in `table/ui.rs`, typed geometry/state decisions in `table/handler.rs`, and
+  local metrics in `table/config.rs`.
+- Public names and the `Table::show` callback shape remain unchanged through
+  `crates/ui/src/components/mod.rs` re-exports.
+- The refactor is behavior-preserving by construction: width distribution,
+  empty/populated heights, checkbox states, sort interaction, row culling,
+  and gridline coordinates are covered by focused helper tests or retained in
+  the UI path unchanged.
+- No new P0/P1 finding was identified. At the isolated worker snapshot, unrelated UI compile blockers were reported; those results are superseded for the integrated tree by the passing commands recorded in `VERIFICATION.md`.

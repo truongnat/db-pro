@@ -203,6 +203,7 @@ impl InsertRowDialogContext<'_> {
                     .icon(Icon::X)
                     .size(ButtonSize::IconSm)
                     .variant(ButtonVariant::Ghost)
+                    .access_label("Clear this field")
                     .show(ui)
                     .on_hover_text("Clear this field")
                     .clicked()
