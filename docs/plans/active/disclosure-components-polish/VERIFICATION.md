@@ -5,6 +5,7 @@
 - Base SHA: `3b1cc99b4c389a574c05af66bc1d97d7e2592263`.
 - Working branch: local `main` per explicit owner workflow override.
 - Implementation commit: `bb5830edf8a3775a3eb0d2e7b2087ffd952b582f`.
+- Follow-up spacing correction: `8470ea83148da517b7ac12be6da5ca8c97fe96ec` — the trailing Accordion badge now reserves `SPACE_MD` between its pill and the chevron.
 
 ## Runtime evidence
 
@@ -12,10 +13,11 @@
 |---|---:|---|---|
 | 1280×800 | 2560×1600 (Retina 2×) | Dark | `screenshots/disclosure-gallery-dark-1280x800.png` |
 
-The capture shows the closed SSH item without a background, while the open Pool
-and SSL items use the active semantic surface with aligned body content. It is a
-static state capture; hover and transition timing still require interactive
-review.
+The refreshed capture shows the closed SSH item without a background, while the
+open Pool and SSL items use the active semantic surface with aligned body
+content. The `Enforced` badge now has visible breathing room before the trailing
+chevron. It is a static state capture; hover and transition timing still require
+interactive review.
 
 ## Automated gates
 
@@ -41,6 +43,7 @@ review.
 
 Đã gom Collapsible và Accordion về cùng một disclosure style: nền trong suốt ở
 trạng thái thường, surface semantic khi hover/active, cùng spacing/focus/
-chevron, và dùng clipped body animation để mở đóng không còn chừa khoảng trống.
-Capture native đã kiểm tra trạng thái đóng/mở; toàn bộ full workspace gates đã
-đạt. Independent review vẫn cần hoàn tất.
+chevron, badge trailing có khoảng cách rõ với chevron, và dùng clipped body
+animation để mở đóng không còn chừa khoảng trống. Capture native đã kiểm tra
+trạng thái đóng/mở; toàn bộ full workspace gates đã đạt. Independent review vẫn
+cần hoàn tất.
