@@ -46,19 +46,30 @@ impl<'a> Checkbox<'a> {
         let spacing = 8.0;
 
         ui.horizontal(|ui| {
-            let total_height = handler::checkbox_row_height(self.description.is_some());
-
-            let text_font = FontId::proportional(13.0);
-            let text_galley = ui.painter().layout_no_wrap(
+            let text_width = (ui.available_width() - size - spacing).max(60.0);
+            let text_color = if self.enabled {
+                self.theme.text_primary
+            } else {
+                self.theme.text_muted
+            };
+            let text_galley = ui.painter().layout(
                 self.label.to_owned(),
-                text_font,
-                if self.enabled {
-                    self.theme.text_primary
-                } else {
-                    self.theme.text_muted
-                },
+                FontId::proportional(13.0),
+                text_color,
+                text_width,
             );
-            let row_width = (size + spacing + text_galley.size().x).max(size + spacing + 60.0);
+            let description_galley = self.description.map(|description| {
+                ui.painter().layout(
+                    description.to_owned(),
+                    FontId::proportional(11.5),
+                    self.theme.text_muted,
+                    text_width,
+                )
+            });
+            let content_height =
+                text_galley.size().y + description_galley.as_ref().map_or(0.0, |galley| 3.0 + galley.size().y);
+            let total_height = handler::checkbox_row_height(self.description.is_some()).max(content_height);
+            let row_width = ui.available_width().max(size + spacing + 60.0);
 
             let sense = Sense {
                 click: true,
@@ -107,16 +118,14 @@ impl<'a> Checkbox<'a> {
                 paint_focus_ring(ui, box_rect, 4.0, self.theme);
             }
 
-            // Text and description
+            // Text and description use the cell width so narrow grids wrap instead of overflowing.
             let text_pos = Pos2::new(rect.left() + size + spacing, box_y - 1.0);
+            let text_height = text_galley.size().y;
             ui.painter().galley(text_pos, text_galley, Color32::PLACEHOLDER);
 
-            if let Some(desc) = self.description {
-                let desc_galley =
-                    ui.painter()
-                        .layout_no_wrap(desc.to_owned(), FontId::proportional(11.5), self.theme.text_muted);
-                let desc_pos = Pos2::new(rect.left() + size + spacing, text_pos.y + 16.0);
-                ui.painter().galley(desc_pos, desc_galley, Color32::PLACEHOLDER);
+            if let Some(description_galley) = description_galley {
+                let desc_pos = Pos2::new(rect.left() + size + spacing, text_pos.y + text_height + 3.0);
+                ui.painter().galley(desc_pos, description_galley, Color32::PLACEHOLDER);
             }
 
             if self.enabled && response.hovered() {
@@ -282,19 +291,30 @@ impl<'a> Radio<'a> {
         let spacing = 8.0;
 
         ui.horizontal(|ui| {
-            let total_height = handler::checkbox_row_height(self.description.is_some());
-
-            let text_font = FontId::proportional(13.0);
-            let text_galley = ui.painter().layout_no_wrap(
+            let text_width = (ui.available_width() - size - spacing).max(60.0);
+            let text_color = if self.enabled {
+                self.theme.text_primary
+            } else {
+                self.theme.text_muted
+            };
+            let text_galley = ui.painter().layout(
                 self.label.to_owned(),
-                text_font,
-                if self.enabled {
-                    self.theme.text_primary
-                } else {
-                    self.theme.text_muted
-                },
+                FontId::proportional(13.0),
+                text_color,
+                text_width,
             );
-            let row_width = (size + spacing + text_galley.size().x).max(size + spacing + 60.0);
+            let description_galley = self.description.map(|description| {
+                ui.painter().layout(
+                    description.to_owned(),
+                    FontId::proportional(11.5),
+                    self.theme.text_muted,
+                    text_width,
+                )
+            });
+            let content_height =
+                text_galley.size().y + description_galley.as_ref().map_or(0.0, |galley| 3.0 + galley.size().y);
+            let total_height = handler::checkbox_row_height(self.description.is_some()).max(content_height);
+            let row_width = ui.available_width().max(size + spacing + 60.0);
 
             let (rect, response) = ui.allocate_exact_size(Vec2::new(row_width, total_height), Sense::click());
             response.widget_info(|| radio_info(self.enabled, self.selected, self.label));
@@ -330,16 +350,14 @@ impl<'a> Radio<'a> {
                     .circle_stroke(circle_center, radius + 2.0, Stroke::new(2.0, self.theme.accent));
             }
 
-            // Text and description
+            // Text and description use the cell width so narrow grids wrap instead of overflowing.
             let text_pos = Pos2::new(rect.left() + size + spacing, center_y - (size * 0.5) - 1.0);
+            let text_height = text_galley.size().y;
             ui.painter().galley(text_pos, text_galley, Color32::PLACEHOLDER);
 
-            if let Some(desc) = self.description {
-                let desc_galley =
-                    ui.painter()
-                        .layout_no_wrap(desc.to_owned(), FontId::proportional(11.5), self.theme.text_muted);
-                let desc_pos = Pos2::new(rect.left() + size + spacing, text_pos.y + 16.0);
-                ui.painter().galley(desc_pos, desc_galley, Color32::PLACEHOLDER);
+            if let Some(description_galley) = description_galley {
+                let desc_pos = Pos2::new(rect.left() + size + spacing, text_pos.y + text_height + 3.0);
+                ui.painter().galley(desc_pos, description_galley, Color32::PLACEHOLDER);
             }
 
             if self.enabled && response.hovered() {

@@ -103,7 +103,9 @@ impl Accordion {
                 FontId::new(ICON_SM, FontFamily::Name("lucide".into())),
                 color,
             );
-            left_x += ICON_TEXT_GAP;
+            // Advance past the full icon box before painting the title; using only the
+            // text gap makes icon-bearing headers visually overlap their labels.
+            left_x += ICON_SM + ICON_TEXT_GAP;
         }
 
         let chevron_x = rect.right() - config::CHEVRON_RIGHT_INSET;

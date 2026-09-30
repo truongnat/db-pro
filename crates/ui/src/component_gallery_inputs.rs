@@ -431,141 +431,137 @@ impl DbProApp {
         ui.add_space(16.0);
         self.draw_section_heading(
             ui,
-            "shadcn Primitives & Controls",
-            "Accordion, Collapsible, Toggle, ToggleGroup, RadioGroup, DatePicker & Separator.",
+            "Disclosure & Choice",
+            "Connection state, view modes, and date filters.",
         );
 
-        Card::new(theme).show(ui, |ui| {
-            ui.columns(3, |columns| {
-                // Column 1: Toggle, ToggleGroup & DatePicker
-                let ui = &mut columns[0];
-                ui.label(
-                    RichText::new("Toggle & ToggleGroup")
-                        .font(DbProTheme::ui_medium_font(13.0))
-                        .color(theme.text_secondary),
-                );
-                ui.add_space(8.0);
+        ui.columns(3, |columns| {
+            self.draw_gallery_toggle_panel(&mut columns[0]);
+            self.draw_gallery_disclosure_panel(&mut columns[1]);
+            self.draw_gallery_calendar_panel(&mut columns[2]);
+        });
+    }
 
-                ui.horizontal(|ui| {
-                    Toggle::new(&mut self.gallery_state.toggle_single, theme)
-                        .label("Grid View")
-                        .icon(Icon::Grid)
-                        .show(ui);
+    fn draw_gallery_toggle_panel(&mut self, ui: &mut Ui) {
+        let theme = self.theme;
+        gallery_panel(ui, theme, |ui| {
+            gallery_panel_heading(ui, theme, ("Toggle & ToggleGroup", "View and mode controls"));
 
-                    let mut italic_toggle = false;
-                    Toggle::new(&mut italic_toggle, theme)
-                        .icon(Icon::Italic)
-                        .variant(ToggleVariant::Outline)
-                        .show(ui);
-                });
+            ui.horizontal_wrapped(|ui| {
+                Toggle::new(&mut self.gallery_state.toggle_single, theme)
+                    .label("Grid view")
+                    .icon(Icon::Grid)
+                    .size(ToggleSize::Sm)
+                    .show(ui);
+                ui.add_space(SPACE_XS);
+                Toggle::new(&mut self.gallery_state.toggle_italic, theme)
+                    .icon(Icon::Italic)
+                    .size(ToggleSize::Sm)
+                    .variant(ToggleVariant::Outline)
+                    .show(ui);
+            });
 
-                ui.add_space(12.0);
-                ui.label(
-                    RichText::new("View Mode Group:")
-                        .size(11.5)
-                        .color(theme.text_muted),
-                );
-                ui.add_space(4.0);
+            ui.add_space(SPACE_MD);
+            ui.label(RichText::new("View mode").font(font_caption()).color(theme.text_muted));
+            ui.add_space(SPACE_XS);
+            ToggleGroup::new(theme)
+                .size(ToggleSize::Sm)
+                .item(ToggleGroupItem::new(1).icon(Icon::Table).label("Data"))
+                .item(ToggleGroupItem::new(2).icon(Icon::Layers).label("Structure"))
+                .item(ToggleGroupItem::new(3).icon(Icon::FileCode).label("DDL"))
+                .show_single(ui, &mut self.gallery_state.toggle_group_val);
+        });
+    }
 
-                let tg = ToggleGroup::new(theme)
-                    .item(ToggleGroupItem::new(1).icon(Icon::Table).label("Data"))
-                    .item(ToggleGroupItem::new(2).icon(Icon::Layers).label("Structure"))
-                    .item(ToggleGroupItem::new(3).icon(Icon::FileCode).label("DDL"));
-                tg.show_single(ui, &mut self.gallery_state.toggle_group_val);
+    fn draw_gallery_disclosure_panel(&mut self, ui: &mut Ui) {
+        let theme = self.theme;
+        gallery_panel(ui, theme, |ui| {
+            gallery_panel_heading(ui, theme, ("Collapsible & Accordion", "Connection settings, revealed on demand"));
 
-                ui.add_space(16.0);
-                ui.label(
-                    RichText::new("Calendar & DatePicker")
-                        .font(DbProTheme::ui_medium_font(13.0))
-                        .color(theme.text_secondary),
-                );
-                ui.add_space(8.0);
-                DatePicker::new(
-                    "gallery_datepicker",
-                    &mut self.gallery_state.date_picker_val,
-                    theme,
-                )
-                .show(ui);
-
-                // Column 2: Accordion & Collapsible
-                let ui = &mut columns[1];
-                ui.label(
-                    RichText::new("Collapsible & Accordion")
-                        .font(DbProTheme::ui_medium_font(13.0))
-                        .color(theme.text_secondary),
-                );
-                ui.add_space(8.0);
-
-                Collapsible::new(&mut self.gallery_state.collapsible_open, theme)
-                    .title("Advanced connection pool settings")
-                    .show(ui, |ui| {
-                        ui.label(
-                            RichText::new("Manage the connection pool settings for this profile.")
-                                .size(11.5)
-                                .color(theme.text_secondary),
-                        );
-                        ui.add_space(6.0);
-                        ui.label(
-                            RichText::new("Max connections: 50")
-                                .size(11.5)
-                                .color(theme.text_muted),
-                        );
-                    });
-
-                ui.add_space(12.0);
-                let acc = Accordion::new(theme);
-                let acc_item_1 = AccordionItem::new("acc-1", "SSL / TLS Encryption")
-                    .badge("Enforced");
-                acc.show_single(ui, acc_item_1, &mut self.gallery_state.accordion_open, true, |ui| {
+            Collapsible::new(&mut self.gallery_state.collapsible_open, theme)
+                .icon(Icon::SlidersHorizontal)
+                .title("Pool settings")
+                .badge("3 settings")
+                .show(ui, |ui| {
                     ui.label(
-                        RichText::new("Configure the TLS mode and certificate authority for this connection.")
-                            .size(11.5)
+                        RichText::new("Tune pooling without leaving the connection profile.")
+                            .font(font_caption())
                             .color(theme.text_secondary),
                     );
+                    ui.add_space(SPACE_XS);
+                    ui.label(RichText::new("Max connections · 50").font(font_caption()).color(theme.text_muted));
                 });
 
-                let acc_item_2 = AccordionItem::new("acc-2", "SSH Bastion Tunnel");
-                acc.show_single(ui, acc_item_2, &mut self.gallery_state.accordion_open, true, |ui| {
-                    ui.label(
-                        RichText::new("Route this connection through a secure SSH bastion host.")
-                            .size(11.5)
-                            .color(theme.text_secondary),
-                    );
-                });
-
-                // Column 3: RadioGroup & Separator
-                let ui = &mut columns[2];
+            ui.add_space(SPACE_SM);
+            let acc = Accordion::new(theme);
+            let tls = AccordionItem::new("acc-1", "SSL / TLS")
+                .icon(Icon::LockKeyhole)
+                .badge("Enforced");
+            acc.show_single(ui, tls, &mut self.gallery_state.accordion_open, true, |ui| {
                 ui.label(
-                    RichText::new("Radio Group")
-                        .font(DbProTheme::ui_medium_font(13.0))
+                    RichText::new("Certificate authority and encryption mode for this connection.")
+                        .font(font_caption())
                         .color(theme.text_secondary),
                 );
-                ui.add_space(8.0);
+            });
 
-                let rg = RadioGroup::new(theme)
-                    .option(
-                        RadioGroupOption::new(1, "PostgreSQL")
-                            .description("Recommended for relational workflows"),
-                    )
-                    .option(
-                        RadioGroupOption::new(2, "MySQL")
-                            .description("Popular standard OLTP database"),
-                    )
-                    .option(
-                        RadioGroupOption::new(3, "SQLite")
-                            .description("Local zero-config embedded file"),
-                    );
-                rg.show(ui, &mut self.gallery_state.radio_group_val);
-
-                ui.add_space(14.0);
-                Separator::horizontal(theme).label("OR").show(ui);
-                ui.add_space(8.0);
+            let ssh = AccordionItem::new("acc-2", "SSH bastion")
+                .icon(Icon::Server);
+            acc.show_single(ui, ssh, &mut self.gallery_state.accordion_open, true, |ui| {
                 ui.label(
-                    RichText::new("Custom JDBC Driver")
-                        .font(DbProTheme::ui_medium_font(12.0))
-                        .color(theme.text_muted),
+                    RichText::new("Route traffic through a secure bastion host.")
+                        .font(font_caption())
+                        .color(theme.text_secondary),
                 );
             });
         });
     }
+
+    fn draw_gallery_calendar_panel(&mut self, ui: &mut Ui) {
+        let theme = self.theme;
+        gallery_panel(ui, theme, |ui| {
+            gallery_panel_heading(ui, theme, ("Calendar & DatePicker", "Date input for filters and schedules"));
+            ui.label(RichText::new("Start date").font(font_caption()).color(theme.text_muted));
+            ui.add_space(SPACE_XS);
+            DatePicker::new("gallery_datepicker", &mut self.gallery_state.date_picker_val, theme).show(ui);
+            ui.add_space(SPACE_SM);
+            ui.label(
+                RichText::new("ISO-8601 · YYYY-MM-DD")
+                    .font(font_caption())
+                    .color(theme.text_tertiary),
+            );
+            ui.add_space(SPACE_MD);
+            ui.label(RichText::new("Calendar preview").font(font_caption()).color(theme.text_muted));
+            ui.add_space(SPACE_XS);
+            Calendar::new(
+                &mut self.gallery_state.date_picker_val,
+                &mut self.gallery_state.calendar_view_year,
+                &mut self.gallery_state.calendar_view_month,
+                theme,
+            )
+            .show(ui);
+        });
+    }
+
+}
+
+fn gallery_panel<R>(ui: &mut Ui, theme: DbProTheme, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
+    egui::Frame::none()
+        .fill(theme.surface_panel)
+        .stroke(egui::Stroke::new(STROKE_THIN, theme.border_subtle))
+        .rounding(egui::Rounding::same(RADIUS_CARD))
+        .inner_margin(egui::Margin::same(SPACE_MD))
+        .show(ui, add_contents)
+        .inner
+}
+
+fn gallery_panel_heading(ui: &mut Ui, theme: DbProTheme, (title, description): (&str, &str)) {
+    ui.label(
+        RichText::new(title)
+            .font(DbProTheme::ui_medium_font(13.0))
+            .color(theme.text_primary),
+    );
+    ui.add_space(SPACE_XXS);
+    ui.label(RichText::new(description).font(font_caption()).color(theme.text_muted));
+    ui.add_space(SPACE_MD);
 }

@@ -140,10 +140,10 @@ impl ButtonPalette {
 
     pub fn disabled(theme: DbProTheme) -> Self {
         Self {
-            fill_rest: theme.surface_panel,
-            fill_hover: theme.surface_panel,
-            stroke_rest: Stroke::NONE,
-            stroke_hover: Stroke::NONE,
+            fill_rest: theme.surface_2,
+            fill_hover: theme.surface_2,
+            stroke_rest: Stroke::new(1.0, theme.border_subtle),
+            stroke_hover: Stroke::new(1.0, theme.border_subtle),
             text_color: theme.text_disabled,
         }
     }
@@ -201,7 +201,7 @@ mod tests {
     #[test]
     fn size_tokens_preserve_existing_dimensions() {
         assert_eq!(SizeTokens::from_size(ButtonSize::Sm).min_height, 28.0);
-        assert_eq!(SizeTokens::from_size(ButtonSize::Default).padding, Vec2::new(12.0, 5.0));
+        assert_eq!(SizeTokens::from_size(ButtonSize::Default).padding, Vec2::new(10.0, 5.0));
         assert_eq!(SizeTokens::from_size(ButtonSize::IconSm).default_width, 26.0);
     }
 
@@ -209,7 +209,7 @@ mod tests {
     fn width_uses_full_width_or_content_plus_padding() {
         let tokens = SizeTokens::from_size(ButtonSize::Default);
         assert_eq!(tokens.calculate_width(4.0, false, 200.0), 32.0);
-        assert_eq!(tokens.calculate_width(20.0, false, 200.0), 44.0);
+        assert_eq!(tokens.calculate_width(20.0, false, 200.0), 40.0);
         assert_eq!(tokens.calculate_width(20.0, true, 200.0), 200.0);
     }
 
@@ -228,5 +228,6 @@ mod tests {
 
         let disabled = ButtonPalette::disabled(theme);
         assert_eq!(disabled.text_color, theme.text_disabled);
+        assert_eq!(disabled.stroke_rest, Stroke::new(1.0, theme.border_subtle));
     }
 }

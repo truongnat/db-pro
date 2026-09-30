@@ -1,5 +1,5 @@
 /// Height of the clickable accordion header row in egui points.
-pub const HEADER_HEIGHT: f32 = 40.0;
+pub const HEADER_HEIGHT: f32 = 36.0;
 /// Height of the badge pill background in egui points.
 pub const BADGE_HEIGHT: f32 = 18.0;
 /// Inset from the right edge of the header to the trailing chevron icon.

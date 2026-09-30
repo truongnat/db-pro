@@ -3,7 +3,7 @@ use egui::Vec2;
 /// Button corner radius, in egui points, preserving the existing compact native shape.
 pub const BUTTON_ROUNDING: f32 = 4.0;
 /// Gap, in egui points, between a leading icon/spinner and visible label text.
-pub const ICON_TEXT_GAP: f32 = 6.0;
+pub const ICON_TEXT_GAP: f32 = 8.0;
 /// Compact gap between adjacent buttons in a grouped control, in egui points.
 pub const BUTTON_GROUP_ITEM_GAP: f32 = 1.0;
 /// Link-variant underline thickness in egui points, shown while hovered or focused.
@@ -42,11 +42,11 @@ pub const ICON_SM_FONT_SIZE: f32 = 11.0;
 pub const ICON_SM_SIZE: f32 = 13.5;
 
 /// Small button padding, in egui points.
-pub const SM_PADDING: Vec2 = Vec2::new(10.0, 4.0);
+pub const SM_PADDING: Vec2 = Vec2::new(8.0, 4.0);
 /// Default button padding, in egui points.
-pub const DEFAULT_PADDING: Vec2 = Vec2::new(12.0, 5.0);
+pub const DEFAULT_PADDING: Vec2 = Vec2::new(10.0, 5.0);
 /// Large button padding, in egui points.
-pub const LG_PADDING: Vec2 = Vec2::new(16.0, 8.0);
+pub const LG_PADDING: Vec2 = Vec2::new(14.0, 7.0);
 /// Icon button padding, in egui points.
 pub const ICON_PADDING: Vec2 = Vec2::new(8.0, 8.0);
 /// Small icon button padding, in egui points.

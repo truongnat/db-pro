@@ -342,8 +342,12 @@ fn parse_window_size(raw: &str) -> Option<[f32; 2]> {
 fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
     let pinned_size = capture_window_size();
     tracing::info!(?pinned_size, "capture: resolved window size override");
+    // The same RGBA PNG feeds winit's window/taskbar icon on macOS, Windows, and Linux.
+    // Platform bundle formats are shipped beside it for installers that need native metadata.
+    let app_icon = eframe::icon_data::from_png_bytes(include_bytes!("../assets/db-pro-logo.png"))?;
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("DB Pro")
+        .with_icon(app_icon)
         .with_min_inner_size([1024.0, 640.0]);
     viewport = match pinned_size {
         Some(size) => viewport.with_inner_size(size),
@@ -510,5 +514,15 @@ mod tests {
         ] {
             assert_eq!(parse_window_size(raw), None, "expected {raw:?} to be rejected");
         }
+    }
+
+    #[test]
+    fn application_icon_asset_is_square_and_decodes_for_native_windowing() {
+        let icon = eframe::icon_data::from_png_bytes(include_bytes!("../assets/db-pro-logo.png"))
+            .expect("the packaged application icon must be a valid PNG");
+
+        assert_eq!(icon.width, icon.height);
+        assert_eq!(icon.width, 256);
+        assert_eq!(icon.rgba.len(), (icon.width * icon.height * 4) as usize);
     }
 }
