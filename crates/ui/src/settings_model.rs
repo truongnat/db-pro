@@ -23,21 +23,6 @@ pub(crate) enum SettingsSection {
 }
 
 impl SettingsSection {
-    pub(crate) fn all() -> &'static [SettingsSection] {
-        &[
-            SettingsSection::General,
-            SettingsSection::Appearance,
-            SettingsSection::Editor,
-            SettingsSection::DataGrid,
-            SettingsSection::Connections,
-            SettingsSection::Ai,
-            SettingsSection::Keybindings,
-            SettingsSection::Backup,
-            SettingsSection::Security,
-            SettingsSection::Advanced,
-        ]
-    }
-
     pub(crate) fn label(self) -> &'static str {
         match self {
             SettingsSection::General => "General",

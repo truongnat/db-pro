@@ -6,6 +6,7 @@ use super::*;
 
 pub(super) struct ShellFrameContext {
     pub(super) theme: DbProTheme,
+    pub(super) settings_mode: bool,
 }
 
 pub(super) fn draw_central_panel<F>(ctx: &egui::Context, context: &ShellFrameContext, draw_workspace: F)
@@ -16,10 +17,14 @@ where
         .frame(egui::Frame {
             // Flush to the sidebar splitter; match `SHELL_SPLIT_INSET` / sidebar
             // `pad_right` so the body lines up with the navigator across the divider.
-            fill: context.theme.surface_panel,
+            fill: if context.settings_mode {
+                context.theme.surface_app
+            } else {
+                context.theme.surface_panel
+            },
             inner_margin: egui::Margin {
-                left: SHELL_SPLIT_INSET,
-                right: SHELL_SPLIT_INSET,
+                left: if context.settings_mode { 0.0 } else { SHELL_SPLIT_INSET },
+                right: if context.settings_mode { 0.0 } else { SHELL_SPLIT_INSET },
                 top: 0.0,
                 bottom: 0.0,
             },

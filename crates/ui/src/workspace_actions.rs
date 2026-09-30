@@ -419,9 +419,11 @@ impl DbProApp {
 
     /// Capture helper: open the Settings panel.
     pub fn open_settings_workspace_for_capture(&mut self) {
-        self.preferences.dark_mode = true;
-        self.theme = DbProTheme::dark();
+        let light = std::env::var_os("DB_PRO_CAPTURE_SETTINGS_LIGHT").is_some();
+        self.preferences.dark_mode = !light;
+        self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
         self.workspace.activity = Activity::Settings;
+        self.workspace.sidebar_open = false;
     }
 
     /// Capture helper: open the Agent sidebar panel.

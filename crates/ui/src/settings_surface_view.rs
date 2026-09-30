@@ -35,10 +35,110 @@ pub(super) struct SettingsSurfaceContext<'a> {
 
 impl SettingsSurfaceContext<'_> {
     pub(super) fn draw(&mut self, ui: &mut egui::Ui) -> Vec<SettingsSurfaceAction> {
-        let mut actions = self.draw_navigation(ui);
+        let mut actions = Vec::new();
+        let available = ui.available_size();
+        ui.set_min_size(available);
+
+        egui::Frame {
+            fill: self.theme.surface_app,
+            inner_margin: egui::Margin::ZERO,
+            outer_margin: egui::Margin::ZERO,
+            stroke: egui::Stroke::NONE,
+            rounding: egui::Rounding::ZERO,
+            ..Default::default()
+        }
+        .show(ui, |ui| {
+            ui.set_min_size(ui.available_size());
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Min), |ui| {
+                let nav_width = (ui.available_width() * 0.22).clamp(196.0, 244.0);
+                let available_height = ui.available_height();
+                self.draw_navigation_panel(ui, nav_width, available_height, &mut actions);
+                self.draw_content_panel(ui, available_height, &mut actions);
+            });
+        });
+        actions
+    }
+
+    fn draw_navigation_panel(
+        &self,
+        ui: &mut egui::Ui,
+        nav_width: f32,
+        available_height: f32,
+        actions: &mut Vec<SettingsSurfaceAction>,
+    ) {
+        ui.allocate_ui_with_layout(
+            egui::vec2(nav_width, available_height),
+            egui::Layout::top_down(egui::Align::Min),
+            |ui| {
+                egui::Frame {
+                    fill: self.theme.surface_panel,
+                    inner_margin: egui::Margin {
+                        left: SPACE_LG,
+                        right: SPACE_LG,
+                        top: SPACE_2XL,
+                        bottom: SPACE_LG,
+                    },
+                    stroke: egui::Stroke::NONE,
+                    rounding: egui::Rounding::ZERO,
+                    ..Default::default()
+                }
+                .show(ui, |ui| {
+                    ui.set_min_size(ui.available_size());
+                    actions.extend(self.draw_navigation(ui));
+                });
+            },
+        );
+
+        let (divider, _) = ui.allocate_exact_size(egui::vec2(STROKE_THIN, available_height), egui::Sense::hover());
+        ui.painter().rect_filled(divider, egui::Rounding::ZERO, self.theme.border_subtle);
+    }
+
+    fn draw_content_panel(
+        &mut self,
+        ui: &mut egui::Ui,
+        available_height: f32,
+        actions: &mut Vec<SettingsSurfaceAction>,
+    ) {
+        let content_width = ui.available_width();
+        ui.allocate_ui_with_layout(
+            egui::vec2(content_width, available_height),
+            egui::Layout::top_down(egui::Align::Min),
+            |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("settings-content")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| self.draw_content(ui, actions));
+            },
+        );
+    }
+
+    fn draw_content(&mut self, ui: &mut egui::Ui, actions: &mut Vec<SettingsSurfaceAction>) {
+        ui.set_width((ui.available_width() - SPACE_4XL * 2.0).max(0.0));
+        ui.add_space(SPACE_3XL);
+        ui.label(
+            egui::RichText::new("Settings")
+                .font(font_page_title())
+                .strong()
+                .color(self.theme.text_primary),
+        );
+        ui.add_space(SPACE_XS);
+        ui.label(
+            egui::RichText::new("Shape the database workspace around the way you work.")
+                .font(font_body_sm())
+                .color(self.theme.text_muted),
+        );
+        ui.add_space(SPACE_LG);
         ui.separator();
-        self.draw_selected_section(ui, &mut actions);
+        ui.add_space(SPACE_LG);
+        ui.label(
+            egui::RichText::new(self.selected.label())
+                .font(font_section_title())
+                .strong()
+                .color(self.theme.text_primary),
+        );
         ui.add_space(SPACE_MD);
+        self.draw_selected_section(ui, actions);
+        ui.add_space(SPACE_2XL);
         actions.extend(
             SettingsDiagnosticsContext {
                 theme: *self.theme,
@@ -48,7 +148,7 @@ impl SettingsSurfaceContext<'_> {
             .into_iter()
             .map(SettingsSurfaceAction::Diagnostics),
         );
-        actions
+        ui.add_space(SPACE_3XL);
     }
 
     fn draw_navigation(&self, ui: &mut egui::Ui) -> Vec<SettingsSurfaceAction> {

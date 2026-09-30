@@ -83,6 +83,11 @@ impl DbProApp {
     }
 
     pub(super) fn draw_workspace(&mut self, ui: &mut egui::Ui) {
+        if self.workspace.activity == Activity::Settings {
+            self.draw_settings(ui);
+            return;
+        }
+
         self.draw_workspace_tabs(ui);
         match self.workspace.active_tab {
             WorkspaceTab::Welcome => self.draw_welcome(ui),

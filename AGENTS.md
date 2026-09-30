@@ -44,6 +44,12 @@ Never leave a `RUNTIME_VERIFY` feature under `docs/plans/completed/`.
 
 Never implement a non-trivial feature directly on main.
 
+### User workflow override (2026-09-30)
+
+The repository owner explicitly requires this workspace to be edited directly
+on `main`. Do not create or use a Git worktree for future tasks. Keep changes
+on `main`; when the owner asks to merge, the target is the local `main` branch.
+
 For every feature:
 
 1. Read:

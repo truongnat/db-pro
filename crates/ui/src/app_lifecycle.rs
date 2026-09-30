@@ -169,12 +169,17 @@ impl DbProApp {
     }
 
     fn draw_shell(&mut self, ctx: &egui::Context) {
-        self.draw_topbar(ctx);
+        let settings_mode = self.workspace.activity == Activity::Settings;
+        if !settings_mode {
+            self.draw_topbar(ctx);
+        }
         // Query owns its rich output dock; the shell panel is for other tabs.
-        if self.workspace.active_tab != WorkspaceTab::Query {
+        if !settings_mode && self.workspace.active_tab != WorkspaceTab::Query {
             self.draw_output_panel(ctx);
         }
-        self.draw_statusbar(ctx);
+        if !settings_mode {
+            self.draw_statusbar(ctx);
+        }
         let activity_context = activity_bar_view::ActivityBarContext {
             theme: self.theme,
             activity: self.workspace.activity,
@@ -185,7 +190,7 @@ impl DbProApp {
             self.apply_activity_bar_action(action, ctx);
         }
 
-        if self.workspace.sidebar_open {
+        if self.workspace.sidebar_open && !settings_mode {
             self.draw_sidebar(ctx);
         }
 
@@ -193,9 +198,14 @@ impl DbProApp {
             self.draw_agent_panel(ctx);
         }
 
-        shell_frame_view::draw_central_panel(ctx, &shell_frame_view::ShellFrameContext { theme: self.theme }, |ui| {
-            self.draw_workspace(ui)
-        });
+        shell_frame_view::draw_central_panel(
+            ctx,
+            &shell_frame_view::ShellFrameContext {
+                theme: self.theme,
+                settings_mode,
+            },
+            |ui| self.draw_workspace(ui),
+        );
     }
 
     fn apply_activity_bar_action(&mut self, action: activity_bar_view::ActivityBarAction, ctx: &egui::Context) {
@@ -224,7 +234,7 @@ impl DbProApp {
             Action::OpenSchemaWorkbench => self.open_schema_workbench(),
             Action::OpenSettings => {
                 self.workspace.activity = Activity::Settings;
-                self.workspace.sidebar_open = true;
+                self.workspace.sidebar_open = false;
             }
             Action::ToggleAgent => self.set_agent_open(!self.workspace.agent_open, ctx),
         }
