@@ -11,7 +11,14 @@ impl DbProApp {
             "Inline callouts for system alerts, warnings, and confirmations.",
         );
 
+        let alert_content_spacing = ui.spacing().item_spacing;
+        // The Gallery shell sets horizontal item spacing to zero; restore an explicit gutter between these cards.
+        ui.spacing_mut().item_spacing.x = SPACE_SM;
         ui.columns(2, |columns| {
+            for column in columns.iter_mut() {
+                column.spacing_mut().item_spacing = alert_content_spacing;
+            }
+
             let ui = &mut columns[0];
             Alert::new(
                 "Connection Established",
@@ -84,6 +91,7 @@ impl DbProApp {
             .variant(AlertVariant::Info)
             .show(ui);
         });
+        ui.spacing_mut().item_spacing = alert_content_spacing;
     }
 
     pub(super) fn draw_gallery_feedback_section(&mut self, ui: &mut Ui) {
