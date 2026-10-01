@@ -3,7 +3,7 @@
 ## State
 - **State:** IMPLEMENTING
 - **Branch:** `main`
-- **Baseline SHA:** `2fb54db0`
+- **Baseline SHA:** `a2ded17c839724dc95fe8f0ed8e9a8f07a4e50dd`
 - **Surface:** `crates/ui/src/components/` native egui component library.
 
 ## Goal
@@ -29,6 +29,7 @@ Organize every public UI component into a predictable folder with a single `mod.
 - Preserve current public exports and runtime behavior during each migration.
 - Add `README.md`, `DESIGN.md`, and `API.md` for every public component folder as each component is revisited. Keep the README introductory, the design rationale in DESIGN, and the detailed usage contract in API.
 - Migrate in coherent batches on `main` under the owner workflow override, with compile/test checks when validation is requested. Select was the first completed family in the original migration; Button is the first family under this revised documentation contract.
+- At this baseline, 38 components are exported. Button already has `README.md`, `DESIGN.md`, and `API.md`; the other 37 lack the two new contract documents, and `tabs`/`transaction` also lack `README.md`.
 
 ## Non-goals
 - UI redesign, changes to behavior/API beyond necessary module path updates, and changes to database/runtime layers.

@@ -31,9 +31,16 @@ Review verdict: **ACCEPT WITH P2** for source changes (P0=0, P1=0; P2=1 for nati
 - P2 — Textarea's byte-length counter disagreed with user-visible character semantics for Unicode. The counter now uses `chars().count()` through a tested handler function. Runtime visual/accessibility evidence remains pending.
 
 ## Baseline
-- Baseline: `2fb54db0` (`main` before this feature branch).
+- Historical migration baseline: `2fb54db0` (`main` before the earlier component-layer migration).
+- Current continuation baseline: `a2ded17c839724dc95fe8f0ed8e9a8f07a4e50dd` on clean local `main`, matching `origin/main` when work began.
+- Current inventory: 38 public components; Button has all three contract documents. The remaining 37 need `DESIGN.md` and `API.md`; `tabs` and `transaction` also need `README.md`. Existing checklist marks cover the earlier structure and do not count as acceptance of these documents.
 - Select previously mixed egui rendering with popup keyboard/state decisions, accessible-label construction, and width calculations.
 - Most exported components are standalone `.rs` files; complex families already use subdirectories but inconsistent file boundaries.
+
+## Revised contract — Batch 1
+- At baseline `a2ded17c839724dc95fe8f0ed8e9a8f07a4e50dd`, AspectRatio, Badge, Card, Code, DevTools, and Separator already had the intended UI/handler/config module shape and README; this batch added the missing design/API contracts without manufacturing more layers.
+- Removed Badge's private `BADGE_RADIUS` mirror and Separator's private shared-spacing mirrors; rendering now reads `RADIUS_BADGE` and `SPACE_SM` directly from shared tokens.
+- Added Gallery coverage for AspectRatio clipping/ratio and both separator orientations. Static scoped review found no P0/P1; required native viewport/accessibility evidence is still P2 and remains open.
 
 ## Decisions
 - `mod.rs` is the public component entry/exporter.

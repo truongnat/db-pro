@@ -1,7 +1,3 @@
-use crate::tokens::RADIUS_BADGE;
-
-/// Badge corner radius, in egui points, shared with the canonical badge token.
-pub const BADGE_RADIUS: f32 = RADIUS_BADGE;
 /// Standard badge label font size, in egui points, for dense workstation metadata.
 pub const BADGE_FONT_SIZE: f32 = 12.0;
 /// Standard Lucide icon size, in egui points, used when a badge has a leading icon.

@@ -10,6 +10,7 @@ pub enum GalleryCategory {
     Inputs,
     Selection,
     Cards,
+    Layout,
     Alerts,
     Feedback,
     Overlays,
@@ -344,6 +345,7 @@ impl DbProApp {
                         (GalleryCategory::Inputs, Icon::TextCursorInput, "Forms & inputs"),
                         (GalleryCategory::Selection, Icon::SlidersHorizontal, "Selection"),
                         (GalleryCategory::Cards, Icon::PanelsTopLeft, "Surfaces"),
+                        (GalleryCategory::Layout, Icon::PanelTop, "Layout"),
                     ],
                 );
 
@@ -418,6 +420,7 @@ impl DbProApp {
             GalleryCategory::Inputs => self.draw_gallery_inputs_section(ui),
             GalleryCategory::Selection => self.draw_gallery_selection_section(ui),
             GalleryCategory::Cards => self.draw_gallery_cards_section(ui),
+            GalleryCategory::Layout => self.draw_gallery_layout_section(ui),
             GalleryCategory::Alerts => self.draw_gallery_alerts_section(ui),
             GalleryCategory::Feedback => self.draw_gallery_feedback_section(ui),
             GalleryCategory::Overlays => self.draw_gallery_overlays_section(ui),

@@ -1,5 +1,18 @@
 # Component UI Layer Structure — Checklist
 
+## Revised documentation and quality batches
+- [x] Batch 1: AspectRatio, Badge, Card, Code, DevTools, Separator; document API/design, remove shared-token aliases, add AspectRatio/Separator Gallery samples.
+- [ ] Batch 2: Chrome, Feedback, Logs, Nav, ResponsiveLayout, ScrollArea.
+- [ ] Batch 3: Input and Form; preserve facade module paths; remove four Input token aliases.
+- [ ] Batch 4: Select, Selection, RadioGroup, Toggle, Tabs; preserve tab public types and add RadioGroup Gallery sample.
+- [ ] Batch 5: Accordion, Calendar, Collapsible, HoverCard.
+- [ ] Batch 6: Dialog and Overlay.
+- [ ] Batch 7: Alert, Command, Transaction; remove Command shared-stroke alias and add Transaction README.
+- [ ] Batch 8: Database, Diff, Explain, SqlEditor.
+- [ ] Batch 9: Table, Tree, Workspace.
+- [ ] Batch 10: AgentComposer and AgentPrimitives.
+- [ ] Run the component and workspace gates recorded in `PLAN.md`; do not close the plan while native runtime evidence remains pending.
+
 ## Button architecture update (2026-10-01)
 - [x] Record the revised component contract in `PLAN.md` and `components/README.md`.
 - [x] Split Button UI and handler layers into focused submodules while keeping `mod.rs` exports.

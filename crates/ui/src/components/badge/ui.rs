@@ -3,8 +3,8 @@ use egui::{FontFamily, FontId, Pos2, Response, Rounding, Sense, Stroke, Ui, Widg
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
-use super::config::BADGE_RADIUS;
 use super::handler::{leading_gap, text_position, BadgeMetrics, BadgePalette, BadgeVariant};
+use crate::tokens::RADIUS_BADGE;
 
 pub struct Badge<'a> {
     pub(crate) text: Cow<'a, str>,
@@ -69,7 +69,7 @@ impl<'a> Badge<'a> {
 }
 
 fn paint_badge_background(ui: &Ui, rect: egui::Rect, palette: &BadgePalette) {
-    let rounding = Rounding::same(BADGE_RADIUS);
+    let rounding = Rounding::same(RADIUS_BADGE);
     ui.painter().rect_filled(rect, rounding, palette.fill);
     if palette.border_stroke != Stroke::NONE {
         ui.painter().rect_stroke(rect, rounding, palette.border_stroke);

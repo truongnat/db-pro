@@ -1,13 +1,12 @@
 use crate::DbProTheme;
 use egui::{FontId, Response, Sense, Stroke, Ui, WidgetInfo, WidgetType};
 
-use super::config::{
-    DEFAULT_HORIZONTAL_MARGIN, DEFAULT_THICKNESS, DEFAULT_VERTICAL_MARGIN, LABEL_FONT_SIZE, LABEL_PADDING,
-};
+use super::config::{DEFAULT_THICKNESS, DEFAULT_VERTICAL_MARGIN, LABEL_FONT_SIZE};
 use super::handler::{
     calculate_labeled_separator_geometry, horizontal_line_segment, horizontal_size, vertical_line_segment,
     vertical_size,
 };
+use crate::tokens::SPACE_SM;
 
 /// Orientation of the separator line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,7 +35,7 @@ impl<'a> Separator<'a> {
             orientation: SeparatorOrientation::Horizontal,
             label: None,
             thickness: DEFAULT_THICKNESS,
-            margin: DEFAULT_HORIZONTAL_MARGIN,
+            margin: SPACE_SM,
             theme,
         }
     }
@@ -74,7 +73,7 @@ impl<'a> Separator<'a> {
             margin
         } else {
             match self.orientation {
-                SeparatorOrientation::Horizontal => DEFAULT_HORIZONTAL_MARGIN,
+                SeparatorOrientation::Horizontal => SPACE_SM,
                 SeparatorOrientation::Vertical => DEFAULT_VERTICAL_MARGIN,
             }
         };
@@ -113,7 +112,7 @@ impl<'a> Separator<'a> {
                     );
 
                     // 4b. Pure geometric calculation determines left line, text pos, and right line.
-                    let geom = calculate_labeled_separator_geometry(rect, center_y, galley.size(), LABEL_PADDING);
+                    let geom = calculate_labeled_separator_geometry(rect, center_y, galley.size(), SPACE_SM);
 
                     // 4c. Clip overlong text to the allocation so narrow layouts never paint into neighbors.
                     let painter = ui.painter().with_clip_rect(rect);

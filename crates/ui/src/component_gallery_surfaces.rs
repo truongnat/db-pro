@@ -203,6 +203,31 @@ impl DbProApp {
             });
     }
 
+    pub(super) fn draw_gallery_layout_section(&mut self, ui: &mut Ui) {
+        let theme = self.theme;
+        self.draw_section_heading(
+            ui,
+            "Layout primitives",
+            "Aspect ratio containers and visual separators for composing native surfaces.",
+        );
+
+        Card::new(theme).show(ui, |ui| {
+            AspectRatio::sixteen_nine().show(ui, |ui| {
+                ui.centered_and_justified(|ui| {
+                    ui.label("16:9 content region");
+                });
+            });
+
+            Separator::horizontal(theme).label("or").show(ui);
+
+            ui.horizontal(|ui| {
+                ui.label("Connection details");
+                Separator::vertical(theme).show(ui);
+                ui.label("Query results");
+            });
+        });
+    }
+
     pub(super) fn draw_gallery_devtools_section(&mut self, ui: &mut Ui) {
         let theme = self.theme;
         self.draw_section_heading(
