@@ -117,62 +117,75 @@ impl<'a> Calendar<'a> {
                 .show(ui, |ui| {
                     ui.set_width(content_width);
                     ui.vertical(|ui| {
-                        // Header: Month & Year with navigation chevrons
-                        ui.horizontal(|ui| {
-                            let prev_resp =
-                                ui.allocate_exact_size(Vec2::splat(config::HEADER_BUTTON_SIZE), Sense::click());
-                            let p_hover = hover_t(ui.ctx(), prev_resp.1.id.with("prev_hover"), prev_resp.1.hovered());
-                            if p_hover > 0.001 {
-                                ui.painter().rect_filled(
-                                    prev_resp.0,
-                                    Rounding::same(config::CONTROL_RADIUS),
-                                    self.theme.surface_hover.linear_multiply(p_hover),
-                                );
-                            }
-                            ui.painter().text(
-                                prev_resp.0.center(),
-                                Align2::CENTER_CENTER,
-                                char::from(Icon::ChevronLeft).to_string(),
-                                FontId::new(config::CALENDAR_ICON_SIZE, FontFamily::Name("lucide".into())),
-                                self.theme.text_secondary,
-                            );
-                            if prev_resp.1.clicked() {
-                                (*self.view_year, *self.view_month) = previous_month(*self.view_year, *self.view_month);
-                            }
-
-                            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                                let m_idx = (*self.view_month as usize).saturating_sub(1).min(11);
-                                let title = format!("{} {}", MONTH_NAMES[m_idx], self.view_year);
-                                ui.vertical_centered(|ui| {
-                                    ui.label(
-                                        RichText::new(title)
-                                            .font(DbProTheme::ui_medium_font(13.0))
-                                            .color(self.theme.text_primary),
+                        // Header: Month & Year with navigation chevrons. Keep the
+                        // three regions fixed to the grid width so the title
+                        // cannot consume space that belongs to the next button.
+                        ui.allocate_ui_with_layout(
+                            Vec2::new(content_width, config::HEADER_BUTTON_SIZE),
+                            Layout::left_to_right(egui::Align::Center),
+                            |ui| {
+                                ui.spacing_mut().item_spacing = Vec2::ZERO;
+                                let prev_resp =
+                                    ui.allocate_exact_size(Vec2::splat(config::HEADER_BUTTON_SIZE), Sense::click());
+                                let p_hover =
+                                    hover_t(ui.ctx(), prev_resp.1.id.with("prev_hover"), prev_resp.1.hovered());
+                                if p_hover > 0.001 {
+                                    ui.painter().rect_filled(
+                                        prev_resp.0,
+                                        Rounding::same(config::CONTROL_RADIUS),
+                                        self.theme.surface_hover.linear_multiply(p_hover),
                                     );
-                                });
-                            });
-
-                            let next_resp =
-                                ui.allocate_exact_size(Vec2::splat(config::HEADER_BUTTON_SIZE), Sense::click());
-                            let n_hover = hover_t(ui.ctx(), next_resp.1.id.with("next_hover"), next_resp.1.hovered());
-                            if n_hover > 0.001 {
-                                ui.painter().rect_filled(
-                                    next_resp.0,
-                                    Rounding::same(config::NAVIGATION_RADIUS),
-                                    self.theme.surface_hover.linear_multiply(n_hover),
+                                }
+                                ui.painter().text(
+                                    prev_resp.0.center(),
+                                    Align2::CENTER_CENTER,
+                                    char::from(Icon::ChevronLeft).to_string(),
+                                    FontId::new(config::CALENDAR_ICON_SIZE, FontFamily::Name("lucide".into())),
+                                    self.theme.text_secondary,
                                 );
-                            }
-                            ui.painter().text(
-                                next_resp.0.center(),
-                                Align2::CENTER_CENTER,
-                                char::from(Icon::ChevronRight).to_string(),
-                                FontId::new(config::CALENDAR_ICON_SIZE, FontFamily::Name("lucide".into())),
-                                self.theme.text_secondary,
-                            );
-                            if next_resp.1.clicked() {
-                                (*self.view_year, *self.view_month) = next_month(*self.view_year, *self.view_month);
-                            }
-                        });
+                                if prev_resp.1.clicked() {
+                                    (*self.view_year, *self.view_month) =
+                                        previous_month(*self.view_year, *self.view_month);
+                                }
+
+                                let title_width = (content_width - (config::HEADER_BUTTON_SIZE * 2.0)).max(0.0);
+                                ui.allocate_ui_with_layout(
+                                    Vec2::new(title_width, config::HEADER_BUTTON_SIZE),
+                                    Layout::centered_and_justified(egui::Direction::LeftToRight),
+                                    |ui| {
+                                        let m_idx = (*self.view_month as usize).saturating_sub(1).min(11);
+                                        let title = format!("{} {}", MONTH_NAMES[m_idx], self.view_year);
+                                        ui.label(
+                                            RichText::new(title)
+                                                .font(DbProTheme::ui_medium_font(13.0))
+                                                .color(self.theme.text_primary),
+                                        );
+                                    },
+                                );
+
+                                let next_resp =
+                                    ui.allocate_exact_size(Vec2::splat(config::HEADER_BUTTON_SIZE), Sense::click());
+                                let n_hover =
+                                    hover_t(ui.ctx(), next_resp.1.id.with("next_hover"), next_resp.1.hovered());
+                                if n_hover > 0.001 {
+                                    ui.painter().rect_filled(
+                                        next_resp.0,
+                                        Rounding::same(config::NAVIGATION_RADIUS),
+                                        self.theme.surface_hover.linear_multiply(n_hover),
+                                    );
+                                }
+                                ui.painter().text(
+                                    next_resp.0.center(),
+                                    Align2::CENTER_CENTER,
+                                    char::from(Icon::ChevronRight).to_string(),
+                                    FontId::new(config::CALENDAR_ICON_SIZE, FontFamily::Name("lucide".into())),
+                                    self.theme.text_secondary,
+                                );
+                                if next_resp.1.clicked() {
+                                    (*self.view_year, *self.view_month) = next_month(*self.view_year, *self.view_month);
+                                }
+                            },
+                        );
 
                         ui.add_space(config::SECTION_GAP);
 
