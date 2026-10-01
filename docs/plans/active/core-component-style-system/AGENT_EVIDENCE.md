@@ -59,3 +59,20 @@
 ## 6. Tổng kết bằng tiếng Việt
 
 Đã sửa đủ ba lớp lỗi: frame không còn kéo dài theo cột gallery, grid không còn bị clip khi viewport hẹp, và header không còn đẩy nút phải làm phát sinh padding dư. Calendar co cell để vẫn đủ 7 cột; header dùng ba vùng cố định. Test Calendar 10/10, UI 929 passed, workspace exit 0, clippy/build/clean-code đều đạt. Các case keyboard, nhập text, min/max, disabled date, locale và clear/today vẫn là P2 follow-up, chưa coi là đã cover.
+
+## 7. Component Gallery surface follow-up
+
+| Field | Value |
+|---|---|
+| Exact SHA | `8ca9cac5470ec6688c52aff4cc7e09a0aacdad16` |
+| Task state | Done |
+| Scope | Recompose Cards & Metric Displays for responsive density, restore metric-label contrast through `DbProTheme`, and capture the light surface at 1280×800, 1440×900, and 1920×1080. |
+| Runtime result | 2×2 at medium widths, four columns when the content region is wide enough, and one-column fallback below the minimum two-card width; no orphan third-row card at the supported gallery widths. |
+| Evidence | `evidence/cards-metrics-1280x800.png`, `evidence/cards-metrics-1440x900.png`, `evidence/cards-metrics-1920x1080.png`. |
+| Gates | fmt, workspace check, clippy, workspace test (929 UI tests), release build, clean-code scan, and diff check all passed after the implementation SHA. |
+| P0 / P1 / P2 | 0 / 0 / 1; loading/error/empty traversal remains a documented P2 follow-up for the static gallery surface. |
+| Workflow | Implemented directly on local `main`; no worktree and no push. |
+
+### Tổng kết bằng tiếng Việt
+
+Cards & Metric Displays đã được đưa về layout responsive có chủ đích: vùng trung bình giữ 2×2, vùng đủ rộng mới dùng 4 cột, nhãn metric dùng token semantic dễ đọc hơn. Đã capture light theme ở cả ba kích thước và chạy đủ gate Rust/UI; loading/error/empty vẫn là follow-up vì gallery hiện là surface tĩnh.

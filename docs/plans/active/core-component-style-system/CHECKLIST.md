@@ -21,6 +21,8 @@
 - [x] Constrain Calendar header navigation to the same three fixed regions as the grid.
 - [x] Clamp DatePicker popup horizontally and flip it above the trigger when the viewport bottom is tight.
 - [x] Add focused Calendar layout coverage and a capture target for the affected surface.
+- [x] Recompose Cards & Metric Displays with a responsive grid that avoids orphan cards at medium widths.
+- [x] Increase metric title contrast through the semantic theme token and capture the light surface at all target widths.
 
 ## Verification
 - [x] `cargo fmt --all -- --check`
@@ -30,6 +32,7 @@
 - [x] `cargo build --release --locked -p db-pro-native`
 - [x] Runtime evidence at 1280×800, 1440×900, 1920×1080 for Disclosure & Choice; captures are in `evidence/disclosure-choice-controls-*.png`.
 - [x] Runtime evidence for Calendar & DatePicker at 1280×800, 1440×900, and 1920×1080; captures are in `evidence/calendar-datepicker-*.png`.
+- [x] Runtime evidence for Cards & Metric Displays at 1280×800, 1440×900, and 1920×1080; captures are in `evidence/cards-metrics-*.png`.
 - [ ] Review loading, error and empty states where the batch is visible.
 
 ## Open follow-up

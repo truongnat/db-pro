@@ -42,6 +42,12 @@
 ## Runtime limitations
 - Loading/error/empty state traversal for this gallery subsection remains pending.
 
+## Cards & Metric Displays surface follow-up
+- The supplied light gallery screenshot exposed a P2 density problem: the fixed two-column composition stretched metric cards across the whole gallery, creating excessive horizontal whitespace and weakening the visual grouping.
+- The surface now uses the shared `ResponsiveGrid` with a `240px` minimum card width and semantic `SPACE_MD` gaps. It keeps four metrics in a stable 2×2 arrangement at medium widths, switches to four columns only when the available region can support all four, and collapses to one column when the gallery becomes narrower.
+- Metric titles now use `text_secondary` instead of `text_tertiary`, preserving the theme-owned palette while restoring readable hierarchy against the elevated card surface.
+- Runtime captures at 1280×800 and 1440×900 show the balanced 2×2 layout; the 1920×1080 capture shows the four-column wide layout. The light capture route is test tooling only and does not change normal startup behavior.
+
 ## Calendar & DatePicker follow-up
 - The large right-side blank area was caused by `Frame::show` inheriting the gallery column's full available width. The Calendar content had a fixed width, so the frame painted a wide surface around a left-aligned grid.
 - Calendar now allocates an intrinsic `272px` frame (`248px` seven-column grid plus symmetric `12px` margins), removing the former one-sided `16px` width reserve. DatePicker uses the same measured size when clamping its foreground popup to the viewport.
