@@ -14,7 +14,7 @@
 
 ## 2. Progress checkpoint
 
-- Current HEAD: `6d5f3e7d64aa039f5da454eae0b5b3fdd83632c5`; exact implementation snapshot tree for `Cargo.lock` and `crates/ui`: `fa0b67697906a47570aca6af73dd339032182a7b`.
+- Source verification commit: `6d5f3e7d64aa039f5da454eae0b5b3fdd83632c5`; evidence-only follow-up commit: `f747e16f97323796dbdfeb3baa10a4947f942528`; exact implementation snapshot tree for `Cargo.lock` and `crates/ui`: `fa0b67697906a47570aca6af73dd339032182a7b`.
 - Exact rs-ui working-tree tree used by the local path dependency: `4e07e37c0b88d3f56ffa8c3c4d1d57e3e8f744a0` (commit baseline `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`).
 - Completed acceptance rows: audit plan, minimal path dependencies, shell layout adapter, sidebar geometry hookup, persistent `Resizable` adapter, pointer-delta preservation, focused arrow-key adjustment, `ScrollState` wheel routing/offset synchronization, and app-level resize/scroll tests.
 - Remaining acceptance rows: rs-ui `Pressable` tab/chrome action routing and focus scope, schema tree, virtual result grid, search/filter inputs, 1920×1080 capture, full native product smoke, dependency pin/reproducibility, renderer decision.
