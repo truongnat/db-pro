@@ -3,11 +3,14 @@ use crate::DbProTheme;
 use egui::{Align2, Color32, Pos2, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2};
 
 use super::config::{
-    activity_accent_rect, activity_item_rect, activity_item_start_y, is_latency_warning, next_activity_item_y,
-    next_status_item_cursor, right_status_item_start, status_item_width, status_text_top, ACTIVITY_ACCENT_RADIUS,
-    ACTIVITY_BAR_ITEMS, CONNECTION_DOT_BOX_SIZE, CONNECTION_DOT_RADIUS, STATUS_BAR_ICON_SLOT_WIDTH,
+    ACTIVITY_ACCENT_RADIUS, ACTIVITY_BAR_ITEMS, CONNECTION_DOT_BOX_SIZE, CONNECTION_DOT_RADIUS,
+    STATUS_BAR_ICON_SLOT_WIDTH,
 };
-use super::handler::{connection_health_label, ActivityBarItemKind, ConnectionHealth, StatusBarItem};
+use super::handler::{
+    activity_accent_rect, activity_item_rect, activity_item_start_y, connection_health_label, is_latency_warning,
+    next_activity_item_y, next_status_item_cursor, right_status_item_start, status_item_width, status_text_top,
+    ActivityBarItemKind, ConnectionHealth, StatusBarItem,
+};
 
 // ── StatusBar Component ──────────────────────────────────────────────────────
 
@@ -41,17 +44,17 @@ impl<'a> StatusBar<'a> {
         let mut x_cursor = rect.left() + SPACE_MD;
         let center_y = rect.center().y;
 
-        for item in self.left_items {
-            let item_w = self.paint_status_item(ui, item, x_cursor, center_y);
+        for (index, item) in self.left_items.iter().enumerate() {
+            let item_w = self.paint_status_item(ui, item, x_cursor, center_y, ui.id().with(("left-status", index)));
             x_cursor = next_status_item_cursor(x_cursor, item_w);
         }
 
         // Right items
         let mut r_cursor = rect.right() - SPACE_MD;
-        for item in self.right_items.iter().rev() {
+        for (index, item) in self.right_items.iter().enumerate().rev() {
             let item_w = self.measure_status_item(ui, item);
             r_cursor = right_status_item_start(r_cursor, item_w);
-            self.paint_status_item(ui, item, r_cursor, center_y);
+            self.paint_status_item(ui, item, r_cursor, center_y, ui.id().with(("right-status", index)));
             r_cursor -= SPACE_MD;
         }
 
@@ -65,7 +68,7 @@ impl<'a> StatusBar<'a> {
         status_item_width(text_galley.size().x, item.icon.is_some())
     }
 
-    fn paint_status_item(&self, ui: &mut Ui, item: &StatusBarItem, x: f32, center_y: f32) -> f32 {
+    fn paint_status_item(&self, ui: &mut Ui, item: &StatusBarItem, x: f32, center_y: f32, id: egui::Id) -> f32 {
         let mut cur_x = x;
         let color = if item.is_accent {
             self.theme.accent
@@ -93,7 +96,17 @@ impl<'a> StatusBar<'a> {
         );
         cur_x += w;
 
-        cur_x - x
+        let width = cur_x - x;
+        let hit_rect = egui::Rect::from_min_size(
+            Pos2::new(x, center_y - STATUS_BAR_HEIGHT * 0.5),
+            Vec2::new(width, STATUS_BAR_HEIGHT),
+        );
+        let response = ui.interact(hit_rect, id, Sense::hover());
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, true, &item.text));
+        if let Some(tooltip) = &item.tooltip {
+            response.on_hover_text(tooltip);
+        }
+        width
     }
 }
 
@@ -127,8 +140,10 @@ impl ActivityBar {
             let is_selected = self.selected == item.kind;
             let item_rect = activity_item_rect(rect.left(), y);
             let resp = ui.interact(item_rect, ui.id().with(item.tooltip), Sense::click());
+            resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, item.tooltip));
+            let has_focus = resp.has_focus();
 
-            if resp.hovered() && !is_selected {
+            if (resp.hovered() || has_focus) && !is_selected {
                 ui.painter()
                     .rect_filled(item_rect, Rounding::same(RADIUS_SM), self.theme.surface_hover);
             }
@@ -143,10 +158,17 @@ impl ActivityBar {
                     self.theme.accent,
                 );
             }
+            if has_focus {
+                ui.painter().rect_stroke(
+                    item_rect,
+                    Rounding::same(RADIUS_SM),
+                    Stroke::new(STROKE_THIN, self.theme.border_focus),
+                );
+            }
 
             let icon_color = if is_selected {
                 self.theme.accent
-            } else if resp.hovered() {
+            } else if resp.hovered() || has_focus {
                 self.theme.text_primary
             } else {
                 self.theme.text_secondary
@@ -198,10 +220,18 @@ impl<'a> ConnectionIndicator<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let (dot_color, _health_label) = match self.health {
-            ConnectionHealth::Healthy => (self.theme.success, connection_health_label(self.health)),
-            ConnectionHealth::Degraded => (self.theme.warning, connection_health_label(self.health)),
-            ConnectionHealth::Disconnected => (self.theme.danger, connection_health_label(self.health)),
+        let health_label = connection_health_label(self.health);
+        let accessible_label = match self.latency_ms {
+            Some(latency_ms) => format!(
+                "{}, {}, {}, {} milliseconds",
+                self.name, self.driver, health_label, latency_ms
+            ),
+            None => format!("{}, {}, {}", self.name, self.driver, health_label),
+        };
+        let dot_color = match self.health {
+            ConnectionHealth::Healthy => self.theme.success,
+            ConnectionHealth::Degraded => self.theme.warning,
+            ConnectionHealth::Disconnected => self.theme.danger,
         };
 
         let frame = egui::Frame::none()
@@ -210,7 +240,7 @@ impl<'a> ConnectionIndicator<'a> {
             .rounding(Rounding::same(RADIUS_MD))
             .inner_margin(egui::Margin::symmetric(SPACE_MD, SPACE_SM));
 
-        frame
+        let response = frame
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     // Dot
@@ -252,6 +282,8 @@ impl<'a> ConnectionIndicator<'a> {
                     }
                 });
             })
-            .response
+            .response;
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, true, &accessible_label));
+        response
     }
 }

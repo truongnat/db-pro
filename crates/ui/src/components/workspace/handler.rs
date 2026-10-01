@@ -1,4 +1,12 @@
+use crate::tokens::SPACE_MD;
+use egui::{Pos2, Rect, Vec2};
 use lucide_icons::Icon;
+
+use super::config::{
+    ACTIVITY_ACCENT_HEIGHT, ACTIVITY_ACCENT_TOP_INSET, ACTIVITY_ACCENT_WIDTH, ACTIVITY_ITEM_LEFT_INSET,
+    ACTIVITY_ITEM_SIZE, ACTIVITY_ITEM_STEP, LATENCY_WARNING_THRESHOLD_MS, STATUS_BAR_ICON_SLOT_WIDTH,
+    STATUS_TEXT_VERTICAL_CENTER_FACTOR,
+};
 
 /// Top-level workspace destinations shown by the activity bar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,6 +69,52 @@ pub(crate) fn connection_health_label(health: ConnectionHealth) -> &'static str 
     }
 }
 
+pub(crate) fn status_item_width(text_width: f32, has_icon: bool) -> f32 {
+    if has_icon {
+        STATUS_BAR_ICON_SLOT_WIDTH + text_width
+    } else {
+        text_width
+    }
+}
+
+pub(crate) fn next_status_item_cursor(cursor: f32, item_width: f32) -> f32 {
+    cursor + item_width + SPACE_MD
+}
+
+pub(crate) fn right_status_item_start(cursor: f32, item_width: f32) -> f32 {
+    cursor - item_width
+}
+
+pub(crate) fn status_text_top(center_y: f32, text_height: f32) -> f32 {
+    center_y - text_height * STATUS_TEXT_VERTICAL_CENTER_FACTOR
+}
+
+pub(crate) fn activity_item_start_y(container_top: f32) -> f32 {
+    container_top + SPACE_MD
+}
+
+pub(crate) fn activity_item_rect(container_left: f32, y: f32) -> Rect {
+    Rect::from_min_size(
+        Pos2::new(container_left + ACTIVITY_ITEM_LEFT_INSET, y),
+        Vec2::splat(ACTIVITY_ITEM_SIZE),
+    )
+}
+
+pub(crate) fn activity_accent_rect(container_left: f32, item_top: f32) -> Rect {
+    Rect::from_min_size(
+        Pos2::new(container_left, item_top + ACTIVITY_ACCENT_TOP_INSET),
+        Vec2::new(ACTIVITY_ACCENT_WIDTH, ACTIVITY_ACCENT_HEIGHT),
+    )
+}
+
+pub(crate) fn next_activity_item_y(current_y: f32) -> f32 {
+    current_y + ACTIVITY_ITEM_STEP
+}
+
+pub(crate) fn is_latency_warning(latency_ms: u32) -> bool {
+    latency_ms > LATENCY_WARNING_THRESHOLD_MS
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -83,5 +137,39 @@ mod tests {
         assert_eq!(connection_health_label(ConnectionHealth::Healthy), "Connected");
         assert_eq!(connection_health_label(ConnectionHealth::Degraded), "High Latency");
         assert_eq!(connection_health_label(ConnectionHealth::Disconnected), "Disconnected");
+    }
+
+    #[test]
+    fn workspace_geometry_preserves_status_and_activity_layout() {
+        assert_eq!(status_item_width(24.0, false), 24.0);
+        assert_eq!(status_item_width(24.0, true), 40.0);
+        assert_eq!(next_status_item_cursor(10.0, 40.0), 10.0 + 40.0 + SPACE_MD);
+        assert_eq!(right_status_item_start(100.0, 40.0), 60.0);
+        assert_eq!(status_text_top(20.0, 10.0), 15.0);
+
+        let y = activity_item_start_y(3.0);
+        let rect = activity_item_rect(10.0, y);
+        assert_eq!(rect.min, Pos2::new(16.0, 3.0 + SPACE_MD));
+        assert_eq!(rect.size(), Vec2::splat(36.0));
+        assert_eq!(next_activity_item_y(y), y + ACTIVITY_ITEM_STEP);
+    }
+
+    #[test]
+    fn activity_bar_order_and_latency_threshold_remain_stable() {
+        let kinds: Vec<ActivityBarItemKind> = super::super::config::ACTIVITY_BAR_ITEMS
+            .iter()
+            .map(|item| item.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                ActivityBarItemKind::Explorer,
+                ActivityBarItemKind::QueryEditor,
+                ActivityBarItemKind::Agent,
+                ActivityBarItemKind::Diagram,
+            ]
+        );
+        assert!(!is_latency_warning(200));
+        assert!(is_latency_warning(201));
     }
 }

@@ -55,6 +55,13 @@ impl<'a> DatabaseTreeNode<'a> {
         let (rect, mut response) =
             ui.allocate_exact_size(Vec2::new(ui.available_width(), row_height()), Sense::click());
         response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
+        let accessible_label = match self.detail {
+            Some(detail) => format!("{}, {}", self.name, detail),
+            None => self.name.to_owned(),
+        };
+        response.widget_info(|| {
+            egui::WidgetInfo::selected(egui::WidgetType::Button, true, self.selected, &accessible_label)
+        });
 
         // The UI layer first captures egui input signals, then asks the handler which visual and
         // state outcomes are active. Keeping these decisions centralized prevents row painting and
@@ -77,6 +84,13 @@ impl<'a> DatabaseTreeNode<'a> {
                 );
             }
             RowBackground::None => {}
+        }
+        if response.has_focus() {
+            ui.painter().rect_stroke(
+                rect,
+                Rounding::same(ROW_ROUNDING),
+                egui::Stroke::new(1.0, self.theme.border_focus),
+            );
         }
 
         let layout = row_layout(rect, self.depth);
