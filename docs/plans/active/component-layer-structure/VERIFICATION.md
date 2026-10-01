@@ -458,3 +458,18 @@ The following results supersede the historical isolated-worker blockers above. C
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (13 pass, 3 warning categories, 0 fail).
 - Performance benchmark/perf scan: NOT RUN; no rendering path or hot-loop algorithm changed in this docs/config-alias batch.
 - Runtime screenshots/accessibility traversal: NOT RUN. P0: 0; P1: 0; P2: runtime evidence remains open. Diff rendering remains O(number of supplied rows) without virtualization and is documented as such.
+
+## Revised contract — Batch 9
+- Source/docs implementation SHA: `3654faa22f9c731b70ac7f8ce43e0b335ece08ce` (`refactor(ui): clarify table tree workspace layers`). Plan evidence commit is recorded separately.
+- API/caller review: PASS. Confirmed Table callback and visible-row rendering contract, Tree row/reveal IDs and caller-owned hierarchy, Workspace exports/state actions, and existing Gallery coverage. Moved only deterministic layout/threshold decisions out of Workspace config; public exports and rendered geometry remain stable.
+- `cargo test -p db-pro-ui components::table --lib`: PASS (6 passed, 0 failed, 930 filtered out).
+- `cargo test -p db-pro-ui components::tree --lib`: PASS (7 passed, 0 failed, 929 filtered out).
+- `cargo test -p db-pro-ui components::workspace --lib`: PASS (4 passed, 0 failed, 932 filtered out).
+- `cargo test -p db-pro-ui --lib`: PASS (936 passed, 0 failed, 0 ignored).
+- `cargo fmt --all -- --check`: PASS.
+- `cargo check -p db-pro-ui`: PASS.
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
+- `cargo build --release --locked -p db-pro-native`: PASS (38.73 s).
+- `git diff --check`: PASS.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (13 pass, 3 warning categories, 0 fail).
+- Runtime screenshots/accessibility traversal: NOT RUN. P0: 0; P1: 0; P2: narrow Workspace status collision risk and initiative runtime evidence remain open.

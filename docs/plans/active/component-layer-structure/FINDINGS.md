@@ -115,3 +115,10 @@ Review verdict: **ACCEPT WITH P2** for source changes (P0=0, P1=0; P2=1 for nati
 - Explain conversion remains PostgreSQL EXPLAIN JSON through the query-output bridge. Core/shared parser and renderer budgets are 128 levels and 10,000 nodes; SQLite plan normalization is not claimed or added. Existing tests cover deep/wide truncation, loop aggregation, large metrics, and runtime labels.
 - Database long labels truncate with hover values and status-specific actions; Diff uses horizontal scroll and renders all supplied rows (no virtualization); SqlEditor wraps its fixed action set. These contracts and large-content ceilings are documented. Source review found no P0/P1.
 - No database behavior changed. P2 viewport/keyboard/accessibility runtime evidence remains pending.
+
+## Revised contract — Batch 9
+- Table and Tree already had purposeful layers and Gallery coverage. Added DESIGN/API contracts that state actual callback ownership, virtualized painting versus O(total rows) visibility checks, tree reveal ownership, and large-content limits.
+- Workspace's `config.rs` contained geometry math and the latency threshold decision. Moved those pure decisions into `handler.rs`, keeping measurements/activity destination definitions in config and preserving current geometry/order/threshold with focused tests.
+- ActivityBar and DatabaseTreeNode previously lacked explicit accessible names/focus indication; they now expose button metadata and a `DbProTheme::border_focus` outline. ConnectionIndicator now exposes name/driver/health/latency as an accessible label. StatusBarItem's existing tooltip field now participates in hover and each item publishes its label.
+- Workspace status labels can still overlap when caller-supplied left/right content exceeds narrow available width. Table checks every row index each frame despite painting only visible rows; Tree has no built-in node budget/virtualization. These P2 ceilings are documented.
+- Source review found no P0/P1. No database/provider behavior changed.
