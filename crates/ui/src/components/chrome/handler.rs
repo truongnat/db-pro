@@ -2,11 +2,12 @@ use crate::DbProTheme;
 use egui::{Color32, Pos2, Rect, Vec2};
 
 use super::config::{
-    AVATAR_ICON_FONT_SCALE, AVATAR_INITIALS_FONT_SCALE, AVATAR_INITIALS_MIN_FONT_SIZE, AVATAR_LG, AVATAR_MD,
-    AVATAR_ROUNDED_RADIUS, AVATAR_SM, AVATAR_STATUS_DOT_INSET_FACTOR, AVATAR_STATUS_DOT_LG, AVATAR_STATUS_DOT_MD,
-    AVATAR_STATUS_DOT_SM, AVATAR_STATUS_RING_PADDING, SKELETON_MAX_ALPHA, SKELETON_MIN_ALPHA,
-    SKELETON_SHIMMER_CYCLES_PER_SECOND, SKELETON_SHIMMER_MIN_WIDTH, SKELETON_SHIMMER_WIDTH_FACTOR,
+    AVATAR_ICON_FONT_SCALE, AVATAR_INITIALS_FONT_SCALE, AVATAR_INITIALS_MIN_FONT_SIZE, AVATAR_LG, AVATAR_MD, AVATAR_SM,
+    AVATAR_STATUS_DOT_INSET_FACTOR, AVATAR_STATUS_DOT_LG, AVATAR_STATUS_DOT_MD, AVATAR_STATUS_DOT_SM,
+    AVATAR_STATUS_RING_PADDING, SKELETON_MAX_ALPHA, SKELETON_MIN_ALPHA, SKELETON_SHIMMER_CYCLES_PER_SECOND,
+    SKELETON_SHIMMER_MIN_WIDTH, SKELETON_SHIMMER_WIDTH_FACTOR,
 };
+use crate::tokens::RADIUS_SM;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AvatarSize {
@@ -55,7 +56,7 @@ pub(super) struct SkeletonAlphaRange {
 pub(super) fn avatar_rounding_radius(size: AvatarSize, shape: AvatarShape) -> f32 {
     match shape {
         AvatarShape::Circle => size.px() * 0.5,
-        AvatarShape::Rounded => AVATAR_ROUNDED_RADIUS,
+        AvatarShape::Rounded => RADIUS_SM,
     }
 }
 
@@ -124,7 +125,7 @@ pub(super) fn resolve_skeleton_rounding(requested_rounding: f32) -> f32 {
     if requested_rounding.is_finite() {
         requested_rounding.max(0.0)
     } else {
-        super::config::SKELETON_DEFAULT_ROUNDING
+        RADIUS_SM
     }
 }
 

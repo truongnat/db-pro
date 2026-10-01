@@ -4,8 +4,6 @@ pub(super) const AVATAR_SM: f32 = 24.0;
 pub(super) const AVATAR_MD: f32 = 32.0;
 /// Large avatar edge length, in egui points.
 pub(super) const AVATAR_LG: f32 = 40.0;
-/// Rounded avatar corner radius for non-circular avatars, in egui points.
-pub(super) const AVATAR_ROUNDED_RADIUS: f32 = crate::tokens::RADIUS_SM;
 /// Small avatar status dot radius, in egui points.
 pub(super) const AVATAR_STATUS_DOT_SM: f32 = 3.5;
 /// Medium avatar status dot radius, in egui points.
@@ -26,8 +24,6 @@ pub(super) const AVATAR_ICON_FONT_SCALE: f32 = 0.45;
 pub(super) const SKELETON_DEFAULT_WIDTH: f32 = 160.0;
 /// Default skeleton placeholder height, in egui points.
 pub(super) const SKELETON_DEFAULT_HEIGHT: f32 = 12.0;
-/// Default skeleton placeholder corner radius, in egui points.
-pub(super) const SKELETON_DEFAULT_ROUNDING: f32 = crate::tokens::RADIUS_SM;
 /// Minimum pulse alpha used by skeleton placeholders.
 pub(super) const SKELETON_MIN_ALPHA: f32 = 0.35;
 /// Maximum pulse alpha used by skeleton placeholders.
@@ -60,7 +56,5 @@ pub(super) const EMPTY_STATE_DESCRIPTION_SIZE: f32 = 13.0;
 pub(super) const TOOLBAR_MARGIN_X: f32 = 8.0;
 /// Toolbar vertical inner padding, in egui points.
 pub(super) const TOOLBAR_MARGIN_Y: f32 = 4.0;
-/// Toolbar corner radius, in egui points.
-pub(super) const TOOLBAR_ROUNDING: f32 = crate::tokens::RADIUS_SM;
 /// Gap between adjacent toolbar controls, in egui points.
 pub(super) const TOOLBAR_ITEM_GAP: f32 = 4.0;

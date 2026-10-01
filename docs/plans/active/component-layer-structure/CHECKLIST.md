@@ -2,7 +2,7 @@
 
 ## Revised documentation and quality batches
 - [x] Batch 1: AspectRatio, Badge, Card, Code, DevTools, Separator; document API/design, remove shared-token aliases, add AspectRatio/Separator Gallery samples.
-- [ ] Batch 2: Chrome, Feedback, Logs, Nav, ResponsiveLayout, ScrollArea.
+- [x] Batch 2: Chrome, Feedback, Logs, Nav, ResponsiveLayout, ScrollArea.
 - [ ] Batch 3: Input and Form; preserve facade module paths; remove four Input token aliases.
 - [ ] Batch 4: Select, Selection, RadioGroup, Toggle, Tabs; preserve tab public types and add RadioGroup Gallery sample.
 - [ ] Batch 5: Accordion, Calendar, Collapsible, HoverCard.

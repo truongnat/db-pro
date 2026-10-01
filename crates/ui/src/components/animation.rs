@@ -23,6 +23,11 @@ pub const PULSE_PERIOD_SECS: f64 = 1.2;
 
 const SLIGHT_SCALE_MIN: f32 = 0.98;
 
+/// Keeps state-driven motion opt-in while honoring the persisted accessibility preference.
+pub fn should_animate(requested: bool, reduce_motion: bool) -> bool {
+    requested && !reduce_motion
+}
+
 /// Transition durations consumed by hover, overlay, and progress helpers.
 pub fn basic_ui_durations_secs() -> &'static [f32] {
     &[
@@ -157,6 +162,13 @@ mod tests {
             assert!(angle.is_finite());
             assert!((0.0..=2.0 * PI + 1e-3).contains(&angle));
         });
+    }
+
+    #[test]
+    fn reduce_motion_disables_requested_animation() {
+        assert!(!should_animate(true, true));
+        assert!(!should_animate(false, false));
+        assert!(should_animate(true, false));
     }
 
     #[test]

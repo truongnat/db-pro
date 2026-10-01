@@ -73,3 +73,9 @@ Review verdict: **ACCEPT WITH P2** for source changes (P0=0, P1=0; P2=1 for nati
 ## Common layer continuation on `main`
 - P2 — `common_utils.rs` was a mixed shared-support bucket containing layout geometry and display formatting. The implementation is now split into named `common/layout.rs` and `common/format.rs` modules, with explicit root exports and a compatibility facade so existing callers do not break.
 - Scope is UI-only; no PostgreSQL/SQLite/provider behavior changed. Automated source checks pass; native runtime screenshots/accessibility traversal remain pending at the initiative level.
+
+## Revised contract — Batch 2
+- `chrome`, `feedback`, `logs`, `nav`, `responsive_layout`, and `scroll_area` already had meaningful UI/handler boundaries; this batch completed the design/API contract without adding placeholder modules.
+- P1 — Skeleton pulse/shimmer, indeterminate Progress beam, and Spinner continued animated repaint while `DbProTheme::reduce_motion` was true. They now use the shared animation preference decision; indeterminate progress and Spinner retain a static visible state. A handler test locks the reduced-motion decision and a geometry test locks the static beam segment.
+- Removed repeated shared-token mirrors from Chrome and Feedback configs and Logs' renderer. Logs/Feedback previously publicly re-exported some of these mirror constants; `API.md` documents their removal and replacement tokens. No in-repository callers used those aliases.
+- Static review found no remaining P0/P1 in scope. Native screenshots, real keyboard focus, accessibility-tree traversal, and narrow-window inspection remain P2 plan-level gates.

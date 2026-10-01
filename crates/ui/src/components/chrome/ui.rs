@@ -1,6 +1,6 @@
-use crate::components::animation::pulse_alpha;
+use crate::components::animation::{self, pulse_alpha};
 use crate::components::button::{Button, ButtonSize, ButtonVariant};
-use crate::tokens::STROKE_THIN;
+use crate::tokens::{RADIUS_SM, STROKE_THIN};
 use crate::DbProTheme;
 use egui::{
     Align2, FontFamily, FontId, Frame, Margin, Response, RichText, Rounding, Sense, Stroke, Ui, Vec2, WidgetInfo,
@@ -11,8 +11,8 @@ use lucide_icons::Icon;
 use super::config::{
     EMPTY_STATE_ACTION_GAP, EMPTY_STATE_BOTTOM_SPACE, EMPTY_STATE_DESCRIPTION_SIZE, EMPTY_STATE_ICON_GAP,
     EMPTY_STATE_ICON_SIZE, EMPTY_STATE_TITLE_GAP, EMPTY_STATE_TITLE_SIZE, EMPTY_STATE_TOP_SPACE,
-    SKELETON_DEFAULT_HEIGHT, SKELETON_DEFAULT_ROUNDING, SKELETON_DEFAULT_WIDTH, SKELETON_SHIMMER_ALPHA,
-    TOOLBAR_ITEM_GAP, TOOLBAR_MARGIN_X, TOOLBAR_MARGIN_Y, TOOLBAR_ROUNDING,
+    SKELETON_DEFAULT_HEIGHT, SKELETON_DEFAULT_WIDTH, SKELETON_SHIMMER_ALPHA, TOOLBAR_ITEM_GAP, TOOLBAR_MARGIN_X,
+    TOOLBAR_MARGIN_Y,
 };
 use super::handler::{
     avatar_icon_font_size, avatar_initials_font_size, avatar_rounding_radius, avatar_status_color, avatar_status_dot,
@@ -134,7 +134,7 @@ impl Skeleton {
         Self {
             width: SKELETON_DEFAULT_WIDTH,
             height: SKELETON_DEFAULT_HEIGHT,
-            rounding: SKELETON_DEFAULT_ROUNDING,
+            rounding: RADIUS_SM,
             shimmer: true,
             theme,
         }
@@ -161,15 +161,17 @@ impl Skeleton {
         let height = resolve_skeleton_height(self.height);
         let (rect, response) = ui.allocate_exact_size(Vec2::new(width, height), Sense::hover());
         let alpha = skeleton_alpha_range();
-        let fill = self
-            .theme
-            .surface_hover
-            .linear_multiply(pulse_alpha(ui, alpha.min, alpha.max));
+        let pulse = if animation::should_animate(true, self.theme.reduce_motion) {
+            pulse_alpha(ui, alpha.min, alpha.max)
+        } else {
+            (alpha.min + alpha.max) * 0.5
+        };
+        let fill = self.theme.surface_hover.linear_multiply(pulse);
         let rounding = Rounding::same(resolve_skeleton_rounding(self.rounding));
 
         ui.painter().rect_filled(rect, rounding, fill);
 
-        if self.shimmer {
+        if self.shimmer && animation::should_animate(true, self.theme.reduce_motion) {
             let time = ui.input(|input| input.time);
             if let Some(clipped) = visible_skeleton_shimmer_rect(rect, height, time) {
                 let shimmer_fill = self.theme.surface_elevated.linear_multiply(SKELETON_SHIMMER_ALPHA);
@@ -256,7 +258,7 @@ impl Toolbar {
             fill: self.theme.surface_panel,
             stroke: Stroke::new(STROKE_THIN, self.theme.border_subtle),
             inner_margin: Margin::symmetric(TOOLBAR_MARGIN_X, TOOLBAR_MARGIN_Y),
-            rounding: Rounding::same(TOOLBAR_ROUNDING),
+            rounding: Rounding::same(RADIUS_SM),
             ..Default::default()
         }
         .show(ui, |ui| {

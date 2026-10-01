@@ -1,6 +1,7 @@
 use super::config::*;
 use super::handler::*;
 use crate::components::animation;
+use crate::tokens::{RADIUS_XS, STROKE_THICK, STROKE_THIN};
 use crate::DbProTheme;
 use egui::{Color32, Frame, Margin, Pos2, Rect, RichText, Rounding, Stroke, Ui, Vec2};
 
@@ -74,7 +75,12 @@ impl Progress {
         ui.painter().rect_filled(rect, rounding, self.theme.surface_hover);
 
         if self.indeterminate {
-            let (tail, head) = animation::indeterminate_beam(ui);
+            // Reduced motion keeps a visible busy indicator without scheduling a moving beam.
+            let (tail, head) = if animation::should_animate(true, self.theme.reduce_motion) {
+                animation::indeterminate_beam(ui)
+            } else {
+                (PROGRESS_STATIC_BEAM_TAIL, PROGRESS_STATIC_BEAM_HEAD)
+            };
             let (x_start, beam_w) = calculate_beam_geometry(rect.left(), rect.width(), tail, head);
             let beam_rect = Rect::from_min_size(Pos2::new(x_start, rect.top()), Vec2::new(beam_w, self.height));
             ui.painter().rect_filled(beam_rect, rounding, self.theme.accent);
@@ -82,7 +88,7 @@ impl Progress {
         }
 
         let target_fraction = self.fraction;
-        let display_fraction = if self.animated {
+        let display_fraction = if animation::should_animate(self.animated, self.theme.reduce_motion) {
             ui.ctx().animate_value_with_time(
                 response.id.with("progress_fraction_smooth"),
                 target_fraction,
@@ -151,10 +157,14 @@ impl Spinner {
             ui.painter(),
             center,
             radius,
-            SPINNER_STROKE_WIDTH,
+            STROKE_THICK,
             color,
             self.theme.border_subtle,
-            animation::spinner_angle(ui),
+            if animation::should_animate(true, self.theme.reduce_motion) {
+                animation::spinner_angle(ui)
+            } else {
+                0.0
+            },
         );
     }
 }
@@ -162,9 +172,9 @@ impl Spinner {
 pub fn kbd_badge(ui: &mut Ui, shortcut: &str, theme: DbProTheme) {
     Frame {
         fill: theme.surface_elevated,
-        stroke: Stroke::new(KBD_STROKE_WIDTH, theme.border_default),
+        stroke: Stroke::new(STROKE_THIN, theme.border_default),
         inner_margin: Margin::symmetric(KBD_PAD_X, KBD_PAD_Y),
-        rounding: Rounding::same(KBD_RADIUS),
+        rounding: Rounding::same(RADIUS_XS),
         shadow: egui::epaint::Shadow {
             offset: egui::vec2(0.0, 1.0),
             blur: 0.0,
@@ -209,7 +219,7 @@ pub fn separator_with_text(ui: &mut Ui, text: &str, theme: DbProTheme) {
         ui.painter().hline(
             rect_left.x_range(),
             rect_left.center().y,
-            Stroke::new(SEPARATOR_STROKE_WIDTH, theme.border_default),
+            Stroke::new(STROKE_THIN, theme.border_default),
         );
 
         ui.label(RichText::new(text).size(SEPARATOR_TEXT_SIZE).color(theme.text_muted));
@@ -218,7 +228,7 @@ pub fn separator_with_text(ui: &mut Ui, text: &str, theme: DbProTheme) {
         ui.painter().hline(
             rect_right.x_range(),
             rect_right.center().y,
-            Stroke::new(SEPARATOR_STROKE_WIDTH, theme.border_default),
+            Stroke::new(STROKE_THIN, theme.border_default),
         );
     });
 }

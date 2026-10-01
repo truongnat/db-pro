@@ -82,6 +82,14 @@ mod tests {
     }
 
     #[test]
+    fn reduced_motion_beam_uses_a_static_center_segment() {
+        assert_eq!(
+            calculate_beam_geometry(10.0, 100.0, PROGRESS_STATIC_BEAM_TAIL, PROGRESS_STATIC_BEAM_HEAD),
+            (35.0, 50.0)
+        );
+    }
+
+    #[test]
     fn progress_indicator_info_exposes_label_and_percentage() {
         let info = progress_indicator_info(0.42, false, "Import progress", true);
 
