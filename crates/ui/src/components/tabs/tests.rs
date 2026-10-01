@@ -137,15 +137,24 @@ fn track_animation_stays_put_when_parent_shifts() {
 
     // Selected item is 20px into a track that starts at x=100.
     let target = egui::Rect::from_min_size(egui::pos2(120.0, 10.0), egui::vec2(40.0, 28.0));
-    let _ = track::TabTrackerAnimation::animate_pill(&ctx, track_id, 100.0, target);
+    let _ = track::TabTrackerAnimation::animate_pill(&ctx, track_id, 100.0, target, false);
 
     // Whole track slides +80px; relative offset is still 20 → pill at 200.
     let shifted = egui::Rect::from_min_size(egui::pos2(200.0, 10.0), egui::vec2(40.0, 28.0));
-    let pill = track::TabTrackerAnimation::animate_pill(&ctx, track_id, 180.0, shifted);
+    let pill = track::TabTrackerAnimation::animate_pill(&ctx, track_id, 180.0, shifted, false);
     assert!(
         (pill.left() - 200.0).abs() < 1.0,
         "pill should move with the track, not ease from the old screen x; got {}",
         pill.left()
     );
     assert!((pill.width() - 40.0).abs() < 1.0);
+}
+
+#[test]
+fn reduced_motion_places_the_indicator_at_its_target_without_animation() {
+    let ctx = egui::Context::default();
+    let target = egui::Rect::from_min_size(egui::pos2(120.0, 10.0), egui::vec2(40.0, 28.0));
+    let (x, width) =
+        track::TabTrackerAnimation::animate_indicator(&ctx, egui::Id::new("reduced_motion_track"), 100.0, target, true);
+    assert_eq!((x, width), (120.0, 40.0));
 }

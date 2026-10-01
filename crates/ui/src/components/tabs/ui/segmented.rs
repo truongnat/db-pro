@@ -1,12 +1,13 @@
 //! Pill-style segmented tab track.
 
-use super::config::{
+use super::super::config::{
     SEGMENTED_ITEM_GAP, SEGMENTED_ITEM_HEIGHT, SEGMENTED_ITEM_MIN_WIDTH, SEGMENTED_LABEL_PAD_X, SEGMENTED_PILL_RADIUS,
     SEGMENTED_TRACK_PAD, SEGMENTED_TRACK_RADIUS,
 };
-use super::layout::{apply_keyboard_selection, apply_selection, collect_tab_row, track_id, TabHit};
-use super::style::{TabItemStyle, TabKind};
-use super::track::TabTrackerAnimation;
+use super::super::handler::next_selection;
+use super::super::layout::{collect_tab_row, track_id, TabHit};
+use super::super::style::{TabItemStyle, TabKind};
+use super::super::track::TabTrackerAnimation;
 use crate::components::interact::radio_info;
 use crate::DbProTheme;
 use egui::{Align2, CursorIcon, Frame, Margin, Rect, Rounding, Sense, Stroke, Ui, Vec2};
@@ -54,11 +55,19 @@ impl<'a> SegmentedTabs<'a> {
                 SEGMENTED_ITEM_GAP,
                 |ui, name, is_active| self.paint_item(ui, name, is_active),
             );
-            apply_selection(self.selected, clicked_idx);
-            apply_keyboard_selection(ui, self.selected, focused_idx, self.tabs.len());
+            // The UI translates egui input into signals; the handler owns selection policy.
+            if let Some(next) = next_selection(clicked_idx, focused_idx, self.tabs.len(), super::navigation_keys(ui)) {
+                *self.selected = next;
+            }
 
             if let Some(target) = tab_rects.get(*self.selected).copied() {
-                let pill = TabTrackerAnimation::animate_pill(ui.ctx(), track_id, track_origin_x, target);
+                let pill = TabTrackerAnimation::animate_pill(
+                    ui.ctx(),
+                    track_id,
+                    track_origin_x,
+                    target,
+                    self.theme.reduce_motion,
+                );
                 self.paint_active_pill(ui, pill, pill_shape_idx);
             }
         });

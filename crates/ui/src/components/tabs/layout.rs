@@ -37,37 +37,6 @@ pub(super) fn collect_tab_row(
     (tab_rects, clicked_idx, focused_idx)
 }
 
-pub(super) fn apply_selection(selected: &mut usize, clicked_idx: Option<usize>) {
-    if let Some(idx) = clicked_idx {
-        *selected = idx;
-    }
-}
-
-pub(super) fn apply_keyboard_selection(ui: &Ui, selected: &mut usize, focused_idx: Option<usize>, tab_count: usize) {
-    let Some(focused_idx) = focused_idx else {
-        return;
-    };
-    if tab_count == 0 {
-        return;
-    }
-
-    let next_index = ui.input(|input| {
-        if input.key_pressed(egui::Key::ArrowLeft) || input.key_pressed(egui::Key::ArrowUp) {
-            Some((focused_idx + tab_count - 1) % tab_count)
-        } else if input.key_pressed(egui::Key::ArrowRight) || input.key_pressed(egui::Key::ArrowDown) {
-            Some((focused_idx + 1) % tab_count)
-        } else if input.key_pressed(egui::Key::Enter) || input.key_pressed(egui::Key::Space) {
-            Some(focused_idx)
-        } else {
-            None
-        }
-    });
-
-    if let Some(next_index) = next_index {
-        *selected = next_index;
-    }
-}
-
 pub(super) fn track_id(ui: &Ui, salt: &'static str, first_tab: &str) -> egui::Id {
     ui.id().with(salt).with(first_tab)
 }

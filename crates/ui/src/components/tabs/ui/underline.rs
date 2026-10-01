@@ -1,12 +1,13 @@
 //! Underline-style tab track with animated active indicator.
 
-use super::config::{
+use super::super::config::{
     UNDERLINE_BASELINE_HEIGHT, UNDERLINE_HOVER_INSET_Y, UNDERLINE_HOVER_RADIUS, UNDERLINE_ITEM_GAP,
     UNDERLINE_ITEM_HEIGHT, UNDERLINE_LABEL_PAD_X,
 };
-use super::layout::{apply_keyboard_selection, apply_selection, track_id, TabHit};
-use super::style::{TabItemStyle, TabKind};
-use super::track::TabTrackerAnimation;
+use super::super::handler::next_selection;
+use super::super::layout::{track_id, TabHit};
+use super::super::style::{TabItemStyle, TabKind};
+use super::super::track::TabTrackerAnimation;
 use crate::components::interact::radio_info;
 use crate::DbProTheme;
 use egui::{Align2, CursorIcon, Pos2, Rect, Rounding, Sense, Ui, Vec2};
@@ -43,8 +44,10 @@ impl<'a> UnderlineTabs<'a> {
                 }
             }
         });
-        apply_selection(self.selected, clicked_idx);
-        apply_keyboard_selection(ui, self.selected, focused_idx, self.tabs.len());
+        // The UI translates egui input into signals; the handler owns selection policy.
+        if let Some(next) = next_selection(clicked_idx, focused_idx, self.tabs.len(), super::navigation_keys(ui)) {
+            *self.selected = next;
+        }
 
         self.paint_baseline(ui, row.response.rect);
 
@@ -107,7 +110,13 @@ impl<'a> UnderlineTabs<'a> {
     }
 
     fn paint_active_underline(&self, ui: &Ui, track_id: egui::Id, track_origin_x: f32, target: Rect) {
-        let underline = TabTrackerAnimation::animate_underline(ui.ctx(), track_id, track_origin_x, target);
+        let underline = TabTrackerAnimation::animate_underline(
+            ui.ctx(),
+            track_id,
+            track_origin_x,
+            target,
+            self.theme.reduce_motion,
+        );
         ui.painter()
             .rect_filled(underline, Rounding::same(1.0), self.theme.accent);
     }

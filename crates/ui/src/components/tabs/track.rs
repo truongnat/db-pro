@@ -12,7 +12,17 @@ use egui::{Rect, Vec2};
 pub(super) struct TabTrackerAnimation;
 
 impl TabTrackerAnimation {
-    pub fn animate_indicator(ctx: &egui::Context, track_id: egui::Id, track_origin_x: f32, target: Rect) -> (f32, f32) {
+    pub fn animate_indicator(
+        ctx: &egui::Context,
+        track_id: egui::Id,
+        track_origin_x: f32,
+        target: Rect,
+        reduce_motion: bool,
+    ) -> (f32, f32) {
+        if reduce_motion {
+            return (target.left(), target.width());
+        }
+
         let target_rel_x = target.left() - track_origin_x;
         // Distinct from the old absolute `x` key so upgrades do not lerp from a
         // stale screen coordinate into a relative offset.
@@ -26,13 +36,25 @@ impl TabTrackerAnimation {
         (x, w)
     }
 
-    pub fn animate_pill(ctx: &egui::Context, track_id: egui::Id, track_origin_x: f32, target: Rect) -> Rect {
-        let (x, w) = Self::animate_indicator(ctx, track_id, track_origin_x, target);
+    pub fn animate_pill(
+        ctx: &egui::Context,
+        track_id: egui::Id,
+        track_origin_x: f32,
+        target: Rect,
+        reduce_motion: bool,
+    ) -> Rect {
+        let (x, w) = Self::animate_indicator(ctx, track_id, track_origin_x, target, reduce_motion);
         Rect::from_min_size(egui::pos2(x, target.top()), Vec2::new(w, target.height()))
     }
 
-    pub fn animate_underline(ctx: &egui::Context, track_id: egui::Id, track_origin_x: f32, target: Rect) -> Rect {
-        let (x, w) = Self::animate_indicator(ctx, track_id, track_origin_x, target);
+    pub fn animate_underline(
+        ctx: &egui::Context,
+        track_id: egui::Id,
+        track_origin_x: f32,
+        target: Rect,
+        reduce_motion: bool,
+    ) -> Rect {
+        let (x, w) = Self::animate_indicator(ctx, track_id, track_origin_x, target, reduce_motion);
         Rect::from_min_size(
             egui::pos2(
                 x + UNDERLINE_INDICATOR_INSET_X,

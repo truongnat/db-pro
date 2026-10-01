@@ -439,6 +439,14 @@ impl DbProApp {
             });
         });
 
+        ui.add_space(SPACE_MD);
+        self.draw_section_heading(
+            ui,
+            "RadioGroup",
+            "One accessible choice with descriptions and keyboard navigation.",
+        );
+        self.draw_gallery_radio_group(ui);
+
         ui.add_space(16.0);
         self.draw_section_heading(
             ui,
@@ -458,6 +466,18 @@ impl DbProApp {
                 1 => self.draw_gallery_disclosure_panel(cell),
                 _ => self.draw_gallery_calendar_panel(cell),
             });
+    }
+
+    fn draw_gallery_radio_group(&mut self, ui: &mut Ui) {
+        let theme = self.theme;
+        Card::new(theme).show(ui, |ui| {
+            RadioGroup::new(theme)
+                .label("Transaction isolation")
+                .option(RadioGroupOption::new(0, "Read committed").description("Default for most workloads."))
+                .option(RadioGroupOption::new(1, "Repeatable read").description("Keeps a stable snapshot during the transaction."))
+                .option(RadioGroupOption::new(2, "Serializable").description("Strongest isolation; may require retrying."))
+                .show(ui, &mut self.gallery_state.radio_group_val);
+        });
     }
 
     fn draw_gallery_toggle_panel(&mut self, ui: &mut Ui) {
