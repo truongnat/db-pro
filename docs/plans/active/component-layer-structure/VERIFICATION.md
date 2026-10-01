@@ -42,6 +42,22 @@
 - `git diff --check`: PASS (exit 0).
 - Review outcome: source self-review only; no P0/P1 identified. External consumers of the four removed config aliases must update imports. Runtime viewport/focus/accessibility inspection remains NOT RUN and open at initiative level.
 
+## Revised contract — Batch 4
+- Source baseline SHA: `fbdd21bc7cc39da116d46df2484e61e38a1af35f`; implementation SHA: `2e648f38dfa76d24c6bfe6fb3e6cdb32eefc3c80` (`refactor(ui): document and layer selection components`).
+- Added `DESIGN.md` and `API.md` for Select, Selection, RadioGroup, and Toggle; added README/DESIGN/API for Tabs. Existing README and module boundaries for Select, Selection, RadioGroup, and Toggle were retained.
+- Moved tab drawing modules under `tabs/ui/` and retained `SegmentedTabs`/`UnderlineTabs` re-exports. `tabs/handler.rs` now resolves egui click/focus/key signals into the selected index; focused arrow movement wraps and keeps the existing keyboard-before-click precedence. Reduced motion returns the indicator's target geometry without animation or repaint scheduling. Added handler and reduced-motion regression tests.
+- Added a RadioGroup Gallery example with a group label and option descriptions. Select/Tabs config inspection found no shared-token alias to remove; component-owned sizes and shared canonical `RADIUS_*`/`SPACE_*` token references remain.
+- `cargo fmt --all -- --check`: PASS (exit 0).
+- `cargo test -p db-pro-ui components::tabs:: --lib`: PASS (7 passed, 0 failed; 928 filtered; exit 0).
+- `cargo test -p db-pro-ui components::radio_group:: --lib`: PASS (3 passed, 0 failed; 932 filtered; exit 0).
+- `cargo test -p db-pro-ui --lib`: PASS (935 passed, 0 failed, 0 ignored; exit 0).
+- `cargo check -p db-pro-ui`: PASS (exit 0).
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS (exit 0).
+- `cargo build --release --locked -p db-pro-native`: PASS (exit 0; 42.05 seconds incremental after the initial cold build).
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (13 pass, 3 warning categories, 0 fail). Warnings remain heuristic findings in shared animation conversion, argument counts, and inherited function lengths; no scan failures.
+- `git diff --check`: PASS (exit 0).
+- Review outcome: implementer source review only; P0=0, P1=0, P2=1 (native viewport, keyboard/focus and accessibility evidence not collected). No PostgreSQL/SQLite behavior changed. Runtime screenshots/accessibility evidence: NOT RUN.
+
 ## Button architecture update (2026-10-01)
 
 - Baseline source SHA: `7423aea985fd878f447e229a968eac30cf3868f5`; changes are uncommitted on `main`.

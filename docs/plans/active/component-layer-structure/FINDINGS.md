@@ -85,3 +85,8 @@ Review verdict: **ACCEPT WITH P2** for source changes (P0=0, P1=0; P2=1 for nati
 - Removed `INPUT_ROUNDING`, `FIELD_INNER_MARGIN_X`, `FIELD_INNER_MARGIN_Y`, and `INPUT_ICON_GAP`; widgets now use shared `RADIUS_XS`, `SPACE_SM`, and `SPACE_XS`. The old alias-equality test was deleted because it only locked duplicated values.
 - Preserved the `input::layout`, `form::field`, `form::rules`, and `form::state` public paths. In-repo callsites use component exports; external users of the four removed Input config aliases must migrate to shared tokens.
 - Targeted source/test review found no P0/P1. P2: native narrow-width, keyboard/focus, and accessibility-tree runtime checks remain open at initiative level.
+
+## Revised contract — Batch 4
+- Select, Selection, RadioGroup, and Toggle already had useful UI/handler boundaries; added the missing design/API contracts without introducing extra layers. Their config files contain component-owned values; no duplicate shared-token aliases were found in Select or Tabs config to remove.
+- Moved SegmentedTabs and UnderlineTabs into `tabs/ui/`, kept their public exports, and moved click/keyboard selection policy to `tabs/handler.rs`. The UI now passes egui key/click/focus signals into the handler. Tab indicator motion snaps directly to its target when `DbProTheme::reduce_motion` is enabled.
+- Added a RadioGroup sample to Component Gallery. Source review and focused tests found no P0/P1. P2: native keyboard/focus, accessibility-tree, theme contrast and viewport evidence remain outstanding for the initiative.

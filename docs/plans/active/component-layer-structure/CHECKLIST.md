@@ -4,7 +4,7 @@
 - [x] Batch 1: AspectRatio, Badge, Card, Code, DevTools, Separator; document API/design, remove shared-token aliases, add AspectRatio/Separator Gallery samples.
 - [x] Batch 2: Chrome, Feedback, Logs, Nav, ResponsiveLayout, ScrollArea.
 - [x] Batch 3: Input and Form; preserve facade module paths; remove four Input token aliases.
-- [ ] Batch 4: Select, Selection, RadioGroup, Toggle, Tabs; preserve tab public types and add RadioGroup Gallery sample.
+- [x] Batch 4: Select, Selection, RadioGroup, Toggle, Tabs; preserve tab public types and add RadioGroup Gallery sample. Targeted and full UI verification passed; runtime screenshots remain pending at the initiative level.
 - [ ] Batch 5: Accordion, Calendar, Collapsible, HoverCard.
 - [ ] Batch 6: Dialog and Overlay.
 - [ ] Batch 7: Alert, Command, Transaction; remove Command shared-stroke alias and add Transaction README.
