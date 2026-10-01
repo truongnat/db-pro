@@ -16,7 +16,7 @@ SQL query execution toolbar component providing query execution, query explanati
 
 ## Behavior & Constraints
 
-- **Execution State**: When `is_running = true`, only the `Cancel` button (Destructive variant) is displayed on the primary action bar to prevent conflicting concurrent executions.
+- **Execution State**: When `is_running = true`, `Cancel` replaces Run, Run Selection, Explain, and Format. `Ask AI` remains available at the trailing side.
 - **Selection Gating**: The `Run Selection` button appears dynamically only when `has_selection = true` and the editor is not running.
 - **Accessibility & Focus**: Every toolbar button uses the common `Button` component, supporting Tab key navigation, Space/Enter activation, and accessible descriptions (`access_label`).
 - **Surface Theme**: Frame background, border stroke, and button styles use semantic theme tokens (`surface_panel`, `border_subtle`) matching DB Pro design tokens.
