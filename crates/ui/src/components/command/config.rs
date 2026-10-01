@@ -51,7 +51,5 @@ pub(super) const EMPTY_STATE_VERTICAL_SPACE: f32 = 24.0;
 // Empty-state message font size, in egui points.
 pub(super) const EMPTY_STATE_FONT_SIZE: f32 = 13.0;
 
-// Shared command chrome border width from the native theme token.
-pub(super) const BORDER_WIDTH: f32 = crate::tokens::STROKE_THIN;
 // Opacity used for an unselected row while its hover animation is settling.
 pub(super) const ITEM_DEFAULT_TITLE_ALPHA: f32 = 0.9;

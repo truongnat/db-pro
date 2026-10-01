@@ -8,10 +8,9 @@ use egui::{
 use lucide_icons::Icon;
 
 use super::config::{
-    BORDER_WIDTH, EMPTY_STATE_FONT_SIZE, EMPTY_STATE_VERTICAL_SPACE, GROUP_CONTENT_GAP, GROUP_HEADING_SIZE,
-    GROUP_TOP_GAP, INPUT_FONT_SIZE, INPUT_HEIGHT, INPUT_ICON_SIZE, INPUT_SEPARATOR_INSET, ITEM_HEIGHT,
-    ITEM_ICON_ADVANCE, ITEM_ICON_SIZE, ITEM_LEFT_INSET, ITEM_ROUNDING, ITEM_SUBTITLE_GAP, ITEM_SUBTITLE_SIZE,
-    ITEM_TITLE_SIZE,
+    EMPTY_STATE_FONT_SIZE, EMPTY_STATE_VERTICAL_SPACE, GROUP_CONTENT_GAP, GROUP_HEADING_SIZE, GROUP_TOP_GAP,
+    INPUT_FONT_SIZE, INPUT_HEIGHT, INPUT_ICON_SIZE, INPUT_SEPARATOR_INSET, ITEM_HEIGHT, ITEM_ICON_ADVANCE,
+    ITEM_ICON_SIZE, ITEM_LEFT_INSET, ITEM_ROUNDING, ITEM_SUBTITLE_GAP, ITEM_SUBTITLE_SIZE, ITEM_TITLE_SIZE,
 };
 use super::handler::{
     accessible_item_label, command_input_icon_x, command_input_text_rect, command_text_clip_rect, item_has_background,
@@ -73,7 +72,7 @@ impl<'a> CommandInput<'a> {
                 Pos2::new(rect.left(), separator_y),
                 Pos2::new(rect.right(), separator_y),
             ],
-            Stroke::new(BORDER_WIDTH, self.theme.border_subtle),
+            Stroke::new(crate::tokens::STROKE_THIN, self.theme.border_subtle),
         );
 
         // Union both responses so clicking the allocated row or editing its child remains observable.
