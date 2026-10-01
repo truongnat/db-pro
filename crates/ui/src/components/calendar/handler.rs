@@ -40,6 +40,11 @@ pub fn date_picker_popup_open(enabled: bool, is_open: bool, escape_pressed: bool
     enabled && is_open && !escape_pressed
 }
 
+/// Activates a focused custom-painted calendar control with Enter or Space.
+pub fn should_activate_focused_control(focused: bool, enter_pressed: bool, space_pressed: bool) -> bool {
+    focused && (enter_pressed || space_pressed)
+}
+
 pub fn day_of_week(year: i32, month: u32, day: u32) -> u32 {
     const MONTH_OFFSETS: [i32; 12] = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
     if !(1..=12).contains(&month) {
@@ -80,6 +85,14 @@ mod tests {
         assert!(!date_picker_popup_open(false, true, false));
         assert!(!date_picker_popup_open(true, true, true));
         assert!(!date_picker_popup_open(true, false, false));
+    }
+
+    #[test]
+    fn calendar_keyboard_activation_requires_focus() {
+        assert!(should_activate_focused_control(true, true, false));
+        assert!(should_activate_focused_control(true, false, true));
+        assert!(!should_activate_focused_control(false, true, true));
+        assert!(!should_activate_focused_control(true, false, false));
     }
 
     #[test]

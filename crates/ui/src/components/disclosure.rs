@@ -15,11 +15,42 @@ pub(crate) const CONTENT_MARGIN: egui::Margin = egui::Margin {
     bottom: 12.0,
 };
 
+pub(crate) fn disclosure_progress(is_open: bool, reduce_motion: bool, animate: impl FnOnce() -> f32) -> f32 {
+    if reduce_motion {
+        if is_open {
+            1.0
+        } else {
+            0.0
+        }
+    } else {
+        animate()
+    }
+}
+
 pub(crate) fn show_body<R>(
     ui: &mut Ui,
     state: &mut egui::collapsing_header::CollapsingState,
+    reduce_motion: bool,
     content: impl FnOnce(&mut Ui) -> R,
 ) -> Option<R> {
+    if reduce_motion {
+        // Bypass CollapsingState's animated clipping so the preference also stops body motion.
+        let open = state.is_open();
+        state.store(ui.ctx());
+        return open.then(|| {
+            ui.scope(|ui| {
+                egui::Frame::none()
+                    .inner_margin(CONTENT_MARGIN)
+                    .show(ui, |ui| {
+                        ui.set_opacity(1.0);
+                        content(ui)
+                    })
+                    .inner
+            })
+            .inner
+        });
+    }
+
     let openness = state.openness(ui.ctx());
     state
         .show_body_unindented(ui, |ui| {
@@ -42,7 +73,16 @@ pub(crate) fn paint_header_surface(
     open_t: f32,
     disabled: bool,
 ) -> f32 {
-    let hover = hover_t(ui.ctx(), id.with("hover"), response.hovered() && !disabled);
+    let is_hovered = response.hovered() && !disabled;
+    let hover = if theme.reduce_motion {
+        if is_hovered {
+            1.0
+        } else {
+            0.0
+        }
+    } else {
+        hover_t(ui.ctx(), id.with("hover"), is_hovered)
+    };
     if !disabled {
         let hover_fill = lerp_color(Color32::TRANSPARENT, theme.surface_hover, hover);
         let fill = lerp_color(hover_fill, theme.surface_active, open_t);
@@ -97,4 +137,24 @@ pub(crate) fn paint_chevron(ui: &Ui, paint: ChevronPaint) {
         font_icon(ICON_SM),
         paint.color.linear_multiply(open_alpha),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reduced_motion_disclosure_progress_is_immediate() {
+        let mut animated = false;
+        assert_eq!(
+            disclosure_progress(true, true, || {
+                animated = true;
+                0.2
+            }),
+            1.0
+        );
+        assert!(!animated);
+        assert_eq!(disclosure_progress(false, true, || 0.8), 0.0);
+        assert_eq!(disclosure_progress(true, false, || 0.2), 0.2);
+    }
 }

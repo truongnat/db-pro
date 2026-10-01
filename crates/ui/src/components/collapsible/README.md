@@ -20,6 +20,7 @@ Native interactive disclosure widget that reveals or conceals custom nested cont
 - When `disabled(true)`, the header allocates `Sense::hover()`, ignores pointer and keyboard activation, and suppresses hover/focus styling.
 - The leading chevron automatically flips from `Icon::ChevronRight` to `Icon::ChevronDown` as animation progress crosses the threshold.
 - Content body rendering uses egui's shared `CollapsingState`: height is clipped and animated with the same openness value used by the chevron and header surface, while the body also fades inside standard content margins.
+- `DbProTheme::reduce_motion` removes disclosure, hover, and body-opacity transitions while preserving the same open/closed state.
 
 ## Usage Example
 

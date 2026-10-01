@@ -56,7 +56,9 @@ impl Accordion {
             current_is_open,
         );
         body_state.set_open(current_is_open);
-        let open_anim_t = body_state.openness(ui.ctx());
+        let open_anim_t = disclosure::disclosure_progress(current_is_open, self.theme.reduce_motion, || {
+            body_state.openness(ui.ctx())
+        });
         response.widget_info(|| {
             WidgetInfo::selected(
                 WidgetType::CollapsingHeader,
@@ -153,7 +155,7 @@ impl Accordion {
             },
         );
 
-        disclosure::show_body(ui, &mut body_state, content)
+        disclosure::show_body(ui, &mut body_state, self.theme.reduce_motion, content)
     }
 
     /// Renders a multi-expansion accordion item.

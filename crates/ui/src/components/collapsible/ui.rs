@@ -85,7 +85,8 @@ impl<'a> Collapsible<'a> {
         let mut body_state =
             egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id.with("body"), *self.open);
         body_state.set_open(*self.open);
-        let open_anim_t = body_state.openness(ui.ctx());
+        let open_anim_t =
+            disclosure::disclosure_progress(*self.open, self.theme.reduce_motion, || body_state.openness(ui.ctx()));
         response.widget_info(|| {
             WidgetInfo::selected(
                 WidgetType::CollapsingHeader,
@@ -115,7 +116,7 @@ impl<'a> Collapsible<'a> {
         };
         layout.paint(ui);
 
-        let content_res = disclosure::show_body(ui, &mut body_state, content);
+        let content_res = disclosure::show_body(ui, &mut body_state, self.theme.reduce_motion, content);
         (response, content_res)
     }
 

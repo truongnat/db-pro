@@ -1,12 +1,14 @@
 use super::config;
-use super::handler::{date_picker_popup_open, day_of_week, days_in_month, next_month, previous_month};
+use super::handler::{
+    date_picker_popup_open, day_of_week, days_in_month, next_month, previous_month, should_activate_focused_control,
+};
 use crate::components::animation::hover_t;
 use crate::components::clamp_popup_to_screen;
 use crate::DbProTheme;
 use chrono::Datelike;
 use egui::{
     Align2, Color32, FontFamily, FontId, Frame, Layout, Margin, Order, Pos2, Response, RichText, Rounding, Sense,
-    Stroke, Ui, Vec2,
+    Stroke, Ui, Vec2, WidgetInfo, WidgetType,
 };
 use lucide_icons::Icon;
 
@@ -127,8 +129,27 @@ impl<'a> Calendar<'a> {
                                 ui.spacing_mut().item_spacing = Vec2::ZERO;
                                 let prev_resp =
                                     ui.allocate_exact_size(Vec2::splat(config::HEADER_BUTTON_SIZE), Sense::click());
-                                let p_hover =
-                                    hover_t(ui.ctx(), prev_resp.1.id.with("prev_hover"), prev_resp.1.hovered());
+                                prev_resp
+                                    .1
+                                    .widget_info(|| WidgetInfo::labeled(WidgetType::Button, true, "Previous month"));
+                                let prev_keyboard_activation = calendar_keyboard_activation(ui, &prev_resp.1);
+                                if prev_resp.1.has_focus() {
+                                    crate::components::interact::paint_focus_ring(
+                                        ui,
+                                        prev_resp.0,
+                                        config::CONTROL_RADIUS,
+                                        self.theme,
+                                    );
+                                }
+                                let p_hover = if self.theme.reduce_motion {
+                                    if prev_resp.1.hovered() {
+                                        1.0
+                                    } else {
+                                        0.0
+                                    }
+                                } else {
+                                    hover_t(ui.ctx(), prev_resp.1.id.with("prev_hover"), prev_resp.1.hovered())
+                                };
                                 if p_hover > 0.001 {
                                     ui.painter().rect_filled(
                                         prev_resp.0,
@@ -143,7 +164,8 @@ impl<'a> Calendar<'a> {
                                     FontId::new(config::CALENDAR_ICON_SIZE, FontFamily::Name("lucide".into())),
                                     self.theme.text_secondary,
                                 );
-                                if prev_resp.1.clicked() {
+                                if prev_resp.1.clicked() || prev_keyboard_activation {
+                                    prev_resp.1.request_focus();
                                     (*self.view_year, *self.view_month) =
                                         previous_month(*self.view_year, *self.view_month);
                                 }
@@ -165,8 +187,27 @@ impl<'a> Calendar<'a> {
 
                                 let next_resp =
                                     ui.allocate_exact_size(Vec2::splat(config::HEADER_BUTTON_SIZE), Sense::click());
-                                let n_hover =
-                                    hover_t(ui.ctx(), next_resp.1.id.with("next_hover"), next_resp.1.hovered());
+                                next_resp
+                                    .1
+                                    .widget_info(|| WidgetInfo::labeled(WidgetType::Button, true, "Next month"));
+                                let next_keyboard_activation = calendar_keyboard_activation(ui, &next_resp.1);
+                                if next_resp.1.has_focus() {
+                                    crate::components::interact::paint_focus_ring(
+                                        ui,
+                                        next_resp.0,
+                                        config::CONTROL_RADIUS,
+                                        self.theme,
+                                    );
+                                }
+                                let n_hover = if self.theme.reduce_motion {
+                                    if next_resp.1.hovered() {
+                                        1.0
+                                    } else {
+                                        0.0
+                                    }
+                                } else {
+                                    hover_t(ui.ctx(), next_resp.1.id.with("next_hover"), next_resp.1.hovered())
+                                };
                                 if n_hover > 0.001 {
                                     ui.painter().rect_filled(
                                         next_resp.0,
@@ -181,7 +222,8 @@ impl<'a> Calendar<'a> {
                                     FontId::new(config::CALENDAR_ICON_SIZE, FontFamily::Name("lucide".into())),
                                     self.theme.text_secondary,
                                 );
-                                if next_resp.1.clicked() {
+                                if next_resp.1.clicked() || next_keyboard_activation {
+                                    next_resp.1.request_focus();
                                     (*self.view_year, *self.view_month) = next_month(*self.view_year, *self.view_month);
                                 }
                             },
@@ -223,12 +265,38 @@ impl<'a> Calendar<'a> {
                                 ui.spacing_mut().item_spacing = Vec2::new(pad, pad);
                                 for col in 0..7 {
                                     let idx = row * 7 + col;
-                                    let (cell_rect, resp) =
+                                    let (cell_rect, mut resp) =
                                         ui.allocate_exact_size(Vec2::splat(cell_size), Sense::click());
+                                    let keyboard_activation = calendar_keyboard_activation(ui, &resp);
 
                                     if idx < first_dow {
                                         // Day from previous month
                                         let d = days_prev_month - (first_dow - idx - 1);
+                                        let date = SimpleDate::new(prev_year, prev_month, d);
+                                        let activated = resp.clicked() || keyboard_activation;
+                                        if activated {
+                                            resp.request_focus();
+                                            *self.selected = Some(date);
+                                            *self.view_month = prev_month;
+                                            *self.view_year = prev_year;
+                                            resp.mark_changed();
+                                        }
+                                        resp.widget_info(|| {
+                                            WidgetInfo::selected(
+                                                WidgetType::Button,
+                                                true,
+                                                *self.selected == Some(date),
+                                                date.to_iso_string(),
+                                            )
+                                        });
+                                        if resp.has_focus() {
+                                            crate::components::interact::paint_focus_ring(
+                                                ui,
+                                                cell_rect,
+                                                config::CONTROL_RADIUS,
+                                                self.theme,
+                                            );
+                                        }
                                         ui.painter().text(
                                             cell_rect.center(),
                                             Align2::CENTER_CENTER,
@@ -236,22 +304,44 @@ impl<'a> Calendar<'a> {
                                             FontId::proportional(config::DAY_FONT_SIZE),
                                             self.theme.text_disabled,
                                         );
-                                        if resp.clicked() {
-                                            *self.selected = Some(SimpleDate::new(prev_year, prev_month, d));
-                                            *self.view_month = prev_month;
-                                            *self.view_year = prev_year;
-                                        }
                                     } else if idx < first_dow + days_this_month {
                                         // Day in current month
                                         let day_num = idx - first_dow + 1;
                                         let this_date = SimpleDate::new(*self.view_year, *self.view_month, day_num);
+                                        let activated = resp.clicked() || keyboard_activation;
+                                        if activated {
+                                            resp.request_focus();
+                                            *self.selected = Some(this_date);
+                                            resp.mark_changed();
+                                        }
                                         let is_selected = *self.selected == Some(this_date);
+                                        resp.widget_info(|| {
+                                            WidgetInfo::selected(
+                                                WidgetType::Button,
+                                                true,
+                                                is_selected,
+                                                this_date.to_iso_string(),
+                                            )
+                                        });
+                                        if resp.has_focus() {
+                                            crate::components::interact::paint_focus_ring(
+                                                ui,
+                                                cell_rect,
+                                                config::CONTROL_RADIUS,
+                                                self.theme,
+                                            );
+                                        }
 
-                                        let hover = hover_t(
-                                            ui.ctx(),
-                                            resp.id.with("day_hover"),
-                                            resp.hovered() && !is_selected,
-                                        );
+                                        let is_hovered = resp.hovered() && !is_selected;
+                                        let hover = if self.theme.reduce_motion {
+                                            if is_hovered {
+                                                1.0
+                                            } else {
+                                                0.0
+                                            }
+                                        } else {
+                                            hover_t(ui.ctx(), resp.id.with("day_hover"), is_hovered)
+                                        };
 
                                         if is_selected {
                                             ui.painter().rect_filled(
@@ -282,13 +372,35 @@ impl<'a> Calendar<'a> {
                                             FontId::proportional(config::SELECTED_DAY_FONT_SIZE),
                                             text_color,
                                         );
-
-                                        if resp.clicked() {
-                                            *self.selected = Some(this_date);
-                                        }
                                     } else {
                                         // Day in next month
                                         let d = idx - (first_dow + days_this_month) + 1;
+                                        let (next_year, next_month) = next_month(*self.view_year, *self.view_month);
+                                        let date = SimpleDate::new(next_year, next_month, d);
+                                        let activated = resp.clicked() || keyboard_activation;
+                                        if activated {
+                                            resp.request_focus();
+                                            *self.selected = Some(date);
+                                            *self.view_month = next_month;
+                                            *self.view_year = next_year;
+                                            resp.mark_changed();
+                                        }
+                                        resp.widget_info(|| {
+                                            WidgetInfo::selected(
+                                                WidgetType::Button,
+                                                true,
+                                                *self.selected == Some(date),
+                                                date.to_iso_string(),
+                                            )
+                                        });
+                                        if resp.has_focus() {
+                                            crate::components::interact::paint_focus_ring(
+                                                ui,
+                                                cell_rect,
+                                                config::CONTROL_RADIUS,
+                                                self.theme,
+                                            );
+                                        }
                                         ui.painter().text(
                                             cell_rect.center(),
                                             Align2::CENTER_CENTER,
@@ -296,12 +408,6 @@ impl<'a> Calendar<'a> {
                                             FontId::proportional(config::DAY_FONT_SIZE),
                                             self.theme.text_disabled,
                                         );
-                                        if resp.clicked() {
-                                            let (next_year, next_month) = next_month(*self.view_year, *self.view_month);
-                                            *self.selected = Some(SimpleDate::new(next_year, next_month, d));
-                                            *self.view_month = next_month;
-                                            *self.view_year = next_year;
-                                        }
                                     }
                                 }
                             });
@@ -352,6 +458,22 @@ fn calendar_layout(available_width: f32) -> CalendarLayout {
     }
 }
 
+fn calendar_keyboard_activation(ui: &mut Ui, response: &Response) -> bool {
+    // Custom-painted click responses need an explicit focused-key path for activation.
+    let (enter_pressed, space_pressed) = if response.has_focus() {
+        ui.input_mut(|input| {
+            (
+                input.consume_key(egui::Modifiers::NONE, egui::Key::Enter),
+                input.consume_key(egui::Modifiers::NONE, egui::Key::Space),
+            )
+        })
+    } else {
+        (false, false)
+    };
+
+    should_activate_focused_control(response.has_focus(), enter_pressed, space_pressed)
+}
+
 pub struct DatePicker<'a> {
     id: &'a str,
     date: &'a mut Option<SimpleDate>,
@@ -384,26 +506,46 @@ impl<'a> DatePicker<'a> {
     pub fn show(self, ui: &mut Ui) -> Response {
         let id = ui.id().with(("date_picker", self.id));
         let mut is_open = ui.data(|d| d.get_temp::<bool>(id.with("is_open"))).unwrap_or(false);
+        let previous_date = *self.date;
 
         let height = config::DATE_PICKER_HEIGHT;
         let width = config::DATE_PICKER_WIDTH;
-        let (rect, response) = ui.allocate_exact_size(
+        let (rect, mut response) = ui.allocate_exact_size(
             Vec2::new(width, height),
             if self.enabled { Sense::click() } else { Sense::hover() },
         );
 
-        if self.enabled && response.clicked() {
+        let was_open_before_input = is_open;
+        let keyboard_activation = calendar_keyboard_activation(ui, &response);
+        if self.enabled && (response.clicked() || keyboard_activation) {
+            response.request_focus();
             is_open = !is_open;
         }
 
         let escape_pressed = ui.input(|input| input.key_pressed(egui::Key::Escape));
+        let was_open_before_escape = is_open;
         is_open = date_picker_popup_open(self.enabled, is_open, escape_pressed);
+        if self.enabled && was_open_before_escape && escape_pressed {
+            ui.memory_mut(|memory| memory.request_focus(response.id));
+        }
+        if is_open != was_open_before_input {
+            response.mark_changed();
+        }
         // Disabled pickers must not leave a stale popup in egui's temp state.
         if !self.enabled {
             ui.data_mut(|data| data.insert_temp(id.with("is_open"), false));
         }
 
-        let hover = hover_t(ui.ctx(), id.with("hover"), self.enabled && response.hovered());
+        let is_hovered = self.enabled && response.hovered();
+        let hover = if self.theme.reduce_motion {
+            if is_hovered {
+                1.0
+            } else {
+                0.0
+            }
+        } else {
+            hover_t(ui.ctx(), id.with("hover"), is_hovered)
+        };
         let fill = if is_open {
             self.theme.surface_hover
         } else if hover > 0.001 {
@@ -458,7 +600,7 @@ impl<'a> DatePicker<'a> {
             color,
         );
 
-        if self.enabled && response.clicked() && is_open {
+        if self.enabled && (response.clicked() || keyboard_activation) && is_open {
             let today = chrono::Local::now().date_naive();
             let (year, month) = self
                 .date
@@ -478,8 +620,6 @@ impl<'a> DatePicker<'a> {
             let mut view_month = ui
                 .data(|d| d.get_temp::<u32>(id.with("view_month")))
                 .unwrap_or(self.date.map(|d| d.month).unwrap_or(today.month()));
-            let previous_date = *self.date;
-
             let desired_popover_pos = Pos2::new(rect.left(), rect.bottom() + config::POPOVER_GAP);
             let popover_pos = clamp_popup_to_screen(
                 desired_popover_pos,
@@ -503,6 +643,7 @@ impl<'a> DatePicker<'a> {
             // Selection changes are produced inside the popup; close after observing them.
             if *self.date != previous_date {
                 is_open = false;
+                ui.memory_mut(|memory| memory.request_focus(response.id));
             }
 
             // Close on click outside
@@ -515,7 +656,20 @@ impl<'a> DatePicker<'a> {
             }
         }
 
+        if is_open != was_open_before_input || *self.date != previous_date {
+            response.mark_changed();
+        }
         ui.data_mut(|d| d.insert_temp(id.with("is_open"), is_open));
+        response.widget_info(|| {
+            let label = self
+                .date
+                .map(|date| date.to_iso_string())
+                .unwrap_or_else(|| self.placeholder.to_owned());
+            WidgetInfo::selected(WidgetType::Button, self.enabled, is_open, &label)
+        });
+        if response.has_focus() {
+            crate::components::interact::paint_focus_ring(ui, rect, config::CONTROL_RADIUS, self.theme);
+        }
 
         if self.enabled {
             response.on_hover_cursor(egui::CursorIcon::PointingHand)
