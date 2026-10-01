@@ -125,8 +125,6 @@ mod tests {
 
     #[test]
     fn filled_button_text_keeps_normal_text_contrast_through_hover() {
-        let baseline_ratio = contrast_ratio(Color32::WHITE, DbProTheme::light().accent);
-        assert!((baseline_ratio - 3.62).abs() < 0.03);
         for theme in [DbProTheme::light(), DbProTheme::dark()] {
             for variant in [ButtonVariant::Default, ButtonVariant::Destructive] {
                 let palette = ButtonPalette::from_variant(variant, theme);

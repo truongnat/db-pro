@@ -151,6 +151,15 @@ code.
 - make Escape close the overflow popover before closing other Query overlays;
 - verify the default editor-first layout and overflow interaction in a real native runtime.
 
+### Wave 15 — shared theme alignment (current change)
+
+- reconcile the live primitive palette with the already-recorded Codex light/dark reference;
+- remove the blue cast from dark neutral surfaces so shell, components and editor surrounds share
+  the same neutral hierarchy;
+- use role-specific accent foregrounds and accessible text contrast in both themes;
+- keep this wave limited to shared theme tokens and theme regression coverage;
+- leave native runtime visual verification pending for owner review.
+
 ### Follow-up waves
 
 - query/editor toolbar reduction and editor-first layout;

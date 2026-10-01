@@ -520,23 +520,59 @@ mod tests {
     }
 
     #[test]
-    fn light_tokens_follow_warm_minimalism_surface_contract() {
+    fn light_tokens_follow_codex_surface_contract() {
         let theme = DbProTheme::light();
 
         assert_eq!(theme.surface_app, egui::Color32::from_rgb(255, 255, 255));
-        assert_eq!(theme.surface_panel, egui::Color32::from_rgb(247, 247, 247));
-        assert_eq!(theme.surface_active, egui::Color32::from_rgb(232, 232, 232));
-        assert_eq!(theme.accent, egui::Color32::from_rgb(2, 133, 255));
+        assert_eq!(theme.surface_panel, egui::Color32::from_rgb(249, 249, 249));
+        assert_eq!(theme.surface_active, egui::Color32::from_rgb(238, 238, 238));
+        assert_eq!(theme.text_primary, egui::Color32::from_rgb(26, 28, 31));
+        assert_eq!(theme.accent, egui::Color32::from_rgb(0, 111, 204));
     }
 
     #[test]
-    fn dark_tokens_follow_database_workstation_surface_contract() {
+    fn dark_tokens_follow_codex_surface_contract() {
         let theme = DbProTheme::dark();
 
-        assert_eq!(theme.surface_app, egui::Color32::from_rgb(23, 25, 28));
-        assert_eq!(theme.surface_panel, egui::Color32::from_rgb(29, 32, 36));
-        assert_eq!(theme.surface_active, egui::Color32::from_rgb(48, 57, 70));
-        assert_eq!(theme.accent, egui::Color32::from_rgb(79, 140, 255));
+        assert_eq!(theme.surface_app, egui::Color32::from_rgb(24, 24, 24));
+        assert_eq!(theme.surface_panel, egui::Color32::from_rgb(33, 33, 33));
+        assert_eq!(theme.surface_active, egui::Color32::from_rgb(48, 48, 48));
+        assert_eq!(theme.text_primary, egui::Color32::from_rgb(223, 223, 223));
+        assert_eq!(theme.accent, egui::Color32::from_rgb(51, 156, 255));
+        assert_eq!(theme.accent_foreground, egui::Color32::from_rgb(18, 18, 18));
+    }
+
+    #[test]
+    fn theme_text_and_accent_foregrounds_meet_normal_text_contrast() {
+        for theme in [DbProTheme::light(), DbProTheme::dark()] {
+            for foreground in [theme.text_primary, theme.text_secondary, theme.text_tertiary] {
+                assert!(
+                    contrast_ratio(foreground, theme.surface_app) >= 4.5,
+                    "{foreground:?} on app {:?}",
+                    theme.surface_app
+                );
+                assert!(
+                    contrast_ratio(foreground, theme.surface_panel) >= 4.5,
+                    "{foreground:?} on panel {:?}",
+                    theme.surface_panel
+                );
+            }
+            assert!(
+                contrast_ratio(theme.accent_foreground, theme.accent) >= 4.5,
+                "accent foreground {:?} on {:?}",
+                theme.accent_foreground,
+                theme.accent
+            );
+        }
+    }
+
+    fn contrast_ratio(left: egui::Color32, right: egui::Color32) -> f32 {
+        let (lighter, darker) = if super::relative_luminance(left) >= super::relative_luminance(right) {
+            (left, right)
+        } else {
+            (right, left)
+        };
+        (super::relative_luminance(lighter) + 0.05) / (super::relative_luminance(darker) + 0.05)
     }
 
     #[test]

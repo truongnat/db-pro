@@ -17,7 +17,7 @@
 - Prefer subtle motion and visible focus over hover-only affordances.
 
 ## Implementation result
-- The dark theme now uses a charcoal/navy surface ladder (`#17191c` → `#23272d`) with crisp border steps and a restrained blue accent (`#4f8cff`).
+- The initial calibration used a charcoal/navy surface ladder (`#17191c` → `#23272d`) with a restrained blue accent (`#4f8cff`). Wave 15 of `native-visual-redesign` supersedes those shared surface and accent values with neutral Codex-aligned tokens and contrast-checked foregrounds.
 - Selection uses a muted blue wash instead of a neutral gray fill, preserving scanability in dense data surfaces.
 - Shared card padding and control-group spacing are tighter; Button padding and icon gaps are compacted without changing the public builders or click behavior.
 - The 1440×900 component-gallery capture confirms the calibrated palette and control hierarchy in the native app.

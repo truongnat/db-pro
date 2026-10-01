@@ -142,3 +142,11 @@
 - [x] Capture dark and light screenshots for closed and open Query states.
 - [x] Re-run Rust gates, native build, clean-code diff scan and whitespace validation.
 - [ ] Complete the remaining native all-surface traversal, provider matrix and independent review.
+
+## Wave 15 — shared theme alignment
+
+- [x] Compare the live shared palette against the existing Codex visual contract.
+- [x] Align shared neutral surfaces and foregrounds across light and dark themes.
+- [x] Add a token-level contrast regression check for text and accent foregrounds.
+- [ ] Verify the revised palette in the native app in light and dark mode.
+- [ ] Complete all-surface traversal and independent review.

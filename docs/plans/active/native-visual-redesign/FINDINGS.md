@@ -33,6 +33,17 @@ database commands, DTOs and provider behavior remain out of scope.
 - Existing persisted eframe state can hide the new default until the theme storage version is
   bumped and tested.
 
+## Wave 15 — P2 shared palette drift
+
+The recorded Codex contract calls for near-neutral light/dark surfaces and a blue interaction
+accent. The live dark tokens had blue-gray neutrals (`#17191c` canvas, `#1d2024` panel,
+`#303946` selected state) and a separate workstation-blue accent; light panel and primary text
+also differed from the recorded reference. Since every UI surface reads these semantic roles,
+the drift made component, shell and editor surroundings feel like separate visual systems.
+
+Wave 15 realigns the shared light/dark neutrals and accent foregrounds at the primitive/semantic
+token layer. Contrast is checked in source tests. Native visual confirmation remains pending.
+
 ## Wave 1 evidence
 
 - Native screenshot at 1280×800 content: `/var/folders/bh/lc9yszwj2vg5gpqn_8g5n60h0000gn/T/orca-computer-use/bc48a216-856d-4464-80a3-d1290fa72785-screenshot.png`.
@@ -170,8 +181,10 @@ on the raw result payload.
 The installed Codex desktop app is the visual reference for all remaining native work. Its local
 bundle defines the calibrated palette used in this wave: light main/sidebar surfaces `#ffffff` and
 `#f9f9f9`, dark main/sidebar surfaces `#181818` and `#212121`, primary text `#1a1c1f`/`#dfdfdf`,
-blue interaction accent `#0285ff`/`#339cff`, and neutral active/hover surfaces. The native shared
-theme now uses these values and maps the Codex light/dark editor colors for SQL tokens.
+blue interaction accent `#0285ff`/`#339cff`, and neutral active/hover surfaces. Wave 15 aligns the
+shared surfaces and dark accent to this reference. The light accent is darkened to `#006fcc` so
+normal text and white button labels meet 4.5:1 contrast; dark accent controls use a dark foreground
+for the same reason.
 
 The full requirement is not closed yet: every native workspace still needs a light/dark traversal,
 and any database-IDE-specific density or grid treatment must be documented as an intentional

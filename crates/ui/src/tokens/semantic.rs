@@ -167,7 +167,7 @@ impl StatusRole {
 }
 
 impl SemanticTokens {
-    /// Warm Minimalism light roles.
+    /// Codex-aligned light roles.
     pub fn light() -> Self {
         Self {
             background: Background {
@@ -223,7 +223,7 @@ impl SemanticTokens {
         }
     }
 
-    /// Dark database workstation roles.
+    /// Codex-aligned dark roles tuned for dense database workspaces.
     pub fn dark() -> Self {
         Self {
             background: Background {
@@ -257,7 +257,7 @@ impl SemanticTokens {
                 subtle: dark::BLUE_900,
                 solid: dark::BLUE_500,
                 solid_hover: dark::BLUE_400,
-                foreground: dark::NEUTRAL_0,
+                foreground: dark::NEUTRAL_900,
             },
             status: Status {
                 success: StatusRole::from_solid(dark::GREEN_500, true),
