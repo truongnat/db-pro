@@ -425,3 +425,19 @@ The following results supersede the historical isolated-worker blockers above. C
 - `cargo build --release --locked -p db-pro-native`: NOT RUN for this docs-only batch. Workspace/release gates remain scheduled for initiative close.
 - Runtime screenshots/accessibility traversal: NOT RUN. No runtime claim is made. P2 limits include no focus restoration after closing Dialog/Sheet, no Escape/focus handling in Popover/Dropdown, and no Toast live-region announcement API.
 - P0: 0; P1: 0; P2: runtime and keyboard/accessibility evidence above remains open.
+
+## Revised contract — Batch 7
+- Source/docs implementation SHA: `129df71c3f2e4921cdc3eac087c3ef47a12e193e` (`refactor(ui): document action component contracts`). Plan evidence commit is recorded separately.
+- API/caller review: PASS. Confirmed Alert close/action results, destructive backdrop policy, Command response/disabled semantics and gallery usage, Transaction action lifecycle and destructive keyword gate. Removed only Command's duplicate stroke token alias.
+- `cargo test -p db-pro-ui components::alert --lib`: PASS (8 passed, 0 failed, 929 filtered out).
+- `cargo test -p db-pro-ui components::command --lib`: PASS (5 passed, 0 failed, 932 filtered out).
+- `cargo test -p db-pro-ui components::transaction --lib`: PASS (4 passed, 0 failed, 933 filtered out).
+- `cargo test -p db-pro-ui --lib`: PASS (937 passed, 0 failed, 0 ignored).
+- `cargo fmt --all -- --check`: PASS (formatting was applied after the initial check reported import wrapping).
+- `cargo check -p db-pro-ui`: PASS.
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
+- `cargo build --release --locked -p db-pro-native`: PASS (30.04 s).
+- `git diff --check`: PASS.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (13 pass, 3 warning categories, 0 fail). Existing heuristic warnings remain; no new production smell was flagged as a failure.
+- Runtime screenshots/accessibility traversal: NOT RUN. P2 focus/busy limitations above remain documented.
+- P0: 0; P1: 0; P2: runtime evidence and caller-owned busy/focus behavior remain open.

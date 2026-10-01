@@ -7,7 +7,7 @@
 - [x] Batch 4: Select, Selection, RadioGroup, Toggle, Tabs; preserve tab public types and add RadioGroup Gallery sample. Targeted and full UI verification passed; runtime screenshots remain pending at the initiative level.
 - [x] Batch 5: Accordion, Calendar, Collapsible, HoverCard; fix the confirmed Calendar keyboard/accessibility gap and honor reduced motion in shared disclosure controls. Runtime screenshots remain pending at the initiative level.
 - [x] Batch 6: Dialog and Overlay; document focus ownership, dismissal, floating surfaces, toast timing, return values, and current keyboard limits. Source/docs verified; native runtime evidence remains pending at the initiative level.
-- [ ] Batch 7: Alert, Command, Transaction; remove Command shared-stroke alias and add Transaction README.
+- [x] Batch 7: Alert, Command, Transaction; remove Command shared-stroke alias and add Transaction README. Focused and full UI tests, crate checks, Clippy, release build, fmt, diff and clean-code scan passed; runtime evidence remains open.
 - [ ] Batch 8: Database, Diff, Explain, SqlEditor.
 - [ ] Batch 9: Table, Tree, Workspace.
 - [ ] Batch 10: AgentComposer and AgentPrimitives.

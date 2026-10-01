@@ -102,3 +102,9 @@ Review verdict: **ACCEPT WITH P2** for source changes (P0=0, P1=0; P2=1 for nati
 - Added `DESIGN.md` and `API.md` for Dialog and Overlay, detailing compatibility exports, open-state ownership, show return values, topmost Escape/backdrop rules, focus anchor behavior, pointer dismissal, menu/toast results and timers, layout constraints, and keyboard/accessibility limitations.
 - Source review found no new P0/P1. Existing modal tests cover topmost routing, Escape precedence, clicks inside/outside the card, focus fallback/preservation, and compatibility exports. Popover/dropdown do not handle Escape or focus restoration; tooltip is hover-only; toast API has no live-region semantics. These are documented P2 runtime/accessibility limits, not silently claimed as covered.
 - No PostgreSQL/SQLite/provider impact. Native keyboard/focus and viewport screenshots remain pending at initiative level.
+
+## Revised contract — Batch 7
+- Alert, Command, and Transaction already had purposeful UI/handler/config boundaries. Added design/API contracts for all three and the missing Transaction README. Command's `BORDER_WIDTH` mirrored `tokens::STROKE_THIN`; removed the alias and used the shared token directly in its renderer.
+- Verified destructive AlertDialog ignores backdrop clicks but supports explicit cancel/Escape; TransactionBar emits caller-owned actions, and DestructiveOperationDialog requires exact case-sensitive keyword matching after trimming and disables confirmation while invalid. Gallery examples already expose Alert, Command, TransactionBar, and destructive confirmation.
+- Source review found no P0/P1. P2 limits documented: AlertDialog lacks a full focus trap/restore and a busy state; command navigation/dispatch remains caller-owned; transaction surfaces have no busy argument, so callers must suppress repeat actions while work is pending.
+- No database/provider behavior changed; these are presentation and action-intent components only.
