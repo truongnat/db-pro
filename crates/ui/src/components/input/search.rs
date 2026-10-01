@@ -1,11 +1,9 @@
 use egui::{Align, Button, Frame, Layout, Margin, Response, RichText, Rounding, Stroke, TextEdit, Ui};
 use lucide_icons::Icon;
 
-use crate::components::input::config::{
-    FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_ICON_GAP, INPUT_ICON_SIZE, INPUT_ROUNDING,
-    SEARCH_CLEAR_RESERVATION, SEARCH_SHORTCUT_RESERVATION,
-};
+use crate::components::input::config::{INPUT_ICON_SIZE, SEARCH_CLEAR_RESERVATION, SEARCH_SHORTCUT_RESERVATION};
 use crate::components::input::layout::{paint_field_chrome, resolve_field_width, FieldChromeState};
+use crate::tokens::{RADIUS_XS, SPACE_SM, SPACE_XS};
 use crate::DbProTheme;
 
 pub struct SearchInput<'a> {
@@ -43,14 +41,14 @@ impl<'a> SearchInput<'a> {
         // only a floor, so the frame grew to whatever the parent offered and the
         // requested `width()` was silently ignored — which is how the sidebar toolbar
         // came to overflow its column and inflate every width measured after it.
-        let inner_w = (width - FIELD_INNER_MARGIN_X * 2.0).max(0.0);
+        let inner_w = (width - SPACE_SM * 2.0).max(0.0);
 
         let frame_output = Frame {
             fill: self.theme.surface_editor,
             // Border is owned by `paint_field_chrome` (rest / hover / focus).
             stroke: Stroke::NONE,
-            inner_margin: Margin::symmetric(FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y),
-            rounding: Rounding::same(INPUT_ROUNDING),
+            inner_margin: Margin::symmetric(SPACE_SM, SPACE_XS),
+            rounding: Rounding::same(RADIUS_XS),
             ..Default::default()
         }
         .show(ui, |ui| {
@@ -68,7 +66,7 @@ impl<'a> SearchInput<'a> {
                         ))
                         .color(self.theme.text_muted),
                 );
-                ui.add_space(INPUT_ICON_GAP);
+                ui.add_space(SPACE_XS);
 
                 let extra_width = if self.shortcut.is_some() {
                     SEARCH_SHORTCUT_RESERVATION
@@ -82,7 +80,7 @@ impl<'a> SearchInput<'a> {
 
                 // Reserve the icon, its gap and the inter-item spacing so the text
                 // field cannot push the frame past `width`.
-                let reserved = icon.rect.width() + INPUT_ICON_GAP + ui.spacing().item_spacing.x * 2.0 + extra_width;
+                let reserved = icon.rect.width() + SPACE_XS + ui.spacing().item_spacing.x * 2.0 + extra_width;
 
                 let edit = ui.add(
                     TextEdit::singleline(self.value)

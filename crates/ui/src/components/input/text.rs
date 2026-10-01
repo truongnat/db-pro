@@ -2,13 +2,11 @@ use egui::{FontFamily, FontId, Frame, Id, Margin, Response, RichText, Rounding, 
 use lucide_icons::Icon;
 use std::borrow::Cow;
 
-use crate::components::input::config::{
-    FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y, INPUT_AUX_FONT_SIZE, INPUT_AUX_GAP, INPUT_ICON_GAP, INPUT_ICON_SIZE,
-    INPUT_LABEL_FONT_SIZE, INPUT_ROUNDING,
-};
+use crate::components::input::config::{INPUT_AUX_FONT_SIZE, INPUT_AUX_GAP, INPUT_ICON_SIZE, INPUT_LABEL_FONT_SIZE};
 use crate::components::input::layout::{paint_field_chrome, resolve_field_width, FieldChromeState};
 use crate::components::interact::{button_info, text_input_info};
 use crate::tokens::LABEL_HELPER_GAP;
+use crate::tokens::{RADIUS_XS, SPACE_SM, SPACE_XS};
 use crate::DbProTheme;
 
 pub struct Input<'a> {
@@ -122,12 +120,12 @@ impl<'a> Input<'a> {
             let frame = Frame {
                 fill,
                 stroke: Stroke::NONE,
-                inner_margin: Margin::symmetric(FIELD_INNER_MARGIN_X, FIELD_INNER_MARGIN_Y),
-                rounding: Rounding::same(INPUT_ROUNDING),
+                inner_margin: Margin::symmetric(SPACE_SM, SPACE_XS),
+                rounding: Rounding::same(RADIUS_XS),
                 ..Default::default()
             };
 
-            let frame_w = (width - FIELD_INNER_MARGIN_X * 2.0).max(60.0);
+            let frame_w = (width - SPACE_SM * 2.0).max(60.0);
             let frame_output = frame.show(ui, |ui| {
                 ui.set_width(frame_w);
                 ui.set_max_width(frame_w);
@@ -142,7 +140,7 @@ impl<'a> Input<'a> {
                                     self.theme.border_subtle
                                 }),
                         );
-                        ui.add_space(INPUT_ICON_GAP);
+                        ui.add_space(SPACE_XS);
                     }
 
                     let has_text = !self.value.is_empty();

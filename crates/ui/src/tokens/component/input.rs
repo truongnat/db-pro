@@ -14,7 +14,7 @@
 //!
 //! Owned values: field heights and chrome stroke widths. Min width, inner margins,
 //! and icon/gap sizes stay in `components/input/config.rs` as component geometry;
-//! corner radius comes from `RADIUS_INPUT` via `INPUT_ROUNDING`.
+//! corner radius and spacing come directly from the shared radius/spacing tokens.
 
 use crate::tokens::{STROKE_FOCUS, STROKE_THIN};
 

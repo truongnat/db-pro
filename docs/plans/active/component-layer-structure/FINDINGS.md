@@ -79,3 +79,9 @@ Review verdict: **ACCEPT WITH P2** for source changes (P0=0, P1=0; P2=1 for nati
 - P1 — Skeleton pulse/shimmer, indeterminate Progress beam, and Spinner continued animated repaint while `DbProTheme::reduce_motion` was true. They now use the shared animation preference decision; indeterminate progress and Spinner retain a static visible state. A handler test locks the reduced-motion decision and a geometry test locks the static beam segment.
 - Removed repeated shared-token mirrors from Chrome and Feedback configs and Logs' renderer. Logs/Feedback previously publicly re-exported some of these mirror constants; `API.md` documents their removal and replacement tokens. No in-repository callers used those aliases.
 - Static review found no remaining P0/P1 in scope. Native screenshots, real keyboard focus, accessibility-tree traversal, and narrow-window inspection remain P2 plan-level gates.
+
+## Revised contract — Batch 3
+- Input's existing `ui.rs` already groups Text, Search, Password, and Textarea as private presentation modules; Form already exposes compatibility facades. No physical move or additional abstraction was needed.
+- Removed `INPUT_ROUNDING`, `FIELD_INNER_MARGIN_X`, `FIELD_INNER_MARGIN_Y`, and `INPUT_ICON_GAP`; widgets now use shared `RADIUS_XS`, `SPACE_SM`, and `SPACE_XS`. The old alias-equality test was deleted because it only locked duplicated values.
+- Preserved the `input::layout`, `form::field`, `form::rules`, and `form::state` public paths. In-repo callsites use component exports; external users of the four removed Input config aliases must migrate to shared tokens.
+- Targeted source/test review found no P0/P1. P2: native narrow-width, keyboard/focus, and accessibility-tree runtime checks remain open at initiative level.
