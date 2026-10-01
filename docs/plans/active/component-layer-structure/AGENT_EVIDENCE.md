@@ -987,3 +987,58 @@ Feedback đã có đủ năm layer từ trước; batch này cập nhật invent
 
 ### 5. Tổng kết bằng tiếng Việt
 Đã đồng bộ `main` lên `be1f8e68` sau khi fetch, giữ nguyên toàn bộ thay đổi chưa commit. Đã tách `common_utils.rs` thành common layer có tên rõ ràng gồm `layout` và `format`, giữ facade tương thích và đổi các call site mới sang `components::common`. 10 test common trước và sau đều đạt; `cargo check -p db-pro-ui` đạt. Cần chạy lại fmt cuối cùng và vẫn thiếu screenshot/accessibility runtime.
+
+## Button architecture update — 2026-10-01
+
+### 1. Claim
+
+| Field | Value |
+|---|---|
+| Agent identity | Codex · coding lane |
+| Issue(s) | n/a — owner request |
+| Task state | Review |
+| Baseline SHA | `7423aea985fd878f447e229a968eac30cf3868f5` |
+| Branch / PR | `main` / n/a |
+| Scope interpretation | Apply the component structure to Button and fix the three quality findings found during self-review. |
+| Out of scope | Other components, database providers, native runtime capture. |
+
+### 2. Progress checkpoint
+
+- Current HEAD: `7423aea985fd878f447e229a968eac30cf3868f5` plus uncommitted diff.
+- Completed acceptance rows: component structure and five quality requirements recorded; Button UI and handlers split; contrast, Reduce motion and icon-only naming defects fixed; focused Button tests, formatting, crate check and crate Clippy passed.
+- Remaining acceptance rows: owner review, workspace-wide gates, native release build and runtime UI/accessibility evidence.
+- Findings / risks: P0=0, P1=0, P2=1 for missing native runtime evidence. This is self-review, not independent approval.
+- Tests already run: `cargo test -p db-pro-ui components::button --locked` — 9 passed, 0 failed.
+- Dependency / blocker changes: none.
+
+### 3. Implementation handoff / review request
+
+| Field | Value |
+|---|---|
+| Exact SHA | Baseline `7423aea985fd878f447e229a968eac30cf3868f5` plus uncommitted Button diff; no implementation SHA exists yet. |
+| Commit list | none |
+| File / surface inventory | `theme.rs`, `app_lifecycle.rs`, `settings_appearance_view.rs`; `components/README.md`; `button/{mod.rs,config.rs,README.md,DESIGN.md,API.md,ui/**,handlers/**}`; component-layer plan evidence. |
+| Acceptance mapping | Entry → `mod.rs`; UI → `ui/**`; logic → `handlers/**`; local config → `config.rs`; design/basic usage/full API → `DESIGN.md`/`README.md`/`API.md`; flow comments → `ui/button.rs`, `ui/group.rs`, `handlers/size.rs`, `handlers/palette.rs`. |
+| Commands and counts | Focused Button tests 9/9 PASS; UI crate check PASS; UI crate Clippy PASS; fmt and diff checks PASS; clean-code scan 14 pass, 2 warning categories, 0 fail. Workspace-wide gates, native release build and runtime NOT RUN. |
+| CI run IDs / status | not run |
+| Known limitations | Native visual/accessibility-tree and keyboard traversal at required viewports remain unverified. |
+| Migrations / config implications | No persisted data or external config change intended. |
+| Out-of-scope changes | none |
+
+### 4. Review outcome
+
+Implementer self-review verdict: **ACCEPT WITH P2** at baseline `7423aea985fd878f447e229a968eac30cf3868f5` plus uncommitted diff. P0=0, P1=0, P2=1 for native visual/accessibility evidence. The two inherited P1s and one P2 in Button source were fixed and focused tests pass. Independent and owner review remain pending.
+
+### 5. Research / audit handoff
+
+- Source date: 2026-10-01.
+- Source references at baseline SHA: `crates/ui/src/components/button/{mod.rs,ui.rs,handler.rs,config.rs,README.md}`, `crates/ui/src/tokens/component/button.rs`, and `crates/ui/src/components/README.md`.
+- Factual findings: baseline Button already had the public entry and five-file structure; config mirrored core button tokens, UI held Button and ButtonGroup, and handler held size, palette and positioning decisions.
+- Inference: distinct UI and decision groups justify `ui/` and `handlers/` for this component.
+- Decision / recommendation: review the uncommitted split and fixes; collect native UI evidence and execute the remaining release gates before feature completion.
+- Unresolved questions: whether per-instance custom styling is required beyond theme/core tokens and existing variants.
+- Downstream tasks activated: none.
+
+### 6. Tổng kết bằng tiếng Việt
+
+Đã tách Button theo cấu trúc mới và sửa tương phản chữ, Reduce motion cùng yêu cầu tên truy cập của nút chỉ có icon. Chín test Button, fmt, check và Clippy của UI crate đều đạt. Cần review của chủ repo và kiểm tra cửa sổ thật, accessibility tree cùng các gate còn lại trước khi hoàn tất feature.

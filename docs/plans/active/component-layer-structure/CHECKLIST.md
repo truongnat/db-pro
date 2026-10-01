@@ -1,5 +1,19 @@
 # Component UI Layer Structure — Checklist
 
+## Button architecture update (2026-10-01)
+- [x] Record the revised component contract in `PLAN.md` and `components/README.md`.
+- [x] Split Button UI and handler layers into focused submodules while keeping `mod.rs` exports.
+- [x] Remove core token imports and aliases from Button `config.rs`.
+- [x] Add `DESIGN.md` for UI and logic rationale and `API.md` for detailed use.
+- [x] Record the existing English flow-comment rule and apply it to Button's UI/handler boundaries.
+- [x] Record the five component quality requirements and perform a source-only Button self-review.
+- [x] Resolve filled-button text contrast across rest/hover in light and dark modes.
+- [x] Honor `Reduce motion` for Button hover/press/loading.
+- [ ] Verify meaningful names, role/state, Tab/Enter/Space, focus ring, and target sizes in the native UI/accessibility tree.
+- [ ] Inspect Button variants and narrow/loading/disabled states at required viewports.
+- [x] Run focused Button tests, UI crate check, formatting, and diff check; record exact outcomes.
+- [ ] Run workspace-wide gates, native release build, and runtime verification after owner code review.
+
 ## HoverCard UI Product Review batch (IMPLEMENTING)
 - [x] Sanitize public and defensive delay inputs with finite semantics.
 - [x] Schedule repaint only for pending timer deadlines; use measured card height for collision placement.

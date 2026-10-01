@@ -4,19 +4,19 @@
 //! Precedence (strongest first): `disabled → loading → active → focus → hover →
 //! default` — declared in [`crate::tokens::component::STATE_PRECEDENCE`] and
 //! enforced by [`shows_loading`] plus the disabled palette in
-//! `components/button/ui.rs`.
+//! `components/button/ui/button.rs`.
 //!
-//! Semantic roles consumed (via `DbProTheme`): `accent.solid/solid_hover/foreground`
+//! Semantic roles consumed (via `DbProTheme`): `accent.solid/solid_hover`
 //! for the primary variant, `status.danger.solid` for destructive, `background.hover/
 //! selected/subtle` for secondary and disabled fills, `border.subtle/default/strong`
-//! for outline and disabled strokes, `foreground.primary/disabled` for labels, and
+//! for outline and disabled strokes, `foreground.primary/disabled` for labels,
+//! `text_on_solid` for filled labels, and
 //! `border.focus` painted at `STROKE_THICK` by `components/interact.rs`.
 //!
 //! Owned values: height, padding, label font size, glyph size, hit-box size, and
 //! fallback width per size variant — the single source of truth for button
-//! dimensions (`components/button/config.rs` re-points them here). Radius comes
-//! from `RADIUS_BUTTON`; link underline width and group gap stay local to
-//! `components/button/config.rs` as component geometry.
+//! dimensions. Radius and group gap come from shared tokens; link underline
+//! width remains in `components/button/config.rs` as local geometry.
 
 use egui::Vec2;
 

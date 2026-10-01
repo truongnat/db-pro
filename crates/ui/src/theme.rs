@@ -32,6 +32,8 @@ const INTER_MEDIUM_EXT: &[u8] = include_bytes!("../assets/fonts/Inter-Medium-ext
 #[derive(Debug, Clone, Copy)]
 pub struct DbProTheme {
     pub dark_mode: bool,
+    /// Current accessibility preference, carried with the theme to shared widgets.
+    pub reduce_motion: bool,
     /// Full role detail for callers that need more than one flat field at a time
     /// (e.g. status fill/border pairs).
     pub semantic: SemanticTokens,
@@ -91,6 +93,7 @@ impl DbProTheme {
         let semantic = SemanticTokens::light();
         Self {
             dark_mode: false,
+            reduce_motion: false,
             semantic,
             // Warm Minimalism roles; raw hex lives in `tokens::primitive::light`.
             surface_app: semantic.background.canvas,
@@ -135,6 +138,7 @@ impl DbProTheme {
         let semantic = SemanticTokens::dark();
         Self {
             dark_mode: true,
+            reduce_motion: false,
             semantic,
             // Dark workstation roles; raw hex lives in `tokens::primitive::dark`.
             surface_app: semantic.background.canvas,
@@ -195,6 +199,17 @@ impl DbProTheme {
 
     pub fn info_soft(self) -> Color32 {
         self.semantic.status.info.subtle
+    }
+
+    /// Readable foreground for an opaque solid fill, including animated fills.
+    pub fn text_on_solid(self, fill: Color32) -> Color32 {
+        // Black and white bracket every possible opaque fill: the crossover
+        // luminance gives both at least 4.5:1 for normal text.
+        if relative_luminance(fill) >= 0.179 {
+            Color32::BLACK
+        } else {
+            Color32::WHITE
+        }
     }
 
     /// Quiet gutter wash behind line numbers (Zed/DBeaver density).
@@ -475,6 +490,18 @@ impl DbProTheme {
             }),
         }
     }
+}
+
+pub(crate) fn relative_luminance(color: Color32) -> f32 {
+    fn channel(value: u8) -> f32 {
+        let value = f32::from(value) / 255.0;
+        if value <= 0.04045 {
+            value / 12.92
+        } else {
+            ((value + 0.055) / 1.055).powf(2.4)
+        }
+    }
+    0.2126 * channel(color.r()) + 0.7152 * channel(color.g()) + 0.0722 * channel(color.b())
 }
 
 #[cfg(test)]

@@ -1,5 +1,20 @@
 # Component UI Layer Structure — Verification
 
+## Button architecture update (2026-10-01)
+
+- Baseline source SHA: `7423aea985fd878f447e229a968eac30cf3868f5`; changes are uncommitted on `main`.
+- Scope: Button UI/handler directory split, core contrast and motion flow, release accessible-name contract, Button `DESIGN.md`/`API.md`, and the component authoring contract.
+- `cargo test -p db-pro-ui components::button --locked`: PASS (9 passed; initial run failed at Default hover step 45, then fixed in core and rerun).
+- `cargo fmt --all -- --check`: PASS.
+- `cargo check -p db-pro-ui --locked`: PASS.
+- `cargo clippy -p db-pro-ui --all-targets --locked -- -D warnings`: PASS.
+- `git diff --check`: PASS.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (14 pass, 2 warning categories, 0 fail). Warnings: four-argument animation helper and three function-length flags, including inherited long functions in `theme.rs`. These are nonblocking scanner heuristics; the animation helper's arguments are short frame-state inputs.
+- Workspace-wide check/clippy/tests and `cargo build --release --locked -p db-pro-native`: NOT RUN; the owner asked for a coding review without a full runtime pass.
+- Native UI captures and state traversal: NOT RUN; the owner asked for a coding review without a full runtime pass.
+- PostgreSQL/SQLite impact: n/a; source changes are limited to native UI organization and documentation.
+- Implementer self-review: ACCEPT WITH P2 for source and focused tests; native rendered pixels, accessibility tree, keyboard traversal, and viewports remain unverified. Token contrast checks are calculations from declared opaque colors, not native pixel measurements.
+
 ## Historical Input batch verification (isolated snapshot; superseded below)
 - Baseline SHA: `41d731b53cab93514ee8fe992f888d7db673664f` (worktree was clean at inspection).
 - Source changes are limited to `crates/ui/src/components/input/**` and this plan directory. Public `Input`, `PasswordInput`, `SearchInput`, and `Textarea` exports remain unchanged.

@@ -164,6 +164,7 @@ impl DbProApp {
         } else {
             DbProTheme::light()
         };
+        self.theme.reduce_motion = self.preferences.reduce_motion;
         self.theme.apply(ctx);
         self.handle_shortcuts(ctx);
     }

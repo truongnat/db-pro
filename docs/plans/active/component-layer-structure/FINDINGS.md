@@ -1,5 +1,31 @@
 # Component Layer Structure — Findings
 
+## Button quality self-review — 2026-10-01
+
+Scope: Button source and core token inputs at baseline SHA `7423aea985fd878f447e229a968eac30cf3868f5`, plus the current uncommitted changes on `main`. This is an implementer self-review with focused tests; native UI, accessibility tree, and rendered-pixel contrast remain unchecked. The defects below were inherited from the baseline Button behavior.
+
+| Requirement | Static result | Evidence and remaining check |
+|---|---|---|
+| Consistent appearance | Partial | Variants consume `DbProTheme` in `button/handlers/palette.rs`; sizes consume the core contract in `button/handlers/size.rs`. Light/dark and all states still need native visual review. |
+| Accessibility | Partial | Filled-button contrast passes the 4.5:1 token check through rest/hover in both themes. Reduce motion reaches Button. Icon-only names are enforced in all builds. Focus appearance, Enter, and the native accessibility tree still need runtime review. |
+| Approachable UI/UX | Partial | Loading and disabled block click. `ButtonGroup` now uses a 4-point shared gap, leaving room for adjacent 2-point focus rings. Narrow labels and loading comprehension require runtime review. |
+| Dynamic customization | Partial | Theme is supplied to each Button and core tokens own shared dimensions. Variants and size presets are configurable; arbitrary per-instance styling is not exposed. Whether that is needed remains a product decision. |
+| Clean code and formatting | Partial | `mod.rs` keeps the public API, UI/handlers are separated, and `config.rs` has no core imports. Focused tests, formatting, UI crate check/Clippy, and clean-code scan pass; the scan reports two warning categories, recorded in `VERIFICATION.md`. |
+
+### Fixed inherited P1 — Filled-button text contrast
+
+At the baseline SHA, `button/handler.rs:95-129` uses white foreground for Default and Destructive text. The declared tokens give white on light accent `#0285ff` **3.62:1**, white on dark accent `#4f8cff` **3.22:1**, and white on dark danger `#ef6b73` **2.99:1**. `DbProTheme::text_on_solid` now chooses black or white from the resolved fill. A focused test checks 101 hover steps for both filled variants in both themes; every measured pair reaches 4.5:1. Rendered-pixel evidence is still pending.
+
+### Fixed inherited P1 — Reduce motion did not reach Button
+
+`settings_appearance_view.rs` already offers `Reduce motion`. The preference now travels through the frame's `DbProTheme`; Button skips hover/press interpolation and holds the loading arc still without requesting spinner repaints. Runtime confirmation remains pending.
+
+### Fixed inherited P2 — Icon-only name depended on debug-only enforcement
+
+The icon-only `access_label` requirement now uses a normal assertion, including a nonblank check, so invalid controls cannot silently render in release. A source scan found no product call site without text or `access_label`; the only match is the intentional panic test. The native accessibility tree still needs review.
+
+Review verdict: **ACCEPT WITH P2** for source changes (P0=0, P1=0; P2=1 for native visual and accessibility-tree evidence). This is implementer self-review, not independent approval. PostgreSQL and SQLite: n/a.
+
 ## Input batch (implementation)
 - P2 — Input presentation was spread across sibling modules without a component-level presentation/decision boundary. Added `ui.rs` as the presentation entry, `handler.rs` for pure label/counter decisions, and retained existing widget APIs.
 - P2 — Textarea's byte-length counter disagreed with user-visible character semantics for Unicode. The counter now uses `chars().count()` through a tested handler function. Runtime visual/accessibility evidence remains pending.

@@ -49,6 +49,7 @@ impl SettingsAppearanceContext<'_> {
                 .changed()
             {
                 self.preferences.settings.appearance.reduce_motion = self.preferences.reduce_motion;
+                self.theme.reduce_motion = self.preferences.reduce_motion;
             }
             ui.label(
                 RichText::new("Loading states keep a static status icon instead of a spinner.")

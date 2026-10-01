@@ -1,6 +1,6 @@
 mod config;
-mod handler;
+mod handlers;
 mod ui;
 
-pub use handler::{ButtonPalette, ButtonSize, ButtonVariant, SizeTokens};
+pub use handlers::{ButtonPalette, ButtonSize, ButtonVariant, SizeTokens};
 pub use ui::{Button, ButtonGroup};
