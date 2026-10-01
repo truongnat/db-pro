@@ -76,3 +76,20 @@
 ### Tổng kết bằng tiếng Việt
 
 Cards & Metric Displays đã được đưa về layout responsive có chủ đích: vùng trung bình giữ 2×2, vùng đủ rộng mới dùng 4 cột, nhãn metric dùng token semantic dễ đọc hơn. Đã capture light theme ở cả ba kích thước và chạy đủ gate Rust/UI; loading/error/empty vẫn là follow-up vì gallery hiện là surface tĩnh.
+
+## 8. ResponsiveGrid vertical-gap follow-up
+
+| Field | Value |
+|---|---|
+| Exact SHA | `42d78e203b67bde917438ec424a8f9c8a2d206b` |
+| Task state | Done |
+| Scope | Add intentional vertical gaps between wrapped `ResponsiveGrid` rows while preserving the existing horizontal token and caller spacing. |
+| Root cause | The primitive set `item_spacing.x` only; the second metric row therefore had no explicit vertical rhythm. |
+| Fix / coverage | `ResponsiveGrid` now scopes vertical spacing, inserts the configured gap between rows, and has focused coverage asserting the exact row separation. |
+| Runtime evidence | Refreshed `evidence/cards-metrics-1280x800.png` and `evidence/cards-metrics-1440x900.png`; the 1920×1080 four-column capture has one row. |
+| Gates | Focused test, workspace tests (929 UI tests), fmt, check, clippy, release build, clean-code scan, and diff check passed. |
+| Workflow | Implemented directly on local `main`; no worktree and no push yet at this evidence checkpoint. |
+
+### Tổng kết bằng tiếng Việt
+
+Đã sửa đúng lỗi spacing: `ResponsiveGrid` trước đó chỉ có gap ngang, nên các row dọc bị dính. Primitive giờ dùng cùng gap token cho cả hai chiều, có test xác nhận khoảng cách 8px và capture 1280/1440 đã thấy khoảng thở giữa hai hàng.

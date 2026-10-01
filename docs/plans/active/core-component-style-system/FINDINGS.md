@@ -46,6 +46,7 @@
 - The supplied light gallery screenshot exposed a P2 density problem: the fixed two-column composition stretched metric cards across the whole gallery, creating excessive horizontal whitespace and weakening the visual grouping.
 - The surface now uses the shared `ResponsiveGrid` with a `240px` minimum card width and semantic `SPACE_MD` gaps. It keeps four metrics in a stable 2×2 arrangement at medium widths, switches to four columns only when the available region can support all four, and collapses to one column when the gallery becomes narrower.
 - Metric titles now use `text_secondary` instead of `text_tertiary`, preserving the theme-owned palette while restoring readable hierarchy against the elevated card surface.
+- The first responsive-grid pass only set horizontal `item_spacing`, so stacked metric rows touched vertically. `ResponsiveGrid` now owns both axes: it neutralizes inherited row spacing and inserts the shared gap token between rows, keeping the 2×2 surface rhythm consistent without affecting neighboring gallery content.
 - Runtime captures at 1280×800 and 1440×900 show the balanced 2×2 layout; the 1920×1080 capture shows the four-column wide layout. The light capture route is test tooling only and does not change normal startup behavior.
 
 ## Calendar & DatePicker follow-up

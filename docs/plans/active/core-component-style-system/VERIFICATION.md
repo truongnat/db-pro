@@ -28,5 +28,12 @@
 - Verification after the implementation SHA: `cargo fmt --all -- --check`, `cargo check --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` (UI segment: 929 passed), `cargo build --release --locked -p db-pro-native`, clean-code scan (14 pass / 2 warning categories / 0 fail), and `git diff --check` all passed.
 - Loading/error/empty state traversal for this static gallery surface remains pending.
 
+## ResponsiveGrid vertical-gap follow-up
+- Implementation SHA: `42d78e203b67bde917438ec424a8f9c8a2d206b` (`fix(ui): add vertical responsive grid gaps`).
+- Root cause: `ResponsiveGrid` configured only horizontal `item_spacing`; successive rows inherited no intentional vertical separation and metric cards visually touched.
+- Fix: the primitive now owns both axes of spacing, neutralizes inherited vertical spacing inside its local scope, and inserts the shared gap between rendered rows. The focused test asserts the exact 8px row gap for a two-row grid.
+- Runtime evidence refreshed at 1280×800 and 1440×900; the 1920×1080 wide layout remains one row and therefore has no inter-row gap to render.
+- Verification: focused responsive-grid test passed; full workspace tests (UI segment: 929 passed), fmt, workspace check, clippy, release build, clean-code scan (13 pass / 3 warning categories / 0 fail), and diff check passed.
+
 ## Tổng kết bằng tiếng Việt
 Các gate đã PASS: fmt, workspace tests (929 UI tests), clippy và native release build. Evidence đã đủ narrow 800×800 cùng 1280×800, 1440×900 và 1920×1080; header và grid đều đã kiểm tra runtime. Chỉ còn traversal loading/error/empty của gallery.
