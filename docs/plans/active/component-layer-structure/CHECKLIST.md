@@ -5,7 +5,7 @@
 - [x] Batch 2: Chrome, Feedback, Logs, Nav, ResponsiveLayout, ScrollArea.
 - [x] Batch 3: Input and Form; preserve facade module paths; remove four Input token aliases.
 - [x] Batch 4: Select, Selection, RadioGroup, Toggle, Tabs; preserve tab public types and add RadioGroup Gallery sample. Targeted and full UI verification passed; runtime screenshots remain pending at the initiative level.
-- [ ] Batch 5: Accordion, Calendar, Collapsible, HoverCard.
+- [x] Batch 5: Accordion, Calendar, Collapsible, HoverCard; fix the confirmed Calendar keyboard/accessibility gap and honor reduced motion in shared disclosure controls. Runtime screenshots remain pending at the initiative level.
 - [ ] Batch 6: Dialog and Overlay.
 - [ ] Batch 7: Alert, Command, Transaction; remove Command shared-stroke alias and add Transaction README.
 - [ ] Batch 8: Database, Diff, Explain, SqlEditor.

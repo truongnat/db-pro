@@ -58,6 +58,22 @@
 - `git diff --check`: PASS (exit 0).
 - Review outcome: implementer source review only; P0=0, P1=0, P2=1 (native viewport, keyboard/focus and accessibility evidence not collected). No PostgreSQL/SQLite behavior changed. Runtime screenshots/accessibility evidence: NOT RUN.
 
+## Revised contract — Batch 5
+- Source baseline SHA: `e9a2df373a278c28f3a1abf4b1437612b37ed9f9`; implementation SHA: `c34ba416b0bad6ef4bad27ac5e4db737c3d28475` (`fix(ui): improve calendar and disclosure access`).
+- Added `DESIGN.md`/`API.md` for Accordion, Calendar, Collapsible, and HoverCard. Updated Calendar README with the real constructor usage and its keyboard/accessibility behavior; Accordion/Collapsible README now describes reduced-motion behavior.
+- Calendar's custom-painted trigger/month/day controls now expose accessible widget metadata and focus rings, activate on focused Enter/Space, and restore focus to the trigger after selection/Escape. DatePicker marks its response changed for selection/open state transitions and reports the final accessible state after popup handling. Arrow-key day-grid traversal remains unsupported and is documented.
+- Accordion/Collapsible now bypass egui disclosure animation and body clipping when reduced motion is enabled; shared header hover becomes immediate. Calendar hover states also become immediate. Existing popup bounds, Escape/outside close, and HoverCard timer/placement logic were reviewed without API changes.
+- `cargo test -p db-pro-ui components::calendar:: --lib`: PASS (11 passed, 0 failed; 926 filtered; exit 0).
+- `cargo test -p db-pro-ui components::accordion:: --lib`: PASS (5 passed, 0 failed; 932 filtered; exit 0).
+- `cargo test -p db-pro-ui components::collapsible:: --lib`: PASS (4 passed, 0 failed; 933 filtered; exit 0).
+- `cargo test -p db-pro-ui components::hover_card:: --lib`: PASS (14 passed, 0 failed; 923 filtered; exit 0).
+- `cargo test -p db-pro-ui --lib`: PASS (937 passed, 0 failed, 0 ignored; exit 0).
+- `cargo fmt --all -- --check`: PASS (exit 0); `cargo check -p db-pro-ui`: PASS (exit 0); `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS (exit 0).
+- `cargo build --release --locked -p db-pro-native`: PASS (exit 0; 29.53 seconds).
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (13 pass, 3 warning categories, 0 fail). Warnings are numeric casts and heuristic parameter/function-length counts; no scan failures.
+- `git diff --check`: PASS (exit 0).
+- Review outcome: implementer source review only; P0=0, P1=0, P2=1 (native viewport/focus/accessibility evidence still not collected; Calendar arrow-key day traversal is a documented limitation). No PostgreSQL/SQLite behavior changed. Runtime screenshots/accessibility evidence: NOT RUN.
+
 ## Button architecture update (2026-10-01)
 
 - Baseline source SHA: `7423aea985fd878f447e229a968eac30cf3868f5`; changes are uncommitted on `main`.
