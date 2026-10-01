@@ -1,5 +1,19 @@
 # Component UI Layer Structure — Verification
 
+## Revised contract — Batch 1
+- Source baseline SHA: `a2ded17c839724dc95fe8f0ed8e9a8f07a4e50dd`; implementation SHA: `a3a069bc8e249a83923997cb3dd5426dde581bf3` (`refactor(ui): document core component batch`).
+- Added `DESIGN.md` and `API.md` for AspectRatio, Badge, Card, Code, DevTools, and Separator. Their existing module boundaries and README files were already sufficient. Added Gallery samples for aspect-ratio clipping and horizontal/vertical separators.
+- Removed Badge's private `BADGE_RADIUS` mirror and Separator's `DEFAULT_HORIZONTAL_MARGIN`/`LABEL_PADDING` mirrors; shared values now come from `RADIUS_BADGE` and `SPACE_SM` in `tokens.rs`. No public re-export or caller used these config-only constants.
+- `cargo fmt --all -- --check`: PASS (exit 0; first check showed only rustfmt import wrapping and was corrected with `cargo fmt --all`).
+- `cargo test -p db-pro-ui --lib`: PASS (931 passed, 0 failed, 0 ignored; exit 0).
+- `cargo check -p db-pro-ui`: PASS (exit 0).
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS (exit 0).
+- `cargo build --release --locked -p db-pro-native`: PASS (exit 0).
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (15 pass, 1 warning, 0 fail; exit 0).
+- `git diff --check`: PASS (exit 0).
+- Review outcome: self-review only; no P0/P1 identified. P2 remains for native screenshots and keyboard/accessibility inspection at required viewports/states. No PostgreSQL/SQLite or backend behavior changed.
+- Runtime screenshot/accessibility evidence: NOT RUN. Initiative remains `IMPLEMENTING`; this batch does not satisfy final runtime gates.
+
 ## Button architecture update (2026-10-01)
 
 - Baseline source SHA: `7423aea985fd878f447e229a968eac30cf3868f5`; changes are uncommitted on `main`.
