@@ -411,3 +411,17 @@ The following results supersede the historical isolated-worker blockers above. C
 - Final gates after the split: `cargo fmt --all -- --check` PASS; `cargo test -p db-pro-ui --lib` PASS (913 passed, 0 failed, 0 ignored); `cargo clippy -p db-pro-ui --all-targets -- -D warnings` PASS (`clippy_exit=0`); `cargo build --release --locked -p db-pro-native` PASS; `cargo check --workspace` PASS; `cargo clippy --workspace --all-targets -- -D warnings` PASS; `cargo test --workspace --quiet` PASS; the final `db-pro-ui` crate segment reported 914 passed / 0 failed / 0 ignored, while other workspace crates also passed with provider/SSH fixtures ignored as reported by Cargo; `git diff --check` PASS; clean-code scan PASS (12 pass, 4 warning categories, 0 fail).
 - The first formatting check reported only rustfmt line wrapping in the two re-export lists; those lists were corrected before the final PASS.
 - Runtime screenshot/accessibility evidence remains pending. No PostgreSQL/SQLite behavior changed.
+
+## Revised contract — Batch 6
+- Source/docs implementation SHA: `d17e7f4d8b100fc72cb5055ce224c7b81fe12971` (`docs(ui): define dialog and overlay contracts`). Plan evidence commit is recorded separately.
+- Public API/caller review: PASS. Confirmed `dialog::modal` compatibility exports, Dialog/Sheet builders and return semantics, public Overlay exports, DropdownItem fields/builders, context-menu signatures, Toast response and ToastManager timer contracts against source and existing callers. No source behavior changed.
+- `cargo test -p db-pro-ui components::dialog --lib`: PASS (11 passed, 0 failed, 926 filtered out).
+- `cargo test -p db-pro-ui components::overlay --lib`: PASS (1 passed, 0 failed, 936 filtered out).
+- `cargo fmt --all -- --check`: PASS.
+- `cargo check -p db-pro-ui`: PASS.
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
+- `git diff --check`: PASS.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (13 pass, 3 warning categories, 0 fail). Existing heuristic warnings remain in shared UI files; no new Rust source changed in this batch.
+- `cargo build --release --locked -p db-pro-native`: NOT RUN for this docs-only batch. Workspace/release gates remain scheduled for initiative close.
+- Runtime screenshots/accessibility traversal: NOT RUN. No runtime claim is made. P2 limits include no focus restoration after closing Dialog/Sheet, no Escape/focus handling in Popover/Dropdown, and no Toast live-region announcement API.
+- P0: 0; P1: 0; P2: runtime and keyboard/accessibility evidence above remains open.
