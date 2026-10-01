@@ -2,6 +2,7 @@
 use super::super::*;
 use super::sidebar_chrome_view::{SidebarChromeAction, SidebarChromeContext};
 use egui::{vec2, Pos2, Rect, Sense, Stroke};
+use std::{cell::RefCell, rc::Rc};
 
 const SIDEBAR_CLIP_BLEED: f32 = 1.0;
 
@@ -18,6 +19,7 @@ pub(super) struct SidebarSurfaceContext<'a> {
     pub(super) command_palette_shortcut: &'a str,
     pub(super) new_connection_shortcut: &'a str,
     pub(super) new_query_shortcuts: &'a [String],
+    pub(super) runtime: Rc<RefCell<crate::native_runtime_shell::RsUiShellRuntime>>,
 }
 
 struct SidebarPanel {
@@ -44,9 +46,16 @@ where
 }
 
 fn draw_panel(context: &SidebarSurfaceContext<'_>, egui_context: &egui::Context) -> SidebarPanel {
+    let viewport = egui_context.screen_rect();
+    let sidebar_width = crate::native_runtime_shell::layout_shell(
+        rs_ui_core::Size::new(viewport.width(), viewport.height()),
+        context.sidebar_width,
+    )
+    .map(|regions| regions.sidebar.width())
+    .unwrap_or(context.sidebar_width);
     let response = egui::SidePanel::left("sidebar")
         .resizable(false)
-        .exact_width(context.sidebar_width)
+        .exact_width(sidebar_width)
         .show_separator_line(false)
         .frame(egui::Frame {
             fill: context.theme.surface_panel,
@@ -58,7 +67,7 @@ fn draw_panel(context: &SidebarSurfaceContext<'_>, egui_context: &egui::Context)
         })
         .show(egui_context, |ui| {
             let panel_origin = ui.max_rect().min;
-            let full = Rect::from_min_size(panel_origin, vec2(context.sidebar_width, ui.max_rect().height()));
+            let full = Rect::from_min_size(panel_origin, vec2(sidebar_width, ui.max_rect().height()));
             ui.painter()
                 .rect_filled(full, egui::Rounding::ZERO, context.theme.surface_panel);
             ui.allocate_rect(full, Sense::hover());
@@ -117,6 +126,82 @@ fn content_rect(context: &SidebarSurfaceContext<'_>, panel: &SidebarPanel) -> Re
     )
 }
 
+pub(crate) fn draw_sidebar_scroll<F>(
+    runtime: &RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
+    id_salt: &'static str,
+    ui: &mut egui::Ui,
+    mut draw_content: F,
+)
+where
+    F: FnMut(&mut egui::Ui),
+{
+    let viewport = ui.available_size();
+    let offset = route_sidebar_wheel(runtime, ui, viewport);
+
+    let mut scroll_area = egui::ScrollArea::vertical()
+        .id_salt(id_salt)
+        .auto_shrink([false, false])
+        .max_height(viewport.y);
+    if let Some(offset) = offset {
+        scroll_area = scroll_area.vertical_scroll_offset(offset);
+    }
+    let output = scroll_area.show(ui, |ui| draw_content(ui));
+    sync_sidebar_scroll(runtime, output.inner_rect.size(), output.content_size, output.state.offset);
+}
+
+fn route_sidebar_wheel(
+    runtime: &RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
+    ui: &mut egui::Ui,
+    viewport: egui::Vec2,
+) -> Option<f32> {
+    let scroll_rect = Rect::from_min_size(ui.cursor().min, viewport);
+    if !ui.rect_contains_pointer(scroll_rect) {
+        return runtime.try_borrow().ok()?.sidebar_scroll_offset();
+    }
+    let wheel_delta = ui.input(|input| input.smooth_scroll_delta.y);
+    match runtime.try_borrow_mut() {
+        Ok(mut runtime) => match runtime.scroll_sidebar(
+            rs_ui_core::Size::new(viewport.x, viewport.y),
+            rs_ui_core::Point::new(0.0, wheel_delta),
+        ) {
+            Ok(offset) => {
+                if wheel_delta != 0.0 {
+                    ui.ctx().input_mut(|input| input.smooth_scroll_delta.y = 0.0);
+                }
+                Some(offset)
+            }
+            Err(error) => {
+                tracing::error!(%error, "rs-ui could not apply sidebar scroll input");
+                runtime.sidebar_scroll_offset()
+            }
+        },
+        Err(error) => {
+            tracing::error!(%error, "rs-ui sidebar runtime is already borrowed");
+            None
+        }
+    }
+}
+
+fn sync_sidebar_scroll(
+    runtime: &RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
+    viewport: egui::Vec2,
+    content_size: egui::Vec2,
+    offset: egui::Vec2,
+) {
+    match runtime.try_borrow_mut() {
+        Ok(mut runtime) => {
+            if let Err(error) = runtime.sync_sidebar_scroll(
+                rs_ui_core::Size::new(viewport.x, viewport.y),
+                rs_ui_core::Size::new(content_size.x, content_size.y),
+                rs_ui_core::Point::new(offset.x, offset.y),
+            ) {
+                tracing::error!(%error, "rs-ui could not sync sidebar scroll layout");
+            }
+        }
+        Err(error) => tracing::error!(%error, "rs-ui sidebar runtime is already borrowed"),
+    }
+}
+
 fn sidebar_ui(egui_context: &egui::Context, content_rect: Rect, layer_id: egui::LayerId) -> egui::Ui {
     let id = egui::Id::new("dbpro_sidebar_content");
     let mut ui = egui::Ui::new(
@@ -149,20 +234,63 @@ fn draw_resize_handle(
         egui::UiBuilder::new().max_rect(resize_rect),
     );
     grip_ui.set_clip_rect(egui_context.screen_rect());
-    let response = grip_ui.allocate_rect(resize_rect, Sense::drag());
+    let response = grip_ui.allocate_rect(
+        resize_rect,
+        Sense::drag().union(Sense::focusable_noninteractive()),
+    );
     let hovering = response.hovered();
     let dragging = response.dragged();
     if hovering || dragging {
         egui_context.set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
     }
-    let width = if dragging {
-        egui_context
-            .pointer_interact_pos()
-            .or_else(|| response.interact_pointer_pos())
-            .map(|pointer| pointer.x - panel.left)
-    } else {
-        None
-    };
+    let pointer = egui_context
+        .pointer_interact_pos()
+        .or_else(|| response.interact_pointer_pos());
+    let mut width = None;
+    match context.runtime.try_borrow_mut() {
+        Ok(mut runtime) => {
+            if response.drag_started() {
+                if let Some(pointer) = pointer {
+                    let origin = egui_context
+                        .input(|input| input.pointer.press_origin())
+                        .unwrap_or(pointer);
+                    if let Err(error) = runtime.begin_sidebar_resize(
+                        context.sidebar_width,
+                        SIDEBAR_MIN_WIDTH,
+                        SIDEBAR_MAX_WIDTH,
+                        rs_ui_core::Point::new(origin.x, origin.y),
+                    ) {
+                        tracing::error!(%error, "rs-ui could not begin sidebar resize");
+                    }
+                }
+            }
+            if dragging {
+                if let Some(pointer) = pointer {
+                    match runtime.update_sidebar_resize(rs_ui_core::Point::new(pointer.x, pointer.y)) {
+                        Ok(next_width) => width = Some(next_width),
+                        Err(error) => tracing::error!(%error, "rs-ui could not update sidebar resize"),
+                    }
+                }
+            }
+            if response.drag_stopped() {
+                if let Err(error) = runtime.end_sidebar_resize() {
+                    tracing::error!(%error, "rs-ui could not finish sidebar resize");
+                }
+            }
+            if let Some(command) = focused_resize_command(egui_context, response.has_focus()) {
+                match runtime.adjust_sidebar_width(
+                    context.sidebar_width,
+                    SIDEBAR_MIN_WIDTH,
+                    SIDEBAR_MAX_WIDTH,
+                    command,
+                ) {
+                    Ok(next_width) => width = Some(next_width),
+                    Err(error) => tracing::error!(%error, "rs-ui could not adjust sidebar width"),
+                }
+            }
+        }
+        Err(error) => tracing::error!(%error, "rs-ui sidebar runtime is already borrowed"),
+    }
     if dragging {
         egui_context.request_repaint();
     }
@@ -170,6 +298,21 @@ fn draw_resize_handle(
     let line_x = painter.round_to_pixel_center(edge_x - 1.0);
     painter.vline(line_x, panel.y_range, resize_stroke(context.theme, hovering, dragging));
     width
+}
+
+fn focused_resize_command(ctx: &egui::Context, has_focus: bool) -> Option<rs_ui_runtime::BehaviorCommand> {
+    if !has_focus {
+        return None;
+    }
+    ctx.input(|input| {
+        if input.key_pressed(egui::Key::ArrowLeft) {
+            Some(rs_ui_runtime::BehaviorCommand::MoveLeft)
+        } else if input.key_pressed(egui::Key::ArrowRight) {
+            Some(rs_ui_runtime::BehaviorCommand::MoveRight)
+        } else {
+            None
+        }
+    })
 }
 
 fn resize_stroke(theme: DbProTheme, hovering: bool, dragging: bool) -> Stroke {

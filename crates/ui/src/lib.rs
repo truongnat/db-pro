@@ -10,6 +10,7 @@ pub mod components;
 pub mod diagram;
 pub mod editor;
 pub mod i18n;
+mod native_runtime_shell;
 mod policy;
 pub mod query;
 mod result_grid;

@@ -15,6 +15,7 @@ impl DbProApp {
         let functions_enabled = self.active_capabilities().allows(|c| c.schema.functions);
         let actions = ExplorerSurfaceContext {
             theme: self.theme,
+            native_runtime: self.workspace.native_runtime.as_ref(),
             catalog: &self.connection.catalog,
             lifecycle: &self.connection.lifecycle,
             explorer: &mut self.schema.explorer,

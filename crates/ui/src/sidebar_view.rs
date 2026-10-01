@@ -2,7 +2,7 @@
 use super::*;
 
 #[path = "sidebar_surface_view.rs"]
-mod sidebar_surface_view;
+pub(super) mod sidebar_surface_view;
 
 /// Activity content stays in the root adapter; shell geometry lives in the surface module.
 ///
@@ -25,6 +25,7 @@ impl DbProApp {
             command_palette_shortcut: &command_palette_shortcut,
             new_connection_shortcut: &new_connection_shortcut,
             new_query_shortcuts: &new_query_shortcuts,
+            runtime: self.workspace.native_runtime.clone(),
         };
         for action in sidebar_surface_view::draw(&context, ctx, |ui| self.draw_sidebar_activity_content(ui)) {
             match action {
@@ -50,12 +51,8 @@ impl DbProApp {
             self.draw_explorer_sub_panes(ui);
             return;
         }
-        let scroll_h = ui.available_height();
-        egui::ScrollArea::vertical()
-            .id_salt("sidebar_scroll")
-            .auto_shrink([false, false])
-            .max_height(scroll_h)
-            .show(ui, |ui| {
+        let runtime = self.workspace.native_runtime.clone();
+        sidebar_surface_view::draw_sidebar_scroll(runtime.as_ref(), "sidebar_scroll", ui, |ui| {
                 ui.add_space(4.0);
                 self.draw_sidebar_activity_body(ui);
             });

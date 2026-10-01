@@ -8,6 +8,14 @@ DB Pro is a native desktop application built on a Rust workspace. The UI is nati
 `eframe`/`egui` (`crates/ui` + `crates/native-app`) and talks to the shared
 `db-pro-runtime` service graph through a typed command/event task bridge.
 
+The incremental rs-ui integration starts inside `db-pro-ui`: `ui-core` and
+`ui-runtime` provide retained shell geometry, sidebar resize/focus, and sidebar
+scroll state through a thin adapter, while eframe/egui remains the window host
+and painter.
+The rs-ui renderer and window crates are not yet connected. Integration audit,
+plan, and evidence: `docs/rs-ui-integration-plan.md` and
+`docs/plans/active/rs-ui-runtime-integration/`.
+
 The earlier React/TypeScript frontend and the Tauri WebView that hosted it were retired:
 the frontend is archived under `_archive/frontend/`, its React-era ER benchmark harness
 under `_archive/bench/`, and `crates/tauri-app` remains only as a legacy transitional host.

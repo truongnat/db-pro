@@ -14,6 +14,7 @@ use super::{
     ConnectionCatalogState, ConnectionLifecycleState, DbProTheme, SchemaExplorerState, UiConnectionSummary, UiTableInfo,
 };
 use eframe::egui;
+use std::cell::RefCell;
 use crate::tokens::{SPACE_SM, SPACE_XS};
 
 const EXPLORER_SCROLL_ID: &str = "codex_navigator_scroll";
@@ -34,6 +35,7 @@ pub(super) enum ExplorerSurfaceAction {
 
 pub(super) struct ExplorerSurfaceContext<'a> {
     pub(super) theme: DbProTheme,
+    pub(super) native_runtime: &'a RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
     pub(super) catalog: &'a ConnectionCatalogState,
     pub(super) lifecycle: &'a ConnectionLifecycleState,
     pub(super) explorer: &'a mut SchemaExplorerState,
@@ -67,12 +69,11 @@ impl ExplorerSurfaceContext<'_> {
             .width()
             .max(ui.available_width())
             .min(ui.clip_rect().width());
-        let scroll_h = ui.available_height();
-        egui::ScrollArea::vertical()
-            .id_salt(EXPLORER_SCROLL_ID)
-            .auto_shrink([false, false])
-            .max_height(scroll_h)
-            .show(ui, |ui| {
+        super::sidebar_view::sidebar_surface_view::draw_sidebar_scroll(
+            self.native_runtime,
+            EXPLORER_SCROLL_ID,
+            ui,
+            |ui| {
                 ui.set_min_width(tree_width);
                 ui.set_max_width(tree_width);
                 ui.expand_to_include_x(ui.max_rect().left() + tree_width);
@@ -82,7 +83,8 @@ impl ExplorerSurfaceContext<'_> {
                 } else {
                     actions.extend(self.draw_connections(ui));
                 }
-            });
+            },
+        );
         actions
     }
 

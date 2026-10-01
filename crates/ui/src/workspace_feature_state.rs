@@ -6,12 +6,15 @@
 //! composition root one ownership boundary without flattening their APIs.
 
 use super::{WorkspaceFilesState, WorkspaceSessionState, WorkspaceShellState};
+use crate::native_runtime_shell::RsUiShellRuntime;
+use std::{cell::RefCell, rc::Rc};
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub(crate) struct WorkspaceFeatureState {
     pub(super) shell: WorkspaceShellState,
     pub(super) files: WorkspaceFilesState,
     pub(super) sessions: WorkspaceSessionState,
+    pub(super) native_runtime: Rc<RefCell<RsUiShellRuntime>>,
 }
 
 // Keep the shell's established field access readable inside the UI crate while

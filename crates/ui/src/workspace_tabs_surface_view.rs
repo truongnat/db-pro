@@ -47,6 +47,13 @@ impl<'a> WorkspaceTabsViewContext<'a> {
 
     pub(super) fn draw_workspace_tabs(&mut self, ui: &mut egui::Ui) -> Vec<WorkspaceTabsAction> {
         let modifier = Self::primary_modifier_label();
+        let viewport = ui.ctx().screen_rect();
+        let tabs_height = crate::native_runtime_shell::layout_shell(
+            rs_ui_core::Size::new(viewport.width(), viewport.height()),
+            self.workspace.sidebar_width,
+        )
+        .map(|regions| regions.tabs.height())
+        .unwrap_or(crate::native_runtime_shell::TABS_HEIGHT);
 
         // Tab strip flush with CentralPanel; tiny top breath only.
         let tabs_width = ui.available_width();
@@ -66,7 +73,7 @@ impl<'a> WorkspaceTabsViewContext<'a> {
         }
         .show(ui, |ui| {
             let inner = ui.max_rect();
-            ui.set_min_size(egui::vec2(inner.width(), ui.min_rect().height().max(28.0)));
+            ui.set_min_size(egui::vec2(inner.width(), ui.min_rect().height().max(tabs_height)));
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(2.0, 0.0);
 

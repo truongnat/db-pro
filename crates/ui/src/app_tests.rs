@@ -6751,6 +6751,47 @@ fn painted_sidebar(sidebar_width: f32, connections: usize) -> Vec<egui::epaint::
 }
 
 #[test]
+fn sidebar_resize_routes_pointer_delta_through_rs_ui_runtime() {
+    let mut app = DbProApp {
+        workspace: WorkspaceFeatureState {
+            shell: WorkspaceShellState {
+                sidebar_width: 260.0,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        ..DbProApp::default()
+    };
+    let ctx = egui::Context::default();
+    DbProTheme::install_fonts(&ctx);
+    DbProTheme::light().apply(&ctx);
+    let pointer = egui::pos2(260.0, 200.0);
+    let input = |events| egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::Vec2::new(1440.0, 900.0),
+        )),
+        events,
+        ..Default::default()
+    };
+    let _ = ctx.run(input(vec![egui::Event::PointerMoved(pointer)]), |ctx| app.draw_sidebar(ctx));
+    let _ = ctx.run(
+        input(vec![egui::Event::PointerButton {
+            pos: pointer,
+            button: egui::PointerButton::Primary,
+            pressed: true,
+            modifiers: egui::Modifiers::default(),
+        }]),
+        |ctx| app.draw_sidebar(ctx),
+    );
+    let _ = ctx.run(input(vec![egui::Event::PointerMoved(egui::pos2(310.0, 200.0))]), |ctx| {
+        app.draw_sidebar(ctx)
+    });
+
+    assert_eq!(app.workspace.sidebar_width, 310.0);
+}
+
+#[test]
 fn navigator_tree_scrolls_with_the_mouse_wheel() {
     let mut app = DbProApp {
         connection: ConnectionFeatureState {
@@ -6803,6 +6844,13 @@ fn navigator_tree_scrolls_with_the_mouse_wheel() {
         .offset
         .y;
     assert!(offset > 0.0, "mouse wheel did not advance tree offset: {offset}");
+    let rs_ui_offset = app
+        .workspace
+        .native_runtime
+        .borrow()
+        .sidebar_scroll_offset()
+        .expect("rs-ui sidebar scroll state was not registered");
+    assert_eq!(rs_ui_offset, offset, "rs-ui and egui scroll offsets diverged");
 }
 
 /// The area a shape actually covers. `Shape::rect_stroke` paints *entirely outside* its
