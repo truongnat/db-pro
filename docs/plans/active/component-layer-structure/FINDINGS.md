@@ -108,3 +108,10 @@ Review verdict: **ACCEPT WITH P2** for source changes (P0=0, P1=0; P2=1 for nati
 - Verified destructive AlertDialog ignores backdrop clicks but supports explicit cancel/Escape; TransactionBar emits caller-owned actions, and DestructiveOperationDialog requires exact case-sensitive keyword matching after trimming and disables confirmation while invalid. Gallery examples already expose Alert, Command, TransactionBar, and destructive confirmation.
 - Source review found no P0/P1. P2 limits documented: AlertDialog lacks a full focus trap/restore and a busy state; command navigation/dispatch remains caller-owned; transaction surfaces have no busy argument, so callers must suppress repeat actions while work is pending.
 - No database/provider behavior changed; these are presentation and action-intent components only.
+
+## Revised contract — Batch 8
+- Database, Diff, Explain, and SqlEditor already had meaningful UI/handler/config boundaries. Added DESIGN/API contracts, correcting public behavior and limits from implementation and callers; updated SqlEditor README to reflect that Ask AI remains available while a query runs.
+- SqlEditor config duplicated common `ButtonSize::Sm`, `SPACE_XXS`, and `STROKE_THIN` values. Removed those aliases and referenced shared tokens/button size in the UI; retained only toolbar-specific margin and corner composition.
+- Explain conversion remains PostgreSQL EXPLAIN JSON through the query-output bridge. Core/shared parser and renderer budgets are 128 levels and 10,000 nodes; SQLite plan normalization is not claimed or added. Existing tests cover deep/wide truncation, loop aggregation, large metrics, and runtime labels.
+- Database long labels truncate with hover values and status-specific actions; Diff uses horizontal scroll and renders all supplied rows (no virtualization); SqlEditor wraps its fixed action set. These contracts and large-content ceilings are documented. Source review found no P0/P1.
+- No database behavior changed. P2 viewport/keyboard/accessibility runtime evidence remains pending.

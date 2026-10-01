@@ -19,6 +19,6 @@ The component reports intent only. Dispatch the action through the application/r
 - Returns `true` and closes only when the enabled destructive action is clicked with a valid keyword.
 - Returns `false` and closes when Cancel is clicked.
 - Returns `false` and remains open when confirmation is invalid or no action occurs.
-- Escape follows Dialog cancellation and closes the borrowed open flag; `show` then returns `false`.
+- Escape or a backdrop click follows Dialog cancellation and closes the borrowed open flag; `show` then returns `false`.
 
 The caller owns the actual operation and all success/failure feedback. The widget does not support a busy state; prevent duplicate operations in caller state after confirmation.

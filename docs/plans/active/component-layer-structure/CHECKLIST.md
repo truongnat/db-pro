@@ -8,7 +8,7 @@
 - [x] Batch 5: Accordion, Calendar, Collapsible, HoverCard; fix the confirmed Calendar keyboard/accessibility gap and honor reduced motion in shared disclosure controls. Runtime screenshots remain pending at the initiative level.
 - [x] Batch 6: Dialog and Overlay; document focus ownership, dismissal, floating surfaces, toast timing, return values, and current keyboard limits. Source/docs verified; native runtime evidence remains pending at the initiative level.
 - [x] Batch 7: Alert, Command, Transaction; remove Command shared-stroke alias and add Transaction README. Focused and full UI tests, crate checks, Clippy, release build, fmt, diff and clean-code scan passed; runtime evidence remains open.
-- [ ] Batch 8: Database, Diff, Explain, SqlEditor.
+- [x] Batch 8: Database, Diff, Explain, SqlEditor; remove shared `ButtonSize`, stroke, and spacing aliases from SqlEditor config, documenting PostgreSQL-only EXPLAIN JSON conversion. Component/full UI tests, crate checks, Clippy, native release build, fmt, diff, and clean-code scan passed; runtime evidence remains open.
 - [ ] Batch 9: Table, Tree, Workspace.
 - [ ] Batch 10: AgentComposer and AgentPrimitives.
 - [ ] Run the component and workspace gates recorded in `PLAN.md`; do not close the plan while native runtime evidence remains pending.

@@ -441,3 +441,20 @@ The following results supersede the historical isolated-worker blockers above. C
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (13 pass, 3 warning categories, 0 fail). Existing heuristic warnings remain; no new production smell was flagged as a failure.
 - Runtime screenshots/accessibility traversal: NOT RUN. P2 focus/busy limitations above remain documented.
 - P0: 0; P1: 0; P2: runtime evidence and caller-owned busy/focus behavior remain open.
+
+## Revised contract — Batch 8
+- Source/docs implementation SHA: `e6923ab02b80fb55b7548c2e9b6dc8e4caa0ceec` (`refactor(ui): document data component contracts`). Plan evidence commit is recorded separately.
+- API/caller review: PASS. Confirmed public re-exports, connection states/actions and long-label behavior, Diff line model/empty state/horizontal scroll, Explain public model/helpers/provider boundary/budgets, and SqlEditor running/selection action visibility. Shared aliases were removed only from SqlEditor's private config. No database/provider code changed.
+- `cargo test -p db-pro-ui components::database --lib`: PASS (4 passed, 0 failed, 933 filtered out).
+- `cargo test -p db-pro-ui components::diff --lib`: PASS (9 passed, 0 failed, 928 filtered out).
+- `cargo test -p db-pro-ui components::explain --lib`: PASS (16 passed, 0 failed, 921 filtered out).
+- `cargo test -p db-pro-ui components::sql_editor --lib`: PASS (4 passed, 0 failed, 933 filtered out).
+- `cargo test -p db-pro-ui --lib`: PASS (937 passed, 0 failed, 0 ignored).
+- `cargo fmt --all -- --check`: PASS.
+- `cargo check -p db-pro-ui`: PASS.
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS.
+- `cargo build --release --locked -p db-pro-native`: PASS (29.13 s).
+- `git diff --check`: PASS.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (13 pass, 3 warning categories, 0 fail).
+- Performance benchmark/perf scan: NOT RUN; no rendering path or hot-loop algorithm changed in this docs/config-alias batch.
+- Runtime screenshots/accessibility traversal: NOT RUN. P0: 0; P1: 0; P2: runtime evidence remains open. Diff rendering remains O(number of supplied rows) without virtualization and is documented as such.
