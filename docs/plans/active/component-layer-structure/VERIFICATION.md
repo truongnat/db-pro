@@ -14,6 +14,20 @@
 - Review outcome: self-review only; no P0/P1 identified. P2 remains for native screenshots and keyboard/accessibility inspection at required viewports/states. No PostgreSQL/SQLite or backend behavior changed.
 - Runtime screenshot/accessibility evidence: NOT RUN. Initiative remains `IMPLEMENTING`; this batch does not satisfy final runtime gates.
 
+## Revised contract — Batch 2
+- Source baseline SHA: `aa8c51b7d579d95350b28b9e06f654edfe37ccdc`; implementation SHA: `5b45be613bb29f0abc92ec6e10cd6de5c486bf36` (`fix(ui): honor reduced motion in feedback`).
+- Added `DESIGN.md` and `API.md` for Chrome, Feedback, Logs, Nav, ResponsiveLayout, and ScrollArea. No placeholder layers were needed.
+- Routed Skeleton, indeterminate Progress, and Spinner animation through `animation::should_animate`; reduced motion now freezes pulse/shimmer, beam motion, and spinner rotation. Added tests for the shared motion gate and static beam geometry.
+- Removed Chrome radius mirrors, Feedback radius/stroke mirrors, and Logs' renderer token mirrors. No in-repository callers used the removed aliases. Feedback and Logs API documents identify the removed public config aliases and canonical token replacements.
+- `cargo fmt --all -- --check`: PASS (exit 0).
+- `cargo test -p db-pro-ui --lib`: PASS (933 passed, 0 failed, 0 ignored; exit 0).
+- `cargo check -p db-pro-ui`: PASS (exit 0).
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS (exit 0).
+- `cargo build --release --locked -p db-pro-native`: PASS (exit 0).
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (13 pass, 3 warning categories, 0 fail; exit 0). Warnings are heuristic size/parameter/cast findings at existing functions; none identifies new lines added by this batch.
+- `git diff --check`: PASS (exit 0).
+- Review outcome: source self-review only; no P0/P1 remains in scoped source. Runtime screenshots and keyboard/accessibility-tree inspection remain P2 and were NOT RUN. No PostgreSQL/SQLite or backend behavior changed.
+
 ## Button architecture update (2026-10-01)
 
 - Baseline source SHA: `7423aea985fd878f447e229a968eac30cf3868f5`; changes are uncommitted on `main`.
