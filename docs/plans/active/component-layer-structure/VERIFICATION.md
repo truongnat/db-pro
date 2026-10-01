@@ -28,6 +28,20 @@
 - `git diff --check`: PASS (exit 0).
 - Review outcome: source self-review only; no P0/P1 remains in scoped source. Runtime screenshots and keyboard/accessibility-tree inspection remain P2 and were NOT RUN. No PostgreSQL/SQLite or backend behavior changed.
 
+## Revised contract — Batch 3
+- Source baseline SHA: `924f0857d382864cedfe3a80d7c8f44153ab2eef`; implementation SHA: `0c233293158b807daa8282193d25d5bcf5cde117` (`refactor(ui): remove input token aliases`).
+- Added `DESIGN.md`/`API.md` for Input and Form. Existing Input `ui.rs` already owns private Text/Search/Password/Textarea presentation modules; Form's `field`, `rules`, and `state` files already preserve compatibility module paths. Kept `input::layout` unchanged.
+- Removed the four public shared-token aliases from `input::config` and replaced every production use with `RADIUS_XS`, `SPACE_SM`, or `SPACE_XS`. Updated the shared input token contract comment and removed the test that asserted alias values equal their canonical tokens.
+- `cargo fmt --all -- --check`: PASS (exit 0).
+- `cargo test -p db-pro-ui components::input:: --lib`: PASS (12 passed, 0 failed, 0 ignored; 920 filtered; exit 0).
+- `cargo test -p db-pro-ui components::form:: --lib`: PASS (9 passed, 0 failed, 0 ignored; 923 filtered; exit 0).
+- `cargo check -p db-pro-ui`: PASS (exit 0).
+- `cargo clippy -p db-pro-ui --all-targets -- -D warnings`: PASS (exit 0).
+- `cargo build --release --locked -p db-pro-native`: PASS (exit 0).
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (13 pass, 3 warning categories, 0 fail; exit 0). Warning categories match the previously observed inherited cast/parameter/function-size heuristics.
+- `git diff --check`: PASS (exit 0).
+- Review outcome: source self-review only; no P0/P1 identified. External consumers of the four removed config aliases must update imports. Runtime viewport/focus/accessibility inspection remains NOT RUN and open at initiative level.
+
 ## Button architecture update (2026-10-01)
 
 - Baseline source SHA: `7423aea985fd878f447e229a968eac30cf3868f5`; changes are uncommitted on `main`.
