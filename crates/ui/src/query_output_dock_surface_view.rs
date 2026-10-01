@@ -67,10 +67,41 @@ impl QueryOutputDockContext<'_> {
             egui::vec2(RESIZE_GRIP_LINE_THICKNESS, height),
         );
         ui.painter().rect_filled(line_rect, 0.0, color);
+        if grip_response.drag_started() {
+            if let Some(pointer) = grip_response.interact_pointer_pos() {
+                let result = self.workspace.native_runtime.borrow_mut().begin_output_resize(
+                    true,
+                    self.workspace.right_dock_width,
+                    240.0,
+                    1200.0,
+                    rs_ui_core::Point::new(pointer.x, pointer.y),
+                );
+                if let Err(error) = result {
+                    tracing::error!(%error, "rs-ui query dock resize could not start");
+                }
+            }
+        }
         if grip_response.dragged() {
-            let next_width = self.workspace.right_dock_width - grip_response.drag_delta().x;
-            self.workspace.set_right_dock_width(next_width);
+            if let Some(pointer) = grip_response.interact_pointer_pos() {
+            let result = self.workspace.native_runtime.borrow_mut().update_output_resize(
+                true,
+                rs_ui_core::Point::new(pointer.x, pointer.y),
+            );
+            match result {
+                Ok(width) => self.workspace.set_right_dock_width(width),
+                Err(error) => {
+                    tracing::error!(%error, "rs-ui query dock resize failed; applying egui drag delta");
+                    let width = self.workspace.right_dock_width - grip_response.drag_delta().x;
+                    self.workspace.set_right_dock_width(width);
+                }
+            }
             self.editor.query_output_dock_maximized = false;
+            }
+        }
+        if grip_response.drag_stopped() {
+            if let Err(error) = self.workspace.native_runtime.borrow_mut().end_output_resize(true) {
+                tracing::error!(%error, "rs-ui query dock resize could not finish");
+            }
         }
         grip_response.on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
     }
@@ -94,10 +125,41 @@ impl QueryOutputDockContext<'_> {
             egui::vec2(grip_rect.width(), RESIZE_GRIP_LINE_THICKNESS),
         );
         ui.painter().rect_filled(line_rect, 0.0, color);
+        if grip_response.drag_started() {
+            if let Some(pointer) = grip_response.interact_pointer_pos() {
+                let result = self.workspace.native_runtime.borrow_mut().begin_output_resize(
+                    false,
+                    self.workspace.bottom_panel_height,
+                    OUTPUT_MIN_HEIGHT,
+                    OUTPUT_MAX_HEIGHT,
+                    rs_ui_core::Point::new(pointer.x, pointer.y),
+                );
+                if let Err(error) = result {
+                    tracing::error!(%error, "rs-ui bottom panel resize could not start");
+                }
+            }
+        }
         if grip_response.dragged() {
-            let next_height = self.workspace.bottom_panel_height - grip_response.drag_delta().y;
-            self.workspace.set_bottom_panel_height(next_height);
+            if let Some(pointer) = grip_response.interact_pointer_pos() {
+            let result = self.workspace.native_runtime.borrow_mut().update_output_resize(
+                false,
+                rs_ui_core::Point::new(pointer.x, pointer.y),
+            );
+            match result {
+                Ok(height) => self.workspace.set_bottom_panel_height(height),
+                Err(error) => {
+                    tracing::error!(%error, "rs-ui bottom panel resize failed; applying egui drag delta");
+                    let height = self.workspace.bottom_panel_height - grip_response.drag_delta().y;
+                    self.workspace.set_bottom_panel_height(height);
+                }
+            }
             self.editor.query_output_dock_maximized = false;
+            }
+        }
+        if grip_response.drag_stopped() {
+            if let Err(error) = self.workspace.native_runtime.borrow_mut().end_output_resize(false) {
+                tracing::error!(%error, "rs-ui bottom panel resize could not finish");
+            }
         }
         grip_response.on_hover_cursor(egui::CursorIcon::ResizeVertical);
     }

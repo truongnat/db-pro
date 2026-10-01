@@ -1,6 +1,8 @@
 use super::*;
 
 pub(super) struct WorkspaceTabItem<'a> {
+    pub(super) key: &'a str,
+    pub(super) runtime: &'a std::cell::RefCell<crate::native_runtime_shell::RsUiShellRuntime>,
     pub(super) selected: bool,
     pub(super) icon: Icon,
     pub(super) title: &'a str,
@@ -170,9 +172,24 @@ pub(super) fn draw_workspace_tab_item(
     }
 
     let middle_clicked = resp.middle_clicked();
+    let egui_clicked = resp.clicked() && !close_clicked && !context_clicked;
+    let clicked = match item.runtime.borrow_mut().register_workspace_tab(
+        item.key,
+        item.title,
+        item.selected,
+        rect,
+        resp.has_focus(),
+        egui_clicked,
+    ) {
+        Ok(activated) => activated,
+        Err(error) => {
+            tracing::error!(%error, key = item.key, "rs-ui tab activation failed; keeping egui activation");
+            egui_clicked
+        }
+    };
 
     TabChromeAction {
-        clicked: resp.clicked() && !close_clicked && !context_clicked,
+        clicked,
         close_clicked: close_clicked || (middle_clicked && item.show_close),
     }
 }

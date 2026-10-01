@@ -6,8 +6,9 @@
 
 use rs_ui_core::{Rect, Size};
 use rs_ui_runtime::{
-    Align, BehaviorCommand, Constraints, Dimension, LayoutMode, LayoutStyle, NodeId, PaintState, ResizeAxis,
-    ResizeConfig, RuntimeError, ScrollState, UiTree,
+    AccessibilityRole, AccessibilitySemantics, Align, BehaviorCommand, Constraints, Dimension, HitTestState,
+    LayoutMode, LayoutStyle, NodeId, PaintState, PointerEvents, ResizeAxis, ResizeConfig, RuntimeError, ScrollState,
+    UiTree,
 };
 use std::fmt;
 use std::time::Duration;
@@ -197,7 +198,12 @@ fn rect(tree: &UiTree, id: NodeId) -> Result<Rect, ShellLayoutError> {
 pub(crate) struct RsUiShellRuntime {
     tree: UiTree,
     sidebar_splitter: Option<NodeId>,
+    output_splitters: [Option<NodeId>; 2],
     sidebar_scroll: Option<NodeId>,
+    tabs_root: Option<NodeId>,
+    tab_nodes: std::collections::HashMap<String, NodeId>,
+    active_tab_keys: std::collections::HashSet<String>,
+    focused_tab_seen: bool,
     sidebar_width: f32,
     resizing_sidebar: bool,
 }
@@ -208,7 +214,12 @@ impl Default for RsUiShellRuntime {
         Self {
             tree,
             sidebar_splitter: None,
+            output_splitters: [None, None],
             sidebar_scroll: None,
+            tabs_root: None,
+            tab_nodes: std::collections::HashMap::new(),
+            active_tab_keys: std::collections::HashSet::new(),
+            focused_tab_seen: false,
             sidebar_width: 260.0,
             resizing_sidebar: false,
         }
@@ -216,6 +227,165 @@ impl Default for RsUiShellRuntime {
 }
 
 impl RsUiShellRuntime {
+    fn ensure_output_splitter(&mut self, horizontal: bool) -> Result<NodeId, RuntimeError> {
+        let index = usize::from(horizontal);
+        if let Some(node) = self.output_splitters[index] {
+            return Ok(node);
+        }
+        let root = self
+            .tree
+            .create_node(None, LayoutStyle::default(), PaintState::default())?;
+        let splitter = self
+            .tree
+            .create_node(Some(root), LayoutStyle::default(), PaintState::default())?;
+        self.output_splitters[index] = Some(splitter);
+        Ok(splitter)
+    }
+
+    pub(crate) fn begin_output_resize(
+        &mut self,
+        horizontal: bool,
+        value: f32,
+        min: f32,
+        max: f32,
+        pointer: rs_ui_core::Point,
+    ) -> Result<(), RuntimeError> {
+        let splitter = self.ensure_output_splitter(horizontal)?;
+        let axis = if horizontal {
+            ResizeAxis::Horizontal
+        } else {
+            ResizeAxis::Vertical
+        };
+        self.tree.register_resizable(
+            splitter,
+            ResizeConfig {
+                axis,
+                min,
+                max,
+                step: 8.0,
+                reset: value,
+            },
+            value,
+            Some("Query output dock size".to_owned()),
+        )?;
+        self.tree
+            .begin_resize(splitter, invert_splitter_pointer(horizontal, pointer))
+    }
+
+    pub(crate) fn update_output_resize(
+        &mut self,
+        horizontal: bool,
+        pointer: rs_ui_core::Point,
+    ) -> Result<f32, RuntimeError> {
+        let splitter = self.ensure_output_splitter(horizontal)?;
+        self.tree
+            .update_resize(splitter, invert_splitter_pointer(horizontal, pointer))?;
+        self.tree
+            .resizable_value(splitter)
+            .ok_or(RuntimeError::UnknownNode(splitter))
+    }
+
+    pub(crate) fn end_output_resize(&mut self, horizontal: bool) -> Result<(), RuntimeError> {
+        let splitter = self.ensure_output_splitter(horizontal)?;
+        self.tree.end_resize(splitter)
+    }
+
+    fn ensure_tabs_root(&mut self) -> Result<NodeId, RuntimeError> {
+        if let Some(node) = self.tabs_root {
+            return Ok(node);
+        }
+        let root = self
+            .tree
+            .create_node(None, LayoutStyle::default(), PaintState::default())?;
+        self.tree
+            .set_accessibility_semantics(root, AccessibilitySemantics::new(AccessibilityRole::TabList))?;
+        self.tabs_root = Some(root);
+        Ok(root)
+    }
+
+    pub(crate) fn begin_workspace_tabs(&mut self) {
+        self.active_tab_keys.clear();
+        self.focused_tab_seen = false;
+    }
+
+    pub(crate) fn register_workspace_tab(
+        &mut self,
+        key: &str,
+        label: &str,
+        selected: bool,
+        bounds: egui::Rect,
+        focused: bool,
+        clicked: bool,
+    ) -> Result<bool, RuntimeError> {
+        let root = self.ensure_tabs_root()?;
+        let node = if let Some(node) = self.tab_nodes.get(key).copied() {
+            node
+        } else {
+            let node = self
+                .tree
+                .create_node(Some(root), LayoutStyle::default(), PaintState::default())?;
+            self.tree.register_pressable(node, Some(label.to_owned()), false)?;
+            let mut semantics = AccessibilitySemantics::new(AccessibilityRole::Tab);
+            semantics.label = Some(label.to_owned());
+            self.tree.set_accessibility_semantics(node, semantics)?;
+            self.tab_nodes.insert(key.to_owned(), node);
+            node
+        };
+
+        let mut semantics = AccessibilitySemantics::new(AccessibilityRole::Tab);
+        semantics.label = Some(label.to_owned());
+        self.tree.set_accessibility_semantics(node, semantics)?;
+        self.tree.apply_selection_state(node, selected)?;
+        self.tree.set_hit_test_state(
+            node,
+            HitTestState {
+                bounds: rs_ui_core::Rect::from_min_max(
+                    rs_ui_core::Point::new(bounds.min.x, bounds.min.y),
+                    rs_ui_core::Point::new(bounds.max.x, bounds.max.y),
+                ),
+                pointer_events: PointerEvents::Auto,
+                ..HitTestState::default()
+            },
+        )?;
+        self.active_tab_keys.insert(key.to_owned());
+
+        if focused {
+            self.focused_tab_seen = true;
+            let _ = self.tree.request_focus(node)?;
+        }
+        if !clicked {
+            return Ok(false);
+        }
+        let _ = self.tree.request_focus(node)?;
+        let event = self
+            .tree
+            .dispatch_behavior_command(root, BehaviorCommand::Activate, Duration::ZERO)?;
+        Ok(event.default_prevented())
+    }
+
+    pub(crate) fn end_workspace_tabs(&mut self) -> Result<(), RuntimeError> {
+        let focused_tab = self
+            .tree
+            .focus_manager()
+            .focused()
+            .is_some_and(|focused| self.tab_nodes.values().any(|node| *node == focused));
+        if focused_tab && !self.focused_tab_seen {
+            self.tree.clear_focus();
+        }
+        let removed = self
+            .tab_nodes
+            .iter()
+            .filter(|(key, _)| !self.active_tab_keys.contains(*key))
+            .map(|(key, node)| (key.clone(), *node))
+            .collect::<Vec<_>>();
+        for (key, node) in removed {
+            self.tree.remove_subtree(node)?;
+            self.tab_nodes.remove(&key);
+        }
+        self.active_tab_keys.clear();
+        Ok(())
+    }
+
     fn ensure_sidebar_scroll(&mut self) -> Result<NodeId, RuntimeError> {
         if let Some(node) = self.sidebar_scroll {
             return Ok(node);
@@ -363,6 +533,14 @@ impl RsUiShellRuntime {
     }
 }
 
+fn invert_splitter_pointer(horizontal: bool, pointer: rs_ui_core::Point) -> rs_ui_core::Point {
+    if horizontal {
+        rs_ui_core::Point::new(-pointer.x, pointer.y)
+    } else {
+        rs_ui_core::Point::new(pointer.x, -pointer.y)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -419,6 +597,32 @@ mod tests {
     }
 
     #[test]
+    fn output_splitters_apply_resizable_behavior_in_database_dock_direction() {
+        let mut runtime = RsUiShellRuntime::default();
+        runtime
+            .begin_output_resize(true, 480.0, 240.0, 1200.0, rs_ui_core::Point::new(100.0, 100.0))
+            .unwrap();
+        assert_eq!(
+            runtime
+                .update_output_resize(true, rs_ui_core::Point::new(80.0, 100.0))
+                .unwrap(),
+            500.0
+        );
+        runtime.end_output_resize(true).unwrap();
+
+        runtime
+            .begin_output_resize(false, 180.0, 120.0, 640.0, rs_ui_core::Point::new(100.0, 100.0))
+            .unwrap();
+        assert_eq!(
+            runtime
+                .update_output_resize(false, rs_ui_core::Point::new(100.0, 80.0))
+                .unwrap(),
+            200.0
+        );
+        runtime.end_output_resize(false).unwrap();
+    }
+
+    #[test]
     fn sidebar_scroll_state_clamps_wheel_input_to_content_extent() {
         let mut runtime = RsUiShellRuntime::default();
         runtime
@@ -441,5 +645,44 @@ mod tests {
                 .unwrap(),
             0.0
         );
+    }
+
+    #[test]
+    fn workspace_tabs_register_selected_tab_semantics_and_normalized_activation() {
+        let mut runtime = RsUiShellRuntime::default();
+        runtime.begin_workspace_tabs();
+        let bounds = egui::Rect::from_min_size(egui::pos2(10.0, 20.0), egui::vec2(120.0, 28.0));
+
+        assert!(runtime
+            .register_workspace_tab("query:doc-1", "Query 1", true, bounds, true, true)
+            .unwrap());
+        let root = runtime.tabs_root.unwrap();
+        let node = runtime.tab_nodes["query:doc-1"];
+        let mut semantic_tree = rs_ui_runtime::SemanticTree::default();
+        semantic_tree.update(&mut runtime.tree, root).unwrap();
+        let semantic_id = semantic_tree.accessibility_id(node).unwrap();
+        let semantic = semantic_tree.nodes().get(&semantic_id).unwrap();
+
+        assert_eq!(semantic.role, AccessibilityRole::Tab);
+        assert_eq!(semantic.label.as_deref(), Some("Query 1"));
+        assert_eq!(semantic.state.selected, Some(true));
+        assert_eq!(semantic.state.focused, Some(true));
+        assert_eq!(semantic.bounds.unwrap().width(), 120.0);
+    }
+
+    #[test]
+    fn workspace_tab_cleanup_removes_closed_tab_nodes() {
+        let mut runtime = RsUiShellRuntime::default();
+        let bounds = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(100.0, 28.0));
+        runtime.begin_workspace_tabs();
+        runtime
+            .register_workspace_tab("query:closed", "Closed", false, bounds, false, false)
+            .unwrap();
+        runtime.end_workspace_tabs().unwrap();
+        runtime.begin_workspace_tabs();
+        runtime.end_workspace_tabs().unwrap();
+
+        assert!(runtime.tab_nodes.is_empty());
+        assert_eq!(runtime.tree.node_count(), 1);
     }
 }
