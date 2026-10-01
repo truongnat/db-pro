@@ -6750,6 +6750,61 @@ fn painted_sidebar(sidebar_width: f32, connections: usize) -> Vec<egui::epaint::
     ctx.run(input(), |ctx| app.draw_sidebar(ctx)).shapes
 }
 
+#[test]
+fn navigator_tree_scrolls_with_the_mouse_wheel() {
+    let mut app = DbProApp {
+        connection: ConnectionFeatureState {
+            catalog: ConnectionCatalogState {
+                connections: (0..40).map(badged_connection).collect(),
+            },
+            ..Default::default()
+        },
+        workspace: WorkspaceFeatureState {
+            shell: WorkspaceShellState {
+                sidebar_width: 260.0,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        ..DbProApp::default()
+    };
+    let ctx = egui::Context::default();
+    DbProTheme::install_fonts(&ctx);
+    DbProTheme::light().apply(&ctx);
+    let pointer = egui::pos2(100.0, 400.0);
+    let input = |events| egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::Vec2::new(1440.0, 900.0),
+        )),
+        events,
+        ..Default::default()
+    };
+
+    let _ = ctx.run(input(Vec::new()), |ctx| app.draw_sidebar(ctx));
+    let _ = ctx.run(input(vec![egui::Event::PointerMoved(pointer)]), |ctx| app.draw_sidebar(ctx));
+    let _ = ctx.run(
+        input(vec![egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            delta: egui::vec2(0.0, -120.0),
+            modifiers: egui::Modifiers::default(),
+        }]),
+        |ctx| {
+            assert_eq!(ctx.pointer_hover_pos(), Some(pointer));
+            assert!(ctx.input(|input| input.smooth_scroll_delta.y < 0.0));
+            app.draw_sidebar(ctx);
+        },
+    );
+
+    let sidebar_ui_id = egui::Id::new("dbpro_sidebar_content");
+    let scroll_id = sidebar_ui_id.with(egui::Id::new("codex_navigator_scroll"));
+    let offset = egui::scroll_area::State::load(&ctx, scroll_id)
+        .expect("navigator ScrollArea state was not stored")
+        .offset
+        .y;
+    assert!(offset > 0.0, "mouse wheel did not advance tree offset: {offset}");
+}
+
 /// The area a shape actually covers. `Shape::rect_stroke` paints *entirely outside* its
 /// path, so `visual_bounding_rect` under-reports a stroked rect by half the stroke width —
 /// using it would let a border that spills past the clip pass the assertions below.

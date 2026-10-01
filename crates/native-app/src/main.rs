@@ -348,6 +348,7 @@ fn run_native_app(bridge: TaskBridge) -> Result<(), Box<dyn Error>> {
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("DB Pro")
         .with_icon(app_icon)
+        .with_decorations(!cfg!(target_os = "linux"))
         .with_min_inner_size([1024.0, 640.0]);
     viewport = match pinned_size {
         Some(size) => viewport.with_inner_size(size),

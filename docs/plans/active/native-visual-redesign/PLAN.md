@@ -151,7 +151,7 @@ code.
 - make Escape close the overflow popover before closing other Query overlays;
 - verify the default editor-first layout and overflow interaction in a real native runtime.
 
-### Wave 15 — shared theme alignment (current change)
+### Wave 15 — shared theme alignment
 
 - reconcile the live primitive palette with the already-recorded Codex light/dark reference;
 - remove the blue cast from dark neutral surfaces so shell, components and editor surrounds share
@@ -160,6 +160,15 @@ code.
 - keep this wave limited to shared theme tokens and theme regression coverage;
 - leave native runtime visual verification pending for owner review.
 
+### Wave 16 — Linux window controls
+
+- replace Linux window-manager minimize, maximize/restore and close glyphs with compact Lucide
+  controls that match the app's topbar, including focus and close-hover states;
+- retain native move, maximize/restore, minimize, close and edge/corner resize behavior through
+  egui viewport commands;
+- keep native decorations on macOS and Windows;
+- keep native runtime verification pending for owner review.
+
 ### Follow-up waves
 
 - query/editor toolbar reduction and editor-first layout;
@@ -167,6 +176,14 @@ code.
 - ER canvas interaction controls and large-schema runtime smoke coverage;
 - native runtime screenshots at all required dimensions and keyboard/DPI/clipboard/file-picker
   smoke coverage.
+
+### Wave 17 — egui renderer diagnostics
+
+- trace and document the locked egui/epaint/Glow pipeline, color/alpha representations, textures,
+  framebuffer, filtering, DPI and MSAA;
+- record upstream #2071, #7311 and #8283 against the exact dependency version;
+- add a Gallery diagnostics page for alpha, physical-pixel strokes, text and overlays;
+- keep production renderer changes pending until a fork-level test can exercise the real backend.
 
 ## Non-goals
 
@@ -295,3 +312,10 @@ code.
 - Existing Query action behavior remains intact, and Escape closes the overflow popover.
 - Rust fmt/check/clippy/tests, native build and clean-code diff scan pass; fresh dark and light
   runtime screenshots cover the closed and open states.
+
+## Acceptance for Wave 17
+
+- The active Glow and inactive WGPU paths are distinguished in `docs/rendering-analysis.md`.
+- `docs/rendering-history.md` records the upstream history and version boundary.
+- The Gallery page shows alpha, physical-pixel strokes, DPI, text and overlay samples.
+- No production linear-rendering claim is made without a fork-level before/after test.

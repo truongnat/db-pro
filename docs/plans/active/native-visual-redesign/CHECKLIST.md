@@ -150,3 +150,23 @@
 - [x] Add a token-level contrast regression check for text and accent foregrounds.
 - [ ] Verify the revised palette in the native app in light and dark mode.
 - [ ] Complete all-surface traversal and independent review.
+
+## Wave 16 — Linux window controls
+
+- [x] Confirm OS window decorations own the existing Linux control icons.
+- [x] Render app-owned minimize, maximize/restore and close controls with accessible names.
+- [x] Preserve window dragging, double-click maximize and native edge/corner resizing.
+- [x] Add headless coverage that resize starts at the window edge and not in the workspace.
+- [ ] Verify native controls, hover/focus states and resizing in the app.
+- [ ] Complete all-surface traversal and independent review.
+
+## Wave 17 — egui renderer diagnostics
+
+- [x] Confirm registry egui/eframe 0.29.1 with Glow active and WGPU inactive.
+- [x] Trace Color32, tessellation vertices, texture upload/sample, shader and blend state.
+- [x] Record #2071, #7311 and #8283 against the locked version.
+- [x] Add Gallery alpha, physical-pixel stroke, DPI, text and overlay samples.
+- [x] Add regression coverage for the linear reference and pixel-center snapping.
+- [x] Try egui 0.36.2 and restore baseline after its API migration failed compilation.
+- [ ] Capture the diagnostics page in the native app at light/dark and multiple DPIs.
+- [ ] Implement and compare a production linear pipeline in the actual egui fork.

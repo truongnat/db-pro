@@ -308,6 +308,24 @@ independent review are still pending.
 
 Wave 15 changes shared presentation tokens only. No app launch or runtime screenshot was performed.
 
+## Wave 16 — Linux window controls
+
+| Check | Result | Evidence |
+|---|---|---|
+| `cargo fmt --all -- --check` | PASS | Executed 2026-10-01 |
+| `cargo test -p db-pro-ui --lib` | PASS | 938 passed, 0 failed, 0 ignored; executed 2026-10-01 |
+| Window-control click regression | PASS | `linux_window_buttons_emit_viewport_commands_through_resize_overlay` sends minimize, maximize and close through the live resize hit-zone layer |
+| Resize edge/interior regression | PASS | `frameless_window_resize_handles_only_start_native_resize_at_the_edge` |
+| `cargo check -p db-pro-ui -p db-pro-native` | PASS | Executed 2026-10-01 |
+| `cargo clippy -p db-pro-ui --all-targets -- -D warnings` | PASS | Executed 2026-10-01 |
+| `cargo build --release --locked -p db-pro-native` | PASS | Executed 2026-10-01; binary built, not launched |
+| Clean-code diff scan | PASS WITH WARNING | 15 pass, 1 inherited function-length warning, 0 fail |
+| `git diff --check` | PASS | Executed 2026-10-01 |
+| Linux native visual and window-manager verification | PENDING | App deliberately not launched; owner will verify |
+
+These checks validate the headless event path and Rust build. They do not establish that the
+controls look correct or that every Linux compositor honors the drag/resize requests at runtime.
+
 > **Correction (2026-09-14) — V01-06 evidence audit.** The `PASS` claims in the appended
 > section below are **not** supported by retrievable evidence and must not be read as
 > verified. Audited verdict for this workstream: **`EVIDENCE_GAP`**. The audit
@@ -330,3 +348,16 @@ Wave 15 changes shared presentation tokens only. No app launch or runtime screen
 - ~~**Exact Test Counts**: 357 `db-pro-ui` unit/component tests + 21 `db-pro-native` tests PASS.~~ **[CORRECTED 2026-09-14 — V01-06 evidence audit]** Measured today: `db_pro_ui` = 359 passed and `db_pro_native` = 10 passed — the `21` figure is wrong for `db-pro-native` (21 is `db_pro_tauri_lib`, the legacy Tauri host) and `357` is stale for `db-pro-ui`. The original claim is retained above, unretracted.
 - **Zero clipping or visual overlap**: verified across standard resolutions.
 - **Status**: Visual gates satisfied. **[SUPERSEDED 2026-09-14 — V01-06 evidence audit]** This closing status line is not supported by retrievable evidence. Audited verdict: `EVIDENCE_GAP` (see the correction block above and `docs/release/evidence/v01-06/04-v01-01-05-evidence-audit.md` §2). Retained as the original record.
+
+## Wave 17 — egui renderer diagnostics
+
+| Check | Result | Evidence |
+|---|---|---|
+| `cargo fmt --all -- --check` | PASS | Executed 2026-10-01 |
+| Focused rendering tests | PASS | `cargo test -p db-pro-ui component_gallery_rendering --locked --offline`: 2 passed |
+| `cargo test -p db-pro-ui --locked --offline` | PASS | 940 passed, 0 failed |
+| `cargo check -p db-pro-native --locked --offline` | PASS | Executed 2026-10-01 with restored 0.29.1 lockfile |
+| `cargo clippy -p db-pro-ui --all-targets --locked --offline -- -D warnings` | PASS | Executed 2026-10-01 |
+| egui 0.36.2 upgrade experiment | FAILED / REVERTED | `cargo check -p db-pro-native`: 577 API errors; manifests and lockfile restored |
+| Native diagnostics screenshot | PENDING | App not launched; visual/runtime evidence remains open |
+| Production linear renderer and sampler toggles | BLOCKED | No egui fork source in this checkout; active dependency is crates.io 0.29.1 Glow |

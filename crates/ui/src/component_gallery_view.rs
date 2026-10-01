@@ -19,6 +19,7 @@ pub enum GalleryCategory {
     DevTools,
     DatabaseShell,
     AgentUi,
+    Rendering,
 }
 
 #[derive(Debug, Clone)]
@@ -96,6 +97,8 @@ pub struct ComponentGalleryState {
     pub radio_group_val: usize,
     pub alert_dialog_open: bool,
     pub command_query: String,
+    pub show_linear_blend_reference: bool,
+    pub align_strokes_to_pixels: bool,
 }
 
 impl Default for ComponentGalleryState {
@@ -213,6 +216,8 @@ impl Default for ComponentGalleryState {
             radio_group_val: 1,
             alert_dialog_open: false,
             command_query: String::new(),
+            show_linear_blend_reference: false,
+            align_strokes_to_pixels: false,
         }
     }
 }
@@ -380,6 +385,7 @@ impl DbProApp {
                         (GalleryCategory::DevTools, Icon::Code2, "Developer tools"),
                         (GalleryCategory::DatabaseShell, Icon::Database, "Database shell"),
                         (GalleryCategory::AgentUi, Icon::Bot, "Agent UI"),
+                        (GalleryCategory::Rendering, Icon::Eye, "Rendering diagnostics"),
                     ],
                 );
                 });
@@ -429,6 +435,7 @@ impl DbProApp {
             GalleryCategory::DevTools => self.draw_gallery_devtools_section(ui),
             GalleryCategory::DatabaseShell => self.draw_gallery_database_shell_section(ui),
             GalleryCategory::AgentUi => self.draw_gallery_agent_ui_section(ui),
+            GalleryCategory::Rendering => self.draw_gallery_rendering_section(ui),
         }
     }
 

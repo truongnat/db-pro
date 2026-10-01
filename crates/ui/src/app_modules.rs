@@ -48,6 +48,8 @@ mod component_gallery_feedback;
 mod component_gallery_inputs;
 #[path = "component_gallery_overlays.rs"]
 mod component_gallery_overlays;
+#[path = "component_gallery_rendering.rs"]
+mod component_gallery_rendering;
 #[path = "component_gallery_surfaces.rs"]
 mod component_gallery_surfaces;
 #[path = "component_gallery_view.rs"]

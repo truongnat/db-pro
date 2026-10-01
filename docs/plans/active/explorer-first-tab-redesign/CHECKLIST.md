@@ -22,3 +22,9 @@
 - [x] Run `cargo test --workspace` (1327 passed, 41 ignored).
 - [x] Run `cargo build --release --locked -p db-pro-native`.
 - [x] Record exact command outcomes and remaining findings.
+
+## Wheel scrolling regression
+- [x] Reproduce wheel input against a long Explorer tree in a headless `draw_sidebar` test.
+- [x] Keep the scrollable child UI on the SidePanel's actual egui layer.
+- [x] Verify the tree offset advances from mouse wheel input without launching the native app.
+- [ ] Owner verifies wheel scrolling in a real build.

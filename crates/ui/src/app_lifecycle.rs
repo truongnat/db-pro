@@ -20,6 +20,9 @@ impl eframe::App for DbProApp {
         self.draw_shell(ctx);
         self.draw_overlays(ctx);
         ctx.set_cursor_icon(egui::CursorIcon::Default);
+        if cfg!(target_os = "linux") {
+            shell_topbar_view::draw_window_resize_handles(ctx);
+        }
     }
 }
 impl DbProApp {
@@ -171,7 +174,7 @@ impl DbProApp {
 
     fn draw_shell(&mut self, ctx: &egui::Context) {
         let settings_mode = self.workspace.activity == Activity::Settings;
-        if !settings_mode {
+        if !settings_mode || cfg!(target_os = "linux") {
             self.draw_topbar(ctx);
         }
         // Query owns its rich output dock; the shell panel is for other tabs.

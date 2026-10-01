@@ -24,6 +24,7 @@ struct SidebarPanel {
     left: f32,
     y_range: egui::Rangef,
     full: Rect,
+    layer_id: egui::LayerId,
 }
 
 pub(super) fn draw<F>(
@@ -61,16 +62,16 @@ fn draw_panel(context: &SidebarSurfaceContext<'_>, egui_context: &egui::Context)
             ui.painter()
                 .rect_filled(full, egui::Rounding::ZERO, context.theme.surface_panel);
             ui.allocate_rect(full, Sense::hover());
+            (full, ui.layer_id())
         });
+    let (full, layer_id) = response.inner;
     let left = response.response.rect.left();
     let y_range = response.response.rect.y_range();
     SidebarPanel {
         left,
         y_range,
-        full: Rect::from_min_size(
-            Pos2::new(left, response.response.rect.top()),
-            vec2(context.sidebar_width, response.response.rect.height()),
-        ),
+        full,
+        layer_id,
     }
 }
 
@@ -84,7 +85,8 @@ where
     F: FnMut(&mut egui::Ui),
 {
     let content_rect = content_rect(context, panel);
-    let mut ui = sidebar_ui(egui_context, content_rect);
+    // Keep pointer hit-testing on the panel's layer so the tree ScrollArea can receive wheel input.
+    let mut ui = sidebar_ui(egui_context, content_rect, panel.layer_id);
     let chrome = SidebarChromeContext {
         theme: context.theme,
         active_name: context.active_name,
@@ -115,9 +117,8 @@ fn content_rect(context: &SidebarSurfaceContext<'_>, panel: &SidebarPanel) -> Re
     )
 }
 
-fn sidebar_ui(egui_context: &egui::Context, content_rect: Rect) -> egui::Ui {
+fn sidebar_ui(egui_context: &egui::Context, content_rect: Rect, layer_id: egui::LayerId) -> egui::Ui {
     let id = egui::Id::new("dbpro_sidebar_content");
-    let layer_id = egui::LayerId::new(egui::Order::Middle, id);
     let mut ui = egui::Ui::new(
         egui_context.clone(),
         layer_id,

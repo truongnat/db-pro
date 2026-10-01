@@ -301,6 +301,38 @@ The execution payload, duration, export behavior and provider routing are unchan
 The remaining all-workspace light/dark traversal, provider review and independent review remain open
 under the plan.
 
+## Wave 17 finding — renderer source is an external dependency
+
+At baseline `0f1b34dbb147ce130a6ae5899c2523f816adb0b`, this checkout is DB Pro, not an egui fork.
+It resolves egui/eframe 0.29.1 from crates.io; `db-pro-native` activates Glow, not WGPU. Glow uses
+premultiplied-alpha blend factors and gamma-space shader arithmetic, while `Color32` encodes RGB
+after premultiplying in linear light. Changing only blend factors would mishandle stored channels
+and texture coverage.
+
+The suggested egui 0.36.2 upgrade was tried. The resolver succeeded, then `cargo check -p
+db-pro-native` failed with 577 API errors in `db-pro-ui`, including removed `Rounding`, panel/style
+changes, and the new `eframe::App::ui` entry point. Manifests and lockfile were restored to 0.29.1.
+MSAA was already off by default (`NativeOptions::multisampling = 0`). The WGPU-only
+`predictable_texture_filtering` option cannot affect the active Glow app.
+
+The diagnostics page is in the Gallery. Runtime screenshots and a production renderer patch remain
+pending: the egui fork source and a backend-level comparison seam are absent from this checkout.
+The computed linear swatches are references, not a second renderer.
+
+## Wave 16 finding — P2 Linux window controls
+
+At baseline `0f1b34dbb147ce130a6ae5899c2523f816adb0b1`, `run_native_app` left window decorations
+at the window-manager default, so egui could not control the minimize, maximize and close glyphs.
+This produced window chrome that did not match the app's Lucide/Codex visual language.
+
+The current uncommitted change disables OS decorations on Linux only and draws accessible Lucide
+controls in the shell topbar. A headless click test showed that a single foreground `Area` spanning
+the viewport blocked all three control buttons. Replacing it with eight small edge/corner Areas
+restored all button actions while retaining native resize requests. The connection/product label
+starts native dragging and double-click toggles maximize. Resize handles disappear while maximized
+or fullscreen; Windows and macOS retain native decorations. The app has not been launched, so Linux
+compositor behavior and the visual result remain pending owner verification.
+
 ## Wave 14 audit finding
 
 ### P2 — Query secondary controls competed with the editor

@@ -68,7 +68,6 @@ impl ExplorerSurfaceContext<'_> {
             .max(ui.available_width())
             .min(ui.clip_rect().width());
         let scroll_h = ui.available_height();
-        self.forward_wheel_to_tree_scroll(ui);
         egui::ScrollArea::vertical()
             .id_salt(EXPLORER_SCROLL_ID)
             .auto_shrink([false, false])
@@ -85,25 +84,6 @@ impl ExplorerSurfaceContext<'_> {
                 }
             });
         actions
-    }
-
-    fn forward_wheel_to_tree_scroll(&self, ui: &mut egui::Ui) {
-        if !ui.rect_contains_pointer(ui.max_rect()) {
-            return;
-        }
-
-        let wheel_delta_y = ui.ctx().input(|input| input.smooth_scroll_delta.y);
-        if wheel_delta_y.abs() <= f32::EPSILON {
-            return;
-        }
-
-        let scroll_id = ui.make_persistent_id(egui::Id::new(EXPLORER_SCROLL_ID));
-        let mut state = egui::scroll_area::State::load(ui.ctx(), scroll_id).unwrap_or_default();
-        state.offset.y = apply_vertical_wheel_delta(state.offset.y, wheel_delta_y);
-        state.store(ui.ctx(), scroll_id);
-        ui.ctx().input_mut(|input| {
-            input.smooth_scroll_delta.y = 0.0;
-        });
     }
 
     fn draw_toolbar(&mut self, ui: &mut egui::Ui) -> Vec<ExplorerSurfaceAction> {
@@ -190,24 +170,5 @@ impl ExplorerSurfaceContext<'_> {
             table_info: self.table_info.clone(),
             functions_enabled: self.functions_enabled,
         }
-    }
-}
-
-fn apply_vertical_wheel_delta(current_offset: f32, wheel_delta_y: f32) -> f32 {
-    (current_offset - wheel_delta_y).max(0.0)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::apply_vertical_wheel_delta;
-
-    #[test]
-    fn vertical_wheel_delta_advances_explorer_scroll_offset() {
-        assert_eq!(apply_vertical_wheel_delta(10.0, -48.0), 58.0);
-    }
-
-    #[test]
-    fn vertical_wheel_delta_never_scrolls_before_top() {
-        assert_eq!(apply_vertical_wheel_delta(10.0, 48.0), 0.0);
     }
 }

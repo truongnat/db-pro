@@ -34,9 +34,19 @@
 **Evidence:** the connection row passed `is_selected: false` for every lifecycle state, even though the connected row represents the active connection.  
 **Decision:** render the connected connection as selected, using the existing selected-row token treatment. The current runtime fixture could not reach connected state, so this visual branch remains source-verified only.
 
+### F-5 — Explorer tree ignored mouse-wheel input
+
+**Severity:** P2 (navigation usability)
+
+**Evidence:** a headless test rendered 40 connections through `DbProApp::draw_sidebar`, placed the pointer inside the tree, and sent a vertical `MouseWheel` event. egui received a negative `smooth_scroll_delta`, but the persisted tree offset stayed at zero.
+
+**Root cause:** `sidebar_ui` was constructed with a new `LayerId::Middle` that did not match the SidePanel layer under the pointer. egui's `ScrollArea` only consumes wheel input when its UI layer is the top layer at that point.
+
+**Decision:** reuse the layer id returned by the actual SidePanel when constructing its content UI, then rely on egui's built-in scroll handling. The manual wheel-to-offset workaround was removed.
+
 ## Self-review
 
-- **P0:** 0. **P1:** 0. **P2:** 4 (F-1–F-4; F-1/F-2 are scoped dispositions).
+- **P0:** 0. **P1:** 0. **P2:** 5 (F-1–F-5; F-1/F-2 are scoped dispositions).
 - No action variants, reducer mappings, database commands, provider capabilities, or persistence formats changed.
 - The `Connecting…` row opens only by default when no persisted disclosure state exists; users can still collapse it.
 - The connected-row selected treatment derives from the existing `is_connected` state.

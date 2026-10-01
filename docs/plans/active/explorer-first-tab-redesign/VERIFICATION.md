@@ -38,10 +38,31 @@ requested but not achieved. The error state has not been captured.
 | `cargo build --release --locked -p db-pro-native` | PASS | Executed; release profile completed |
 | Clean-code scan (`rust --diff --ratchet --ci`) | PASS — 16 checks | 2 changed production Rust files; 0 warnings |
 
+## Mouse-wheel regression
+
+| Command | Before fix | After fix |
+|---|---|---|
+| `cargo test -p db-pro-ui navigator_tree_scrolls_with_the_mouse_wheel --lib -- --nocapture` | FAIL: `mouse wheel did not advance tree offset: 0` | PASS: 1 passed, 0 failed |
+
+The test exercises the real sidebar render path with 40 connection rows, a pointer over the tree,
+and an egui `MouseWheel` event. It verifies the stored ScrollArea offset advances. The native app
+was not launched; owner verification on a real build remains pending.
+
+## Post-fix source gates
+
+| Command | Result |
+|---|---|
+| `cargo fmt --all -- --check` | PASS |
+| `cargo test -p db-pro-ui --lib` | PASS — 936 passed, 0 failed, 0 ignored |
+| `cargo check -p db-pro-ui` | PASS |
+| `cargo clippy -p db-pro-ui --all-targets -- -D warnings` | PASS |
+| `cargo build --release --locked -p db-pro-native` | PASS — built only; not launched |
+| `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci` | PASS — 16 checks, 0 warnings/failures |
+| `git diff --check` | PASS |
+
 ## Provider matrix
 
 | Provider | Supported behavior changed | Automated evidence | Live runtime evidence | Capability gate |
 |---|---|---|---|---|
 | PostgreSQL | No | N/A | N/A — visual-only | Existing capability/state unchanged |
 | SQLite | No | N/A | N/A — visual-only | Existing capability/state unchanged |
-
