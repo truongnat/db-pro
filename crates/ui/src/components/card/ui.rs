@@ -195,7 +195,7 @@ impl<'a> MetricCard<'a> {
             ui.label(
                 RichText::new(self.title.as_ref())
                     .font(crate::DbProTheme::ui_medium_font(METRIC_TITLE_SIZE))
-                    .color(self.theme.text_tertiary),
+                    .color(self.theme.text_secondary),
             );
             if let Some(icon_glyph) = self.icon {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

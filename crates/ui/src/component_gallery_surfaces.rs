@@ -173,27 +173,34 @@ impl DbProApp {
             "Composite containers and statistical overview cards.",
         );
 
-        ui.columns(2, |columns| {
-            MetricCard::new("Active connections", "8 / 10", theme)
-                .change("+2 this session", true)
-                .icon(Icon::Database)
-                .show(&mut columns[0]);
-            MetricCard::new("Queries today", "14,289", theme)
-                .change("+18.4% vs yesterday", true)
-                .icon(Icon::Terminal)
-                .show(&mut columns[1]);
-        });
-        ui.add_space(12.0);
-        ui.columns(2, |columns| {
-            MetricCard::new("Slow query rate", "0.42%", theme)
-                .trend("−0.15% vs last week", MetricTrendDirection::Down, MetricTrendTone::Positive)
-                .icon(Icon::Gauge)
-                .show(&mut columns[0]);
-            MetricCard::new("Staged mutations", "3", theme)
-                .trend("Needs review", MetricTrendDirection::Unspecified, MetricTrendTone::Warning)
-                .icon(Icon::FileEdit)
-                .show(&mut columns[1]);
-        });
+        let metric_min_width = 240.0;
+        let metric_columns = if ui.available_width() >= metric_min_width * 4.0 + SPACE_MD * 3.0 {
+            4
+        } else {
+            2
+        };
+
+        ResponsiveGrid::new(metric_min_width)
+            .gap(SPACE_MD)
+            .max_columns(metric_columns)
+            .show(ui, [0_u8, 1, 2, 3], |cell, metric| match metric {
+                0 => MetricCard::new("Active connections", "8 / 10", theme)
+                    .change("+2 this session", true)
+                    .icon(Icon::Database)
+                    .show(cell),
+                1 => MetricCard::new("Queries today", "14,289", theme)
+                    .change("+18.4% vs yesterday", true)
+                    .icon(Icon::Terminal)
+                    .show(cell),
+                2 => MetricCard::new("Slow query rate", "0.42%", theme)
+                    .trend("−0.15% vs last week", MetricTrendDirection::Down, MetricTrendTone::Positive)
+                    .icon(Icon::Gauge)
+                    .show(cell),
+                _ => MetricCard::new("Staged mutations", "3", theme)
+                    .trend("Needs review", MetricTrendDirection::Unspecified, MetricTrendTone::Warning)
+                    .icon(Icon::FileEdit)
+                    .show(cell),
+            });
     }
 
     pub(super) fn draw_gallery_devtools_section(&mut self, ui: &mut Ui) {

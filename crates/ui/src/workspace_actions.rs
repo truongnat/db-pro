@@ -435,13 +435,15 @@ impl DbProApp {
 
     /// Capture helper: open the native Component Gallery in its canonical dark theme.
     pub fn open_component_gallery_for_capture(&mut self) {
-        self.preferences.dark_mode = true;
-        self.theme = DbProTheme::dark();
+        let light = std::env::var_os("DB_PRO_CAPTURE_GALLERY_LIGHT").is_some();
+        self.preferences.dark_mode = !light;
+        self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
         self.gallery_state = ComponentGalleryState::default();
         self.gallery_state.category = match std::env::var("DB_PRO_CAPTURE_GALLERY_SECTION").as_deref() {
             Ok("form") | Ok("form-error") | Ok("disclosure") | Ok("calendar") => {
                 component_gallery_view::GalleryCategory::Inputs
             }
+            Ok("cards") => component_gallery_view::GalleryCategory::Cards,
             Ok("selection") => component_gallery_view::GalleryCategory::Selection,
             _ => component_gallery_view::GalleryCategory::Badges,
         };
