@@ -258,8 +258,9 @@ impl<'a> Button<'a> {
         } else {
             ButtonPalette::disabled(self.theme)
         };
-        let galley = ui.fonts(|fonts| fonts.layout_job(content_job(&self, tokens, Color32::PLACEHOLDER)));
-        let width = tokens.calculate_width(galley.size().x, self.full_width, ui.available_width());
+        let label_layout =
+            ui.fonts(|fonts| fonts.layout_job(button_label_layout_job(&self, tokens, Color32::PLACEHOLDER)));
+        let width = tokens.calculate_width(label_layout.size().x, self.full_width, ui.available_width());
         let (rect, response) = allocate_interactive_button(
             ui,
             InteractiveAllocation {
@@ -295,7 +296,7 @@ impl<'a> Button<'a> {
                 paint_rect: pressed_rect(rect, press),
                 fill,
                 stroke,
-                galley: &galley,
+                galley: &label_layout,
                 text_color: if self.enabled {
                     palette.text_on_fill(self.variant, fill, self.theme)
                 } else {
@@ -403,10 +404,10 @@ fn paint_interactive_surface(ui: &mut Ui, layout: InteractiveLayout<'_>) {
     }
 }
 
-fn content_job(button: &Button<'_>, tokens: &SizeTokens, text_color: Color32) -> LayoutJob {
-    let mut job = LayoutJob::default();
+fn button_label_layout_job(button: &Button<'_>, tokens: &SizeTokens, text_color: Color32) -> LayoutJob {
+    let mut label_layout = LayoutJob::default();
     if let Some(icon) = button.icon {
-        job.append(
+        label_layout.append(
             &char::from(icon).to_string(),
             0.0,
             TextFormat {
@@ -416,11 +417,11 @@ fn content_job(button: &Button<'_>, tokens: &SizeTokens, text_color: Color32) ->
             },
         );
         if button.label.is_some() {
-            job.append("  ", 0.0, TextFormat::default());
+            label_layout.append("  ", 0.0, TextFormat::default());
         }
     }
     if let Some(ref text) = button.label {
-        job.append(
+        label_layout.append(
             text.as_ref(),
             0.0,
             TextFormat {
@@ -430,7 +431,7 @@ fn content_job(button: &Button<'_>, tokens: &SizeTokens, text_color: Color32) ->
             },
         );
     }
-    job
+    label_layout
 }
 
 #[cfg(test)]

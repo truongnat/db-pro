@@ -3,7 +3,7 @@ use crate::tokens::{
     font_caption, FONT_SIZE_CAPTION, RADIUS_COMPOSER, RADIUS_XS, SPACE_MD, SPACE_SM, SPACE_XS, STROKE_THIN,
 };
 use crate::DbProTheme;
-use egui::{Color32, Rect, RichText, Rounding, Stroke, Ui};
+use egui::{Color32, Rect, RichText, Rounding, Stroke, Ui, WidgetInfo, WidgetType};
 use lucide_icons::Icon;
 
 use super::{handler, AgentComposerAction, AgentMode};
@@ -65,6 +65,7 @@ impl<'a> AgentComposer<'a> {
                 .frame(false)
                 .hint_text("Ask AI to generate, optimize, or investigate SQL queries...");
             let edit_resp = ui.add(text_edit);
+            edit_resp.widget_info(|| WidgetInfo::labeled(WidgetType::TextEdit, true, "Prompt"));
             let enter_pressed = ui.input(|input| input.key_pressed(egui::Key::Enter));
             let shift_held = ui.input(|input| input.modifiers.shift);
             if let Some(action) =

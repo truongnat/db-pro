@@ -1,4 +1,3 @@
-use crate::components::{Button, ButtonSize, ButtonVariant};
 use crate::tokens::{font_icon, RADIUS_MD, RADIUS_SM};
 use crate::DbProTheme;
 use egui::{
@@ -7,7 +6,6 @@ use egui::{
 use lucide_icons::Icon;
 
 use super::{config, handler, ContextChipKind, StatusBadgeVariant, ToolCallStatus};
-use super::{AgentPlan, AgentSqlActionKind, AgentTaskItem, ExecutionApprovalAction};
 
 pub struct ContextChip<'a> {
     kind: ContextChipKind,
@@ -74,16 +72,19 @@ impl<'a> ContextChip<'a> {
         );
 
         if !self.removable {
-            return ui.interact(rect, response.id, Sense::click());
+            let chip_response = ui.interact(rect, response.id, Sense::click());
+            chip_response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, true, self.label));
+            return chip_response;
         }
 
         // A removable chip exposes the close glyph as the sole click target so its
         // returned Response is an unambiguous removal request for the caller.
         let remove_rect = handler::context_chip_remove_rect(rect);
+        let remove_label = format!("Remove context: {}", self.label);
         let remove_response = ui
             .interact(remove_rect, response.id.with("remove"), Sense::click())
-            .on_hover_text("Remove context");
-        remove_response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, true, "Remove context"));
+            .on_hover_text(&remove_label);
+        remove_response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, true, &remove_label));
         let remove_color = if remove_response.hovered() {
             self.theme.text_primary
         } else {
@@ -138,6 +139,7 @@ impl<'a> StatusBadge<'a> {
             Color32::PLACEHOLDER,
         );
 
+        response.widget_info(|| WidgetInfo::labeled(WidgetType::Label, true, self.text));
         response
     }
 }
@@ -360,353 +362,3 @@ impl<'a> ToolCall<'a> {
             .response
     }
 }
-
-pub struct ExecutionApproval<'a> {
-    title: &'a str,
-    impact: &'a str,
-    sql_preview: &'a str,
-    risk: super::RiskLevel,
-    theme: DbProTheme,
-}
-
-impl<'a> ExecutionApproval<'a> {
-    pub fn new(
-        title: &'a str,
-        impact: &'a str,
-        sql_preview: &'a str,
-        risk: super::RiskLevel,
-        theme: DbProTheme,
-    ) -> Self {
-        Self {
-            title,
-            impact,
-            sql_preview,
-            risk,
-            theme,
-        }
-    }
-
-    pub fn show(self, ui: &mut Ui) -> Option<ExecutionApprovalAction> {
-        let frame = egui::Frame::none()
-            .fill(self.theme.surface_panel)
-            .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_default))
-            .rounding(Rounding::same(config::APPROVAL_RADIUS))
-            .inner_margin(egui::Margin::same(config::APPROVAL_PADDING));
-        let mut button_actions = [false; 3];
-
-        frame.show(ui, |ui| {
-            ui.set_width(ui.available_width());
-
-            // Risk mapping is decided before painting so every risk level follows one
-            // typed policy; the header only renders the returned label and badge variant.
-            ui.horizontal_wrapped(|ui| {
-                ui.label(
-                    RichText::new(self.title)
-                        .size(config::APPROVAL_TITLE_SIZE)
-                        .strong()
-                        .color(self.theme.text_primary),
-                );
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let (risk_text, risk_variant) = handler::risk_badge(self.risk);
-                    StatusBadge::new(risk_text, risk_variant, self.theme).show(ui);
-                });
-            });
-            ui.add_space(config::APPROVAL_TITLE_GAP);
-
-            ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new("Impact:")
-                        .size(config::APPROVAL_BODY_SIZE)
-                        .strong()
-                        .color(self.theme.text_secondary),
-                );
-                ui.label(
-                    RichText::new(self.impact)
-                        .size(config::APPROVAL_BODY_SIZE)
-                        .color(self.theme.text_primary),
-                );
-            });
-            ui.add_space(config::APPROVAL_CODE_GAP);
-
-            let code_frame = egui::Frame::none()
-                .fill(self.theme.surface_editor)
-                .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_subtle))
-                .rounding(Rounding::same(config::APPROVAL_CODE_RADIUS))
-                .inner_margin(egui::Margin::same(config::APPROVAL_CODE_PADDING));
-            code_frame.show(ui, |ui| {
-                ui.set_width(ui.available_width());
-                ui.label(
-                    RichText::new(self.sql_preview)
-                        .monospace()
-                        .size(config::APPROVAL_BODY_SIZE)
-                        .color(self.theme.text_primary),
-                );
-            });
-            ui.add_space(config::APPROVAL_ACTION_GAP);
-
-            let (run_variant, preview_variant) = handler::approval_button_variants(self.risk);
-            ui.horizontal_wrapped(|ui| {
-                button_actions[0] = Button::new(self.theme)
-                    .text("Run Changes")
-                    .variant(run_variant)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked();
-                ui.add_space(config::APPROVAL_BUTTON_GAP);
-                button_actions[1] = Button::new(self.theme)
-                    .text("Preview SQL")
-                    .variant(preview_variant)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked();
-                ui.add_space(config::APPROVAL_BUTTON_GAP);
-                button_actions[2] = Button::new(self.theme)
-                    .text("Cancel")
-                    .variant(ButtonVariant::Ghost)
-                    .size(ButtonSize::Sm)
-                    .show(ui)
-                    .clicked();
-            });
-        });
-
-        handler::approval_action(button_actions[0], button_actions[1], button_actions[2])
-    }
-}
-
-pub struct AgentThinking<'a> {
-    thought: &'a str,
-    duration: Option<&'a str>,
-    step_count: Option<usize>,
-    is_active: bool,
-    expanded: &'a mut bool,
-    theme: DbProTheme,
-}
-
-impl<'a> AgentThinking<'a> {
-    pub fn new(thought: &'a str, expanded: &'a mut bool, theme: DbProTheme) -> Self {
-        Self {
-            thought,
-            duration: None,
-            step_count: None,
-            is_active: false,
-            expanded,
-            theme,
-        }
-    }
-
-    pub fn duration(mut self, duration: &'a str) -> Self {
-        self.duration = Some(duration);
-        self
-    }
-
-    pub fn step_count(mut self, count: usize) -> Self {
-        self.step_count = Some(count);
-        self
-    }
-
-    pub fn is_active(mut self, active: bool) -> Self {
-        self.is_active = active;
-        self
-    }
-
-    pub fn show(self, ui: &mut Ui) -> Response {
-        let is_expanded = *self.expanded;
-        let header = handler::thinking_header(self.is_active, self.duration, self.step_count);
-        let frame = egui::Frame::none()
-            .fill(self.theme.surface_panel)
-            .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_subtle))
-            .rounding(Rounding::same(config::THINKING_RADIUS))
-            .inner_margin(egui::Margin::symmetric(
-                config::THINKING_HORIZONTAL_PADDING,
-                config::THINKING_VERTICAL_PADDING,
-            ));
-
-        let frame_resp = frame.show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            let (header_rect, header_resp) = ui.allocate_exact_size(
-                Vec2::new(ui.available_width(), config::THINKING_HEADER_HEIGHT),
-                Sense::click(),
-            );
-            let keyboard_toggle = if header_resp.has_focus() {
-                ui.input_mut(|input| {
-                    [egui::Key::Space, egui::Key::Enter]
-                        .into_iter()
-                        .any(|key| input.consume_key(egui::Modifiers::NONE, key))
-                })
-            } else {
-                false
-            };
-            header_resp.widget_info(|| {
-                WidgetInfo::selected(WidgetType::CollapsingHeader, true, *self.expanded, &header.title)
-            });
-            if header_resp.has_focus() {
-                ui.painter().rect_stroke(
-                    header_rect,
-                    Rounding::same(config::THINKING_HEADER_RADIUS),
-                    Stroke::new(1.5, self.theme.border_strong),
-                );
-            }
-            if header_resp.hovered() {
-                ui.painter().rect_filled(
-                    header_rect,
-                    Rounding::same(config::THINKING_HEADER_RADIUS),
-                    self.theme.surface_hover,
-                );
-            }
-
-            // Egui supplies input/click signals; the handler supplied the icon and title.
-            // This keeps expansion and copy/label rules independent from painting.
-            ui.painter().text(
-                Pos2::new(header_rect.left() + config::THINKING_CHEVRON_X, header_rect.center().y),
-                Align2::CENTER_CENTER,
-                char::from(if is_expanded {
-                    Icon::ChevronDown
-                } else {
-                    Icon::ChevronRight
-                })
-                .to_string(),
-                font_icon(config::ICON_SMALL_SIZE),
-                self.theme.text_secondary,
-            );
-            let icon_color = if self.is_active {
-                self.theme.accent
-            } else {
-                self.theme.text_secondary
-            };
-            ui.painter().text(
-                Pos2::new(header_rect.left() + config::THINKING_ICON_X, header_rect.center().y),
-                Align2::CENTER_CENTER,
-                char::from(header.icon).to_string(),
-                font_icon(config::ICON_STATUS_SIZE),
-                icon_color,
-            );
-            ui.painter().text(
-                Pos2::new(header_rect.left() + config::THINKING_TITLE_X, header_rect.center().y),
-                Align2::LEFT_CENTER,
-                header.title,
-                FontId::proportional(config::THINKING_TEXT_SIZE),
-                icon_color,
-            );
-
-            let should_toggle =
-                handler::disclosure_activation(header_resp.clicked(), header_resp.has_focus(), keyboard_toggle);
-            handler::toggle_expanded(self.expanded, should_toggle);
-            if is_expanded {
-                ui.add_space(config::THINKING_BODY_GAP);
-                let body_frame = egui::Frame::none()
-                    .fill(self.theme.surface_editor)
-                    .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_subtle))
-                    .rounding(Rounding::same(config::THINKING_BODY_RADIUS))
-                    .inner_margin(egui::Margin::same(config::THINKING_BODY_PADDING));
-                body_frame.show(ui, |ui| {
-                    ui.set_width(ui.available_width());
-                    ui.label(
-                        RichText::new(self.thought)
-                            .size(config::TEXT_BODY_MONO_SIZE)
-                            .monospace()
-                            .color(self.theme.text_secondary),
-                    );
-                });
-            }
-        });
-
-        frame_resp.response
-    }
-}
-
-impl<'a> AgentPlan<'a> {
-    pub fn new(title: &'a str, tasks: &'a [AgentTaskItem], theme: DbProTheme) -> Self {
-        Self { title, tasks, theme }
-    }
-
-    pub fn show(self, ui: &mut Ui) -> Response {
-        let (completed, total, progress) = handler::plan_progress(self.tasks);
-        let frame = egui::Frame::none()
-            .fill(self.theme.surface_panel)
-            .stroke(Stroke::new(config::FRAME_BORDER_WIDTH, self.theme.border_default))
-            .rounding(Rounding::same(config::PLAN_RADIUS))
-            .inner_margin(egui::Margin::same(config::PLAN_PADDING));
-
-        let frame_resp = frame.show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new(self.title)
-                        .size(config::PLAN_TITLE_SIZE)
-                        .strong()
-                        .color(self.theme.text_primary),
-                );
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(
-                        RichText::new(format!("{}/{} completed", completed, total))
-                            .size(config::PLAN_META_SIZE)
-                            .color(self.theme.text_secondary),
-                    );
-                });
-            });
-            ui.add_space(config::PLAN_PROGRESS_GAP);
-
-            let (bar_rect, _) = ui.allocate_exact_size(
-                Vec2::new(ui.available_width(), config::PLAN_PROGRESS_HEIGHT),
-                Sense::hover(),
-            );
-            ui.painter().rect_filled(
-                bar_rect,
-                Rounding::same(config::PLAN_PROGRESS_RADIUS),
-                self.theme.surface_hover,
-            );
-            if progress > 0.0 {
-                let filled_rect =
-                    Rect::from_min_size(bar_rect.min, Vec2::new(bar_rect.width() * progress, bar_rect.height()));
-                ui.painter().rect_filled(
-                    filled_rect,
-                    Rounding::same(config::PLAN_PROGRESS_RADIUS),
-                    self.theme.accent,
-                );
-            }
-            ui.add_space(config::PLAN_TASK_LIST_TOP_SPACE);
-
-            for (index, task) in self.tasks.iter().enumerate() {
-                let visual = handler::task_visual(self.theme, task.status);
-                ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new(char::from(visual.icon).to_string())
-                            .font(font_icon(config::PLAN_TASK_ICON_SIZE))
-                            .color(visual.icon_color),
-                    );
-                    ui.add_space(config::PLAN_TASK_ICON_TEXT_GAP);
-                    ui.label(
-                        RichText::new(format!("{}. {}", index + 1, &task.title))
-                            .size(config::PLAN_TASK_TITLE_SIZE)
-                            .color(visual.title_color),
-                    );
-                    if let Some(detail) = &task.detail {
-                        ui.label(
-                            RichText::new(format!("({})", detail))
-                                .size(config::PLAN_TASK_DETAIL_SIZE)
-                                .color(self.theme.text_tertiary),
-                        );
-                    }
-                });
-                if index + 1 < self.tasks.len() {
-                    ui.add_space(config::PLAN_TASK_GAP);
-                }
-            }
-        });
-
-        frame_resp.response
-    }
-}
-
-impl AgentSqlActionKind {
-    pub fn label(&self) -> &'static str {
-        handler::sql_action_label(*self)
-    }
-
-    pub fn icon(&self) -> Icon {
-        handler::sql_action_icon(*self)
-    }
-}
-
-// Keep the small public component data model in `mod.rs`; this file remains the
-// only place where egui widgets, measurements, allocation, and paint commands run.

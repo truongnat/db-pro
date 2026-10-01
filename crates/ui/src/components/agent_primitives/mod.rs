@@ -1,8 +1,12 @@
+mod approval_ui;
 mod config;
+mod disclosure_ui;
 mod handler;
 mod ui;
 
-pub use ui::{AgentThinking, ContextChip, ExecutionApproval, StatusBadge, ToolCall};
+pub use approval_ui::ExecutionApproval;
+pub use disclosure_ui::AgentThinking;
+pub use ui::{ContextChip, StatusBadge, ToolCall};
 
 use lucide_icons::Icon;
 

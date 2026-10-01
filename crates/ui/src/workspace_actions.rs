@@ -440,11 +440,22 @@ impl DbProApp {
         self.theme = if light { DbProTheme::light() } else { DbProTheme::dark() };
         self.gallery_state = ComponentGalleryState::default();
         self.gallery_state.category = match std::env::var("DB_PRO_CAPTURE_GALLERY_SECTION").as_deref() {
+            Ok("buttons") => component_gallery_view::GalleryCategory::Buttons,
+            Ok("badges") => component_gallery_view::GalleryCategory::Badges,
             Ok("form") | Ok("form-error") | Ok("disclosure") | Ok("calendar") => {
                 component_gallery_view::GalleryCategory::Inputs
             }
             Ok("cards") => component_gallery_view::GalleryCategory::Cards,
             Ok("selection") => component_gallery_view::GalleryCategory::Selection,
+            Ok("layout") => component_gallery_view::GalleryCategory::Layout,
+            Ok("alerts") => component_gallery_view::GalleryCategory::Alerts,
+            Ok("feedback") => component_gallery_view::GalleryCategory::Feedback,
+            Ok("overlays") => component_gallery_view::GalleryCategory::Overlays,
+            Ok("navigation") => component_gallery_view::GalleryCategory::Navigation,
+            Ok("tables") => component_gallery_view::GalleryCategory::Tables,
+            Ok("devtools") => component_gallery_view::GalleryCategory::DevTools,
+            Ok("database-shell") => component_gallery_view::GalleryCategory::DatabaseShell,
+            Ok("agent") => component_gallery_view::GalleryCategory::AgentUi,
             _ => component_gallery_view::GalleryCategory::Badges,
         };
         if std::env::var("DB_PRO_CAPTURE_GALLERY_SECTION").as_deref() == Ok("form-error") {
