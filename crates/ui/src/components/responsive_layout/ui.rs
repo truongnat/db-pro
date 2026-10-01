@@ -150,34 +150,45 @@ impl ResponsiveGrid {
         I: IntoIterator<Item = T>,
     {
         let metrics = self.metrics(ui.available_width());
-        let mut results = Vec::new();
-        let mut items = items.into_iter();
-        loop {
-            let row: Vec<T> = items.by_ref().take(metrics.columns).collect();
-            if row.is_empty() {
-                break;
+        ui.scope(|ui| {
+            // The grid owns both axes of spacing; remove the parent row spacing so the
+            // vertical gap is exactly the same token as the horizontal gap.
+            ui.spacing_mut().item_spacing.y = 0.0;
+            let mut results = Vec::new();
+            let mut items = items.into_iter();
+            let mut has_rendered_row = false;
+            loop {
+                let row: Vec<T> = items.by_ref().take(metrics.columns).collect();
+                if row.is_empty() {
+                    break;
+                }
+                if has_rendered_row {
+                    ui.add_space(metrics.gap);
+                }
+                let row_width = ui.available_width();
+                let cells =
+                    ui.allocate_ui_with_layout(Vec2::new(row_width, 0.0), Layout::left_to_right(Align::Min), |ui| {
+                        ui.spacing_mut().item_spacing.x = metrics.gap;
+                        let mut cells = Vec::with_capacity(row.len());
+                        for item in row {
+                            let cell_resp = ui.allocate_ui_with_layout(
+                                Vec2::new(metrics.cell_width, 0.0),
+                                Layout::top_down(Align::Min),
+                                |cell_ui| {
+                                    cell_ui.set_max_width(metrics.cell_width);
+                                    add_cell(cell_ui, item)
+                                },
+                            );
+                            cells.push(cell_resp.inner);
+                        }
+                        cells
+                    });
+                results.extend(cells.inner);
+                has_rendered_row = true;
             }
-            let row_width = ui.available_width();
-            let cells =
-                ui.allocate_ui_with_layout(Vec2::new(row_width, 0.0), Layout::left_to_right(Align::Min), |ui| {
-                    ui.spacing_mut().item_spacing.x = metrics.gap;
-                    let mut cells = Vec::with_capacity(row.len());
-                    for item in row {
-                        let cell_resp = ui.allocate_ui_with_layout(
-                            Vec2::new(metrics.cell_width, 0.0),
-                            Layout::top_down(Align::Min),
-                            |cell_ui| {
-                                cell_ui.set_max_width(metrics.cell_width);
-                                add_cell(cell_ui, item)
-                            },
-                        );
-                        cells.push(cell_resp.inner);
-                    }
-                    cells
-                });
-            results.extend(cells.inner);
-        }
-        results
+            results
+        })
+        .inner
     }
 }
 
@@ -312,6 +323,6 @@ mod tests {
         // First row contains bounds[0] and bounds[1], second row contains bounds[2]
         assert!(bounds[0].left() < bounds[1].left());
         assert_eq!(bounds[0].top(), bounds[1].top());
-        assert!(bounds[2].top() > bounds[0].top());
+        assert!((bounds[2].top() - bounds[1].bottom() - 8.0).abs() < 0.1);
     }
 }
