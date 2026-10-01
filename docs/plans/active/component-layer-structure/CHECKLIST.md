@@ -10,8 +10,9 @@
 - [x] Batch 7: Alert, Command, Transaction; remove Command shared-stroke alias and add Transaction README. Focused and full UI tests, crate checks, Clippy, release build, fmt, diff and clean-code scan passed; runtime evidence remains open.
 - [x] Batch 8: Database, Diff, Explain, SqlEditor; remove shared `ButtonSize`, stroke, and spacing aliases from SqlEditor config, documenting PostgreSQL-only EXPLAIN JSON conversion. Component/full UI tests, crate checks, Clippy, native release build, fmt, diff, and clean-code scan passed; runtime evidence remains open.
 - [x] Batch 9: Table, Tree, Workspace; move pure Workspace geometry/latency decisions to handler and add explicit focus/name semantics to tree/activity/connection/status surfaces. Targeted/full UI tests, crate checks, Clippy, release build, fmt, diff, and clean-code scan passed; runtime evidence remains open.
-- [ ] Batch 10: AgentComposer and AgentPrimitives.
-- [ ] Run the component and workspace gates recorded in `PLAN.md`; do not close the plan while native runtime evidence remains pending.
+- [x] Batch 10: AgentComposer and AgentPrimitives; add their complete design/API contracts, split independent UI surfaces, preserve public exports and action behavior.
+- [x] Run the component and workspace automated gates recorded in `PLAN.md`; record exact results in `VERIFICATION.md`.
+- [ ] Complete native keyboard/focus/accessibility traversal and exact-size light/dark Gallery evidence for every required viewport/state before closing the plan.
 
 ## Button architecture update (2026-10-01)
 - [x] Record the revised component contract in `PLAN.md` and `components/README.md`.

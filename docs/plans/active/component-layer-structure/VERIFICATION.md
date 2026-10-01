@@ -473,3 +473,25 @@ The following results supersede the historical isolated-worker blockers above. C
 - `git diff --check`: PASS.
 - `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (13 pass, 3 warning categories, 0 fail).
 - Runtime screenshots/accessibility traversal: NOT RUN. P0: 0; P1: 0; P2: narrow Workspace status collision risk and initiative runtime evidence remain open.
+
+## Revised contract — Batch 10
+
+- Source/docs implementation SHA: `6cbc35d3001c99a027b8033a0a048354eeffc8c7` (`refactor(ui): complete core component contracts`). This batch is the final component contract batch; a separate plan/evidence commit follows.
+- Public API/caller review: PASS. `AgentComposer`, `AgentMode`, `AgentComposerAction`, `AgentPlan`, `AgentSqlActionKind`, `AgentThinking`, `ContextChip`, `StatusBadge`, `ToolCall`, `ExecutionApproval`, task types, and existing re-export paths remain intact. `Clear` remains a compatibility variant but `AgentComposer` does not emit it. `ExecutionApprovalAction::Run` remains caller intent; `table_editor_view` routes it through `submit_ddl()`.
+- AgentPrimitives keeps chip/status/tool widgets in `ui.rs`, with independent approval and disclosure/plan surfaces in `approval_ui.rs` and `disclosure_ui.rs`. Added the missing AgentComposer and AgentPrimitives DESIGN/API contracts and clarified README behavior, rendering cost, limits, and state ownership.
+- Button's private `content_job` helper is now `button_label_layout_job`; the measured local is `label_layout`. `egui::Galley` and `Painter::galley` remain because they are egui's laid-out text representation and paint API, not public Button keywords.
+- `cargo test -p db-pro-ui components::agent_composer --lib`: PASS (6 passed, 0 failed).
+- `cargo test -p db-pro-ui components::agent_primitives --lib`: PASS (11 passed, 0 failed).
+- `cargo test -p db-pro-ui components::button --lib`: PASS (9 passed, 0 failed).
+- `cargo test -p db-pro-ui --lib`: PASS (936 passed, 0 failed, 0 ignored).
+- `cargo fmt --all -- --check`, `git diff --check`, and `cargo check -p db-pro-ui`: PASS.
+- `cargo check --workspace`: PASS. `cargo clippy --workspace --all-targets -- -D warnings`: PASS.
+- `cargo test --workspace`: PASS (1,593 passed, 0 failed, 41 ignored). Ignored tests require provider/SSH fixtures.
+- `cargo build --release --locked -p db-pro-native`: PASS. Capture-only native build also PASS.
+- `bash .skills/clean-code/scripts/clean-code-scan.sh rust --diff --ratchet --ci`: PASS (13 pass, 3 warning categories, 0 fail). Remaining warnings cover numeric casts, functions with more than three arguments, and long functions; they are heuristic warnings.
+- `bash .skills/perf-audit/scripts/perf-scan.sh`: WARN, not PASS. After mapping its expected `target/` path to the configured `/data/cargo-target`, the scan built and hashed the release binary (`d9e5db7f7d0e7517c18eb88df8d35c0feaadd31a53922e5b7d2d57cc4cd8271`); size was 51.0 MB against a 50 MB target and 100 MB critical threshold. Native/Rust benchmarks, ER runtime, and database performance were skipped; no performance improvement is claimed.
+- Component inventory audit: 38 public component folders; 0 missing README/DESIGN/API files.
+- Native Gallery captures are under `/home/vietis/.agents/outputs/db-pro/artifacts/`. Of 90 requested category/theme/state/viewport images, 85 have exact requested dimensions. Two 1920×1080 requests produced smaller framebuffers (`buttons-dark`: 1912×1016; `database-shell-dark`: 1912×1048); three captures are missing (`buttons-light`, `badges-light`, `feedback-dark` at 1920×1080). Six additional 1280×800 light/dark captures cover form-error, disclosure, and calendar states. Gallery screenshots show the saved local PostgreSQL connection's expected authentication error because its password is absent from the local secret store; no database operation was performed.
+- Native screenshot review confirms the Agent UI Gallery in light/dark, including an empty prompt, running/success/error statuses, task progress, tool output, and approval controls. The narrow screenshot is vertically scrollable; long Gallery content continues below the viewport.
+- Interactive native keyboard/focus traversal and accessibility-tree capture: NOT RUN. Source semantics and automated keyboard decisions were checked, but static screenshots do not prove focus traversal, activation, contrast, or screen-reader output. Keep the Button and initiative runtime gates open.
+- P0: 0; P1: 0. P2 remains open for incomplete exact-size runtime coverage/accessibility traversal and the performance scan's 51 MB size warning. Initiative state stays `RUNTIME_VERIFY`; do not move to `COMPLETED`.
