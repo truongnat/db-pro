@@ -7,18 +7,18 @@
 | Agent identity | Codex · implementation lane |
 | Issue(s) | n/a |
 | Task state | In Progress |
-| Baseline SHA | DB Pro `00a077e837fced6104bd34003340440847fe2f2a`; rs-ui `f6e798d6cfa966b5344cf6a9de6c634563258eec` |
+| Baseline SHA | DB Pro `433afec96a24da4ec801b02ae31d3a91a749f949`; rs-ui `f6e798d6cfa966b5344cf6a9de6c634563258eec` |
 | Branch / PR | `main` / no PR |
 | Scope interpretation | Pin rs-ui to an exact Git SHA, verify Stages 1–4, then integrate Stage 4.2 selection and column-resize behavior while preserving DB Pro ownership and egui painting. |
 | Out of scope | Text input, SQL editor replacement, renderer/window migration, database/provider behavior, CI configuration, native OS accessibility verification. |
 
 ## 2. Progress checkpoint
 
-- Source evidence is DB Pro base commit `00a077e837fced6104bd34003340440847fe2f2a` plus the uncommitted working-tree diff; rs-ui API source is exact commit `f6e798d6cfa966b5344cf6a9de6c634563258eec`.
+- Source evidence is committed DB Pro `433afec96a24da4ec801b02ae31d3a91a749f949`; rs-ui API source is exact commit `f6e798d6cfa966b5344cf6a9de6c634563258eec`.
 - Completed: exact Git dependency pin and lock resolution; Stage 1–3 regression tests; vertical `VirtualGrid` adapter tests; SelectionModel row/cell range and toggle mapping; Resizable column drag and clamp test; Criterion grid benchmark.
 - Remaining: native Result Grid runtime/accessibility evidence; variable-width horizontal virtualization; later search/filter and renderer decisions.
 - Findings / risks: prior incompatibility finding applies only to rs-ui `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`; current exact revision compiles. P2 fixed-width virtual-column limitation and runtime evidence remain.
-- Tests and gates run: focused compatibility/regression/adapter/Stage 4.2 tests, workspace checks, fmt, clippy, workspace tests, release build, perf scan, benchmark, and `git diff --check`; results are recorded in `VERIFICATION.md`.
+- Tests and gates run: compatibility check, 16 Stage 1–3 tests, 4 adapter tests, 9 table selection tests, workspace checks, fmt, clippy, workspace tests, release build, perf scan, benchmark, and `git diff --check`; results are recorded in `VERIFICATION.md`.
 - Dependency / blocker changes: `ui-core` and `ui-runtime` use the same immutable Git revision and Cargo.lock resolves that source. No CI configuration changed.
 
 ## 3. Implementation handoff / review request
@@ -39,7 +39,7 @@
 
 | Field | Value |
 |---|---|
-| Reviewed SHA | DB Pro base `00a077e837fced6104bd34003340440847fe2f2a` plus uncommitted working-tree diff; rs-ui `f6e798d6cfa966b5344cf6a9de6c634563258eec` — self-review only. |
+| Reviewed SHA | DB Pro `433afec96a24da4ec801b02ae31d3a91a749f949`; rs-ui `f6e798d6cfa966b5344cf6a9de6c634563258eec` — self-review only. |
 | Verdict | ACCEPT WITH P2 — compile/test gates pass; native runtime verification remains pending. This is not independent approval. |
 | P0 / P1 / P2 counts | Introduced: P0 0 / P1 0 / P2 1 fixed-width horizontal virtualization limitation. Runtime/accessibility verification remains pending. |
 | Findings | Exact pin resolves and compiles; no current P0/P1 finding identified. No independent approval recorded. |

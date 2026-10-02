@@ -166,3 +166,24 @@ Perf scan: WARN, 3 passed / 1 warning / 0 failed; binary is 51.4 MB against the 
 Criterion `result_grid_benchmarks` PASS (no comparable before baseline): fixed-width `VirtualGrid` set-scroll plus visible-cell materialization measured 10k rows at 1.4926–1.5049 µs, 100k at 1.6940–1.7063 µs, and 1M at 1.8787–1.8969 µs. With 560 px viewport, 28 px rows, 600 px width, 120 px columns and overscan 1, this benchmark produces 22 rows × 6 columns = 132 virtual cells. DB Pro currently paints all 50 ordered columns for those 22 rows (about 1,100 cells); column virtualization remains blocked on variable-width virtual-axis support.
 
 Stage 4.2 maps current DB Pro row/cell selection operations through rs-ui `SelectionModel` using projected source-row keys, then stores results in `TableDataState`. Column drag maps cumulative pointer delta to rs-ui `Resizable`; returned widths are stored only in DB Pro state. Clipboard and sort/filter behavior are unchanged. Native result-grid interaction, accessibility, and 1920×1080 evidence remain unverified.
+
+### Current continuation — committed Git pin and native Result Grid attempt — 2026-10-02
+
+Source under verification: DB Pro `433afec96a24da4ec801b02ae31d3a91a749f949`; rs-ui `f6e798d6cfa966b5344cf6a9de6c634563258eec`. The untracked duplicate `crates/ui-runtime/src/selection.rs` was removed from the local checkout; it was not tracked by Git. Working tree is clean. Earlier failures below that cite a missing local `rs-ui-core` path are historical and superseded by the exact Git pin.
+
+| Gate | Result |
+|---|---|
+| `cargo check -p db-pro-ui` | PASS |
+| `cargo check --workspace` | PASS |
+| Stage 1–3 focused shell/Explorer/resize/scroll tests | PASS: 16 tests across requested commands |
+| `cargo test -p db-pro-ui result_grid_virtual_adapter --no-fail-fast` | PASS: 4 tests |
+| `cargo test -p db-pro-ui app::table_data_state::tests --no-fail-fast` | PASS: 9 tests |
+| `cargo fmt --all -- --check` | PASS |
+| `cargo clippy --workspace --all-targets -- -D warnings` | PASS |
+| `cargo test --workspace --no-fail-fast` | PASS: 961 passed, 0 failed |
+| `cargo build --release --locked -p db-pro-native` | PASS |
+| `git diff --check` | PASS |
+| `bash .skills/perf-audit/scripts/perf-scan.sh` | WARN: 3 passed / 1 warning / 0 failed; 51.4 MB binary vs 50 MB target; runtime-specific scan checks were not run |
+| `cargo bench -p db-pro-ui --bench result_grid_benchmarks` | PASS; latest fixed-width prepare medians: 10k rows 1.4851 µs, 100k 1.5492 µs, 1M 1.7680 µs. No comparable before baseline; no improvement claim. |
+
+Native app launch connected to saved local PostgreSQL and completed schema introspection (`tables=1110`). The UI remained on Welcome; synthetic mouse input did not activate the query tab/editor, and no SQL was submitted. Result Grid rendering, selection, resize, keyboard interaction, and accessibility therefore remain runtime-unverified. Screenshot captures are temporary under `/tmp`; no 1920×1080 artifact was produced. Stage 4 remains in verification, not complete.
