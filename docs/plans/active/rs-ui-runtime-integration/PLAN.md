@@ -16,13 +16,17 @@ Adopt the separate rs-ui runtime incrementally as the UI layout and behavior fou
   while DB Pro remains the source of persisted panel width.
 - Route sidebar wheel input and retained offset through rs-ui `ScrollState`,
   keeping egui for content painting and scrollbar interaction during migration.
+- Mirror the visible Explorer connection/database/schema/Tables/table hierarchy
+  into rs-ui `Tree` / `TreeItem` semantics with stable model-derived keys,
+  selection, expansion, focus and keyboard traversal while preserving existing
+  DB Pro actions and schema state.
 - Keep the renderer boundary explicit and track the next migration stages.
 
 ## Non-goals
 
 - Replacing the eframe window host or the current renderer.
 - Rewriting product state, commands, connection/query/schema logic, or editor.
-- Migrating schema tree or result grid in this stage.
+- Migrating the result grid, search/filter inputs, or SQL editor in this stage.
 - Copying rs-ui source into DB Pro.
 
 ## Current architecture and boundary
@@ -53,11 +57,19 @@ The rs-ui workspace provides `ui-core` geometry/display-list types and `ui-runti
 - The source rs-ui checkout is currently modified and uncommitted. A local path dependency follows those live files and is not reproducible outside a machine with the sibling checkout. Pin a commit or publish a version before release/CI use.
 - eframe currently uses the glow renderer; rs-ui's renderer targets wgpu. Switching rendering backends is outside this adapter and needs an isolated technical spike before any full renderer migration.
 - The current host adapter rebuilds a small retained tree for the shell layout request. Measure before expanding that pattern to high-frequency surfaces.
+- Explorer rows currently use egui for painting, expansion state, and row
+  viewport clipping. The adapter mirrors visible rows into rs-ui and routes
+  ArrowUp/ArrowDown focus traversal through its behavior runtime; it does not
+  replace Explorer rendering or expose rs-ui semantics through a native OS
+  accessibility backend. Keyboard traversal can only target rows rendered in
+  the current viewport.
 
 ## Acceptance
 
 - The DB Pro UI crate depends only on rs-ui core/runtime crates by local path.
 - The shell adapter uses rs-ui layout results and rejects viewports that cannot fit a usable main surface.
 - Existing domain state and command/task bridge remain unchanged.
+- Explorer semantics represent the existing visible hierarchy and clicks
+  continue through DB Pro's existing selection and action paths.
 - Targeted tests and Rust checks are recorded honestly.
 - Runtime screenshots and end-to-end smoke evidence remain required before marking this integration complete.

@@ -26,9 +26,12 @@ view actions and state transitions.
 
 `crates/ui/Cargo.toml` uses local paths to the sibling `ui-core` and
 `ui-runtime` crates. The adapter in `crates/ui/src/native_runtime_shell.rs`
-builds rs-ui layout nodes and owns sidebar resize and scroll state. The egui
-views consume its geometry and offsets, paint the content, and sync scrollbar
-offsets back into the adapter. The current rs-ui checkout is modified and
+builds rs-ui layout nodes, owns shell and scroll state, and retains a separate
+Explorer semantic tree. The egui views consume its geometry and offsets, paint
+the content, and sync scrollbar offsets back into the adapter. Explorer
+connection/database/schema/Tables/table rows mirror stable IDs, selection,
+expansion, bounds, and focus to TreeItem semantics; existing DB Pro state and
+click/action paths still own behavior. The current rs-ui checkout is modified and
 uncommitted, so this local dependency is a development setup, not a reproducible
 release pin.
 
@@ -40,7 +43,9 @@ renderer replacement requires a separate compatibility and performance spike.
 
 1. Host seam and shell geometry.
 2. Sidebar resize/focus, split-pane geometry, tabs, and normalized actions.
-3. Schema tree adapter using stable DB Pro model keys and existing selection.
+3. Schema tree adapter using stable DB Pro model keys, existing selection, and
+   rs-ui focus traversal. Painting, expand state, and viewport clipping remain
+   in egui for this incremental slice.
 4. Result grid adapter preserving typed cells and requesting only visible data.
 5. Search/filter input adapters.
 6. Evaluate SQL editor migration separately; retain the current editor until a

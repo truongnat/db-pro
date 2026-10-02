@@ -15,6 +15,13 @@
 - [ ] Capture the required 1920×1080 viewport; current display limits the window size.
 - [x] Route tab and close-button activation, plus sidebar/query-dock split resizing, through rs-ui `Pressable`/`Resizable`; retain existing DB Pro state and action handlers.
 - [ ] Verify splitter/tab focus and accessibility semantics in the native app.
-- [ ] Verify splitter/tab focus and accessibility semantics in the native app.
+- [x] Add stable rs-ui keys and Tree/TreeItem semantics for visible connection, database, schema, Tables folder, and table rows.
+- [x] Mirror existing expansion/selection and route Explorer row activation into existing DB Pro interactions.
+- [x] Route ArrowUp/ArrowDown through rs-ui focus traversal; cover hierarchy, stable keys, focus order, and stale-subtree cleanup with tests.
+- [ ] Verify schema-tree focus and accessibility semantics in the native app; current adapter targets rendered rows only.
+- [ ] Stage 4: evaluate rs-ui VirtualGrid against DB Pro's typed cells, filtered row projection, variable column widths, and current virtualization before routing visible-cell materialization.
+- [ ] Stage 5: integrate rs-ui text behavior into search/filter inputs without changing DB Pro query/filter state ownership.
+- [ ] Stage 6: document whether SQL editor migration is warranted; preserve the existing editor until a measured compatibility case supports a change.
+- [ ] Stage 7: remove egui code only after replacement paths and runtime/accessibility/performance evidence pass.
 - [ ] Resolve local dependency pinning for CI/release builds.
 - [ ] Independently review and account for wgpu/glow coexistence before renderer migration.
