@@ -2,8 +2,8 @@
 
 ## Source evidence
 
-- Stage 2 source commit: `948654524a6cd8a350a3eb972df33f2a5a1cd9ed`.
-- At that DB Pro SHA, `native_runtime_shell.rs` keeps retained `Tab` nodes keyed to visible DB Pro tabs, mirrors selected/focused state and bounds, routes tab activation through rs-ui `Pressable`, and removes nodes for closed tabs. The same adapter routes sidebar and query-output dock drag deltas through rs-ui `Resizable`; `query_output_dock_surface_view.rs` preserves DB Pro's existing size setters and limits.
+- Stage 2 source commits: `948654524a6cd8a350a3eb972df33f2a5a1cd9ed` and `42f14e520fa1e8bb280c1ec0399d3f523d4792da`.
+- At DB Pro SHA `42f14e520fa1e8bb280c1ec0399d3f523d4792da`, `native_runtime_shell.rs` keeps retained `Tab` nodes keyed to visible DB Pro tabs, mirrors selected/focused state and bounds, routes tab and close-button activation through rs-ui `Pressable`, and removes nodes for closed tabs. Close buttons are semantic `Button` children of their tab. The same adapter routes sidebar and query-output dock drag deltas through rs-ui `Resizable`; `query_output_dock_surface_view.rs` preserves DB Pro's existing size setters and limits.
 - DB Pro commit baseline: `c0c1f5525b20a810913d1eee13c7ee2dd15b6664`.
 - Earlier DB Pro implementation snapshot tree: `fa0b67697906a47570aca6af73dd339032182a7b` (isolated Git index containing `Cargo.lock` and `crates/ui`).
 - rs-ui commit baseline: `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`.
@@ -16,11 +16,14 @@
 
 | Command | Result |
 |---|---|
-| `cargo test -p db-pro-ui native_runtime_shell::tests -- --nocapture` | PASS — 8 passed / 0 failed / 0 ignored, exit 0; includes tab semantics/activation, stale-node cleanup, and both output splitter directions. |
-| `cargo test -p db-pro-ui query_output_dock_surface_view::tests -- --nocapture` | PASS — 1 passed / 0 failed / 0 ignored, exit 0 |
-| `cargo test -p db-pro-ui --quiet` | PASS — 949 passed / 0 failed / 0 ignored, exit 0 |
-| `cargo clippy -p db-pro-ui --all-targets -- -D warnings` | PASS, exit 0 |
+| `cargo test -p db-pro-ui native_runtime_shell::tests -- --nocapture` | PASS — 9 passed / 0 failed / 0 ignored, exit 0; includes tab/close semantics, normalized activation, stale-node cleanup, and both output splitter directions. |
+| `cargo test -p db-pro-ui --quiet` | PASS — 950 passed / 0 failed / 0 ignored, exit 0 |
+| `cargo check --workspace` | PASS, exit 0 |
+| `cargo clippy --workspace --all-targets -- -D warnings` | PASS, exit 0 |
+| `cargo test --workspace --quiet` | PASS — 1,607 passed / 0 failed / 41 ignored, exit 0 |
+| `cargo build --release --locked -p db-pro-native` | PASS, exit 0 |
 | `cargo fmt --all -- --check` | PASS, exit 0 |
+| `git diff --check` | PASS, exit 0 |
 | `cargo test -p db-pro-ui native_runtime_shell::tests --no-fail-fast` | PASS — 5 passed / 0 failed / 0 ignored, exit 0 |
 | `cargo test -p db-pro-ui sidebar_resize_routes_pointer_delta_through_rs_ui_runtime -- --nocapture` | PASS — 1 passed / 0 failed / 0 ignored, exit 0 |
 | `cargo test -p db-pro-ui navigator_tree_scrolls_with_the_mouse_wheel -- --nocapture` | PASS — 1 passed / 0 failed / 0 ignored; verifies egui/rs-ui offsets match |
@@ -56,7 +59,7 @@ The two ratcheted warnings are in the existing workspace tab rendering path touc
 ## Remaining limitations
 
 - Sidebar and query-output splitter resize use rs-ui `Resizable`; egui remains responsible for pointer capture and painting. Tab selection activation goes through rs-ui `Pressable`, while DB Pro retains the existing action dispatch.
-- Close-button activation and roving arrow-key tab navigation are not routed through rs-ui. Native keyboard focus/accessibility behavior remains unverified.
+- Native keyboard focus/accessibility behavior remains unverified. Native app smoke and 1920×1080 capture are still outstanding.
 - Schema tree, result grid, and search/filter migrations are not implemented.
 - Local sibling rs-ui sources are dirty and the dependency is not pinned for clean CI/release reproducibility.
 - Full rs-ui renderer/window integration is not implemented; DB Pro remains on eframe/egui glow.

@@ -13,8 +13,8 @@
 - [x] Capture native app empty/loading/error/normal states where the current display allows.
 - [ ] Complete native app smoke for opening a connection, browsing schema, running a query, switching tabs, scrolling results, resizing panes, and keyboard focus.
 - [ ] Capture the required 1920×1080 viewport; current display limits the window size.
-- [x] Route tab activation and sidebar/query-dock split resizing through rs-ui `Pressable`/`Resizable` behavior; retain existing DB Pro state and action handlers.
-- [ ] Route close-button activation and roving arrow-key tab navigation through rs-ui; verify keyboard focus and accessibility semantics in the native app.
+- [x] Route tab and close-button activation, plus sidebar/query-dock split resizing, through rs-ui `Pressable`/`Resizable`; retain existing DB Pro state and action handlers.
+- [ ] Verify splitter/tab focus and accessibility semantics in the native app.
 - [ ] Verify splitter/tab focus and accessibility semantics in the native app.
 - [ ] Resolve local dependency pinning for CI/release builds.
 - [ ] Independently review and account for wgpu/glow coexistence before renderer migration.

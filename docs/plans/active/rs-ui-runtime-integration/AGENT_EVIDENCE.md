@@ -14,25 +14,25 @@
 
 ## 2. Progress checkpoint
 
-- Source implementation commits: `6d5f3e7d64aa039f5da454eae0b5b3fdd83632c5` and `948654524a6cd8a350a3eb972df33f2a5a1cd9ed`; evidence-only follow-up commit: `f747e16f97323796dbdfeb3baa10a4947f942528`.
+- Source implementation commits: `6d5f3e7d64aa039f5da454eae0b5b3fdd83632c5`, `948654524a6cd8a350a3eb972df33f2a5a1cd9ed`, and `42f14e520fa1e8bb280c1ec0399d3f523d4792da`; evidence-only commits: `f747e16f97323796dbdfeb3baa10a4947f942528` and `27de16c361469b159bd83f87fa3ff8891af4dd19`.
 - Exact rs-ui working-tree tree observed during this continuation: `b66c61ac255ac4bcd1eb2c3d10e11abc2011886d` (commit baseline `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`).
-- Completed acceptance rows: audit plan, minimal path dependencies, shell layout adapter, sidebar geometry/resize/scroll, query-output dock resize in both orientations, tab activation through `Pressable`, retained `Tab` semantics and cleanup, and unit coverage for adapter direction/state.
-- Remaining acceptance rows: close-button `Pressable`, roving arrow-key tab navigation, native keyboard/accessibility verification, schema tree, virtual result grid, search/filter inputs, 1920×1080 capture, full native product smoke, dependency pin/reproducibility, renderer decision.
+- Completed acceptance rows: audit plan, minimal path dependencies, shell layout adapter, sidebar geometry/resize/scroll, query-output dock resize in both orientations, tab and close-button activation through `Pressable`, retained `Tab`/`Button` semantics and cleanup, and unit coverage for adapter direction/state.
+- Remaining acceptance rows: native keyboard/accessibility verification, schema tree, virtual result grid, search/filter inputs, 1920×1080 capture, full native product smoke, dependency pin/reproducibility, renderer decision.
 - Findings / risks: P2 mutable local dependency; P2 native end-to-end/runtime evidence incomplete. No P0/P1 introduced by this slice.
-- Tests already run at Stage 2 source commit: `cargo test -p db-pro-ui --quiet` → 949 passed / 0 failed / 0 ignored; `cargo clippy -p db-pro-ui --all-targets -- -D warnings`, `cargo fmt --all -- --check`, and `git diff --check` passed. Earlier shell slice workspace gates are historical and recorded in `VERIFICATION.md`; full workspace/release gates have not been rerun for this commit.
+- Tests run at Stage 2 source commit: `cargo test -p db-pro-ui --quiet` → 950 passed / 0 failed / 0 ignored; `cargo test --workspace --quiet` → 1,607 passed / 0 failed / 41 ignored; workspace check/clippy, release native build, fmt check, and diff check passed. See `VERIFICATION.md` for exact commands.
 - Dependency / blocker changes: only `ui-core` and `ui-runtime` are added as local sibling path dependencies; renderer/window crates remain excluded.
 
 ## 3. Implementation handoff / review request
 
 | Field | Value |
 |---|---|
-| Exact SHA | `948654524a6cd8a350a3eb972df33f2a5a1cd9ed` (Stage 2 implementation commit) |
-| Commit list | `94865452 feat(ui): route dock resizing and tabs through rs-ui` |
-| File / surface inventory | `crates/ui/src/native_runtime_shell.rs` adds retained tab semantics/activation and output splitter `Resizable`; `query_output_dock_surface_view.rs` routes bottom/right resize gestures; `workspace_tab_primitives.rs` forwards tab activation/focus; `workspace_tabs_surface_view.rs` provides stable tab keys and cleanup lifecycle. |
-| Acceptance mapping | Splitter resize and tab activation → `native_runtime_shell.rs` plus query/tab adapters; selected/focused Tab semantics and cleanup → `native_runtime_shell.rs` tests; retained DB Pro actions → `workspace_tabs_surface_view.rs`; automated counts and runtime limits → `VERIFICATION.md`. |
-| Commands and counts | `cargo test -p db-pro-ui --quiet`: 949/0/0; native runtime shell tests 8/0/0; query output dock tests 1/0/0; package clippy, fmt check and diff check passed. Full workspace gates not rerun at this SHA. |
+| Exact SHA | `42f14e520fa1e8bb280c1ec0399d3f523d4792da` (Stage 2 implementation commit) |
+| Commit list | `94865452 feat(ui): route dock resizing and tabs through rs-ui`; `42f14e52 feat(ui): make tab close controls rs-ui pressables` |
+| File / surface inventory | `crates/ui/src/native_runtime_shell.rs` adds retained tab/close-button semantics, normalized activation and output splitter `Resizable`; `query_output_dock_surface_view.rs` routes bottom/right resize gestures; `workspace_tab_primitives.rs` forwards tab and close activation/focus; `workspace_tabs_surface_view.rs` provides stable tab keys and cleanup lifecycle. |
+| Acceptance mapping | Splitter resize and tab/close activation → `native_runtime_shell.rs` plus query/tab adapters; selected/focused Tab and child Button semantics → `native_runtime_shell.rs` tests; retained DB Pro actions → `workspace_tabs_surface_view.rs`; automated counts and runtime limits → `VERIFICATION.md`. |
+| Commands and counts | `cargo test -p db-pro-ui --quiet`: 950/0/0; `cargo test --workspace --quiet`: 1,607/0/41; workspace check/clippy and release build passed. |
 | CI run IDs / status | not run |
-| Known limitations | egui remains the host and painter. Close-button/arrow-key tab behavior, native focus/accessibility smoke, schema/result/input stages and full product smoke remain pending. |
+| Known limitations | egui remains the host and painter. Native focus/accessibility smoke, schema/result/input stages and full product smoke remain pending. |
 | Migrations / config implications | Cargo lock records local path packages. Clean CI/release dependency availability is not established. No persisted data or DB protocol changed. |
 | Out-of-scope changes | No product/domain, query, connection, persistence, database provider, or renderer implementation changes. |
 
@@ -45,7 +45,7 @@
 | P0 / P1 / P2 counts | Introduced: P0 0 / P1 0 / P2 2 known incomplete integration risks. Inherited: not independently audited. |
 | Findings | No independent approval recorded. Current implementation has known P2 gaps: mutable local dependency and incomplete native interaction verification. |
 | CI disposition | not run |
-| Next task(s) unblocked | Finish remaining Stage 2 close-button and roving-focus behavior; then begin Stage 3 schema tree. |
+| Next task(s) unblocked | Begin Stage 3 schema tree; retain native Stage 2 focus/accessibility smoke as an open runtime gate. |
 
 ## 5. Research / audit handoff
 
@@ -59,4 +59,4 @@
 
 ## 6. Tổng kết
 
-Đã chuyển resize sidebar và query-output dock sang `Resizable`, đồng thời đưa activation và selected/focused semantics của tab qua `Pressable`, giữ nguyên state/action DB Pro. Tại SHA `948654524a6cd8a350a3eb972df33f2a5a1cd9ed`, 949 test của `db-pro-ui` pass và clippy package pass. Còn close-button/arrow-key tab behavior, native smoke, schema tree, result grid, inputs và dependency pin; tiếp tục Stage 2 trước Stage 3.
+Đã chuyển resize sidebar/query-output dock và activation tab/nút đóng sang rs-ui, giữ nguyên state/action DB Pro. Tại SHA `42f14e520fa1e8bb280c1ec0399d3f523d4792da`, 1.607 test workspace pass (41 ignored), workspace check/clippy và native release build pass. Stage 2 còn runtime smoke/accessibility; có thể tiếp tục Stage 3 schema tree.
