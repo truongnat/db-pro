@@ -456,6 +456,7 @@ impl DbProApp {
             Ok("devtools") => component_gallery_view::GalleryCategory::DevTools,
             Ok("database-shell") => component_gallery_view::GalleryCategory::DatabaseShell,
             Ok("agent") => component_gallery_view::GalleryCategory::AgentUi,
+            Ok("rendering") => component_gallery_view::GalleryCategory::Rendering,
             _ => component_gallery_view::GalleryCategory::Badges,
         };
         if std::env::var("DB_PRO_CAPTURE_GALLERY_SECTION").as_deref() == Ok("form-error") {

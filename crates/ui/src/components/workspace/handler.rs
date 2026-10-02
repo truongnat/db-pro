@@ -85,6 +85,24 @@ pub(crate) fn right_status_item_start(cursor: f32, item_width: f32) -> f32 {
     cursor - item_width
 }
 
+/// Total width of the right-anchored status block including inter-item gaps.
+pub(crate) fn right_status_block_width(item_widths: &[f32]) -> f32 {
+    match item_widths.len() {
+        0 => 0.0,
+        count => item_widths.iter().sum::<f32>() + SPACE_MD * (count - 1) as f32,
+    }
+}
+
+/// Right edge that left-side status items may paint up to: the right block's left edge minus one
+/// gap, or the inner right edge of the bar when no right items exist.
+pub(crate) fn left_status_items_limit(bar_inner_right: f32, right_block_width: f32, has_right_items: bool) -> f32 {
+    if has_right_items {
+        bar_inner_right - right_block_width - SPACE_MD
+    } else {
+        bar_inner_right
+    }
+}
+
 pub(crate) fn status_text_top(center_y: f32, text_height: f32) -> f32 {
     center_y - text_height * STATUS_TEXT_VERTICAL_CENTER_FACTOR
 }
@@ -146,6 +164,12 @@ mod tests {
         assert_eq!(next_status_item_cursor(10.0, 40.0), 10.0 + 40.0 + SPACE_MD);
         assert_eq!(right_status_item_start(100.0, 40.0), 60.0);
         assert_eq!(status_text_top(20.0, 10.0), 15.0);
+
+        assert_eq!(right_status_block_width(&[]), 0.0);
+        assert_eq!(right_status_block_width(&[40.0]), 40.0);
+        assert_eq!(right_status_block_width(&[40.0, 20.0]), 60.0 + SPACE_MD);
+        assert_eq!(left_status_items_limit(200.0, 0.0, false), 200.0);
+        assert_eq!(left_status_items_limit(200.0, 80.0, true), 200.0 - 80.0 - SPACE_MD);
 
         let y = activity_item_start_y(3.0);
         let rect = activity_item_rect(10.0, y);

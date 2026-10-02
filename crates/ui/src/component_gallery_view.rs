@@ -239,10 +239,15 @@ impl DbProApp {
                 self.draw_gallery_header(ui);
                 ui.separator();
 
-                egui::ScrollArea::vertical()
+                let mut scroll = egui::ScrollArea::vertical()
                     .id_salt("component_gallery_detail_scroll")
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
+                    .auto_shrink([false, false]);
+                if let Ok(offset) = std::env::var("DB_PRO_CAPTURE_GALLERY_SCROLL") {
+                    if let Ok(offset) = offset.parse::<f32>() {
+                        scroll = scroll.vertical_scroll_offset(offset);
+                    }
+                }
+                scroll.show(ui, |ui| {
                         ui.set_min_width(ui.available_width());
                         ui.add_space(SPACE_MD);
                         Container::new()

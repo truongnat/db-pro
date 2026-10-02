@@ -86,7 +86,9 @@ impl<'a> TerminalBlock<'a> {
 
                 // Long commands remain discoverable through horizontal scrolling in narrow panels.
                 ui.add_space(SPACE_SM);
+                // Columns children share stable ids, so the scroll state must be salted per instance.
                 egui::ScrollArea::horizontal()
+                    .id_salt(ui.auto_id_with("terminal_block_scroll"))
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {

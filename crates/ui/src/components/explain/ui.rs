@@ -100,19 +100,25 @@ impl<'a> ExplainPlanTree<'a> {
                         } else {
                             format!("Total Cost: {:.2}", self.total_time_ms)
                         };
-                        ui.label(
-                            RichText::new(label)
-                                .size(FONT_SIZE_CAPTION)
-                                .monospace()
-                                .strong()
-                                .color(self.theme.text_primary),
-                        );
-                        if let Some(plan_time) = self.planning_time_ms {
-                            ui.label(
-                                RichText::new(format!("Planning: {:.2}ms · ", plan_time))
+                        ui.add(
+                            egui::Label::new(
+                                RichText::new(label)
                                     .size(FONT_SIZE_CAPTION)
                                     .monospace()
-                                    .color(self.theme.text_secondary),
+                                    .strong()
+                                    .color(self.theme.text_primary),
+                            )
+                            .truncate(),
+                        );
+                        if let Some(plan_time) = self.planning_time_ms {
+                            ui.add(
+                                egui::Label::new(
+                                    RichText::new(format!("Planning: {:.2}ms · ", plan_time))
+                                        .size(FONT_SIZE_CAPTION)
+                                        .monospace()
+                                        .color(self.theme.text_secondary),
+                                )
+                                .truncate(),
                             );
                         }
                     });
@@ -121,6 +127,7 @@ impl<'a> ExplainPlanTree<'a> {
                 ui.add_space(SPACE_SM);
 
                 egui::ScrollArea::both()
+                    .id_salt(tree_id)
                     .auto_shrink([false, false])
                     .show(ui, |ui| self.render_node(ui, self.root, 0, tree_id, &mut budget));
             })
@@ -257,31 +264,42 @@ impl<'a> ExplainPlanTree<'a> {
                 ui.add_space(badge_rect.width() + SPACE_XS);
             }
 
-            // Time & rows on right
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let stat_str = if self.has_runtime_stats {
-                    node_runtime_stat_text(
-                        node.actual_time_ms,
-                        metrics.percentage,
-                        node.rows_actual,
-                        node.actual_loops,
-                    )
-                } else {
-                    node_stat_text(
-                        false,
-                        node.actual_time_ms,
-                        node.cost_estimate,
-                        metrics.percentage,
-                        node.rows_actual,
-                    )
-                };
-                ui.label(
-                    RichText::new(stat_str)
-                        .size(FONT_SIZE_CAPTION)
-                        .monospace()
-                        .color(self.theme.text_tertiary),
-                );
-            });
+            // Time & rows on right; reserve at least the measured stat width so narrow rows widen the
+            // ScrollArea content instead of letting the right-aligned label slide under the badges.
+            let stat_str = if self.has_runtime_stats {
+                node_runtime_stat_text(
+                    node.actual_time_ms,
+                    metrics.percentage,
+                    node.rows_actual,
+                    node.actual_loops,
+                )
+            } else {
+                node_stat_text(
+                    false,
+                    node.actual_time_ms,
+                    node.cost_estimate,
+                    metrics.percentage,
+                    node.rows_actual,
+                )
+            };
+            let stat_font = egui::FontId::monospace(FONT_SIZE_CAPTION);
+            let stat_width = ui
+                .painter()
+                .layout_no_wrap(stat_str.clone(), stat_font, self.theme.text_tertiary)
+                .size()
+                .x;
+            ui.allocate_ui_with_layout(
+                Vec2::new(ui.available_width().max(stat_width), ui.available_height()),
+                egui::Layout::right_to_left(egui::Align::Center),
+                |ui| {
+                    ui.label(
+                        RichText::new(stat_str)
+                            .size(FONT_SIZE_CAPTION)
+                            .monospace()
+                            .color(self.theme.text_tertiary),
+                    );
+                },
+            );
         });
 
         // Findings / advice for this specific node

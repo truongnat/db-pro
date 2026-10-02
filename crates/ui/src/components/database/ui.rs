@@ -137,7 +137,13 @@ impl<'a> ConnectionCard<'a> {
                 let ssl_width = ssl_galley
                     .as_ref()
                     .map_or(0.0, |galley| galley.size().x + SSL_BADGE_PADDING_X);
-                let ssl_gap = if self.ssl { SPACE_XS } else { 0.0 };
+                // egui inserts item_spacing between the host allocation and the SSL badge on top of
+                // the manual SPACE_XS gap, so the reservation must cover both or the card overflows.
+                let ssl_gap = if self.ssl {
+                    ui.spacing().item_spacing.x + SPACE_XS
+                } else {
+                    0.0
+                };
                 let host_width = remaining_content_width(ui.available_width(), ssl_width, ssl_gap);
                 let host_response = ui.add_sized(
                     [host_width, SSL_BADGE_HEIGHT],

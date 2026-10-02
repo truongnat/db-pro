@@ -8,8 +8,8 @@ use super::config::{
 };
 use super::handler::{
     activity_accent_rect, activity_item_rect, activity_item_start_y, connection_health_label, is_latency_warning,
-    next_activity_item_y, next_status_item_cursor, right_status_item_start, status_item_width, status_text_top,
-    ActivityBarItemKind, ConnectionHealth, StatusBarItem,
+    left_status_items_limit, next_activity_item_y, next_status_item_cursor, right_status_block_width,
+    right_status_item_start, status_item_width, status_text_top, ActivityBarItemKind, ConnectionHealth, StatusBarItem,
 };
 
 // ── StatusBar Component ──────────────────────────────────────────────────────
@@ -40,11 +40,28 @@ impl<'a> StatusBar<'a> {
             Stroke::new(STROKE_THIN, self.theme.border_subtle),
         );
 
+        // The right block is measured before painting so left items can stop at its left edge
+        // instead of colliding with it; clipped left items collapse into a "…" indicator.
+        let right_block_width = right_status_block_width(
+            &self
+                .right_items
+                .iter()
+                .map(|item| self.measure_status_item(ui, item))
+                .collect::<Vec<_>>(),
+        );
+        let left_limit =
+            left_status_items_limit(rect.right() - SPACE_MD, right_block_width, !self.right_items.is_empty());
+
         // Left items
         let mut x_cursor = rect.left() + SPACE_MD;
         let center_y = rect.center().y;
 
         for (index, item) in self.left_items.iter().enumerate() {
+            let item_w = self.measure_status_item(ui, item);
+            if x_cursor + item_w > left_limit {
+                self.paint_status_overflow(ui, x_cursor, center_y, &self.left_items[index..]);
+                break;
+            }
             let item_w = self.paint_status_item(ui, item, x_cursor, center_y, ui.id().with(("left-status", index)));
             x_cursor = next_status_item_cursor(x_cursor, item_w);
         }
@@ -54,11 +71,38 @@ impl<'a> StatusBar<'a> {
         for (index, item) in self.right_items.iter().enumerate().rev() {
             let item_w = self.measure_status_item(ui, item);
             r_cursor = right_status_item_start(r_cursor, item_w);
+            if r_cursor < rect.left() + SPACE_MD {
+                break;
+            }
             self.paint_status_item(ui, item, r_cursor, center_y, ui.id().with(("right-status", index)));
             r_cursor -= SPACE_MD;
         }
 
         resp
+    }
+
+    fn paint_status_overflow(&self, ui: &mut Ui, x: f32, center_y: f32, remaining: &[StatusBarItem]) {
+        let galley = ui
+            .painter()
+            .layout_no_wrap("…".to_owned(), font_caption(), self.theme.text_tertiary);
+        let width = galley.size().x;
+        ui.painter().galley(
+            Pos2::new(x, status_text_top(center_y, galley.size().y)),
+            galley,
+            Color32::PLACEHOLDER,
+        );
+        let hit_rect = egui::Rect::from_min_size(
+            Pos2::new(x, center_y - STATUS_BAR_HEIGHT * 0.5),
+            Vec2::new(width, STATUS_BAR_HEIGHT),
+        );
+        let response = ui.interact(hit_rect, ui.id().with("left-status-overflow"), Sense::hover());
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, true, "…"));
+        let hidden = remaining
+            .iter()
+            .map(|item| item.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" · ");
+        response.on_hover_text(format!("More: {hidden}"));
     }
 
     fn measure_status_item(&self, ui: &Ui, item: &StatusBarItem) -> f32 {

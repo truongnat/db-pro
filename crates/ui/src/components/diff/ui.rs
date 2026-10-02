@@ -112,7 +112,9 @@ impl<'a> DiffViewer<'a> {
                 );
 
                 // ── Diff Lines ──────────────────────────────────────────────
+                // Columns children share stable ids, so the scroll state must be salted per instance.
                 egui::ScrollArea::horizontal()
+                    .id_salt(ui.auto_id_with("diff_viewer_scroll"))
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         let row_width = ui.available_width().max(content_width);

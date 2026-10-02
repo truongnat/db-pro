@@ -156,7 +156,10 @@ impl DbProApp {
                             _ => FontFamily::Proportional,
                         };
                         for (alpha_label, alpha) in alphas {
-                            let color = Color32::from_rgba_unmultiplied(224, 228, 235, alpha);
+                            // Alpha must modulate the active theme's glyph color; a hardcoded
+                            // light gray goes invisible on light surfaces.
+                            let base = self.theme.text_primary;
+                            let color = Color32::from_rgba_unmultiplied(base.r(), base.g(), base.b(), alpha);
                             let mut text = RichText::new(format!("Query 0x7F3A · {alpha_label}"))
                                 .font(FontId::new(size, family.clone()))
                                 .color(color);
