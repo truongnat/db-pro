@@ -384,10 +384,9 @@ impl RsUiShellRuntime {
             return Ok(false);
         }
         let _ = self.tree.request_focus(node)?;
-        let event = self
-            .tree
+        self.tree
             .dispatch_behavior_command(root, BehaviorCommand::Activate, Duration::ZERO)?;
-        Ok(event.default_prevented())
+        Ok(true)
     }
 
     pub(crate) fn register_workspace_close_button(
@@ -438,10 +437,9 @@ impl RsUiShellRuntime {
             return Ok(false);
         }
         let _ = self.tree.request_focus(node)?;
-        let event = self
-            .tree
+        self.tree
             .dispatch_behavior_command(root, BehaviorCommand::Activate, Duration::ZERO)?;
-        Ok(event.default_prevented())
+        Ok(true)
     }
 
     pub(crate) fn activate_workspace_item(&mut self, key: &str) -> Result<bool, RuntimeError> {
@@ -452,10 +450,9 @@ impl RsUiShellRuntime {
             .copied()
             .ok_or(RuntimeError::UnknownNode(root))?;
         let _ = self.tree.request_focus(node)?;
-        let event = self
-            .tree
+        self.tree
             .dispatch_behavior_command(root, BehaviorCommand::Activate, Duration::ZERO)?;
-        Ok(event.default_prevented())
+        Ok(true)
     }
 
     pub(crate) fn workspace_item_has_focus(&self, key: &str) -> bool {

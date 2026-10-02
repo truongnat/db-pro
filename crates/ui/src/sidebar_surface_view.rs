@@ -306,9 +306,9 @@ fn focused_resize_command(ctx: &egui::Context, has_focus: bool) -> Option<rs_ui_
     }
     ctx.input(|input| {
         if input.key_pressed(egui::Key::ArrowLeft) {
-            Some(rs_ui_runtime::BehaviorCommand::MoveLeft)
+            Some(rs_ui_runtime::BehaviorCommand::Decrement)
         } else if input.key_pressed(egui::Key::ArrowRight) {
-            Some(rs_ui_runtime::BehaviorCommand::MoveRight)
+            Some(rs_ui_runtime::BehaviorCommand::Increment)
         } else {
             None
         }

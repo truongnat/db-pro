@@ -45,7 +45,7 @@ fn focused_sidebar_resizer_accepts_normalized_keyboard_commands() {
 
     assert_eq!(
         runtime
-            .adjust_sidebar_width(280.0, 240.0, 360.0, BehaviorCommand::MoveLeft)
+            .adjust_sidebar_width(280.0, 240.0, 360.0, BehaviorCommand::Decrement)
             .unwrap(),
         272.0
     );

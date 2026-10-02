@@ -40,7 +40,7 @@ pub(crate) fn adapt_virtual_grid_window(
     if runtime
         .grid
         .as_ref()
-        .map_or(true, |grid| grid.rows.item_count() != input.row_count)
+        .is_none_or(|grid| grid.rows.item_count() != input.row_count)
     {
         runtime.grid = Some(VirtualGrid::new_fixed(
             input.row_count,
