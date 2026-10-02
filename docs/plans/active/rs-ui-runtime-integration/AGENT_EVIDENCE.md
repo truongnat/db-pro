@@ -14,7 +14,7 @@
 
 ## 2. Progress checkpoint
 
-- Baseline source SHA: `5c1f42bad87c69f3cbfddcb921c557987706201e`; Stage 4 continuation edits are uncommitted and therefore have no resulting source SHA.
+- Baseline source SHA: `5c1f42bad87c69f3cbfddcb921c557987706201e`; Stage 4 implementation source SHA: `b224ec376ee50a93516d2c5691b700bcd9c63f8f`.
 - Completed acceptance rows: prior shell/sidebar/tab/Explorer slices; Stage 4A grid ownership and paint-path audit; vertical `VirtualGrid`/`ScrollState` adapter code and fixed-width 50-column benchmark cases are present in the worktree.
 - Remaining acceptance rows: compile/run adapter tests and benchmarks; horizontal virtualization for variable widths; rs-ui resize/selection integration; immutable dependency pin; native UI evidence and later stages.
 - Findings / risks: inherited P1 build blocker because rs-ui SHA `db3cf2bfed3d29f0e1d19963462488ed9157f1ea` lacks APIs already consumed by Stages 1–3; P2 fixed-width VirtualGrid limitation; runtime/accessibility evidence remains incomplete.
@@ -25,7 +25,7 @@
 
 | Field | Value |
 |---|---|
-| Exact SHA | No resulting SHA: current Stage 4 files are uncommitted; baseline is `5c1f42bad87c69f3cbfddcb921c557987706201e`. |
+| Exact SHA | Stage 4 implementation: `b224ec376ee50a93516d2c5691b700bcd9c63f8f`; baseline: `5c1f42bad87c69f3cbfddcb921c557987706201e`. |
 | Commit list | No commits in this continuation. |
 | File / surface inventory | `result_grid_virtual_adapter.rs` maps egui's vertical host offset through rs-ui `ScrollState` and `VirtualGrid`; `result_grid_body_view.rs` paints only the returned rows with egui; benchmark cases cover 10k/100k/1M fixed-width, 50-column grid window preparation, but did not run. |
 | Acceptance mapping | Vertical window adapter → focused test blocked before execution by existing rs-ui API mismatches; typed cells/order/width preservation → adapter source and test source, not executed; fixed-width runtime cost → Criterion cases added, not run; variable-width/selection/resize portions → findings and checklist. |
@@ -39,7 +39,7 @@
 
 | Field | Value |
 |---|---|
-| Reviewed SHA | n/a — current worktree is uncommitted; baseline `5c1f42bad87c69f3cbfddcb921c557987706201e` |
+| Reviewed SHA | `b224ec376ee50a93516d2c5691b700bcd9c63f8f` — self-review only; baseline `5c1f42bad87c69f3cbfddcb921c557987706201e` |
 | Verdict | BLOCK — self-review only; build fails on the inherited rs-ui API mismatch |
 | P0 / P1 / P2 counts | Introduced: P0 0 / P1 0 / P2 1 fixed-width grid limitation. Inherited: P0 0 / P1 1 / P2 2 integration/runtime limitations. |
 | Findings | No independent approval recorded. Do not pin the available rs-ui SHA until it contains APIs required by existing stages. |
@@ -50,7 +50,7 @@
 
 - Source date: 2026-10-02.
 - Source URLs / references: DB Pro baseline `5c1f42bad87c69f3cbfddcb921c557987706201e`; rs-ui `db3cf2bfed3d29f0e1d19963462488ed9157f1ea`; Stage 3 source SHAs and anchors are recorded above in this file and `VERIFICATION.md`.
-- Factual findings: rs-ui `VirtualGrid::new_fixed` and `ScrollState` exist at that immutable SHA, but the grid takes one column extent and `ui-runtime` has no `SelectionModel`/`Resizable`; the same revision lacks `BehaviorCommand` and resize APIs used by current DB Pro stage sources. No compatible commit containing those symbols appears in the fetched refs. The Stage 4 continuation source is uncommitted. DB Pro's visible row count is the filtered/sorted index vector length; egui owns horizontal and vertical scrolling, DB Pro owns widths/order/selection/keyboard/clipboard, and typed `UiCell` values reach the cell painter without dataset-wide formatting.
+- Factual findings: rs-ui `VirtualGrid::new_fixed` and `ScrollState` exist at that immutable SHA, but the grid takes one column extent and `ui-runtime` has no `SelectionModel`/`Resizable`; the same revision lacks `BehaviorCommand` and resize APIs used by current DB Pro stage sources. No compatible commit containing those symbols appears in the fetched refs. Stage 4 implementation source is DB Pro commit `b224ec376ee50a93516d2c5691b700bcd9c63f8f`. DB Pro's visible row count is the filtered/sorted index vector length; egui owns horizontal and vertical scrolling, DB Pro owns widths/order/selection/keyboard/clipboard, and typed `UiCell` values reach the cell painter without dataset-wide formatting.
 - Inference: this creates a behavior/accessibility adapter seam while retaining egui painting and product reducers.
 - Decision / recommendation: keep the vertical adapter incremental, preserve DB Pro ownership, and do not pin the incompatible rs-ui SHA. Resume full Stage 4 after a compatible immutable API revision is available.
 - Unresolved questions: rs-ui API commit for behavior/resize and variable-width grid support; benchmark/runtime evidence; native screen-reader proof; renderer coexistence/cutover plan.

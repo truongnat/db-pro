@@ -19,7 +19,7 @@ Baseline: `db-pro@c0c1f5525b20a810913d1eee13c7ee2dd15b6664` before the original 
 
 ### Stage 4A — current result-grid ownership audit
 
-Baseline source SHA: `5c1f42bad87c69f3cbfddcb921c557987706201e`; the adapter continuation is uncommitted, so these implementation notes describe the working tree and have no resulting commit SHA.
+Baseline source SHA: `5c1f42bad87c69f3cbfddcb921c557987706201e`; Stage 4 adapter implementation: `b224ec376ee50a93516d2c5691b700bcd9c63f8f`.
 
 | Concern | Current owner / behavior |
 |---|---|
