@@ -68,9 +68,12 @@ impl SchemaNodeContext<'_> {
         row_clicked: bool,
     ) -> bool {
         if chevron_clicked {
-            collapsing.set_open(!is_open);
+            let now_open = !is_open;
+            collapsing.set_open(now_open);
             collapsing.store(ui.ctx());
-            return false;
+            // Expanding an inactive schema is intent to browse it: activate (lazy load) on open
+            // instead of leaving an "Inactive schema — click to activate" hint behind.
+            return now_open && !self.is_active;
         }
         if !row_clicked {
             return false;
@@ -83,6 +86,35 @@ impl SchemaNodeContext<'_> {
             collapsing.set_open(true);
             collapsing.store(ui.ctx());
             true
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn schema_node_defaults_open_only_when_active() {
+        let ctx = egui::Context::default();
+        DbProTheme::install_fonts(&ctx);
+        let theme = DbProTheme::light();
+        for (is_active, expected_open) in [(false, false), (true, true)] {
+            let mut seen_open = None;
+            let _ = ctx.run(Default::default(), |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    let render = SchemaNodeContext {
+                        theme,
+                        connection_id: "conn-1",
+                        schema: "public",
+                        is_active,
+                        table_count: 0,
+                    }
+                    .draw(ui);
+                    seen_open = Some(render.is_open);
+                });
+            });
+            assert_eq!(seen_open, Some(expected_open));
         }
     }
 }
