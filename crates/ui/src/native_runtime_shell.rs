@@ -363,6 +363,80 @@ impl RsUiShellRuntime {
         Ok(event.default_prevented())
     }
 
+    pub(crate) fn register_workspace_close_button(
+        &mut self,
+        parent_key: &str,
+        key: &str,
+        label: &str,
+        bounds: egui::Rect,
+        focused: bool,
+        clicked: bool,
+    ) -> Result<bool, RuntimeError> {
+        let root = self.ensure_tabs_root()?;
+        let parent = self
+            .tab_nodes
+            .get(parent_key)
+            .copied()
+            .ok_or(RuntimeError::UnknownNode(root))?;
+        let node = if let Some(node) = self.tab_nodes.get(key).copied() {
+            node
+        } else {
+            let node = self
+                .tree
+                .create_node(Some(parent), LayoutStyle::default(), PaintState::default())?;
+            self.tree.register_pressable(node, Some(label.to_owned()), false)?;
+            self.tab_nodes.insert(key.to_owned(), node);
+            node
+        };
+        let mut semantics = AccessibilitySemantics::new(AccessibilityRole::Button);
+        semantics.label = Some(label.to_owned());
+        self.tree.set_accessibility_semantics(node, semantics)?;
+        self.tree.set_hit_test_state(
+            node,
+            HitTestState {
+                bounds: rs_ui_core::Rect::from_min_max(
+                    rs_ui_core::Point::new(bounds.min.x, bounds.min.y),
+                    rs_ui_core::Point::new(bounds.max.x, bounds.max.y),
+                ),
+                pointer_events: PointerEvents::Auto,
+                ..HitTestState::default()
+            },
+        )?;
+        self.active_tab_keys.insert(key.to_owned());
+        if focused {
+            self.focused_tab_seen = true;
+            let _ = self.tree.request_focus(node)?;
+        }
+        if !clicked {
+            return Ok(false);
+        }
+        let _ = self.tree.request_focus(node)?;
+        let event = self
+            .tree
+            .dispatch_behavior_command(root, BehaviorCommand::Activate, Duration::ZERO)?;
+        Ok(event.default_prevented())
+    }
+
+    pub(crate) fn activate_workspace_item(&mut self, key: &str) -> Result<bool, RuntimeError> {
+        let root = self.ensure_tabs_root()?;
+        let node = self
+            .tab_nodes
+            .get(key)
+            .copied()
+            .ok_or(RuntimeError::UnknownNode(root))?;
+        let _ = self.tree.request_focus(node)?;
+        let event = self
+            .tree
+            .dispatch_behavior_command(root, BehaviorCommand::Activate, Duration::ZERO)?;
+        Ok(event.default_prevented())
+    }
+
+    pub(crate) fn workspace_item_has_focus(&self, key: &str) -> bool {
+        self.tab_nodes
+            .get(key)
+            .is_some_and(|node| self.tree.focus_manager().focused() == Some(*node))
+    }
+
     pub(crate) fn end_workspace_tabs(&mut self) -> Result<(), RuntimeError> {
         let focused_tab = self
             .tree
@@ -684,5 +758,41 @@ mod tests {
 
         assert!(runtime.tab_nodes.is_empty());
         assert_eq!(runtime.tree.node_count(), 1);
+    }
+
+    #[test]
+    fn workspace_close_button_is_a_focused_pressable_child_of_its_tab() {
+        let mut runtime = RsUiShellRuntime::default();
+        let tab_bounds = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(120.0, 28.0));
+        let close_bounds = egui::Rect::from_min_size(egui::pos2(100.0, 6.0), egui::vec2(16.0, 16.0));
+        runtime.begin_workspace_tabs();
+        runtime
+            .register_workspace_tab("query:doc-1", "Query 1", true, tab_bounds, false, false)
+            .unwrap();
+        assert!(runtime
+            .register_workspace_close_button(
+                "query:doc-1",
+                "close:query:doc-1",
+                "Close Query 1",
+                close_bounds,
+                true,
+                true,
+            )
+            .unwrap());
+
+        let root = runtime.tabs_root.unwrap();
+        let tab = runtime.tab_nodes["query:doc-1"];
+        let close_button = runtime.tab_nodes["close:query:doc-1"];
+        let mut semantic_tree = rs_ui_runtime::SemanticTree::default();
+        semantic_tree.update(&mut runtime.tree, root).unwrap();
+        let tab_id = semantic_tree.accessibility_id(tab).unwrap();
+        let close_id = semantic_tree.accessibility_id(close_button).unwrap();
+        let tab_semantic = semantic_tree.nodes().get(&tab_id).unwrap();
+        let close_semantic = semantic_tree.nodes().get(&close_id).unwrap();
+
+        assert!(tab_semantic.children.contains(&close_id));
+        assert_eq!(close_semantic.role, AccessibilityRole::Button);
+        assert_eq!(close_semantic.label.as_deref(), Some("Close Query 1"));
+        assert_eq!(close_semantic.state.focused, Some(true));
     }
 }
