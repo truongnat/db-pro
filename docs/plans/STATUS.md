@@ -39,6 +39,7 @@ Canonical lifecycle: `BACKLOG → PLANNING → IMPLEMENTING → REVIEW → RUNTI
 
 | Feature | Branch | PR | State | Notes |
 |---|---|---|---|---|
+| UI Spacing Consistency | main | — | RUNTIME_VERIFY | Owner-approved audit fixes: scoped grid/Gallery spacing, 38pt form field geometry, semantic label/helper gaps, responsive feedback groups and padded workspace tabs. Plan: docs/plans/active/ui-spacing-consistency/. Full-height captures remain constrained by the current display. |
 | rs-ui Runtime Integration | main | — | BACKLOG | Owner deferred migration on 2026-10-02; integration code/dependencies removed and established egui implementations restored. Historical evidence: docs/plans/active/rs-ui-runtime-integration/. Restoration verification: docs/plans/active/restore-egui-ui/. |
 | Restore egui UI | main | — | RUNTIME_VERIFY | All executable rs-ui integration/dependencies removed; established egui implementations restored. 1597 workspace tests pass; native release passes; 15 native captures collected, larger logical heights clamp to 838 on current display. Plan: docs/plans/active/restore-egui-ui/. |
 | Gallery Form Controls | main | — | RUNTIME_VERIFY | Gallery alert dismissal and selection cursor fixes integrated; capture evidence retained. Automated UI tests pass; focused invalid input and OS cursor still need live manual verification. Plan: docs/plans/active/gallery-form-controls/ |
